@@ -1,0 +1,50 @@
+{
+  "common": {
+    "dashboard": "Dashboard",
+    "creators": "Creators",
+    "pipeline": "Pipeline",
+    "tasks": "Tasks",
+    "team": "Team (Agents)",
+    "knowledge": "Knowledge",
+    "config": "Config"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Creator Guild operating overview",
+    "viewAllCreators": "View all creators",
+    "totalCreators": "Total Creators",
+    "acrossAllStages": "Across all stages",
+    "totalRevenue": "Total Revenue",
+    "profit": "Profit",
+    "avgROI": "Avg ROI",
+    "profitableCreators": "profitable creators",
+    "openTasks": "Open Tasks",
+    "completedTotal": "completed total",
+    "pipelineFunnel": "Pipeline Funnel",
+    "openPipeline": "Open Pipeline",
+    "recentTasks": "Recent Tasks",
+    "viewAll": "View all",
+    "noTasksYet": "No tasks yet. Add a creator to get started.",
+    "recentlyAddedCreators": "Recently Added Creators",
+    "noCreatorsYet": "No creators yet."
+  },
+  "creators": {
+    "title": "Creators",
+    "inTheGuild": "creators in the guild",
+    "addCreator": "Add Creator",
+    "searchCreators": "Search creators...",
+    "all": "All",
+    "noCreatorsFound": "No creators found.",
+    "addFirstCreator": "Add your first creator",
+    "creator": "Creator",
+    "platform": "Platform",
+    "status": "Status",
+    "niche": "Niche",
+    "followers": "Followers",
+    "location": "Location",
+    "view": "View"
+  },
+  "pipeline": {
+    "title": "Pipeline"
+  }
+}
