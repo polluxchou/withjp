@@ -1,0 +1,50 @@
+{
+  "common": {
+    "dashboard": "ダッシュボード",
+    "creators": "クリエイター",
+    "pipeline": "パイプライン",
+    "tasks": "タスク",
+    "team": "チーム（AIエージェント）",
+    "knowledge": "ナレッジ",
+    "config": "設定"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "subtitle": "クリエイターギルド運営概要",
+    "viewAllCreators": "すべてのクリエイターを表示",
+    "totalCreators": "総クリエイター数",
+    "acrossAllStages": "全ステージ",
+    "totalRevenue": "総収益",
+    "profit": "利益",
+    "avgROI": "平均ROI",
+    "profitableCreators": "収益性のあるクリエイター",
+    "openTasks": "未完了タスク",
+    "completedTotal": "完了総数",
+    "pipelineFunnel": "パイプラインファネル",
+    "openPipeline": "パイプラインを開く",
+    "recentTasks": "最近のタスク",
+    "viewAll": "すべて表示",
+    "noTasksYet": "タスクはまだありません。クリエイターを追加して開始してください。",
+    "recentlyAddedCreators": "最近追加されたクリエイター",
+    "noCreatorsYet": "クリエイターはまだいません。"
+  },
+  "creators": {
+    "title": "クリエイター",
+    "inTheGuild": "人のギルドクリエイター",
+    "addCreator": "クリエイターを追加",
+    "searchCreators": "クリエイターを検索...",
+    "all": "すべて",
+    "noCreatorsFound": "クリエイターが見つかりません。",
+    "addFirstCreator": "最初のクリエイターを追加",
+    "creator": "クリエイター",
+    "platform": "プラットフォーム",
+    "status": "ステータス",
+    "niche": "ニッチ",
+    "followers": "フォロワー数",
+    "location": "地域",
+    "view": "表示"
+  },
+  "pipeline": {
+    "title": "パイプライン"
+  }
+}

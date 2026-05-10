@@ -1,0 +1,37 @@
+{
+  "name": "creator-guild-os",
+  "version": "0.1.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "lint": "next lint",
+    "test": "node --test --experimental-strip-types src/lib/supabase/errors.test.ts src/lib/creators/platforms.test.ts src/lib/users/user-code.test.ts src/lib/devices/costs.test.ts src/lib/views/session.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.45.0",
+    "date-fns": "^3.6.0",
+    "global-agent": "^4.1.3",
+    "lucide-react": "^0.441.0",
+    "next": "14.2.14",
+    "next-intl": "^4.9.1",
+    "openai": "^6.34.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "undici": "^8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.14",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5"
+  }
+}
