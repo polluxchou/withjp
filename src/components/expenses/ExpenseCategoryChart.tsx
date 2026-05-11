@@ -10,6 +10,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
 } from 'recharts'
 import type { Expense, ExpenseCategory } from '@/lib/types'
 import {
@@ -17,6 +18,7 @@ import {
   getExpenseCategoryBreakdown,
   getExpenseCostTimeSeries,
   getMonthlyExpenseSummary,
+  getDailyExpenseSummary,
   type CostGranularity,
 } from '@/lib/expenses/costs'
 import { useLocale, useTranslations } from 'next-intl'
@@ -45,16 +47,25 @@ function fmtFull(v: number) {
 }
 
 type Tab = 'category' | 'trend' | 'monthly'
+type MonthlyView = 'table' | 'chart'
+type MonthlyGran = 'day' | 'month'
 
 export default function ExpenseCategoryChart({ expenses }: Props) {
-  const [tab, setTab]               = useState<Tab>('category')
+  const [tab, setTab]                 = useState<Tab>('category')
   const [granularity, setGranularity] = useState<CostGranularity>('month')
+  const [monthlyView, setMonthlyView] = useState<MonthlyView>('table')
+  const [monthlyGran, setMonthlyGran] = useState<MonthlyGran>('day')
   const locale = useLocale()
   const t = useTranslations('expenses')
 
-  const breakdown    = getExpenseCategoryBreakdown(expenses)
-  const timeSeries   = getExpenseCostTimeSeries(expenses, granularity)
+  const breakdown      = getExpenseCategoryBreakdown(expenses)
+  const timeSeries     = getExpenseCostTimeSeries(expenses, granularity)
   const monthlySummary = getMonthlyExpenseSummary(expenses)
+  const dailySummary   = getDailyExpenseSummary(expenses)
+
+  const chartData = monthlyGran === 'day'
+    ? dailySummary.map((r) => ({ period: r.date, total: r.total, paid: r.paid }))
+    : [...monthlySummary].reverse().map((r) => ({ period: r.month, total: r.total, paid: r.paid }))
 
   // Only show categories that have data in the monthly view
   const activeCategories = EXPENSE_CATEGORY_OPTIONS.filter((o) =>
@@ -161,6 +172,72 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
 
       {/* ── Tab 3: 月度汇总 ── */}
       {tab === 'monthly' && (
+        <>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+              {(['table', 'chart'] as MonthlyView[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setMonthlyView(v)}
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                    monthlyView === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  {v === 'table' ? t('tableView') : t('chartView')}
+                </button>
+              ))}
+            </div>
+            {monthlyView === 'chart' && (
+              <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                {(['day', 'month'] as MonthlyGran[]).map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setMonthlyGran(g)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                      monthlyGran === g ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
+                    {t(g)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {monthlyView === 'chart' ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={chartData} margin={{ top: 12, right: 24, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={56} />
+                <Tooltip
+                  formatter={(v) => [`¥${Number(v).toFixed(2)}`, '']}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                {monthlyGran === 'day' && (
+                  <>
+                    <ReferenceLine
+                      y={30000}
+                      stroke="#f59e0b"
+                      strokeDasharray="4 4"
+                      ifOverflow="extendDomain"
+                      label={{ value: t('dailyAlert30k'), position: 'insideTopRight', fontSize: 10, fill: '#f59e0b' }}
+                    />
+                    <ReferenceLine
+                      y={100000}
+                      stroke="#ef4444"
+                      strokeDasharray="4 4"
+                      ifOverflow="extendDomain"
+                      label={{ value: t('dailyAlert100k'), position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }}
+                    />
+                  </>
+                )}
+                <Line type="monotone" dataKey="total" name={t('totalExpense')} stroke="#6366f1" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="paid"  name={t('paid')}         stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -218,6 +295,8 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
             </tfoot>
           </table>
         </div>
+          )}
+        </>
       )}
     </div>
   )
