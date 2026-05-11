@@ -5,6 +5,7 @@ import {
   DEVICE_PAYMENT_STATUS_OPTIONS,
   getDeviceTotalPrice,
   getDeviceCostSummary,
+  getDeviceCostTimeSeries,
 } from './costs.ts'
 
 // ── getDeviceTotalPrice ───────────────────────────────────────
@@ -69,6 +70,77 @@ test('DEVICE_PAYMENT_STATUS_OPTIONS contains all five statuses', () => {
   assert.ok(values.includes('refunded'))
   assert.ok(values.includes('partially_refunded'))
 })
+
+// ── getDeviceCostTimeSeries ──────────────────────────────────
+
+const TIME_SERIES_DEVICES = [
+  { purchase_date: '2026-01-15', total_price: 1000, payment_status: 'paid'           as const },
+  { purchase_date: '2026-01-20', total_price:  500, payment_status: 'budgeted'       as const },
+  { purchase_date: '2026-03-05', total_price:  300, payment_status: 'ordered_unpaid' as const },
+  { purchase_date: '2026-03-10', total_price:  200, payment_status: 'paid'           as const },
+  { purchase_date: '2026-01-01', total_price:  150, payment_status: 'refunded'       as const },
+]
+
+test('getDeviceCostTimeSeries returns empty array for no devices', () => {
+  assert.deepEqual(getDeviceCostTimeSeries([]), [])
+})
+
+test('getDeviceCostTimeSeries skips devices without purchase_date', () => {
+  const result = getDeviceCostTimeSeries([
+    { purchase_date: null, total_price: 100, payment_status: 'paid' },
+  ])
+  assert.deepEqual(result, [])
+})
+
+test('getDeviceCostTimeSeries buckets by month and accumulates', () => {
+  const result = getDeviceCostTimeSeries(TIME_SERIES_DEVICES, 'month')
+  // Expect 3 monthly points: 2026-01, 2026-02 (filled gap), 2026-03
+  assert.equal(result.length, 3)
+  assert.equal(result[0].period, '2026-01')
+  assert.equal(result[0].paid,           1000)
+  assert.equal(result[0].budgeted,        500)
+  assert.equal(result[0].ordered_unpaid,    0)
+  // Feb has no purchases → values carry forward unchanged
+  assert.equal(result[1].period, '2026-02')
+  assert.equal(result[1].paid,           1000)
+  assert.equal(result[1].budgeted,        500)
+  assert.equal(result[1].ordered_unpaid,    0)
+  // March adds 200 paid + 300 ordered_unpaid
+  assert.equal(result[2].period, '2026-03')
+  assert.equal(result[2].paid,           1200)
+  assert.equal(result[2].budgeted,        500)
+  assert.equal(result[2].ordered_unpaid,  300)
+})
+
+test('getDeviceCostTimeSeries ignores refunded statuses', () => {
+  const result = getDeviceCostTimeSeries([
+    { purchase_date: '2026-01-15', total_price: 999, payment_status: 'refunded'           as const },
+    { purchase_date: '2026-01-16', total_price: 888, payment_status: 'partially_refunded' as const },
+  ])
+  // The series still has one bucket (devices exist), but all 3 tracked statuses are 0
+  assert.equal(result.length, 1)
+  assert.equal(result[0].budgeted,       0)
+  assert.equal(result[0].ordered_unpaid, 0)
+  assert.equal(result[0].paid,           0)
+})
+
+test('getDeviceCostTimeSeries supports quarter granularity', () => {
+  const result = getDeviceCostTimeSeries(TIME_SERIES_DEVICES, 'quarter')
+  // All within Q1 2026
+  assert.equal(result.length, 1)
+  assert.equal(result[0].period, '2026-Q1')
+  assert.equal(result[0].paid,           1200)
+  assert.equal(result[0].budgeted,        500)
+  assert.equal(result[0].ordered_unpaid,  300)
+})
+
+test('getDeviceCostTimeSeries supports year granularity', () => {
+  const result = getDeviceCostTimeSeries(TIME_SERIES_DEVICES, 'year')
+  assert.equal(result.length, 1)
+  assert.equal(result[0].period, '2026')
+})
+
+// ── DEVICE_PAYMENT_STATUS_OPTIONS ────────────────────────────
 
 test('payment status labels are correct English strings', () => {
   const map = Object.fromEntries(DEVICE_PAYMENT_STATUS_OPTIONS.map((o) => [o.value, o.label]))
