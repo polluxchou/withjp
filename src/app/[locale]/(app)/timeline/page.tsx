@@ -82,13 +82,19 @@ export default function TimelinePage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (statusFilter !== 'all') params.set('status', statusFilter)
-    if (typeFilter   !== 'all') params.set('type',   typeFilter)
-    const res  = await fetch(`/api/milestones?${params}`)
-    const json = await res.json()
-    setMilestones(json.data ?? [])
-    setLoading(false)
+    try {
+      const params = new URLSearchParams()
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (typeFilter   !== 'all') params.set('type',   typeFilter)
+      const res  = await fetch(`/api/milestones?${params}`)
+      const json = await res.json()
+      setMilestones(json.data ?? [])
+    } catch (err) {
+      console.error('Failed to load milestones:', err)
+      setMilestones([])
+    } finally {
+      setLoading(false)
+    }
   }, [statusFilter, typeFilter])
 
   useEffect(() => { load() }, [load])

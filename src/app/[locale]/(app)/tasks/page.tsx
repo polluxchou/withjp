@@ -23,11 +23,17 @@ export default function TasksPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const url = filter === 'all' ? '/api/tasks' : `/api/tasks?status=${filter}`
-    const res  = await fetch(url)
-    const json = await res.json()
-    setTasks(json.data ?? [])
-    setLoading(false)
+    try {
+      const url = filter === 'all' ? '/api/tasks' : `/api/tasks?status=${filter}`
+      const res  = await fetch(url)
+      const json = await res.json()
+      setTasks(json.data ?? [])
+    } catch (err) {
+      console.error('Failed to load tasks:', err)
+      setTasks([])
+    } finally {
+      setLoading(false)
+    }
   }, [filter])
 
   useEffect(() => { load() }, [load])

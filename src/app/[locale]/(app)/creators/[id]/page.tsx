@@ -42,10 +42,15 @@ export default function CreatorDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res  = await fetch(`/api/creators/${id}`)
-    const json = await res.json()
-    setData(json.data)
-    setLoading(false)
+    try {
+      const res  = await fetch(`/api/creators/${id}`)
+      const json = await res.json()
+      setData(json.data)
+    } catch (err) {
+      console.error('Failed to load creator:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [id])
 
   useEffect(() => { load() }, [load])
