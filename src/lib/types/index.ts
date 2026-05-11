@@ -417,3 +417,56 @@ export interface UserProfile {
   created_at: string
   updated_at: string
 }
+
+// ── User Salary ───────────────────────────────────────────
+
+export interface UserSalary {
+  id:             string
+  user_id:        string
+  monthly_salary: number
+  effective_from: string   // date string YYYY-MM-DD
+  effective_to:   string | null
+  notes:          string | null
+  created_at:     string
+  // joined
+  user?: Pick<UserProfile, 'id' | 'name' | 'user_code' | 'role'>
+}
+
+// ── Work Task ─────────────────────────────────────────────
+
+export type WorkTaskType   = 'fixed' | 'adhoc'
+export type WorkTaskStatus = 'planned' | 'doing' | 'done' | 'cancelled'
+export type WorkTaskEffort = 2 | 4 | 8
+
+export const WORK_TASK_EFFORT_OPTIONS: WorkTaskEffort[] = [2, 4, 8]
+
+export interface WorkTask {
+  id:            string
+  task_type:     WorkTaskType
+  title:         string
+  description:   string | null
+  department:    AgentRole
+  milestone_id:  string | null
+  owner_user_id: string
+  executor_ids:  string[]
+  task_date:     string        // date string YYYY-MM-DD
+  effort_hours:  WorkTaskEffort
+  status:        WorkTaskStatus
+  notes:         string | null
+  created_at:    string
+  updated_at:    string
+  // joined
+  owner?:        Pick<UserProfile, 'id' | 'name' | 'user_code' | 'role'>
+  milestone?:    { id: string; title: string } | null
+}
+
+// Workload computed per user per date
+export interface UserWorkload {
+  user_id:      string
+  user_name:    string
+  user_code:    string
+  department:   AgentRole
+  total_hours:  number
+  tasks:        WorkTask[]
+  daily_cost:   number   // computed from salary
+}
