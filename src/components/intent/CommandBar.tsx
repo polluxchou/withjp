@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Sparkles, Send } from 'lucide-react'
+import { Sparkles, Send, Copy, Check } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import PendingActionCard, { type PendingActionState } from './PendingActionCard'
@@ -21,7 +21,7 @@ type ServerResult =
       sample?:     Expense[]
     }
   | { kind: 'clarification'; message: string; candidates?: Expense[] }
-  | { kind: 'error'; message: string }
+  | { kind: 'error'; code?: 'parser_failed' | 'executor_failed' | 'bad_request' | 'unknown'; message: string }
 
 const PLACEHOLDER = '用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元'
 
@@ -126,6 +126,7 @@ export default function CommandBar() {
             <div className="border-t border-slate-100 pt-4">
               <ResultView
                 result={result}
+                inputText={text}
                 onApplied={() => { reset(); /* close happens by user */ setOpen(false) }}
                 onCancel={() => { reset() }}
               />
@@ -140,9 +141,10 @@ export default function CommandBar() {
 // ── Result dispatcher ─────────────────────────────────────────
 
 function ResultView({
-  result, onApplied, onCancel,
+  result, inputText, onApplied, onCancel,
 }: {
   result:    ServerResult
+  inputText: string
   onApplied: () => void
   onCancel:  () => void
 }) {
@@ -151,27 +153,52 @@ function ResultView({
   }
   if (result.kind === 'query_result')   return <QueryResultView r={result} />
   if (result.kind === 'clarification')  return <ClarificationView r={result} />
-  return <ErrorView message={result.message} />
+  return <ErrorView code={result.code} message={result.message} inputText={inputText} />
 }
 
 // ── Query result ──────────────────────────────────────────────
 
 function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result' }> }) {
+  const isRatio        = !!r.denominator
+  const denomEmpty     = isRatio && r.denominator!.count === 0
+  const numeratorEmpty = r.numerator.count === 0
+
   return (
     <div className="space-y-3">
       <div className="text-xs text-slate-500">{r.breadcrumbs}</div>
 
-      {r.denominator ? (
+      {/* Empty-state branches come first so a 0 doesn't masquerade as a real answer. */}
+      {denomEmpty ? (
+        <EmptyHint
+          title="无法计算占比"
+          body="分母（背景集）没有匹配到任何支出。"
+          suggestions={[
+            '把分母条件放宽一些，例如换一个更长的时间范围',
+            '检查类别 / 周期 / 关键词是否拼写正确',
+            '试试改成单一汇总而非占比：「Q3 薪资总额是多少」',
+          ]}
+        />
+      ) : numeratorEmpty ? (
+        <EmptyHint
+          title="没有找到匹配的支出"
+          body="按你给的筛选条件，库里 0 条记录。"
+          suggestions={[
+            '把时间范围放宽（例如把月份改成整个季度）',
+            '检查关键词是否在记录里实际出现过（使用人 / 名称 / 用途）',
+            '去掉非必要的筛选条件，例如不指定支付方式或经办人',
+          ]}
+        />
+      ) : isRatio ? (
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-1">
           <div className="text-2xl font-semibold text-slate-900">
-            {(r.denominator.ratio * 100).toFixed(1)}%
+            {(r.denominator!.ratio * 100).toFixed(1)}%
           </div>
           <div className="text-sm text-slate-600">
             {formatValue(r.numerator.value, r.aggregate)} <span className="text-slate-400">/</span>{' '}
-            {formatValue(r.denominator.value, r.aggregate)}
+            {formatValue(r.denominator!.value, r.aggregate)}
           </div>
           <div className="text-xs text-slate-500">
-            分子 {r.numerator.count} 条 · 分母 {r.denominator.count} 条
+            分子 {r.numerator.count} 条 · 分母 {r.denominator!.count} 条
           </div>
         </div>
       ) : (
@@ -252,12 +279,137 @@ function ClarificationView({ r }: { r: Extract<ServerResult, { kind: 'clarificat
   )
 }
 
-// ── Error ─────────────────────────────────────────────────────
+// ── Empty-state hint (reused by QueryResultView) ──────────────
 
-function ErrorView({ message }: { message: string }) {
+function EmptyHint({
+  title, body, suggestions,
+}: {
+  title:       string
+  body:        string
+  suggestions: string[]
+}) {
   return (
-    <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 whitespace-pre-wrap">
-      {message}
+    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+      <div className="text-sm font-medium text-amber-900">{title}</div>
+      <div className="text-sm text-amber-800">{body}</div>
+      <div className="text-xs font-medium text-amber-900 pt-1">可以这样调整：</div>
+      <ul className="text-xs text-amber-800 list-disc list-inside space-y-1">
+        {suggestions.map((s, i) => <li key={i}>{s}</li>)}
+      </ul>
     </div>
   )
+}
+
+// ── Error ─────────────────────────────────────────────────────
+
+function ErrorView({
+  code, message, inputText,
+}: {
+  code?:     string
+  message:   string
+  inputText: string
+}) {
+  const friendly = friendlyError(code, message)
+  const [copied, setCopied] = useState(false)
+
+  const report =
+    `[intent error]\n` +
+    `time:  ${new Date().toISOString()}\n` +
+    `code:  ${code ?? 'unknown'}\n` +
+    `input: ${inputText}\n` +
+    `url:   ${typeof window !== 'undefined' ? window.location.href : ''}\n` +
+    `error: ${message}`
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(report)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // fall back: select-and-copy below the pre block — most browsers allow clipboard via secure context only
+    }
+  }
+
+  return (
+    <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-sm font-medium text-red-900">{friendly.title}</div>
+        <button
+          type="button"
+          onClick={copy}
+          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-red-200 bg-white text-red-700 hover:bg-red-100 transition-colors"
+          title="复制完整错误信息发给开发者"
+        >
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? '已复制' : '复制报错'}
+        </button>
+      </div>
+      <div className="text-sm text-red-800">{friendly.body}</div>
+      {friendly.suggestions.length > 0 && (
+        <>
+          <div className="text-xs font-medium text-red-900 pt-1">可以这样改：</div>
+          <ul className="text-xs text-red-800 list-disc list-inside space-y-1">
+            {friendly.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+          </ul>
+        </>
+      )}
+      {friendly.showRaw && (
+        <details className="text-xs text-red-600 pt-1">
+          <summary className="cursor-pointer select-none">技术细节</summary>
+          <pre className="mt-1 whitespace-pre-wrap font-mono text-[11px]">{report}</pre>
+        </details>
+      )}
+    </div>
+  )
+}
+
+function friendlyError(code: string | undefined, _message: string): {
+  title:       string
+  body:        string
+  suggestions: string[]
+  showRaw:     boolean
+} {
+  if (code === 'parser_failed') {
+    return {
+      title: '我没完全看懂这句话',
+      body:  '可以把意图说得更具体一点，让我能识别出操作、字段和时间。',
+      suggestions: [
+        '【新增】写明类别 + 日期 + 金额 + 经办人，例：「新增差旅费 5月10日 打车 320 元 pollux 经办」',
+        '【修改】先指明要改哪一条，再说改成什么，例：「把 5 月 10 日 pollux 那笔差旅改成 350 元」',
+        '【删除】明确日期和经办人，例：「删除 5 月 10 日 pollux 那笔差旅」',
+        '【查询】说清楚类别、时间范围和你想看的指标，例：「Q3 薪资中 MC 占了多少」',
+      ],
+      showRaw: true,
+    }
+  }
+  if (code === 'executor_failed') {
+    return {
+      title: '操作没能完成',
+      body:  '识别出来的意图在执行时被库拒绝了，常见原因是字段约束。',
+      suggestions: [
+        '检查是否选择了「公司公共账户」但经办人不是 with-new / JP-代理陈昊 / JP-代理小兽 之一',
+        '检查支付状态、类别是否落在允许值范围内',
+        '如有需要，换一句更具体的描述重试',
+      ],
+      showRaw: true,
+    }
+  }
+  if (code === 'bad_request') {
+    return {
+      title: '请求格式有问题',
+      body:  '请输入一段非空文字再试。',
+      suggestions: [],
+      showRaw: false,
+    }
+  }
+  return {
+    title: '出错了',
+    body:  '可以稍后重试，或换一种说法。',
+    suggestions: [
+      '简化你的句子，先只表达一个操作',
+      '把模糊的时间词（如「最近」「之前」）换成具体日期',
+      '检查网络是否正常',
+    ],
+    showRaw: true,
+  }
 }
