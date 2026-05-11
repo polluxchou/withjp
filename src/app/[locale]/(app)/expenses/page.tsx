@@ -17,6 +17,7 @@ import {
   EXPENSE_USER_OPTIONS,
   EXPENSE_PERIOD_OPTIONS,
   getExpenseSummary,
+  crossBorderFee,
 } from '@/lib/expenses/costs'
 
 function fmtRmb(amount: number) {
@@ -330,7 +331,15 @@ export default function ExpensesPage() {
                       <ClampedText text={e.item_name} onOverflowClick={() => setViewing(e)} />
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">
-                      {fmtRmb(Number(e.total_price))}
+                      <div>{fmtRmb(Number(e.total_price))}</div>
+                      {crossBorderFee(e) > 0 && (
+                        <div
+                          className="text-[10px] text-amber-600 font-normal mt-0.5"
+                          title={t('crossBorderFeeTooltip')}
+                        >
+                          +{fmtRmb(crossBorderFee(e))} {t('crossBorderFeeShort')}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{e.expense_date}</td>
                     <td className="px-4 py-3 text-slate-500">{e.period || '—'}</td>

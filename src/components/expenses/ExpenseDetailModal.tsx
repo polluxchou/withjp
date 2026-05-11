@@ -7,6 +7,9 @@ import {
   categoryHasQuantity,
   categoryHasPeriod,
   categoryHasLocation,
+  crossBorderFee,
+  effectiveCost,
+  CROSS_BORDER_FEE_RATE,
 } from '@/lib/expenses/costs'
 
 interface Props {
@@ -88,6 +91,17 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
         <Row label={t('amount')}>
           <span className="font-semibold">{fmtRmb(Number(expense.total_price))}</span>
         </Row>
+
+        {crossBorderFee(expense) > 0 && (
+          <>
+            <Row label={t('crossBorderFee', { rate: `${(CROSS_BORDER_FEE_RATE * 100).toFixed(0)}%` })}>
+              <span className="text-amber-700">+{fmtRmb(crossBorderFee(expense))}</span>
+            </Row>
+            <Row label={t('effectiveCost')}>
+              <span className="font-semibold text-slate-900">{fmtRmb(effectiveCost(expense))}</span>
+            </Row>
+          </>
+        )}
 
         <Row label={t('date')}>{expense.expense_date}</Row>
 
