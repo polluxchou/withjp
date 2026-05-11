@@ -70,6 +70,16 @@ export const EXPENSE_PAYMENT_STATUS_LABELS: Record<ExpensePaymentStatus, string>
     EXPENSE_PAYMENT_STATUS_OPTIONS.map((o) => [o.value, o.label])
   ) as Record<ExpensePaymentStatus, string>
 
+// ── 归属周期 (quarterly, 2026-Q1 → 2028-Q4) ───────────────────
+
+export const EXPENSE_PERIOD_OPTIONS: string[] = (() => {
+  const quarters: string[] = []
+  for (let y = 2026; y <= 2028; y++) {
+    for (let q = 1; q <= 4; q++) quarters.push(`${y}-Q${q}`)
+  }
+  return quarters
+})()
+
 // ── Category display config ───────────────────────────────────
 
 /** Whether a category shows unit_price × quantity (vs a single total amount) */
