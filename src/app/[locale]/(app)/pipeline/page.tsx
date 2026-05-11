@@ -16,10 +16,16 @@ export default function PipelinePage() {
 
   async function load() {
     setLoading(true)
-    const res  = await fetch('/api/creators')
-    const json = await res.json()
-    setCreators(json.data ?? [])
-    setLoading(false)
+    try {
+      const res  = await fetch('/api/creators')
+      const json = await res.json()
+      setCreators(json.data ?? [])
+    } catch (err) {
+      console.error('Failed to load creators:', err)
+      setCreators([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
