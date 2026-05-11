@@ -253,6 +253,38 @@ type ExpenseForMonthly = {
   expense_date:     string | null
 }
 
+// ── Daily summary (one row per day with spend) ───────────────
+
+export interface DailyExpenseSummaryRow {
+  date:  string                                    // 'YYYY-MM-DD'
+  total: number
+  paid:  number
+}
+
+type ExpenseForDaily = {
+  total_price:    number | string
+  payment_status: ExpensePaymentStatus
+  expense_date:   string | null
+}
+
+export function getDailyExpenseSummary(
+  expenses: ExpenseForDaily[]
+): DailyExpenseSummaryRow[] {
+  const map = new Map<string, DailyExpenseSummaryRow>()
+
+  for (const e of expenses) {
+    if (!e.expense_date) continue
+    const date = e.expense_date
+    const amt  = Number(e.total_price)
+    const row  = map.get(date) ?? { date, total: 0, paid: 0 }
+    row.total += amt
+    if (e.payment_status === 'paid') row.paid += amt
+    map.set(date, row)
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date))
+}
+
 export function getMonthlyExpenseSummary(
   expenses: ExpenseForMonthly[]
 ): MonthlyExpenseSummaryRow[] {

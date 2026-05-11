@@ -211,6 +211,11 @@
     "month": "Month",
     "quarter": "Quarter",
     "year": "Year",
+    "day": "Day",
+    "tableView": "Table",
+    "chartView": "Chart",
+    "dailyAlert30k": "¥30K/day",
+    "dailyAlert100k": "¥100K/day",
     "categories": {
       "tangible_asset": "Tangible assets",
       "salary": "Salary costs",
