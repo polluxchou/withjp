@@ -5,6 +5,24 @@ import type {
   ExpensePaymentMethod as EPM,
 } from '@/lib/types'
 
+// ── Team members (使用人枚举) ─────────────────────────────────
+
+export const EXPENSE_USER_OPTIONS = [
+  'pollux',
+  'keco',
+  'huang',
+  'chenhao',
+  'xiaoshou',
+  'huqian',
+  'reiko',
+  'lintao',
+  'sogray',
+  'shen',
+  'seam',
+] as const
+
+export type ExpenseUser = typeof EXPENSE_USER_OPTIONS[number]
+
 // ── Labels ────────────────────────────────────────────────────
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
