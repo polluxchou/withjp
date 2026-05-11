@@ -8,6 +8,15 @@ const intlMiddleware = createIntlMiddleware(routing)
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // API routes and Next internals must never go through the i18n rewrite —
+  // next-intl with localePrefix:'always' would otherwise redirect /api/* to
+  // /<locale>/api/*, which has no matching route and returns HTML instead
+  // of JSON, breaking every client fetch.
+  if (pathname.startsWith('/api') || pathname.startsWith('/_next')) {
+    return NextResponse.next()
+  }
+
   const firstSegment = pathname.split('/')[1]
 
   if (pathname === '/' || !isLocale(firstSegment)) {
