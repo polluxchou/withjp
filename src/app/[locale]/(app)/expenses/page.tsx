@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Header from '@/components/layout/Header'
 import ExpenseForm from '@/components/expenses/ExpenseForm'
 import ExpenseCategoryChart from '@/components/expenses/ExpenseCategoryChart'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { Plus, Search, Receipt, RotateCcw, Copy } from 'lucide-react'
+import { Plus, Search, Receipt, RotateCcw, Copy, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
 import {
@@ -38,6 +38,13 @@ const CATEGORY_COLOR: Record<ExpenseCategory, string> = {
   cloud_services:  'bg-pink-100 text-pink-700',
 }
 
+type SortKey = 'date' | 'period' | 'amount'
+type SortDir = 'asc' | 'desc'
+
+// Priority chain for tiebreakers. Whichever is primary moves to the front;
+// the others follow in this canonical order; finally created_at.
+const SORT_CHAIN: SortKey[] = ['date', 'period', 'amount']
+
 interface Filters {
   q:              string
   category:       string
@@ -66,6 +73,8 @@ export default function ExpensesPage() {
   const [deleting,   setDeleting]   = useState<Expense | null>(null)
   const [deleteErr,  setDeleteErr]  = useState<string | null>(null)
   const [delLoading, setDelLoading] = useState(false)
+  const [sortBy,     setSortBy]     = useState<SortKey>('date')
+  const [sortDir,    setSortDir]    = useState<SortDir>('desc')
   const t = useTranslations('expenses')
   const tCommon = useTranslations('common')
 
@@ -95,6 +104,51 @@ export default function ExpensesPage() {
       setFilters((f) => ({ ...f, [k]: e.target.value }))
 
   const resetFilters = () => setFilters(EMPTY_FILTERS)
+
+  function toggleSort(key: SortKey) {
+    if (key === sortBy) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortBy(key)
+      setSortDir('desc')
+    }
+  }
+
+  const sortedExpenses = useMemo(() => {
+    const ordered = [sortBy, ...SORT_CHAIN.filter((k) => k !== sortBy)]
+    const dirMul  = sortDir === 'asc' ? 1 : -1
+
+    function getVal(e: Expense, k: SortKey): string | number {
+      if (k === 'date')   return e.expense_date ?? ''
+      if (k === 'period') return e.period ?? ''
+      return Number(e.total_price) || 0
+    }
+    function cmp(av: string | number, bv: string | number): number {
+      if (av < bv) return -1
+      if (av > bv) return 1
+      return 0
+    }
+
+    return [...expenses].sort((a, b) => {
+      for (const k of ordered) {
+        const r = cmp(getVal(a, k), getVal(b, k)) * dirMul
+        if (r !== 0) return r
+      }
+      return cmp(a.created_at ?? '', b.created_at ?? '') * dirMul
+    })
+  }, [expenses, sortBy, sortDir])
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 text-slate-300" />
+    return sortDir === 'asc'
+      ? <ArrowUp   className="w-3 h-3 text-indigo-600" />
+      : <ArrowDown className="w-3 h-3 text-indigo-600" />
+  }
+
+  function sortableHeaderClass(col: SortKey) {
+    const active = sortBy === col
+    return `inline-flex items-center gap-1 transition-colors ${active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'}`
+  }
 
   async function confirmDelete() {
     if (!deleting) return
@@ -238,9 +292,21 @@ export default function ExpensesPage() {
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('category')}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('name')}</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('amount')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('date')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('period')}</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium">
+                    <button type="button" onClick={() => toggleSort('amount')} className={sortableHeaderClass('amount')}>
+                      {t('amount')} <SortIcon col="amount" />
+                    </button>
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium">
+                    <button type="button" onClick={() => toggleSort('date')} className={sortableHeaderClass('date')}>
+                      {t('date')} <SortIcon col="date" />
+                    </button>
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-medium">
+                    <button type="button" onClick={() => toggleSort('period')} className={sortableHeaderClass('period')}>
+                      {t('period')} <SortIcon col="period" />
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('purpose')}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('user')}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('buyer')}</th>
@@ -250,7 +316,7 @@ export default function ExpensesPage() {
                 </tr>
               </thead>
               <tbody>
-                {expenses.map((e) => (
+                {sortedExpenses.map((e) => (
                   <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${CATEGORY_COLOR[e.expense_category]}`}>
