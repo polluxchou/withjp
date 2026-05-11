@@ -249,20 +249,17 @@ export default function ExpenseForm({ expense, onSuccess, onCancel }: Props) {
         </div>
         <div>
           <label className={LABEL}>经办人</label>
-          {isCompanyAcct ? (
-            <select value={form.buyer_name} onChange={set('buyer_name')} className={INPUT}>
-              <option value="">请选择经办人</option>
-              {COMPANY_ACCOUNT_BUYERS.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          ) : (
-            <input
-              value={form.buyer_name} onChange={set('buyer_name')}
-              placeholder="经办/报销人"
-              className={INPUT}
-            />
-          )}
+          <select value={form.buyer_name} onChange={set('buyer_name')} className={INPUT}>
+            <option value="">请选择经办人</option>
+            {isCompanyAcct
+              ? COMPANY_ACCOUNT_BUYERS.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))
+              : EXPENSE_USER_OPTIONS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))
+            }
+          </select>
         </div>
       </div>
 

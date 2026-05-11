@@ -175,8 +175,12 @@ export default function ExpensesPage() {
           </select>
 
           {/* Buyer */}
-          <input value={filters.buyer_name} onChange={setFilter('buyer_name')}
-            placeholder="经办人" className={`${INPUT} w-24`} />
+          <select value={filters.buyer_name} onChange={setFilter('buyer_name')} className={`${INPUT} w-28`}>
+            <option value="">全部经办人</option>
+            {EXPENSE_USER_OPTIONS.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
 
           {/* Period */}
           <input value={filters.period} onChange={setFilter('period')}
