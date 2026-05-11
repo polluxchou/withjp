@@ -243,6 +243,10 @@
     "location": "地点",
     "notes": "备注",
     "createdAt": "创建时间",
+    "crossBorderFee": "跨境转账成本（{rate}）",
+    "crossBorderFeeShort": "跨境",
+    "crossBorderFeeTooltip": "非 with-new 且非租金支出的 4% 跨境转账成本",
+    "effectiveCost": "实际成本（含跨境）",
     "categories": {
       "tangible_asset": "有形资产",
       "salary": "薪资成本",
