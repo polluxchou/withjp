@@ -14,6 +14,7 @@ import {
   EXPENSE_PAYMENT_METHOD_LABELS,
   EXPENSE_PAYMENT_STATUS_OPTIONS,
   EXPENSE_PAYMENT_STATUS_LABELS,
+  EXPENSE_USER_OPTIONS,
   getExpenseSummary,
 } from '@/lib/expenses/costs'
 
@@ -166,8 +167,12 @@ export default function ExpensesPage() {
           </select>
 
           {/* User */}
-          <input value={filters.user_name} onChange={setFilter('user_name')}
-            placeholder="使用人" className={`${INPUT} w-24`} />
+          <select value={filters.user_name} onChange={setFilter('user_name')} className={`${INPUT} w-28`}>
+            <option value="">全部使用人</option>
+            {EXPENSE_USER_OPTIONS.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
 
           {/* Buyer */}
           <input value={filters.buyer_name} onChange={setFilter('buyer_name')}

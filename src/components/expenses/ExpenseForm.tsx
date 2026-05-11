@@ -6,6 +6,7 @@ import {
   EXPENSE_CATEGORY_OPTIONS,
   EXPENSE_PAYMENT_METHOD_OPTIONS,
   EXPENSE_PAYMENT_STATUS_OPTIONS,
+  EXPENSE_USER_OPTIONS,
   categoryHasQuantity,
   categoryHasPeriod,
   categoryHasLocation,
@@ -239,11 +240,12 @@ export default function ExpenseForm({ expense, onSuccess, onCancel }: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={LABEL}>{cat === 'salary' ? '归属人员' : '使用人'}</label>
-          <input
-            value={form.user_name} onChange={set('user_name')}
-            placeholder={cat === 'salary' ? '员工姓名' : '谁在使用'}
-            className={INPUT}
-          />
+          <select value={form.user_name} onChange={set('user_name')} className={INPUT}>
+            <option value="">请选择</option>
+            {EXPENSE_USER_OPTIONS.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className={LABEL}>经办人</label>
