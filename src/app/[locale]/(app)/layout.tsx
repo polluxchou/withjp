@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import Sidebar from '@/components/layout/Sidebar'
+import CommandBar from '@/components/intent/CommandBar'
 import { CurrencyProvider } from '@/lib/currency'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         {children}
       </main>
+      <CommandBar />
     </CurrencyProvider>
   )
 }
