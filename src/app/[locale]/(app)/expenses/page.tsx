@@ -22,6 +22,7 @@ import {
   getExpenseSummary,
   crossBorderFee,
 } from '@/lib/expenses/costs'
+import { nextExpenseCategoryFilter } from '@/lib/expenses/category-filter'
 
 
 const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
@@ -87,7 +88,9 @@ export default function ExpensesPage() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v) })
+      Object.entries(filters).forEach(([k, v]) => {
+        if (k !== 'category' && v) params.set(k, v)
+      })
       const res  = await fetch(`/api/expenses?${params.toString()}`)
       const json = await res.json()
       setLoadError(json.error ?? null)
@@ -102,13 +105,25 @@ export default function ExpensesPage() {
 
   useEffect(() => { load() }, [load])
 
-  const summary = getExpenseSummary(expenses)
+  const visibleExpenses = useMemo(() => {
+    if (!filters.category) return expenses
+    return expenses.filter((expense) => expense.expense_category === filters.category)
+  }, [expenses, filters.category])
+
+  const summary = getExpenseSummary(visibleExpenses)
 
   const setFilter = (k: keyof Filters) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setFilters((f) => ({ ...f, [k]: e.target.value }))
 
   const resetFilters = () => setFilters(EMPTY_FILTERS)
+
+  function selectChartCategory(category: ExpenseCategory) {
+    setFilters((f) => ({
+      ...f,
+      category: nextExpenseCategoryFilter(f.category, category),
+    }))
+  }
 
   function toggleSort(key: SortKey) {
     if (key === sortBy) {
@@ -134,14 +149,14 @@ export default function ExpensesPage() {
       return 0
     }
 
-    return [...expenses].sort((a, b) => {
+    return [...visibleExpenses].sort((a, b) => {
       for (const k of ordered) {
         const r = cmp(getVal(a, k), getVal(b, k)) * dirMul
         if (r !== 0) return r
       }
       return cmp(a.created_at ?? '', b.created_at ?? '') * dirMul
     })
-  }, [expenses, sortBy, sortDir])
+  }, [visibleExpenses, sortBy, sortDir])
 
   function SortIcon({ col }: { col: SortKey }) {
     if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 text-slate-300" />
@@ -216,7 +231,12 @@ export default function ExpensesPage() {
       </div>
 
       {/* Charts */}
-      <ExpenseCategoryChart expenses={expenses} />
+      <ExpenseCategoryChart
+        expenses={visibleExpenses}
+        categoryBreakdownExpenses={expenses}
+        selectedCategory={filters.category}
+        onCategorySelect={selectChartCategory}
+      />
 
       {/* Filters */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 mb-5 space-y-3">
@@ -296,7 +316,7 @@ export default function ExpensesPage() {
               {loadError}
             </div>
           </div>
-        ) : expenses.length === 0 ? (
+        ) : visibleExpenses.length === 0 ? (
           <div className="p-12 text-center">
             <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-sm text-slate-500">{t('empty')}</p>

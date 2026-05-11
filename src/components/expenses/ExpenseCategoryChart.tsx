@@ -5,6 +5,9 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -27,6 +30,9 @@ import { useCurrency } from '@/lib/currency'
 
 interface Props {
   expenses: Expense[]
+  categoryBreakdownExpenses?: Expense[]
+  selectedCategory?: string
+  onCategorySelect?: (category: ExpenseCategory) => void
 }
 
 interface MilestoneMarker {
@@ -72,6 +78,46 @@ interface ChartTooltipProps {
   fmt:    (cny: number, opts?: { compact?: boolean }) => string
 }
 
+interface CategoryTooltipProps {
+  active?: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: any[]
+  fmt: (cny: number, opts?: { compact?: boolean }) => string
+  categoryLabel: (category: ExpenseCategory) => string
+  amountLabel: string
+  shareLabel: string
+}
+
+function CategoryTooltip({
+  active,
+  payload,
+  fmt,
+  categoryLabel,
+  amountLabel,
+  shareLabel,
+}: CategoryTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null
+
+  const item = payload[0]?.payload as { category?: ExpenseCategory; total?: number; pct?: number } | undefined
+  if (!item?.category) return null
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-md p-2.5 text-xs min-w-[150px]">
+      <p className="font-semibold text-slate-700 mb-1.5">{categoryLabel(item.category)}</p>
+      <div className="space-y-1">
+        <p className="flex items-center justify-between gap-3">
+          <span className="text-slate-500">{amountLabel}</span>
+          <span className="font-medium text-slate-900">{fmt(Number(item.total ?? 0))}</span>
+        </p>
+        <p className="flex items-center justify-between gap-3">
+          <span className="text-slate-500">{shareLabel}</span>
+          <span className="font-medium text-slate-900">{Number(item.pct ?? 0).toFixed(1)}%</span>
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ── Custom tooltip: shows expense count on days that exceed ¥100k CNY ──
 function DayTooltip({ active, payload, label, fmt }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
@@ -105,7 +151,12 @@ function DayTooltip({ active, payload, label, fmt }: ChartTooltipProps) {
   )
 }
 
-export default function ExpenseCategoryChart({ expenses }: Props) {
+export default function ExpenseCategoryChart({
+  expenses,
+  categoryBreakdownExpenses = expenses,
+  selectedCategory = '',
+  onCategorySelect,
+}: Props) {
   const [tab, setTab]                 = useState<Tab>('category')
   const [granularity, setGranularity] = useState<CostGranularity>('month')
   const [monthlyView, setMonthlyView] = useState<MonthlyView>('table')
@@ -170,7 +221,7 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
     return bestDiff <= 15 * 86400000 ? best : null
   }
 
-  const breakdown      = getExpenseCategoryBreakdown(expenses)
+  const breakdown      = getExpenseCategoryBreakdown(categoryBreakdownExpenses)
   const timeSeries     = getExpenseCostTimeSeries(expenses, granularity)
   const monthlySummary = getMonthlyExpenseSummary(expenses)
   const dailySummary   = getDailyExpenseSummary(expenses)
@@ -200,7 +251,7 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
     monthlySummary.some((row) => (row.byCategory[o.value] ?? 0) > 0)
   )
 
-  if (expenses.length === 0) return null
+  if (categoryBreakdownExpenses.length === 0) return null
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'category', label: t('categoryShare') },
@@ -247,35 +298,83 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
 
       {/* ── Tab 1: 类别占比 ── */}
       {tab === 'category' && (
-        <div className="space-y-2.5">
-          {breakdown.map((item) => (
-            <div key={item.category}>
-              <div className="flex items-center justify-between mb-0.5">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                    style={{ backgroundColor: CATEGORY_COLORS[item.category] }}
-                  />
-                  <span className="text-xs font-medium text-slate-700">{t(`categories.${item.category}`)}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-500">{item.pct.toFixed(1)}%</span>
-                  <span className="text-xs font-semibold text-slate-900 w-20 text-right">
-                    {fmtCompact(item.total)}
-                  </span>
-                </div>
-              </div>
-              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width:           `${item.pct}%`,
-                    backgroundColor: CATEGORY_COLORS[item.category],
+        <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_minmax(220px,320px)]">
+          <div className="h-[260px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={breakdown}
+                  dataKey="total"
+                  nameKey="category"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={58}
+                  outerRadius={96}
+                  paddingAngle={2}
+                  onClick={(entry) => {
+                    const category = (entry as { category?: ExpenseCategory; payload?: { category?: ExpenseCategory } }).category
+                      ?? (entry as { payload?: { category?: ExpenseCategory } }).payload?.category
+                    if (category) onCategorySelect?.(category)
                   }}
+                >
+                  {breakdown.map((item) => {
+                    const active = selectedCategory === item.category
+                    return (
+                      <Cell
+                        key={item.category}
+                        fill={CATEGORY_COLORS[item.category]}
+                        stroke={active ? '#0f172a' : '#ffffff'}
+                        strokeWidth={active ? 3 : 2}
+                        className="cursor-pointer outline-none transition-opacity hover:opacity-80"
+                      />
+                    )
+                  })}
+                </Pie>
+                <Tooltip
+                  content={
+                    <CategoryTooltip
+                      fmt={fmt}
+                      categoryLabel={(category) => t(`categories.${category}`)}
+                      amountLabel={t('amount')}
+                      shareLabel={t('categoryShare')}
+                    />
+                  }
                 />
-              </div>
-            </div>
-          ))}
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="space-y-2.5 self-center">
+            {breakdown.map((item) => {
+              const active = selectedCategory === item.category
+              return (
+                <button
+                  key={item.category}
+                  type="button"
+                  onClick={() => onCategorySelect?.(item.category)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                    active
+                      ? 'border-slate-900 bg-slate-50'
+                      : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                        style={{ backgroundColor: CATEGORY_COLORS[item.category] }}
+                      />
+                      <span className="text-xs font-medium text-slate-700 truncate">{t(`categories.${item.category}`)}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-900 whitespace-nowrap">
+                      {fmtCompact(item.total)}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">{item.pct.toFixed(1)}%</div>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
