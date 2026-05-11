@@ -15,7 +15,8 @@
     "run": "运行",
     "none": "无",
     "notFound": "未找到",
-    "confirmDelete": "确认删除"
+    "confirmDelete": "确认删除",
+    "close": "关闭"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -238,6 +239,10 @@
     "chartView": "曲线",
     "dailyAlert30k": "日 ¥3万",
     "dailyAlert100k": "日 ¥10万",
+    "details": "支出详情",
+    "location": "地点",
+    "notes": "备注",
+    "createdAt": "创建时间",
     "categories": {
       "tangible_asset": "有形资产",
       "salary": "薪资成本",

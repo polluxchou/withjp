@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Header from '@/components/layout/Header'
 import ExpenseForm from '@/components/expenses/ExpenseForm'
 import ExpenseCategoryChart from '@/components/expenses/ExpenseCategoryChart'
+import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import ClampedText from '@/components/ui/ClampedText'
@@ -71,6 +72,7 @@ export default function ExpensesPage() {
   const [showForm,   setShowForm]   = useState(false)
   const [editing,    setEditing]    = useState<Expense | null>(null)
   const [duplicating, setDuplicating] = useState<Expense | null>(null)
+  const [viewing,    setViewing]    = useState<Expense | null>(null)
   const [deleting,   setDeleting]   = useState<Expense | null>(null)
   const [deleteErr,  setDeleteErr]  = useState<string | null>(null)
   const [delLoading, setDelLoading] = useState(false)
@@ -325,7 +327,7 @@ export default function ExpensesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 font-medium text-slate-900 max-w-[180px]">
-                      <ClampedText text={e.item_name} title={t('name')} />
+                      <ClampedText text={e.item_name} onOverflowClick={() => setViewing(e)} />
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">
                       {fmtRmb(Number(e.total_price))}
@@ -333,7 +335,7 @@ export default function ExpensesPage() {
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{e.expense_date}</td>
                     <td className="px-4 py-3 text-slate-500">{e.period || '—'}</td>
                     <td className="px-4 py-3 text-slate-500 max-w-[140px]">
-                      <ClampedText text={e.purpose} title={t('purpose')} />
+                      <ClampedText text={e.purpose} onOverflowClick={() => setViewing(e)} />
                     </td>
                     <td className="px-4 py-3 text-slate-500">{e.user_name || '—'}</td>
                     <td className="px-4 py-3 text-slate-500">{e.buyer_name || '—'}</td>
@@ -397,6 +399,9 @@ export default function ExpensesPage() {
           />
         )}
       </Modal>
+
+      {/* Detail Modal — read-only full record view */}
+      <ExpenseDetailModal expense={viewing} onClose={() => setViewing(null)} />
 
       {/* Duplicate Modal — pre-fills with source data, creates new record on save */}
       <Modal open={!!duplicating} onClose={() => setDuplicating(null)} title={t('duplicateExpenseTitle')} width="max-w-2xl">
