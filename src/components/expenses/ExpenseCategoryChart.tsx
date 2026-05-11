@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import {
   ResponsiveContainer,
   LineChart,
@@ -12,7 +12,8 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts'
-import type { Expense, ExpenseCategory } from '@/lib/types'
+import { Flag } from 'lucide-react'
+import type { Expense, ExpenseCategory, MilestoneStatus, MilestonePriority } from '@/lib/types'
 import {
   EXPENSE_CATEGORY_OPTIONS,
   getExpenseCategoryBreakdown,
@@ -25,6 +26,28 @@ import { useLocale, useTranslations } from 'next-intl'
 
 interface Props {
   expenses: Expense[]
+}
+
+interface MilestoneMarker {
+  id:          string
+  title:       string
+  target_date: string   // YYYY-MM-DD
+  status:      MilestoneStatus
+  priority:    MilestonePriority
+}
+
+const PRIORITY_COLOR: Record<MilestonePriority, string> = {
+  high:   '#ef4444',
+  medium: '#f59e0b',
+  low:    '#6366f1',
+}
+
+const STATUS_LABEL: Record<MilestoneStatus, string> = {
+  planned:   '计划中',
+  active:    '进行中',
+  at_risk:   '有风险',
+  completed: '已完成',
+  missed:    '已逾期',
 }
 
 const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
@@ -57,6 +80,59 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
   const [monthlyGran, setMonthlyGran] = useState<MonthlyGran>('day')
   const locale = useLocale()
   const t = useTranslations('expenses')
+
+  // ── Milestone overlay (non-default, lazy-loaded) ──────────────
+  const [showMilestones, setShowMilestones] = useState(false)
+  const [milestones,     setMilestones]     = useState<MilestoneMarker[]>([])
+  const [msLoaded,       setMsLoaded]       = useState(false)
+  const [msLoading,      setMsLoading]      = useState(false)
+
+  const loadMilestones = useCallback(async () => {
+    if (msLoaded) return
+    setMsLoading(true)
+    const res  = await fetch('/api/milestones')
+    const json = await res.json()
+    setMilestones(
+      (json.data ?? []).map((m: MilestoneMarker) => ({
+        id:          m.id,
+        title:       m.title,
+        target_date: m.target_date,
+        status:      m.status,
+        priority:    m.priority,
+      }))
+    )
+    setMsLoaded(true)
+    setMsLoading(false)
+  }, [msLoaded])
+
+  function toggleMilestones() {
+    if (!showMilestones && !msLoaded) loadMilestones()
+    setShowMilestones((v) => !v)
+  }
+
+  /**
+   * Map a milestone's target_date to the nearest period value in chartData.
+   * Day mode: YYYY-MM-DD → exact match or nearest date
+   * Month mode: YYYY-MM-DD → YYYY-MM match
+   */
+  function nearestPeriod(targetDate: string, periods: string[]): string | null {
+    if (periods.length === 0) return null
+    if (monthlyGran === 'month') {
+      const ym = targetDate.slice(0, 7)
+      return periods.find((p) => p === ym) ?? null
+    }
+    // Day mode
+    if (periods.includes(targetDate)) return targetDate
+    const target = new Date(targetDate).getTime()
+    let best = periods[0]
+    let bestDiff = Math.abs(new Date(periods[0]).getTime() - target)
+    for (const p of periods) {
+      const diff = Math.abs(new Date(p).getTime() - target)
+      if (diff < bestDiff) { bestDiff = diff; best = p }
+    }
+    // Only snap if within 15 days (day mode) to avoid cross-chart phantom lines
+    return bestDiff <= 15 * 86400000 ? best : null
+  }
 
   const breakdown      = getExpenseCategoryBreakdown(expenses)
   const timeSeries     = getExpenseCostTimeSeries(expenses, granularity)
@@ -174,18 +250,35 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
       {tab === 'monthly' && (
         <>
           <div className="flex items-center justify-between mb-3">
-            <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
-              {(['table', 'chart'] as MonthlyView[]).map((v) => (
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                {(['table', 'chart'] as MonthlyView[]).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setMonthlyView(v)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                      monthlyView === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                    }`}
+                  >
+                    {v === 'table' ? t('tableView') : t('chartView')}
+                  </button>
+                ))}
+              </div>
+              {monthlyView === 'chart' && (
                 <button
-                  key={v}
-                  onClick={() => setMonthlyView(v)}
-                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                    monthlyView === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                  onClick={toggleMilestones}
+                  disabled={msLoading}
+                  title="战略时间轴节点"
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                    showMilestones
+                      ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
                   }`}
                 >
-                  {v === 'table' ? t('tableView') : t('chartView')}
+                  <Flag className="w-3 h-3" />
+                  {msLoading ? '加载中…' : '战略节点'}
                 </button>
-              ))}
+              )}
             </div>
             {monthlyView === 'chart' && (
               <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
@@ -205,38 +298,108 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
           </div>
 
           {monthlyView === 'chart' ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={chartData} margin={{ top: 12, right: 24, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={56} />
-                <Tooltip
-                  formatter={(v) => [`¥${Number(v).toFixed(2)}`, '']}
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                {monthlyGran === 'day' && (
-                  <>
-                    <ReferenceLine
-                      y={30000}
-                      stroke="#f59e0b"
-                      strokeDasharray="4 4"
-                      ifOverflow="extendDomain"
-                      label={{ value: t('dailyAlert30k'), position: 'insideTopRight', fontSize: 10, fill: '#f59e0b' }}
-                    />
-                    <ReferenceLine
-                      y={100000}
-                      stroke="#ef4444"
-                      strokeDasharray="4 4"
-                      ifOverflow="extendDomain"
-                      label={{ value: t('dailyAlert100k'), position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }}
-                    />
-                  </>
-                )}
-                <Line type="monotone" dataKey="total" name={t('totalExpense')} stroke="#6366f1" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="paid"  name={t('paid')}         stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 2" />
-              </LineChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={chartData} margin={{ top: 20, right: 24, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={56} />
+                  <Tooltip
+                    formatter={(v) => [`¥${Number(v).toFixed(2)}`, '']}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {monthlyGran === 'day' && (
+                    <>
+                      <ReferenceLine
+                        y={30000}
+                        stroke="#f59e0b"
+                        strokeDasharray="4 4"
+                        ifOverflow="extendDomain"
+                        label={{ value: t('dailyAlert30k'), position: 'insideTopRight', fontSize: 10, fill: '#f59e0b' }}
+                      />
+                      <ReferenceLine
+                        y={100000}
+                        stroke="#ef4444"
+                        strokeDasharray="4 4"
+                        ifOverflow="extendDomain"
+                        label={{ value: t('dailyAlert100k'), position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }}
+                      />
+                    </>
+                  )}
+
+                  {/* ── Milestone vertical markers ── */}
+                  {showMilestones && (() => {
+                    const periods = chartData.map((d) => d.period)
+                    // Group by snapped period so we can show counts when multiple milestones land on same tick
+                    const grouped = new Map<string, MilestoneMarker[]>()
+                    for (const m of milestones) {
+                      const xVal = nearestPeriod(m.target_date, periods)
+                      if (!xVal) continue
+                      grouped.set(xVal, [...(grouped.get(xVal) ?? []), m])
+                    }
+                    return Array.from(grouped.entries()).map(([xVal, ms]) => {
+                      // Use highest priority color
+                      const color = ms.some((m) => m.priority === 'high')   ? PRIORITY_COLOR.high
+                                  : ms.some((m) => m.priority === 'medium') ? PRIORITY_COLOR.medium
+                                  : PRIORITY_COLOR.low
+                      const label = ms.length === 1
+                        ? ms[0].title.length > 10 ? ms[0].title.slice(0, 9) + '…' : ms[0].title
+                        : `${ms.length}个节点`
+                      return (
+                        <ReferenceLine
+                          key={xVal}
+                          x={xVal}
+                          stroke={color}
+                          strokeWidth={1.5}
+                          strokeDasharray="4 3"
+                          label={{ value: label, position: 'insideTopLeft', fontSize: 9, fill: color, angle: -60 }}
+                        />
+                      )
+                    })
+                  })()}
+
+                  <Line type="monotone" dataKey="total" name={t('totalExpense')} stroke="#6366f1" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="paid"  name={t('paid')}         stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+                </LineChart>
+              </ResponsiveContainer>
+
+              {/* ── Milestone legend ── */}
+              {showMilestones && milestones.length > 0 && (() => {
+                const periods = chartData.map((d) => d.period)
+                const visible = milestones.filter((m) => nearestPeriod(m.target_date, periods) !== null)
+                if (visible.length === 0) return null
+                return (
+                  <div className="mt-3 border-t border-slate-100 pt-3">
+                    <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
+                      <Flag className="w-3 h-3" /> 战略时间轴节点
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {visible.map((m) => (
+                        <div
+                          key={m.id}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs"
+                          style={{ borderColor: PRIORITY_COLOR[m.priority] + '55', backgroundColor: PRIORITY_COLOR[m.priority] + '0d' }}
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: PRIORITY_COLOR[m.priority] }}
+                          />
+                          <span className="font-medium text-slate-800">{m.title}</span>
+                          <span className="text-slate-400">{m.target_date}</span>
+                          <span
+                            className="px-1 py-0.5 rounded text-xs"
+                            style={{ color: PRIORITY_COLOR[m.priority] }}
+                          >
+                            {STATUS_LABEL[m.status]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </>
           ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
