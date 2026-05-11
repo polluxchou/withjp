@@ -122,9 +122,9 @@ export function categoryHasQuantity(cat: ExpenseCategory): boolean {
   return cat === 'tangible_asset' || cat === 'office_supplies'
 }
 
-/** Whether a category shows the period field (recurring expenses) */
+/** Whether a category shows the period field */
 export function categoryHasPeriod(cat: ExpenseCategory): boolean {
-  return cat === 'salary' || cat === 'rent' || cat === 'cloud_services'
+  return EXPENSE_CATEGORY_OPTIONS.some((option) => option.value === cat)
 }
 
 /** Whether a category shows the location field */

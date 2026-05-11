@@ -394,7 +394,7 @@ export interface Expense {
   expense_date:          string
   location:              string
   purpose:               string
-  period:                string | null       // e.g. '2025-05', for salary/rent/cloud_services
+  period:                string | null       // e.g. '2026-Q1', derived from expense_date
   user_name:             string
   buyer_name:            string
   payment_method:        ExpensePaymentMethod | null

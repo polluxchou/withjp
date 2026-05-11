@@ -23,6 +23,7 @@ import {
   crossBorderFee,
 } from '@/lib/expenses/costs'
 import { nextExpenseCategoryFilter } from '@/lib/expenses/category-filter'
+import { INTENT_APPLIED_EVENT } from '@/lib/intent/events'
 
 
 const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
@@ -80,6 +81,7 @@ export default function ExpensesPage() {
   const [delLoading, setDelLoading] = useState(false)
   const [sortBy,     setSortBy]     = useState<SortKey>('date')
   const [sortDir,    setSortDir]    = useState<SortDir>('desc')
+  const [refreshSeq, setRefreshSeq] = useState(0)
   const t = useTranslations('expenses')
   const tCommon = useTranslations('common')
   const { fmt: fmtRmb } = useCurrency()
@@ -103,7 +105,16 @@ export default function ExpensesPage() {
     }
   }, [filters])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, refreshSeq])
+
+  useEffect(() => {
+    const refreshAfterIntent = () => {
+      setFilters(EMPTY_FILTERS)
+      setRefreshSeq((seq) => seq + 1)
+    }
+    window.addEventListener(INTENT_APPLIED_EVENT, refreshAfterIntent)
+    return () => window.removeEventListener(INTENT_APPLIED_EVENT, refreshAfterIntent)
+  }, [])
 
   const visibleExpenses = useMemo(() => {
     if (!filters.category) return expenses

@@ -116,7 +116,7 @@ ExpenseFilters:
 
 Expense 字段（用于 payload / patch）:
   expense_category, item_name, unit_price (number), quantity (int>0),
-  expense_date (YYYY-MM-DD), period (YYYY-QN, 可空；只对 salary/rent/cloud_services 用),
+  expense_date (YYYY-MM-DD), period (YYYY-QN, 可空；所有类别都使用),
   location, purpose, user_name, buyer_name,
   payment_method (4选1或null), payment_status (5选1), notes
 `
