@@ -1,0 +1,255 @@
+import type {
+  ExpenseCategory,
+  ExpensePaymentMethod,
+  ExpensePaymentStatus,
+  ExpensePaymentMethod as EPM,
+} from '@/lib/types'
+
+// ── Labels ────────────────────────────────────────────────────
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  tangible_asset:  '有形资产',
+  salary:          '薪资成本',
+  rent:            '租金',
+  travel:          '差旅费',
+  office_supplies: '办公耗材',
+  cloud_services:  '云服务/网络',
+}
+
+export const EXPENSE_CATEGORY_OPTIONS: { value: ExpenseCategory; label: string }[] = [
+  { value: 'tangible_asset',  label: '有形资产' },
+  { value: 'salary',          label: '薪资成本' },
+  { value: 'rent',            label: '租金' },
+  { value: 'travel',          label: '差旅费' },
+  { value: 'office_supplies', label: '办公耗材' },
+  { value: 'cloud_services',  label: '云服务/网络' },
+]
+
+export const EXPENSE_PAYMENT_METHOD_LABELS: Record<ExpensePaymentMethod, string> = {
+  company_account: '公司公共账户',
+  wechat_pay:      '微信支付',
+  alipay:          '支付宝',
+  bank_card:       '银行卡',
+}
+
+export const EXPENSE_PAYMENT_METHOD_OPTIONS: { value: EPM; label: string }[] = [
+  { value: 'company_account', label: '公司公共账户' },
+  { value: 'wechat_pay',      label: '微信支付' },
+  { value: 'alipay',          label: '支付宝' },
+  { value: 'bank_card',       label: '银行卡' },
+]
+
+export const EXPENSE_PAYMENT_STATUS_OPTIONS: { value: ExpensePaymentStatus; label: string }[] = [
+  { value: 'budgeted',           label: 'Budgeted' },
+  { value: 'ordered_unpaid',     label: 'Ordered, Unpaid' },
+  { value: 'paid',               label: 'Paid' },
+  { value: 'refunded',           label: 'Refunded' },
+  { value: 'partially_refunded', label: 'Partially Refunded' },
+]
+
+export const EXPENSE_PAYMENT_STATUS_LABELS: Record<ExpensePaymentStatus, string> =
+  Object.fromEntries(
+    EXPENSE_PAYMENT_STATUS_OPTIONS.map((o) => [o.value, o.label])
+  ) as Record<ExpensePaymentStatus, string>
+
+// ── Category display config ───────────────────────────────────
+
+/** Whether a category shows unit_price × quantity (vs a single total amount) */
+export function categoryHasQuantity(cat: ExpenseCategory): boolean {
+  return cat === 'tangible_asset' || cat === 'office_supplies'
+}
+
+/** Whether a category shows the period field (recurring expenses) */
+export function categoryHasPeriod(cat: ExpenseCategory): boolean {
+  return cat === 'salary' || cat === 'rent' || cat === 'cloud_services'
+}
+
+/** Whether a category shows the location field */
+export function categoryHasLocation(cat: ExpenseCategory): boolean {
+  return cat === 'tangible_asset' || cat === 'travel' || cat === 'rent'
+}
+
+// ── Summary ───────────────────────────────────────────────────
+
+export interface ExpenseSummary {
+  totalCost:          number
+  paidCost:           number
+  budgetedUnpaidCost: number
+  currentMonthCost:   number
+  itemCount:          number
+}
+
+type ExpenseForSummary = {
+  total_price:    number | string
+  payment_status: ExpensePaymentStatus
+  expense_date:   string
+}
+
+export function getExpenseSummary(expenses: ExpenseForSummary[]): ExpenseSummary {
+  const now      = new Date()
+  const thisYear = now.getUTCFullYear()
+  const thisMon  = now.getUTCMonth() + 1
+
+  let totalCost          = 0
+  let paidCost           = 0
+  let budgetedUnpaidCost = 0
+  let currentMonthCost   = 0
+
+  for (const e of expenses) {
+    const total = Number(e.total_price)
+    totalCost += total
+
+    if (e.payment_status === 'paid') {
+      paidCost += total
+      // current-month paid
+      if (e.expense_date) {
+        const d = new Date(e.expense_date)
+        if (d.getUTCFullYear() === thisYear && d.getUTCMonth() + 1 === thisMon) {
+          currentMonthCost += total
+        }
+      }
+    }
+    if (e.payment_status === 'budgeted' || e.payment_status === 'ordered_unpaid') {
+      budgetedUnpaidCost += total
+    }
+  }
+
+  return {
+    totalCost,
+    paidCost,
+    budgetedUnpaidCost,
+    currentMonthCost,
+    itemCount: expenses.length,
+  }
+}
+
+// ── Category breakdown ────────────────────────────────────────
+
+export interface ExpenseCategoryTotal {
+  category: ExpenseCategory
+  label:    string
+  total:    number
+  paid:     number
+  pct:      number   // percentage of grand total (0-100)
+}
+
+type ExpenseForCategory = {
+  expense_category: ExpenseCategory
+  total_price:      number | string
+  payment_status:   ExpensePaymentStatus
+}
+
+export function getExpenseCategoryBreakdown(
+  expenses: ExpenseForCategory[]
+): ExpenseCategoryTotal[] {
+  const map = new Map<ExpenseCategory, { total: number; paid: number }>()
+
+  for (const e of expenses) {
+    const total = Number(e.total_price)
+    const prev  = map.get(e.expense_category) ?? { total: 0, paid: 0 }
+    map.set(e.expense_category, {
+      total: prev.total + total,
+      paid:  prev.paid + (e.payment_status === 'paid' ? total : 0),
+    })
+  }
+
+  const grandTotal = Array.from(map.values()).reduce((s, v) => s + v.total, 0)
+
+  return EXPENSE_CATEGORY_OPTIONS.map(({ value, label }) => {
+    const d = map.get(value) ?? { total: 0, paid: 0 }
+    return {
+      category: value,
+      label,
+      total: d.total,
+      paid:  d.paid,
+      pct:   grandTotal > 0 ? (d.total / grandTotal) * 100 : 0,
+    }
+  }).filter((r) => r.total > 0)
+    .sort((a, b) => b.total - a.total)
+}
+
+// ── Time series ───────────────────────────────────────────────
+
+export type CostGranularity = 'month' | 'quarter' | 'year'
+
+export interface CostTimePoint {
+  period:         string
+  budgeted:       number
+  ordered_unpaid: number
+  paid:           number
+}
+
+type ExpenseForTimeSeries = {
+  expense_date:   string | null
+  total_price:    number | string
+  payment_status: ExpensePaymentStatus
+}
+
+function periodKey(date: Date, g: CostGranularity): string {
+  const y = date.getUTCFullYear()
+  const m = date.getUTCMonth() + 1
+  if (g === 'year')    return String(y)
+  if (g === 'quarter') return `${y}-Q${Math.floor((m - 1) / 3) + 1}`
+  return `${y}-${String(m).padStart(2, '0')}`
+}
+
+function advancePeriod(d: Date, g: CostGranularity): Date {
+  const n = new Date(d)
+  if (g === 'year')         n.setUTCFullYear(n.getUTCFullYear() + 1)
+  else if (g === 'quarter') n.setUTCMonth(n.getUTCMonth() + 3)
+  else                      n.setUTCMonth(n.getUTCMonth() + 1)
+  return n
+}
+
+function periodStart(d: Date, g: CostGranularity): Date {
+  const y = d.getUTCFullYear()
+  const m = d.getUTCMonth()
+  if (g === 'year')    return new Date(Date.UTC(y, 0, 1))
+  if (g === 'quarter') return new Date(Date.UTC(y, Math.floor(m / 3) * 3, 1))
+  return new Date(Date.UTC(y, m, 1))
+}
+
+export function getExpenseCostTimeSeries(
+  expenses:    ExpenseForTimeSeries[],
+  granularity: CostGranularity = 'month',
+): CostTimePoint[] {
+  const dated = expenses.filter((e) => e.expense_date)
+  if (dated.length === 0) return []
+
+  const buckets = new Map<string, { budgeted: number; ordered_unpaid: number; paid: number }>()
+  let minDate: Date | null = null
+  let maxDate: Date | null = null
+
+  for (const e of dated) {
+    const date = new Date(e.expense_date as string)
+    if (isNaN(date.getTime())) continue
+    const key    = periodKey(date, granularity)
+    const bucket = buckets.get(key) ?? { budgeted: 0, ordered_unpaid: 0, paid: 0 }
+    const amt    = Number(e.total_price)
+    if      (e.payment_status === 'budgeted')       bucket.budgeted       += amt
+    else if (e.payment_status === 'ordered_unpaid') bucket.ordered_unpaid += amt
+    else if (e.payment_status === 'paid')           bucket.paid           += amt
+    buckets.set(key, bucket)
+    if (!minDate || date < minDate) minDate = date
+    if (!maxDate || date > maxDate) maxDate = date
+  }
+
+  if (!minDate || !maxDate) return []
+
+  const result: CostTimePoint[] = []
+  let cumB = 0, cumO = 0, cumP = 0
+  let cursor = periodStart(minDate, granularity)
+  const end  = periodStart(maxDate, granularity)
+
+  while (cursor <= end) {
+    const key    = periodKey(cursor, granularity)
+    const bucket = buckets.get(key) ?? { budgeted: 0, ordered_unpaid: 0, paid: 0 }
+    cumB += bucket.budgeted
+    cumO += bucket.ordered_unpaid
+    cumP += bucket.paid
+    result.push({ period: key, budgeted: cumB, ordered_unpaid: cumO, paid: cumP })
+    cursor = advancePeriod(cursor, granularity)
+  }
+
+  return result
+}

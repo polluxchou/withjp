@@ -16,7 +16,7 @@ import {
   LogOut,
   UserCircle,
   CalendarRange,
-  Laptop,
+  Receipt,
 } from 'lucide-react'
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
@@ -31,7 +31,7 @@ const NAV_LABELS: Record<string, Record<string, string>> = {
     workspace: 'Workspace',
     team:      'Team (Agents)',
     knowledge: 'Knowledge',
-    devices:   'Device Management',
+    expenses:  'Expense Management',
     config:    'Config',
   },
   zh: {
@@ -43,7 +43,7 @@ const NAV_LABELS: Record<string, Record<string, string>> = {
     workspace: '工作区',
     team:      '团队（AI代理）',
     knowledge: '知识库',
-    devices:   '设备管理',
+    expenses:  '支出管理',
     config:    '配置',
   },
   ja: {
@@ -55,7 +55,7 @@ const NAV_LABELS: Record<string, Record<string, string>> = {
     workspace: 'ワークスペース',
     team:      'チーム（AIエージェント）',
     knowledge: 'ナレッジ',
-    devices:   'デバイス管理',
+    expenses:  '経費管理',
     config:    '設定',
   },
 }
@@ -69,7 +69,7 @@ const NAV = [
   { href: '/workspace', key: 'workspace', icon: MessageSquare },
   { href: '/team',      key: 'team',      icon: Bot },
   { href: '/knowledge', key: 'knowledge', icon: BookOpen },
-  { href: '/devices',   key: 'devices',   icon: Laptop },
+  { href: '/expenses',  key: 'expenses',  icon: Receipt },
   { href: '/config',    key: 'config',    icon: Settings },
 ]
 

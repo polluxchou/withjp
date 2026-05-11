@@ -331,7 +331,7 @@ export interface PmoInstance {
   updated_at:      string
 }
 
-// ── Device ────────────────────────────────────────────────
+// ── Device (legacy — kept for backward compat) ────────────────
 
 export type DevicePaymentStatus =
   | 'budgeted'
@@ -355,6 +355,54 @@ export interface Device {
   payment_status:    DevicePaymentStatus
   created_at:        string
   updated_at:        string
+}
+
+// ── Expense ───────────────────────────────────────────────────
+
+export type ExpenseCategory =
+  | 'tangible_asset'
+  | 'salary'
+  | 'rent'
+  | 'travel'
+  | 'office_supplies'
+  | 'cloud_services'
+
+export type ExpensePaymentMethod =
+  | 'company_account'
+  | 'wechat_pay'
+  | 'alipay'
+  | 'bank_card'
+
+export type ExpensePaymentStatus =
+  | 'budgeted'
+  | 'ordered_unpaid'
+  | 'paid'
+  | 'refunded'
+  | 'partially_refunded'
+
+// Buyer options when payment_method === 'company_account'
+export const COMPANY_ACCOUNT_BUYERS = ['with-new', 'JP-代理陈昊', 'JP-代理小兽'] as const
+export type CompanyAccountBuyer = typeof COMPANY_ACCOUNT_BUYERS[number]
+
+export interface Expense {
+  id:                    string
+  expense_category:      ExpenseCategory
+  item_name:             string
+  unit_price:            number
+  quantity:              number
+  total_price:           number
+  expense_date:          string
+  location:              string
+  purpose:               string
+  period:                string | null       // e.g. '2025-05', for salary/rent/cloud_services
+  user_name:             string
+  buyer_name:            string
+  payment_method:        ExpensePaymentMethod | null
+  payment_method_legacy: string | null       // preserved old free-text value
+  payment_status:        ExpensePaymentStatus
+  notes:                 string | null
+  created_at:            string
+  updated_at:            string
 }
 
 // ── User Profile ──────────────────────────────────────────
