@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import { CREATOR_PLATFORMS } from '@/lib/creators/platforms'
 import type { BroadcastAccount, Creator, UserProfile } from '@/lib/types'
@@ -27,6 +28,8 @@ interface Props {
 }
 
 export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
+  const t = useTranslations('creatorForm')
+  const tCommon = useTranslations('common')
   const [form, setForm] = useState<FormData>({
     name: creator?.name || '',
     platform: creator?.platform || '',
@@ -70,7 +73,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
         setBroadcastAccounts(broadcastJson.data ?? [])
         setOperators(usersJson.data ?? [])
       } catch {
-        setError('Failed to load broadcast accounts or operators')
+        setError(t('relationsLoadFailed'))
       }
     }
 
@@ -85,7 +88,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
 
   async function createBroadcastAccount() {
     if (!newBroadcast.name || !newBroadcast.platform || !newBroadcast.account_handle) {
-      setError('Broadcast account name, platform, and handle are required')
+      setError(t('broadcastRequired'))
       return
     }
 
@@ -112,7 +115,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name || !form.platform) { setError('Name and platform are required'); return }
+    if (!form.name || !form.platform) { setError(t('nameRequired')); return }
     setLoading(true)
     setError(null)
 
@@ -157,34 +160,34 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Name *</label>
-          <input value={form.name} onChange={set('name')} placeholder="Creator name"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('name')}</label>
+          <input value={form.name} onChange={set('name')} placeholder={t('namePlaceholder')}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Platform *</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('platform')}</label>
           <select value={form.platform} onChange={set('platform')}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">Select platform</option>
+            <option value="">{t('selectPlatform')}</option>
             {CREATOR_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-700 mb-1">Platform ID / Username</label>
-        <input value={form.platform_id} onChange={set('platform_id')} placeholder="e.g. @username or channel ID"
+        <label className="block text-xs font-medium text-slate-700 mb-1">{t('platformId')}</label>
+        <input value={form.platform_id} onChange={set('platform_id')} placeholder={t('platformIdPlaceholder')}
           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <p className="text-xs text-slate-400 mt-1">用于生成平台主页链接（TikTok, Instagram, YouTube, Twitch）</p>
+        <p className="text-xs text-slate-400 mt-1">{t('platformIdHint')}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Broadcast Account</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('broadcastAccount')}</label>
           <div className="flex gap-2">
             <select value={form.broadcast_account_id} onChange={set('broadcast_account_id')}
               className="min-w-0 flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">Unassigned</option>
+              <option value="">{t('unassigned')}</option>
               {broadcastAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name} · {account.platform} · {account.account_handle}
@@ -199,16 +202,16 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
                 setShowNewBroadcast((show) => !show)
               }}
             >
-              New
+              {t('new')}
             </Button>
           </div>
-          <p className="text-xs text-slate-400 mt-1">一个团播账号只能绑定一个 Creator</p>
+          <p className="text-xs text-slate-400 mt-1">{t('broadcastHint')}</p>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Operator</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('operator')}</label>
           <select value={form.operator_user_id} onChange={set('operator_user_id')}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">Unassigned</option>
+            <option value="">{t('unassigned')}</option>
             {operators.map((operator) => (
               <option key={operator.id} value={operator.id}>
                 {operator.name} · {operator.user_code}{operator.email ? ` · ${operator.email}` : ''}
@@ -222,20 +225,20 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
         <div className="border border-slate-200 rounded-lg p-3 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Account Name *</label>
-              <input value={newBroadcast.name} onChange={setBroadcast('name')} placeholder="Team live account"
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t('accountName')}</label>
+              <input value={newBroadcast.name} onChange={setBroadcast('name')} placeholder={t('accountNamePlaceholder')}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Platform *</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t('platform')}</label>
               <select value={newBroadcast.platform} onChange={setBroadcast('platform')}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="">Select platform</option>
+                <option value="">{t('selectPlatform')}</option>
                 {CREATOR_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Handle *</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t('handle')}</label>
               <input value={newBroadcast.account_handle} onChange={setBroadcast('account_handle')} placeholder="@account"
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
@@ -247,31 +250,31 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Notes</label>
-              <input value={newBroadcast.notes} onChange={setBroadcast('notes')} placeholder="Optional"
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t('notes')}</label>
+              <input value={newBroadcast.notes} onChange={setBroadcast('notes')} placeholder={tCommon('none')}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setShowNewBroadcast(false)}>Cancel</Button>
-            <Button type="button" loading={creatingBroadcast} onClick={createBroadcastAccount}>Create Account</Button>
+            <Button type="button" variant="secondary" onClick={() => setShowNewBroadcast(false)}>{tCommon('cancel')}</Button>
+            <Button type="button" loading={creatingBroadcast} onClick={createBroadcastAccount}>{t('createAccount')}</Button>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Niche</label>
-          <input value={form.niche} onChange={set('niche')} placeholder="e.g. Gaming"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('niche')}</label>
+          <input value={form.niche} onChange={set('niche')} placeholder={t('nichePlaceholder')}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Followers</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('followers')}</label>
           <input type="number" value={form.followers} onChange={set('followers')} placeholder="200000"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Avg Views</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('avgViews')}</label>
           <input type="number" value={form.avg_views} onChange={set('avg_views')} placeholder="50000"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
@@ -279,32 +282,32 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
 
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Location</label>
-          <input value={form.location} onChange={set('location')} placeholder="Shanghai"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('location')}</label>
+          <input value={form.location} onChange={set('location')} placeholder={t('locationPlaceholder')}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Email</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('email')}</label>
           <input type="email" value={form.email} onChange={set('email')} placeholder="creator@email.com"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">WeChat</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('wechat')}</label>
           <input value={form.wechat} onChange={set('wechat')} placeholder="wechat_id"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-700 mb-1">Notes</label>
-        <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder="Any additional context..."
+        <label className="block text-xs font-medium text-slate-700 mb-1">{t('notes')}</label>
+        <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder={t('notesPlaceholder')}
           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
+        <Button variant="secondary" type="button" onClick={onCancel}>{tCommon('cancel')}</Button>
         <Button type="submit" loading={loading}>
-          {isEditing ? 'Save Changes' : 'Add Creator'}
+          {isEditing ? t('saveCreator') : t('addCreator')}
         </Button>
       </div>
     </form>

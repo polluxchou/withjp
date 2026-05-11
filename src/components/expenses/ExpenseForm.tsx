@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import {
   EXPENSE_CATEGORY_OPTIONS,
@@ -43,6 +44,9 @@ const LABEL = 'block text-xs font-medium text-slate-700 mb-1'
 
 export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCancel }: Props) {
   const source = expense ?? duplicateFrom
+  const t = useTranslations('expenses.form')
+  const tExpenses = useTranslations('expenses')
+  const tCommon = useTranslations('common')
   const [form, setForm] = useState<FormData>({
     expense_category: source?.expense_category ?? 'tangible_asset',
     item_name:        source?.item_name        ?? '',
@@ -97,12 +101,12 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.item_name.trim())   { setError('支出名称不能为空'); return }
-    if (!form.expense_date)       { setError('日期不能为空'); return }
-    if (!form.payment_status)     { setError('请选择支付状态'); return }
+    if (!form.item_name.trim())   { setError(t('itemNameRequired')); return }
+    if (!form.expense_date)       { setError(t('dateRequired')); return }
+    if (!form.payment_status)     { setError(t('paymentStatusRequired')); return }
 
     if (isCompanyAcct && !(COMPANY_ACCOUNT_BUYERS as readonly string[]).includes(form.buyer_name)) {
-      setError(`公司公共账户的经办人必须为：${COMPANY_ACCOUNT_BUYERS.join('、')}`)
+      setError(t('companyBuyerRequired', { buyers: COMPANY_ACCOUNT_BUYERS.join(', ') }))
       return
     }
 
@@ -150,26 +154,25 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       {/* Legacy payment method notice */}
       {isEditing && expense?.payment_method_legacy && !expense.payment_method && (
         <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          原支付方式：<span className="font-medium">{expense.payment_method_legacy}</span>
-          ——请从下方选择新支付方式覆盖
+          {t('legacyPaymentMethod', { method: expense.payment_method_legacy })}
         </div>
       )}
 
       {/* Row: Category + Item Name */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className={LABEL}>支出类别 *</label>
+          <label className={LABEL}>{t('category')}</label>
           <select value={form.expense_category} onChange={set('expense_category')} className={INPUT}>
             {EXPENSE_CATEGORY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>{tExpenses(`categories.${o.value}`)}</option>
             ))}
           </select>
         </div>
         <div className="col-span-2">
-          <label className={LABEL}>支出名称 *</label>
+          <label className={LABEL}>{t('itemName')}</label>
           <input
             value={form.item_name} onChange={set('item_name')}
-            placeholder={cat === 'salary' ? '如：5月份工资 - 张三' : cat === 'rent' ? '如：5月办公室租金' : cat === 'cloud_services' ? '如：Anthropic API 5月账单' : '支出名称'}
+            placeholder={tExpenses('name')}
             className={INPUT}
           />
         </div>
@@ -178,7 +181,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       {/* Row: Amount */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className={LABEL}>{showQty ? '单价 (¥)' : '金额 (¥)'}</label>
+          <label className={LABEL}>{showQty ? t('unitPrice') : t('amount')}</label>
           <input
             type="number" min="0" step="0.01"
             value={form.unit_price} onChange={set('unit_price')}
@@ -187,7 +190,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         </div>
         {showQty && (
           <div>
-            <label className={LABEL}>数量</label>
+            <label className={LABEL}>{t('quantity')}</label>
             <input
               type="number" min="1" step="1"
               value={form.quantity} onChange={set('quantity')}
@@ -196,7 +199,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
           </div>
         )}
         <div>
-          <label className={LABEL}>合计</label>
+          <label className={LABEL}>{t('total')}</label>
           <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium">
             ¥{displayTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
           </div>
@@ -206,14 +209,14 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       {/* Row: Date + Period (conditional) */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className={LABEL}>日期 *</label>
+          <label className={LABEL}>{t('date')}</label>
           <input type="date" value={form.expense_date} onChange={set('expense_date')} className={INPUT} />
         </div>
         {showPeriod && (
           <div>
-            <label className={LABEL}>归属周期</label>
+            <label className={LABEL}>{t('period')}</label>
             <select value={form.period} onChange={set('period')} className={INPUT}>
-              <option value="">请选择季度</option>
+              <option value="">{t('selectQuarter')}</option>
               {EXPENSE_PERIOD_OPTIONS.map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
@@ -221,8 +224,8 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
           </div>
         )}
         <div>
-          <label className={LABEL}>用途说明</label>
-          <input value={form.purpose} onChange={set('purpose')} placeholder="用途" className={INPUT} />
+          <label className={LABEL}>{t('purpose')}</label>
+          <input value={form.purpose} onChange={set('purpose')} placeholder={tExpenses('purpose')} className={INPUT} />
         </div>
       </div>
 
@@ -230,11 +233,11 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       {showLocation && (
         <div>
           <label className={LABEL}>
-            {cat === 'travel' ? '出行地点' : cat === 'rent' ? '地址' : '购买渠道'}
+            {cat === 'travel' ? t('travelLocation') : cat === 'rent' ? t('address') : t('locationOrChannel')}
           </label>
           <input
             value={form.location} onChange={set('location')}
-            placeholder={cat === 'travel' ? '如：北京 → 上海' : cat === 'rent' ? '如：上海市长宁区xxx路' : '如：京东、天猫'}
+            placeholder={cat === 'travel' ? t('travelLocation') : cat === 'rent' ? t('address') : t('locationOrChannel')}
             className={INPUT}
           />
         </div>
@@ -243,18 +246,18 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       {/* Row: User + Buyer */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={LABEL}>{cat === 'salary' ? '归属人员' : '使用人'}</label>
+          <label className={LABEL}>{cat === 'salary' ? t('assignedPerson') : t('user')}</label>
           <select value={form.user_name} onChange={set('user_name')} className={INPUT}>
-            <option value="">请选择</option>
+            <option value="">{tCommon('none')}</option>
             {EXPENSE_USER_OPTIONS.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className={LABEL}>经办人</label>
+          <label className={LABEL}>{t('buyer')}</label>
           <select value={form.buyer_name} onChange={set('buyer_name')} className={INPUT}>
-            <option value="">请选择经办人</option>
+            <option value="">{t('selectBuyer')}</option>
             {isCompanyAcct
               ? COMPANY_ACCOUNT_BUYERS.map((b) => (
                   <option key={b} value={b}>{b}</option>
@@ -270,20 +273,20 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       {/* Row: Payment Method + Status */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={LABEL}>支付方式</label>
+          <label className={LABEL}>{t('paymentMethod')}</label>
           <select value={form.payment_method} onChange={set('payment_method')} className={INPUT}>
-            <option value="">请选择支付方式</option>
+            <option value="">{t('selectPaymentMethod')}</option>
             {EXPENSE_PAYMENT_METHOD_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>{tExpenses(`paymentMethods.${o.value}`)}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className={LABEL}>支付状态 *</label>
+          <label className={LABEL}>{t('paymentStatus')}</label>
           <select value={form.payment_status} onChange={set('payment_status')} className={INPUT}>
-            <option value="">请选择状态</option>
+            <option value="">{t('selectStatus')}</option>
             {EXPENSE_PAYMENT_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>{tExpenses(`paymentStatuses.${o.value}`)}</option>
             ))}
           </select>
         </div>
@@ -291,18 +294,18 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
 
       {/* Notes */}
       <div>
-        <label className={LABEL}>备注</label>
+        <label className={LABEL}>{t('notes')}</label>
         <textarea
           value={form.notes} onChange={set('notes')}
-          rows={2} placeholder="可选备注"
+          rows={2} placeholder={t('optionalNotes')}
           className={`${INPUT} resize-none`}
         />
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="secondary" type="button" onClick={onCancel}>取消</Button>
+        <Button variant="secondary" type="button" onClick={onCancel}>{tCommon('cancel')}</Button>
         <Button type="submit" loading={loading}>
-          {isEditing ? '保存更改' : '添加支出'}
+          {isEditing ? t('saveExpense') : t('addExpense')}
         </Button>
       </div>
     </form>

@@ -19,6 +19,7 @@ import {
   getMonthlyExpenseSummary,
   type CostGranularity,
 } from '@/lib/expenses/costs'
+import { useLocale, useTranslations } from 'next-intl'
 
 interface Props {
   expenses: Expense[]
@@ -33,8 +34,9 @@ const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   cloud_services:  '#ec4899',
 }
 
-function fmtRmb(v: number) {
-  if (v >= 10000) return `¥${(v / 10000).toFixed(1)}万`
+function fmtRmb(v: number, locale: string) {
+  if (locale === 'zh' && v >= 10000) return `¥${(v / 10000).toFixed(1)}万`
+  if (locale === 'en' && v >= 1000) return `¥${(v / 1000).toFixed(1)}K`
   return `¥${v.toFixed(0)}`
 }
 
@@ -47,6 +49,8 @@ type Tab = 'category' | 'trend' | 'monthly'
 export default function ExpenseCategoryChart({ expenses }: Props) {
   const [tab, setTab]               = useState<Tab>('category')
   const [granularity, setGranularity] = useState<CostGranularity>('month')
+  const locale = useLocale()
+  const t = useTranslations('expenses')
 
   const breakdown    = getExpenseCategoryBreakdown(expenses)
   const timeSeries   = getExpenseCostTimeSeries(expenses, granularity)
@@ -60,9 +64,9 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
   if (expenses.length === 0) return null
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'category', label: '类别占比' },
-    { key: 'trend',    label: '累计趋势' },
-    { key: 'monthly',  label: '月度汇总' },
+    { key: 'category', label: t('categoryShare') },
+    { key: 'trend',    label: t('cumulativeTrend') },
+    { key: 'monthly',  label: t('monthlySummary') },
   ]
 
   return (
@@ -95,7 +99,7 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                   granularity === g ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                 }`}
               >
-                {g === 'month' ? '月' : g === 'quarter' ? '季' : '年'}
+                {t(g)}
               </button>
             ))}
           </div>
@@ -113,12 +117,12 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                     className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
                     style={{ backgroundColor: CATEGORY_COLORS[item.category] }}
                   />
-                  <span className="text-xs font-medium text-slate-700">{item.label}</span>
+                  <span className="text-xs font-medium text-slate-700">{t(`categories.${item.category}`)}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-slate-500">{item.pct.toFixed(1)}%</span>
                   <span className="text-xs font-semibold text-slate-900 w-20 text-right">
-                    {fmtRmb(item.total)}
+                    {fmtRmb(item.total, locale)}
                   </span>
                 </div>
               </div>
@@ -142,15 +146,15 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
           <LineChart data={timeSeries} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={fmtRmb} width={52} />
+            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={52} />
             <Tooltip
               formatter={(v) => [`¥${Number(v).toFixed(2)}`, '']}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line type="monotone" dataKey="paid"          name="已付款" stroke="#10b981" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="budgeted"      name="已预算" stroke="#6366f1" strokeWidth={2} dot={false} strokeDasharray="4 2" />
-            <Line type="monotone" dataKey="ordered_unpaid" name="待付款" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+            <Line type="monotone" dataKey="paid"          name={t('paymentStatuses.paid')} stroke="#10b981" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="budgeted"      name={t('paymentStatuses.budgeted')} stroke="#6366f1" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+            <Line type="monotone" dataKey="ordered_unpaid" name={t('paymentStatuses.ordered_unpaid')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
           </LineChart>
         </ResponsiveContainer>
       )}
@@ -161,14 +165,14 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left py-2 pr-4 font-medium text-slate-500 whitespace-nowrap">月份</th>
+                <th className="text-left py-2 pr-4 font-medium text-slate-500 whitespace-nowrap">{t('monthColumn')}</th>
                 {activeCategories.map((o) => (
                   <th key={o.value} className="text-right py-2 px-3 font-medium whitespace-nowrap" style={{ color: CATEGORY_COLORS[o.value] }}>
-                    {o.label}
+                    {t(`categories.${o.value}`)}
                   </th>
                 ))}
-                <th className="text-right py-2 px-3 font-semibold text-slate-700 whitespace-nowrap">合计</th>
-                <th className="text-right py-2 pl-3 font-medium text-green-600 whitespace-nowrap">已付款</th>
+                <th className="text-right py-2 px-3 font-semibold text-slate-700 whitespace-nowrap">{t('total')}</th>
+                <th className="text-right py-2 pl-3 font-medium text-green-600 whitespace-nowrap">{t('paid')}</th>
               </tr>
             </thead>
             <tbody>
@@ -195,7 +199,7 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
             {/* Footer: column totals */}
             <tfoot>
               <tr className="border-t-2 border-slate-200 bg-slate-50">
-                <td className="py-2.5 pr-4 font-semibold text-slate-700">总计</td>
+                <td className="py-2.5 pr-4 font-semibold text-slate-700">{t('grandTotal')}</td>
                 {activeCategories.map((o) => {
                   const total = monthlySummary.reduce((s, r) => s + (r.byCategory[o.value] ?? 0), 0)
                   return (
