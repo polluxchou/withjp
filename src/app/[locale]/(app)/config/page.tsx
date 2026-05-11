@@ -14,15 +14,18 @@ export default function ConfigPage() {
   const [saved,    setSaved]    = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    fetch('/api/config').then((r) => r.json()).then((j) => {
-      setConfigs(j.data ?? [])
-      const initial: Record<string, string> = {}
-      for (const c of (j.data ?? [])) {
-        initial[c.key] = JSON.stringify(c.value, null, 2)
-      }
-      setEdits(initial)
-      setLoading(false)
-    })
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((j) => {
+        setConfigs(j.data ?? [])
+        const initial: Record<string, string> = {}
+        for (const c of (j.data ?? [])) {
+          initial[c.key] = JSON.stringify(c.value, null, 2)
+        }
+        setEdits(initial)
+      })
+      .catch((err) => console.error('Failed to load config:', err))
+      .finally(() => setLoading(false))
   }, [])
 
   async function save(config: Config) {

@@ -22,12 +22,18 @@ export default function CreatorsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const url = filter === 'all' ? '/api/creators' : `/api/creators?status=${filter}`
-    const res = await fetch(url)
-    const json = await res.json()
-    setLoadError(json.error ?? null)
-    setCreators(json.data ?? [])
-    setLoading(false)
+    try {
+      const url = filter === 'all' ? '/api/creators' : `/api/creators?status=${filter}`
+      const res = await fetch(url)
+      const json = await res.json()
+      setLoadError(json.error ?? null)
+      setCreators(json.data ?? [])
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : '加载失败')
+      setCreators([])
+    } finally {
+      setLoading(false)
+    }
   }, [filter])
 
   useEffect(() => { load() }, [load])

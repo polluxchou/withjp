@@ -48,10 +48,15 @@ export default function MilestoneDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res  = await fetch(`/api/milestones/${id}`)
-    const json = await res.json()
-    if (json.data) setMilestone(json.data as MilestoneDetail)
-    setLoading(false)
+    try {
+      const res  = await fetch(`/api/milestones/${id}`)
+      const json = await res.json()
+      if (json.data) setMilestone(json.data as MilestoneDetail)
+    } catch (err) {
+      console.error('Failed to load milestone:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [id])
 
   useEffect(() => { load() }, [load])

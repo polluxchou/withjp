@@ -70,13 +70,19 @@ export default function ExpensesPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v) })
-    const res  = await fetch(`/api/expenses?${params.toString()}`)
-    const json = await res.json()
-    setLoadError(json.error ?? null)
-    setExpenses(json.data ?? [])
-    setLoading(false)
+    try {
+      const params = new URLSearchParams()
+      Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v) })
+      const res  = await fetch(`/api/expenses?${params.toString()}`)
+      const json = await res.json()
+      setLoadError(json.error ?? null)
+      setExpenses(json.data ?? [])
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : '加载失败')
+      setExpenses([])
+    } finally {
+      setLoading(false)
+    }
   }, [filters])
 
   useEffect(() => { load() }, [load])

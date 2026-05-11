@@ -47,8 +47,9 @@ export default function WorkspacePage() {
       .then((j) => {
         const chatAgents = (j.data ?? []).filter((a: Agent) => a.chat_enabled !== false)
         setAgents(chatAgents)
-        setLoadingAgents(false)
       })
+      .catch((err) => console.error('Failed to load agents:', err))
+      .finally(() => setLoadingAgents(false))
   }, [])
 
   // ── Scroll to bottom on new messages ───────────────────────
@@ -64,22 +65,26 @@ export default function WorkspacePage() {
     setError(null)
     setLoadingMessages(true)
 
-    // Fetch most recent conversation for this agent
-    const res  = await fetch(`/api/conversations?agent_id=${agent.id}`)
-    const json = await res.json()
-    const convList: Conversation[] = json.data ?? []
+    try {
+      // Fetch most recent conversation for this agent
+      const res  = await fetch(`/api/conversations?agent_id=${agent.id}`)
+      const json = await res.json()
+      const convList: Conversation[] = json.data ?? []
 
-    if (convList.length > 0) {
-      const latest = convList[0]
-      setConversation(latest)
-      // Load messages
-      const msgRes  = await fetch(`/api/conversations/${latest.id}/messages`)
-      const msgJson = await msgRes.json()
-      setMessages(msgJson.data ?? [])
+      if (convList.length > 0) {
+        const latest = convList[0]
+        setConversation(latest)
+        // Load messages
+        const msgRes  = await fetch(`/api/conversations/${latest.id}/messages`)
+        const msgJson = await msgRes.json()
+        setMessages(msgJson.data ?? [])
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载会话失败')
+    } finally {
+      setLoadingMessages(false)
+      inputRef.current?.focus()
     }
-
-    setLoadingMessages(false)
-    inputRef.current?.focus()
   }, [])
 
   // ── New chat ───────────────────────────────────────────────

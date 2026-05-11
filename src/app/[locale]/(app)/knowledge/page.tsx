@@ -25,11 +25,17 @@ export default function KnowledgePage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const url = filter === 'all' ? '/api/knowledge' : `/api/knowledge?category=${filter}`
-    const res  = await fetch(url)
-    const json = await res.json()
-    setItems(json.data ?? [])
-    setLoading(false)
+    try {
+      const url = filter === 'all' ? '/api/knowledge' : `/api/knowledge?category=${filter}`
+      const res  = await fetch(url)
+      const json = await res.json()
+      setItems(json.data ?? [])
+    } catch (err) {
+      console.error('Failed to load knowledge:', err)
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
   }, [filter])
 
   useEffect(() => { load() }, [load])
