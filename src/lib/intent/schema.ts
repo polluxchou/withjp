@@ -18,9 +18,12 @@ export const ExpensePaymentStatusEnum = z.enum([
 
 // ── Filters shared by query / targetMatch ──────────────────────
 
+// period is stored as 'YYYY-QN' (quarter) per migration 013.
+const PERIOD_RE = /^\d{4}-Q[1-4]$/
+
 export const ExpenseFiltersSchema = z.object({
   expense_category:    z.array(ExpenseCategoryEnum).optional(),
-  period_in:           z.array(z.string().regex(/^\d{4}-\d{2}$/)).optional(),
+  period_in:           z.array(z.string().regex(PERIOD_RE)).optional(),
   date_range:          z.object({
     from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     to:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -43,7 +46,7 @@ export const ExpenseWritePayloadSchema = z.object({
   unit_price:       z.number().nonnegative().optional(),
   quantity:         z.number().int().positive().optional(),
   expense_date:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  period:           z.string().regex(/^\d{4}-\d{2}$/).nullable().optional(),
+  period:           z.string().regex(PERIOD_RE).nullable().optional(),
   location:         z.string().optional(),
   purpose:          z.string().optional(),
   user_name:        z.string().optional(),
