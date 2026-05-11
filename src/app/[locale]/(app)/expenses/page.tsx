@@ -6,6 +6,7 @@ import ExpenseForm from '@/components/expenses/ExpenseForm'
 import ExpenseCategoryChart from '@/components/expenses/ExpenseCategoryChart'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import ClampedText from '@/components/ui/ClampedText'
 import { Plus, Search, Receipt, RotateCcw, Copy, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
@@ -319,19 +320,21 @@ export default function ExpensesPage() {
                 {sortedExpenses.map((e) => (
                   <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${CATEGORY_COLOR[e.expense_category]}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${CATEGORY_COLOR[e.expense_category]}`}>
                         {t(`categories.${e.expense_category}`)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap max-w-[180px] truncate">
-                      {e.item_name}
+                    <td className="px-4 py-3 font-medium text-slate-900 max-w-[180px]">
+                      <ClampedText text={e.item_name} title={t('name')} />
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">
                       {fmtRmb(Number(e.total_price))}
                     </td>
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{e.expense_date}</td>
                     <td className="px-4 py-3 text-slate-500">{e.period || '—'}</td>
-                    <td className="px-4 py-3 text-slate-500 max-w-[120px] truncate">{e.purpose || '—'}</td>
+                    <td className="px-4 py-3 text-slate-500 max-w-[140px]">
+                      <ClampedText text={e.purpose} title={t('purpose')} />
+                    </td>
                     <td className="px-4 py-3 text-slate-500">{e.user_name || '—'}</td>
                     <td className="px-4 py-3 text-slate-500">{e.buyer_name || '—'}</td>
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
