@@ -80,6 +80,31 @@ export const EXPENSE_PERIOD_OPTIONS: string[] = (() => {
   return quarters
 })()
 
+// ── Cross-border transfer fee ─────────────────────────────────
+//
+// All expenses paid to a buyer other than `with-new`, except for rent,
+// incur an additional cross-border transfer cost on top of total_price.
+
+export const CROSS_BORDER_FEE_RATE = 0.04
+
+type ExpenseForFee = {
+  buyer_name:       string
+  expense_category: ExpenseCategory
+  total_price:      number | string
+}
+
+/** Cross-border transfer fee for a single expense (0 if not applicable). */
+export function crossBorderFee(e: ExpenseForFee): number {
+  if (e.expense_category === 'rent') return 0
+  if (e.buyer_name === 'with-new')   return 0
+  return Number(e.total_price) * CROSS_BORDER_FEE_RATE
+}
+
+/** total_price + cross-border fee — the true cost the company bears. */
+export function effectiveCost(e: ExpenseForFee): number {
+  return Number(e.total_price) + crossBorderFee(e)
+}
+
 /** Derive `YYYY-QN` quarter string from a `YYYY-MM-DD` date. Empty string if invalid. */
 export function dateToQuarter(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
@@ -118,9 +143,11 @@ export interface ExpenseSummary {
 }
 
 type ExpenseForSummary = {
-  total_price:    number | string
-  payment_status: ExpensePaymentStatus
-  expense_date:   string
+  total_price:      number | string
+  payment_status:   ExpensePaymentStatus
+  expense_date:     string
+  buyer_name:       string
+  expense_category: ExpenseCategory
 }
 
 export function getExpenseSummary(expenses: ExpenseForSummary[]): ExpenseSummary {
@@ -134,7 +161,7 @@ export function getExpenseSummary(expenses: ExpenseForSummary[]): ExpenseSummary
   let currentMonthCost   = 0
 
   for (const e of expenses) {
-    const total = Number(e.total_price)
+    const total = effectiveCost(e)
     totalCost += total
 
     if (e.payment_status === 'paid') {
@@ -175,6 +202,7 @@ type ExpenseForCategory = {
   expense_category: ExpenseCategory
   total_price:      number | string
   payment_status:   ExpensePaymentStatus
+  buyer_name:       string
 }
 
 export function getExpenseCategoryBreakdown(
@@ -183,7 +211,7 @@ export function getExpenseCategoryBreakdown(
   const map = new Map<ExpenseCategory, { total: number; paid: number }>()
 
   for (const e of expenses) {
-    const total = Number(e.total_price)
+    const total = effectiveCost(e)
     const prev  = map.get(e.expense_category) ?? { total: 0, paid: 0 }
     map.set(e.expense_category, {
       total: prev.total + total,
@@ -218,9 +246,11 @@ export interface CostTimePoint {
 }
 
 type ExpenseForTimeSeries = {
-  expense_date:   string | null
-  total_price:    number | string
-  payment_status: ExpensePaymentStatus
+  expense_date:     string | null
+  total_price:      number | string
+  payment_status:   ExpensePaymentStatus
+  buyer_name:       string
+  expense_category: ExpenseCategory
 }
 
 function periodKey(date: Date, g: CostGranularity): string {
@@ -261,6 +291,7 @@ type ExpenseForMonthly = {
   total_price:      number | string
   payment_status:   ExpensePaymentStatus
   expense_date:     string | null
+  buyer_name:       string
 }
 
 // ── Daily summary (one row per day with spend) ───────────────
@@ -273,9 +304,11 @@ export interface DailyExpenseSummaryRow {
 }
 
 type ExpenseForDaily = {
-  total_price:    number | string
-  payment_status: ExpensePaymentStatus
-  expense_date:   string | null
+  total_price:      number | string
+  payment_status:   ExpensePaymentStatus
+  expense_date:     string | null
+  buyer_name:       string
+  expense_category: ExpenseCategory
 }
 
 export function getDailyExpenseSummary(
@@ -286,7 +319,7 @@ export function getDailyExpenseSummary(
   for (const e of expenses) {
     if (!e.expense_date) continue
     const date = e.expense_date
-    const amt  = Number(e.total_price)
+    const amt  = effectiveCost(e)
     const row  = map.get(date) ?? { date, total: 0, paid: 0, count: 0 }
     row.total += amt
     row.count += 1
@@ -307,7 +340,7 @@ export function getMonthlyExpenseSummary(
     const d = new Date(e.expense_date)
     if (isNaN(d.getTime())) continue
     const month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-    const amt   = Number(e.total_price)
+    const eff   = effectiveCost(e)
 
     const row = map.get(month) ?? {
       month,
@@ -316,9 +349,9 @@ export function getMonthlyExpenseSummary(
       paid:       0,
     }
 
-    row.byCategory[e.expense_category] = (row.byCategory[e.expense_category] ?? 0) + amt
-    row.total += amt
-    if (e.payment_status === 'paid') row.paid += amt
+    row.byCategory[e.expense_category] = (row.byCategory[e.expense_category] ?? 0) + eff
+    row.total += eff
+    if (e.payment_status === 'paid') row.paid += eff
 
     map.set(month, row)
   }
@@ -342,7 +375,7 @@ export function getExpenseCostTimeSeries(
     if (isNaN(date.getTime())) continue
     const key    = periodKey(date, granularity)
     const bucket = buckets.get(key) ?? { budgeted: 0, ordered_unpaid: 0, paid: 0 }
-    const amt    = Number(e.total_price)
+    const amt    = effectiveCost(e)
     if      (e.payment_status === 'budgeted')       bucket.budgeted       += amt
     else if (e.payment_status === 'ordered_unpaid') bucket.ordered_unpaid += amt
     else if (e.payment_status === 'paid')           bucket.paid           += amt
