@@ -8,10 +8,10 @@ import {
   EXPENSE_PAYMENT_METHOD_OPTIONS,
   EXPENSE_PAYMENT_STATUS_OPTIONS,
   EXPENSE_USER_OPTIONS,
-  EXPENSE_PERIOD_OPTIONS,
   categoryHasQuantity,
   categoryHasPeriod,
   categoryHasLocation,
+  dateToQuarter,
 } from '@/lib/expenses/costs'
 import { COMPANY_ACCOUNT_BUYERS } from '@/lib/types'
 import type { Expense, ExpenseCategory, ExpensePaymentMethod, ExpensePaymentStatus } from '@/lib/types'
@@ -24,7 +24,6 @@ interface FormData {
   expense_date:     string
   location:         string
   purpose:          string
-  period:           string
   user_name:        string
   buyer_name:       string
   payment_method:   ExpensePaymentMethod | ''
@@ -55,7 +54,6 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
     expense_date:     source?.expense_date     ?? '',
     location:         source?.location         ?? '',
     purpose:          source?.purpose          ?? '',
-    period:           source?.period           ?? '',
     user_name:        source?.user_name        ?? '',
     buyer_name:       source?.buyer_name       ?? '',
     payment_method:   source?.payment_method   ?? '',
@@ -81,7 +79,6 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         if (k === 'expense_category') {
           const newCat = e.target.value as ExpenseCategory
           if (!categoryHasQuantity(newCat)) updated.quantity = '1'
-          if (!categoryHasPeriod(newCat))   updated.period   = ''
           if (!categoryHasLocation(newCat)) updated.location = ''
         }
         // When switching away from company_account, clear buyer if it was a preset value
@@ -121,7 +118,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       expense_date:     form.expense_date,
       location:         showLocation ? form.location : '',
       purpose:          form.purpose,
-      period:           showPeriod && form.period ? form.period : null,
+      period:           showPeriod ? (dateToQuarter(form.expense_date) || null) : null,
       user_name:        form.user_name,
       buyer_name:       form.buyer_name,
       payment_method:   form.payment_method || null,
@@ -215,12 +212,9 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         {showPeriod && (
           <div>
             <label className={LABEL}>{t('period')}</label>
-            <select value={form.period} onChange={set('period')} className={INPUT}>
-              <option value="">{t('selectQuarter')}</option>
-              {EXPENSE_PERIOD_OPTIONS.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+            <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium">
+              {dateToQuarter(form.expense_date) || <span className="text-slate-400 font-normal">{t('periodAutoFromDate')}</span>}
+            </div>
           </div>
         )}
         <div>

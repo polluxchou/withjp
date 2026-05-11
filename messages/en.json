@@ -251,7 +251,7 @@
       "total": "Total",
       "date": "Date *",
       "period": "Period",
-      "selectQuarter": "Select quarter",
+      "periodAutoFromDate": "Select expense date first",
       "purpose": "Purpose",
       "locationOrChannel": "Purchase channel",
       "travelLocation": "Travel location",

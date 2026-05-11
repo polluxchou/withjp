@@ -80,6 +80,16 @@ export const EXPENSE_PERIOD_OPTIONS: string[] = (() => {
   return quarters
 })()
 
+/** Derive `YYYY-QN` quarter string from a `YYYY-MM-DD` date. Empty string if invalid. */
+export function dateToQuarter(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  const [yStr, mStr] = dateStr.split('-')
+  const y = parseInt(yStr, 10)
+  const m = parseInt(mStr, 10)
+  if (!y || !m || m < 1 || m > 12) return ''
+  return `${y}-Q${Math.floor((m - 1) / 3) + 1}`
+}
+
 // ── Category display config ───────────────────────────────────
 
 /** Whether a category shows unit_price × quantity (vs a single total amount) */

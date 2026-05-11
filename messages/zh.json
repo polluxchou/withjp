@@ -251,7 +251,7 @@
       "total": "合计",
       "date": "日期 *",
       "period": "归属周期",
-      "selectQuarter": "请选择季度",
+      "periodAutoFromDate": "请先选择支出日期",
       "purpose": "用途说明",
       "locationOrChannel": "购买渠道",
       "travelLocation": "出行地点",
