@@ -8,6 +8,8 @@ import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import ClampedText from '@/components/ui/ClampedText'
+import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
+import { useCurrency } from '@/lib/currency'
 import { Plus, Search, Receipt, RotateCcw, Copy, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
@@ -20,9 +22,6 @@ import {
   crossBorderFee,
 } from '@/lib/expenses/costs'
 
-function fmtRmb(amount: number) {
-  return '¥' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
 
 const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
   budgeted:           'bg-slate-100 text-slate-600',
@@ -81,6 +80,7 @@ export default function ExpensesPage() {
   const [sortDir,    setSortDir]    = useState<SortDir>('desc')
   const t = useTranslations('expenses')
   const tCommon = useTranslations('common')
+  const { fmt: fmtRmb } = useCurrency()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -174,9 +174,12 @@ export default function ExpensesPage() {
         title={t('title')}
         subtitle={t('subtitle', { count: summary.itemCount })}
         actions={
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="w-4 h-4" /> {t('addExpense')}
-          </Button>
+          <>
+            <CurrencySwitcher />
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="w-4 h-4" /> {t('addExpense')}
+            </Button>
+          </>
         }
       />
 

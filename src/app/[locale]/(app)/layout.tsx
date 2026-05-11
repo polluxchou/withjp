@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic'
 
 import Sidebar from '@/components/layout/Sidebar'
+import { CurrencyProvider } from '@/lib/currency'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <CurrencyProvider>
       <Sidebar />
       <main
         className="min-h-screen p-8 transition-[margin-left] duration-200"
@@ -12,6 +13,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         {children}
       </main>
-    </>
+    </CurrencyProvider>
   )
 }

@@ -22,7 +22,8 @@ import {
   getDailyExpenseSummary,
   type CostGranularity,
 } from '@/lib/expenses/costs'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
+import { useCurrency } from '@/lib/currency'
 
 interface Props {
   expenses: Expense[]
@@ -59,16 +60,6 @@ const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   cloud_services:  '#ec4899',
 }
 
-function fmtRmb(v: number, locale: string) {
-  if (locale === 'zh' && v >= 10000) return `¥${(v / 10000).toFixed(1)}万`
-  if (locale === 'en' && v >= 1000) return `¥${(v / 1000).toFixed(1)}K`
-  return `¥${v.toFixed(0)}`
-}
-
-function fmtFull(v: number) {
-  return '¥' + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
-
 type Tab = 'category' | 'trend' | 'monthly'
 type MonthlyView = 'table' | 'chart'
 type MonthlyGran = 'day' | 'month'
@@ -78,10 +69,11 @@ interface ChartTooltipProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload?: any[]
   label?: string
+  fmt:    (cny: number, opts?: { compact?: boolean }) => string
 }
 
-// ── Custom tooltip: shows expense count on days that exceed ¥100k ──
-function DayTooltip({ active, payload, label }: ChartTooltipProps) {
+// ── Custom tooltip: shows expense count on days that exceed ¥100k CNY ──
+function DayTooltip({ active, payload, label, fmt }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
 
   const total = (payload.find((p) => p.dataKey === 'total')?.value as number) ?? 0
@@ -96,7 +88,7 @@ function DayTooltip({ active, payload, label }: ChartTooltipProps) {
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
             <span className="text-slate-500">{p.name}:</span>
             <span className="font-medium text-slate-800 ml-auto pl-2">
-              ¥{Number(p.value ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}
+              {fmt(Number(p.value ?? 0))}
             </span>
           </p>
         ))}
@@ -105,7 +97,7 @@ function DayTooltip({ active, payload, label }: ChartTooltipProps) {
         <div className="mt-2 pt-2 border-t border-red-100">
           <p className="text-red-600 font-semibold flex items-center gap-1">
             <span>⚠️</span>
-            <span>共 {count} 笔支出，超 ¥10 万</span>
+            <span>共 {count} 笔支出，超 {fmt(100000, { compact: true })}</span>
           </p>
         </div>
       )}
@@ -118,8 +110,9 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
   const [granularity, setGranularity] = useState<CostGranularity>('month')
   const [monthlyView, setMonthlyView] = useState<MonthlyView>('table')
   const [monthlyGran, setMonthlyGran] = useState<MonthlyGran>('day')
-  const locale = useLocale()
   const t = useTranslations('expenses')
+  const { fmt } = useCurrency()
+  const fmtCompact = (v: number) => fmt(v, { compact: true })
 
   // ── Milestone overlay (non-default, lazy-loaded) ──────────────
   const [showMilestones, setShowMilestones] = useState(false)
@@ -268,7 +261,7 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-slate-500">{item.pct.toFixed(1)}%</span>
                   <span className="text-xs font-semibold text-slate-900 w-20 text-right">
-                    {fmtRmb(item.total, locale)}
+                    {fmtCompact(item.total)}
                   </span>
                 </div>
               </div>
@@ -292,9 +285,9 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
           <LineChart data={timeSeries} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={52} />
+            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={52} />
             <Tooltip
-              formatter={(v) => [`¥${Number(v).toFixed(2)}`, '']}
+              formatter={(v) => [fmt(Number(v)), '']}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -378,10 +371,10 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                     interval="preserveStartEnd"
                     minTickGap={50}
                   />
-                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={56} />
+                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={56} />
                   {monthlyGran === 'day'
-                    ? <Tooltip content={<DayTooltip />} />
-                    : <Tooltip formatter={(v) => [`¥${Number(v).toFixed(2)}`, '']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    ? <Tooltip content={<DayTooltip fmt={fmt} />} />
+                    : <Tooltip formatter={(v) => [fmt(Number(v)), '']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                   }
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {monthlyGran === 'day' && (
@@ -391,14 +384,14 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                         stroke="#f59e0b"
                         strokeDasharray="4 4"
                         ifOverflow="extendDomain"
-                        label={{ value: t('dailyAlert30k'), position: 'insideTopRight', fontSize: 10, fill: '#f59e0b' }}
+                        label={{ value: `${t('day')} ${fmtCompact(30000)}`, position: 'insideTopRight', fontSize: 10, fill: '#f59e0b' }}
                       />
                       <ReferenceLine
                         y={100000}
                         stroke="#ef4444"
                         strokeDasharray="4 4"
                         ifOverflow="extendDomain"
-                        label={{ value: t('dailyAlert100k'), position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }}
+                        label={{ value: `${t('day')} ${fmtCompact(100000)}`, position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }}
                       />
                     </>
                   )}
@@ -508,15 +501,15 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                     const amt = row.byCategory[o.value] ?? 0
                     return (
                       <td key={o.value} className="py-2.5 px-3 text-right text-slate-600 whitespace-nowrap">
-                        {amt > 0 ? fmtFull(amt) : <span className="text-slate-300">—</span>}
+                        {amt > 0 ? fmt(amt) : <span className="text-slate-300">—</span>}
                       </td>
                     )
                   })}
                   <td className="py-2.5 px-3 text-right font-semibold text-slate-900 whitespace-nowrap">
-                    {fmtFull(row.total)}
+                    {fmt(row.total)}
                   </td>
                   <td className="py-2.5 pl-3 text-right text-green-700 whitespace-nowrap">
-                    {row.paid > 0 ? fmtFull(row.paid) : <span className="text-slate-300">—</span>}
+                    {row.paid > 0 ? fmt(row.paid) : <span className="text-slate-300">—</span>}
                   </td>
                 </tr>
               ))}
@@ -529,15 +522,15 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                   const total = monthlySummary.reduce((s, r) => s + (r.byCategory[o.value] ?? 0), 0)
                   return (
                     <td key={o.value} className="py-2.5 px-3 text-right font-semibold text-slate-700 whitespace-nowrap">
-                      {fmtFull(total)}
+                      {fmt(total)}
                     </td>
                   )
                 })}
                 <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
-                  {fmtFull(monthlySummary.reduce((s, r) => s + r.total, 0))}
+                  {fmt(monthlySummary.reduce((s, r) => s + r.total, 0))}
                 </td>
                 <td className="py-2.5 pl-3 text-right font-semibold text-green-700 whitespace-nowrap">
-                  {fmtFull(monthlySummary.reduce((s, r) => s + r.paid, 0))}
+                  {fmt(monthlySummary.reduce((s, r) => s + r.paid, 0))}
                 </td>
               </tr>
             </tfoot>
