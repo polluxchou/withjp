@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header'
 import LifecycleBadge from '@/components/creators/LifecycleBadge'
 import Button from '@/components/ui/Button'
 import { ChevronRight, ChevronLeft, Users } from 'lucide-react'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import type { Creator, CreatorStatus } from '@/lib/types'
 import { ALL_STATUSES, STATUS_LABEL, nextStatus, canTransition } from '@/lib/state-machine/creator-lifecycle'
 

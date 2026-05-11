@@ -12,7 +12,7 @@ import {
   ArrowLeft, ChevronRight, Play, DollarSign,
   TrendingUp, Activity, Clock, Edit,
 } from 'lucide-react'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import type { Creator, Task, Finance, LifecycleTransition, CreatorActivityLog } from '@/lib/types'
 import {
   canTransition, nextStatus, STATUS_LABEL, ALL_STATUSES,

@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { Link, usePathname, useRouter } from '@/i18n/navigation'
+import { useTranslations } from 'next-intl'
+import { useState } from 'react'
 import {
   LayoutDashboard,
   Users,
@@ -21,45 +21,6 @@ import {
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
 
-const NAV_LABELS: Record<string, Record<string, string>> = {
-  en: {
-    dashboard: 'Dashboard',
-    creators:  'Creators',
-    pipeline:  'Pipeline',
-    timeline:  'Master Timeline',
-    tasks:     'Tasks',
-    workspace: 'Workspace',
-    team:      'Team (Agents)',
-    knowledge: 'Knowledge',
-    expenses:  'Expense Management',
-    config:    'Config',
-  },
-  zh: {
-    dashboard: '仪表盘',
-    creators:  '创作者',
-    pipeline:  '流程管理',
-    timeline:  '战略时间轴',
-    tasks:     '任务',
-    workspace: '工作区',
-    team:      '团队（AI代理）',
-    knowledge: '知识库',
-    expenses:  '支出管理',
-    config:    '配置',
-  },
-  ja: {
-    dashboard: 'ダッシュボード',
-    creators:  'クリエイター',
-    pipeline:  'パイプライン',
-    timeline:  'マスタータイムライン',
-    tasks:     'タスク',
-    workspace: 'ワークスペース',
-    team:      'チーム（AIエージェント）',
-    knowledge: 'ナレッジ',
-    expenses:  '経費管理',
-    config:    '設定',
-  },
-}
-
 const NAV = [
   { href: '/',          key: 'dashboard', icon: LayoutDashboard },
   { href: '/creators',  key: 'creators',  icon: Users },
@@ -76,15 +37,8 @@ const NAV = [
 export default function Sidebar() {
   const path = usePathname()
   const router = useRouter()
-  const [lang, setLang] = useState('zh')
+  const t = useTranslations('nav')
   const [profileOpen, setProfileOpen] = useState(false)
-
-  useEffect(() => {
-    const stored = localStorage.getItem('language') || 'zh'
-    setLang(stored)
-  }, [])
-
-  const labels = NAV_LABELS[lang] || NAV_LABELS['zh']
 
   const handleLogout = async () => {
     const { supabase } = await import('@/lib/supabase/client')
@@ -101,8 +55,8 @@ export default function Sidebar() {
           <Zap className="w-4 h-4 text-white" />
         </div>
         <div>
-          <div className="text-white font-semibold text-sm leading-tight">Creator Guild</div>
-          <div className="text-slate-400 text-xs">AI Operating System</div>
+          <div className="text-white font-semibold text-sm leading-tight">{t('appName')}</div>
+          <div className="text-slate-400 text-xs">{t('appSubtitle')}</div>
         </div>
       </div>
 
@@ -121,7 +75,7 @@ export default function Sidebar() {
               }`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
-              {labels[key]}
+              {t(key)}
             </Link>
           )
         })}
@@ -139,7 +93,7 @@ export default function Sidebar() {
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800 w-full"
         >
           <UserCircle className="w-4 h-4 flex-shrink-0" />
-          {lang === 'zh' ? '个人信息' : lang === 'ja' ? 'プロフィール' : 'Profile'}
+          {t('profile')}
         </button>
       </div>
 
@@ -150,7 +104,7 @@ export default function Sidebar() {
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800 w-full"
         >
           <LogOut className="w-4 h-4 flex-shrink-0" />
-          {lang === 'zh' ? '退出登录' : lang === 'ja' ? 'ログアウト' : 'Logout'}
+          {t('logout')}
         </button>
       </div>
 

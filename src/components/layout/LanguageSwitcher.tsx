@@ -1,33 +1,32 @@
 'use client'
 
 import { Globe } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useLocale, useTranslations } from 'next-intl'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useState } from 'react'
 
 const languages = [
-  { code: 'zh', name: '中文', flag: '🇨🇳' },
-  { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+  { code: 'zh', flag: '🇨🇳' },
+  { code: 'en', flag: '🇺🇸' },
 ]
 
 export default function LanguageSwitcher() {
-  const [currentLang, setCurrentLang] = useState('zh')
+  const locale = useLocale()
+  const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const t = useTranslations('language')
   const [isOpen, setIsOpen] = useState(false)
 
-  useEffect(() => {
-    const stored = localStorage.getItem('language')
-    if (stored && languages.some((lang) => lang.code === stored)) {
-      setCurrentLang(stored)
-    }
-  }, [])
-
   const handleLanguageChange = (langCode: string) => {
-    setCurrentLang(langCode)
     setIsOpen(false)
-    // Store in localStorage
-    localStorage.setItem('language', langCode)
-    // Reload to apply language
-    window.location.reload()
+    const segments = pathname.split('/')
+    segments[1] = langCode
+    const query = searchParams.toString()
+    router.push(`${segments.join('/')}${query ? `?${query}` : ''}`)
   }
+
+  const current = languages.find((lang) => lang.code === locale) ?? languages[0]
 
   return (
     <div className="relative">
@@ -36,8 +35,8 @@ export default function LanguageSwitcher() {
         className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors w-full"
       >
         <Globe className="w-4 h-4" />
-        <span>{languages.find(l => l.code === currentLang)?.flag}</span>
-        <span className="flex-1 text-left">{languages.find(l => l.code === currentLang)?.name}</span>
+        <span>{current.flag}</span>
+        <span className="flex-1 text-left">{t(current.code)}</span>
       </button>
 
       {isOpen && (
@@ -47,11 +46,11 @@ export default function LanguageSwitcher() {
               key={lang.code}
               onClick={() => handleLanguageChange(lang.code)}
               className={`flex items-center gap-2 px-3 py-2 text-sm w-full hover:bg-slate-700 transition-colors ${
-                currentLang === lang.code ? 'bg-slate-700 text-white' : 'text-slate-400'
+                locale === lang.code ? 'bg-slate-700 text-white' : 'text-slate-400'
               }`}
             >
               <span>{lang.flag}</span>
-              <span>{lang.name}</span>
+              <span>{t(lang.code)}</span>
             </button>
           ))}
         </div>

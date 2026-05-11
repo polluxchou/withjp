@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { format } from 'date-fns/format'
 import Header from '@/components/layout/Header'
 import Modal from '@/components/ui/Modal'

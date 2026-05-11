@@ -9,9 +9,10 @@ import {
   Users, TrendingUp, CheckSquare, DollarSign,
   ArrowRight, Activity,
 } from 'lucide-react'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
+import { getLocale, getTranslations } from 'next-intl/server'
 import type { DashboardStats, Task, Creator, CreatorStatus } from '@/lib/types'
-import { ALL_STATUSES, STATUS_LABEL } from '@/lib/state-machine/creator-lifecycle'
+import { ALL_STATUSES } from '@/lib/state-machine/creator-lifecycle'
 
 async function getDashboardData() {
   const db = createServerClient()
@@ -65,18 +66,25 @@ async function getDashboardData() {
 
 export default async function DashboardPage() {
   const { stats, recentTasks, recentCreators } = await getDashboardData()
+  const t = await getTranslations('dashboard')
+  const tCreators = await getTranslations('creators')
+  const tStatus = await getTranslations('status')
+  const locale = await getLocale()
 
-  const fmt = (n: number) =>
-    n >= 1000 ? `¥${(n / 1000).toFixed(1)}K` : `¥${n.toFixed(0)}`
+  const fmt = (n: number) => {
+    if (locale === 'zh' && n >= 10000) return `¥${(n / 10000).toFixed(1)}万`
+    if (locale === 'en' && n >= 1000) return `¥${(n / 1000).toFixed(1)}K`
+    return `¥${n.toFixed(0)}`
+  }
 
   return (
     <div>
       <Header
-        title="Dashboard"
-        subtitle="Creator Guild operating overview"
+        title={t('title')}
+        subtitle={t('subtitle')}
         actions={
           <Link href="/creators" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-medium hover:text-indigo-800">
-            View all creators <ArrowRight className="w-4 h-4" />
+            {t('viewAllCreators')} <ArrowRight className="w-4 h-4" />
           </Link>
         }
       />
@@ -84,31 +92,31 @@ export default async function DashboardPage() {
       {/* KPI grid */}
       <div className="grid grid-cols-4 gap-4 mb-8">
         <StatsCard
-          label="Total Creators"
+          label={t('totalCreators')}
           value={stats?.total_creators ?? 0}
           icon={Users}
-          sub="Across all stages"
+          sub={t('acrossAllStages')}
         />
         <StatsCard
-          label="Total Revenue"
+          label={t('totalRevenue')}
           value={fmt(stats?.total_revenue ?? 0)}
           icon={DollarSign}
           accent="bg-emerald-50 text-emerald-600"
-          sub={`Profit: ${fmt(stats?.total_profit ?? 0)}`}
+          sub={`${t('profit')}: ${fmt(stats?.total_profit ?? 0)}`}
         />
         <StatsCard
-          label="Avg ROI"
+          label={t('avgROI')}
           value={`${(stats?.avg_roi ?? 0).toFixed(1)}%`}
           icon={TrendingUp}
           accent="bg-blue-50 text-blue-600"
-          sub={`${stats?.profitable_creators ?? 0} profitable creators`}
+          sub={t('profitableCreators', { count: stats?.profitable_creators ?? 0 })}
         />
         <StatsCard
-          label="Open Tasks"
+          label={t('openTasks')}
           value={(stats?.pending_tasks ?? 0) + (stats?.running_tasks ?? 0)}
           icon={CheckSquare}
           accent="bg-amber-50 text-amber-600"
-          sub={`${stats?.done_tasks ?? 0} completed total`}
+          sub={t('completedTotal', { count: stats?.done_tasks ?? 0 })}
         />
       </div>
 
@@ -118,7 +126,7 @@ export default async function DashboardPage() {
         <div className="col-span-1 bg-white border border-slate-200 rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-900">Pipeline Funnel</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t('pipelineFunnel')}</h2>
           </div>
           <div className="space-y-2">
             {ALL_STATUSES.map((s) => {
@@ -128,7 +136,7 @@ export default async function DashboardPage() {
               return (
                 <div key={s}>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-600">{STATUS_LABEL[s]}</span>
+                    <span className="text-slate-600">{tStatus(s)}</span>
                     <span className="font-medium text-slate-900">{count}</span>
                   </div>
                   <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -142,19 +150,19 @@ export default async function DashboardPage() {
             })}
           </div>
           <Link href="/pipeline" className="mt-4 flex items-center gap-1 text-xs text-indigo-600 font-medium hover:text-indigo-800">
-            Open Pipeline <ArrowRight className="w-3 h-3" />
+            {t('openPipeline')} <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
 
         {/* Recent Tasks */}
         <div className="col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">Recent Tasks</h2>
-            <Link href="/tasks" className="text-xs text-indigo-600 font-medium hover:text-indigo-800">View all</Link>
+            <h2 className="text-sm font-semibold text-slate-900">{t('recentTasks')}</h2>
+            <Link href="/tasks" className="text-xs text-indigo-600 font-medium hover:text-indigo-800">{t('viewAll')}</Link>
           </div>
           {recentTasks.length === 0 && (
             <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-sm text-slate-400">
-              No tasks yet. Add a creator to get started.
+              {t('noTasksYet')}
             </div>
           )}
           {recentTasks.map((task) => (
@@ -166,20 +174,20 @@ export default async function DashboardPage() {
       {/* Recent Creators */}
       <div className="mt-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-slate-900">Recently Added Creators</h2>
-          <Link href="/creators" className="text-xs text-indigo-600 font-medium hover:text-indigo-800">View all</Link>
+          <h2 className="text-sm font-semibold text-slate-900">{t('recentlyAddedCreators')}</h2>
+          <Link href="/creators" className="text-xs text-indigo-600 font-medium hover:text-indigo-800">{t('viewAll')}</Link>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           {recentCreators.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-400">No creators yet.</div>
+            <div className="p-8 text-center text-sm text-slate-400">{t('noCreatorsYet')}</div>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Creator</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Platform</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Status</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Niche</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('creator')}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('platform')}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('status')}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('niche')}</th>
                   <th />
                 </tr>
               </thead>
@@ -191,7 +199,7 @@ export default async function DashboardPage() {
                     <td className="px-5 py-3"><LifecycleBadge status={c.status} size="sm" /></td>
                     <td className="px-5 py-3 text-slate-400">{c.profile?.niche ?? '—'}</td>
                     <td className="px-5 py-3 text-right">
-                      <Link href={`/creators/${c.id}`} className="text-xs text-indigo-600 hover:text-indigo-800">View →</Link>
+                      <Link href={`/creators/${c.id}`} className="text-xs text-indigo-600 hover:text-indigo-800">{tCreators('view')} →</Link>
                     </td>
                   </tr>
                 ))}
