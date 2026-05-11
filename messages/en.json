@@ -15,7 +15,8 @@
     "run": "Run",
     "none": "None",
     "notFound": "Not found",
-    "confirmDelete": "Confirm delete"
+    "confirmDelete": "Confirm delete",
+    "close": "Close"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -238,6 +239,10 @@
     "chartView": "Chart",
     "dailyAlert30k": "¥30K/day",
     "dailyAlert100k": "¥100K/day",
+    "details": "Expense details",
+    "location": "Location",
+    "notes": "Notes",
+    "createdAt": "Created at",
     "categories": {
       "tangible_asset": "Tangible assets",
       "salary": "Salary costs",
