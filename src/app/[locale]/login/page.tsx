@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from '@/i18n/navigation'
+import { useTranslations } from 'next-intl'
 import { Eye, EyeOff } from 'lucide-react'
 
 const REMEMBER_KEY = 'cg_remembered_email'
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading]           = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
+  const t = useTranslations('auth')
 
   useEffect(() => {
     const saved = localStorage.getItem(REMEMBER_KEY)
@@ -42,7 +44,7 @@ export default function LoginPage() {
       router.push('/')
       router.refresh()
     } catch (err: any) {
-      setError(err.message || 'Login failed')
+      setError(err.message || t('loginFailed'))
     } finally {
       setLoading(false)
     }
@@ -52,7 +54,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
         <div>
-          <h2 className="text-3xl font-bold text-center">Sign In</h2>
+          <h2 className="text-3xl font-bold text-center">{t('signIn')}</h2>
           <p className="mt-2 text-center text-gray-600">Creator Guild OS</p>
         </div>
 
@@ -66,7 +68,7 @@ export default function LoginPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
+                {t('email')}
               </label>
               <input
                 id="email"
@@ -82,7 +84,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                {t('password')}
               </label>
               <div className="relative mt-1">
                 <input
@@ -115,7 +117,7 @@ export default function LoginPage() {
               className="h-4 w-4 text-blue-600 border-gray-300 rounded cursor-pointer"
             />
             <label htmlFor="remember" className="ml-2 block text-sm text-gray-600 cursor-pointer select-none">
-              Remember my email
+              {t('remember')}
             </label>
           </div>
 
@@ -124,7 +126,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? t('signingIn') : t('signIn')}
           </button>
         </form>
       </div>

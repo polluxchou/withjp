@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import Sidebar from '@/components/layout/Sidebar'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

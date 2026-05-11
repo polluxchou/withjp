@@ -1,13 +1,25 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { defaultLocale, isLocale } from '@/i18n/routing'
 
 const PUBLIC_PATHS = ['/login', '/_next', '/api']
 
+function stripLocale(pathname: string) {
+  const segments = pathname.split('/')
+  return isLocale(segments[1]) ? `/${segments.slice(2).join('/')}` : pathname
+}
+
+function localizedLoginPath(pathname: string) {
+  const locale = pathname.split('/')[1]
+  return `/${isLocale(locale) ? locale : defaultLocale}/login`
+}
+
 export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const pathnameWithoutLocale = stripLocale(pathname)
 
   // Skip Supabase auth check for public paths to avoid network timeout blocking page load
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p)) || pathname.includes('.')) {
+  if (PUBLIC_PATHS.some(p => pathnameWithoutLocale.startsWith(p)) || pathname.includes('.')) {
     return NextResponse.next({ request })
   }
 
@@ -42,12 +54,12 @@ export async function updateSession(request: NextRequest) {
     ])
     if (!user) {
       const url = request.nextUrl.clone()
-      url.pathname = '/login'
+      url.pathname = localizedLoginPath(pathname)
       return NextResponse.redirect(url)
     }
   } catch {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    url.pathname = localizedLoginPath(pathname)
     return NextResponse.redirect(url)
   }
 

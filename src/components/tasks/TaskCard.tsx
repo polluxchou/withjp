@@ -1,6 +1,6 @@
 import type { Task } from '@/lib/types'
 import { Clock, CheckCircle2, XCircle, Loader2, ChevronRight } from 'lucide-react'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 
 const STATUS_ICON = {
   pending: Clock,
