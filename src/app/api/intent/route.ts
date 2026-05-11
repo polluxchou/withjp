@@ -14,19 +14,19 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ kind: 'error', message: 'invalid JSON body' }, { status: 400 })
+    return NextResponse.json({ kind: 'error', code: 'bad_request', message: 'invalid JSON body' }, { status: 400 })
   }
 
   const text = (body.text ?? '').trim()
   if (!text) {
-    return NextResponse.json({ kind: 'error', message: 'text is required' }, { status: 400 })
+    return NextResponse.json({ kind: 'error', code: 'bad_request', message: 'text is required' }, { status: 400 })
   }
 
   const todayISO = new Date().toISOString().slice(0, 10)
   const parsed   = await parseExpenseIntent(text, { todayISO })
   if (!parsed.ok) {
     return NextResponse.json(
-      { kind: 'error', message: `无法解析：${parsed.reason}` },
+      { kind: 'error', code: 'parser_failed', message: parsed.reason },
       { status: 200 },
     )
   }

@@ -39,7 +39,13 @@ export type ExecuteResult =
       message:    string
       candidates?: Expense[]
     }
-  | { kind: 'error'; message: string }
+  | { kind: 'error'; code: ExecuteErrorCode; message: string }
+
+export type ExecuteErrorCode =
+  | 'parser_failed'      // Gemini could not produce a valid intent
+  | 'executor_failed'    // staging or applying the intent failed
+  | 'bad_request'        // empty body / invalid JSON
+  | 'unknown'
 
 export interface ExecuteContext {
   userId:  string
@@ -56,7 +62,7 @@ export async function executeIntent(
 ): Promise<ExecuteResult> {
   if (intent.op === 'query')   return runQuery(intent, ctx)
   if (isWriteIntent(intent))   return stageWrite(intent, ctx)
-  return { kind: 'error', message: 'Unsupported intent.op' }
+  return { kind: 'error', code: 'unknown', message: 'Unsupported intent.op' }
 }
 
 // ── Apply / cancel a pending action ───────────────────────────
@@ -193,7 +199,7 @@ async function stageWrite(
     .single()
 
   if (error || !inserted) {
-    return { kind: 'error', message: error?.message ?? 'failed to stage pending action' }
+    return { kind: 'error', code: 'executor_failed', message: error?.message ?? 'failed to stage pending action' }
   }
 
   return {
