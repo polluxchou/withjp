@@ -18,7 +18,19 @@ import {
   MilestoneTypeBadge,
   STATUS_BAR_COLOR,
 } from '@/components/milestones/MilestoneStatusBadge'
-import { Plus, List, BarChart2, Target, AlertTriangle } from 'lucide-react'
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ReferenceLine,
+  Dot,
+} from 'recharts'
+import { Plus, List, BarChart2, TrendingUp, Target, AlertTriangle } from 'lucide-react'
 import type { Milestone, MilestoneStatus, MilestoneType } from '@/lib/types'
 
 // ── Constants ─────────────────────────────────────────────────
@@ -75,7 +87,7 @@ function getBar(m: Milestone, rangeStart: Date) {
 export default function TimelinePage() {
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [loading, setLoading]       = useState(true)
-  const [view, setView]             = useState<'list' | 'gantt'>('list')
+  const [view, setView]             = useState<'list' | 'gantt' | 'curve'>('list')
   const [showForm, setShowForm]     = useState(false)
   const [statusFilter, setStatusFilter] = useState<MilestoneStatus | 'all'>('all')
   const [typeFilter,   setTypeFilter]   = useState<MilestoneType   | 'all'>('all')
@@ -117,6 +129,10 @@ export default function TimelinePage() {
               <button onClick={() => setView('gantt')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'gantt' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
                 <BarChart2 className="w-3.5 h-3.5" /> Timeline
+              </button>
+              <button onClick={() => setView('curve')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'curve' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
+                <TrendingUp className="w-3.5 h-3.5" /> 进度曲线
               </button>
             </div>
             <Button onClick={() => setShowForm(true)}>
@@ -170,8 +186,10 @@ export default function TimelinePage() {
         </div>
       ) : view === 'list' ? (
         <ListView milestones={milestones} onUpdated={load} />
-      ) : (
+      ) : view === 'gantt' ? (
         <GanttView milestones={milestones} />
+      ) : (
+        <CurveView milestones={milestones} />
       )}
 
       {/* Create modal */}
@@ -346,6 +364,235 @@ function GanttView({ milestones }: { milestones: Milestone[] }) {
           <span className="text-xs text-slate-500">Today</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Progress curve view ────────────────────────────────────────
+
+interface CurvePoint {
+  month:     string   // 'YYYY-MM'
+  planned:   number   // cumulative milestones due by this month
+  completed: number   // cumulative milestones completed (status=completed) by their target_date
+  active:    number   // cumulative milestones that entered active/at_risk/planned by start_date
+  // individual milestone markers for this month
+  markers:   Milestone[]
+}
+
+function buildCurveData(milestones: Milestone[]): CurvePoint[] {
+  if (milestones.length === 0) return []
+
+  const starts  = milestones.map(m => new Date(m.start_date).getTime())
+  const targets = milestones.map(m => new Date(m.target_date).getTime())
+  const minDate = startOfMonth(new Date(Math.min(...starts)))
+  const maxDate = endOfMonth(addMonths(new Date(Math.max(...targets)), 1))
+
+  const months = eachMonthOfInterval({ start: minDate, end: maxDate })
+
+  return months.map(monthDate => {
+    const monthEnd = endOfMonth(monthDate).getTime()
+    const monthKey = format(monthDate, 'yyyy-MM')
+
+    // Milestones due by end of this month (target_date <= monthEnd)
+    const planned = milestones.filter(m =>
+      new Date(m.target_date).getTime() <= monthEnd
+    ).length
+
+    // Milestones with status='completed' AND target_date in or before this month
+    const completed = milestones.filter(m =>
+      m.status === 'completed' && new Date(m.target_date).getTime() <= monthEnd
+    ).length
+
+    // Milestones that started by this month
+    const active = milestones.filter(m =>
+      new Date(m.start_date).getTime() <= monthEnd
+    ).length
+
+    // Markers: milestones whose target_date falls in this month
+    const markers = milestones.filter(m => {
+      const td = new Date(m.target_date)
+      return format(td, 'yyyy-MM') === monthKey
+    })
+
+    return { month: monthKey, planned, completed, active, markers }
+  })
+}
+
+interface ChartTooltipProps {
+  active?: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: any[]
+  label?: string
+}
+
+// Custom tooltip for the curve chart
+function CurveTooltip({ active, payload, label }: ChartTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null
+
+  const point = payload[0]?.payload as CurvePoint | undefined
+  const markers = point?.markers ?? []
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-md p-3 text-xs min-w-[200px]">
+      <p className="font-semibold text-slate-700 mb-2">{label}</p>
+      <div className="space-y-1 mb-2">
+        {payload.map((p) => (
+          <p key={String(p.dataKey)} className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+            <span className="text-slate-500">{p.name}:</span>
+            <span className="font-semibold text-slate-800 ml-auto pl-2">{p.value}</span>
+          </p>
+        ))}
+      </div>
+      {markers.length > 0 && (
+        <div className="border-t border-slate-100 pt-2 space-y-1">
+          <p className="text-slate-400 mb-1">本月节点</p>
+          {markers.map(m => (
+            <p key={m.id} className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_BAR_COLOR[m.status]}`} />
+              <span className="text-slate-700 truncate max-w-[140px]">{m.title}</span>
+              <span className={`ml-auto text-xs px-1 rounded ${
+                m.status === 'completed' ? 'text-green-600 bg-green-50' :
+                m.status === 'missed'    ? 'text-red-600 bg-red-50' :
+                m.status === 'at_risk'  ? 'text-amber-600 bg-amber-50' :
+                'text-slate-500 bg-slate-50'
+              }`}>{m.status}</span>
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CurveView({ milestones }: { milestones: Milestone[] }) {
+  const data    = buildCurveData(milestones)
+  const today   = format(new Date(), 'yyyy-MM')
+  const total   = milestones.length
+  const done    = milestones.filter(m => m.status === 'completed').length
+  const missed  = milestones.filter(m => m.status === 'missed').length
+  const atRisk  = milestones.filter(m => m.status === 'at_risk').length
+
+  if (milestones.length === 0) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-sm text-slate-400">
+        暂无数据
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-5">
+      {/* KPI row */}
+      <div className="grid grid-cols-4 gap-3 mb-5">
+        {[
+          { label: '总节点',  value: total,  color: 'text-slate-900' },
+          { label: '已完成', value: done,   color: 'text-green-700' },
+          { label: '已逾期', value: missed, color: 'text-red-600'   },
+          { label: '有风险', value: atRisk, color: 'text-amber-600' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="border border-slate-100 rounded-xl px-4 py-3">
+            <p className="text-xs text-slate-500 mb-0.5">{label}</p>
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{total > 0 ? `${((value / total) * 100).toFixed(0)}%` : '—'}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart */}
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data} margin={{ top: 8, right: 24, bottom: 0, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis
+            dataKey="month"
+            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            axisLine={false}
+            tickLine={false}
+            interval="preserveStartEnd"
+          />
+          <YAxis
+            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            axisLine={false}
+            tickLine={false}
+            allowDecimals={false}
+            width={28}
+          />
+          <Tooltip content={<CurveTooltip />} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+
+          {/* Today marker */}
+          <ReferenceLine
+            x={today}
+            stroke="#ef4444"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            label={{ value: 'Today', position: 'insideTopLeft', fontSize: 10, fill: '#ef4444' }}
+          />
+
+          {/* Total capacity reference */}
+          <ReferenceLine
+            y={total}
+            stroke="#94a3b8"
+            strokeDasharray="3 3"
+            label={{ value: `总量 ${total}`, position: 'insideTopRight', fontSize: 10, fill: '#94a3b8' }}
+          />
+
+          {/* Lines */}
+          <Line
+            type="monotone"
+            dataKey="planned"
+            name="计划累计"
+            stroke="#6366f1"
+            strokeWidth={2}
+            dot={false}
+            strokeDasharray="6 2"
+          />
+          <Line
+            type="monotone"
+            dataKey="completed"
+            name="已完成"
+            stroke="#10b981"
+            strokeWidth={2.5}
+            dot={(props) => {
+              // Show a dot on months that have milestone markers
+              const point = props.payload as CurvePoint
+              if (!point?.markers?.length) return <></>
+              return (
+                <Dot
+                  key={`dot-${props.cx}-${props.cy}`}
+                  cx={props.cx}
+                  cy={props.cy}
+                  r={4}
+                  fill="#10b981"
+                  stroke="#fff"
+                  strokeWidth={2}
+                />
+              )
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="active"
+            name="已启动"
+            stroke="#f59e0b"
+            strokeWidth={1.5}
+            dot={false}
+            strokeDasharray="3 3"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+
+      {/* Gap analysis note */}
+      {done < milestones.filter(m => new Date(m.target_date) <= new Date()).length && (
+        <div className="mt-4 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <span>
+            截至今天，计划应完成 <strong>{milestones.filter(m => new Date(m.target_date) <= new Date()).length}</strong> 个节点，
+            实际完成 <strong>{done}</strong> 个，
+            缺口 <strong>{milestones.filter(m => new Date(m.target_date) <= new Date()).length - done}</strong> 个。
+          </span>
+        </div>
+      )}
     </div>
   )
 }

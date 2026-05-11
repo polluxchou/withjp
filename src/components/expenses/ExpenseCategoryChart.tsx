@@ -73,6 +73,46 @@ type Tab = 'category' | 'trend' | 'monthly'
 type MonthlyView = 'table' | 'chart'
 type MonthlyGran = 'day' | 'month'
 
+interface ChartTooltipProps {
+  active?: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: any[]
+  label?: string
+}
+
+// ── Custom tooltip: shows expense count on days that exceed ¥100k ──
+function DayTooltip({ active, payload, label }: ChartTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null
+
+  const total = (payload.find((p) => p.dataKey === 'total')?.value as number) ?? 0
+  const count = (payload[0]?.payload?.count as number) ?? 0
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-md p-2.5 text-xs min-w-[140px]">
+      <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
+      <div className="space-y-1">
+        {payload.map((p) => (
+          <p key={String(p.dataKey)} className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+            <span className="text-slate-500">{p.name}:</span>
+            <span className="font-medium text-slate-800 ml-auto pl-2">
+              ¥{Number(p.value ?? 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}
+            </span>
+          </p>
+        ))}
+      </div>
+      {total >= 100000 && count > 0 && (
+        <div className="mt-2 pt-2 border-t border-red-100">
+          <p className="text-red-600 font-semibold flex items-center gap-1">
+            <span>⚠️</span>
+            <span>共 {count} 笔支出，超 ¥10 万</span>
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ExpenseCategoryChart({ expenses }: Props) {
   const [tab, setTab]                 = useState<Tab>('category')
   const [granularity, setGranularity] = useState<CostGranularity>('month')
@@ -140,8 +180,8 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
   const dailySummary   = getDailyExpenseSummary(expenses)
 
   const chartData = monthlyGran === 'day'
-    ? dailySummary.map((r) => ({ period: r.date, total: r.total, paid: r.paid }))
-    : [...monthlySummary].reverse().map((r) => ({ period: r.month, total: r.total, paid: r.paid }))
+    ? dailySummary.map((r) => ({ period: r.date, total: r.total, paid: r.paid, count: r.count }))
+    : [...monthlySummary].reverse().map((r) => ({ period: r.month, total: r.total, paid: r.paid, count: 0 }))
 
   // Only show categories that have data in the monthly view
   const activeCategories = EXPENSE_CATEGORY_OPTIONS.filter((o) =>
@@ -304,10 +344,10 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={56} />
-                  <Tooltip
-                    formatter={(v) => [`¥${Number(v).toFixed(2)}`, '']}
-                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                  />
+                  {monthlyGran === 'day'
+                    ? <Tooltip content={<DayTooltip />} />
+                    : <Tooltip formatter={(v) => [`¥${Number(v).toFixed(2)}`, '']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                  }
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {monthlyGran === 'day' && (
                     <>

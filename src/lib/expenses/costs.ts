@@ -266,9 +266,10 @@ type ExpenseForMonthly = {
 // ── Daily summary (one row per day with spend) ───────────────
 
 export interface DailyExpenseSummaryRow {
-  date:  string                                    // 'YYYY-MM-DD'
+  date:  string   // 'YYYY-MM-DD'
   total: number
   paid:  number
+  count: number   // number of individual expense records on this day
 }
 
 type ExpenseForDaily = {
@@ -286,8 +287,9 @@ export function getDailyExpenseSummary(
     if (!e.expense_date) continue
     const date = e.expense_date
     const amt  = Number(e.total_price)
-    const row  = map.get(date) ?? { date, total: 0, paid: 0 }
+    const row  = map.get(date) ?? { date, total: 0, paid: 0, count: 0 }
     row.total += amt
+    row.count += 1
     if (e.payment_status === 'paid') row.paid += amt
     map.set(date, row)
   }
