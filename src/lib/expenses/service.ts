@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { COMPANY_ACCOUNT_BUYERS } from '@/lib/types'
+import { categoryHasPeriod, dateToQuarter } from '@/lib/expenses/costs'
 import type {
   Expense,
   ExpenseCategory,
@@ -157,6 +158,12 @@ export async function createExpense(
     }
   }
 
+  // Derive period from expense_date when the category requires one and no
+  // explicit period was provided. Matches what ExpenseForm does client-side.
+  const derivedPeriod = categoryHasPeriod(cat) && !input.period
+    ? (dateToQuarter(input.expense_date) || null)
+    : (input.period ?? null)
+
   const db = createServerClient()
   const { data, error } = await db
     .from('expenses')
@@ -168,7 +175,7 @@ export async function createExpense(
       expense_date:     input.expense_date,
       location:         input.location   ?? '',
       purpose:          input.purpose    ?? '',
-      period:           input.period     ?? null,
+      period:           derivedPeriod,
       user_name:        input.user_name  ?? '',
       buyer_name:       input.buyer_name ?? '',
       payment_method:   input.payment_method ?? null,

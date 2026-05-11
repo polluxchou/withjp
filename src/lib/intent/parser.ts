@@ -104,7 +104,7 @@ QUERY:
 ExpenseFilters:
 {
   "expense_category"?: ["tangible_asset"|"salary"|"rent"|"travel"|"office_supplies"|"cloud_services", ...],
-  "period_in"?: ["YYYY-MM", ...],                   // 季度展开成 3 个月
+  "period_in"?: ["YYYY-QN", ...],                   // 季度格式，如 "2026-Q3"。多季度就给多个
   "date_range"?: { "from"?: "YYYY-MM-DD", "to"?: "YYYY-MM-DD" },
   "payment_status"?: ["budgeted"|"ordered_unpaid"|"paid"|"refunded"|"partially_refunded", ...],
   "payment_method"?: ["company_account"|"wechat_pay"|"alipay"|"bank_card", ...],
@@ -116,7 +116,7 @@ ExpenseFilters:
 
 Expense 字段（用于 payload / patch）:
   expense_category, item_name, unit_price (number), quantity (int>0),
-  expense_date (YYYY-MM-DD), period (YYYY-MM, 可空),
+  expense_date (YYYY-MM-DD), period (YYYY-QN, 可空；只对 salary/rent/cloud_services 用),
   location, purpose, user_name, buyer_name,
   payment_method (4选1或null), payment_status (5选1), notes
 `
@@ -124,11 +124,12 @@ Expense 字段（用于 payload / patch）:
 const RULES = `
 关键规则：
 1. 相对时间一律转绝对日期/period。"Q3" 按今年；"上个月" / "最近 30 天" 也要转成绝对值。
-2. 季度 → period_in 列出 3 个月份（如 2026 Q3 → ["2026-07","2026-08","2026-09"]）。
-3. 模糊词放进 *_contains，不要瞎猜成精确 id / enum。
-4. 不确定的字段放进 ambiguities，不要凭空填。
-5. 占比类问题（"X 在 Y 中占多少"）：filters=X 条件，ratioOf.filters=Y 条件。
-6. 只输出 JSON，不要 markdown 围栏，不要解释文字。
+2. 季度 → period_in 用季度字符串（如 2026 Q3 → ["2026-Q3"]），不要展开成月份。多季度就给多个，例如 上半年 → ["2026-Q1","2026-Q2"]。
+3. 月份 → 用 date_range 表达，不要写进 period_in，因为 period 字段只存季度。
+4. 模糊词放进 *_contains，不要瞎猜成精确 id / enum。
+5. 不确定的字段放进 ambiguities，不要凭空填。
+6. 占比类问题（"X 在 Y 中占多少"）：filters=X 条件，ratioOf.filters=Y 条件。
+7. 只输出 JSON，不要 markdown 围栏，不要解释文字。
 `
 
 function buildExtractPrompt(text: string, ctx: ParserContext, kind: IntentKind): string {
