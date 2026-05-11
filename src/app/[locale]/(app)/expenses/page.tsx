@@ -6,7 +6,7 @@ import ExpenseForm from '@/components/expenses/ExpenseForm'
 import ExpenseCategoryChart from '@/components/expenses/ExpenseCategoryChart'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { Plus, Search, Receipt, RotateCcw } from 'lucide-react'
+import { Plus, Search, Receipt, RotateCcw, Copy } from 'lucide-react'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
 import {
   EXPENSE_CATEGORY_OPTIONS,
@@ -63,6 +63,7 @@ export default function ExpensesPage() {
   const [filters,    setFilters]    = useState<Filters>(EMPTY_FILTERS)
   const [showForm,   setShowForm]   = useState(false)
   const [editing,    setEditing]    = useState<Expense | null>(null)
+  const [duplicating, setDuplicating] = useState<Expense | null>(null)
   const [deleting,   setDeleting]   = useState<Expense | null>(null)
   const [deleteErr,  setDeleteErr]  = useState<string | null>(null)
   const [delLoading, setDelLoading] = useState(false)
@@ -277,6 +278,13 @@ export default function ExpensesPage() {
                         编辑
                       </button>
                       <button
+                        onClick={() => setDuplicating(e)}
+                        className="inline-flex items-center gap-1 text-xs text-slate-600 font-medium hover:text-slate-900 mr-3"
+                        title="复制此条记录"
+                      >
+                        <Copy className="w-3 h-3" /> 复制
+                      </button>
+                      <button
                         onClick={() => { setDeleting(e); setDeleteErr(null) }}
                         className="text-xs text-red-500 font-medium hover:text-red-700"
                       >
@@ -306,6 +314,17 @@ export default function ExpensesPage() {
             expense={editing}
             onSuccess={() => { setEditing(null); load() }}
             onCancel={() => setEditing(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Duplicate Modal — pre-fills with source data, creates new record on save */}
+      <Modal open={!!duplicating} onClose={() => setDuplicating(null)} title="复制支出（请确认明细）" width="max-w-2xl">
+        {duplicating && (
+          <ExpenseForm
+            duplicateFrom={duplicating}
+            onSuccess={() => { setDuplicating(null); load() }}
+            onCancel={() => setDuplicating(null)}
           />
         )}
       </Modal>
