@@ -1,8 +1,7 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
 import { Globe } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const languages = [
   { code: 'zh', name: '中文', flag: '🇨🇳' },
@@ -13,6 +12,13 @@ const languages = [
 export default function LanguageSwitcher() {
   const [currentLang, setCurrentLang] = useState('zh')
   const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('language')
+    if (stored && languages.some((lang) => lang.code === stored)) {
+      setCurrentLang(stored)
+    }
+  }, [])
 
   const handleLanguageChange = (langCode: string) => {
     setCurrentLang(langCode)

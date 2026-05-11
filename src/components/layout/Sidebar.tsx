@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
   Users,
@@ -88,6 +87,7 @@ export default function Sidebar() {
   const labels = NAV_LABELS[lang] || NAV_LABELS['zh']
 
   const handleLogout = async () => {
+    const { supabase } = await import('@/lib/supabase/client')
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()

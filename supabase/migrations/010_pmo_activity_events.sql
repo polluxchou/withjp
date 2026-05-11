@@ -185,7 +185,10 @@ begin
     entity_type, entity_id, action,
     before, after, diff
   ) values (
-    case when v_actor_id is not null then 'user' else 'system' end,
+    case
+      when v_actor_id is not null then 'user'::activity_actor_type
+      else 'system'::activity_actor_type
+    end,
     v_actor_id,
     v_entity,
     coalesce((v_after ->> 'id')::uuid, (v_before ->> 'id')::uuid),
@@ -274,9 +277,11 @@ begin
     entity_type, entity_id, action,
     content, context
   ) values (
-    case when new.sender_type = 'agent' then 'agent'
-         when v_actor_id is not null    then 'user'
-         else 'system' end,
+    case
+      when new.sender_type = 'agent' then 'agent'::activity_actor_type
+      when v_actor_id is not null    then 'user'::activity_actor_type
+      else 'system'::activity_actor_type
+    end,
     v_actor_id,
     new.agent_id,
     'conversation',

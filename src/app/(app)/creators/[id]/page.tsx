@@ -18,7 +18,7 @@ import {
   canTransition, nextStatus, STATUS_LABEL, ALL_STATUSES,
 } from '@/lib/state-machine/creator-lifecycle'
 import { getPlatformUrl } from '@/lib/creators/platforms'
-import { format } from 'date-fns'
+import { format } from 'date-fns/format'
 import { ExternalLink } from 'lucide-react'
 
 interface CreatorDetail extends Creator {

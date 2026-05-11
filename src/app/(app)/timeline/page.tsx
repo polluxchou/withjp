@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { format, differenceInDays, eachMonthOfInterval, startOfMonth, addMonths, endOfMonth } from 'date-fns'
+import { addMonths } from 'date-fns/addMonths'
+import { differenceInDays } from 'date-fns/differenceInDays'
+import { eachMonthOfInterval } from 'date-fns/eachMonthOfInterval'
+import { endOfMonth } from 'date-fns/endOfMonth'
+import { format } from 'date-fns/format'
+import { startOfMonth } from 'date-fns/startOfMonth'
 import Header from '@/components/layout/Header'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
