@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Header from '@/components/layout/Header'
 import DeviceForm from '@/components/devices/DeviceForm'
+import DeviceCostChart from '@/components/devices/DeviceCostChart'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { Plus, Search, Laptop, RotateCcw } from 'lucide-react'
@@ -115,6 +116,9 @@ export default function DevicesPage() {
           <p className="text-xl font-bold text-slate-900">{summary.deviceCount}</p>
         </div>
       </div>
+
+      {/* Cumulative Spend Chart */}
+      <DeviceCostChart devices={devices} />
 
       {/* Filters */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 mb-5 space-y-3">
