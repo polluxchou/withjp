@@ -31,29 +31,31 @@ interface FormData {
 }
 
 interface Props {
-  expense?:  Expense
-  onSuccess: () => void
-  onCancel:  () => void
+  expense?:       Expense
+  duplicateFrom?: Expense
+  onSuccess:      () => void
+  onCancel:       () => void
 }
 
 const INPUT = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
 const LABEL = 'block text-xs font-medium text-slate-700 mb-1'
 
-export default function ExpenseForm({ expense, onSuccess, onCancel }: Props) {
+export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCancel }: Props) {
+  const source = expense ?? duplicateFrom
   const [form, setForm] = useState<FormData>({
-    expense_category: expense?.expense_category ?? 'tangible_asset',
-    item_name:        expense?.item_name        ?? '',
-    unit_price:       expense?.unit_price?.toString()  ?? '0',
-    quantity:         expense?.quantity?.toString()    ?? '1',
-    expense_date:     expense?.expense_date     ?? '',
-    location:         expense?.location         ?? '',
-    purpose:          expense?.purpose          ?? '',
-    period:           expense?.period           ?? '',
-    user_name:        expense?.user_name        ?? '',
-    buyer_name:       expense?.buyer_name       ?? '',
-    payment_method:   expense?.payment_method   ?? '',
-    payment_status:   expense?.payment_status   ?? '',
-    notes:            expense?.notes            ?? '',
+    expense_category: source?.expense_category ?? 'tangible_asset',
+    item_name:        source?.item_name        ?? '',
+    unit_price:       source?.unit_price?.toString()  ?? '0',
+    quantity:         source?.quantity?.toString()    ?? '1',
+    expense_date:     source?.expense_date     ?? '',
+    location:         source?.location         ?? '',
+    purpose:          source?.purpose          ?? '',
+    period:           source?.period           ?? '',
+    user_name:        source?.user_name        ?? '',
+    buyer_name:       source?.buyer_name       ?? '',
+    payment_method:   source?.payment_method   ?? '',
+    payment_status:   source?.payment_status   ?? '',
+    notes:            source?.notes            ?? '',
   })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
