@@ -227,6 +227,51 @@ function periodStart(d: Date, g: CostGranularity): Date {
   return new Date(Date.UTC(y, m, 1))
 }
 
+// ── Monthly summary (pivot: month × category) ─────────────────
+
+export interface MonthlyExpenseSummaryRow {
+  month:          string                          // e.g. '2025-05'
+  byCategory:     Partial<Record<ExpenseCategory, number>>
+  total:          number
+  paid:           number
+}
+
+type ExpenseForMonthly = {
+  expense_category: ExpenseCategory
+  total_price:      number | string
+  payment_status:   ExpensePaymentStatus
+  expense_date:     string | null
+}
+
+export function getMonthlyExpenseSummary(
+  expenses: ExpenseForMonthly[]
+): MonthlyExpenseSummaryRow[] {
+  const map = new Map<string, MonthlyExpenseSummaryRow>()
+
+  for (const e of expenses) {
+    if (!e.expense_date) continue
+    const d = new Date(e.expense_date)
+    if (isNaN(d.getTime())) continue
+    const month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+    const amt   = Number(e.total_price)
+
+    const row = map.get(month) ?? {
+      month,
+      byCategory: {},
+      total:      0,
+      paid:       0,
+    }
+
+    row.byCategory[e.expense_category] = (row.byCategory[e.expense_category] ?? 0) + amt
+    row.total += amt
+    if (e.payment_status === 'paid') row.paid += amt
+
+    map.set(month, row)
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month))
+}
+
 export function getExpenseCostTimeSeries(
   expenses:    ExpenseForTimeSeries[],
   granularity: CostGranularity = 'month',
