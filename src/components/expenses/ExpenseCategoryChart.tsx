@@ -182,8 +182,24 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
   const monthlySummary = getMonthlyExpenseSummary(expenses)
   const dailySummary   = getDailyExpenseSummary(expenses)
 
+  // Fill missing days between first and last spend with zero rows so the
+  // X-axis represents one tick per real day, not one tick per "day with a record".
+  const dailyFilled = (() => {
+    if (dailySummary.length === 0) return dailySummary
+    const map = new Map(dailySummary.map((r) => [r.date, r]))
+    const out: typeof dailySummary = []
+    const cur = new Date(dailySummary[0].date + 'T00:00:00Z')
+    const end = new Date(dailySummary[dailySummary.length - 1].date + 'T00:00:00Z')
+    while (cur <= end) {
+      const ymd = cur.toISOString().slice(0, 10)
+      out.push(map.get(ymd) ?? { date: ymd, total: 0, paid: 0, count: 0 })
+      cur.setUTCDate(cur.getUTCDate() + 1)
+    }
+    return out
+  })()
+
   const chartData = monthlyGran === 'day'
-    ? dailySummary.map((r) => ({ period: r.date, total: r.total, paid: r.paid, count: r.count }))
+    ? dailyFilled.map((r) => ({ period: r.date, total: r.total, paid: r.paid, count: r.count }))
     : [...monthlySummary].reverse().map((r) => ({ period: r.month, total: r.total, paid: r.paid, count: 0 }))
 
   // Only show categories that have data in the monthly view
@@ -354,7 +370,14 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                   onMouseLeave={() => setHoveredPeriod(null)}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <XAxis
+                    dataKey="period"
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                    minTickGap={50}
+                  />
                   <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={56} />
                   {monthlyGran === 'day'
                     ? <Tooltip content={<DayTooltip />} />
