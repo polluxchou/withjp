@@ -150,6 +150,28 @@
     "editCreator": "Edit creator",
     "by": "by {actor}"
   },
+  "workspace": {
+    "title": "Workspace",
+    "subtitle": "Select a department agent to chat",
+    "selectAgent": "Select an agent to start chatting",
+    "chooseAgent": "Choose a department agent from the left to start a conversation.",
+    "newChat": "New chat",
+    "offline": "off",
+    "agentFallback": "Agent",
+    "loadConversationFailed": "Failed to load conversation",
+    "messagePlaceholder": "Message {agent}... (Enter to send, Shift+Enter for new line)",
+    "selectAgentFirst": "Select an agent first...",
+    "footerNote": "Responses come from the selected agent's department persona. For binding decisions, always involve the relevant human team member.",
+    "hints": {
+      "bd": "Ask about outreach strategies, creator pipeline, negotiation tactics, or how to approach a specific prospect.",
+      "ops": "Ask about onboarding checklists, live stream setup, scheduling, or go-live coordination.",
+      "finance": "Ask about revenue calculations, ROI analysis, cost breakdowns, or settlement schedules.",
+      "content": "Ask for content ideas, hook writing, script outlines, or viral content strategies.",
+      "growth": "Ask about platform algorithms, audience growth tactics, or cross-promotion strategies.",
+      "legal": "Ask about contract terms, platform policies, IP questions, or compliance considerations.",
+      "default": "Start a conversation to get department-specific guidance."
+    }
+  },
   "pipeline": {
     "title": "Pipeline",
     "subtitle": "Creator lifecycle - drag creators through the funnel",

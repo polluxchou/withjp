@@ -150,6 +150,28 @@
     "editCreator": "编辑创作者",
     "by": "由 {actor}"
   },
+  "workspace": {
+    "title": "工作区",
+    "subtitle": "选择一个部门代理开始对话",
+    "selectAgent": "选择一个代理开始聊天",
+    "chooseAgent": "从左侧选择一个部门代理开始对话。",
+    "newChat": "新对话",
+    "offline": "离线",
+    "agentFallback": "代理",
+    "loadConversationFailed": "加载会话失败",
+    "messagePlaceholder": "发送给 {agent}...（Enter 发送，Shift+Enter 换行）",
+    "selectAgentFirst": "请先选择一个代理...",
+    "footerNote": "回复来自所选代理的部门角色。涉及绑定或关键决策时，请始终让相关人工团队成员参与。",
+    "hints": {
+      "bd": "可以询问外联策略、创作者漏斗、谈判技巧，或如何接触某个具体潜在创作者。",
+      "ops": "可以询问入驻清单、直播设置、排期安排或开播协调。",
+      "finance": "可以询问收入计算、ROI 分析、成本拆分或结算排期。",
+      "content": "可以询问内容创意、开场钩子、脚本大纲或爆款内容策略。",
+      "growth": "可以询问平台算法、受众增长策略或交叉推广方案。",
+      "legal": "可以询问合同条款、平台政策、知识产权问题或合规事项。",
+      "default": "开始对话，获取对应部门的专项建议。"
+    }
+  },
   "pipeline": {
     "title": "流程管理",
     "subtitle": "创作者生命周期 - 拖动创作者通过漏斗",
