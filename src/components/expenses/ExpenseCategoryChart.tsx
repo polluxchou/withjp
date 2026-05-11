@@ -126,6 +126,9 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
   const [milestones,     setMilestones]     = useState<MilestoneMarker[]>([])
   const [msLoaded,       setMsLoaded]       = useState(false)
   const [msLoading,      setMsLoading]      = useState(false)
+  // Tracks which X-axis period the cursor is hovering on (null when not hovering).
+  // Used to filter the milestone list to only the hovered date's nodes.
+  const [hoveredPeriod,  setHoveredPeriod]  = useState<string | null>(null)
 
   const loadMilestones = useCallback(async () => {
     if (msLoaded) return
@@ -340,7 +343,16 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
           {monthlyView === 'chart' ? (
             <>
               <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={chartData} margin={{ top: 20, right: 24, bottom: 0, left: 0 }}>
+                <LineChart
+                  data={chartData}
+                  margin={{ top: 20, right: 24, bottom: 0, left: 0 }}
+                  onMouseMove={(s) => {
+                    // Recharts' state shape varies; activeLabel is the X value of the hovered point
+                    const label = (s as { activeLabel?: string } | undefined)?.activeLabel
+                    setHoveredPeriod(label ?? null)
+                  }}
+                  onMouseLeave={() => setHoveredPeriod(null)}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtRmb(v, locale)} width={56} />
@@ -404,38 +416,49 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                 </LineChart>
               </ResponsiveContainer>
 
-              {/* ── Milestone legend ── */}
+              {/* ── Milestone legend (filtered to hovered period) ── */}
               {showMilestones && milestones.length > 0 && (() => {
                 const periods = chartData.map((d) => d.period)
-                const visible = milestones.filter((m) => nearestPeriod(m.target_date, periods) !== null)
-                if (visible.length === 0) return null
+                const visible = hoveredPeriod
+                  ? milestones.filter((m) => nearestPeriod(m.target_date, periods) === hoveredPeriod)
+                  : []
                 return (
-                  <div className="mt-3 border-t border-slate-100 pt-3">
+                  <div className="mt-3 border-t border-slate-100 pt-3 min-h-[3rem]">
                     <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
-                      <Flag className="w-3 h-3" /> 战略时间轴节点
+                      <Flag className="w-3 h-3" />
+                      <span>战略时间轴节点</span>
+                      {hoveredPeriod && (
+                        <span className="text-slate-400 font-normal">— {hoveredPeriod}</span>
+                      )}
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {visible.map((m) => (
-                        <div
-                          key={m.id}
-                          className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs"
-                          style={{ borderColor: PRIORITY_COLOR[m.priority] + '55', backgroundColor: PRIORITY_COLOR[m.priority] + '0d' }}
-                        >
-                          <span
-                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: PRIORITY_COLOR[m.priority] }}
-                          />
-                          <span className="font-medium text-slate-800">{m.title}</span>
-                          <span className="text-slate-400">{m.target_date}</span>
-                          <span
-                            className="px-1 py-0.5 rounded text-xs"
-                            style={{ color: PRIORITY_COLOR[m.priority] }}
+                    {!hoveredPeriod ? (
+                      <p className="text-xs text-slate-400">将鼠标悬停在曲线上查看对应日期的节点</p>
+                    ) : visible.length === 0 ? (
+                      <p className="text-xs text-slate-400">该日期无战略节点</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {visible.map((m) => (
+                          <div
+                            key={m.id}
+                            className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs"
+                            style={{ borderColor: PRIORITY_COLOR[m.priority] + '55', backgroundColor: PRIORITY_COLOR[m.priority] + '0d' }}
                           >
-                            {STATUS_LABEL[m.status]}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                            <span
+                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: PRIORITY_COLOR[m.priority] }}
+                            />
+                            <span className="font-medium text-slate-800">{m.title}</span>
+                            <span className="text-slate-400">{m.target_date}</span>
+                            <span
+                              className="px-1 py-0.5 rounded text-xs"
+                              style={{ color: PRIORITY_COLOR[m.priority] }}
+                            >
+                              {STATUS_LABEL[m.status]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })()}
