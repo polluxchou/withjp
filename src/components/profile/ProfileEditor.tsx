@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import type { AgentRole, UserProfile } from '@/lib/types'
@@ -11,28 +12,18 @@ interface ProfileEditorProps {
   onSuccess?: () => void
 }
 
-const ROLE_LABELS: Record<AgentRole, { zh: string; en: string; ja: string }> = {
-  bd: { zh: '商务拓展', en: 'Business Development', ja: 'ビジネス開発' },
-  ops: { zh: '运营', en: 'Operations', ja: 'オペレーション' },
-  finance: { zh: '财务', en: 'Finance', ja: '財務' },
-  content: { zh: '内容', en: 'Content', ja: 'コンテンツ' },
-  growth: { zh: '增长', en: 'Growth', ja: 'グロース' },
-  legal: { zh: '法务', en: 'Legal', ja: '法務' },
-}
+const ROLES: AgentRole[] = ['bd', 'ops', 'finance', 'content', 'growth', 'legal']
 
 export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEditorProps) {
+  const t = useTranslations('profile')
+  const tCommon = useTranslations('common')
+  const tRoles = useTranslations('roles')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [name, setName] = useState('')
   const [role, setRole] = useState<AgentRole>('bd')
   const [error, setError] = useState('')
-  const [lang, setLang] = useState('zh')
-
-  useEffect(() => {
-    const stored = localStorage.getItem('language') || 'zh'
-    setLang(stored)
-  }, [])
 
   useEffect(() => {
     if (open) {
@@ -54,7 +45,7 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
         setRole(json.data.role)
       }
     } catch (err) {
-      setError('Failed to load profile')
+      setError(t('loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -62,12 +53,12 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
 
   async function handleSave() {
     if (!name.trim()) {
-      setError(lang === 'zh' ? '姓名不能为空' : lang === 'ja' ? '名前は必須です' : 'Name is required')
+      setError(t('nameRequired'))
       return
     }
 
     if (name.length > 30) {
-      setError(lang === 'zh' ? '姓名不能超过30个字符' : lang === 'ja' ? '名前は30文字以内です' : 'Name must not exceed 30 characters')
+      setError(t('nameTooLong'))
       return
     }
 
@@ -87,56 +78,16 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
         onClose()
       }
     } catch (err) {
-      setError(lang === 'zh' ? '保存失败' : lang === 'ja' ? '保存に失敗しました' : 'Failed to save')
+      setError(t('saveFailed'))
     } finally {
       setSaving(false)
     }
   }
 
-  const TRANSLATIONS = {
-    zh: {
-      title: '编辑个人信息',
-      name: '姓名',
-      namePlaceholder: '请输入姓名（最多30个字符）',
-      userCode: '用户ID',
-      email: '邮箱',
-      role: '角色',
-      selectRole: '选择角色',
-      cancel: '取消',
-      save: '保存',
-      loading: '加载中...',
-    },
-    en: {
-      title: 'Edit Profile',
-      name: 'Name',
-      namePlaceholder: 'Enter name (max 30 characters)',
-      userCode: 'User ID',
-      email: 'Email',
-      role: 'Role',
-      selectRole: 'Select role',
-      cancel: 'Cancel',
-      save: 'Save',
-      loading: 'Loading...',
-    },
-    ja: {
-      title: 'プロフィール編集',
-      name: '名前',
-      namePlaceholder: '名前を入力（最大30文字）',
-      userCode: 'ユーザーID',
-      email: 'メール',
-      role: '役割',
-      selectRole: '役割を選択',
-      cancel: 'キャンセル',
-      save: '保存',
-      loading: '読み込み中...',
-    },
-  }
-  const t = TRANSLATIONS[lang as keyof typeof TRANSLATIONS] ?? TRANSLATIONS.zh
-
   return (
-    <Modal open={open} onClose={onClose} title={t.title}>
+    <Modal open={open} onClose={onClose} title={t('title')}>
       {loading ? (
-        <div className="text-center py-8 text-sm text-slate-400">{t.loading}</div>
+        <div className="text-center py-8 text-sm text-slate-400">{tCommon('loading')}</div>
       ) : (
         <div className="space-y-4">
           {error && (
@@ -147,13 +98,13 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              {t.name}
+              {t('name')}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t.namePlaceholder}
+              placeholder={t('namePlaceholder')}
               maxLength={30}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
@@ -166,7 +117,7 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  {t.userCode}
+                  {t('userCode')}
                 </label>
                 <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 bg-slate-50">
                   {profile.user_code}
@@ -174,7 +125,7 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  {t.email}
+                  {t('email')}
                 </label>
                 <div className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 bg-slate-50 truncate">
                   {profile.email ?? '—'}
@@ -185,16 +136,16 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              {t.role}
+              {t('role')}
             </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as AgentRole)}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              {(Object.keys(ROLE_LABELS) as AgentRole[]).map((r) => (
+              {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {ROLE_LABELS[r][lang as 'zh' | 'en' | 'ja']}
+                  {tRoles(r)}
                 </option>
               ))}
             </select>
@@ -202,10 +153,10 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
 
           <div className="flex gap-2 justify-end pt-4">
             <Button variant="secondary" onClick={onClose}>
-              {t.cancel}
+              {tCommon('cancel')}
             </Button>
             <Button onClick={handleSave} loading={saving}>
-              {t.save}
+              {tCommon('save')}
             </Button>
           </div>
         </div>

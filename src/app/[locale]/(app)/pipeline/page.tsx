@@ -6,13 +6,17 @@ import LifecycleBadge from '@/components/creators/LifecycleBadge'
 import Button from '@/components/ui/Button'
 import { ChevronRight, ChevronLeft, Users } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { useTranslations } from 'next-intl'
 import type { Creator, CreatorStatus } from '@/lib/types'
-import { ALL_STATUSES, STATUS_LABEL, nextStatus, canTransition } from '@/lib/state-machine/creator-lifecycle'
+import { ALL_STATUSES, nextStatus, canTransition } from '@/lib/state-machine/creator-lifecycle'
 
 export default function PipelinePage() {
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
   const [moving, setMoving] = useState<string | null>(null)
+  const t = useTranslations('pipeline')
+  const tCommon = useTranslations('common')
+  const tStatus = useTranslations('status')
 
   async function load() {
     setLoading(true)
@@ -73,12 +77,12 @@ export default function PipelinePage() {
   return (
     <div>
       <Header
-        title="Pipeline"
-        subtitle="Creator lifecycle — drag creators through the funnel"
+        title={t('title')}
+        subtitle={t('subtitle')}
       />
 
       {loading ? (
-        <div className="text-center py-12 text-sm text-slate-400">Loading...</div>
+        <div className="text-center py-12 text-sm text-slate-400">{tCommon('loading')}</div>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {ALL_STATUSES.map((status) => (
@@ -111,7 +115,7 @@ export default function PipelinePage() {
                           )}
                           {creator.profile?.followers && (
                             <div className="text-xs text-slate-400 mt-1">
-                              {creator.profile.followers.toLocaleString()} followers
+                              {creator.profile.followers.toLocaleString()} {t('followers')}
                             </div>
                           )}
                         </Link>
@@ -121,7 +125,7 @@ export default function PipelinePage() {
                               onClick={() => rollback(creator, previous)}
                               disabled={moving === creator.id}
                               className="flex-1 flex items-center justify-center text-xs text-slate-500 hover:text-slate-700 font-medium border border-slate-200 hover:border-slate-300 rounded-lg py-1.5 transition-colors disabled:opacity-50"
-                              title={`回退到 ${STATUS_LABEL[previous]}`}
+                              title={t('moveBack', { status: tStatus(previous) })}
                             >
                               {moving === creator.id ? '...' : <ChevronLeft className="w-4 h-4" />}
                             </button>
@@ -131,7 +135,7 @@ export default function PipelinePage() {
                               onClick={() => advance(creator)}
                               disabled={moving === creator.id}
                               className={`${previous ? 'flex-1' : 'w-full'} flex items-center justify-center text-xs text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-100 hover:border-indigo-300 rounded-lg py-1.5 transition-colors disabled:opacity-50`}
-                              title={`前进到 ${STATUS_LABEL[next]}`}
+                              title={t('moveForward', { status: tStatus(next) })}
                             >
                               {moving === creator.id ? '...' : <ChevronRight className="w-4 h-4" />}
                             </button>
@@ -152,7 +156,7 @@ export default function PipelinePage() {
 
       {/* Legend */}
       <div className="mt-6 bg-white border border-slate-200 rounded-xl p-4">
-        <p className="text-xs font-medium text-slate-500 mb-2">State Machine Rules</p>
+        <p className="text-xs font-medium text-slate-500 mb-2">{t('stateMachineRules')}</p>
         <div className="flex flex-wrap gap-1.5 items-center text-xs text-slate-400">
           {ALL_STATUSES.map((s, i) => (
             <span key={s} className="flex items-center gap-1">
@@ -167,9 +171,7 @@ export default function PipelinePage() {
           ))}
         </div>
         <p className="text-xs text-slate-400 mt-2">
-          Transitions are bi-directional (forward and backward) and validated server-side.
-          Each transition auto-generates a task for the responsible agent.
-          Use rollback (←) to move creators back to previous stages when needed.
+          {t('transitionsInfo')}
         </p>
       </div>
     </div>

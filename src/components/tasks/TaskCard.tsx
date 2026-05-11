@@ -1,6 +1,9 @@
+'use client'
+
 import type { Task } from '@/lib/types'
 import { Clock, CheckCircle2, XCircle, Loader2, ChevronRight } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { useTranslations } from 'next-intl'
 
 const STATUS_ICON = {
   pending: Clock,
@@ -31,6 +34,7 @@ export default function TaskCard({ task }: TaskCardProps) {
   const Icon  = STATUS_ICON[task.status]
   const color = STATUS_COLOR[task.status]
   const role  = task.agent?.role
+  const t = useTranslations('tasks')
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-start gap-3 hover:shadow-sm transition-shadow">
@@ -56,7 +60,7 @@ export default function TaskCard({ task }: TaskCardProps) {
           </div>
         )}
       </div>
-      <span className="text-xs text-slate-300 flex-shrink-0 capitalize">{task.status}</span>
+      <span className="text-xs text-slate-300 flex-shrink-0">{t(task.status)}</span>
     </div>
   )
 }
