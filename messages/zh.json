@@ -211,6 +211,11 @@
     "month": "月",
     "quarter": "季",
     "year": "年",
+    "day": "日",
+    "tableView": "表格",
+    "chartView": "曲线",
+    "dailyAlert30k": "日 ¥3万",
+    "dailyAlert100k": "日 ¥10万",
     "categories": {
       "tangible_asset": "有形资产",
       "salary": "薪资成本",
