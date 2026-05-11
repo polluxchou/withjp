@@ -15,6 +15,7 @@ import {
   EXPENSE_PAYMENT_STATUS_OPTIONS,
   EXPENSE_PAYMENT_STATUS_LABELS,
   EXPENSE_USER_OPTIONS,
+  EXPENSE_PERIOD_OPTIONS,
   getExpenseSummary,
 } from '@/lib/expenses/costs'
 
@@ -189,9 +190,13 @@ export default function ExpensesPage() {
             ))}
           </select>
 
-          {/* Period */}
-          <input value={filters.period} onChange={setFilter('period')}
-            placeholder="归属周期 2025-05" className={`${INPUT} w-36`} />
+          {/* Period (quarterly) */}
+          <select value={filters.period} onChange={setFilter('period')} className={`${INPUT} w-36`}>
+            <option value="">全部归属周期</option>
+            {EXPENSE_PERIOD_OPTIONS.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">

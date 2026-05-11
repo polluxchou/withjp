@@ -7,6 +7,7 @@ import {
   EXPENSE_PAYMENT_METHOD_OPTIONS,
   EXPENSE_PAYMENT_STATUS_OPTIONS,
   EXPENSE_USER_OPTIONS,
+  EXPENSE_PERIOD_OPTIONS,
   categoryHasQuantity,
   categoryHasPeriod,
   categoryHasLocation,
@@ -211,11 +212,12 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         {showPeriod && (
           <div>
             <label className={LABEL}>归属周期</label>
-            <input
-              value={form.period} onChange={set('period')}
-              placeholder="如 2025-05"
-              className={INPUT}
-            />
+            <select value={form.period} onChange={set('period')} className={INPUT}>
+              <option value="">请选择季度</option>
+              {EXPENSE_PERIOD_OPTIONS.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
           </div>
         )}
         <div>
