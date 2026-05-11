@@ -107,7 +107,7 @@ export default function DeviceCostChart({ devices }: Props) {
                 width={60}
               />
               <Tooltip
-                formatter={(value: number, name: string) => [fmtRmbFull(value), name]}
+                formatter={(value, name) => [fmtRmbFull(Number(value) || 0), String(name)]}
                 labelStyle={{ color: '#0f172a', fontWeight: 600, fontSize: 12 }}
                 contentStyle={{
                   borderRadius: 8,

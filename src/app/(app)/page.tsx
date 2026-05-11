@@ -15,8 +15,6 @@ import { ALL_STATUSES, STATUS_LABEL } from '@/lib/state-machine/creator-lifecycl
 
 async function getDashboardData() {
   const db = createServerClient()
-  const withTimeout = <T>(p: Promise<T>): Promise<T> =>
-    Promise.race([p, new Promise<T>((_, r) => setTimeout(() => r(new Error('timeout')), 5000))])
   const [creatorsAllRes, financeRes, tasksAllRes, recentTasksRes, recentCreatorsRes] = await Promise.all([
     db.from('creators').select('id, status'),
     db.from('finance').select('revenue, cost, profit, roi, creator_id'),
