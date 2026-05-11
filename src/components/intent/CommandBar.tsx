@@ -6,6 +6,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import PendingActionCard, { type PendingActionState } from './PendingActionCard'
 import type { Expense } from '@/lib/types'
+import { notifyIntentApplied } from '@/lib/intent/events'
 
 // ── Result types (mirror server's ExecuteResult) ───────────────
 
@@ -69,6 +70,12 @@ export default function CommandBar() {
     setText(''); setResult(null); setBusy(false)
   }, [])
 
+  const applied = useCallback(() => {
+    notifyIntentApplied()
+    reset()
+    setOpen(false)
+  }, [reset])
+
   function close() {
     setOpen(false)
     // Keep last result around briefly in case the user reopens — clear on next open.
@@ -127,7 +134,7 @@ export default function CommandBar() {
               <ResultView
                 result={result}
                 inputText={text}
-                onApplied={() => { reset(); /* close happens by user */ setOpen(false) }}
+                onApplied={applied}
                 onCancel={() => { reset() }}
               />
             </div>

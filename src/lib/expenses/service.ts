@@ -158,8 +158,8 @@ export async function createExpense(
     }
   }
 
-  // Derive period from expense_date when the category requires one and no
-  // explicit period was provided. Matches what ExpenseForm does client-side.
+  // Derive period from expense_date for any category when no explicit period
+  // was provided. Matches what ExpenseForm does client-side.
   const derivedPeriod = categoryHasPeriod(cat) && !input.period
     ? (dateToQuarter(input.expense_date) || null)
     : (input.period ?? null)
