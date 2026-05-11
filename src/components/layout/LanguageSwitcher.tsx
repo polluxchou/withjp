@@ -10,7 +10,11 @@ const languages = [
   { code: 'en', flag: '🇺🇸' },
 ]
 
-export default function LanguageSwitcher() {
+interface Props {
+  collapsed?: boolean
+}
+
+export default function LanguageSwitcher({ collapsed = false }: Props) {
   const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
@@ -32,15 +36,24 @@ export default function LanguageSwitcher() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors w-full"
+        title={collapsed ? t('switchLanguage') : undefined}
+        className={`flex items-center rounded-lg text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition-colors w-full ${
+          collapsed ? 'justify-center px-2 py-2' : 'gap-2 px-3 py-2'
+        }`}
       >
-        <Globe className="w-4 h-4" />
-        <span>{current.flag}</span>
-        <span className="flex-1 text-left">{t(current.code)}</span>
+        <Globe className="w-4 h-4 flex-shrink-0" />
+        {!collapsed && (
+          <>
+            <span>{current.flag}</span>
+            <span className="flex-1 text-left">{t(current.code)}</span>
+          </>
+        )}
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-full bg-slate-800 border border-slate-700 rounded-lg shadow-lg overflow-hidden">
+        <div className={`absolute bottom-full mb-2 bg-slate-800 border border-slate-700 rounded-lg shadow-lg overflow-hidden ${
+          collapsed ? 'left-full ml-2 w-32' : 'left-0 w-full'
+        }`}>
           {languages.map((lang) => (
             <button
               key={lang.code}
