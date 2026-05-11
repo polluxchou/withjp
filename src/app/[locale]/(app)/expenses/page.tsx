@@ -9,8 +9,9 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import ClampedText from '@/components/ui/ClampedText'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
+import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
-import { Plus, Search, Receipt, RotateCcw, Copy, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, Receipt, RotateCcw, Copy, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
 import {
@@ -182,6 +183,17 @@ export default function ExpensesPage() {
           </>
         }
       />
+
+      {/* Natural-language trigger */}
+      <button
+        type="button"
+        onClick={() => openCommandBar()}
+        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50 text-left text-sm text-slate-600 transition-colors"
+      >
+        <Sparkles className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+        <span>用一句话操作支出 — 例：「Q3 薪资中 MC 占了多少」 / 「新增差旅费 5月10日打车 320元」</span>
+        <kbd className="ml-auto px-1.5 py-0.5 text-[10px] rounded bg-white text-slate-500 border border-slate-200">⌘K</kbd>
+      </button>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">

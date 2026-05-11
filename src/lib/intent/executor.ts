@@ -19,6 +19,10 @@ export type ExecuteResult =
       preview:          string
       targetId?:        string
       expiresAt:        string
+      // Surfaced for the UI Edit flow (prefill ExpenseForm without a round-trip).
+      payload?:         import('./schema').ExpenseWritePayload   // create
+      patch?:           import('./schema').ExpenseWritePayload   // update
+      target?:          Expense                                  // update / delete
     }
   | {
       kind:        'query_result'
@@ -199,6 +203,9 @@ async function stageWrite(
     preview:         previewText,
     targetId,
     expiresAt:       inserted.expires_at,
+    payload:         intent.op === 'create' ? intent.payload : undefined,
+    patch:           intent.op === 'update' ? intent.patch   : undefined,
+    target:          target ?? undefined,
   }
 }
 
