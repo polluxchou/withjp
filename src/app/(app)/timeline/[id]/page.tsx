@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { format } from 'date-fns/format'
 import Header from '@/components/layout/Header'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
