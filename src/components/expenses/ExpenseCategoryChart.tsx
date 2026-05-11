@@ -471,7 +471,6 @@ export default function ExpenseCategoryChart({ expenses }: Props) {
                               style={{ backgroundColor: PRIORITY_COLOR[m.priority] }}
                             />
                             <span className="font-medium text-slate-800">{m.title}</span>
-                            <span className="text-slate-400">{m.target_date}</span>
                             <span
                               className="px-1 py-0.5 rounded text-xs"
                               style={{ color: PRIORITY_COLOR[m.priority] }}
