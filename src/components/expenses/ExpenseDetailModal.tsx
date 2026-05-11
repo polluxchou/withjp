@@ -11,6 +11,7 @@ import {
   effectiveCost,
   CROSS_BORDER_FEE_RATE,
 } from '@/lib/expenses/costs'
+import { useCurrency } from '@/lib/currency'
 
 interface Props {
   expense: Expense | null
@@ -34,10 +35,6 @@ const CATEGORY_COLOR: Record<ExpenseCategory, string> = {
   cloud_services:  'bg-pink-100 text-pink-700',
 }
 
-function fmtRmb(amount: number) {
-  return '¥' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
-
 function fmtDateTime(iso: string) {
   const d = new Date(iso)
   if (isNaN(d.getTime())) return iso
@@ -53,6 +50,7 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
   const t = useTranslations('expenses')
   const tForm = useTranslations('expenses.form')
   const tCommon = useTranslations('common')
+  const { fmt: fmtRmb } = useCurrency()
 
   if (!expense) return null
 
