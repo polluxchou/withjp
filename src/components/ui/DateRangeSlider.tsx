@@ -25,13 +25,15 @@ const MARKS = [
 ]
 
 const THUMB_CLS = [
-  'absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer',
+  'absolute inset-0 w-full h-full appearance-none bg-transparent pointer-events-none',
   '[&::-webkit-slider-runnable-track]:bg-transparent',
   '[&::-webkit-slider-thumb]:appearance-none',
+  '[&::-webkit-slider-thumb]:pointer-events-auto',
   '[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5',
   '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white',
   '[&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-indigo-600',
   '[&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab',
+  '[&::-moz-range-thumb]:pointer-events-auto',
   '[&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5',
   '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white',
   '[&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-indigo-600',
