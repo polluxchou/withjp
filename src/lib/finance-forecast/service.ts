@@ -118,6 +118,14 @@ export async function saveFinanceForecastYear(
     }))
   )
 
+  // Fetch existing IDs before upserting so we can compute stale rows after
+  const { data: existingRows, error: fetchError } = await db
+    .from('finance_forecast_accounts')
+    .select('id')
+    .eq('year', year)
+
+  if (fetchError) return err('db_error', fetchError.message)
+
   // Upsert first (safe even if subsequent delete fails — data is preserved)
   if (accountRows.length > 0) {
     const { error: upsertError } = await db
@@ -127,15 +135,16 @@ export async function saveFinanceForecastYear(
     if (upsertError) return err('db_error', upsertError.message)
   }
 
-  // Delete rows for this year that are no longer in the dataset
-  const currentIds = accountRows.map((r) => r.id)
-  let deleteQuery = db.from('finance_forecast_accounts').delete().eq('year', year)
-  if (currentIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    deleteQuery = (deleteQuery as any).not('id', 'in', `(${currentIds.join(',')})`)
+  // Delete rows that are no longer in the dataset using explicit ID list
+  const currentIdSet = new Set(accountRows.map((r) => r.id))
+  const staleIds = (existingRows ?? []).map((r) => r.id).filter((id) => !currentIdSet.has(id))
+  if (staleIds.length > 0) {
+    const { error: deleteError } = await db
+      .from('finance_forecast_accounts')
+      .delete()
+      .in('id', staleIds)
+    if (deleteError) return err('db_error', deleteError.message)
   }
-  const { error: deleteError } = await deleteQuery
-  if (deleteError) return err('db_error', deleteError.message)
 
   return ok(months)
 }
