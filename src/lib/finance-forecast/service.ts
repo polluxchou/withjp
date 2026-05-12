@@ -132,7 +132,7 @@ export async function saveFinanceForecastYear(
   let deleteQuery = db.from('finance_forecast_accounts').delete().eq('year', year)
   if (currentIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    deleteQuery = (deleteQuery as any).not('id', 'in', `(${currentIds.map((id) => `'${id}'`).join(',')})`)
+    deleteQuery = (deleteQuery as any).not('id', 'in', `(${currentIds.join(',')})`)
   }
   const { error: deleteError } = await deleteQuery
   if (deleteError) return err('db_error', deleteError.message)
