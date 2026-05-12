@@ -358,9 +358,11 @@ export default function ExpenseCategoryChart({
         />
       )}
 
-      {/* ── Tab 1: 类别占比 — 饼图 + 经办人面板 ── */}
+      {/* ── Tab 1: 类别占比 — 饼图 | 主成本分类 | 经办人分类 ── */}
       {tab === 'category' && catView === 'pie' && (
-        <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_minmax(220px,320px)]">
+        <div className="grid gap-x-5 gap-y-4 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,260px)_minmax(160px,240px)]">
+
+          {/* ① 饼图 */}
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -406,7 +408,11 @@ export default function ExpenseCategoryChart({
             </ResponsiveContainer>
           </div>
 
-          <div className="space-y-2.5 self-start">
+          {/* ② 主成本分类 */}
+          <div className="space-y-2 self-start border-l border-slate-100 pl-5">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2.5 px-1">
+              {t('categoryShare')}
+            </p>
             {breakdown.map((item) => {
               const active = selectedCategory === item.category
               return (
@@ -436,52 +442,45 @@ export default function ExpenseCategoryChart({
                 </button>
               )
             })}
-
-            {/* ── Buyer breakdown (Level 2) ── */}
-            {buyerBreakdown.length > 0 && (
-              <div className={`pt-2.5 border-t ${selectedCategory ? 'border-slate-200 ml-3 pl-3 border-l-2 border-l-slate-200' : 'border-slate-100'}`}>
-                <div className="flex items-center gap-1.5 mb-2 px-1">
-                  {selectedCategory && (
-                    <span className="text-[10px] text-slate-400">↳</span>
-                  )}
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                    {selectedCategory
-                      ? `${t(`categories.${selectedCategory as ExpenseCategory}`)} · ${t('buyer')}`
-                      : `全部 · ${t('buyer')}`
-                    }
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
-                    const isCrossBorder = CROSS_BORDER_BUYERS.has(buyer)
-                    const displayName   = BUYER_DISPLAY[buyer] ?? buyer
-                    return (
-                      <div
-                        key={buyer}
-                        className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-xs text-slate-700 truncate">{displayName}</span>
-                          {isCrossBorder && (
-                            <span
-                              title={`跨境转账成本 ${fmtCompact(crossBorder)}`}
-                              className="flex items-center gap-0.5 text-[10px] font-medium text-rose-500 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded whitespace-nowrap"
-                            >
-                              <Globe className="w-2.5 h-2.5 flex-shrink-0" />
-                              {fmtCompact(crossBorder)}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs font-semibold text-slate-900 whitespace-nowrap flex-shrink-0">
-                          {fmtCompact(total)}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* ③ 经办人分类 */}
+          {buyerBreakdown.length > 0 && (
+            <div className="space-y-1 self-start border-l border-slate-100 pl-5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2.5 px-1">
+                {selectedCategory
+                  ? `${t(`categories.${selectedCategory as ExpenseCategory}`)} · ${t('buyer')}`
+                  : `全部 · ${t('buyer')}`
+                }
+              </p>
+              {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
+                const isCrossBorder = CROSS_BORDER_BUYERS.has(buyer)
+                const displayName   = BUYER_DISPLAY[buyer] ?? buyer
+                return (
+                  <div
+                    key={buyer}
+                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs text-slate-700 truncate">{displayName}</span>
+                      {isCrossBorder && (
+                        <span
+                          title={`跨境转账成本 ${fmtCompact(crossBorder)}`}
+                          className="flex items-center gap-0.5 text-[10px] font-medium text-rose-500 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded whitespace-nowrap"
+                        >
+                          <Globe className="w-2.5 h-2.5 flex-shrink-0" />
+                          {fmtCompact(crossBorder)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold text-slate-900 whitespace-nowrap flex-shrink-0">
+                      {fmtCompact(total)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
