@@ -156,7 +156,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       )}
 
       {/* Row: Category + Item Name */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div>
           <label className={LABEL}>{t('category')}</label>
           <select value={form.expense_category} onChange={set('expense_category')} className={INPUT}>
@@ -165,7 +165,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
             ))}
           </select>
         </div>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className={LABEL}>{t('itemName')}</label>
           <input
             value={form.item_name} onChange={set('item_name')}
@@ -176,7 +176,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       </div>
 
       {/* Row: Amount */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <div>
           <label className={LABEL}>{showQty ? t('unitPrice') : t('amount')}</label>
           <input
@@ -195,7 +195,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
             />
           </div>
         )}
-        <div>
+        <div className={showQty ? 'col-span-2 sm:col-span-1' : ''}>
           <label className={LABEL}>{t('total')}</label>
           <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium">
             ¥{displayTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
@@ -204,7 +204,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       </div>
 
       {/* Row: Date + Period (conditional) */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div>
           <label className={LABEL}>{t('date')}</label>
           <input type="date" value={form.expense_date} onChange={set('expense_date')} className={INPUT} />
@@ -238,7 +238,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       )}
 
       {/* Row: User + Buyer */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div>
           <label className={LABEL}>{cat === 'salary' ? t('assignedPerson') : t('user')}</label>
           <select value={form.user_name} onChange={set('user_name')} className={INPUT}>
@@ -307,7 +307,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
         <Button variant="secondary" type="button" onClick={onCancel}>{tCommon('cancel')}</Button>
         <Button type="submit" loading={loading}>
           {isEditing ? t('saveExpense') : t('addExpense')}

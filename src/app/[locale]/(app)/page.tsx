@@ -90,7 +90,7 @@ export default async function DashboardPage() {
       />
 
       {/* KPI grid */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <StatsCard
           label={t('totalCreators')}
           value={stats?.total_creators ?? 0}
@@ -121,9 +121,9 @@ export default async function DashboardPage() {
       </div>
 
       {/* Pipeline funnel + recent activity */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Funnel */}
-        <div className="col-span-1 bg-white border border-slate-200 rounded-xl p-5">
+        <div className="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-4 h-4 text-slate-400" />
             <h2 className="text-sm font-semibold text-slate-900">{t('pipelineFunnel')}</h2>
@@ -155,7 +155,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Recent Tasks */}
-        <div className="col-span-2 space-y-3">
+        <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">{t('recentTasks')}</h2>
             <Link href="/tasks" className="text-xs text-indigo-600 font-medium hover:text-indigo-800">{t('viewAll')}</Link>
@@ -181,7 +181,8 @@ export default async function DashboardPage() {
           {recentCreators.length === 0 ? (
             <div className="p-8 text-center text-sm text-slate-400">{t('noCreatorsYet')}</div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-slate-100">
                   <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('creator')}</th>
@@ -205,6 +206,7 @@ export default async function DashboardPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

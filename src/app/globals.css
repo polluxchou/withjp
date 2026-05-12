@@ -9,6 +9,33 @@
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
   }
+
+  /* iOS Safari auto-zooms when an <input> / <select> / <textarea> with a
+     font-size under 16px receives focus. On touch devices (which is what we
+     care about here — desktop mice are `pointer: fine`), force the minimum
+     to 16px so taps don't bounce the viewport. !important is required to
+     beat Tailwind's `.text-sm` utility class on the same element. */
+  @media (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Below the lg breakpoint (1024px) the sidebar is an off-canvas drawer
+     and a floating hamburger sits at top:safe-area+12px, height 40px.
+     The main content needs extra top padding so headers don't hide behind
+     it. At >=lg the sidebar is permanent and there's no hamburger, so we
+     reset to the standard md:p-8 vertical rhythm. */
+  .main-content {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 4rem);
+  }
+  @media (min-width: 1024px) {
+    .main-content {
+      padding-top: 2rem;
+    }
+  }
 }
 
 @layer utilities {
