@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Area,
   CartesianGrid,
@@ -63,6 +64,7 @@ interface Props {
 const STORAGE_KEY_PREFIX = 'finance-forecast:draft'
 
 export default function FinanceForecastDashboard({ initialMonths, initialSelectedMonth = 0 }: Props) {
+  const t = useTranslations('financeForecast')
   const [months, setMonths] = useState<ForecastMonthInput[]>(initialMonths)
   const [selectedMonth, setSelectedMonth] = useState(initialSelectedMonth)
   const [chartMode, setChartMode] = useState<ChartMode>('stacked')
@@ -337,7 +339,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <span className={`text-xs font-medium ${saveStatusClass(saveStatus)}`}>
-              {saveStatusLabel(saveStatus)}
+              {saveStatus === 'saving' ? t('statusSaving') : saveStatus === 'saved' ? t('statusSaved') : saveStatus === 'error' ? t('statusError') : ''}
             </span>
             <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={selectedMonth === 0}>
               <Copy className="w-3.5 h-3.5" /> 复制上月
@@ -358,15 +360,17 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           <div className="flex gap-3 flex-wrap mb-4">
             {(() => {
               // Group months by year so each year gets its own label + pill cluster
-              const groups: { year: string; entries: { index: number; mm: string; key: string }[] }[] = []
+              const monthLabels = t.raw('months') as string[]
+              const groups: { year: string; entries: { index: number; label: string; key: string }[] }[] = []
               months.forEach((month, index) => {
-                const year = month.month.slice(0, 4)
-                const mm   = month.month.slice(5)
+                const year     = month.month.slice(0, 4)
+                const monthNum = parseInt(month.month.slice(5), 10) - 1
+                const label    = monthLabels[monthNum] ?? month.month.slice(5)
                 const last = groups[groups.length - 1]
                 if (last && last.year === year) {
-                  last.entries.push({ index, mm, key: month.month })
+                  last.entries.push({ index, label, key: month.month })
                 } else {
-                  groups.push({ year, entries: [{ index, mm, key: month.month }] })
+                  groups.push({ year, entries: [{ index, label, key: month.month }] })
                 }
               })
               return groups.map(({ year, entries }) => (
@@ -375,20 +379,20 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                     {year}
                   </span>
                   <div className="flex gap-1 flex-wrap">
-                    {entries.map(({ index, mm, key }) => {
+                    {entries.map(({ index, label, key }) => {
                       const active = index === selectedMonth
                       return (
                         <button
                           key={key}
                           type="button"
                           onClick={() => setSelectedMonth(index)}
-                          className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold tabular-nums transition-colors ${
+                          className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                             active
                               ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                               : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                           }`}
                         >
-                          {mm}
+                          {label}
                         </button>
                       )
                     })}
@@ -541,13 +545,6 @@ function hasForecastInputs(months: ForecastMonthInput[]): boolean {
     month.actual_revenue_usd > 0 ||
     Boolean(month.note?.trim())
   )
-}
-
-function saveStatusLabel(status: SaveStatus): string {
-  if (status === 'saving') return '正在保存到 Supabase...'
-  if (status === 'saved') return '已保存到 Supabase'
-  if (status === 'error') return 'Supabase 保存失败，已保留本机草稿'
-  return ''
 }
 
 function saveStatusClass(status: SaveStatus): string {

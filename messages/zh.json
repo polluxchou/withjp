@@ -350,5 +350,11 @@
     "content": "内容",
     "growth": "增长",
     "legal": "法务"
+  },
+  "financeForecast": {
+    "statusSaving": "正在保存...",
+    "statusSaved": "已保存",
+    "statusError": "保存失败，已保留本机草稿",
+    "months": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
   }
 }
