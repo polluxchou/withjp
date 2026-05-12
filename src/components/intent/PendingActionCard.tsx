@@ -141,6 +141,7 @@ function payloadAsExpense(p: ExpenseWritePayload): Expense {
     payment_method_legacy: null,
     payment_status:        p.payment_status   ?? 'budgeted',
     notes:                 p.notes            ?? null,
+    created_by_user_id:    null,
     created_at:            '',
     updated_at:            '',
   }
