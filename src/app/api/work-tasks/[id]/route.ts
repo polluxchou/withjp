@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
+import { getActorProfile, canModify } from '@/lib/auth/actor'
 
 type Params = { params: { id: string } }
 
@@ -12,7 +13,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
 
-  const db   = createServerClient()
+  const db = createServerClient()
+
+  const actor = await getActorProfile(user.id)
+  if (!actor?.is_admin) {
+    const { data: existing } = await db
+      .from('work_tasks')
+      .select('owner_user_id')
+      .eq('id', params.id)
+      .single()
+    if (!canModify(actor, existing?.owner_user_id ?? null)) {
+      return NextResponse.json({ data: null, error: '权限不足：只能编辑自己创建的任务' }, { status: 403 })
+    }
+  }
+
   const body = await req.json()
   const { id: _id, created_at: _ca, updated_at: _ua, owner: _o, milestone: _m, ...updates } = body
 
@@ -43,6 +57,19 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (user instanceof NextResponse) return user
 
   const db = createServerClient()
+
+  const actor = await getActorProfile(user.id)
+  if (!actor?.is_admin) {
+    const { data: existing } = await db
+      .from('work_tasks')
+      .select('owner_user_id')
+      .eq('id', params.id)
+      .single()
+    if (!canModify(actor, existing?.owner_user_id ?? null)) {
+      return NextResponse.json({ data: null, error: '权限不足：只能删除自己创建的任务' }, { status: 403 })
+    }
+  }
+
   const { error } = await db.from('work_tasks').delete().eq('id', params.id)
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   return NextResponse.json({ data: { id: params.id }, error: null })
