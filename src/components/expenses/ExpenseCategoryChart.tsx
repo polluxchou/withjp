@@ -33,6 +33,10 @@ interface Props {
   categoryBreakdownExpenses?: Expense[]
   selectedCategory?: string
   onCategorySelect?: (category: ExpenseCategory) => void
+  /** Currently filtered date range. Used to highlight the active period on the monthly chart. */
+  selectedPeriod?: { from: string; to: string }
+  /** Click a point on the monthly chart to filter by that period. */
+  onPeriodSelect?: (period: string, granularity: 'day' | 'month') => void
 }
 
 interface MilestoneMarker {
@@ -156,6 +160,8 @@ export default function ExpenseCategoryChart({
   categoryBreakdownExpenses = expenses,
   selectedCategory = '',
   onCategorySelect,
+  selectedPeriod,
+  onPeriodSelect,
 }: Props) {
   const [tab, setTab]                 = useState<Tab>('category')
   const [granularity, setGranularity] = useState<CostGranularity>('month')
@@ -460,6 +466,11 @@ export default function ExpenseCategoryChart({
                     setHoveredPeriod(label ?? null)
                   }}
                   onMouseLeave={() => setHoveredPeriod(null)}
+                  onClick={(s) => {
+                    const label = (s as { activeLabel?: string } | undefined)?.activeLabel
+                    if (label && onPeriodSelect) onPeriodSelect(label, monthlyGran)
+                  }}
+                  style={onPeriodSelect ? { cursor: 'pointer' } : undefined}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis
@@ -524,6 +535,22 @@ export default function ExpenseCategoryChart({
                         />
                       )
                     })
+                  })()}
+
+                  {/* ── Active-period highlight (from external date filter) ── */}
+                  {selectedPeriod?.from && selectedPeriod.from === selectedPeriod.to && (() => {
+                    // Single-day filter
+                    const key = monthlyGran === 'day' ? selectedPeriod.from : selectedPeriod.from.slice(0, 7)
+                    if (!chartData.some((d) => d.period === key)) return null
+                    return (
+                      <ReferenceLine
+                        x={key}
+                        stroke="#6366f1"
+                        strokeWidth={2}
+                        ifOverflow="extendDomain"
+                        label={{ value: '已筛选', position: 'top', fontSize: 9, fill: '#6366f1' }}
+                      />
+                    )
                   })()}
 
                   <Line type="monotone" dataKey="total" name={t('totalExpense')} stroke="#6366f1" strokeWidth={2} dot={false} />

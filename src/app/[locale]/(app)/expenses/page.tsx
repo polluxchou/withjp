@@ -53,20 +53,30 @@ type SortDir = 'asc' | 'desc'
 const SORT_CHAIN: SortKey[] = ['date', 'period', 'amount']
 
 interface Filters {
-  q:              string
-  category:       string
-  payment_status: string
-  payment_method: string
-  user_name:      string
-  buyer_name:     string
-  date_from:      string
-  date_to:        string
-  period:         string
+  q:                 string
+  category:          string
+  payment_status:    string
+  payment_method:    string
+  user_name:         string
+  buyer_name:        string
+  date_from:         string
+  date_to:           string
+  period:            string
+  // Client-side virtual filters powered by KPI-card clicks
+  unpaid_only:       '' | 'yes'   // budgeted OR ordered_unpaid
+  cross_border_only: '' | 'yes'   // only rows where the 4% fee applies
 }
+
+// Server-side filter keys. Anything outside this set is applied client-side.
+const SERVER_FILTER_KEYS: ReadonlySet<keyof Filters> = new Set<keyof Filters>([
+  'q', 'payment_status', 'payment_method', 'user_name', 'buyer_name',
+  'date_from', 'date_to', 'period',
+])
 
 const EMPTY_FILTERS: Filters = {
   q: '', category: '', payment_status: '', payment_method: '',
   user_name: '', buyer_name: '', date_from: '', date_to: '', period: '',
+  unpaid_only: '', cross_border_only: '',
 }
 
 export default function ExpensesPage() {
@@ -93,7 +103,7 @@ export default function ExpensesPage() {
     try {
       const params = new URLSearchParams()
       Object.entries(filters).forEach(([k, v]) => {
-        if (k !== 'category' && v) params.set(k, v)
+        if (SERVER_FILTER_KEYS.has(k as keyof Filters) && v) params.set(k, v)
       })
       const res  = await fetch(`/api/expenses?${params.toString()}`)
       const json = await res.json()
@@ -119,9 +129,57 @@ export default function ExpensesPage() {
   }, [])
 
   const visibleExpenses = useMemo(() => {
-    if (!filters.category) return expenses
-    return expenses.filter((expense) => expense.expense_category === filters.category)
-  }, [expenses, filters.category])
+    let result = expenses
+    if (filters.category) {
+      result = result.filter((e) => e.expense_category === filters.category)
+    }
+    if (filters.unpaid_only === 'yes') {
+      result = result.filter((e) => e.payment_status === 'budgeted' || e.payment_status === 'ordered_unpaid')
+    }
+    if (filters.cross_border_only === 'yes') {
+      result = result.filter((e) => crossBorderFee(e) > 0)
+    }
+    return result
+  }, [expenses, filters.category, filters.unpaid_only, filters.cross_border_only])
+
+  // Detect "本月支出" KPI active state by comparing date filters to current month bounds.
+  const thisMonth = useMemo(() => {
+    const now = new Date()
+    const y = now.getUTCFullYear()
+    const m = now.getUTCMonth()
+    const first = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10)
+    const last  = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10)
+    return { first, last }
+  }, [])
+
+  const activeKpi = (() => {
+    if (filters.unpaid_only === 'yes')                                          return 'unpaid'
+    if (filters.cross_border_only === 'yes')                                    return 'crossBorder'
+    if (filters.payment_status === 'paid')                                      return 'paid'
+    if (filters.date_from === thisMonth.first && filters.date_to === thisMonth.last) return 'thisMonth'
+    return null
+  })()
+
+  function toggleKpi(target: 'paid' | 'unpaid' | 'thisMonth' | 'crossBorder' | 'reset') {
+    setFilters((f) => {
+      if (target === 'reset') return EMPTY_FILTERS
+      // Always clear other KPI-driven flags first, then toggle the target
+      const cleared: Filters = {
+        ...f,
+        payment_status:    f.payment_status === 'paid' ? '' : f.payment_status,
+        unpaid_only:       '',
+        cross_border_only: '',
+        date_from:         (f.date_from === thisMonth.first && f.date_to === thisMonth.last) ? '' : f.date_from,
+        date_to:           (f.date_from === thisMonth.first && f.date_to === thisMonth.last) ? '' : f.date_to,
+      }
+      if (activeKpi === target) return cleared  // toggle off
+      if (target === 'paid')        return { ...cleared, payment_status: 'paid' }
+      if (target === 'unpaid')      return { ...cleared, unpaid_only: 'yes', payment_status: '' }
+      if (target === 'crossBorder') return { ...cleared, cross_border_only: 'yes' }
+      if (target === 'thisMonth')   return { ...cleared, date_from: thisMonth.first, date_to: thisMonth.last }
+      return cleared
+    })
+  }
 
   const summary = getExpenseSummary(visibleExpenses)
 
@@ -158,6 +216,25 @@ export default function ExpensesPage() {
       setFilters((f) => ({ ...f, [k]: e.target.value }))
 
   const resetFilters = () => setFilters(EMPTY_FILTERS)
+
+  function selectChartPeriod(period: string, gran: 'day' | 'month') {
+    setFilters((f) => {
+      if (gran === 'day') {
+        if (f.date_from === period && f.date_to === period) {
+          return { ...f, date_from: '', date_to: '' }   // toggle off
+        }
+        return { ...f, date_from: period, date_to: period }
+      }
+      // Month mode: period === 'YYYY-MM'
+      const [y, m] = period.split('-').map(Number)
+      const first = `${period}-01`
+      const last  = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+      if (f.date_from === first && f.date_to === last) {
+        return { ...f, date_from: '', date_to: '' }
+      }
+      return { ...f, date_from: first, date_to: last }
+    })
+  }
 
   function selectChartCategory(category: ExpenseCategory) {
     setFilters((f) => ({
@@ -251,29 +328,76 @@ export default function ExpensesPage() {
         <kbd className="ml-auto px-1.5 py-0.5 text-[10px] rounded bg-white text-slate-500 border border-slate-200">⌘K</kbd>
       </button>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — click to filter, click active card again to clear */}
       <div className="grid grid-cols-5 gap-4 mb-6">
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <button
+          type="button"
+          onClick={() => toggleKpi('reset')}
+          aria-pressed={activeKpi === null}
+          className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-300 hover:shadow-sm transition-all"
+        >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('totalExpense')}</p>
           <p className="text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? '点击清除筛选' : ' '}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleKpi('paid')}
+          aria-pressed={activeKpi === 'paid'}
+          className={`bg-white border rounded-xl p-4 text-left transition-all ${
+            activeKpi === 'paid'
+              ? 'border-green-400 ring-2 ring-green-100 bg-green-50/40'
+              : 'border-slate-200 hover:border-green-200 hover:shadow-sm'
+          }`}
+        >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('paid')}</p>
           <p className="text-xl font-bold text-green-700">{fmtRmb(summary.paidCost)}</p>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'paid' ? '已筛选 · 再次点击清除' : '点击筛选已付款'}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleKpi('unpaid')}
+          aria-pressed={activeKpi === 'unpaid'}
+          className={`bg-white border rounded-xl p-4 text-left transition-all ${
+            activeKpi === 'unpaid'
+              ? 'border-amber-400 ring-2 ring-amber-100 bg-amber-50/40'
+              : 'border-slate-200 hover:border-amber-200 hover:shadow-sm'
+          }`}
+        >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('budgetPending')}</p>
           <p className="text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost)}</p>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'unpaid' ? '已筛选 · 再次点击清除' : '点击筛选预算+待付款'}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleKpi('thisMonth')}
+          aria-pressed={activeKpi === 'thisMonth'}
+          className={`bg-white border rounded-xl p-4 text-left transition-all ${
+            activeKpi === 'thisMonth'
+              ? 'border-indigo-400 ring-2 ring-indigo-100 bg-indigo-50/40'
+              : 'border-slate-200 hover:border-indigo-200 hover:shadow-sm'
+          }`}
+        >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('thisMonth')}</p>
           <p className="text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'thisMonth' ? '已筛选 · 再次点击清除' : '点击筛选本月'}</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleKpi('crossBorder')}
+          aria-pressed={activeKpi === 'crossBorder'}
+          className={`bg-white border rounded-xl p-4 text-left transition-all ${
+            activeKpi === 'crossBorder'
+              ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/40'
+              : 'border-slate-200 hover:border-rose-200 hover:shadow-sm'
+          }`}
+        >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('crossBorderCost')}</p>
           <p className="text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost)}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{CROSS_BORDER_FEE_RATE * 100}% × 非租金/非内账</p>
-        </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            {activeKpi === 'crossBorder' ? '已筛选 · 再次点击清除' : `${CROSS_BORDER_FEE_RATE * 100}% × 非租金/非内账`}
+          </p>
+        </button>
       </div>
 
       {/* Charts */}
@@ -282,6 +406,8 @@ export default function ExpensesPage() {
         categoryBreakdownExpenses={expenses}
         selectedCategory={filters.category}
         onCategorySelect={selectChartCategory}
+        selectedPeriod={{ from: filters.date_from, to: filters.date_to }}
+        onPeriodSelect={selectChartPeriod}
       />
 
       {/* Filters */}
