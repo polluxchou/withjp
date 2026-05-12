@@ -18,9 +18,8 @@ export default async function FinanceForecastPage() {
 
   const { data } = await db
     .from('expenses')
-    .select('expense_date,total_price,payment_status,buyer_name,expense_category')
-    .gte('expense_date', `${year}-01-01`)
-    .lte('expense_date', `${year}-12-31`)
+    .select('expense_date,period,total_price,payment_status,buyer_name,expense_category')
+    .or(`and(expense_date.gte.${year}-01-01,expense_date.lte.${year}-12-31),period.like.${year}-Q%`)
 
   const baseMonths = buildForecastYearMonths(
     year,

@@ -44,6 +44,7 @@ test('calculateMonthlyBudgetCosts syncs current budget cost from CNY expenses in
   const budgets = calculateMonthlyBudgetCosts([
     {
       expense_date: '2026-03-10',
+      period: '2026-Q1',
       total_price: 1000,
       payment_status: 'budgeted',
       buyer_name: 'with-new',
@@ -51,6 +52,7 @@ test('calculateMonthlyBudgetCosts syncs current budget cost from CNY expenses in
     },
     {
       expense_date: '2026-03-11',
+      period: '2026-Q1',
       total_price: 500,
       payment_status: 'ordered_unpaid',
       buyer_name: 'external',
@@ -58,14 +60,44 @@ test('calculateMonthlyBudgetCosts syncs current budget cost from CNY expenses in
     },
     {
       expense_date: '2026-03-12',
+      period: '2026-Q1',
       total_price: 2000,
       payment_status: 'paid',
       buyer_name: 'with-new',
       expense_category: 'rent',
     },
+    {
+      expense_date: '2026-03-13',
+      period: '2026-Q1',
+      total_price: 900,
+      payment_status: 'refunded',
+      buyer_name: 'with-new',
+      expense_category: 'salary',
+    },
   ])
 
-  assert.equal(budgets.get('2026-03'), (1000 + 500 * 1.04) / 7)
+  const expectedQuarterMonthCost = (1000 + 500 * 1.04 + 2000) / 7 / 3
+  assert.equal(budgets.get('2026-01'), expectedQuarterMonthCost)
+  assert.equal(budgets.get('2026-02'), expectedQuarterMonthCost)
+  assert.equal(budgets.get('2026-03'), expectedQuarterMonthCost)
+})
+
+test('calculateMonthlyBudgetCosts prefers assigned period over expense date', () => {
+  const budgets = calculateMonthlyBudgetCosts([
+    {
+      expense_date: '2026-01-05',
+      period: '2026-Q4',
+      total_price: 2100,
+      payment_status: 'paid',
+      buyer_name: 'with-new',
+      expense_category: 'salary',
+    },
+  ])
+
+  assert.equal(budgets.get('2026-01') ?? 0, 0)
+  assert.equal(budgets.get('2026-10'), 100)
+  assert.equal(budgets.get('2026-11'), 100)
+  assert.equal(budgets.get('2026-12'), 100)
 })
 
 test('mergeForecastDraft restores account inputs without overwriting synced budget cost', () => {
