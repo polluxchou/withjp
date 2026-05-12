@@ -322,8 +322,17 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
       <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="flex items-end justify-between gap-4 px-5 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">{selected.month} 账号预测输入</h2>
-            <p className="text-xs text-slate-500 mt-0.5">每个月单独设置账号参数；输入会自动保存到 Supabase，本机草稿作为兜底。</p>
+            <h2 className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tabular-nums tracking-tight">
+                {selected.month.slice(0, 4)}
+              </span>
+              <span className="text-2xl font-bold text-slate-300">·</span>
+              <span className="text-2xl font-bold text-indigo-600 tabular-nums tracking-tight">
+                {selected.month.slice(5)}
+              </span>
+              <span className="text-sm font-medium text-slate-500 ml-2">账号预测输入</span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">每个月单独设置账号参数；输入会自动保存到 Supabase，本机草稿作为兜底。</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <span className={`text-xs font-medium ${saveStatusClass(saveStatus)}`}>
@@ -345,21 +354,47 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         </div>
 
         <div className="px-5 pt-4">
-          <div className="flex gap-1.5 flex-wrap mb-4">
-            {months.map((month, index) => (
-              <button
-                key={month.month}
-                type="button"
-                onClick={() => setSelectedMonth(index)}
-                className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                  index === selectedMonth
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                {month.month.slice(5)}
-              </button>
-            ))}
+          <div className="flex gap-3 flex-wrap mb-4">
+            {(() => {
+              // Group months by year so each year gets its own label + pill cluster
+              const groups: { year: string; entries: { index: number; mm: string; key: string }[] }[] = []
+              months.forEach((month, index) => {
+                const year = month.month.slice(0, 4)
+                const mm   = month.month.slice(5)
+                const last = groups[groups.length - 1]
+                if (last && last.year === year) {
+                  last.entries.push({ index, mm, key: month.month })
+                } else {
+                  groups.push({ year, entries: [{ index, mm, key: month.month }] })
+                }
+              })
+              return groups.map(({ year, entries }) => (
+                <div key={year} className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-slate-400 tracking-wider tabular-nums">
+                    {year}
+                  </span>
+                  <div className="flex gap-1">
+                    {entries.map(({ index, mm, key }) => {
+                      const active = index === selectedMonth
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setSelectedMonth(index)}
+                          className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold tabular-nums transition-colors ${
+                            active
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                          }`}
+                        >
+                          {mm}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
+            })()}
           </div>
 
           <div className="grid gap-3 md:grid-cols-3 mb-4">
