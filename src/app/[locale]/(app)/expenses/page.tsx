@@ -158,44 +158,98 @@ export default function ExpensesPage() {
     return result
   }, [expenses, filters.category, filters.unpaid_only, filters.cross_border_only])
 
-  // Detect "本月支出" KPI active state by comparing date filters to current month bounds.
-  const thisMonth = useMemo(() => {
+  // ── Month picker for the 月度支出 KPI ───────────────────────
+  // 12 months ending at the current one (most recent first). The KPI
+  // click opens a popover over this list so users can filter to any
+  // recent month, not just the calendar "current month".
+  const monthOptions = useMemo(() => {
     const now = new Date()
-    const y = now.getUTCFullYear()
-    const m = now.getUTCMonth()
-    const first = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10)
-    const last  = new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10)
-    return { first, last }
+    const list: { ym: string; first: string; last: string; label: string }[] = []
+    for (let i = 0; i < 12; i++) {
+      const y = now.getUTCFullYear()
+      const m = now.getUTCMonth() - i
+      const d = new Date(Date.UTC(y, m, 1))
+      const ym = d.toISOString().slice(0, 7)
+      const first = `${ym}-01`
+      const last  = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10)
+      const label = i === 0 ? '本月' : i === 1 ? '上月' : ym
+      list.push({ ym, first, last, label })
+    }
+    return list
   }, [])
 
+  // If filters.date_from/to exactly span a whole month, surface that
+  // month as the "active month" for KPI highlighting + popover state.
+  const activeMonth = useMemo(() => {
+    const { date_from, date_to } = filters
+    if (!date_from || !date_to) return null
+    const fromYM = date_from.slice(0, 7)
+    if (fromYM !== date_to.slice(0, 7)) return null
+    if (date_from !== `${fromYM}-01`) return null
+    const [y, m] = fromYM.split('-').map(Number)
+    const lastDay = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+    return date_to === lastDay ? fromYM : null
+  }, [filters.date_from, filters.date_to])
+
   const activeKpi = (() => {
-    if (filters.unpaid_only === 'yes')                                          return 'unpaid'
-    if (filters.cross_border_only === 'yes')                                    return 'crossBorder'
-    if (filters.payment_status === 'paid')                                      return 'paid'
-    if (filters.date_from === thisMonth.first && filters.date_to === thisMonth.last) return 'thisMonth'
+    if (filters.unpaid_only === 'yes')         return 'unpaid'
+    if (filters.cross_border_only === 'yes')   return 'crossBorder'
+    if (filters.payment_status === 'paid')     return 'paid'
+    if (activeMonth)                           return 'monthFilter'
     return null
   })()
 
-  function toggleKpi(target: 'paid' | 'unpaid' | 'thisMonth' | 'crossBorder' | 'reset') {
+  function toggleKpi(target: 'paid' | 'unpaid' | 'crossBorder' | 'reset') {
     setFilters((f) => {
       if (target === 'reset') return EMPTY_FILTERS
-      // Always clear other KPI-driven flags first, then toggle the target
+      // Always clear other KPI-driven flags first, then toggle the target.
+      // Date range is NOT cleared here — the month picker owns that filter
+      // and clears it via clearMonth() below.
       const cleared: Filters = {
         ...f,
         payment_status:    f.payment_status === 'paid' ? '' : f.payment_status,
         unpaid_only:       '',
         cross_border_only: '',
-        date_from:         (f.date_from === thisMonth.first && f.date_to === thisMonth.last) ? '' : f.date_from,
-        date_to:           (f.date_from === thisMonth.first && f.date_to === thisMonth.last) ? '' : f.date_to,
       }
-      if (activeKpi === target) return cleared  // toggle off
+      if (activeKpi === target) return cleared
       if (target === 'paid')        return { ...cleared, payment_status: 'paid' }
       if (target === 'unpaid')      return { ...cleared, unpaid_only: 'yes', payment_status: '' }
       if (target === 'crossBorder') return { ...cleared, cross_border_only: 'yes' }
-      if (target === 'thisMonth')   return { ...cleared, date_from: thisMonth.first, date_to: thisMonth.last }
       return cleared
     })
   }
+
+  function applyMonth(ym: string) {
+    const opt = monthOptions.find((o) => o.ym === ym)
+    if (!opt) return
+    setFilters((f) => ({ ...f, date_from: opt.first, date_to: opt.last }))
+    setMonthPickerOpen(false)
+  }
+
+  function clearMonth() {
+    setFilters((f) => ({ ...f, date_from: '', date_to: '' }))
+    setMonthPickerOpen(false)
+  }
+
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false)
+  const monthPickerRef = useRef<HTMLDivElement | null>(null)
+
+  // Close the picker on outside click / Escape
+  useEffect(() => {
+    if (!monthPickerOpen) return
+    const onPointer = (e: PointerEvent) => {
+      if (!monthPickerRef.current?.contains(e.target as Node)) setMonthPickerOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMonthPickerOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [monthPickerOpen])
 
   const summary = getExpenseSummary(visibleExpenses)
 
@@ -384,20 +438,67 @@ export default function ExpensesPage() {
           <p className="text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'unpaid' ? '已筛选 · 再次点击清除' : '点击筛选预算+待付款'}</p>
         </button>
-        <button
-          type="button"
-          onClick={() => toggleKpi('thisMonth')}
-          aria-pressed={activeKpi === 'thisMonth'}
-          className={`bg-white border rounded-xl p-4 text-left transition-all ${
-            activeKpi === 'thisMonth'
-              ? 'border-indigo-400 ring-2 ring-indigo-100 bg-indigo-50/40'
-              : 'border-slate-200 hover:border-indigo-200 hover:shadow-sm'
-          }`}
-        >
-          <p className="text-xs font-medium text-slate-500 mb-1">{t('thisMonth')}</p>
-          <p className="text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'thisMonth' ? '已筛选 · 再次点击清除' : '点击筛选本月'}</p>
-        </button>
+        <div ref={monthPickerRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setMonthPickerOpen((v) => !v)}
+            aria-pressed={activeKpi === 'monthFilter'}
+            aria-haspopup="listbox"
+            aria-expanded={monthPickerOpen}
+            className={`w-full bg-white border rounded-xl p-4 text-left transition-all ${
+              activeKpi === 'monthFilter'
+                ? 'border-indigo-400 ring-2 ring-indigo-100 bg-indigo-50/40'
+                : 'border-slate-200 hover:border-indigo-200 hover:shadow-sm'
+            }`}
+          >
+            <p className="text-xs font-medium text-slate-500 mb-1">
+              {activeMonth ? `${activeMonth} 支出` : t('thisMonth')}
+            </p>
+            <p className="text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              {activeMonth ? `已筛选 · 点击切换月份` : '点击选择月份筛选'}
+            </p>
+          </button>
+
+          {monthPickerOpen && (
+            <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-white border border-slate-200 rounded-xl shadow-lg p-2">
+              <div className="text-[10px] font-medium text-slate-400 px-2 py-1 uppercase tracking-wider">
+                选择月份
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {monthOptions.map((opt) => {
+                  const isActive = activeMonth === opt.ym
+                  return (
+                    <button
+                      key={opt.ym}
+                      type="button"
+                      onClick={() => applyMonth(opt.ym)}
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors ${
+                        isActive
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="font-medium">{opt.label}</span>
+                      <span className={isActive ? 'text-indigo-100' : 'text-slate-400'}>
+                        {opt.ym}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {activeMonth && (
+                <button
+                  type="button"
+                  onClick={clearMonth}
+                  className="mt-1 w-full px-2 py-1.5 rounded-md text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                >
+                  清除月份筛选
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => toggleKpi('crossBorder')}
