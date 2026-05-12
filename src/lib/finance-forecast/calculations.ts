@@ -55,6 +55,7 @@ export interface ForecastDraft {
 
 export type ExpenseForBudget = {
   expense_date:     string | null
+  period?:          string | null
   total_price:      number | string
   payment_status:   ExpensePaymentStatus
   buyer_name:       string
@@ -143,10 +144,21 @@ export function summarizeForecast(months: ForecastMonthInput[]): ForecastSummary
 export function calculateMonthlyBudgetCosts(expenses: ExpenseForBudget[]): Map<string, number> {
   const budgets = new Map<string, number>()
   for (const expense of expenses) {
-    if (expense.payment_status !== 'budgeted' && expense.payment_status !== 'ordered_unpaid') continue
+    if (expense.payment_status === 'refunded') continue
+
+    const costUsd = effectiveCost(expense) * CNY_TO_USD_RATE
+    const quarterMonths = monthsForQuarter(expense.period)
+    if (quarterMonths) {
+      const monthlyCost = costUsd / quarterMonths.length
+      for (const month of quarterMonths) {
+        budgets.set(month, (budgets.get(month) ?? 0) + monthlyCost)
+      }
+      continue
+    }
+
     if (!expense.expense_date) continue
     const month = expense.expense_date.slice(0, 7)
-    budgets.set(month, (budgets.get(month) ?? 0) + effectiveCost(expense) * CNY_TO_USD_RATE)
+    budgets.set(month, (budgets.get(month) ?? 0) + costUsd)
   }
   return budgets
 }
@@ -172,4 +184,13 @@ export function mergeForecastDraft(
 function numeric(value: number | string | null | undefined): number {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
+}
+
+function monthsForQuarter(period: string | null | undefined): string[] | null {
+  const match = period?.match(/^(\d{4})-Q([1-4])$/)
+  if (!match) return null
+
+  const year = match[1]
+  const startMonth = (Number(match[2]) - 1) * 3 + 1
+  return [0, 1, 2].map((offset) => `${year}-${String(startMonth + offset).padStart(2, '0')}`)
 }
