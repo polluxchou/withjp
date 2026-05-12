@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Area,
@@ -20,7 +20,9 @@ import {
   FORECAST_ACCOUNT_TYPE_LABELS,
   FORECAST_ACCOUNT_TYPES,
   calculateForecastRows,
+  mergeForecastDraft,
   summarizeForecast,
+  type ForecastDraft,
   type ForecastAccountInput,
   type ForecastAccountType,
   type ForecastMonthInput,
@@ -57,10 +59,15 @@ interface Props {
   initialSelectedMonth?: number
 }
 
+const STORAGE_KEY_PREFIX = 'finance-forecast:draft'
+
 export default function FinanceForecastDashboard({ initialMonths, initialSelectedMonth = 0 }: Props) {
   const [months, setMonths] = useState<ForecastMonthInput[]>(initialMonths)
   const [selectedMonth, setSelectedMonth] = useState(initialSelectedMonth)
   const [chartMode, setChartMode] = useState<ChartMode>('stacked')
+  const [hydratedDraft, setHydratedDraft] = useState(false)
+  const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
+  const didLoadDraft = useRef(false)
 
   const summary = useMemo(() => summarizeForecast(months), [months])
   const selected = summary.months[selectedMonth]
@@ -131,6 +138,19 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   const yearlyProfitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
   const selectedProfitColor = selected.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
+
+  useEffect(() => {
+    if (didLoadDraft.current) return
+    didLoadDraft.current = true
+    const draft = readDraft(storageKey)
+    if (draft) setMonths((current) => mergeForecastDraft(current, draft))
+    setHydratedDraft(true)
+  }, [storageKey])
+
+  useEffect(() => {
+    if (!hydratedDraft) return
+    writeDraft(storageKey, months)
+  }, [hydratedDraft, months, storageKey])
 
   return (
     <>
@@ -276,7 +296,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         <div className="flex items-end justify-between gap-4 px-5 py-4 border-b border-slate-100">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">{selected.month} 账号预测输入</h2>
-            <p className="text-xs text-slate-500 mt-0.5">每个月单独设置账号参数；没有预测输入时，贡献和曲线为 0。</p>
+            <p className="text-xs text-slate-500 mt-0.5">每个月单独设置账号参数；输入会自动保存在本机，刷新页面不会丢。</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={selectedMonth === 0}>
@@ -417,6 +437,35 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
       </section>
     </>
   )
+}
+
+function buildStorageKey(months: ForecastMonthInput[]): string {
+  const year = months[0]?.month.slice(0, 4) || 'default'
+  return `${STORAGE_KEY_PREFIX}:${year}`
+}
+
+function readDraft(storageKey: string): ForecastDraft | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    return raw ? JSON.parse(raw) as ForecastDraft : null
+  } catch {
+    return null
+  }
+}
+
+function writeDraft(storageKey: string, months: ForecastMonthInput[]) {
+  if (typeof window === 'undefined') return
+  const draft: ForecastDraft = {
+    version: 1,
+    months: months.map((month) => ({
+      month:              month.month,
+      rows:               month.rows,
+      actual_revenue_usd: month.actual_revenue_usd,
+      note:               month.note,
+    })),
+  }
+  window.localStorage.setItem(storageKey, JSON.stringify(draft))
 }
 
 function KpiCard({
