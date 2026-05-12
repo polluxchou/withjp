@@ -10,6 +10,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -48,9 +49,10 @@ const ACCOUNT_TYPE_NOTES: Record<ForecastAccountType, string> = {
 }
 
 const CHART_TABS = [
-  { key: 'stacked', label: 'Stacked' },
-  { key: 'lines',   label: 'Lines' },
-  { key: 'indexed', label: 'Indexed' },
+  { key: 'stacked',    label: 'Stacked' },
+  { key: 'lines',      label: 'Lines' },
+  { key: 'indexed',    label: 'Indexed' },
+  { key: 'cumulative', label: '累计' },
 ] as const
 
 type ChartMode = typeof CHART_TABS[number]['key']
@@ -82,6 +84,15 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   const chartData = useMemo(() => buildChartData(summary.months, chartMode), [summary.months, chartMode])
   const calculatedRows = useMemo(() => calculateForecastRows(selectedRaw.rows), [selectedRaw.rows])
+
+  // Cumulative running totals — used by both the "累计" chart tab and the
+  // breakeven KPI card. Computed once so the chart and the card agree.
+  const cumulativeData = useMemo(() => buildCumulativeData(summary.months), [summary.months])
+  const breakevenIndex = cumulativeData.findIndex((row) => row.cum_profit >= 0 && row.cum_revenue > 0)
+  const breakevenMonth = breakevenIndex >= 0 ? summary.months[breakevenIndex].month : null
+  const yearMarginPct  = summary.yearly_forecast_usd > 0
+    ? (summary.yearly_profit_usd / summary.yearly_forecast_usd) * 100
+    : 0
 
   function updateSelectedMonth(patch: Partial<ForecastMonthInput>) {
     setMonths((prev) => prev.map((month, index) => index === selectedMonth ? { ...month, ...patch } : month))
@@ -233,8 +244,9 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   return (
     <>
-      {/* Row 1: KPI summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+      {/* Row 1: KPI summary — 6 cards covering revenue, cost, profit, margin
+          and breakeven; collapses to 2-col on mobile, 3-col on tablet. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-4">
         <KpiCard
           label="全年预测开播收益"
           value={formatUsd(summary.yearly_forecast_usd)}
@@ -250,11 +262,25 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           accent="bg-amber-50 text-amber-600"
         />
         <KpiCard
-          label="全年毛利润结余"
+          label="年度累计利润"
           value={formatUsd(summary.yearly_profit_usd)}
-          sub={summary.yearly_profit_usd >= 0 ? '预计结余' : '预计亏损'}
+          sub={summary.yearly_profit_usd >= 0 ? '全年预计结余' : '全年预计亏损'}
           accent="bg-emerald-50 text-emerald-600"
           valueClassName={yearlyProfitColor}
+        />
+        <KpiCard
+          label="年度毛利率"
+          value={`${Math.round(yearMarginPct)}%`}
+          sub="年度利润 / 年度收益"
+          accent="bg-emerald-50 text-emerald-600"
+          valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
+        />
+        <KpiCard
+          label="首个盈利月"
+          value={breakevenMonth ? breakevenMonth.slice(5) + '月' : '—'}
+          sub={breakevenMonth ? '累计利润首次转正' : '本年度累计未转正'}
+          accent="bg-rose-50 text-rose-600"
+          valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
         />
         <KpiCard
           label="当前月毛利率"
@@ -488,7 +514,11 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">预测曲线</h2>
-              <p className="text-xs text-slate-500 mt-0.5">按账户类型展示开播收益、实际收益和同步预算成本</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {chartMode === 'cumulative'
+                  ? '累计收益 vs 累计成本 — 交叉点即首次盈利月'
+                  : '按账户类型展示开播收益、实际收益和同步预算成本'}
+              </p>
             </div>
             <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
               {CHART_TABS.map((tab) => (
@@ -528,6 +558,36 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 ))}
                 <Line type="monotone" dataKey="actual" name="实际开播收益" stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
                 <Line type="monotone" dataKey="budget" name="同步预算成本" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+              </ComposedChart>
+            ) : chartMode === 'cumulative' ? (
+              <ComposedChart data={cumulativeData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={formatUsdCompact} width={56} />
+                <Tooltip formatter={(value) => formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                {/* Zero baseline so the user can read where cumulative profit crosses 0. */}
+                <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
+                {/* Breakeven marker — only drawn when cumulative profit has turned positive. */}
+                {breakevenIndex >= 0 && (
+                  <ReferenceLine
+                    x={cumulativeData[breakevenIndex].label}
+                    stroke="#10b981"
+                    strokeDasharray="4 4"
+                    label={{ value: `盈亏平衡 ${cumulativeData[breakevenIndex].label}`, position: 'top', fontSize: 11, fill: '#10b981' }}
+                  />
+                )}
+                <Area
+                  type="monotone"
+                  dataKey="cum_profit"
+                  name="累计净利润"
+                  stroke="#6366f1"
+                  fill="#6366f1"
+                  fillOpacity={0.18}
+                  strokeWidth={2}
+                />
+                <Line type="monotone" dataKey="cum_revenue" name="累计开播收益" stroke="#10b981" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="cum_cost"    name="累计预算成本" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
               </ComposedChart>
             ) : (
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
@@ -759,7 +819,7 @@ function KpiCard({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
-      className={`bg-white rounded-xl border p-5 transition-all select-none ${
+      className={`bg-white rounded-xl border p-4 sm:p-5 transition-all select-none ${
         onClick ? 'cursor-pointer hover:shadow-sm' : ''
       } ${
         active
@@ -767,14 +827,14 @@ function KpiCard({
           : onClick ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200'
       }`}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-2 sm:gap-4">
         <div className="min-w-0">
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
-          <p className={`text-2xl font-bold mt-1 ${valueClassName}`}>{value}</p>
-          <p className="text-xs text-slate-400 mt-1">{sub}</p>
+          <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate">{label}</p>
+          <p className={`text-xl sm:text-2xl font-bold mt-1 ${valueClassName}`}>{value}</p>
+          <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate">{sub}</p>
         </div>
         <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
           {onClick && (
             <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-300 -rotate-90'}`} />
           )}
@@ -834,6 +894,21 @@ function StatusBadge({ revenue }: { revenue: number }) {
     return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">稳定</span>
   }
   return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">观察</span>
+}
+
+function buildCumulativeData(months: ReturnType<typeof summarizeForecast>['months']) {
+  let runningRevenue = 0
+  let runningCost    = 0
+  return months.map((month) => {
+    runningRevenue += month.forecast_revenue_usd
+    runningCost    += month.budget_cost_usd
+    return {
+      label:        month.month.slice(5),
+      cum_revenue:  runningRevenue,
+      cum_cost:     runningCost,
+      cum_profit:   runningRevenue - runningCost,
+    }
+  })
 }
 
 function buildChartData(months: ReturnType<typeof summarizeForecast>['months'], mode: ChartMode) {
