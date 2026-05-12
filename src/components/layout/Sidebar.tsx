@@ -138,11 +138,13 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile hamburger — only visible on small screens.
-          Sits on the right so it doesn't collide with the iOS back-swipe edge. */}
+          Sits on the right so it doesn't collide with the iOS back-swipe edge.
+          The inline top offset respects the iOS notch / Dynamic Island. */}
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed top-3 right-3 z-30 w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center justify-center"
+        className="md:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center justify-center"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         aria-label="Open menu"
       >
         <Menu className="w-5 h-5" />
@@ -161,7 +163,11 @@ export default function Sidebar() {
         className={`fixed top-0 left-0 h-screen bg-slate-900 flex flex-col z-50 transition-transform duration-200 md:transition-[width] md:translate-x-0 ${
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0'
         }`}
-        style={{ width: effectiveWidth }}
+        style={{
+          width: effectiveWidth,
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
       >
       {/* Logo + collapse toggle */}
       <div className={`flex items-center border-b border-slate-800 ${effectiveCollapsed ? 'justify-center px-2 py-5' : 'gap-2.5 px-5 py-5'}`}>
@@ -177,7 +183,7 @@ export default function Sidebar() {
         {showLabel && !isMobile && (
           <button
             onClick={() => setCollapsed(true)}
-            className="text-slate-400 hover:text-white transition-colors flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex-shrink-0"
             title="Collapse sidebar"
           >
             <ChevronLeft className="w-4 h-4" />

@@ -467,7 +467,7 @@ export default function ExpensesPage() {
           className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-300 hover:shadow-sm transition-all"
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('totalExpense')}</p>
-          <p className="text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? '点击清除筛选' : ' '}</p>
         </button>
         <button
@@ -481,7 +481,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('paid')}</p>
-          <p className="text-xl font-bold text-green-700">{fmtRmb(summary.paidCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-green-700">{fmtRmb(summary.paidCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'paid' ? '已筛选 · 再次点击清除' : '点击筛选已付款'}</p>
         </button>
         <button
@@ -495,7 +495,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('budgetPending')}</p>
-          <p className="text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'unpaid' ? '已筛选 · 再次点击清除' : '点击筛选预算+待付款'}</p>
         </button>
         <div ref={monthPickerRef} className="relative">
@@ -514,7 +514,7 @@ export default function ExpensesPage() {
             <p className="text-xs font-medium text-slate-500 mb-1">
               {activeMonth ? `${activeMonth} 支出` : t('thisMonth')}
             </p>
-            <p className="text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
+            <p className="text-lg sm:text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">
               {activeMonth ? `已筛选 · 点击切换月份` : '点击选择月份筛选'}
             </p>
@@ -570,7 +570,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('crossBorderCost')}</p>
-          <p className="text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">
             {activeKpi === 'crossBorder' ? '已筛选 · 再次点击清除' : `${CROSS_BORDER_FEE_RATE * 100}% × 非租金/非内账`}
           </p>
@@ -601,7 +601,7 @@ export default function ExpensesPage() {
             <input
               value={filters.q} onChange={setFilter('q')}
               placeholder={t('searchPlaceholder')}
-              className="w-full pl-9 pr-4 py-2 text-base sm:text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-52"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-52"
             />
           </div>
 
@@ -830,7 +830,7 @@ export default function ExpensesPage() {
                           onClick={() => setEditing(e)}
                           aria-label={tCommon('edit')}
                           title={tCommon('edit')}
-                          className="p-1.5 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -839,7 +839,7 @@ export default function ExpensesPage() {
                           onClick={() => setDuplicating(e)}
                           aria-label={t('duplicateExpense')}
                           title={t('copyRecordTitle')}
-                          className="p-1.5 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                          className="p-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
@@ -848,7 +848,7 @@ export default function ExpensesPage() {
                           onClick={() => { setDeleting(e); setDeleteErr(null) }}
                           aria-label={tCommon('delete')}
                           title={tCommon('delete')}
-                          className="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
