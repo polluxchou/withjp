@@ -113,7 +113,7 @@ type ExpenseForFee = {
 /** Cross-border transfer fee for a single expense (0 if not applicable). */
 export function crossBorderFee(e: ExpenseForFee): number {
   if (e.expense_category === 'rent') return 0
-  if (DOMESTIC_SETTLEMENT_BUYERS.includes(e.buyer_name)) return 0
+  if (DOMESTIC_SETTLEMENT_BUYERS.some(b => b.toLowerCase() === e.buyer_name?.toLowerCase())) return 0
   return Number(e.total_price) * CROSS_BORDER_FEE_RATE
 }
 
@@ -141,7 +141,7 @@ export function categoryHasQuantity(cat: ExpenseCategory): boolean {
 
 /** Whether a category shows the period field */
 export function categoryHasPeriod(cat: ExpenseCategory): boolean {
-  return EXPENSE_CATEGORY_OPTIONS.some((option) => option.value === cat)
+  return cat === 'salary' || cat === 'rent' || cat === 'cloud_services'
 }
 
 /** Whether a category shows the location field */
@@ -170,8 +170,8 @@ type ExpenseForSummary = {
 
 export function getExpenseSummary(expenses: ExpenseForSummary[]): ExpenseSummary {
   const now      = new Date()
-  const thisYear = now.getUTCFullYear()
-  const thisMon  = now.getUTCMonth() + 1
+  const thisYear = now.getFullYear()
+  const thisMon  = now.getMonth() + 1
 
   let totalCost          = 0
   let paidCost           = 0
@@ -186,10 +186,10 @@ export function getExpenseSummary(expenses: ExpenseForSummary[]): ExpenseSummary
 
     if (e.payment_status === 'paid') {
       paidCost += total
-      // current-month paid
+      // current-month paid — parse date string directly to avoid UTC timezone shift
       if (e.expense_date) {
-        const d = new Date(e.expense_date)
-        if (d.getUTCFullYear() === thisYear && d.getUTCMonth() + 1 === thisMon) {
+        const [expYear, expMon] = e.expense_date.split('-').map(Number)
+        if (expYear === thisYear && expMon === thisMon) {
           currentMonthCost += total
         }
       }

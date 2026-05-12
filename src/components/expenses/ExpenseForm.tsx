@@ -107,6 +107,14 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
       return
     }
 
+    if (showQty) {
+      const qty = parseInt(form.quantity, 10)
+      if (!Number.isInteger(qty) || qty < 1) {
+        setError(t('quantityMustBePositive'))
+        return
+      }
+    }
+
     setLoading(true)
     setError(null)
 
@@ -129,15 +137,20 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
     const url    = isEditing ? `/api/expenses/${expense.id}` : '/api/expenses'
     const method = isEditing ? 'PATCH' : 'POST'
 
-    const res  = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload),
-    })
-    const json = await res.json()
-    setLoading(false)
-    if (json.error) { setError(json.error); return }
-    onSuccess()
+    try {
+      const res  = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) { setError(json.error ?? `HTTP ${res.status}`); return }
+      onSuccess()
+    } catch {
+      setError(tCommon('loadFailed'))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

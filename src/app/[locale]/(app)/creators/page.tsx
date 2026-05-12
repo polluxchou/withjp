@@ -29,11 +29,12 @@ export default function CreatorsPage() {
     try {
       const url = filter === 'all' ? '/api/creators' : `/api/creators?status=${filter}`
       const res = await fetch(url)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       setLoadError(json.error ?? null)
       setCreators(json.data ?? [])
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : '加载失败')
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
       setCreators([])
     } finally {
       setLoading(false)
@@ -177,9 +178,11 @@ export default function CreatorsPage() {
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title={t('addCreator')} width="max-w-2xl">
-        <CreatorForm onSuccess={() => { setShowForm(false); load() }} onCancel={() => setShowForm(false)} />
-      </Modal>
+      {showForm && (
+        <Modal open={showForm} onClose={() => setShowForm(false)} title={t('addCreator')} width="max-w-2xl">
+          <CreatorForm onSuccess={() => { setShowForm(false); load() }} onCancel={() => setShowForm(false)} />
+        </Modal>
+      )}
     </div>
   )
 }

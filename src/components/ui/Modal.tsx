@@ -31,8 +31,9 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
           <button
-            onClick={onClose}
+            type="button"
             aria-label="Close"
+            onClick={onClose}
             className="-mr-1 w-9 h-9 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />

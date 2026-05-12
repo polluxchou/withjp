@@ -15,8 +15,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
 
-  const actor  = await getActorProfile(user.id)
-  const body   = (await req.json()) as UpdateExpenseInput
+  const actor = await getActorProfile(user.id)
+  let body: UpdateExpenseInput
+  try {
+    body = (await req.json()) as UpdateExpenseInput
+  } catch {
+    return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
+  }
   const result = await updateExpense(params.id, body, actor)
 
   if (result.error) {
