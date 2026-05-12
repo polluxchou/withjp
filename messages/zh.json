@@ -45,8 +45,20 @@
     "signingIn": "登录中...",
     "email": "邮箱",
     "password": "密码",
-    "remember": "记住邮箱",
-    "loginFailed": "登录失败"
+    "remember": "在此设备上记住邮箱",
+    "loginFailed": "登录失败",
+    "brandTag": "创作者公会管制塔",
+    "taglineLead": "管运营",
+    "taglineAccent": "不管混乱",
+    "subtitle": "把支出、预算、合约、人员、节奏整合在同一个 OS。",
+    "subtitleEn": "One operating system for streams, expenses, and the people in between.",
+    "welcomeLead": "欢迎回来",
+    "welcomeAccent": "运营官",
+    "welcomeDesc": "使用工作邮箱和密码登录控制台。",
+    "emailLabel": "工作邮箱 · WORK EMAIL",
+    "passwordLabel": "密码 · PASSWORD",
+    "forgot": "忘记密码？",
+    "stepLabel": "登录 · STEP 01 / 01"
   },
   "dashboard": {
     "title": "仪表盘",

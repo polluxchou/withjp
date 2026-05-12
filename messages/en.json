@@ -45,8 +45,20 @@
     "signingIn": "Signing in...",
     "email": "Email",
     "password": "Password",
-    "remember": "Remember email",
-    "loginFailed": "Login failed"
+    "remember": "Remember email on this device",
+    "loginFailed": "Login failed",
+    "brandTag": "Creator Guild Control Tower",
+    "taglineLead": "Run the guild,",
+    "taglineAccent": "not the chaos",
+    "subtitle": "One operating system for streams, expenses, talent, and the producers in between.",
+    "subtitleEn": "管运营 · 不管混乱",
+    "welcomeLead": "Welcome back,",
+    "welcomeAccent": "producer.",
+    "welcomeDesc": "Sign in with your work email and password.",
+    "emailLabel": "Work email",
+    "passwordLabel": "Password",
+    "forgot": "Forgot?",
+    "stepLabel": "Sign-in · Step 01 / 01"
   },
   "dashboard": {
     "title": "Dashboard",
