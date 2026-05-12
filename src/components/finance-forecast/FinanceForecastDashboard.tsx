@@ -73,7 +73,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const [hydratedDraft, setHydratedDraft] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
-  const didLoadDraft = useRef(false)
+  const didLoadDraft  = useRef(false)
+  const storageKeyRef = useRef(storageKey)
 
   const summary = useMemo(() => summarizeForecast(months), [months])
   const selected = summary.months[selectedMonth]
@@ -118,15 +119,41 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     }))
   }
 
+  // Persist months immediately to DB — used for destructive ops (delete /
+  // clear) where we can't afford to lose the change if the user navigates
+  // away before the 700 ms debounce fires.
+  async function persistNow(newMonths: ForecastMonthInput[]) {
+    const year = Number(newMonths[0]?.month.slice(0, 4)) || new Date().getUTCFullYear()
+    writeDraft(storageKeyRef.current, newMonths)
+    setSaveStatus('saving')
+    try {
+      const res = await fetch('/api/finance-forecast', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ year, months: newMonths }),
+      })
+      setSaveStatus(res.ok ? 'saved' : 'error')
+    } catch {
+      setSaveStatus('error')
+    }
+  }
+
   function deleteRow(rowIndex: number) {
-    setMonths((prev) => prev.map((month, i) => {
-      if (i !== selectedMonth) return month
-      return { ...month, rows: month.rows.filter((_, j) => j !== rowIndex) }
-    }))
+    const newMonths = months.map((month, index) =>
+      index === selectedMonth
+        ? { ...month, rows: month.rows.filter((_, i) => i !== rowIndex) }
+        : month
+    )
+    setMonths(newMonths)
+    void persistNow(newMonths)
   }
 
   function clearMonth() {
-    updateSelectedMonth({ rows: [], note: '' })
+    const newMonths = months.map((month, index) =>
+      index === selectedMonth ? { ...month, rows: [], note: '' } : month
+    )
+    setMonths(newMonths)
+    void persistNow(newMonths)
   }
 
   function copyPreviousMonth() {
@@ -156,6 +183,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
       })
     })
   }
+
+  storageKeyRef.current = storageKey
 
   const yearlyProfitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
   const selectedProfitColor = selected.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
