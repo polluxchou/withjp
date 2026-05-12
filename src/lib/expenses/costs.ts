@@ -1,8 +1,9 @@
-import type {
-  ExpenseCategory,
-  ExpensePaymentMethod,
-  ExpensePaymentStatus,
-  ExpensePaymentMethod as EPM,
+import {
+  COMPANY_ACCOUNT_BUYERS,
+  type ExpenseCategory,
+  type ExpensePaymentMethod,
+  type ExpensePaymentStatus,
+  type ExpensePaymentMethod as EPM,
 } from '@/lib/types'
 
 // ── Team members (使用人枚举) ─────────────────────────────────
@@ -22,6 +23,13 @@ export const EXPENSE_USER_OPTIONS = [
 ] as const
 
 export type ExpenseUser = typeof EXPENSE_USER_OPTIONS[number]
+
+// 全量经办人 = 团队成员 + 公司账户经办人。Filter 下拉 + Form 下拉共用，
+// 保证「能存的」「能筛的」两侧不会分裂。
+export const EXPENSE_BUYER_OPTIONS: readonly string[] = [
+  ...EXPENSE_USER_OPTIONS,
+  ...COMPANY_ACCOUNT_BUYERS,
+]
 
 // ── Labels ────────────────────────────────────────────────────
 
