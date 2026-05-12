@@ -6,6 +6,7 @@ import ExpenseForm from '@/components/expenses/ExpenseForm'
 import ExpenseCategoryChart from '@/components/expenses/ExpenseCategoryChart'
 import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal'
 import Modal from '@/components/ui/Modal'
+import DateRangeSlider from '@/components/ui/DateRangeSlider'
 import Button from '@/components/ui/Button'
 import ClampedText from '@/components/ui/ClampedText'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
@@ -305,9 +306,11 @@ export default function ExpensesPage() {
 
         <div className="flex items-center gap-3 flex-wrap">
           <label className="text-xs text-slate-500">{t('date')}:</label>
-          <input type="date" value={filters.date_from} onChange={setFilter('date_from')} className={INPUT} />
-          <span className="text-xs text-slate-400">{t('to')}</span>
-          <input type="date" value={filters.date_to} onChange={setFilter('date_to')} className={INPUT} />
+          <DateRangeSlider
+            from={filters.date_from}
+            to={filters.date_to}
+            onChange={(from, to) => setFilters((f) => ({ ...f, date_from: from, date_to: to }))}
+          />
           <button
             onClick={resetFilters}
             className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
