@@ -256,7 +256,6 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           label="全年预测开播收益"
           value={formatUsd(summary.yearly_forecast_usd)}
           sub={inputOpen ? '点击收起账号明细' : '点击展开账号明细'}
-          accent="bg-indigo-50 text-indigo-600"
           onClick={() => setInputOpen((o) => !o)}
           active={inputOpen}
         />
@@ -264,7 +263,6 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           label="全年成本预算"
           value={formatUsd(summary.yearly_budget_usd)}
           sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
-          accent="bg-amber-50 text-amber-600"
           linkTo="/expenses"
           linkLabel="去支出管理"
         />
@@ -272,28 +270,24 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           label="年度累计利润"
           value={formatUsd(summary.yearly_profit_usd)}
           sub={summary.yearly_profit_usd >= 0 ? '全年预计结余' : '全年预计亏损'}
-          accent="bg-emerald-50 text-emerald-600"
           valueClassName={yearlyProfitColor}
         />
         <KpiCard
           label="年度毛利率"
           value={`${Math.round(yearMarginPct)}%`}
           sub="年度利润 / 年度收益"
-          accent="bg-emerald-50 text-emerald-600"
           valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
         />
         <KpiCard
           label="首个盈利月"
           value={breakevenMonth ? breakevenMonth.slice(5) + '月' : '—'}
           sub={breakevenMonth ? '累计利润首次转正' : '本年度累计未转正'}
-          accent="bg-rose-50 text-rose-600"
           valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
         />
         <KpiCard
           label="当前月毛利率"
           value={selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
           sub={`${selected.month} 正在编辑`}
-          accent="bg-blue-50 text-blue-600"
           valueClassName={selectedProfitColor}
         />
       </div>
@@ -807,7 +801,6 @@ function KpiCard({
   label,
   value,
   sub,
-  accent,
   valueClassName = 'text-slate-900',
   onClick,
   active,
@@ -817,7 +810,6 @@ function KpiCard({
   label: string
   value: string
   sub: string
-  accent: string
   valueClassName?: string
   onClick?: () => void
   active?: boolean
@@ -825,53 +817,60 @@ function KpiCard({
   linkTo?: string
   linkLabel?: string
 }) {
+  const interactive = !!onClick
   return (
     <div
       onClick={onClick}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={interactive ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
       className={`relative bg-white rounded-xl border p-4 sm:p-5 transition-all select-none ${
-        onClick ? 'cursor-pointer hover:shadow-sm' : ''
+        interactive ? 'cursor-pointer hover:shadow-sm' : ''
       } ${
         active
           ? 'border-indigo-400 ring-2 ring-indigo-50 shadow-sm'
-          : onClick ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200'
+          : interactive ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200'
       }`}
     >
+      {/* Top-right corner indicator: either a "go to page" arrow (linkTo)
+          or a "click to expand" chevron (onClick). These are mutually
+          exclusive in practice. The label below gets a little right
+          padding so it never collides with the indicator. */}
       {linkTo && (
         <Link
           href={linkTo}
           title={linkLabel}
           aria-label={linkLabel}
-          /* stopPropagation so the arrow doesn't trigger the card's onClick */
+          /* stopPropagation so the arrow doesn't trigger any future card onClick */
           onClick={(e) => e.stopPropagation()}
           className="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
         >
           <ArrowUpRight className="w-4 h-4" />
         </Link>
       )}
-      <div className="flex items-start justify-between gap-2 sm:gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate">{label}</p>
-          {/* Value: smaller default + scale up on larger screens. truncate
-              prevents overflow into the right-hand $ chip on narrow cards
-              (and yes, long numbers ellipsis — fall back to the tooltip). */}
-          <p
-            title={value}
-            className={`text-lg lg:text-xl xl:text-2xl font-bold mt-1 truncate ${valueClassName}`}
-          >
-            {value}
-          </p>
-          <p title={sub} className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate">{sub}</p>
-        </div>
-        <div className={`flex flex-col items-center gap-1.5 flex-shrink-0 ${linkTo ? 'mt-7' : ''}`}>
-          <div className={`w-7 h-7 lg:w-9 lg:h-9 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
-          {onClick && (
-            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-300 -rotate-90'}`} />
-          )}
-        </div>
-      </div>
+      {interactive && !linkTo && (
+        <ChevronDown
+          className={`absolute top-3 right-3 w-4 h-4 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-400 -rotate-90'}`}
+        />
+      )}
+
+      <p
+        className={`text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate ${interactive || linkTo ? 'pr-6' : ''}`}
+        title={label}
+      >
+        {label}
+      </p>
+      {/* Value scales down on smaller breakpoints; tabular-nums keeps digit
+          widths consistent across cards. The truncate + title pair is a
+          safety net for the rare case a number is still wider than the
+          card (hover surfaces the full value). */}
+      <p
+        title={value}
+        className={`text-lg lg:text-xl xl:text-2xl font-bold mt-1 tabular-nums truncate ${valueClassName}`}
+      >
+        {value}
+      </p>
+      <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate" title={sub}>{sub}</p>
     </div>
   )
 }
