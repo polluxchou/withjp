@@ -851,14 +851,22 @@ function KpiCard({
           <ArrowUpRight className="w-4 h-4" />
         </Link>
       )}
-      <div className="flex items-start justify-between gap-2 sm:gap-4">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
+        <div className="min-w-0 flex-1">
           <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate">{label}</p>
-          <p className={`text-xl sm:text-2xl font-bold mt-1 ${valueClassName}`}>{value}</p>
-          <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate">{sub}</p>
+          {/* Value: smaller default + scale up on larger screens. truncate
+              prevents overflow into the right-hand $ chip on narrow cards
+              (and yes, long numbers ellipsis — fall back to the tooltip). */}
+          <p
+            title={value}
+            className={`text-lg lg:text-xl xl:text-2xl font-bold mt-1 truncate ${valueClassName}`}
+          >
+            {value}
+          </p>
+          <p title={sub} className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate">{sub}</p>
         </div>
         <div className={`flex flex-col items-center gap-1.5 flex-shrink-0 ${linkTo ? 'mt-7' : ''}`}>
-          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
+          <div className={`w-7 h-7 lg:w-9 lg:h-9 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
           {onClick && (
             <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-300 -rotate-90'}`} />
           )}
