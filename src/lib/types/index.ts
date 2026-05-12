@@ -33,6 +33,7 @@ export interface Creator {
   status: CreatorStatus
   broadcast_account_id: string | null
   operator_user_id: string | null
+  created_by_user_id: string | null
   contact_info: CreatorContactInfo
   profile: CreatorProfile
   notes?: string
@@ -129,6 +130,7 @@ export interface Knowledge {
   title: string
   content: string
   tags: string[]
+  created_by_user_id: string | null
   created_at: string
   updated_at: string
 }
@@ -207,6 +209,7 @@ export interface Milestone {
   success_metric: Record<string, unknown>
   risk_level: RiskLevel
   notes: string | null
+  created_by_user_id: string | null
   created_at: string
   updated_at: string
   // joined / computed — optional, present in API responses
@@ -402,6 +405,7 @@ export interface Expense {
   payment_method_legacy: string | null       // preserved old free-text value
   payment_status:        ExpensePaymentStatus
   notes:                 string | null
+  created_by_user_id:    string | null
   created_at:            string
   updated_at:            string
 }
@@ -414,6 +418,7 @@ export interface UserProfile {
   role: AgentRole
   email: string | null
   user_code: string
+  is_admin: boolean
   avatar_url?: string
   created_at: string
   updated_at: string

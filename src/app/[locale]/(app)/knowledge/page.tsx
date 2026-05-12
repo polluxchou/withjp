@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Badge from '@/components/ui/Badge'
 import { Plus, BookOpen, Trash2, Tag } from 'lucide-react'
+import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Knowledge, KnowledgeCategory } from '@/lib/types'
 
 const CATEGORIES: { key: KnowledgeCategory; label: string; color: 'blue' | 'purple' | 'green' | 'amber' }[] = [
@@ -16,6 +17,7 @@ const CATEGORIES: { key: KnowledgeCategory; label: string; color: 'blue' | 'purp
 ]
 
 export default function KnowledgePage() {
+  const currentUser = useCurrentUser()
   const [items,   setItems]   = useState<Knowledge[]>([])
   const [loading, setLoading] = useState(true)
   const [filter,  setFilter]  = useState<KnowledgeCategory | 'all'>('all')
@@ -138,9 +140,11 @@ export default function KnowledgePage() {
                     />
                     <h2 className="text-base font-semibold text-slate-900 mt-2">{selected.title}</h2>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => deleteItem(selected.id)}>
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                  </Button>
+                  {canEdit(currentUser, selected.created_by_user_id) && (
+                    <Button variant="ghost" size="sm" onClick={() => deleteItem(selected.id)}>
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    </Button>
+                  )}
                 </div>
                 <div className="prose prose-sm max-w-none text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">
                   {selected.content}

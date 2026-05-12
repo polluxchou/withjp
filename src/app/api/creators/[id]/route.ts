@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { normalizeCreatorPlatform } from '@/lib/creators/platforms'
 import { authGuard } from '@/lib/auth/guard'
+import { getActorProfile, canModify } from '@/lib/auth/actor'
 import { formatSupabaseError } from '@/lib/supabase/errors'
 
 type Params = { params: { id: string } }
@@ -44,6 +45,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
   const db = createServerClient()
+
+  const actor = await getActorProfile(user.id)
+  if (!actor?.is_admin) {
+    const { data: existing } = await db
+      .from('creators')
+      .select('created_by_user_id')
+      .eq('id', params.id)
+      .single()
+    if (!canModify(actor, existing?.created_by_user_id ?? null)) {
+      return NextResponse.json({ data: null, error: '权限不足：只能编辑自己创建的条目' }, { status: 403 })
+    }
+  }
+
   const body = await req.json()
 
   // Prevent direct status changes via PATCH; use /transition endpoint
@@ -94,6 +108,19 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
   const db = createServerClient()
+
+  const actor = await getActorProfile(user.id)
+  if (!actor?.is_admin) {
+    const { data: existing } = await db
+      .from('creators')
+      .select('created_by_user_id')
+      .eq('id', params.id)
+      .single()
+    if (!canModify(actor, existing?.created_by_user_id ?? null)) {
+      return NextResponse.json({ data: null, error: '权限不足：只能删除自己创建的条目' }, { status: 403 })
+    }
+  }
+
   const { error } = await db.from('creators').delete().eq('id', params.id)
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   return NextResponse.json({ data: { id: params.id }, error: null })

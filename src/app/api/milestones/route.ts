@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
       target_date,
       success_metric:      success_metric      ?? {},
       notes:               notes               ?? null,
+      created_by_user_id:  user.id,
     })
     .select('*, owner_agent:agents!owner_agent_id(id, name, role)')
     .single()

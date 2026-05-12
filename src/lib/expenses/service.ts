@@ -1,6 +1,8 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { COMPANY_ACCOUNT_BUYERS } from '@/lib/types'
 import { categoryHasPeriod, dateToQuarter } from '@/lib/expenses/costs'
+import { canModify } from '@/lib/auth/actor'
+import type { ActorProfile } from '@/lib/auth/actor'
 import type {
   Expense,
   ExpenseCategory,
@@ -16,6 +18,7 @@ import type {
 export type ServiceErrorCode =
   | 'invalid_input'
   | 'not_found'
+  | 'forbidden'
   | 'db_error'
 
 export interface ServiceError {
@@ -123,6 +126,7 @@ export async function listExpenses(
 
 export async function createExpense(
   input: CreateExpenseInput,
+  actorId?: string,
 ): Promise<ServiceResult<Expense>> {
   if (!input.item_name?.trim()) {
     return err('invalid_input', 'item_name is required')
@@ -168,19 +172,20 @@ export async function createExpense(
   const { data, error } = await db
     .from('expenses')
     .insert({
-      expense_category: cat,
-      item_name:        input.item_name.trim(),
-      unit_price:       Number(input.unit_price) || 0,
-      quantity:         Number(input.quantity)   || 1,
-      expense_date:     input.expense_date,
-      location:         input.location   ?? '',
-      purpose:          input.purpose    ?? '',
-      period:           derivedPeriod,
-      user_name:        input.user_name  ?? '',
-      buyer_name:       input.buyer_name ?? '',
-      payment_method:   input.payment_method ?? null,
-      payment_status:   input.payment_status,
-      notes:            input.notes ?? null,
+      expense_category:    cat,
+      item_name:           input.item_name.trim(),
+      unit_price:          Number(input.unit_price) || 0,
+      quantity:            Number(input.quantity)   || 1,
+      expense_date:        input.expense_date,
+      location:            input.location   ?? '',
+      purpose:             input.purpose    ?? '',
+      period:              derivedPeriod,
+      user_name:           input.user_name  ?? '',
+      buyer_name:          input.buyer_name ?? '',
+      payment_method:      input.payment_method ?? null,
+      payment_status:      input.payment_status,
+      notes:               input.notes ?? null,
+      created_by_user_id:  actorId ?? null,
     })
     .select('*')
     .single()
@@ -194,15 +199,29 @@ export async function createExpense(
 export async function updateExpense(
   id: string,
   patch: UpdateExpenseInput,
+  actor?: ActorProfile | null,
 ): Promise<ServiceResult<Expense>> {
   // Strip generated / immutable fields if a caller passed a full record.
   const {
-    id:          _ignoredId,
-    total_price: _ignoredTotal,
-    created_at:  _ignoredCreated,
+    id:                   _ignoredId,
+    total_price:          _ignoredTotal,
+    created_at:           _ignoredCreated,
+    created_by_user_id:   _ignoredOwner,
     ...updates
   } = patch as Record<string, unknown>
-  void _ignoredId; void _ignoredTotal; void _ignoredCreated
+  void _ignoredId; void _ignoredTotal; void _ignoredCreated; void _ignoredOwner
+
+  if (actor !== undefined) {
+    const db2 = createServerClient()
+    const { data: existing } = await db2
+      .from('expenses')
+      .select('created_by_user_id')
+      .eq('id', id)
+      .single()
+    if (!canModify(actor, existing?.created_by_user_id ?? null)) {
+      return err('forbidden', '权限不足：只能编辑自己创建的条目')
+    }
+  }
 
   if ('payment_status' in updates) {
     if (!VALID_STATUSES.includes(updates.payment_status as ExpensePaymentStatus)) {
@@ -263,8 +282,21 @@ export async function updateExpense(
 
 export async function deleteExpense(
   id: string,
+  actor?: ActorProfile | null,
 ): Promise<ServiceResult<{ id: string }>> {
   const db = createServerClient()
+
+  if (actor !== undefined) {
+    const { data: existing } = await db
+      .from('expenses')
+      .select('created_by_user_id')
+      .eq('id', id)
+      .single()
+    if (!canModify(actor, existing?.created_by_user_id ?? null)) {
+      return err('forbidden', '权限不足：只能删除自己创建的条目')
+    }
+  }
+
   const { error } = await db.from('expenses').delete().eq('id', id)
   if (error) return err('db_error', error.message)
   return ok({ id })
@@ -275,6 +307,7 @@ export async function deleteExpense(
 export function httpStatusForError(code: ServiceErrorCode): number {
   switch (code) {
     case 'invalid_input': return 400
+    case 'forbidden':     return 403
     case 'not_found':     return 404
     case 'db_error':      return 500
   }
