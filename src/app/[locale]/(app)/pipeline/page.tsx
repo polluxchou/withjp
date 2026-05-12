@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import LifecycleBadge from '@/components/creators/LifecycleBadge'
 import Button from '@/components/ui/Button'
-import { ChevronRight, ChevronLeft, Users } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Users, XCircle, RotateCcw } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import type { Creator, CreatorStatus } from '@/lib/types'
@@ -54,6 +54,31 @@ export default function PipelinePage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to_status: targetStatus, triggered_by: 'user', notes: 'Rollback operation' }),
+    })
+    await load()
+    setMoving(null)
+  }
+
+  async function terminate(creator: Creator) {
+    if (!canTransition(creator.status, 'terminated')) return
+    if (typeof window !== 'undefined' && !window.confirm(t('confirmTerminate'))) return
+    setMoving(creator.id)
+    await fetch(`/api/creators/${creator.id}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to_status: 'terminated', triggered_by: 'user', notes: 'Contract terminated' }),
+    })
+    await load()
+    setMoving(null)
+  }
+
+  async function reactivate(creator: Creator) {
+    if (!canTransition(creator.status, 'contacted')) return
+    setMoving(creator.id)
+    await fetch(`/api/creators/${creator.id}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to_status: 'contacted', triggered_by: 'user', notes: 'Reactivated' }),
     })
     await load()
     setMoving(null)
@@ -120,28 +145,48 @@ export default function PipelinePage() {
                           )}
                         </Link>
                         <div className="mt-2 flex gap-1.5">
-                          {previous && (
+                          {creator.status === 'terminated' ? (
                             <button
-                              onClick={() => rollback(creator, previous)}
+                              onClick={() => reactivate(creator)}
                               disabled={moving === creator.id}
-                              className="flex-1 flex items-center justify-center text-xs text-slate-500 hover:text-slate-700 font-medium border border-slate-200 hover:border-slate-300 rounded-lg py-1.5 transition-colors disabled:opacity-50"
-                              title={t('moveBack', { status: tStatus(previous) })}
+                              className="w-full flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-indigo-700 font-medium border border-slate-200 hover:border-indigo-300 rounded-lg py-1.5 transition-colors disabled:opacity-50"
+                              title={t('reactivate')}
                             >
-                              {moving === creator.id ? '...' : <ChevronLeft className="w-4 h-4" />}
+                              {moving === creator.id ? '...' : <RotateCcw className="w-3.5 h-3.5" />}
                             </button>
-                          )}
-                          {next && (
-                            <button
-                              onClick={() => advance(creator)}
-                              disabled={moving === creator.id}
-                              className={`${previous ? 'flex-1' : 'w-full'} flex items-center justify-center text-xs text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-100 hover:border-indigo-300 rounded-lg py-1.5 transition-colors disabled:opacity-50`}
-                              title={t('moveForward', { status: tStatus(next) })}
-                            >
-                              {moving === creator.id ? '...' : <ChevronRight className="w-4 h-4" />}
-                            </button>
-                          )}
-                          {!next && !previous && (
-                            <div className="w-full text-center text-xs text-emerald-500 font-medium py-1.5">✓</div>
+                          ) : (
+                            <>
+                              {previous && (
+                                <button
+                                  onClick={() => rollback(creator, previous)}
+                                  disabled={moving === creator.id}
+                                  className="flex-1 flex items-center justify-center text-xs text-slate-500 hover:text-slate-700 font-medium border border-slate-200 hover:border-slate-300 rounded-lg py-1.5 transition-colors disabled:opacity-50"
+                                  title={t('moveBack', { status: tStatus(previous) })}
+                                >
+                                  {moving === creator.id ? '...' : <ChevronLeft className="w-4 h-4" />}
+                                </button>
+                              )}
+                              {next && (
+                                <button
+                                  onClick={() => advance(creator)}
+                                  disabled={moving === creator.id}
+                                  className="flex-1 flex items-center justify-center text-xs text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-100 hover:border-indigo-300 rounded-lg py-1.5 transition-colors disabled:opacity-50"
+                                  title={t('moveForward', { status: tStatus(next) })}
+                                >
+                                  {moving === creator.id ? '...' : <ChevronRight className="w-4 h-4" />}
+                                </button>
+                              )}
+                              {canTransition(creator.status, 'terminated') && (
+                                <button
+                                  onClick={() => terminate(creator)}
+                                  disabled={moving === creator.id}
+                                  className="flex items-center justify-center text-xs text-rose-500 hover:text-rose-700 border border-slate-200 hover:border-rose-300 rounded-lg px-2 py-1.5 transition-colors disabled:opacity-50"
+                                  title={t('terminate')}
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -158,10 +203,10 @@ export default function PipelinePage() {
       <div className="mt-6 bg-white border border-slate-200 rounded-xl p-4">
         <p className="text-xs font-medium text-slate-500 mb-2">{t('stateMachineRules')}</p>
         <div className="flex flex-wrap gap-1.5 items-center text-xs text-slate-400">
-          {ALL_STATUSES.map((s, i) => (
+          {ALL_STATUSES.filter((s) => s !== 'terminated').map((s, i, arr) => (
             <span key={s} className="flex items-center gap-1">
               <LifecycleBadge status={s} size="sm" />
-              {i < ALL_STATUSES.length - 1 && (
+              {i < arr.length - 1 && (
                 <>
                   <ChevronRight className="w-3 h-3 text-slate-300" />
                   <ChevronLeft className="w-3 h-3 text-slate-300" />
@@ -169,6 +214,8 @@ export default function PipelinePage() {
               )}
             </span>
           ))}
+          <span className="text-slate-300 px-1">·</span>
+          <LifecycleBadge status="terminated" size="sm" />
         </div>
         <p className="text-xs text-slate-400 mt-2">
           {t('transitionsInfo')}

@@ -1,14 +1,24 @@
 import type { CreatorStatus } from '@/lib/types'
 
-// Valid transitions: forward and backward allowed
+// States that form the "main" lifecycle (prospect → … → monetized).
+// `terminated` lives outside this chain — it's reachable as an explicit
+// exit, but is never the result of an auto-advance.
+const MAIN_LIFECYCLE: CreatorStatus[] = [
+  'prospect', 'contacted', 'engaged', 'onboarded', 'live_ready', 'live', 'monetized'
+]
+
+// Valid transitions: forward and backward allowed along the main chain.
+// Every active state (post-prospect) may transition to 'terminated';
+// 'terminated' may transition back to 'contacted' to reopen a deal.
 const TRANSITIONS: Record<CreatorStatus, CreatorStatus[]> = {
   prospect:    ['contacted'],
-  contacted:   ['prospect', 'engaged'],
-  engaged:     ['contacted', 'onboarded'],
-  onboarded:   ['engaged', 'live_ready'],
-  live_ready:  ['onboarded', 'live'],
-  live:        ['live_ready', 'monetized'],
-  monetized:   ['live'], // can roll back to live
+  contacted:   ['prospect', 'engaged', 'terminated'],
+  engaged:     ['contacted', 'onboarded', 'terminated'],
+  onboarded:   ['engaged', 'live_ready', 'terminated'],
+  live_ready:  ['onboarded', 'live', 'terminated'],
+  live:        ['live_ready', 'monetized', 'terminated'],
+  monetized:   ['live', 'terminated'], // can roll back to live or end the contract
+  terminated:  ['contacted'],          // reactivate by reopening contact
 }
 
 export function canTransition(from: CreatorStatus, to: CreatorStatus): boolean {
@@ -16,21 +26,19 @@ export function canTransition(from: CreatorStatus, to: CreatorStatus): boolean {
 }
 
 export function isBackwardTransition(from: CreatorStatus, to: CreatorStatus): boolean {
-  const statusOrder: CreatorStatus[] = [
-    'prospect', 'contacted', 'engaged', 'onboarded', 'live_ready', 'live', 'monetized'
-  ]
-  const fromIndex = statusOrder.indexOf(from)
-  const toIndex = statusOrder.indexOf(to)
+  // 'terminated' isn't part of the linear chain; treat it as "off-chain"
+  // so we never label transitions in/out of it as forward or backward
+  // based on positional order.
+  if (from === 'terminated' || to === 'terminated') return false
+  const fromIndex = MAIN_LIFECYCLE.indexOf(from)
+  const toIndex   = MAIN_LIFECYCLE.indexOf(to)
   return toIndex < fromIndex
 }
 
 export function nextStatus(current: CreatorStatus): CreatorStatus | null {
-  const statusOrder: CreatorStatus[] = [
-    'prospect', 'contacted', 'engaged', 'onboarded', 'live_ready', 'live', 'monetized'
-  ]
-  const currentIndex = statusOrder.indexOf(current)
-  if (currentIndex < 0 || currentIndex >= statusOrder.length - 1) return null
-  const forward = statusOrder[currentIndex + 1]
+  const currentIndex = MAIN_LIFECYCLE.indexOf(current)
+  if (currentIndex < 0 || currentIndex >= MAIN_LIFECYCLE.length - 1) return null
+  const forward = MAIN_LIFECYCLE[currentIndex + 1]
   return canTransition(current, forward) ? forward : null
 }
 
@@ -53,6 +61,7 @@ export const STATUS_LABEL: Record<CreatorStatus, string> = {
   live_ready: 'Live Ready',
   live:       'Live',
   monetized:  'Monetized',
+  terminated: 'Terminated',
 }
 
 // Tailwind color classes for each status
@@ -64,6 +73,7 @@ export const STATUS_COLOR: Record<CreatorStatus, { bg: string; text: string; dot
   live_ready: { bg: 'bg-amber-100',   text: 'text-amber-700',  dot: 'bg-amber-500' },
   live:       { bg: 'bg-green-100',   text: 'text-green-700',  dot: 'bg-green-500' },
   monetized:  { bg: 'bg-emerald-100', text: 'text-emerald-700',dot: 'bg-emerald-500' },
+  terminated: { bg: 'bg-rose-100',    text: 'text-rose-700',   dot: 'bg-rose-500' },
 }
 
 // Which knowledge categories are most relevant per status
@@ -87,5 +97,5 @@ export const STATUS_TASK_TITLE: Partial<Record<CreatorStatus, string>> = {
 }
 
 export const ALL_STATUSES: CreatorStatus[] = [
-  'prospect', 'contacted', 'engaged', 'onboarded', 'live_ready', 'live', 'monetized',
+  'prospect', 'contacted', 'engaged', 'onboarded', 'live_ready', 'live', 'monetized', 'terminated',
 ]

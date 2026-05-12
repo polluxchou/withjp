@@ -181,7 +181,10 @@
     "monetized": "已变现",
     "followers": "粉丝",
     "moveBack": "回退到 {status}",
-    "moveForward": "前进到 {status}"
+    "moveForward": "前进到 {status}",
+    "terminate": "标记为已解约",
+    "reactivate": "重新激活（回到已联系）",
+    "confirmTerminate": "确认将该创作者标记为已解约？"
   },
   "tasks": {
     "title": "任务中心",
@@ -321,7 +324,8 @@
     "onboarded": "已入驻",
     "live_ready": "准备直播",
     "live": "直播中",
-    "monetized": "已变现"
+    "monetized": "已变现",
+    "terminated": "已解约"
   },
   "roles": {
     "bd": "商务拓展",
