@@ -14,10 +14,10 @@ interface ServiceError {
 }
 
 type ServiceResult<T> =
-  | { data: T;    error: null }
+  | { data: T;    error: null;  debug?: Record<string, unknown> }
   | { data: null; error: ServiceError }
 
-const ok = <T,>(data: T): ServiceResult<T> => ({ data, error: null })
+const ok = <T,>(data: T, debug?: Record<string, unknown>): ServiceResult<T> => ({ data, error: null, debug })
 const err = <T = never,>(code: ServiceErrorCode, message: string): ServiceResult<T> =>
   ({ data: null, error: { code, message } })
 
@@ -152,7 +152,12 @@ export async function saveFinanceForecastYear(
     console.log('[forecast-save] deleted %d stale rows', staleIds.length)
   }
 
-  return ok(months)
+  return ok(months, {
+    existing: existingRows?.length ?? 0,
+    current:  accountRows.length,
+    stale:    staleIds.length,
+    staleIds,
+  })
 }
 
 export function httpStatusForFinanceForecastError(code: ServiceErrorCode): number {
