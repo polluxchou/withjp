@@ -96,27 +96,32 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   }
 
   function addRow() {
-    const id = `${selectedRaw.month}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-    updateSelectedMonth({
-      rows: [
-        ...selectedRaw.rows,
-        {
-          id,
-          account_name:           '新账号',
-          account_type:           'newbie',
-          live_days:              0,
-          avg_daily_hours:        0,
-          revenue_per_minute_usd: 0,
-          share_ratio_pct:        0,
-        },
-      ],
-    })
+    setMonths((prev) => prev.map((month, i) => {
+      if (i !== selectedMonth) return month
+      const id = `${month.month}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      return {
+        ...month,
+        rows: [
+          ...month.rows,
+          {
+            id,
+            account_name:           '新账号',
+            account_type:           'newbie',
+            live_days:              0,
+            avg_daily_hours:        0,
+            revenue_per_minute_usd: 0,
+            share_ratio_pct:        0,
+          },
+        ],
+      }
+    }))
   }
 
   function deleteRow(rowIndex: number) {
-    updateSelectedMonth({
-      rows: selectedRaw.rows.filter((_, index) => index !== rowIndex),
-    })
+    setMonths((prev) => prev.map((month, i) => {
+      if (i !== selectedMonth) return month
+      return { ...month, rows: month.rows.filter((_, j) => j !== rowIndex) }
+    }))
   }
 
   function clearMonth() {
@@ -125,20 +130,30 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   function copyPreviousMonth() {
     if (selectedMonth === 0) return
-    const previous = months[selectedMonth - 1]
-    updateSelectedMonth({
-      rows: previous.rows.map((row) => ({ ...row, id: `${selectedRaw.month}-${row.id}` })),
+    setMonths((prev) => {
+      const previous = prev[selectedMonth - 1]
+      const current  = prev[selectedMonth]
+      return prev.map((month, i) => {
+        if (i !== selectedMonth) return month
+        return {
+          ...month,
+          rows: previous.rows.map((row) => ({ ...row, id: `${current.month}-${row.id}` })),
+        }
+      })
     })
   }
 
   function applyForward() {
-    setMonths((prev) => prev.map((month, index) => {
-      if (index <= selectedMonth) return month
-      return {
-        ...month,
-        rows: selectedRaw.rows.map((row) => ({ ...row, id: `${month.month}-${row.id}` })),
-      }
-    }))
+    setMonths((prev) => {
+      const source = prev[selectedMonth]
+      return prev.map((month, index) => {
+        if (index <= selectedMonth) return month
+        return {
+          ...month,
+          rows: source.rows.map((row) => ({ ...row, id: `${month.month}-${row.id}` })),
+        }
+      })
+    })
   }
 
   const yearlyProfitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
