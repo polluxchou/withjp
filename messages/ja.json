@@ -8,6 +8,23 @@
     "knowledge": "ナレッジ",
     "config": "設定"
   },
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "creators": "クリエイター",
+    "pipeline": "パイプライン",
+    "timeline": "タイムライン",
+    "tasks": "タスク",
+    "workspace": "ワークスペース",
+    "team": "チーム（AIエージェント）",
+    "knowledge": "ナレッジ",
+    "expenses": "経費管理",
+    "financeForecast": "財務予測",
+    "config": "設定",
+    "profile": "プロフィール",
+    "logout": "ログアウト",
+    "appName": "Creator Guild",
+    "appSubtitle": "AI 運用システム"
+  },
   "dashboard": {
     "title": "ダッシュボード",
     "subtitle": "クリエイターギルド運営概要",

@@ -41,6 +41,18 @@ export interface ForecastSummary {
   by_account_type:      Record<ForecastAccountType, number>
 }
 
+export interface ForecastDraftMonth {
+  month:              string
+  rows:               ForecastAccountInput[]
+  actual_revenue_usd: number
+  note?:              string
+}
+
+export interface ForecastDraft {
+  version: 1
+  months: ForecastDraftMonth[]
+}
+
 export type ExpenseForBudget = {
   expense_date:     string | null
   total_price:      number | string
@@ -137,6 +149,24 @@ export function calculateMonthlyBudgetCosts(expenses: ExpenseForBudget[]): Map<s
     budgets.set(month, (budgets.get(month) ?? 0) + effectiveCost(expense) * CNY_TO_USD_RATE)
   }
   return budgets
+}
+
+export function mergeForecastDraft(
+  serverMonths: ForecastMonthInput[],
+  draft: ForecastDraft | null | undefined,
+): ForecastMonthInput[] {
+  if (!draft || draft.version !== 1) return serverMonths
+  const draftByMonth = new Map(draft.months.map((month) => [month.month, month]))
+  return serverMonths.map((serverMonth) => {
+    const draftMonth = draftByMonth.get(serverMonth.month)
+    if (!draftMonth) return serverMonth
+    return {
+      ...serverMonth,
+      rows:               draftMonth.rows,
+      actual_revenue_usd: numeric(draftMonth.actual_revenue_usd),
+      note:               draftMonth.note ?? '',
+    }
+  })
 }
 
 function numeric(value: number | string | null | undefined): number {

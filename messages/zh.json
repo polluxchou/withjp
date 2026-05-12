@@ -28,6 +28,7 @@
     "team": "团队（AI代理）",
     "knowledge": "知识库",
     "expenses": "支出管理",
+    "financeForecast": "财务预测",
     "config": "配置",
     "profile": "个人信息",
     "logout": "退出登录",

@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   calculateForecastRows,
   calculateMonthlyBudgetCosts,
+  mergeForecastDraft,
   summarizeForecast,
   type ForecastMonthInput,
 } from './calculations.ts'
@@ -65,4 +66,40 @@ test('calculateMonthlyBudgetCosts syncs current budget cost from CNY expenses in
   ])
 
   assert.equal(budgets.get('2026-03'), (1000 + 500 * 1.04) / 7)
+})
+
+test('mergeForecastDraft restores account inputs without overwriting synced budget cost', () => {
+  const serverMonths: ForecastMonthInput[] = [
+    { month: '2026-12', rows: [], actual_revenue_usd: 0, budget_cost_usd: 999, note: '' },
+  ]
+  const draft = {
+    version: 1 as const,
+    months: [
+      {
+        month: '2026-12',
+        actual_revenue_usd: 123,
+        note: 'year end',
+        rows: [
+          {
+            id: 'row-1',
+            account_name: 'Account A',
+            account_type: 'key' as const,
+            live_days: 12,
+            avg_daily_hours: 3,
+            revenue_per_minute_usd: 1.2,
+            share_ratio_pct: 70,
+          },
+        ],
+      },
+    ],
+  }
+
+  const [merged] = mergeForecastDraft(serverMonths, draft)
+
+  assert.equal(merged.month, '2026-12')
+  assert.equal(merged.budget_cost_usd, 999)
+  assert.equal(merged.actual_revenue_usd, 123)
+  assert.equal(merged.note, 'year end')
+  assert.equal(merged.rows.length, 1)
+  assert.equal(merged.rows[0].account_name, 'Account A')
 })
