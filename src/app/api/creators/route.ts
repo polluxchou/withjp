@@ -32,7 +32,12 @@ export async function POST(req: NextRequest) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
   const db = createServerClient()
-  const body = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const {
     name,
@@ -43,7 +48,9 @@ export async function POST(req: NextRequest) {
     broadcast_account_id,
     operator_user_id,
   } = body
-  const normalizedPlatform = typeof platform === 'string' ? normalizeCreatorPlatform(platform) : ''
+  const normalizedPlatform = typeof platform === 'string' && platform.trim()
+    ? normalizeCreatorPlatform(platform.trim())
+    : ''
 
   if (!name || !normalizedPlatform) {
     return NextResponse.json({ data: null, error: 'name and platform are required' }, { status: 400 })

@@ -93,7 +93,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   }
 
   function addRow() {
-    const id = `${selectedRaw.month}-${Date.now()}`
+    const id = `${selectedRaw.month}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     updateSelectedMonth({
       rows: [
         ...selectedRaw.rows,
@@ -153,6 +153,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   useEffect(() => {
     if (!hydratedDraft) return
+    setSaveStatus('idle')
     writeDraft(storageKey, months)
     const controller = new AbortController()
     const timer = window.setTimeout(async () => {
@@ -203,7 +204,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         />
         <KpiCard
           label="当前月毛利率"
-          value={`${Math.round(selected.margin_pct)}%`}
+          value={selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
           sub={`${selected.month} 正在编辑`}
           accent="bg-blue-50 text-blue-600"
           valueClassName={selectedProfitColor}
@@ -484,6 +485,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"
+                      aria-label="Delete row"
                       onClick={() => deleteRow(index)}
                       className="inline-flex items-center text-xs font-medium text-red-500 hover:text-red-700"
                     >

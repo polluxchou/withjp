@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { generateMilestoneTasks } from '@/lib/milestones/auto-tasks'
 import { authGuard } from '@/lib/auth/guard'
+import { AT_RISK_DAYS } from '@/lib/milestones/constants'
 import type { Milestone } from '@/lib/types'
 
-// Auto-progress status for time-based transitions (runs on each list fetch).
+let lastSyncAt = 0
+const SYNC_INTERVAL_MS = 60_000
+
+// Auto-progress status for time-based transitions (throttled to once per minute).
 async function syncStatusByTime(db: ReturnType<typeof createServerClient>) {
+  const tick = Date.now()
+  if (tick - lastSyncAt < SYNC_INTERVAL_MS) return
+  lastSyncAt = tick
   const now          = new Date().toISOString()
-  const weekFromNow  = new Date(Date.now() + 7 * 86400000).toISOString()
+  const weekFromNow  = new Date(Date.now() + AT_RISK_DAYS * 86400000).toISOString()
 
   await Promise.all([
     // Overdue → missed
@@ -66,7 +73,12 @@ export async function POST(req: NextRequest) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
   const db   = createServerClient()
-  const body = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const {
     title, description, type, level, priority, risk_level,
@@ -112,7 +124,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Auto-generate tasks when owner + creators are set
-  if (milestone.owner_agent_id && (linked_creator_ids ?? []).length > 0) {
+  if (milestone.owner_agent_id && Array.isArray(linked_creator_ids) && linked_creator_ids.length > 0) {
     await generateMilestoneTasks(db, milestone as Milestone)
   }
 

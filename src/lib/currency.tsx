@@ -1,19 +1,13 @@
 'use client'
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import { CURRENCY_RATES as BASE_RATES } from './currency-rates'
 
 export type Currency = 'CNY' | 'USD' | 'JPY'
 
 export const CURRENCIES: Currency[] = ['CNY', 'USD', 'JPY']
 
-// Fixed cross-rates expressed as "1 CNY = N <target>":
-//   USD: 1 USD = 7 CNY  →  1 CNY = 1/7 USD
-//   JPY: 1 CNY = 20 JPY
-export const CURRENCY_RATES: Record<Currency, number> = {
-  CNY: 1,
-  USD: 1 / 7,
-  JPY: 20,
-}
+export const CURRENCY_RATES: Record<Currency, number> = BASE_RATES
 
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
   CNY: '¥',

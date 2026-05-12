@@ -39,7 +39,12 @@ export async function POST(req: NextRequest) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
 
-  const body   = (await req.json()) as CreateExpenseInput
+  let body: CreateExpenseInput
+  try {
+    body = (await req.json()) as CreateExpenseInput
+  } catch {
+    return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
+  }
   const result = await createExpense(body, user.id)
 
   if (result.error) {
