@@ -67,6 +67,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const t = useTranslations('financeForecast')
   const [months, setMonths] = useState<ForecastMonthInput[]>(initialMonths)
   const [selectedMonth, setSelectedMonth] = useState(initialSelectedMonth)
+  const [showYearView, setShowYearView] = useState(false)
   const [chartMode, setChartMode] = useState<ChartMode>('stacked')
   const [inputOpen, setInputOpen] = useState(true)
   const [hydratedDraft, setHydratedDraft] = useState(false)
@@ -306,12 +307,12 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                       </span>
                       <div className="flex gap-1 flex-wrap">
                         {entries.map(({ index, label, key }) => {
-                          const active = index === selectedMonth
+                          const active = !showYearView && index === selectedMonth
                           return (
                             <button
                               key={key}
                               type="button"
-                              onClick={() => setSelectedMonth(index)}
+                              onClick={() => { setShowYearView(false); setSelectedMonth(index) }}
                               className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                                 active
                                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
@@ -326,9 +327,20 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                     </div>
                   ))
                 })()}
+                <button
+                  type="button"
+                  onClick={() => setShowYearView((v) => !v)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                    showYearView
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  }`}
+                >
+                  全年
+                </button>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-3 mb-4">
+              {!showYearView && <div className="grid gap-3 md:grid-cols-3 mb-4">
                 <Field label="当前月实际开播收益（美金）">
                   <NumberInput
                     value={selectedRaw.actual_revenue_usd}
@@ -351,10 +363,14 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                     className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </Field>
-              </div>
+              </div>}
             </div>
 
-            <div className="overflow-x-auto">
+            {showYearView ? (
+              <YearSummaryTable months={summary.months} onSelectMonth={(index) => { setShowYearView(false); setSelectedMonth(index) }} />
+            ) : (
+              <>
+                <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[1120px]">
                 <thead>
                   <tr className="border-y border-slate-100 bg-slate-50">
@@ -428,9 +444,11 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
               </table>
             </div>
 
-            <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
-              计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
-            </div>
+                <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
+                  计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
+                </div>
+              </>
+            )}
           </>
         )}
       </section>
@@ -545,6 +563,103 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         </aside>
       </div>
     </>
+  )
+}
+
+function YearSummaryTable({
+  months,
+  onSelectMonth,
+}: {
+  months: ReturnType<typeof summarizeForecast>['months']
+  onSelectMonth: (index: number) => void
+}) {
+  const configured = months
+    .map((m, index) => ({ ...m, index }))
+    .filter((m) => m.rows.length > 0)
+
+  const totalForecast = configured.reduce((sum, m) => sum + m.forecast_revenue_usd, 0)
+  const totalActual   = configured.reduce((sum, m) => sum + m.actual_revenue_usd,   0)
+  const totalBudget   = configured.reduce((sum, m) => sum + m.budget_cost_usd,      0)
+  const totalProfit   = configured.reduce((sum, m) => sum + m.profit_usd,           0)
+
+  if (configured.length === 0) {
+    return (
+      <div className="px-5 pb-8 pt-2 text-center text-sm text-slate-400">
+        还没有任何月份配置了账号预测输入。
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-y border-slate-100 bg-slate-50">
+            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">月份</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">已配置账号</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预测开播收益</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">实际开播收益</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预算成本</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预测毛利润</th>
+          </tr>
+        </thead>
+        <tbody>
+          {configured.map((m) => {
+            const profitColor = m.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
+            return (
+              <tr
+                key={m.month}
+                className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
+                onClick={() => onSelectMonth(m.index)}
+                title="点击进入该月详情"
+              >
+                <td className="px-4 py-3 font-semibold text-slate-900 tabular-nums">
+                  {m.month}
+                  {m.note && (
+                    <span className="ml-2 text-xs font-normal text-slate-400">{m.note}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-slate-500">
+                  {m.rows.map((r) => r.account_name).join('、')}
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">
+                  {formatUsd(m.forecast_revenue_usd)}
+                </td>
+                <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
+                  {m.actual_revenue_usd > 0 ? formatUsd(m.actual_revenue_usd) : '—'}
+                </td>
+                <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
+                  {formatUsd(m.budget_cost_usd)}
+                </td>
+                <td className={`px-4 py-3 text-right font-semibold tabular-nums ${profitColor}`}>
+                  {formatUsd(m.profit_usd)}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-slate-200 bg-slate-50">
+            <td className="px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wide">
+              全年合计
+            </td>
+            <td className="px-4 py-3 text-xs text-slate-400">共 {configured.length} 个月</td>
+            <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums text-base">
+              {formatUsd(totalForecast)}
+            </td>
+            <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
+              {totalActual > 0 ? formatUsd(totalActual) : '—'}
+            </td>
+            <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
+              {formatUsd(totalBudget)}
+            </td>
+            <td className={`px-4 py-3 text-right font-bold tabular-nums text-base ${totalProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+              {formatUsd(totalProfit)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   )
 }
 
