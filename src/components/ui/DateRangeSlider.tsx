@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useId } from 'react'
 
 const MS = 86_400_000
 const dateToOrd = (s: string) => Math.round(new Date(s).getTime() / MS)
@@ -137,15 +137,20 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
     onChange('', '')
   }, [onChange])
 
-  // Double-click on track → snap to single day
-  const trackRef = useRef<HTMLDivElement>(null)
-  const handleTrackDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!trackRef.current) return
-    const rect = trackRef.current.getBoundingClientRect()
-    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    const ord  = Math.round(ORD_MIN + pct * SPAN)
+  // Single-day picker via native calendar
+  const singleDayRef = useRef<HTMLInputElement>(null)
+  const singleDayId  = useId()
+
+  const openSingleDay = useCallback(() => {
+    singleDayRef.current?.showPicker?.()
+  }, [])
+
+  const onSingleDayChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value
+    if (!v) return
+    const ord = dateToOrd(v)
     setDraft({ a: ord, b: ord })
-    onChange(ordToDate(ord), ordToDate(ord))
+    onChange(v, v)
   }, [onChange])
 
   const activeLabel = useMemo(() => {
@@ -153,6 +158,8 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
     const t = to   || RANGE_END
     return QUICK_PICKS.find(p => p.range[0] === f && p.range[1] === t)?.label ?? null
   }, [from, to])
+
+  const trackRef = useRef<HTMLDivElement>(null)
 
   const aZ = draft.a >= ORD_MAX - 1 ? 20 : 10
   const bZ = draft.a >= ORD_MAX - 1 ? 10 : 20
@@ -175,6 +182,29 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
             {label}
           </button>
         ))}
+
+        {/* Single-day picker */}
+        <button
+          type="button"
+          onClick={openSingleDay}
+          className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
+            isSingleDay && !activeLabel
+              ? 'bg-indigo-600 text-white'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          {isSingleDay && !activeLabel ? fmtDate(ordToDate(draft.a)) : '单日'}
+        </button>
+        <input
+          id={singleDayId}
+          ref={singleDayRef}
+          type="date"
+          value={isSingleDay ? ordToDate(draft.a) : ''}
+          onChange={onSingleDayChange}
+          className="sr-only"
+          tabIndex={-1}
+        />
+
         {(from || to) && (
           <button
             type="button"
@@ -224,7 +254,6 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
         <div
           ref={trackRef}
           className="relative h-6 flex items-center"
-          onDoubleClick={handleTrackDoubleClick}
         >
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-slate-200 rounded-full" />
 
