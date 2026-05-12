@@ -87,6 +87,8 @@ export default function ExpensesPage() {
   const [sortBy,     setSortBy]     = useState<SortKey>('date')
   const [sortDir,    setSortDir]    = useState<SortDir>('desc')
   const [refreshSeq, setRefreshSeq] = useState(0)
+  const [searchInput, setSearchInput] = useState('')
+  const loadCtrl = useRef<AbortController | null>(null)
   const t = useTranslations('expenses')
   const tCommon = useTranslations('common')
   const { fmt: fmtRmb } = useCurrency()
@@ -99,17 +101,14 @@ export default function ExpensesPage() {
   const loadedOnce   = useRef(false)
 
   // First mount: pick up filters from the URL so deep links / refresh
-  // restore the same view. Guarded with a ref so the write effect below
-  // doesn't try to push the empty default back into the URL before this
-  // initial read runs.
+  // restore the same view.
   useEffect(() => {
     setFilters(paramsToFilters(searchParams))
     urlHydrated.current = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Push filter changes back into the URL (replace, not push, so the
-  // browser back button doesn't accumulate every keystroke).
+  // Push filter changes back into the URL (replace, not push).
   useEffect(() => {
     if (!urlHydrated.current) return
     const qs   = filtersToParams(filters).toString()
@@ -117,28 +116,38 @@ export default function ExpensesPage() {
     router.replace(next, { scroll: false })
   }, [filters, pathname, router])
 
+  // Debounce search input → filters.q (300ms)
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setFilters((f) => ({ ...f, q: searchInput }))
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
+
   const load = useCallback(async () => {
+    loadCtrl.current?.abort()
+    const ctrl = new AbortController()
+    loadCtrl.current = ctrl
     // Only show the full loading skeleton on the very first fetch.
-    // Subsequent refreshes (after save / edit / delete) run silently so
-    // the table stays visible instead of flickering away.
     if (!loadedOnce.current) setLoading(true)
     try {
       const params = new URLSearchParams()
       Object.entries(filters).forEach(([k, v]) => {
         if (SERVER_FILTER_KEYS.has(k as keyof Filters) && v) params.set(k, v)
       })
-      const res  = await fetch(`/api/expenses?${params.toString()}`)
+      const res  = await fetch(`/api/expenses?${params.toString()}`, { signal: ctrl.signal })
       const json = await res.json()
       setLoadError(json.error ?? null)
       setExpenses(json.data ?? [])
       loadedOnce.current = true
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : '加载失败')
+      if ((err as Error).name === 'AbortError') return
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
       setExpenses([])
     } finally {
       setLoading(false)
     }
-  }, [filters])
+  }, [filters, tCommon])
 
   useEffect(() => { load() }, [load, refreshSeq])
 
@@ -347,7 +356,7 @@ export default function ExpensesPage() {
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setFilters((f) => ({ ...f, [k]: e.target.value }))
 
-  const resetFilters = () => setFilters(EMPTY_FILTERS)
+  const resetFilters = () => { setFilters(EMPTY_FILTERS); setSearchInput('') }
 
   function selectChartPeriod(period: string, gran: 'day' | 'month') {
     setFilters((f) => {
@@ -424,12 +433,17 @@ export default function ExpensesPage() {
     if (!deleting) return
     setDelLoading(true)
     setDeleteErr(null)
-    const res  = await fetch(`/api/expenses/${deleting.id}`, { method: 'DELETE' })
-    const json = await res.json()
-    setDelLoading(false)
-    if (json.error) { setDeleteErr(json.error); return }
-    setDeleting(null)
-    load()
+    try {
+      const res  = await fetch(`/api/expenses/${deleting.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok || json.error) { setDeleteErr(json.error ?? 'Delete failed'); return }
+      setDeleting(null)
+      load()
+    } catch {
+      setDeleteErr('Network error. Please try again.')
+    } finally {
+      setDelLoading(false)
+    }
   }
 
   const INPUT = 'border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
@@ -470,7 +484,7 @@ export default function ExpensesPage() {
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('totalExpense')}</p>
           <p className="text-lg sm:text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? '点击清除筛选' : ' '}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? '点击清除筛选' : t('includesFees')}</p>
         </button>
         <button
           type="button"
@@ -601,7 +615,8 @@ export default function ExpensesPage() {
           <div className="relative col-span-2 sm:col-span-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
-              value={filters.q} onChange={setFilter('q')}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder={t('searchPlaceholder')}
               className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-52"
             />
@@ -648,6 +663,7 @@ export default function ExpensesPage() {
           </select>
 
           <button
+            type="button"
             onClick={resetFilters}
             className="col-span-2 sm:col-span-1 sm:ml-auto flex items-center justify-center sm:justify-start gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors py-1"
           >
@@ -681,7 +697,7 @@ export default function ExpensesPage() {
           <div className="p-12 text-center">
             <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-sm text-slate-500">{t('empty')}</p>
-            <button onClick={() => setShowForm(true)} className="mt-3 text-sm text-indigo-600 font-medium hover:underline">
+            <button type="button" onClick={() => setShowForm(true)} className="mt-3 text-sm text-indigo-600 font-medium hover:underline">
               {t('addFirst')}
             </button>
           </div>

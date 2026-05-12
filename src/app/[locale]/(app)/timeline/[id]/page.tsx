@@ -15,6 +15,7 @@ import {
   MilestoneRiskBadge,
 } from '@/components/milestones/MilestoneStatusBadge'
 import { ArrowLeft, CheckSquare, Users, Bot, Target, ChevronRight } from 'lucide-react'
+import { AT_RISK_DAYS } from '@/lib/milestones/constants'
 import type { MilestoneDetail, MilestoneStatus, Milestone } from '@/lib/types'
 
 // ── Status options for the inline selector ────────────────────
@@ -64,31 +65,41 @@ export default function MilestoneDetailPage() {
   const handleStatusChange = async (newStatus: MilestoneStatus) => {
     if (!milestone || newStatus === milestone.status) return
     setStatusBusy(true)
-    const res  = await fetch(`/api/milestones/${id}`, {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ status: newStatus }),
-    })
-    const json = await res.json()
-    if (json.data) setMilestone(m => m ? { ...m, status: json.data.status } : m)
-    setStatusBusy(false)
+    try {
+      const res  = await fetch(`/api/milestones/${id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ status: newStatus }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) setMilestone(m => m ? { ...m, status: json.data.status } : m)
+    } catch (err) {
+      console.error('Failed to update milestone status:', err)
+    } finally {
+      setStatusBusy(false)
+    }
   }
 
   const handleDelete = async () => {
     if (!confirm('Delete this milestone permanently?')) return
-    await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
-    router.push('/timeline')
+    const res = await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
+    if (res.ok) router.push('/timeline')
   }
 
   const handleExecuteTask = async (taskId: string, agentId: string) => {
     setExecuting(taskId)
-    await fetch(`/api/agents/${agentId}/execute`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ task_id: taskId }),
-    })
-    setExecuting(null)
-    load()
+    try {
+      await fetch(`/api/agents/${agentId}/execute`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ task_id: taskId }),
+      })
+      load()
+    } catch (err) {
+      console.error('Failed to execute task:', err)
+    } finally {
+      setExecuting(null)
+    }
   }
 
   if (loading) {
@@ -112,7 +123,7 @@ export default function MilestoneDetailPage() {
     : 0
 
   const daysLeft  = milestone.days_until_target ?? 0
-  const daysColor = daysLeft < 0 ? 'text-red-500' : daysLeft <= 7 ? 'text-amber-600' : 'text-slate-700'
+  const daysColor = daysLeft < 0 ? 'text-red-500' : daysLeft <= AT_RISK_DAYS ? 'text-amber-600' : 'text-slate-700'
 
   const metric = milestone.success_metric as { name?: string; target?: string; unit?: string }
 

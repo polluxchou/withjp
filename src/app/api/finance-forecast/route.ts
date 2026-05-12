@@ -30,7 +30,12 @@ export async function PUT(req: NextRequest) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
 
-  const body = await req.json() as { year?: number; months?: ForecastMonthInput[] }
+  let body: { year?: number; months?: ForecastMonthInput[] }
+  try {
+    body = await req.json() as { year?: number; months?: ForecastMonthInput[] }
+  } catch {
+    return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
+  }
   const year = Number(body.year) || new Date().getUTCFullYear()
   const result = await saveFinanceForecastYear(year, body.months ?? [])
 

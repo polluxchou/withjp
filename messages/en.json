@@ -219,6 +219,7 @@
     "duplicateExpenseTitle": "Duplicate expense, review details",
     "copyRecordTitle": "Duplicate this record",
     "totalExpense": "Total expense",
+    "includesFees": "Includes cross-border fees",
     "paid": "Paid",
     "budgetPending": "Budget / pending",
     "thisMonth": "This month",
@@ -289,6 +290,7 @@
       "itemNameRequired": "Expense name is required",
       "dateRequired": "Date is required",
       "paymentStatusRequired": "Payment status is required",
+      "quantityMustBePositive": "Quantity must be a positive integer",
       "companyBuyerRequired": "Company account buyer must be: {buyers}",
       "legacyPaymentMethod": "Original payment method: {method} - choose a new payment method below to replace it",
       "category": "Expense category *",
@@ -348,5 +350,11 @@
     "content": "Content",
     "growth": "Growth",
     "legal": "Legal"
+  },
+  "financeForecast": {
+    "statusSaving": "Saving...",
+    "statusSaved": "Saved",
+    "statusError": "Save failed, local draft retained",
+    "months": ["Jan.", "Feb.", "Mar.", "Apr.", "May", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."]
   }
 }

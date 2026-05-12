@@ -66,12 +66,17 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
           fetch('/api/broadcast-accounts'),
           fetch('/api/users'),
         ])
-        const [broadcastJson, usersJson] = await Promise.all([
-          broadcastRes.json(),
-          usersRes.json(),
-        ])
-        setBroadcastAccounts(broadcastJson.data ?? [])
-        setOperators(usersJson.data ?? [])
+        if (!broadcastRes.ok || !usersRes.ok) {
+          setError(t('relationsLoadFailed'))
+        }
+        if (broadcastRes.ok) {
+          const j = await broadcastRes.json()
+          setBroadcastAccounts(j.data ?? [])
+        }
+        if (usersRes.ok) {
+          const j = await usersRes.json()
+          setOperators(j.data ?? [])
+        }
       } catch {
         setError(t('relationsLoadFailed'))
       }
@@ -94,23 +99,26 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
 
     setCreatingBroadcast(true)
     setError(null)
-    const res = await fetch('/api/broadcast-accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newBroadcast),
-    })
-    const json = await res.json()
-    setCreatingBroadcast(false)
-
-    if (json.error) {
-      setError(json.error)
-      return
+    try {
+      const res = await fetch('/api/broadcast-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newBroadcast),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setError(json.error ?? `HTTP ${res.status}`)
+        return
+      }
+      setBroadcastAccounts((accounts) => [json.data, ...accounts])
+      setForm((f) => ({ ...f, broadcast_account_id: json.data.id }))
+      setNewBroadcast({ name: '', platform: form.platform, account_handle: '', account_url: '', notes: '' })
+      setShowNewBroadcast(false)
+    } catch {
+      setError(t('relationsLoadFailed'))
+    } finally {
+      setCreatingBroadcast(false)
     }
-
-    setBroadcastAccounts((accounts) => [json.data, ...accounts])
-    setForm((f) => ({ ...f, broadcast_account_id: json.data.id }))
-    setNewBroadcast({ name: '', platform: form.platform, account_handle: '', account_url: '', notes: '' })
-    setShowNewBroadcast(false)
   }
 
   async function submit(e: React.FormEvent) {
@@ -146,7 +154,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
 
     const json = await res.json()
     setLoading(false)
-    if (json.error) { setError(json.error); return }
+    if (!res.ok || json.error) { setError(json.error ?? `HTTP ${res.status}`); return }
     onSuccess()
   }
 
@@ -198,7 +206,9 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
               type="button"
               variant="secondary"
               onClick={() => {
-                setNewBroadcast((account) => ({ ...account, platform: account.platform || form.platform }))
+                if (!showNewBroadcast) {
+                  setNewBroadcast((account) => ({ ...account, platform: form.platform }))
+                }
                 setShowNewBroadcast((show) => !show)
               }}
             >
@@ -270,12 +280,12 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">{t('followers')}</label>
-          <input type="number" value={form.followers} onChange={set('followers')} placeholder="200000"
+          <input type="number" min="0" value={form.followers} onChange={set('followers')} placeholder="200000"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">{t('avgViews')}</label>
-          <input type="number" value={form.avg_views} onChange={set('avg_views')} placeholder="50000"
+          <input type="number" min="0" value={form.avg_views} onChange={set('avg_views')} placeholder="50000"
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
       </div>

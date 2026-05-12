@@ -102,9 +102,12 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
   })
 
   useEffect(() => {
-    fetch('/api/agents')
+    const ctrl = new AbortController()
+    fetch('/api/agents', { signal: ctrl.signal })
       .then(r => r.json())
       .then(j => setAgents(j.data ?? []))
+      .catch(() => {})
+    return () => ctrl.abort()
   }, [])
 
   const set = <K extends keyof FormState>(key: K, val: FormState[K]) =>
@@ -137,8 +140,8 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
       risk_level:         form.risk_level,
       owner_agent_id:     form.owner_agent_id || null,
       involved_agent_ids: form.involved_agent_ids,
-      start_date:         new Date(form.start_date).toISOString(),
-      target_date:        new Date(form.target_date).toISOString(),
+      start_date:         `${form.start_date}T00:00:00.000Z`,
+      target_date:        `${form.target_date}T00:00:00.000Z`,
       success_metric:     form.metric_name
         ? { name: form.metric_name, target: form.metric_target, unit: form.metric_unit }
         : {},
@@ -146,18 +149,22 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
     }
 
     const isEdit = !!initial?.id
-    const res  = await fetch(
-      isEdit ? `/api/milestones/${initial!.id}` : '/api/milestones',
-      { method: isEdit ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
-    )
-    const json = await res.json()
-
-    if (!res.ok || json.error) {
-      setError(json.error ?? 'Save failed')
+    try {
+      const res  = await fetch(
+        isEdit ? `/api/milestones/${initial!.id}` : '/api/milestones',
+        { method: isEdit ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+      )
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setError(json.error ?? 'Save failed')
+        return
+      }
+      onSuccess(json.data)
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
       setSaving(false)
-      return
     }
-    onSuccess(json.data)
   }
 
   const inputCls  = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white'

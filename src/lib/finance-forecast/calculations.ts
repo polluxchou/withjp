@@ -1,5 +1,6 @@
 import type { ExpenseCategory, ExpensePaymentStatus } from '../types/index.ts'
 import { effectiveCost } from '../expenses/costs.ts'
+import { CURRENCY_RATES } from '../currency-rates.ts'
 
 export type ForecastAccountType = 'key' | 'mature' | 'growing' | 'newbie' | 'test' | 'other'
 
@@ -28,7 +29,7 @@ export interface ForecastMonthInput {
 export interface ForecastMonthResult extends ForecastMonthInput {
   forecast_revenue_usd: number
   profit_usd:           number
-  margin_pct:           number
+  margin_pct:           number | null
   by_account_type:      Record<ForecastAccountType, number>
 }
 
@@ -72,8 +73,7 @@ export const FORECAST_ACCOUNT_TYPES: ForecastAccountType[] = [
 ]
 
 // Expense records are stored in CNY. Forecast revenue is entered in USD.
-// Keep this aligned with src/lib/currency.tsx fixed display rate.
-export const CNY_TO_USD_RATE = 1 / 7
+export const CNY_TO_USD_RATE = CURRENCY_RATES.USD
 
 export const FORECAST_ACCOUNT_TYPE_LABELS: Record<ForecastAccountType, string> = {
   key:     '重点号',
@@ -93,12 +93,14 @@ export function emptyAccountTypeTotals(): Record<ForecastAccountType, number> {
 export function calculateForecastRows(rows: ForecastAccountInput[]): ForecastRowResult[] {
   return rows.map((row) => ({
     ...row,
-    monthly_revenue_usd:
+    monthly_revenue_usd: Math.round(
       numeric(row.live_days) *
       numeric(row.avg_daily_hours) *
       60 *
       numeric(row.revenue_per_minute_usd) *
-      (numeric(row.share_ratio_pct) / 100),
+      (numeric(row.share_ratio_pct) / 100) *
+      10000
+    ) / 10000,
   }))
 }
 
@@ -126,7 +128,7 @@ export function summarizeForecast(months: ForecastMonthInput[]): ForecastSummary
       ...month,
       forecast_revenue_usd: forecastRevenue,
       profit_usd:           profit,
-      margin_pct:           forecastRevenue > 0 ? (profit / forecastRevenue) * 100 : 0,
+      margin_pct:           forecastRevenue > 0 ? (profit / forecastRevenue) * 100 : null,
       by_account_type:      byType,
     }
   })

@@ -32,6 +32,7 @@ import {
 } from 'recharts'
 import { Plus, List, BarChart2, TrendingUp, Target, AlertTriangle } from 'lucide-react'
 import type { Milestone, MilestoneStatus, MilestoneType } from '@/lib/types'
+import { AT_RISK_DAYS } from '@/lib/milestones/constants'
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -147,7 +148,7 @@ export default function TimelinePage() {
         <div className="flex items-center gap-2 mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
           <p className="text-sm text-amber-800">
-            <strong>{atRiskCount}</strong> milestone{atRiskCount > 1 ? 's are' : ' is'} at risk — target date approaching within 7 days.
+            <strong>{atRiskCount}</strong> milestone{atRiskCount > 1 ? 's are' : ' is'} at risk — target date approaching within {AT_RISK_DAYS} days.
           </p>
         </div>
       )}
@@ -208,8 +209,8 @@ export default function TimelinePage() {
 function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdated: () => void }) {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this milestone?')) return
-    await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
-    onUpdated()
+    const res = await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
+    if (res.ok) onUpdated()
   }
 
   return (
@@ -231,7 +232,7 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
         <tbody>
           {milestones.map(m => {
             const daysLeft = m.days_until_target ?? 0
-            const daysColor = daysLeft < 0 ? 'text-red-500' : daysLeft <= 7 ? 'text-amber-600' : 'text-slate-500'
+            const daysColor = daysLeft < 0 ? 'text-red-500' : daysLeft <= AT_RISK_DAYS ? 'text-amber-600' : 'text-slate-500'
             return (
               <tr key={m.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                 <td className="px-5 py-3">
@@ -263,7 +264,7 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
                       className="text-xs text-indigo-600 font-medium hover:text-indigo-800">
                       View →
                     </Link>
-                    <button onClick={() => handleDelete(m.id)}
+                    <button type="button" onClick={() => handleDelete(m.id)}
                       className="text-xs text-slate-400 hover:text-red-500 transition-colors">
                       Delete
                     </button>
@@ -403,9 +404,11 @@ function buildCurveData(milestones: Milestone[]): CurvePoint[] {
       m.status === 'completed' && new Date(m.target_date).getTime() <= monthEnd
     ).length
 
-    // Milestones that started by this month
+    // Milestones in-flight this month (started by monthEnd, not yet due before monthStart)
+    const monthStart = monthDate.getTime()
     const active = milestones.filter(m =>
-      new Date(m.start_date).getTime() <= monthEnd
+      new Date(m.start_date).getTime() <= monthEnd &&
+      new Date(m.target_date).getTime() >= monthStart
     ).length
 
     // Markers: milestones whose target_date falls in this month
