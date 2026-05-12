@@ -144,7 +144,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         <KpiCard
           label="全年成本预算"
           value={formatUsd(summary.yearly_budget_usd)}
-          sub="同步当前预算中的成本"
+          sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
           accent="bg-amber-50 text-amber-600"
         />
         <KpiCard
@@ -326,7 +326,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 readOnly
                 className="w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
               />
-              <div className="text-xs text-indigo-600 font-medium mt-1">已同步当前预算成本</div>
+              <div className="text-xs text-indigo-600 font-medium mt-1">已同步当前预算成本，并换算为美金</div>
             </Field>
             <Field label="备注事件标注">
               <input
@@ -412,7 +412,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         </div>
 
         <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
-          计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。成本预算从当前预算同步，不在预测看板重复录入。
+          计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
         </div>
       </section>
     </>
