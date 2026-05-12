@@ -461,7 +461,7 @@ export default function ExpensesPage() {
       </button>
 
       {/* KPI Cards — click to filter, click active card again to clear */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
         <button
           type="button"
           onClick={() => toggleKpi('reset')}
@@ -469,7 +469,7 @@ export default function ExpensesPage() {
           className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-300 hover:shadow-sm transition-all"
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('totalExpense')}</p>
-          <p className="text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? '点击清除筛选' : ' '}</p>
         </button>
         <button
@@ -483,7 +483,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('paid')}</p>
-          <p className="text-xl font-bold text-green-700">{fmtRmb(summary.paidCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-green-700">{fmtRmb(summary.paidCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'paid' ? '已筛选 · 再次点击清除' : '点击筛选已付款'}</p>
         </button>
         <button
@@ -497,7 +497,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('budgetPending')}</p>
-          <p className="text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'unpaid' ? '已筛选 · 再次点击清除' : '点击筛选预算+待付款'}</p>
         </button>
         <div ref={monthPickerRef} className="relative">
@@ -516,7 +516,7 @@ export default function ExpensesPage() {
             <p className="text-xs font-medium text-slate-500 mb-1">
               {activeMonth ? `${activeMonth} 支出` : t('thisMonth')}
             </p>
-            <p className="text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
+            <p className="text-lg sm:text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">
               {activeMonth ? `已筛选 · 点击切换月份` : '点击选择月份筛选'}
             </p>
@@ -572,7 +572,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('crossBorderCost')}</p>
-          <p className="text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">
             {activeKpi === 'crossBorder' ? '已筛选 · 再次点击清除' : `${CROSS_BORDER_FEE_RATE * 100}% × 非租金/非内账`}
           </p>
@@ -594,21 +594,21 @@ export default function ExpensesPage() {
         <SavedViewsBar currentFilters={filters} onApply={setFilters} />
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Search */}
-          <div className="relative">
+      {/* Filters — stack vertically (2-col) on mobile, single row from sm: up */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 mb-3">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
+          {/* Search — full width on mobile */}
+          <div className="relative col-span-2 sm:col-span-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={filters.q} onChange={setFilter('q')}
               placeholder={t('searchPlaceholder')}
-              className={`pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-52`}
+              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-52"
             />
           </div>
 
           {/* Category */}
-          <select value={filters.category} onChange={setFilter('category')} className={`${INPUT} w-36`}>
+          <select value={filters.category} onChange={setFilter('category')} className={`${INPUT} w-full sm:w-36`}>
             <option value="">{t('allCategories')}</option>
             {EXPENSE_CATEGORY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{t(`categories.${o.value}`)}</option>
@@ -616,7 +616,7 @@ export default function ExpensesPage() {
           </select>
 
           {/* Status */}
-          <select value={filters.payment_status} onChange={setFilter('payment_status')} className={`${INPUT} w-36`}>
+          <select value={filters.payment_status} onChange={setFilter('payment_status')} className={`${INPUT} w-full sm:w-36`}>
             <option value="">{t('allStatuses')}</option>
             {EXPENSE_PAYMENT_STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{t(`paymentStatuses.${o.value}`)}</option>
@@ -624,7 +624,7 @@ export default function ExpensesPage() {
           </select>
 
           {/* User */}
-          <select value={filters.user_name} onChange={setFilter('user_name')} className={`${INPUT} w-28`}>
+          <select value={filters.user_name} onChange={setFilter('user_name')} className={`${INPUT} w-full sm:w-28`}>
             <option value="">{tCommon('all')} {t('user')}</option>
             {EXPENSE_USER_OPTIONS.map((u) => (
               <option key={u} value={u}>{u}</option>
@@ -632,7 +632,7 @@ export default function ExpensesPage() {
           </select>
 
           {/* Buyer — full set: team members + company-account buyers */}
-          <select value={filters.buyer_name} onChange={setFilter('buyer_name')} className={`${INPUT} w-28`}>
+          <select value={filters.buyer_name} onChange={setFilter('buyer_name')} className={`${INPUT} w-full sm:w-28`}>
             <option value="">{tCommon('all')} {t('buyer')}</option>
             {EXPENSE_BUYER_OPTIONS.map((u) => (
               <option key={u} value={u}>{u}</option>
@@ -640,7 +640,7 @@ export default function ExpensesPage() {
           </select>
 
           {/* Period (quarterly) */}
-          <select value={filters.period} onChange={setFilter('period')} className={`${INPUT} w-36`}>
+          <select value={filters.period} onChange={setFilter('period')} className={`${INPUT} w-full sm:w-36`}>
             <option value="">{t('allPeriods')}</option>
             {EXPENSE_PERIOD_OPTIONS.map((p) => (
               <option key={p} value={p}>{p}</option>
@@ -649,7 +649,7 @@ export default function ExpensesPage() {
 
           <button
             onClick={resetFilters}
-            className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+            className="col-span-2 sm:col-span-1 sm:ml-auto flex items-center justify-center sm:justify-start gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors py-1"
           >
             <RotateCcw className="w-3.5 h-3.5" /> {tCommon('reset')}
           </button>
@@ -686,7 +686,79 @@ export default function ExpensesPage() {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Mobile card list — md:hidden. Each expense is a tap-to-view card with
+              the most-used actions (edit / duplicate / delete) inline. Less-used
+              columns (purpose, buyer, payment method) are surfaced via the
+              detail modal opened by the card body. */}
+          <ul className="md:hidden divide-y divide-slate-100">
+            {sortedExpenses.map((e) => (
+              <li key={e.id} className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setViewing(e)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${CATEGORY_COLOR[e.expense_category]}`}>
+                          {t(`categories.${e.expense_category}`)}
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_COLOR[e.payment_status]}`}>
+                          {t(`paymentStatuses.${e.payment_status}`)}
+                        </span>
+                      </div>
+                      <div className="text-sm font-medium text-slate-900 truncate">{e.item_name}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {e.expense_date}
+                        {e.period ? ` · ${e.period}` : ''}
+                        {e.user_name ? ` · ${e.user_name}` : ''}
+                      </div>
+                    </div>
+                    <div className="text-right whitespace-nowrap flex-shrink-0">
+                      <div className="text-sm font-semibold text-slate-900">{fmtRmb(Number(e.total_price))}</div>
+                      {crossBorderFee(e) > 0 && (
+                        <div className="text-[10px] text-amber-600 mt-0.5">+{fmtRmb(crossBorderFee(e))} {t('crossBorderFeeShort')}</div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+                <div className="mt-2 flex items-center justify-end gap-1">
+                  {canEdit(currentUser, e.created_by_user_id) && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(e)}
+                      aria-label={tCommon('edit')}
+                      className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDuplicating(e)}
+                    aria-label={t('duplicateExpense')}
+                    className="p-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  {canEdit(currentUser, e.created_by_user_id) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDeleting(e); setDeleteErr(null) }}
+                      aria-label={tCommon('delete')}
+                      className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm min-w-[1100px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
@@ -765,7 +837,7 @@ export default function ExpensesPage() {
                             onClick={() => setEditing(e)}
                             aria-label={tCommon('edit')}
                             title={tCommon('edit')}
-                            className="p-1.5 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -775,7 +847,7 @@ export default function ExpensesPage() {
                           onClick={() => setDuplicating(e)}
                           aria-label={t('duplicateExpense')}
                           title={t('copyRecordTitle')}
-                          className="p-1.5 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                          className="p-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
@@ -785,7 +857,7 @@ export default function ExpensesPage() {
                             onClick={() => { setDeleting(e); setDeleteErr(null) }}
                             aria-label={tCommon('delete')}
                             title={tCommon('delete')}
-                            className="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -797,6 +869,7 @@ export default function ExpensesPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
