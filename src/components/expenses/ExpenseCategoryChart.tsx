@@ -15,8 +15,9 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts'
-import { Flag, Globe } from 'lucide-react'
+import { Flag, Globe, Workflow } from 'lucide-react'
 import type { Expense, ExpenseCategory, MilestoneStatus, MilestonePriority } from '@/lib/types'
+import ExpenseSankeyChart from './ExpenseSankeyChart'
 import {
   EXPENSE_CATEGORY_OPTIONS,
   getExpenseCategoryBreakdown,
@@ -166,6 +167,7 @@ export default function ExpenseCategoryChart({
   onPeriodSelect,
 }: Props) {
   const [tab, setTab]                 = useState<Tab>('category')
+  const [catView, setCatView]         = useState<'pie' | 'sankey'>('pie')
   const [granularity, setGranularity] = useState<CostGranularity>('month')
   const [monthlyView, setMonthlyView] = useState<MonthlyView>('table')
   const [monthlyGran, setMonthlyGran] = useState<MonthlyGran>('day')
@@ -309,6 +311,28 @@ export default function ExpenseCategoryChart({
           ))}
         </div>
 
+        {tab === 'category' && (
+          <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setCatView('pie')}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                catView === 'pie' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              饼图
+            </button>
+            <button
+              onClick={() => setCatView('sankey')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                catView === 'sankey' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              <Workflow className="w-3 h-3" />
+              流向图
+            </button>
+          </div>
+        )}
+
         {tab === 'trend' && (
           <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
             {(['month', 'quarter', 'year'] as CostGranularity[]).map((g) => (
@@ -326,8 +350,16 @@ export default function ExpenseCategoryChart({
         )}
       </div>
 
-      {/* ── Tab 1: 类别占比 ── */}
-      {tab === 'category' && (
+      {/* ── Tab 1: 类别占比 — Sankey 流向图 ── */}
+      {tab === 'category' && catView === 'sankey' && (
+        <ExpenseSankeyChart
+          expenses={categoryBreakdownExpenses}
+          selectedCategory={selectedCategory}
+        />
+      )}
+
+      {/* ── Tab 1: 类别占比 — 饼图 + 经办人面板 ── */}
+      {tab === 'category' && catView === 'pie' && (
         <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_minmax(220px,320px)]">
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
