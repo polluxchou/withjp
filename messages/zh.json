@@ -246,6 +246,7 @@
     "location": "地点",
     "notes": "备注",
     "createdAt": "创建时间",
+    "crossBorderCost": "跨境成本",
     "crossBorderFee": "跨境转账成本（{rate}）",
     "crossBorderFeeShort": "跨境",
     "crossBorderFeeTooltip": "非 with-new 且非租金支出的 4% 跨境转账成本",

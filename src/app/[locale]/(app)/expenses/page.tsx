@@ -20,6 +20,7 @@ import {
   EXPENSE_PAYMENT_STATUS_OPTIONS,
   EXPENSE_USER_OPTIONS,
   EXPENSE_PERIOD_OPTIONS,
+  CROSS_BORDER_FEE_RATE,
   getExpenseSummary,
   crossBorderFee,
 } from '@/lib/expenses/costs'
@@ -223,7 +224,7 @@ export default function ExpensesPage() {
       </button>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-5 gap-4 mb-6">
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <p className="text-xs font-medium text-slate-500 mb-1">{t('totalExpense')}</p>
           <p className="text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
@@ -239,6 +240,11 @@ export default function ExpensesPage() {
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <p className="text-xs font-medium text-slate-500 mb-1">{t('thisMonth')}</p>
           <p className="text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <p className="text-xs font-medium text-slate-500 mb-1">{t('crossBorderCost')}</p>
+          <p className="text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost)}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{CROSS_BORDER_FEE_RATE * 100}% × 非租金/非内账</p>
         </div>
       </div>
 
