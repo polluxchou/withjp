@@ -94,6 +94,7 @@ export default function ExpensesPage() {
   const pathname     = usePathname()
   const router       = useRouter()
   const urlHydrated  = useRef(false)
+  const loadedOnce   = useRef(false)
 
   // First mount: pick up filters from the URL so deep links / refresh
   // restore the same view. Guarded with a ref so the write effect below
@@ -115,7 +116,10 @@ export default function ExpensesPage() {
   }, [filters, pathname, router])
 
   const load = useCallback(async () => {
-    setLoading(true)
+    // Only show the full loading skeleton on the very first fetch.
+    // Subsequent refreshes (after save / edit / delete) run silently so
+    // the table stays visible instead of flickering away.
+    if (!loadedOnce.current) setLoading(true)
     try {
       const params = new URLSearchParams()
       Object.entries(filters).forEach(([k, v]) => {
@@ -125,6 +129,7 @@ export default function ExpensesPage() {
       const json = await res.json()
       setLoadError(json.error ?? null)
       setExpenses(json.data ?? [])
+      loadedOnce.current = true
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : '加载失败')
       setExpenses([])
