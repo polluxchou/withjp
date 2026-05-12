@@ -125,6 +125,34 @@ export default function ExpensesPage() {
 
   const summary = getExpenseSummary(visibleExpenses)
 
+  // Range for the date slider — derived from the actual spend dates so the
+  // track represents real data rather than a fixed 2-year window. Padded to
+  // month boundaries for cleaner quarter ticks. Expands as new data arrives
+  // outside the current bounds; never shrinks (so applying a date filter
+  // doesn't trap the user inside it).
+  const [sliderRange, setSliderRange] = useState<{ min: string; max: string } | null>(null)
+
+  useEffect(() => {
+    if (expenses.length === 0) return
+    const dates = expenses
+      .map((e) => e.expense_date)
+      .filter((d): d is string => !!d)
+      .sort()
+    if (dates.length === 0) return
+    const earliest = dates[0]
+    const latest   = dates[dates.length - 1]
+    // Pad to month boundaries (1st of month for min; last day of month for max).
+    const minIso = `${earliest.slice(0, 7)}-01`
+    const [ly, lm] = latest.slice(0, 7).split('-').map(Number)
+    const endOfMonth = new Date(Date.UTC(ly, lm, 0)).toISOString().slice(0, 10)
+    setSliderRange((prev) => {
+      if (!prev) return { min: minIso, max: endOfMonth }
+      const min = minIso     < prev.min ? minIso     : prev.min
+      const max = endOfMonth > prev.max ? endOfMonth : prev.max
+      return min === prev.min && max === prev.max ? prev : { min, max }
+    })
+  }, [expenses])
+
   const setFilter = (k: keyof Filters) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setFilters((f) => ({ ...f, [k]: e.target.value }))
@@ -323,6 +351,8 @@ export default function ExpensesPage() {
         <DateRangeSlider
           from={filters.date_from}
           to={filters.date_to}
+          minDate={sliderRange?.min}
+          maxDate={sliderRange?.max}
           onChange={(from, to) => setFilters((f) => ({ ...f, date_from: from, date_to: to }))}
         />
       </div>
