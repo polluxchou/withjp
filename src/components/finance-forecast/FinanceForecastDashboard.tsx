@@ -208,8 +208,10 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         <KpiCard
           label="全年预测开播收益"
           value={formatUsd(summary.yearly_forecast_usd)}
-          sub="根据账号月度输入实时计算"
+          sub={inputOpen ? '点击收起账号明细' : '点击展开账号明细'}
           accent="bg-indigo-50 text-indigo-600"
+          onClick={() => setInputOpen((o) => !o)}
+          active={inputOpen}
         />
         <KpiCard
           label="全年成本预算"
@@ -596,22 +598,43 @@ function KpiCard({
   sub,
   accent,
   valueClassName = 'text-slate-900',
+  onClick,
+  active,
 }: {
   label: string
   value: string
   sub: string
   accent: string
   valueClassName?: string
+  onClick?: () => void
+  active?: boolean
 }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5">
+    <div
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
+      className={`bg-white rounded-xl border p-5 transition-all select-none ${
+        onClick ? 'cursor-pointer hover:shadow-sm' : ''
+      } ${
+        active
+          ? 'border-indigo-400 ring-2 ring-indigo-50 shadow-sm'
+          : onClick ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200'
+      }`}
+    >
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
           <p className={`text-2xl font-bold mt-1 ${valueClassName}`}>{value}</p>
           <p className="text-xs text-slate-400 mt-1">{sub}</p>
         </div>
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
+        <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
+          {onClick && (
+            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-300 -rotate-90'}`} />
+          )}
+        </div>
       </div>
     </div>
   )
