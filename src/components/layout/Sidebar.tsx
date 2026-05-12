@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
+import type { UserProfile } from '@/lib/types'
 
 const NAV = [
   { href: '/',          key: 'dashboard', icon: LayoutDashboard },
@@ -42,13 +43,40 @@ const COLLAPSED_W = '60px'
 const EXPANDED_W  = '240px'
 const LS_KEY      = 'sidebar:collapsed'
 
+// Quick "initials" derivation for the avatar bubble. Falls back to the
+// first character of email / user_code / generic placeholder.
+function initialsOf(profile: UserProfile | null): string {
+  const source = profile?.name?.trim() || profile?.email || profile?.user_code || ''
+  if (!source) return '·'
+  // Take the first 2 Chinese / Latin chars
+  const trimmed = source.trim()
+  if (/^[一-鿿]/.test(trimmed)) return trimmed.slice(0, 1)
+  return trimmed.slice(0, 2).toUpperCase()
+}
+
 export default function Sidebar() {
   const path = usePathname()
   const router = useRouter()
   const t = useTranslations('nav')
+  const tRoles = useTranslations('roles')
   const [profileOpen, setProfileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [hydrated, setHydrated] = useState(false)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+
+  // Fetch the logged-in user's profile once on mount; refresh when the
+  // ProfileEditor modal closes (so a rename reflects immediately).
+  const loadProfile = async () => {
+    try {
+      const res  = await fetch('/api/profile')
+      const json = await res.json()
+      if (json?.data) setProfile(json.data as UserProfile)
+    } catch {
+      // best-effort; sidebar still works without the nickname
+    }
+  }
+
+  useEffect(() => { loadProfile() }, [])
 
   // Restore persisted state on mount
   useEffect(() => {
@@ -136,17 +164,35 @@ export default function Sidebar() {
         <LanguageSwitcher collapsed={collapsed} />
       </div>
 
-      {/* Profile Button */}
+      {/* Profile Button — shows the logged-in user's nickname + role */}
       <div className={collapsed ? 'px-2 pb-2' : 'px-3 pb-2'}>
         <button
           onClick={() => setProfileOpen(true)}
-          title={collapsed ? t('profile') : undefined}
-          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800 w-full ${
-            collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+          title={collapsed ? (profile?.name ?? t('profile')) : undefined}
+          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800 w-full ${
+            collapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-2 py-2'
           }`}
         >
-          <UserCircle className="w-4 h-4 flex-shrink-0" />
-          {showLabel && <span className="truncate">{t('profile')}</span>}
+          {profile ? (
+            <span className="w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
+              {initialsOf(profile)}
+            </span>
+          ) : (
+            <UserCircle className="w-7 h-7 flex-shrink-0 text-slate-500" />
+          )}
+          {showLabel && (
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block text-sm font-medium text-white truncate">
+                {profile?.name ?? t('profile')}
+              </span>
+              <span className="block text-[10px] text-slate-400 truncate">
+                {profile
+                  ? [profile.user_code, profile.role ? tRoles(profile.role) : null]
+                      .filter(Boolean).join(' · ')
+                  : '加载中…'}
+              </span>
+            </span>
+          )}
         </button>
       </div>
 
@@ -172,7 +218,11 @@ export default function Sidebar() {
       )}
 
       {/* Profile Editor Modal */}
-      <ProfileEditor open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <ProfileEditor
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onSuccess={() => { loadProfile() }}
+      />
     </aside>
   )
 }
