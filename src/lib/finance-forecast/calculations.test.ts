@@ -40,7 +40,7 @@ test('summarizeForecast keeps account type contribution at zero without inputs',
   assert.equal(summary.yearly_profit_usd, -1200)
 })
 
-test('calculateMonthlyBudgetCosts syncs current budget cost from CNY expenses into USD', () => {
+test('calculateMonthlyBudgetCosts places each cost in the month of its expense_date', () => {
   const budgets = calculateMonthlyBudgetCosts([
     {
       expense_date: '2026-03-10',
@@ -76,16 +76,36 @@ test('calculateMonthlyBudgetCosts syncs current budget cost from CNY expenses in
     },
   ])
 
-  const expectedQuarterMonthCost = (1000 + 500 * 1.04 + 2000) / 7 / 3
-  assert.equal(budgets.get('2026-01'), expectedQuarterMonthCost)
-  assert.equal(budgets.get('2026-02'), expectedQuarterMonthCost)
-  assert.equal(budgets.get('2026-03'), expectedQuarterMonthCost)
+  const expectedMarchCost = (1000 + 500 * 1.04 + 2000) / 7
+  assert.equal(budgets.get('2026-01') ?? 0, 0)
+  assert.equal(budgets.get('2026-02') ?? 0, 0)
+  assert.equal(budgets.get('2026-03'), expectedMarchCost)
 })
 
-test('calculateMonthlyBudgetCosts prefers assigned period over expense date', () => {
+test('calculateMonthlyBudgetCosts uses expense_date even when a period is set', () => {
+  // A salary paid in June with period 2026-Q2 must show only in June —
+  // not split across Apr/May/Jun (the prior behavior surfaced phantom
+  // cost in months that had no actual expense).
   const budgets = calculateMonthlyBudgetCosts([
     {
-      expense_date: '2026-01-05',
+      expense_date: '2026-06-15',
+      period: '2026-Q2',
+      total_price: 2100,
+      payment_status: 'paid',
+      buyer_name: 'with-new',
+      expense_category: 'salary',
+    },
+  ])
+
+  assert.equal(budgets.get('2026-04') ?? 0, 0)
+  assert.equal(budgets.get('2026-05') ?? 0, 0)
+  assert.equal(budgets.get('2026-06'), 300)
+})
+
+test('calculateMonthlyBudgetCosts falls back to the first month of the quarter when no expense_date is set', () => {
+  const budgets = calculateMonthlyBudgetCosts([
+    {
+      expense_date: null,
       period: '2026-Q4',
       total_price: 2100,
       payment_status: 'paid',
@@ -94,10 +114,9 @@ test('calculateMonthlyBudgetCosts prefers assigned period over expense date', ()
     },
   ])
 
-  assert.equal(budgets.get('2026-01') ?? 0, 0)
-  assert.equal(budgets.get('2026-10'), 100)
-  assert.equal(budgets.get('2026-11'), 100)
-  assert.equal(budgets.get('2026-12'), 100)
+  assert.equal(budgets.get('2026-10'), 300)
+  assert.equal(budgets.get('2026-11') ?? 0, 0)
+  assert.equal(budgets.get('2026-12') ?? 0, 0)
 })
 
 test('mergeForecastDraft restores account inputs without overwriting synced budget cost', () => {

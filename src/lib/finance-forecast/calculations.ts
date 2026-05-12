@@ -149,18 +149,26 @@ export function calculateMonthlyBudgetCosts(expenses: ExpenseForBudget[]): Map<s
     if (expense.payment_status === 'refunded') continue
 
     const costUsd = effectiveCost(expense) * CNY_TO_USD_RATE
-    const quarterMonths = monthsForQuarter(expense.period)
-    if (quarterMonths) {
-      const monthlyCost = costUsd / quarterMonths.length
-      for (const month of quarterMonths) {
-        budgets.set(month, (budgets.get(month) ?? 0) + monthlyCost)
-      }
+
+    // Source of truth is the actual expense_date — costs land in the month
+    // they occurred. The quarterly `period` field is metadata for reporting
+    // and is only consulted as a fallback when no date is set. Earlier
+    // versions spread quarterly costs evenly across the three months of
+    // the quarter, which caused months without any real expense to show
+    // cost (e.g. a single June salary surfaced as Apr+May+Jun cost).
+    if (expense.expense_date) {
+      const month = expense.expense_date.slice(0, 7)
+      budgets.set(month, (budgets.get(month) ?? 0) + costUsd)
       continue
     }
 
-    if (!expense.expense_date) continue
-    const month = expense.expense_date.slice(0, 7)
-    budgets.set(month, (budgets.get(month) ?? 0) + costUsd)
+    const quarterMonths = monthsForQuarter(expense.period)
+    if (quarterMonths) {
+      // No expense_date but we have a quarter — anchor the cost at the
+      // first month of the quarter rather than smearing it forward.
+      const fallbackMonth = quarterMonths[0]
+      budgets.set(fallbackMonth, (budgets.get(fallbackMonth) ?? 0) + costUsd)
+    }
   }
   return budgets
 }
