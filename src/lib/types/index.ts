@@ -382,7 +382,7 @@ export type ExpensePaymentStatus =
   | 'partially_refunded'
 
 // Buyer options when payment_method === 'company_account'
-export const COMPANY_ACCOUNT_BUYERS = ['with-new', 'JP-代理陈昊', 'JP-代理小兽'] as const
+export const COMPANY_ACCOUNT_BUYERS = ['with-new', 'JP-代理陈昊', 'JP-代理小兽', 'JP-陈昊投资'] as const
 export type CompanyAccountBuyer = typeof COMPANY_ACCOUNT_BUYERS[number]
 
 export interface Expense {
