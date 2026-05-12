@@ -6,11 +6,13 @@ import { EXPENSE_CATEGORY_LABELS, crossBorderFee, effectiveCost } from '@/lib/ex
 import { useCurrency } from '@/lib/currency'
 
 // ── Layout constants ──────────────────────────────────────────────
-const SVG_W    = 560
-const LABEL_W  = 82    // label area on each side
-const NODE_W   = 10    // bar width
-const DATA_H   = 260   // SVG units for 100% of spend
-const NODE_GAP = 9     // gap between nodes in same column
+// SVG_W matches typical content-area width so scale factor ≈ 1 and
+// text does not blow up on wide screens.
+const SVG_W    = 860
+const LABEL_W  = 76    // label area on each side
+const NODE_W   = 8     // bar width
+const DATA_H   = 190   // SVG units for 100% of spend
+const NODE_GAP = 6     // gap between nodes in same column
 
 const SX1 = LABEL_W + NODE_W          // right edge of source nodes
 const TX0 = SVG_W - LABEL_W - NODE_W  // left edge of target nodes
@@ -183,7 +185,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
     <svg
       viewBox={`0 0 ${SVG_W} ${chartH}`}
       className="w-full"
-      style={{ minHeight: 200, overflow: 'visible' }}
+      style={{ maxHeight: 300, overflow: 'visible' }}
     >
       {/* ── Links ── */}
       {links.map((l) => {
@@ -228,7 +230,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
             <text
               x={LABEL_W - 5} y={(n.y0 + n.y1) / 2}
               textAnchor="end" dominantBaseline="middle"
-              fontSize={9.5} fill={dimmed ? '#cbd5e1' : '#475569'}
+              fontSize={8} fill={dimmed ? '#cbd5e1' : '#475569'}
               style={{ transition: 'fill 120ms' }}
             >
               {n.label}
@@ -238,7 +240,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
               <text
                 x={LABEL_W + NODE_W + 4} y={(n.y0 + n.y1) / 2}
                 textAnchor="start" dominantBaseline="middle"
-                fontSize={9} fill={n.color} fontWeight={600}
+                fontSize={7.5} fill={n.color} fontWeight={600}
               >
                 {fmtC(n.value)}
               </text>
@@ -268,7 +270,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
             <text
               x={TX0 + NODE_W + 5} y={(n.y0 + n.y1) / 2}
               textAnchor="start" dominantBaseline="middle"
-              fontSize={9.5}
+              fontSize={8}
               fill={dimmed ? '#cbd5e1' : isCB ? '#f43f5e' : '#475569'}
               fontWeight={isCB ? 600 : 400}
               style={{ transition: 'fill 120ms' }}
@@ -280,7 +282,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
               <text
                 x={TX0 - 4} y={(n.y0 + n.y1) / 2}
                 textAnchor="end" dominantBaseline="middle"
-                fontSize={9} fill={isCB ? '#f43f5e' : '#64748b'} fontWeight={600}
+                fontSize={7.5} fill={isCB ? '#f43f5e' : '#64748b'} fontWeight={600}
               >
                 {fmtC(n.value)}
               </text>
@@ -309,14 +311,14 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
             />
             <text x={mx} y={my - (hasCB ? 9 : 2)}
               textAnchor="middle" dominantBaseline="middle"
-              fontSize={10.5} fill="#1e293b" fontWeight={600}
+              fontSize={9} fill="#1e293b" fontWeight={600}
             >
               {fmtC(l.value)}
             </text>
             {hasCB && (
               <text x={mx} y={my + 10}
                 textAnchor="middle" dominantBaseline="middle"
-                fontSize={9} fill="#f43f5e"
+                fontSize={7.5} fill="#f43f5e"
               >
                 跨境 +{fmtC(l.crossBorder)}
               </text>
