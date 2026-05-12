@@ -29,6 +29,7 @@ import {
   EXPENSE_CATEGORY_OPTIONS,
   EXPENSE_PAYMENT_STATUS_OPTIONS,
   EXPENSE_USER_OPTIONS,
+  EXPENSE_BUYER_OPTIONS,
   EXPENSE_PERIOD_OPTIONS,
   CROSS_BORDER_FEE_RATE,
   getExpenseSummary,
@@ -467,10 +468,10 @@ export default function ExpensesPage() {
             ))}
           </select>
 
-          {/* Buyer */}
+          {/* Buyer — full set: team members + company-account buyers */}
           <select value={filters.buyer_name} onChange={setFilter('buyer_name')} className={`${INPUT} w-28`}>
             <option value="">{tCommon('all')} {t('buyer')}</option>
-            {EXPENSE_USER_OPTIONS.map((u) => (
+            {EXPENSE_BUYER_OPTIONS.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
           </select>

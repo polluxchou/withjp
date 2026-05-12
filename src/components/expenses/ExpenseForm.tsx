@@ -252,15 +252,26 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
           <label className={LABEL}>{t('buyer')}</label>
           <select value={form.buyer_name} onChange={set('buyer_name')} className={INPUT}>
             <option value="">{t('selectBuyer')}</option>
-            {isCompanyAcct
-              ? COMPANY_ACCOUNT_BUYERS.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))
-              : EXPENSE_USER_OPTIONS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
-                ))
-            }
+            {/* Two grouped sets so the user can see the full universe of
+                buyers regardless of payment_method. When payment_method is
+                'company_account', personal members are disabled (the DB
+                constraint only accepts the 3 company-account names). */}
+            <optgroup label={tExpenses('user')}>
+              {EXPENSE_USER_OPTIONS.map((u) => (
+                <option key={u} value={u} disabled={isCompanyAcct}>{u}</option>
+              ))}
+            </optgroup>
+            <optgroup label="公司账户经办人">
+              {COMPANY_ACCOUNT_BUYERS.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </optgroup>
           </select>
+          {isCompanyAcct && (
+            <p className="mt-1 text-[10px] text-amber-600">
+              选择公司账户支付，经办人必须为：{COMPANY_ACCOUNT_BUYERS.join(' / ')}
+            </p>
+          )}
         </div>
       </div>
 
