@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from '@/i18n/navigation'
 import Header from '@/components/layout/Header'
 import ExpenseForm from '@/components/expenses/ExpenseForm'
 import ExpenseCategoryChart from '@/components/expenses/ExpenseCategoryChart'
 import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal'
+import SavedViewsBar from '@/components/expenses/SavedViewsBar'
 import Modal from '@/components/ui/Modal'
 import DateRangeSlider from '@/components/ui/DateRangeSlider'
 import Button from '@/components/ui/Button'
@@ -15,6 +18,13 @@ import { useCurrency } from '@/lib/currency'
 import { Plus, Search, Receipt, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
+import {
+  type Filters,
+  EMPTY_FILTERS as SHARED_EMPTY_FILTERS,
+  SERVER_FILTER_KEYS as SHARED_SERVER_FILTER_KEYS,
+  filtersToParams,
+  paramsToFilters,
+} from '@/lib/expenses/filter-types'
 import {
   EXPENSE_CATEGORY_OPTIONS,
   EXPENSE_PAYMENT_STATUS_OPTIONS,
@@ -52,32 +62,12 @@ type SortDir = 'asc' | 'desc'
 // the others follow in this canonical order; finally created_at.
 const SORT_CHAIN: SortKey[] = ['date', 'period', 'amount']
 
-interface Filters {
-  q:                 string
-  category:          string
-  payment_status:    string
-  payment_method:    string
-  user_name:         string
-  buyer_name:        string
-  date_from:         string
-  date_to:           string
-  period:            string
-  // Client-side virtual filters powered by KPI-card clicks
-  unpaid_only:       '' | 'yes'   // budgeted OR ordered_unpaid
-  cross_border_only: '' | 'yes'   // only rows where the 4% fee applies
-}
-
-// Server-side filter keys. Anything outside this set is applied client-side.
-const SERVER_FILTER_KEYS: ReadonlySet<keyof Filters> = new Set<keyof Filters>([
-  'q', 'payment_status', 'payment_method', 'user_name', 'buyer_name',
-  'date_from', 'date_to', 'period',
-])
-
-const EMPTY_FILTERS: Filters = {
-  q: '', category: '', payment_status: '', payment_method: '',
-  user_name: '', buyer_name: '', date_from: '', date_to: '', period: '',
-  unpaid_only: '', cross_border_only: '',
-}
+// Filters / EMPTY_FILTERS / SERVER_FILTER_KEYS now live in
+// src/lib/expenses/filter-types.ts so URL encoding + saved-views logic
+// can share the same types. Local aliases keep the rest of this file
+// unchanged.
+const EMPTY_FILTERS = SHARED_EMPTY_FILTERS
+const SERVER_FILTER_KEYS = SHARED_SERVER_FILTER_KEYS
 
 export default function ExpensesPage() {
   const [expenses,   setExpenses]   = useState<Expense[]>([])
@@ -97,6 +87,31 @@ export default function ExpensesPage() {
   const t = useTranslations('expenses')
   const tCommon = useTranslations('common')
   const { fmt: fmtRmb } = useCurrency()
+
+  // ── Filter ↔ URL synchronisation ───────────────────────────
+  const searchParams = useSearchParams()
+  const pathname     = usePathname()
+  const router       = useRouter()
+  const urlHydrated  = useRef(false)
+
+  // First mount: pick up filters from the URL so deep links / refresh
+  // restore the same view. Guarded with a ref so the write effect below
+  // doesn't try to push the empty default back into the URL before this
+  // initial read runs.
+  useEffect(() => {
+    setFilters(paramsToFilters(searchParams))
+    urlHydrated.current = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Push filter changes back into the URL (replace, not push, so the
+  // browser back button doesn't accumulate every keystroke).
+  useEffect(() => {
+    if (!urlHydrated.current) return
+    const qs   = filtersToParams(filters).toString()
+    const next = qs ? `${pathname}?${qs}` : pathname
+    router.replace(next, { scroll: false })
+  }, [filters, pathname, router])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -409,6 +424,11 @@ export default function ExpensesPage() {
         selectedPeriod={{ from: filters.date_from, to: filters.date_to }}
         onPeriodSelect={selectChartPeriod}
       />
+
+      {/* Saved filter views (localStorage) */}
+      <div className="mb-3">
+        <SavedViewsBar currentFilters={filters} onApply={setFilters} />
+      </div>
 
       {/* Filters */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
