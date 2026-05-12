@@ -17,6 +17,7 @@ import {
   UserCircle,
   CalendarRange,
   Receipt,
+  TrendingUp,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -33,6 +34,7 @@ const NAV = [
   { href: '/team',      key: 'team',      icon: Bot },
   { href: '/knowledge', key: 'knowledge', icon: BookOpen },
   { href: '/expenses',  key: 'expenses',  icon: Receipt },
+  { href: '/finance-forecast', key: 'financeForecast', icon: TrendingUp },
   { href: '/config',    key: 'config',    icon: Settings },
 ]
 
