@@ -1,6 +1,7 @@
 'use client'
 
-import { ReactNode, useEffect } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 interface ModalProps {
@@ -12,6 +13,14 @@ interface ModalProps {
 }
 
 export default function Modal({ open, onClose, title, children, width = 'max-w-lg' }: ModalProps) {
+  // Portal to document.body so a `position: fixed` modal always escapes any
+  // ancestor that creates a containing block via transform / filter / etc.
+  // The mobile sidebar uses translate-x for its drawer animation; without
+  // the portal, modals rendered inside it get visually clipped to the
+  // sidebar's box.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -19,10 +28,10 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+  const content = (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         className={`relative bg-white shadow-xl w-full ${width} max-h-[95vh] sm:max-h-[90vh] flex flex-col rounded-t-xl sm:rounded-xl`}
@@ -43,4 +52,6 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
       </div>
     </div>
   )
+
+  return createPortal(content, document.body)
 }
