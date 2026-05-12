@@ -369,11 +369,11 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 }
               })
               return groups.map(({ year, entries }) => (
-                <div key={year} className="flex items-center gap-2">
+                <div key={year} className="flex items-center gap-2 flex-wrap">
                   <span className="text-[11px] font-semibold text-slate-400 tracking-wider tabular-nums">
                     {year}
                   </span>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap">
                     {entries.map(({ index, mm, key }) => {
                       const active = index === selectedMonth
                       return (
