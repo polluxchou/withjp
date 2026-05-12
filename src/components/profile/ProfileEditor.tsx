@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
+import { LogOut } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import { useRouter } from '@/i18n/navigation'
 import type { AgentRole, UserProfile } from '@/lib/types'
 
 interface ProfileEditorProps {
@@ -17,13 +19,32 @@ const ROLES: AgentRole[] = ['bd', 'ops', 'finance', 'content', 'growth', 'legal'
 export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEditorProps) {
   const t = useTranslations('profile')
   const tCommon = useTranslations('common')
+  const tNav = useTranslations('nav')
   const tRoles = useTranslations('roles')
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [name, setName] = useState('')
   const [role, setRole] = useState<AgentRole>('bd')
   const [error, setError] = useState('')
+
+  async function handleLogout() {
+    // Two-step confirmation: opening the modal already filters out
+    // accidental sidebar clicks; the confirm prompt is the final guard.
+    if (!window.confirm('确认退出登录？')) return
+    setSigningOut(true)
+    try {
+      const { supabase } = await import('@/lib/supabase/client')
+      await supabase.auth.signOut()
+      onClose()
+      router.push('/login')
+      router.refresh()
+    } catch {
+      setSigningOut(false)
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -169,9 +190,20 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
             </>
           )}
 
-          <div className="flex gap-2 justify-end pt-2">
-            <Button variant="secondary" onClick={onClose}>{tCommon('cancel')}</Button>
-            <Button onClick={handleSave} loading={saving}>{tCommon('save')}</Button>
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 mt-2">
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={signingOut}
+              className="flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <LogOut className="w-4 h-4" />
+              {signingOut ? tCommon('loading') : tNav('logout')}
+            </button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={onClose}>{tCommon('cancel')}</Button>
+              <Button onClick={handleSave} loading={saving}>{tCommon('save')}</Button>
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { Link, usePathname, useRouter } from '@/i18n/navigation'
+import { Link, usePathname } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import {
@@ -13,7 +13,6 @@ import {
   Settings,
   Zap,
   MessageSquare,
-  LogOut,
   UserCircle,
   CalendarRange,
   Receipt,
@@ -58,7 +57,6 @@ function initialsOf(profile: UserProfile | null): string {
 
 export default function Sidebar() {
   const path = usePathname()
-  const router = useRouter()
   const t = useTranslations('nav')
   const tRoles = useTranslations('roles')
   const [profileOpen, setProfileOpen] = useState(false)
@@ -124,13 +122,6 @@ export default function Sidebar() {
     document.documentElement.style.setProperty('--sidebar-width', isMobile ? '0px' : desktopWidth)
     localStorage.setItem(LS_KEY, effectiveCollapsed ? '1' : '0')
   }, [collapsed, hydrated, isMobile])
-
-  const handleLogout = async () => {
-    const { supabase } = await import('@/lib/supabase/client')
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
 
   // On mobile, ignore the desktop `collapsed` setting so the drawer
   // always slides in fully expanded.
@@ -282,22 +273,11 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Logout Button */}
-      <div className={effectiveCollapsed ? 'px-2 pb-2' : 'px-3 pb-2'}>
-        <button
-          onClick={handleLogout}
-          title={effectiveCollapsed ? t('logout') : undefined}
-          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800 w-full ${
-            effectiveCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-          }`}
-        >
-          <LogOut className="w-4 h-4 flex-shrink-0" />
-          {showLabel && <span className="truncate">{t('logout')}</span>}
-        </button>
-      </div>
+      {/* Logout intentionally lives inside the profile modal — keeps the
+          sidebar from accidentally triggering sign-out on a stray click. */}
 
-      {/* Footer — hidden on mobile to save vertical room for the profile/
-          logout buttons above. */}
+      {/* Footer — hidden on mobile to save vertical room for the profile
+          button above. */}
       {showLabel && !isMobile && (
         <div className="px-5 py-4 border-t border-slate-800">
           <div className="text-xs text-slate-600">v0.1.1</div>
