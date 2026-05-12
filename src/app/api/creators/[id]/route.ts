@@ -58,15 +58,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
   }
 
-  const body = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   // Prevent direct status changes via PATCH; use /transition endpoint
   const { status: _removed, broadcast_account, operator_user, tasks, finance, transitions, activity_logs, ...updates } = body
   const normalizedUpdates = { ...updates }
 
   if ('platform' in normalizedUpdates) {
-    const normalizedPlatform = typeof normalizedUpdates.platform === 'string'
-      ? normalizeCreatorPlatform(normalizedUpdates.platform)
+    const normalizedPlatform = typeof normalizedUpdates.platform === 'string' && normalizedUpdates.platform.trim()
+      ? normalizeCreatorPlatform(normalizedUpdates.platform.trim())
       : ''
 
     if (!normalizedPlatform) {

@@ -95,7 +95,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
   }
 
-  const body = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const ALLOWED = [
     'title', 'description', 'type', 'level', 'priority', 'status', 'risk_level',
@@ -110,6 +115,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ data: null, error: 'No valid fields to update' }, { status: 400 })
+  }
+
+  const startDate  = (updates.start_date  ?? null) as string | null
+  const targetDate = (updates.target_date ?? null) as string | null
+  if (startDate && targetDate && new Date(startDate) >= new Date(targetDate)) {
+    return NextResponse.json(
+      { data: null, error: 'Target date must be after start date.' },
+      { status: 400 },
+    )
   }
 
   const { data, error } = await db

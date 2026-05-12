@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Area,
   CartesianGrid,
@@ -15,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Plus, RotateCcw, Copy, Trash2 } from 'lucide-react'
+import { Plus, RotateCcw, Copy, Trash2, ChevronDown } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import {
   FORECAST_ACCOUNT_TYPE_LABELS,
@@ -65,13 +66,17 @@ interface Props {
 const STORAGE_KEY_PREFIX = 'finance-forecast:draft'
 
 export default function FinanceForecastDashboard({ initialMonths, initialSelectedMonth = 0 }: Props) {
+  const t = useTranslations('financeForecast')
   const [months, setMonths] = useState<ForecastMonthInput[]>(initialMonths)
   const [selectedMonth, setSelectedMonth] = useState(initialSelectedMonth)
+  const [showYearView, setShowYearView] = useState(false)
   const [chartMode, setChartMode] = useState<ChartMode>('stacked')
+  const [inputOpen, setInputOpen] = useState(true)
   const [hydratedDraft, setHydratedDraft] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
-  const didLoadDraft = useRef(false)
+  const didLoadDraft  = useRef(false)
+  const storageKeyRef = useRef(storageKey)
 
   const summary = useMemo(() => summarizeForecast(months), [months])
   const selected = summary.months[selectedMonth]
@@ -104,50 +109,93 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   }
 
   function addRow() {
-    const id = `${selectedRaw.month}-${Date.now()}`
-    updateSelectedMonth({
-      rows: [
-        ...selectedRaw.rows,
-        {
-          id,
-          account_name:           '新账号',
-          account_type:           'newbie',
-          live_days:              0,
-          avg_daily_hours:        0,
-          revenue_per_minute_usd: 0,
-          share_ratio_pct:        0,
-        },
-      ],
-    })
+    setMonths((prev) => prev.map((month, i) => {
+      if (i !== selectedMonth) return month
+      const id = `${month.month}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+      return {
+        ...month,
+        rows: [
+          ...month.rows,
+          {
+            id,
+            account_name:           '新账号',
+            account_type:           'newbie',
+            live_days:              0,
+            avg_daily_hours:        0,
+            revenue_per_minute_usd: 0,
+            share_ratio_pct:        0,
+          },
+        ],
+      }
+    }))
+  }
+
+  // Persist months immediately to DB — used for destructive ops (delete /
+  // clear) where we can't afford to lose the change if the user navigates
+  // away before the 700 ms debounce fires.
+  async function persistNow(newMonths: ForecastMonthInput[]) {
+    const year = Number(newMonths[0]?.month.slice(0, 4)) || new Date().getUTCFullYear()
+    writeDraft(storageKeyRef.current, newMonths)
+    setSaveStatus('saving')
+    try {
+      const res = await fetch('/api/finance-forecast', {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ year, months: newMonths }),
+      })
+      setSaveStatus(res.ok ? 'saved' : 'error')
+    } catch {
+      setSaveStatus('error')
+    }
   }
 
   function deleteRow(rowIndex: number) {
-    updateSelectedMonth({
-      rows: selectedRaw.rows.filter((_, index) => index !== rowIndex),
-    })
+    const newMonths = months.map((month, index) =>
+      index === selectedMonth
+        ? { ...month, rows: month.rows.filter((_, i) => i !== rowIndex) }
+        : month
+    )
+    setMonths(newMonths)
+    void persistNow(newMonths)
   }
 
   function clearMonth() {
-    updateSelectedMonth({ rows: [], note: '' })
+    const newMonths = months.map((month, index) =>
+      index === selectedMonth ? { ...month, rows: [], note: '' } : month
+    )
+    setMonths(newMonths)
+    void persistNow(newMonths)
   }
 
   function copyPreviousMonth() {
     if (selectedMonth === 0) return
-    const previous = months[selectedMonth - 1]
-    updateSelectedMonth({
-      rows: previous.rows.map((row) => ({ ...row, id: `${selectedRaw.month}-${row.id}` })),
+    setMonths((prev) => {
+      const previous = prev[selectedMonth - 1]
+      const current  = prev[selectedMonth]
+      return prev.map((month, i) => {
+        if (i !== selectedMonth) return month
+        return {
+          ...month,
+          rows: previous.rows.map((row) => ({ ...row, id: `${current.month}-${row.id}` })),
+        }
+      })
     })
   }
 
   function applyForward() {
-    setMonths((prev) => prev.map((month, index) => {
-      if (index <= selectedMonth) return month
-      return {
-        ...month,
-        rows: selectedRaw.rows.map((row) => ({ ...row, id: `${month.month}-${row.id}` })),
-      }
-    }))
+    setMonths((prev) => {
+      const source = prev[selectedMonth]
+      return prev.map((month, index) => {
+        if (index <= selectedMonth) return month
+        return {
+          ...month,
+          rows: source.rows.map((row) => ({ ...row, id: `${month.month}-${row.id}` })),
+        }
+      })
+    })
   }
+
+  storageKeyRef.current = storageKey
 
   const yearlyProfitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
   const selectedProfitColor = selected.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
@@ -164,6 +212,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   useEffect(() => {
     if (!hydratedDraft) return
+    setSaveStatus('idle')
     writeDraft(storageKey, months)
     const controller = new AbortController()
     const timer = window.setTimeout(async () => {
@@ -190,14 +239,21 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     }
   }, [hydratedDraft, months, storageKey])
 
+  const monthLabels = t.raw('months') as string[]
+  const selectedMonthLabel = monthLabels[parseInt(selected.month.slice(5), 10) - 1] ?? selected.month.slice(5)
+
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
+      {/* Row 1: KPI summary — 6 cards covering revenue, cost, profit, margin
+          and breakeven; collapses to 2-col on mobile, 3-col on tablet. */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-4">
         <KpiCard
           label="全年预测开播收益"
           value={formatUsd(summary.yearly_forecast_usd)}
-          sub="根据账号月度输入实时计算"
+          sub={inputOpen ? '点击收起账号明细' : '点击展开账号明细'}
           accent="bg-indigo-50 text-indigo-600"
+          onClick={() => setInputOpen((o) => !o)}
+          active={inputOpen}
         />
         <KpiCard
           label="全年成本预算"
@@ -228,14 +284,232 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         />
         <KpiCard
           label="当前月毛利率"
-          value={`${Math.round(selected.margin_pct)}%`}
+          value={selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
           sub={`${selected.month} 正在编辑`}
           accent="bg-blue-50 text-blue-600"
           valueClassName={selectedProfitColor}
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px] mb-6">
+      {/* Row 2: Account forecast input (collapsible) */}
+      <section className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
+        <div className={`flex items-center justify-between gap-4 px-5 py-3.5 ${inputOpen ? 'border-b border-slate-100' : ''}`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="flex items-baseline gap-1.5 shrink-0">
+              <span className="text-xl font-bold text-slate-900 tabular-nums tracking-tight">
+                {selected.month.slice(0, 4)}
+              </span>
+              <span className="text-xl font-bold text-slate-300">·</span>
+              <span className="text-xl font-bold text-indigo-600 tabular-nums tracking-tight">
+                {selectedMonthLabel}
+              </span>
+              <span className="text-sm font-medium text-slate-500 ml-1.5">账号预测输入</span>
+            </h2>
+            <span className="hidden sm:block text-xs text-slate-400 truncate">每个月单独设置账号参数，输入自动保存</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`text-xs font-medium ${saveStatusClass(saveStatus)}`}>
+              {saveStatus === 'saving' ? t('statusSaving') : saveStatus === 'saved' ? t('statusSaved') : saveStatus === 'error' ? t('statusError') : ''}
+            </span>
+            {inputOpen && (
+              <>
+                <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={selectedMonth === 0}>
+                  <Copy className="w-3.5 h-3.5" /> 复制上月
+                </Button>
+                <Button variant="secondary" size="sm" onClick={applyForward}>
+                  <Copy className="w-3.5 h-3.5" /> 应用到后续月份
+                </Button>
+                <Button variant="secondary" size="sm" onClick={clearMonth}>
+                  <RotateCcw className="w-3.5 h-3.5" /> 清空本月
+                </Button>
+                <Button size="sm" onClick={addRow}>
+                  <Plus className="w-3.5 h-3.5" /> 添加账号
+                </Button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setInputOpen((o) => !o)}
+              aria-label={inputOpen ? '折叠' : '展开'}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${inputOpen ? '' : '-rotate-90'}`} />
+            </button>
+          </div>
+        </div>
+
+        {inputOpen && (
+          <>
+            <div className="px-5 pt-4">
+              <div className="flex gap-3 flex-wrap mb-4">
+                {(() => {
+                  const groups: { year: string; entries: { index: number; label: string; key: string }[] }[] = []
+                  months.forEach((month, index) => {
+                    const year     = month.month.slice(0, 4)
+                    const monthNum = parseInt(month.month.slice(5), 10) - 1
+                    const label    = monthLabels[monthNum] ?? month.month.slice(5)
+                    const last = groups[groups.length - 1]
+                    if (last && last.year === year) {
+                      last.entries.push({ index, label, key: month.month })
+                    } else {
+                      groups.push({ year, entries: [{ index, label, key: month.month }] })
+                    }
+                  })
+                  return groups.map(({ year, entries }) => (
+                    <div key={year} className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-semibold text-slate-400 tracking-wider tabular-nums">
+                        {year}
+                      </span>
+                      <div className="flex gap-1 flex-wrap">
+                        {entries.map(({ index, label, key }) => {
+                          const active = !showYearView && index === selectedMonth
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => { setShowYearView(false); setSelectedMonth(index) }}
+                              className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                                active
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))
+                })()}
+                <button
+                  type="button"
+                  onClick={() => setShowYearView((v) => !v)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                    showYearView
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  }`}
+                >
+                  全年
+                </button>
+              </div>
+
+              {!showYearView && <div className="grid gap-3 md:grid-cols-3 mb-4">
+                <Field label="当前月实际开播收益（美金）">
+                  <NumberInput
+                    value={selectedRaw.actual_revenue_usd}
+                    onChange={(actual_revenue_usd) => updateSelectedMonth({ actual_revenue_usd })}
+                    step={1000}
+                  />
+                </Field>
+                <Field label="当前月成本预算（同步）">
+                  <input
+                    value={formatUsd(selectedRaw.budget_cost_usd)}
+                    readOnly
+                    className="w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                  />
+                  <div className="text-xs text-indigo-600 font-medium mt-1">已同步当前预算成本，并换算为美金</div>
+                </Field>
+                <Field label="备注事件标注">
+                  <input
+                    value={selectedRaw.note ?? ''}
+                    onChange={(event) => updateSelectedMonth({ note: event.target.value })}
+                    className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </Field>
+              </div>}
+            </div>
+
+            {showYearView ? (
+              <YearSummaryTable months={summary.months} onSelectMonth={(index) => { setShowYearView(false); setSelectedMonth(index) }} />
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[1120px]">
+                <thead>
+                  <tr className="border-y border-slate-100 bg-slate-50">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">账号</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">类型</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">开播天数</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">平均每日开播时长</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">分钟收益（美金）</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">可分润比例（%）</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">月开播收益</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">状态</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedRaw.rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
+                        当前月份还没有预测输入。添加账号后，账号类型贡献、曲线和 KPI 才会开始计算。
+                      </td>
+                    </tr>
+                  ) : calculatedRows.map((row, index) => (
+                    <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <input
+                          value={row.account_name}
+                          onChange={(event) => updateRow(index, { account_name: event.target.value })}
+                          className={INPUT_CLASS}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={row.account_type}
+                          onChange={(event) => updateRow(index, { account_type: event.target.value as ForecastAccountType })}
+                          className={INPUT_CLASS}
+                        >
+                          {FORECAST_ACCOUNT_TYPES.map((type) => (
+                            <option key={type} value={type}>{FORECAST_ACCOUNT_TYPE_LABELS[type]}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3">
+                        <NumberInput value={row.live_days} onChange={(live_days) => updateRow(index, { live_days })} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <NumberInput value={row.avg_daily_hours} onChange={(avg_daily_hours) => updateRow(index, { avg_daily_hours })} step={0.5} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <NumberInput value={row.revenue_per_minute_usd} onChange={(revenue_per_minute_usd) => updateRow(index, { revenue_per_minute_usd })} step={0.01} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <NumberInput value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} max={100} />
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{formatUsd(row.monthly_revenue_usd)}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge revenue={row.monthly_revenue_usd} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          aria-label="Delete row"
+                          onClick={() => deleteRow(index)}
+                          className="inline-flex items-center text-xs font-medium text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+                <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
+                  计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* Row 3: Forecast curve + account type breakdown */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
@@ -377,189 +651,104 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           </div>
         </aside>
       </div>
-
-      <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="flex items-end justify-between gap-4 px-5 py-4 border-b border-slate-100">
-          <div>
-            <h2 className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold text-slate-900 tabular-nums tracking-tight">
-                {selected.month.slice(0, 4)}
-              </span>
-              <span className="text-2xl font-bold text-slate-300">·</span>
-              <span className="text-2xl font-bold text-indigo-600 tabular-nums tracking-tight">
-                {selected.month.slice(5)}
-              </span>
-              <span className="text-sm font-medium text-slate-500 ml-2">账号预测输入</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">每个月单独设置账号参数；输入会自动保存到 Supabase，本机草稿作为兜底。</p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            <span className={`text-xs font-medium ${saveStatusClass(saveStatus)}`}>
-              {saveStatusLabel(saveStatus)}
-            </span>
-            <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={selectedMonth === 0}>
-              <Copy className="w-3.5 h-3.5" /> 复制上月
-            </Button>
-            <Button variant="secondary" size="sm" onClick={applyForward}>
-              <Copy className="w-3.5 h-3.5" /> 应用到后续月份
-            </Button>
-            <Button variant="secondary" size="sm" onClick={clearMonth}>
-              <RotateCcw className="w-3.5 h-3.5" /> 清空本月
-            </Button>
-            <Button size="sm" onClick={addRow}>
-              <Plus className="w-3.5 h-3.5" /> 添加账号
-            </Button>
-          </div>
-        </div>
-
-        <div className="px-5 pt-4">
-          <div className="flex gap-3 flex-wrap mb-4">
-            {(() => {
-              // Group months by year so each year gets its own label + pill cluster
-              const groups: { year: string; entries: { index: number; mm: string; key: string }[] }[] = []
-              months.forEach((month, index) => {
-                const year = month.month.slice(0, 4)
-                const mm   = month.month.slice(5)
-                const last = groups[groups.length - 1]
-                if (last && last.year === year) {
-                  last.entries.push({ index, mm, key: month.month })
-                } else {
-                  groups.push({ year, entries: [{ index, mm, key: month.month }] })
-                }
-              })
-              return groups.map(({ year, entries }) => (
-                <div key={year} className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px] font-semibold text-slate-400 tracking-wider tabular-nums">
-                    {year}
-                  </span>
-                  <div className="flex gap-1 flex-wrap">
-                    {entries.map(({ index, mm, key }) => {
-                      const active = index === selectedMonth
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setSelectedMonth(index)}
-                          className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold tabular-nums transition-colors ${
-                            active
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                          }`}
-                        >
-                          {mm}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))
-            })()}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3 mb-4">
-            <Field label="当前月实际开播收益（美金）">
-              <NumberInput
-                value={selectedRaw.actual_revenue_usd}
-                onChange={(actual_revenue_usd) => updateSelectedMonth({ actual_revenue_usd })}
-                step={1000}
-              />
-            </Field>
-            <Field label="当前月成本预算（同步）">
-              <input
-                value={formatUsd(selectedRaw.budget_cost_usd)}
-                readOnly
-                className="w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
-              />
-              <div className="text-xs text-indigo-600 font-medium mt-1">已同步当前预算成本，并换算为美金</div>
-            </Field>
-            <Field label="备注事件标注">
-              <input
-                value={selectedRaw.note ?? ''}
-                onChange={(event) => updateSelectedMonth({ note: event.target.value })}
-                className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </Field>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[1120px]">
-            <thead>
-              <tr className="border-y border-slate-100 bg-slate-50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">账号</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">类型</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">开播天数</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">平均每日开播时长</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">分钟收益（美金）</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">可分润比例（%）</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">月开播收益</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">状态</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {selectedRaw.rows.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
-                    当前月份还没有预测输入。添加账号后，账号类型贡献、曲线和 KPI 才会开始计算。
-                  </td>
-                </tr>
-              ) : calculatedRows.map((row, index) => (
-                <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <input
-                      value={row.account_name}
-                      onChange={(event) => updateRow(index, { account_name: event.target.value })}
-                      className={INPUT_CLASS}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={row.account_type}
-                      onChange={(event) => updateRow(index, { account_type: event.target.value as ForecastAccountType })}
-                      className={INPUT_CLASS}
-                    >
-                      {FORECAST_ACCOUNT_TYPES.map((type) => (
-                        <option key={type} value={type}>{FORECAST_ACCOUNT_TYPE_LABELS[type]}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3">
-                    <NumberInput value={row.live_days} onChange={(live_days) => updateRow(index, { live_days })} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <NumberInput value={row.avg_daily_hours} onChange={(avg_daily_hours) => updateRow(index, { avg_daily_hours })} step={0.5} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <NumberInput value={row.revenue_per_minute_usd} onChange={(revenue_per_minute_usd) => updateRow(index, { revenue_per_minute_usd })} step={0.01} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <NumberInput value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} max={100} />
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{formatUsd(row.monthly_revenue_usd)}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge revenue={row.monthly_revenue_usd} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => deleteRow(index)}
-                      className="inline-flex items-center text-xs font-medium text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
-          计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
-        </div>
-      </section>
     </>
+  )
+}
+
+function YearSummaryTable({
+  months,
+  onSelectMonth,
+}: {
+  months: ReturnType<typeof summarizeForecast>['months']
+  onSelectMonth: (index: number) => void
+}) {
+  const configured = months
+    .map((m, index) => ({ ...m, index }))
+    .filter((m) => m.rows.length > 0)
+
+  const totalForecast = configured.reduce((sum, m) => sum + m.forecast_revenue_usd, 0)
+  const totalActual   = configured.reduce((sum, m) => sum + m.actual_revenue_usd,   0)
+  const totalBudget   = configured.reduce((sum, m) => sum + m.budget_cost_usd,      0)
+  const totalProfit   = configured.reduce((sum, m) => sum + m.profit_usd,           0)
+
+  if (configured.length === 0) {
+    return (
+      <div className="px-5 pb-8 pt-2 text-center text-sm text-slate-400">
+        还没有任何月份配置了账号预测输入。
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-y border-slate-100 bg-slate-50">
+            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">月份</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">已配置账号</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预测开播收益</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">实际开播收益</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预算成本</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预测毛利润</th>
+          </tr>
+        </thead>
+        <tbody>
+          {configured.map((m) => {
+            const profitColor = m.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
+            return (
+              <tr
+                key={m.month}
+                className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
+                onClick={() => onSelectMonth(m.index)}
+                title="点击进入该月详情"
+              >
+                <td className="px-4 py-3 font-semibold text-slate-900 tabular-nums">
+                  {m.month}
+                  {m.note && (
+                    <span className="ml-2 text-xs font-normal text-slate-400">{m.note}</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-slate-500">
+                  {m.rows.map((r) => r.account_name).join('、')}
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">
+                  {formatUsd(m.forecast_revenue_usd)}
+                </td>
+                <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
+                  {m.actual_revenue_usd > 0 ? formatUsd(m.actual_revenue_usd) : '—'}
+                </td>
+                <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
+                  {formatUsd(m.budget_cost_usd)}
+                </td>
+                <td className={`px-4 py-3 text-right font-semibold tabular-nums ${profitColor}`}>
+                  {formatUsd(m.profit_usd)}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-slate-200 bg-slate-50">
+            <td className="px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wide">
+              全年合计
+            </td>
+            <td className="px-4 py-3 text-xs text-slate-400">共 {configured.length} 个月</td>
+            <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums text-base">
+              {formatUsd(totalForecast)}
+            </td>
+            <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
+              {totalActual > 0 ? formatUsd(totalActual) : '—'}
+            </td>
+            <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
+              {formatUsd(totalBudget)}
+            </td>
+            <td className={`px-4 py-3 text-right font-bold tabular-nums text-base ${totalProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+              {formatUsd(totalProfit)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   )
 }
 
@@ -600,13 +789,6 @@ function hasForecastInputs(months: ForecastMonthInput[]): boolean {
   )
 }
 
-function saveStatusLabel(status: SaveStatus): string {
-  if (status === 'saving') return '正在保存到 Supabase...'
-  if (status === 'saved') return '已保存到 Supabase'
-  if (status === 'error') return 'Supabase 保存失败，已保留本机草稿'
-  return ''
-}
-
 function saveStatusClass(status: SaveStatus): string {
   if (status === 'saved') return 'text-emerald-600'
   if (status === 'error') return 'text-red-500'
@@ -620,22 +802,43 @@ function KpiCard({
   sub,
   accent,
   valueClassName = 'text-slate-900',
+  onClick,
+  active,
 }: {
   label: string
   value: string
   sub: string
   accent: string
   valueClassName?: string
+  onClick?: () => void
+  active?: boolean
 }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5">
+    <div
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
+      className={`bg-white rounded-xl border p-4 sm:p-5 transition-all select-none ${
+        onClick ? 'cursor-pointer hover:shadow-sm' : ''
+      } ${
+        active
+          ? 'border-indigo-400 ring-2 ring-indigo-50 shadow-sm'
+          : onClick ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200'
+      }`}
+    >
       <div className="flex items-start justify-between gap-2 sm:gap-4">
         <div className="min-w-0">
           <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate">{label}</p>
           <p className={`text-xl sm:text-2xl font-bold mt-1 ${valueClassName}`}>{value}</p>
           <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate">{sub}</p>
         </div>
-        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${accent}`}>$</div>
+        <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
+          {onClick && (
+            <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-300 -rotate-90'}`} />
+          )}
+        </div>
       </div>
     </div>
   )

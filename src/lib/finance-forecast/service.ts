@@ -104,13 +104,6 @@ export async function saveFinanceForecastYear(
 
   if (monthError) return err('db_error', monthError.message)
 
-  const { error: deleteError } = await db
-    .from('finance_forecast_accounts')
-    .delete()
-    .eq('year', year)
-
-  if (deleteError) return err('db_error', deleteError.message)
-
   const accountRows = months.flatMap((month) =>
     month.rows.map((row) => ({
       id:                     row.id,
@@ -125,13 +118,24 @@ export async function saveFinanceForecastYear(
     }))
   )
 
+  // Upsert first (safe even if subsequent delete fails — data is preserved)
   if (accountRows.length > 0) {
-    const { error: insertError } = await db
+    const { error: upsertError } = await db
       .from('finance_forecast_accounts')
-      .insert(accountRows)
+      .upsert(accountRows, { onConflict: 'id' })
 
-    if (insertError) return err('db_error', insertError.message)
+    if (upsertError) return err('db_error', upsertError.message)
   }
+
+  // Delete rows for this year that are no longer in the dataset
+  const currentIds = accountRows.map((r) => r.id)
+  let deleteQuery = db.from('finance_forecast_accounts').delete().eq('year', year)
+  if (currentIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    deleteQuery = (deleteQuery as any).not('id', 'in', `(${currentIds.join(',')})`)
+  }
+  const { error: deleteError } = await deleteQuery
+  if (deleteError) return err('db_error', deleteError.message)
 
   return ok(months)
 }

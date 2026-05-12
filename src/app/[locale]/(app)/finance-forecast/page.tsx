@@ -26,6 +26,7 @@ export default async function FinanceForecastPage() {
     calculateMonthlyBudgetCosts((data ?? []) as ExpenseForBudget[]),
   )
   const savedForecast = await loadFinanceForecastYear(year, baseMonths)
+  if (savedForecast.error) console.error('loadFinanceForecastYear failed:', savedForecast.error)
   const months = savedForecast.data ?? baseMonths
 
   return (

@@ -33,10 +33,13 @@ export async function generateMilestoneTasks(
 
   const taskIds = data.map((t: { id: string }) => t.id)
 
-  await db
+  const { error: updateError } = await db
     .from('milestones')
     .update({ linked_task_ids: [...milestone.linked_task_ids, ...taskIds] })
     .eq('id', milestone.id)
+  if (updateError) {
+    console.error('Failed to link tasks to milestone:', updateError.message)
+  }
 
   return taskIds
 }

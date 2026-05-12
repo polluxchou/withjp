@@ -28,9 +28,16 @@ export async function POST(req: NextRequest) {
   if (user instanceof NextResponse) return user
 
   const db = createServerClient()
-  const body = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
+  }
   const { name, platform, account_handle, account_url, notes } = body
-  const normalizedPlatform = typeof platform === 'string' ? normalizeCreatorPlatform(platform) : ''
+  const normalizedPlatform = typeof platform === 'string' && platform.trim()
+    ? normalizeCreatorPlatform(platform.trim())
+    : ''
 
   if (!name || !normalizedPlatform || !account_handle) {
     return NextResponse.json(

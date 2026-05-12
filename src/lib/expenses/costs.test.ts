@@ -5,8 +5,11 @@ import {
   categoryHasPeriod,
 } from './costs.ts'
 
-test('all expense categories show the period field', () => {
-  for (const option of EXPENSE_CATEGORY_OPTIONS) {
-    assert.equal(categoryHasPeriod(option.value), true, option.value)
-  }
+test('only salary, rent, and cloud_services show the period field', () => {
+  assert.equal(categoryHasPeriod('salary'), true, 'salary')
+  assert.equal(categoryHasPeriod('rent'), true, 'rent')
+  assert.equal(categoryHasPeriod('cloud_services'), true, 'cloud_services')
+  assert.equal(categoryHasPeriod('tangible_asset'), false, 'tangible_asset')
+  assert.equal(categoryHasPeriod('travel'), false, 'travel')
+  assert.equal(categoryHasPeriod('office_supplies'), false, 'office_supplies')
 })
