@@ -15,8 +15,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Plus, RotateCcw, Copy, Trash2, ChevronDown } from 'lucide-react'
+import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { Link } from '@/i18n/navigation'
 import {
   FORECAST_ACCOUNT_TYPE_LABELS,
   FORECAST_ACCOUNT_TYPES,
@@ -248,6 +249,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           value={formatUsd(summary.yearly_budget_usd)}
           sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
           accent="bg-amber-50 text-amber-600"
+          linkTo="/expenses"
+          linkLabel="去支出管理"
         />
         <KpiCard
           label="全年毛利润结余"
@@ -744,6 +747,8 @@ function KpiCard({
   valueClassName = 'text-slate-900',
   onClick,
   active,
+  linkTo,
+  linkLabel,
 }: {
   label: string
   value: string
@@ -752,6 +757,9 @@ function KpiCard({
   valueClassName?: string
   onClick?: () => void
   active?: boolean
+  /** Optional navigation target — renders an arrow chip top-right that links there. */
+  linkTo?: string
+  linkLabel?: string
 }) {
   return (
     <div
@@ -759,7 +767,7 @@ function KpiCard({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
-      className={`bg-white rounded-xl border p-5 transition-all select-none ${
+      className={`relative bg-white rounded-xl border p-5 transition-all select-none ${
         onClick ? 'cursor-pointer hover:shadow-sm' : ''
       } ${
         active
@@ -767,13 +775,26 @@ function KpiCard({
           : onClick ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200'
       }`}
     >
+      {linkTo && (
+        <Link
+          href={linkTo}
+          title={linkLabel}
+          aria-label={linkLabel}
+          /* stopPropagation so the arrow click doesn't trigger the
+             card's onClick (when both are wired) */
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-3 right-3 z-10 inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+        >
+          <ArrowUpRight className="w-4 h-4" />
+        </Link>
+      )}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
           <p className={`text-2xl font-bold mt-1 ${valueClassName}`}>{value}</p>
           <p className="text-xs text-slate-400 mt-1">{sub}</p>
         </div>
-        <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+        <div className={`flex flex-col items-center gap-1.5 flex-shrink-0 ${linkTo ? 'mt-7' : ''}`}>
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold ${accent}`}>$</div>
           {onClick && (
             <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-300 -rotate-90'}`} />
