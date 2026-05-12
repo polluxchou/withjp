@@ -257,7 +257,7 @@ export default function ExpensesPage() {
       />
 
       {/* Filters */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-5 space-y-3">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
         <div className="flex items-center gap-3 flex-wrap">
           {/* Search */}
           <div className="relative">
@@ -308,22 +308,24 @@ export default function ExpensesPage() {
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
-        </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="text-xs text-slate-500">{t('date')}:</label>
-          <DateRangeSlider
-            from={filters.date_from}
-            to={filters.date_to}
-            onChange={(from, to) => setFilters((f) => ({ ...f, date_from: from, date_to: to }))}
-          />
           <button
             onClick={resetFilters}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+            className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" /> {tCommon('reset')}
           </button>
         </div>
+      </div>
+
+      {/* Date range timeline — full width */}
+      <div className="bg-white border border-slate-200 rounded-xl px-6 pt-3 pb-4 mb-5">
+        <p className="text-xs font-medium text-slate-500 mb-1">{t('date')}</p>
+        <DateRangeSlider
+          from={filters.date_from}
+          to={filters.date_to}
+          onChange={(from, to) => setFilters((f) => ({ ...f, date_from: from, date_to: to }))}
+        />
       </div>
 
       {/* Table */}
