@@ -233,8 +233,11 @@ export default function ExpenseCategoryChart({
   const BUYER_DISPLAY: Record<string, string> = { chenhao: '陈昊', xiaoshou: '小兽' }
 
   const buyerBreakdown = useMemo(() => {
+    const source = selectedCategory
+      ? categoryBreakdownExpenses.filter((e) => e.expense_category === selectedCategory)
+      : categoryBreakdownExpenses
     const map = new Map<string, { total: number; crossBorder: number }>()
-    for (const e of categoryBreakdownExpenses) {
+    for (const e of source) {
       const b = (e.buyer_name ?? '').trim() || '—'
       const prev = map.get(b) ?? { total: 0, crossBorder: 0 }
       map.set(b, {
@@ -246,7 +249,7 @@ export default function ExpenseCategoryChart({
       .map(([buyer, d]) => ({ buyer, ...d }))
       .filter((r) => r.total > 0)
       .sort((a, b) => b.total - a.total)
-  }, [categoryBreakdownExpenses])
+  }, [categoryBreakdownExpenses, selectedCategory])
 
   const breakdown      = getExpenseCategoryBreakdown(categoryBreakdownExpenses)
   const timeSeries     = getExpenseCostTimeSeries(expenses, granularity)
@@ -402,12 +405,20 @@ export default function ExpenseCategoryChart({
               )
             })}
 
-            {/* ── Buyer breakdown ── */}
+            {/* ── Buyer breakdown (Level 2) ── */}
             {buyerBreakdown.length > 0 && (
-              <div className="pt-2.5 border-t border-slate-100">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2 px-1">
-                  {t('buyer')}
-                </p>
+              <div className={`pt-2.5 border-t ${selectedCategory ? 'border-slate-200 ml-3 pl-3 border-l-2 border-l-slate-200' : 'border-slate-100'}`}>
+                <div className="flex items-center gap-1.5 mb-2 px-1">
+                  {selectedCategory && (
+                    <span className="text-[10px] text-slate-400">↳</span>
+                  )}
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                    {selectedCategory
+                      ? `${t(`categories.${selectedCategory as ExpenseCategory}`)} · ${t('buyer')}`
+                      : `全部 · ${t('buyer')}`
+                    }
+                  </p>
+                </div>
                 <div className="space-y-1">
                   {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
                     const isCrossBorder = CROSS_BORDER_BUYERS.has(buyer)
