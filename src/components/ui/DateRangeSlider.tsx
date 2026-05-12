@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef, useId } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
 const MS = 86_400_000
 const dateToOrd = (s: string) => Math.round(new Date(s).getTime() / MS)
@@ -24,51 +24,6 @@ const MARKS = [
   { iso: '2027-10-01', label: 'Q4' },
 ]
 
-// ── Quick pick helpers ────────────────────────────────────────
-
-function isoDate(d: Date): string { return d.toISOString().slice(0, 10) }
-
-function todayRange():      [string, string] { const t = isoDate(new Date()); return [t, t] }
-function yesterdayRange():  [string, string] { const d = new Date(); d.setDate(d.getDate() - 1); const s = isoDate(d); return [s, s] }
-
-function weekRange(offset: number): [string, string] {
-  const now = new Date()
-  const dow = now.getDay()
-  const toMon = dow === 0 ? -6 : 1 - dow
-  const mon = new Date(now); mon.setDate(now.getDate() + toMon + offset * 7)
-  const sun = new Date(mon);  sun.setDate(mon.getDate() + 6)
-  return [isoDate(mon), isoDate(sun)]
-}
-
-function monthRange(offset: number): [string, string] {
-  const now = new Date()
-  const first = new Date(now.getFullYear(), now.getMonth() + offset, 1)
-  const last  = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0)
-  return [isoDate(first), isoDate(last)]
-}
-
-function quarterRange(offset: number): [string, string] {
-  const now   = new Date()
-  const qBase = Math.floor(now.getMonth() / 3) + offset
-  const year  = now.getFullYear() + Math.floor(qBase / 4)
-  const q     = ((qBase % 4) + 4) % 4
-  const first = new Date(year, q * 3, 1)
-  const last  = new Date(year, q * 3 + 3, 0)
-  return [isoDate(first), isoDate(last)]
-}
-
-// Computed once per session (today doesn't change mid-session)
-const QUICK_PICKS: { label: string; range: [string, string] }[] = [
-  { label: '今天', range: todayRange() },
-  { label: '昨天', range: yesterdayRange() },
-  { label: '本周', range: weekRange(0) },
-  { label: '上周', range: weekRange(-1) },
-  { label: '本月', range: monthRange(0) },
-  { label: '本季', range: quarterRange(0) },
-]
-
-// ── Styles ────────────────────────────────────────────────────
-
 const THUMB_CLS = [
   'absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer',
   '[&::-webkit-slider-runnable-track]:bg-transparent',
@@ -89,8 +44,6 @@ function badgeStyle(pct: number): React.CSSProperties {
   if (pct >= 95) return { right: 0 }
   return { left: `${pct}%`, transform: 'translateX(-50%)' }
 }
-
-// ── Component ─────────────────────────────────────────────────
 
 interface Props {
   from: string
@@ -124,98 +77,12 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
     onChange(ordToDate(draft.a), ordToDate(draft.b))
   }, [draft, onChange])
 
-  // Quick pick chip click
-  const applyPick = useCallback((range: [string, string]) => {
-    const [f, t] = range
-    const a = dateToOrd(f), b = dateToOrd(t)
-    setDraft({ a, b })
-    onChange(f, t)
-  }, [onChange])
-
-  const clearRange = useCallback(() => {
-    setDraft({ a: ORD_MIN, b: ORD_MAX })
-    onChange('', '')
-  }, [onChange])
-
-  // Single-day picker via native calendar
-  const singleDayRef = useRef<HTMLInputElement>(null)
-  const singleDayId  = useId()
-
-  const openSingleDay = useCallback(() => {
-    singleDayRef.current?.showPicker?.()
-  }, [])
-
-  const onSingleDayChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value
-    if (!v) return
-    const ord = dateToOrd(v)
-    setDraft({ a: ord, b: ord })
-    onChange(v, v)
-  }, [onChange])
-
-  const activeLabel = useMemo(() => {
-    const f = from || RANGE_START
-    const t = to   || RANGE_END
-    return QUICK_PICKS.find(p => p.range[0] === f && p.range[1] === t)?.label ?? null
-  }, [from, to])
-
   const trackRef = useRef<HTMLDivElement>(null)
-
   const aZ = draft.a >= ORD_MAX - 1 ? 20 : 10
   const bZ = draft.a >= ORD_MAX - 1 ? 10 : 20
 
   return (
     <div className="w-full select-none px-1">
-      {/* Quick picks */}
-      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-        {QUICK_PICKS.map(({ label, range }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => applyPick(range)}
-            className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
-              activeLabel === label
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-
-        {/* Single-day picker */}
-        <button
-          type="button"
-          onClick={openSingleDay}
-          className={`px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors ${
-            isSingleDay && !activeLabel
-              ? 'bg-indigo-600 text-white'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          {isSingleDay && !activeLabel ? fmtDate(ordToDate(draft.a)) : '单日'}
-        </button>
-        <input
-          id={singleDayId}
-          ref={singleDayRef}
-          type="date"
-          value={isSingleDay ? ordToDate(draft.a) : ''}
-          onChange={onSingleDayChange}
-          className="sr-only"
-          tabIndex={-1}
-        />
-
-        {(from || to) && (
-          <button
-            type="button"
-            onClick={clearRange}
-            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-400 hover:bg-slate-200 transition-colors"
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
       {/* Floating date badges + track */}
       <div className="relative pt-7 pb-1">
         {isSingleDay ? (
@@ -251,10 +118,7 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
         )}
 
         {/* Track */}
-        <div
-          ref={trackRef}
-          className="relative h-6 flex items-center"
-        >
+        <div ref={trackRef} className="relative h-6 flex items-center">
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-slate-200 rounded-full" />
 
           {isSingleDay ? (
