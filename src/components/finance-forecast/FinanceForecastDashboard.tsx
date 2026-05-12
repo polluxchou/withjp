@@ -75,8 +75,9 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const [hydratedDraft, setHydratedDraft] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
-  const didLoadDraft  = useRef(false)
-  const storageKeyRef = useRef(storageKey)
+  const didLoadDraft    = useRef(false)
+  const storageKeyRef   = useRef(storageKey)
+  const persistingNow   = useRef(false)   // true while persistNow is in-flight
 
   const summary = useMemo(() => summarizeForecast(months), [months])
   const selected = summary.months[selectedMonth]
@@ -136,6 +137,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   async function persistNow(newMonths: ForecastMonthInput[]) {
     const year = Number(newMonths[0]?.month.slice(0, 4)) || new Date().getUTCFullYear()
     writeDraft(storageKeyRef.current, newMonths)
+    persistingNow.current = true
     setSaveStatus('saving')
     try {
       const res = await fetch('/api/finance-forecast', {
@@ -146,6 +148,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
       setSaveStatus(res.ok ? 'saved' : 'error')
     } catch {
       setSaveStatus('error')
+    } finally {
+      persistingNow.current = false
     }
   }
 
@@ -212,7 +216,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   useEffect(() => {
     if (!hydratedDraft) return
-    setSaveStatus('idle')
+    if (!persistingNow.current) setSaveStatus('idle')
     writeDraft(storageKey, months)
     const controller = new AbortController()
     const timer = window.setTimeout(async () => {
