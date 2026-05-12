@@ -139,6 +139,7 @@ export interface ExpenseSummary {
   paidCost:           number
   budgetedUnpaidCost: number
   currentMonthCost:   number
+  crossBorderCost:    number
   itemCount:          number
 }
 
@@ -159,10 +160,12 @@ export function getExpenseSummary(expenses: ExpenseForSummary[]): ExpenseSummary
   let paidCost           = 0
   let budgetedUnpaidCost = 0
   let currentMonthCost   = 0
+  let crossBorderCost    = 0
 
   for (const e of expenses) {
     const total = effectiveCost(e)
     totalCost += total
+    crossBorderCost += crossBorderFee(e)
 
     if (e.payment_status === 'paid') {
       paidCost += total
@@ -184,6 +187,7 @@ export function getExpenseSummary(expenses: ExpenseForSummary[]): ExpenseSummary
     paidCost,
     budgetedUnpaidCost,
     currentMonthCost,
+    crossBorderCost,
     itemCount: expenses.length,
   }
 }
