@@ -39,7 +39,7 @@ test('summarizeForecast keeps account type contribution at zero without inputs',
   assert.equal(summary.yearly_profit_usd, -1200)
 })
 
-test('calculateMonthlyBudgetCosts syncs current budget cost from budgeted and ordered expenses', () => {
+test('calculateMonthlyBudgetCosts syncs current budget cost from CNY expenses into USD', () => {
   const budgets = calculateMonthlyBudgetCosts([
     {
       expense_date: '2026-03-10',
@@ -64,5 +64,5 @@ test('calculateMonthlyBudgetCosts syncs current budget cost from budgeted and or
     },
   ])
 
-  assert.equal(budgets.get('2026-03'), 1000 + 500 * 1.04)
+  assert.equal(budgets.get('2026-03'), (1000 + 500 * 1.04) / 7)
 })

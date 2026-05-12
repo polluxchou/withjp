@@ -58,6 +58,10 @@ export const FORECAST_ACCOUNT_TYPES: ForecastAccountType[] = [
   'other',
 ]
 
+// Expense records are stored in CNY. Forecast revenue is entered in USD.
+// Keep this aligned with src/lib/currency.tsx fixed display rate.
+export const CNY_TO_USD_RATE = 1 / 7
+
 export const FORECAST_ACCOUNT_TYPE_LABELS: Record<ForecastAccountType, string> = {
   key:     '重点号',
   mature:  '成熟号',
@@ -130,7 +134,7 @@ export function calculateMonthlyBudgetCosts(expenses: ExpenseForBudget[]): Map<s
     if (expense.payment_status !== 'budgeted' && expense.payment_status !== 'ordered_unpaid') continue
     if (!expense.expense_date) continue
     const month = expense.expense_date.slice(0, 7)
-    budgets.set(month, (budgets.get(month) ?? 0) + effectiveCost(expense))
+    budgets.set(month, (budgets.get(month) ?? 0) + effectiveCost(expense) * CNY_TO_USD_RATE)
   }
   return budgets
 }
