@@ -69,8 +69,8 @@ export default function LoginPage() {
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.05fr_1fr]">
-      {/* ───── LEFT: dark brand hero ───── */}
+    <div className="min-h-screen lg:min-h-[100dvh] grid lg:grid-cols-[1.05fr_1fr] [min-height:100dvh]">
+      {/* ───── LEFT: dark brand hero (lg+) ───── */}
       <aside className="relative hidden lg:flex flex-col bg-slate-950 text-white overflow-hidden px-10 py-9">
         {/* ambient glow */}
         <div
@@ -144,31 +144,51 @@ export default function LoginPage() {
       </aside>
 
       {/* ───── RIGHT: form ───── */}
-      <main className="flex flex-col bg-stone-50 px-6 py-8 sm:px-10 lg:px-16 lg:py-10 relative">
+      <main className="flex flex-col bg-stone-50 px-5 pt-[max(env(safe-area-inset-top),1.5rem)] pb-[max(env(safe-area-inset-bottom),1.5rem)] sm:px-10 sm:py-10 lg:px-16 lg:py-10 relative">
         {/* dotted left rule (lg+ only) */}
         <div
           className="hidden lg:block absolute left-6 top-12 bottom-12 w-px"
           style={{ backgroundImage: 'repeating-linear-gradient(to bottom, #d6d3d1 0 4px, transparent 4px 9px)' }}
         />
 
+        {/* Compact brand bar — only when the left hero is hidden */}
+        <div className="flex lg:hidden items-center justify-between mb-6 sm:mb-8">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-indigo-500 flex items-center justify-center shadow-md shadow-indigo-500/30">
+              <Zap className="w-[18px] h-[18px] text-white" strokeWidth={2.5} />
+            </div>
+            <div className="leading-tight">
+              <div className="font-bold text-sm text-slate-900">{tNav('appName')}</div>
+              <div className="text-[9px] text-slate-500 tracking-[0.22em] mt-0.5">CREATOR GUILD · OS</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
+            <span className="relative inline-flex">
+              <span className="absolute inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            </span>
+            <span>{time}</span>
+          </div>
+        </div>
+
         {/* Top breadcrumb */}
-        <div className="flex items-center justify-between text-[10px] tracking-[0.22em] text-slate-500 mb-12 lg:mb-16">
-          <span className="font-semibold text-slate-900 uppercase">{t('stepLabel')}</span>
-          <span className="text-slate-400 font-mono">v0.1.0</span>
+        <div className="flex items-center justify-between gap-3 text-[10px] tracking-[0.22em] text-slate-500 mb-8 sm:mb-12 lg:mb-16">
+          <span className="font-semibold text-slate-900 uppercase truncate">{t('stepLabel')}</span>
+          <span className="text-slate-400 font-mono whitespace-nowrap">v0.1.0</span>
         </div>
 
         <div className="flex-1 flex items-center">
           <div className="w-full max-w-md mx-auto">
             {/* Welcome */}
-            <h2 className="text-[clamp(2rem,4vw,2.75rem)] font-bold text-slate-900 tracking-tight leading-[1.1]">
+            <h2 className="text-[clamp(1.75rem,7vw,2.75rem)] font-bold text-slate-900 tracking-tight leading-[1.1]">
               {t('welcomeLead')},
               <br />
               <span className="italic font-serif text-rose-500">{t('welcomeAccent')}</span>
             </h2>
-            <p className="mt-4 text-sm text-slate-600">{t('welcomeDesc')}</p>
+            <p className="mt-3 sm:mt-4 text-sm text-slate-600">{t('welcomeDesc')}</p>
 
             {/* Form */}
-            <form onSubmit={handleLogin} className="mt-10 space-y-5" autoComplete="on">
+            <form onSubmit={handleLogin} className="mt-7 sm:mt-10 space-y-5" autoComplete="on">
               {error && (
                 <div className="text-sm bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-3 py-2.5">
                   {error}
@@ -185,15 +205,20 @@ export default function LoginPage() {
                     id="email"
                     name="email"
                     type="email"
+                    inputMode="email"
                     autoComplete="email"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@withjp.live"
-                    className="w-full px-4 py-3 pr-11 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                    /* text-base = 16px keeps iOS Safari from auto-zooming on focus */
+                    className="w-full px-4 py-3 pr-11 bg-white border border-slate-300 rounded-xl text-base text-slate-900 placeholder-slate-300 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
                   />
                   {emailValid && (
-                    <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+                    <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
                   )}
                 </div>
               </div>
@@ -206,7 +231,9 @@ export default function LoginPage() {
                   </label>
                   <button
                     type="button"
-                    className="text-[10px] tracking-[0.15em] text-slate-400 hover:text-slate-700 transition-colors uppercase"
+                    /* px/py give a finger-sized tap target on mobile without
+                       moving the visual baseline */
+                    className="-mr-2 px-2 py-1 text-[10px] tracking-[0.15em] text-slate-400 hover:text-slate-700 transition-colors uppercase"
                     onClick={() => alert('请联系管理员重置密码')}
                   >
                     {t('forgot')}
@@ -218,19 +245,23 @@ export default function LoginPage() {
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-11 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder-slate-300 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
+                    className="w-full px-4 py-3 pr-12 bg-white border border-slate-300 rounded-xl text-base text-slate-900 placeholder-slate-300 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 transition"
                   />
+                  {/* Full-height tap target along the right edge */}
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+                    className="absolute right-0 top-0 bottom-0 px-4 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
                   </button>
                 </div>
               </div>
@@ -260,7 +291,7 @@ export default function LoginPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 lg:mt-auto pt-6 text-center text-[10px] tracking-[0.2em] text-slate-400 font-mono">
+        <div className="mt-8 sm:mt-12 lg:mt-auto pt-4 sm:pt-6 text-center text-[10px] tracking-[0.2em] text-slate-400 font-mono">
           © {new Date().getFullYear()} WITHJP · CREATOR GUILD OS
         </div>
       </main>
