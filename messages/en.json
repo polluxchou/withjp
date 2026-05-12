@@ -243,6 +243,7 @@
     "location": "Location",
     "notes": "Notes",
     "createdAt": "Created at",
+    "crossBorderCost": "Cross-border cost",
     "crossBorderFee": "Cross-border fee ({rate})",
     "crossBorderFeeShort": "cross-border",
     "crossBorderFeeTooltip": "4% cross-border transfer cost for non-with-new, non-rent expenses",
