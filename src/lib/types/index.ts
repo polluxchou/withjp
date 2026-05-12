@@ -8,6 +8,7 @@ export type CreatorStatus =
   | 'live_ready'
   | 'live'
   | 'monetized'
+  | 'terminated'
 
 export interface CreatorContactInfo {
   email?: string
