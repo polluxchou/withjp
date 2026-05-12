@@ -53,6 +53,7 @@ const CHART_TABS = [
 ] as const
 
 type ChartMode = typeof CHART_TABS[number]['key']
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface Props {
   initialMonths: ForecastMonthInput[]
@@ -66,6 +67,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const [selectedMonth, setSelectedMonth] = useState(initialSelectedMonth)
   const [chartMode, setChartMode] = useState<ChartMode>('stacked')
   const [hydratedDraft, setHydratedDraft] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
   const didLoadDraft = useRef(false)
 
@@ -143,13 +145,38 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     if (didLoadDraft.current) return
     didLoadDraft.current = true
     const draft = readDraft(storageKey)
-    if (draft) setMonths((current) => mergeForecastDraft(current, draft))
+    if (draft) {
+      setMonths((current) => hasForecastInputs(current) ? current : mergeForecastDraft(current, draft))
+    }
     setHydratedDraft(true)
   }, [storageKey])
 
   useEffect(() => {
     if (!hydratedDraft) return
     writeDraft(storageKey, months)
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setSaveStatus('saving')
+      try {
+        const res = await fetch('/api/finance-forecast', {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            year: Number(months[0]?.month.slice(0, 4)) || new Date().getUTCFullYear(),
+            months,
+          }),
+          signal: controller.signal,
+        })
+        setSaveStatus(res.ok ? 'saved' : 'error')
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') setSaveStatus('error')
+      }
+    }, 700)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
   }, [hydratedDraft, months, storageKey])
 
   return (
@@ -296,9 +323,12 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         <div className="flex items-end justify-between gap-4 px-5 py-4 border-b border-slate-100">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">{selected.month} 账号预测输入</h2>
-            <p className="text-xs text-slate-500 mt-0.5">每个月单独设置账号参数；输入会自动保存在本机，刷新页面不会丢。</p>
+            <p className="text-xs text-slate-500 mt-0.5">每个月单独设置账号参数；输入会自动保存到 Supabase，本机草稿作为兜底。</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            <span className={`text-xs font-medium ${saveStatusClass(saveStatus)}`}>
+              {saveStatusLabel(saveStatus)}
+            </span>
             <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={selectedMonth === 0}>
               <Copy className="w-3.5 h-3.5" /> 复制上月
             </Button>
@@ -432,7 +462,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         </div>
 
         <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
-          计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
+          计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
         </div>
       </section>
     </>
@@ -466,6 +496,28 @@ function writeDraft(storageKey: string, months: ForecastMonthInput[]) {
     })),
   }
   window.localStorage.setItem(storageKey, JSON.stringify(draft))
+}
+
+function hasForecastInputs(months: ForecastMonthInput[]): boolean {
+  return months.some((month) =>
+    month.rows.length > 0 ||
+    month.actual_revenue_usd > 0 ||
+    Boolean(month.note?.trim())
+  )
+}
+
+function saveStatusLabel(status: SaveStatus): string {
+  if (status === 'saving') return '正在保存到 Supabase...'
+  if (status === 'saved') return '已保存到 Supabase'
+  if (status === 'error') return 'Supabase 保存失败，已保留本机草稿'
+  return ''
+}
+
+function saveStatusClass(status: SaveStatus): string {
+  if (status === 'saved') return 'text-emerald-600'
+  if (status === 'error') return 'text-red-500'
+  if (status === 'saving') return 'text-slate-500'
+  return 'text-transparent'
 }
 
 function KpiCard({

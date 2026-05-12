@@ -6,8 +6,9 @@ import { createServerClient } from '@/lib/supabase/server'
 import {
   calculateMonthlyBudgetCosts,
   type ExpenseForBudget,
-  type ForecastMonthInput,
 } from '@/lib/finance-forecast/calculations'
+import { loadFinanceForecastYear } from '@/lib/finance-forecast/service'
+import { buildForecastYearMonths } from '@/lib/finance-forecast/year'
 
 export default async function FinanceForecastPage() {
   const db = createServerClient()
@@ -21,8 +22,12 @@ export default async function FinanceForecastPage() {
     .gte('expense_date', `${year}-01-01`)
     .lte('expense_date', `${year}-12-31`)
 
-  const budgetByMonth = calculateMonthlyBudgetCosts((data ?? []) as ExpenseForBudget[])
-  const months = buildYearMonths(year, budgetByMonth)
+  const baseMonths = buildForecastYearMonths(
+    year,
+    calculateMonthlyBudgetCosts((data ?? []) as ExpenseForBudget[]),
+  )
+  const savedForecast = await loadFinanceForecastYear(year, baseMonths)
+  const months = savedForecast.data ?? baseMonths
 
   return (
     <div>
@@ -33,17 +38,4 @@ export default async function FinanceForecastPage() {
       <FinanceForecastDashboard initialMonths={months} initialSelectedMonth={selectedMonth} />
     </div>
   )
-}
-
-function buildYearMonths(year: number, budgetByMonth: Map<string, number>): ForecastMonthInput[] {
-  return Array.from({ length: 12 }, (_, index) => {
-    const month = `${year}-${String(index + 1).padStart(2, '0')}`
-    return {
-      month,
-      rows:               [],
-      actual_revenue_usd: 0,
-      budget_cost_usd:    budgetByMonth.get(month) ?? 0,
-      note:               '',
-    }
-  })
 }
