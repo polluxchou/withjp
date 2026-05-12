@@ -58,8 +58,9 @@ export async function POST(req: NextRequest) {
       contact_info: contact_info ?? {},
       profile: profile ?? {},
       notes,
-      broadcast_account_id: broadcast_account_id || null,
-      operator_user_id: operator_user_id || null,
+      broadcast_account_id:  broadcast_account_id || null,
+      operator_user_id:      operator_user_id || null,
+      created_by_user_id:    user.id,
     })
     .select('*, broadcast_account:broadcast_accounts(*), operator_user:users(id,name,email,user_code,role)')
     .single()

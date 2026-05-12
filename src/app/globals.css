@@ -23,19 +23,15 @@
     }
   }
 
-  /* On mobile we need extra top padding so the floating hamburger button
-     (top: safe-area + 12px, height 40px) doesn't sit on top of the page
-     content. Desktop has no hamburger, so we reset to the standard p-6
-     padding from the Tailwind class. */
+  /* Below the lg breakpoint (1024px) the sidebar is an off-canvas drawer
+     and a floating hamburger sits at top:safe-area+12px, height 40px.
+     The main content needs extra top padding so headers don't hide behind
+     it. At >=lg the sidebar is permanent and there's no hamburger, so we
+     reset to the standard md:p-8 vertical rhythm. */
   .main-content {
     padding-top: calc(env(safe-area-inset-top, 0px) + 4rem);
   }
-  @media (min-width: 640px) {
-    .main-content {
-      padding-top: 1.5rem;
-    }
-  }
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     .main-content {
       padding-top: 2rem;
     }

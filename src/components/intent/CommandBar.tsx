@@ -105,7 +105,8 @@ export default function CommandBar() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors text-sm text-slate-700"
+        className="fixed right-5 z-30 flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors text-sm text-slate-700"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
         title="自然语言操作 (⌘K)"
       >
         <Sparkles className="w-4 h-4 text-indigo-500" />
