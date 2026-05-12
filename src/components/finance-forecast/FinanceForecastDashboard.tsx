@@ -16,8 +16,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Plus, RotateCcw, Copy, Trash2, ChevronDown } from 'lucide-react'
+import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { Link } from '@/i18n/navigation'
 import {
   FORECAST_ACCOUNT_TYPE_LABELS,
   FORECAST_ACCOUNT_TYPES,
@@ -75,8 +76,9 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const [hydratedDraft, setHydratedDraft] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
-  const didLoadDraft  = useRef(false)
-  const storageKeyRef = useRef(storageKey)
+  const didLoadDraft    = useRef(false)
+  const storageKeyRef   = useRef(storageKey)
+  const persistingNow   = useRef(false)   // true while persistNow is in-flight
 
   const summary = useMemo(() => summarizeForecast(months), [months])
   const selected = summary.months[selectedMonth]
@@ -136,6 +138,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   async function persistNow(newMonths: ForecastMonthInput[]) {
     const year = Number(newMonths[0]?.month.slice(0, 4)) || new Date().getUTCFullYear()
     writeDraft(storageKeyRef.current, newMonths)
+    persistingNow.current = true
     setSaveStatus('saving')
     try {
       const res = await fetch('/api/finance-forecast', {
@@ -146,6 +149,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
       setSaveStatus(res.ok ? 'saved' : 'error')
     } catch {
       setSaveStatus('error')
+    } finally {
+      persistingNow.current = false
     }
   }
 
@@ -212,7 +217,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   useEffect(() => {
     if (!hydratedDraft) return
-    setSaveStatus('idle')
+    if (!persistingNow.current) setSaveStatus('idle')
     writeDraft(storageKey, months)
     const controller = new AbortController()
     const timer = window.setTimeout(async () => {
@@ -258,6 +263,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           label="全年成本预算"
           value={formatUsd(summary.yearly_budget_usd)}
           sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
+          linkTo="/expenses"
+          linkLabel="去支出管理"
         />
         <KpiCard
           label="年度累计利润"
@@ -797,6 +804,8 @@ function KpiCard({
   valueClassName = 'text-slate-900',
   onClick,
   active,
+  linkTo,
+  linkLabel,
 }: {
   label: string
   value: string
@@ -804,6 +813,9 @@ function KpiCard({
   valueClassName?: string
   onClick?: () => void
   active?: boolean
+  /** Optional navigation target — renders an arrow chip top-right that links there. */
+  linkTo?: string
+  linkLabel?: string
 }) {
   const interactive = !!onClick
   return (
@@ -820,27 +832,45 @@ function KpiCard({
           : interactive ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200'
       }`}
     >
-      {/* Reserve a hair of padding on the right when there's a chevron so the
-          label never collides with it; the value & sub use the full width
-          since the chevron is anchored to the corner. */}
-      <p
-        className={`text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate ${interactive ? 'pr-5' : ''}`}
-        title={label}
-      >
-        {label}
-      </p>
-      <p
-        className={`text-xl sm:text-2xl font-bold mt-1 tabular-nums truncate ${valueClassName}`}
-        title={value}
-      >
-        {value}
-      </p>
-      <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate" title={sub}>{sub}</p>
-      {interactive && (
+      {/* Top-right corner indicator: either a "go to page" arrow (linkTo)
+          or a "click to expand" chevron (onClick). These are mutually
+          exclusive in practice. The label below gets a little right
+          padding so it never collides with the indicator. */}
+      {linkTo && (
+        <Link
+          href={linkTo}
+          title={linkLabel}
+          aria-label={linkLabel}
+          /* stopPropagation so the arrow doesn't trigger any future card onClick */
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+        >
+          <ArrowUpRight className="w-4 h-4" />
+        </Link>
+      )}
+      {interactive && !linkTo && (
         <ChevronDown
           className={`absolute top-3 right-3 w-4 h-4 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-400 -rotate-90'}`}
         />
       )}
+
+      <p
+        className={`text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate ${interactive || linkTo ? 'pr-6' : ''}`}
+        title={label}
+      >
+        {label}
+      </p>
+      {/* Value scales down on smaller breakpoints; tabular-nums keeps digit
+          widths consistent across cards. The truncate + title pair is a
+          safety net for the rare case a number is still wider than the
+          card (hover surfaces the full value). */}
+      <p
+        title={value}
+        className={`text-lg lg:text-xl xl:text-2xl font-bold mt-1 tabular-nums truncate ${valueClassName}`}
+      >
+        {value}
+      </p>
+      <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate" title={sub}>{sub}</p>
     </div>
   )
 }

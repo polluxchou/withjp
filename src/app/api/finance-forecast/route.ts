@@ -45,7 +45,7 @@ export async function PUT(req: NextRequest) {
       { status: httpStatusForFinanceForecastError(result.error.code) },
     )
   }
-  return NextResponse.json({ data: result.data, error: null })
+  return NextResponse.json({ data: result.data, error: null, debug: result.debug })
 }
 
 async function buildBaseMonths(year: number): Promise<ForecastMonthInput[]> {
