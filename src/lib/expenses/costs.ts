@@ -90,10 +90,19 @@ export const EXPENSE_PERIOD_OPTIONS: string[] = (() => {
 
 // ── Cross-border transfer fee ─────────────────────────────────
 //
-// All expenses paid to a buyer other than `with-new`, except for rent,
-// incur an additional cross-border transfer cost on top of total_price.
+// Most expenses incur a 4% cross-border transfer cost on top of
+// total_price. Two carve-outs:
+//   - 'rent' category never has the fee.
+//   - Buyers in DOMESTIC_SETTLEMENT_BUYERS (settled inside the
+//     domestic ledger, no remittance needed) are exempt.
 
 export const CROSS_BORDER_FEE_RATE = 0.04
+
+/** Buyers whose payments don't trigger the cross-border surcharge. */
+export const DOMESTIC_SETTLEMENT_BUYERS: readonly string[] = [
+  'with-new',
+  'JP-陈昊投资',
+]
 
 type ExpenseForFee = {
   buyer_name:       string
@@ -104,7 +113,7 @@ type ExpenseForFee = {
 /** Cross-border transfer fee for a single expense (0 if not applicable). */
 export function crossBorderFee(e: ExpenseForFee): number {
   if (e.expense_category === 'rent') return 0
-  if (e.buyer_name === 'with-new')   return 0
+  if (DOMESTIC_SETTLEMENT_BUYERS.includes(e.buyer_name)) return 0
   return Number(e.total_price) * CROSS_BORDER_FEE_RATE
 }
 
