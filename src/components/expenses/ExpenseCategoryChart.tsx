@@ -454,7 +454,7 @@ export default function ExpenseCategoryChart({
                 }
               </p>
               {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
-                const isCrossBorder = CROSS_BORDER_BUYERS.has(buyer)
+                const isCrossBorder = crossBorder > 0
                 const displayName   = BUYER_DISPLAY[buyer] ?? buyer
                 return (
                   <div
