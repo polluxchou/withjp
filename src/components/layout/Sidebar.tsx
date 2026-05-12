@@ -168,6 +168,11 @@ export default function Sidebar() {
         }`}
         style={{
           width: effectiveWidth,
+          /* 100dvh accounts for iOS Safari's collapsible URL/toolbar so the
+             bottom items (profile / logout / footer) don't get hidden
+             behind it. Browsers without dvh support silently drop this
+             rule and fall back to the h-screen class above (100vh). */
+          height: '100dvh',
           paddingTop: 'env(safe-area-inset-top)',
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}
@@ -218,8 +223,10 @@ export default function Sidebar() {
         </button>
       )}
 
-      {/* Nav */}
-      <nav className={`flex-1 py-4 space-y-0.5 overflow-y-auto scrollbar-thin ${effectiveCollapsed ? 'px-2' : 'px-3'}`}>
+      {/* Nav — min-h-0 lets the flex child shrink below its natural content
+          size so the bottom items (profile / logout) are always anchored at
+          the visible bottom instead of being pushed off-screen. */}
+      <nav className={`flex-1 min-h-0 py-4 space-y-0.5 overflow-y-auto scrollbar-thin ${effectiveCollapsed ? 'px-2' : 'px-3'}`}>
         {NAV.map(({ href, key, icon: Icon }) => {
           const active = href === '/' ? path === '/' : path.startsWith(href)
           return (
@@ -289,8 +296,9 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Footer */}
-      {showLabel && (
+      {/* Footer — hidden on mobile to save vertical room for the profile/
+          logout buttons above. */}
+      {showLabel && !isMobile && (
         <div className="px-5 py-4 border-t border-slate-800">
           <div className="text-xs text-slate-600">v0.1.1</div>
         </div>
