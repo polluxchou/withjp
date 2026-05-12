@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   ResponsiveContainer,
   LineChart,
@@ -15,7 +15,7 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts'
-import { Flag } from 'lucide-react'
+import { Flag, Globe } from 'lucide-react'
 import type { Expense, ExpenseCategory, MilestoneStatus, MilestonePriority } from '@/lib/types'
 import {
   EXPENSE_CATEGORY_OPTIONS,
@@ -23,6 +23,8 @@ import {
   getExpenseCostTimeSeries,
   getMonthlyExpenseSummary,
   getDailyExpenseSummary,
+  crossBorderFee,
+  effectiveCost,
   type CostGranularity,
 } from '@/lib/expenses/costs'
 import { useTranslations } from 'next-intl'
@@ -227,6 +229,25 @@ export default function ExpenseCategoryChart({
     return bestDiff <= 15 * 86400000 ? best : null
   }
 
+  const CROSS_BORDER_BUYERS = new Set(['chenhao', 'xiaoshou'])
+  const BUYER_DISPLAY: Record<string, string> = { chenhao: '陈昊', xiaoshou: '小兽' }
+
+  const buyerBreakdown = useMemo(() => {
+    const map = new Map<string, { total: number; crossBorder: number }>()
+    for (const e of categoryBreakdownExpenses) {
+      const b = (e.buyer_name ?? '').trim() || '—'
+      const prev = map.get(b) ?? { total: 0, crossBorder: 0 }
+      map.set(b, {
+        total:       prev.total       + effectiveCost(e),
+        crossBorder: prev.crossBorder + crossBorderFee(e),
+      })
+    }
+    return Array.from(map.entries())
+      .map(([buyer, d]) => ({ buyer, ...d }))
+      .filter((r) => r.total > 0)
+      .sort((a, b) => b.total - a.total)
+  }, [categoryBreakdownExpenses])
+
   const breakdown      = getExpenseCategoryBreakdown(categoryBreakdownExpenses)
   const timeSeries     = getExpenseCostTimeSeries(expenses, granularity)
   const monthlySummary = getMonthlyExpenseSummary(expenses)
@@ -350,7 +371,7 @@ export default function ExpenseCategoryChart({
             </ResponsiveContainer>
           </div>
 
-          <div className="space-y-2.5 self-center">
+          <div className="space-y-2.5 self-start">
             {breakdown.map((item) => {
               const active = selectedCategory === item.category
               return (
@@ -380,6 +401,43 @@ export default function ExpenseCategoryChart({
                 </button>
               )
             })}
+
+            {/* ── Buyer breakdown ── */}
+            {buyerBreakdown.length > 0 && (
+              <div className="pt-2.5 border-t border-slate-100">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2 px-1">
+                  {t('buyer')}
+                </p>
+                <div className="space-y-1">
+                  {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
+                    const isCrossBorder = CROSS_BORDER_BUYERS.has(buyer)
+                    const displayName   = BUYER_DISPLAY[buyer] ?? buyer
+                    return (
+                      <div
+                        key={buyer}
+                        className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50"
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-xs text-slate-700 truncate">{displayName}</span>
+                          {isCrossBorder && (
+                            <span
+                              title={`跨境转账成本 ${fmtCompact(crossBorder)}`}
+                              className="flex items-center gap-0.5 text-[10px] font-medium text-rose-500 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded whitespace-nowrap"
+                            >
+                              <Globe className="w-2.5 h-2.5 flex-shrink-0" />
+                              {fmtCompact(crossBorder)}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs font-semibold text-slate-900 whitespace-nowrap flex-shrink-0">
+                          {fmtCompact(total)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
