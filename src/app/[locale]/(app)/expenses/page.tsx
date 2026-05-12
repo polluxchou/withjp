@@ -319,8 +319,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* Date range timeline — full width */}
-      <div className="bg-white border border-slate-200 rounded-xl px-6 pt-3 pb-4 mb-5">
-        <p className="text-xs font-medium text-slate-500 mb-1">{t('date')}</p>
+      <div className="bg-white border border-slate-200 rounded-xl px-6 pt-4 pb-4 mb-5">
         <DateRangeSlider
           from={filters.date_from}
           to={filters.date_to}
