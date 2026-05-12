@@ -138,12 +138,18 @@ export async function saveFinanceForecastYear(
   // Delete rows that are no longer in the dataset using explicit ID list
   const currentIdSet = new Set(accountRows.map((r) => r.id))
   const staleIds = (existingRows ?? []).map((r) => r.id).filter((id) => !currentIdSet.has(id))
+  console.log('[forecast-save] year=%s existing=%d current=%d stale=%d ids=%j',
+    year, existingRows?.length ?? 0, accountRows.length, staleIds.length, staleIds)
   if (staleIds.length > 0) {
     const { error: deleteError } = await db
       .from('finance_forecast_accounts')
       .delete()
       .in('id', staleIds)
-    if (deleteError) return err('db_error', deleteError.message)
+    if (deleteError) {
+      console.error('[forecast-save] delete failed:', deleteError.message)
+      return err('db_error', deleteError.message)
+    }
+    console.log('[forecast-save] deleted %d stale rows', staleIds.length)
   }
 
   return ok(months)
