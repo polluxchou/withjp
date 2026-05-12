@@ -159,24 +159,79 @@ export default function ExpensesPage() {
   }, [expenses, filters.category, filters.unpaid_only, filters.cross_border_only])
 
   // ── Month picker for the 月度支出 KPI ───────────────────────
-  // 12 months ending at the current one (most recent first). The KPI
-  // click opens a popover over this list so users can filter to any
-  // recent month, not just the calendar "current month".
+  // Set of YYYY-MM strings that actually have a budget or expense row.
+  // Populated once on mount via an unfiltered fetch, then grows as the
+  // session sees new dates (never shrinks, so applying filters doesn't
+  // hide months the user knows about).
+  const [availableMonths, setAvailableMonths] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res  = await fetch('/api/expenses')
+        const json = await res.json()
+        if (cancelled) return
+        const months = new Set<string>()
+        for (const e of (json.data ?? []) as Expense[]) {
+          if (e.expense_date) months.add(e.expense_date.slice(0, 7))
+        }
+        setAvailableMonths((prev) => {
+          const next = new Set(prev)
+          let added = false
+          months.forEach((m) => { if (!next.has(m)) { next.add(m); added = true } })
+          return added ? next : prev
+        })
+      } catch {
+        // best-effort; the picker will fall back to defaults below
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // Also pick up any new months from currently visible expenses (e.g. after
+  // the user just added a record for a future budget month).
+  useEffect(() => {
+    if (expenses.length === 0) return
+    setAvailableMonths((prev) => {
+      const next = new Set(prev)
+      let added = false
+      for (const e of expenses) {
+        if (e.expense_date) {
+          const ym = e.expense_date.slice(0, 7)
+          if (!next.has(ym)) { next.add(ym); added = true }
+        }
+      }
+      return added ? next : prev
+    })
+  }, [expenses])
+
   const monthOptions = useMemo(() => {
     const now = new Date()
-    const list: { ym: string; first: string; last: string; label: string }[] = []
-    for (let i = 0; i < 12; i++) {
-      const y = now.getUTCFullYear()
-      const m = now.getUTCMonth() - i
-      const d = new Date(Date.UTC(y, m, 1))
-      const ym = d.toISOString().slice(0, 7)
-      const first = `${ym}-01`
-      const last  = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10)
-      const label = i === 0 ? '本月' : i === 1 ? '上月' : ym
-      list.push({ ym, first, last, label })
-    }
-    return list
-  }, [])
+    const currentY  = now.getUTCFullYear()
+    const currentM  = now.getUTCMonth()
+    const currentYM = `${currentY}-${String(currentM + 1).padStart(2, '0')}`
+    const prevDate  = new Date(Date.UTC(currentY, currentM - 1, 1))
+    const previousYM = `${prevDate.getUTCFullYear()}-${String(prevDate.getUTCMonth() + 1).padStart(2, '0')}`
+
+    // Start with months that actually contain data; always include the
+    // current month so the user can pre-filter for "本月" even when this
+    // month has no records yet.
+    const set = new Set(availableMonths)
+    set.add(currentYM)
+
+    return Array.from(set)
+      .sort((a, b) => b.localeCompare(a))                 // newest first
+      .map((ym) => {
+        const [y, m] = ym.split('-').map(Number)
+        const first  = `${ym}-01`
+        const last   = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+        const label  = ym === currentYM  ? '本月'
+                     : ym === previousYM ? '上月'
+                     : ym
+        return { ym, first, last, label }
+      })
+  }, [availableMonths])
 
   // If filters.date_from/to exactly span a whole month, surface that
   // month as the "active month" for KPI highlighting + popover state.
