@@ -65,7 +65,7 @@ function computeLayout(
 
   // Accumulate per-category, per-buyer, per-pair totals
   const catMap    = new Map<string, number>()
-  const buyerMap  = new Map<string, number>()
+  const buyerMap  = new Map<string, { total: number; crossBorder: number }>()
   const pairMap   = new Map<string, Map<string, { value: number; crossBorder: number }>>()
 
   for (const e of src) {
@@ -74,8 +74,9 @@ function computeLayout(
     const eff   = effectiveCost(e)
     const cb    = crossBorderFee(e)
 
-    catMap.set(cat,   (catMap.get(cat)   ?? 0) + eff)
-    buyerMap.set(buyer, (buyerMap.get(buyer) ?? 0) + eff)
+    catMap.set(cat, (catMap.get(cat) ?? 0) + eff)
+    const prevB = buyerMap.get(buyer) ?? { total: 0, crossBorder: 0 }
+    buyerMap.set(buyer, { total: prevB.total + eff, crossBorder: prevB.crossBorder + cb })
 
     if (!pairMap.has(cat)) pairMap.set(cat, new Map())
     const m = pairMap.get(cat)!
@@ -90,6 +91,7 @@ function computeLayout(
 
   // Build category nodes (sorted by value desc)
   const catEntries = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1])
+
   let yAcc = 0
   const catNodes: SankeyNode[] = catEntries.map(([cat, val]) => {
     const h    = scale(val)
@@ -101,12 +103,12 @@ function computeLayout(
   })
 
   // Build buyer nodes (sorted by value desc)
-  const buyerEntries = Array.from(buyerMap.entries()).sort((a, b) => b[1] - a[1])
+  const buyerEntries = Array.from(buyerMap.entries()).sort((a, b) => b[1].total - a[1].total)
   yAcc = 0
-  const buyerNodes: SankeyNode[] = buyerEntries.map(([buyer, val]) => {
-    const h    = scale(val)
+  const buyerNodes: SankeyNode[] = buyerEntries.map(([buyer, { total, crossBorder }]) => {
+    const h    = scale(total)
     const node = { id: buyer, label: BUYER_DISPLAY[buyer] ?? buyer,
-                   value: val, color: CROSS_BORDER_BUYERS.has(buyer) ? '#f43f5e' : '#94a3b8',
+                   value: total, color: crossBorder > 0 ? '#f43f5e' : '#94a3b8',
                    y0: yAcc, y1: yAcc + h, col: 1 as const }
     yAcc += h + NODE_GAP
     return node
@@ -127,8 +129,8 @@ function computeLayout(
     if (!pairs) continue
     // Sort pairs by buyer value desc for visual consistency
     const sorted = Array.from(pairs.entries()).sort((a, b) => {
-      const bA = buyerMap.get(a[0]) ?? 0
-      const bB = buyerMap.get(b[0]) ?? 0
+      const bA = buyerMap.get(a[0])?.total ?? 0
+      const bB = buyerMap.get(b[0])?.total ?? 0
       return bB - bA
     })
     for (const [buyer, { value, crossBorder }] of sorted) {
