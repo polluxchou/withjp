@@ -7,22 +7,24 @@ const dateToOrd = (s: string) => Math.round(new Date(s).getTime() / MS)
 const ordToDate = (n: number) => new Date(n * MS).toISOString().slice(0, 10)
 const fmtDate   = (s: string) => s.replace(/-/g, '/')
 
-const RANGE_START = '2026-01-01'
-const RANGE_END   = '2027-12-31'
-const ORD_MIN     = dateToOrd(RANGE_START)
-const ORD_MAX     = dateToOrd(RANGE_END)
-const SPAN        = ORD_MAX - ORD_MIN
+const FALLBACK_START = '2026-01-01'
+const FALLBACK_END   = '2026-12-31'
 
-const MARKS = [
-  { iso: '2026-01-01', label: '2026 Q1' },
-  { iso: '2026-04-01', label: 'Q2' },
-  { iso: '2026-07-01', label: 'Q3' },
-  { iso: '2026-10-01', label: 'Q4' },
-  { iso: '2027-01-01', label: '2027 Q1' },
-  { iso: '2027-04-01', label: 'Q2' },
-  { iso: '2027-07-01', label: 'Q3' },
-  { iso: '2027-10-01', label: 'Q4' },
-]
+function generateMarks(minIso: string, maxIso: string): { iso: string; label: string }[] {
+  const startYear = parseInt(minIso.slice(0, 4), 10)
+  const endYear   = parseInt(maxIso.slice(0, 4), 10)
+  const marks: { iso: string; label: string }[] = []
+  for (let y = startYear; y <= endYear; y++) {
+    for (let q = 1; q <= 4; q++) {
+      const mm  = String((q - 1) * 3 + 1).padStart(2, '0')
+      const iso = `${y}-${mm}-01`
+      if (iso >= minIso && iso <= maxIso) {
+        marks.push({ iso, label: q === 1 ? `${y} Q1` : `Q${q}` })
+      }
+    }
+  }
+  return marks
+}
 
 const THUMB_CLS = [
   'absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer',
@@ -49,11 +51,21 @@ interface Props {
   from: string
   to:   string
   onChange: (from: string, to: string) => void
+  /** Optional bounds. Default: 2026-01-01 ~ 2026-12-31. */
+  minDate?: string
+  maxDate?: string
 }
 
-export default function DateRangeSlider({ from, to, onChange }: Props) {
-  const extA = useMemo(() => from ? dateToOrd(from) : ORD_MIN, [from])
-  const extB = useMemo(() => to   ? dateToOrd(to)   : ORD_MAX, [to])
+export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }: Props) {
+  const rangeStart = minDate || FALLBACK_START
+  const rangeEnd   = maxDate || FALLBACK_END
+  const ORD_MIN = useMemo(() => dateToOrd(rangeStart), [rangeStart])
+  const ORD_MAX = useMemo(() => dateToOrd(rangeEnd),   [rangeEnd])
+  const SPAN    = Math.max(1, ORD_MAX - ORD_MIN)
+  const MARKS   = useMemo(() => generateMarks(rangeStart, rangeEnd), [rangeStart, rangeEnd])
+
+  const extA = useMemo(() => from ? Math.max(ORD_MIN, dateToOrd(from)) : ORD_MIN, [from, ORD_MIN])
+  const extB = useMemo(() => to   ? Math.min(ORD_MAX, dateToOrd(to))   : ORD_MAX, [to, ORD_MAX])
 
   const [draft, setDraft] = useState({ a: extA, b: extB })
 
@@ -62,6 +74,11 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
   const aPct = ((draft.a - ORD_MIN) / SPAN) * 100
   const bPct = ((draft.b - ORD_MIN) / SPAN) * 100
   const isSingleDay = draft.a === draft.b
+
+  // Track which thumb is closest to the cursor; bring that one to the top.
+  // Without this both <input type="range"> overlap and the right one always
+  // wins clicks — making the left thumb appear unselectable.
+  const [activeThumb, setActiveThumb] = useState<'a' | 'b'>('a')
 
   const onA = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const v = +e.target.value
@@ -78,8 +95,20 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
   }, [draft, onChange])
 
   const trackRef = useRef<HTMLDivElement>(null)
-  const aZ = draft.a >= ORD_MAX - 1 ? 20 : 10
-  const bZ = draft.a >= ORD_MAX - 1 ? 10 : 20
+
+  const updateActiveByCursor = useCallback((clientX: number) => {
+    const el = trackRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    if (rect.width === 0) return
+    const cursorPct = ((clientX - rect.left) / rect.width) * 100
+    const distA = Math.abs(cursorPct - aPct)
+    const distB = Math.abs(cursorPct - bPct)
+    setActiveThumb(distA <= distB ? 'a' : 'b')
+  }, [aPct, bPct])
+
+  const aZ = activeThumb === 'a' ? 20 : 10
+  const bZ = activeThumb === 'b' ? 20 : 10
 
   return (
     <div className="w-full select-none px-1">
@@ -118,7 +147,13 @@ export default function DateRangeSlider({ from, to, onChange }: Props) {
         )}
 
         {/* Track */}
-        <div ref={trackRef} className="relative h-6 flex items-center">
+        <div
+          ref={trackRef}
+          className="relative h-6 flex items-center"
+          onMouseMove={(e) => updateActiveByCursor(e.clientX)}
+          onTouchStart={(e) => updateActiveByCursor(e.touches[0]?.clientX ?? 0)}
+          onTouchMove={(e) => updateActiveByCursor(e.touches[0]?.clientX ?? 0)}
+        >
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-slate-200 rounded-full" />
 
           {isSingleDay ? (
