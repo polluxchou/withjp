@@ -89,12 +89,15 @@ export default function Sidebar() {
     setHydrated(true)
   }, [])
 
-  // Track whether we're in mobile-drawer mode (<md breakpoint).
-  // On mobile the sidebar lives off-canvas and ignores the `collapsed`
-  // setting — always expanded when the user pulls it in.
+  // Track whether we're in mobile-drawer mode (<lg breakpoint).
+  // Below 1024 CSS px the sidebar lives off-canvas and ignores the
+  // `collapsed` setting — always expanded when the user pulls it in.
+  // We use 1024 (not 768) because tablets and large phones in landscape
+  // sit between 768–1023 and don't have room for a 240px permanent
+  // sidebar plus comfortable content.
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const mq = window.matchMedia('(max-width: 767px)')
+    const mq = window.matchMedia('(max-width: 1023px)')
     const update = () => setIsMobile(mq.matches)
     update()
     mq.addEventListener('change', update)
@@ -143,7 +146,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center justify-center"
+        className="lg:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center justify-center"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         aria-label="Open menu"
       >
@@ -153,14 +156,14 @@ export default function Sidebar() {
       {/* Backdrop — only shown when the mobile drawer is open */}
       {isMobile && mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-screen bg-slate-900 flex flex-col z-50 transition-transform duration-200 md:transition-[width] md:translate-x-0 ${
+        className={`fixed top-0 left-0 h-screen bg-slate-900 flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0'
         }`}
         style={{
@@ -208,7 +211,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          className="md:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center"
+          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center"
           aria-label="Close menu"
         >
           <X className="w-5 h-5" />

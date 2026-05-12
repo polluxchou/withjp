@@ -17,6 +17,7 @@ import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
 import { Plus, Search, Receipt, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
 import {
   type Filters,
@@ -71,6 +72,7 @@ const EMPTY_FILTERS = SHARED_EMPTY_FILTERS
 const SERVER_FILTER_KEYS = SHARED_SERVER_FILTER_KEYS
 
 export default function ExpensesPage() {
+  const currentUser = useCurrentUser()
   const [expenses,   setExpenses]   = useState<Expense[]>([])
   const [loading,    setLoading]    = useState(true)
   const [loadError,  setLoadError]  = useState<string | null>(null)
@@ -723,14 +725,16 @@ export default function ExpensesPage() {
                   </div>
                 </button>
                 <div className="mt-2 flex items-center justify-end gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(e)}
-                    aria-label={tCommon('edit')}
-                    className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
+                  {canEdit(currentUser, e.created_by_user_id) && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(e)}
+                      aria-label={tCommon('edit')}
+                      className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setDuplicating(e)}
@@ -739,14 +743,16 @@ export default function ExpensesPage() {
                   >
                     <Copy className="w-4 h-4" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setDeleting(e); setDeleteErr(null) }}
-                    aria-label={tCommon('delete')}
-                    className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {canEdit(currentUser, e.created_by_user_id) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDeleting(e); setDeleteErr(null) }}
+                      aria-label={tCommon('delete')}
+                      className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </li>
             ))}
@@ -825,15 +831,17 @@ export default function ExpensesPage() {
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setEditing(e)}
-                          aria-label={tCommon('edit')}
-                          title={tCommon('edit')}
-                          className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
+                        {canEdit(currentUser, e.created_by_user_id) && (
+                          <button
+                            type="button"
+                            onClick={() => setEditing(e)}
+                            aria-label={tCommon('edit')}
+                            title={tCommon('edit')}
+                            className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setDuplicating(e)}
@@ -843,15 +851,17 @@ export default function ExpensesPage() {
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => { setDeleting(e); setDeleteErr(null) }}
-                          aria-label={tCommon('delete')}
-                          title={tCommon('delete')}
-                          className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canEdit(currentUser, e.created_by_user_id) && (
+                          <button
+                            type="button"
+                            onClick={() => { setDeleting(e); setDeleteErr(null) }}
+                            aria-label={tCommon('delete')}
+                            title={tCommon('delete')}
+                            className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

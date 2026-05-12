@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (user instanceof NextResponse) return user
 
   const body   = (await req.json()) as CreateExpenseInput
-  const result = await createExpense(body)
+  const result = await createExpense(body, user.id)
 
   if (result.error) {
     return NextResponse.json(

@@ -131,6 +131,31 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
                   {profile.email ?? '—'}
                 </div>
               </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  账号类型
+                </label>
+                <div className="flex items-center gap-2">
+                  {profile.is_admin ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+                      </svg>
+                      管理员
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
+                      普通用户
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-400">
+                    {profile.is_admin ? '可管理所有条目' : '仅可管理自己创建的条目'}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
