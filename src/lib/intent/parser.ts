@@ -43,13 +43,15 @@ export interface ParserContext {
   userTimezoneOffset?: string       // e.g. '+08:00'; for prompt context only
 }
 
+export type ClassifiedKind = 'write' | 'query' | 'unknown'
+
 export type ParserResult =
-  | { ok: true;  intent: ExpenseIntent;  modelUsed: string;  durationMs: number }
-  | { ok: false; reason: string;          durationMs: number }
+  | { ok: true;  intent: ExpenseIntent; classifiedAs: ClassifiedKind; modelUsed: string;  durationMs: number }
+  | { ok: false; reason: string;                                                          durationMs: number }
 
 // ── Classification stage ──────────────────────────────────────
 
-type IntentKind = 'write' | 'query' | 'unknown'
+type IntentKind = ClassifiedKind
 
 async function classify(text: string): Promise<IntentKind> {
   const prompt = `判断下面这句话是"写操作"还是"查询"。
@@ -173,10 +175,11 @@ export async function parseExpenseIntent(
     const firstParsed = tryParse(first.raw)
     if (firstParsed.success) {
       return {
-        ok:        true,
-        intent:    firstParsed.data,
-        modelUsed: first.modelUsed,
-        durationMs: Date.now() - t0,
+        ok:          true,
+        intent:      firstParsed.data,
+        classifiedAs: kind,
+        modelUsed:    first.modelUsed,
+        durationMs:   Date.now() - t0,
       }
     }
 
@@ -187,10 +190,11 @@ export async function parseExpenseIntent(
       const secondParsed = tryParse(second.raw)
       if (secondParsed.success) {
         return {
-          ok:        true,
-          intent:    secondParsed.data,
-          modelUsed: MODEL_PRO,
-          durationMs: Date.now() - t0,
+          ok:          true,
+          intent:      secondParsed.data,
+          classifiedAs: kind,
+          modelUsed:    MODEL_PRO,
+          durationMs:   Date.now() - t0,
         }
       }
       return {
