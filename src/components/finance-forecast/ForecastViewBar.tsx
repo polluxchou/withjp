@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, Pencil, Trash2, Globe, Lock, Check, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, Pencil, Trash2, Globe, Lock, Check, X, ChevronDown, Layers } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { MAX_VIEWS_PER_USER, type ForecastView } from '@/lib/finance-forecast/views'
 
@@ -17,6 +17,10 @@ interface Props {
   onDelete:       (id: string) => Promise<void>
 }
 
+// Compact trigger + drop-down popover that houses the full view-management
+// UI (chips, create / edit forms, admin public toggle, delete confirm).
+// When the popover is closed the dashboard only spends ~32px of vertical
+// space on this control — significantly less than the prior always-on bar.
 export default function ForecastViewBar({
   views,
   activeViewId,
@@ -28,94 +32,176 @@ export default function ForecastViewBar({
   onUpdate,
   onDelete,
 }: Props) {
-  const [creating, setCreating] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [open, setOpen]                       = useState(false)
+  const [creating, setCreating]               = useState(false)
+  const [editingId, setEditingId]             = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const popoverRef = useRef<HTMLDivElement   | null>(null)
 
   const activeView = views.find((v) => v.id === activeViewId) ?? null
   const ownedCount = views.filter((v) => v.owner_id === currentUserId).length
-  const canCreate = ownedCount < MAX_VIEWS_PER_USER
-
+  const canCreate  = ownedCount < MAX_VIEWS_PER_USER
   const canEditActive = activeView
     ? (isAdmin || activeView.owner_id === currentUserId)
     : false
 
+  // Close on outside pointer / Escape. We allow clicks inside the trigger
+  // itself (so the trigger toggles cleanly) and inside the popover (so
+  // typing into forms doesn't dismiss the menu).
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (e: PointerEvent) => {
+      const t = e.target as Node
+      if (triggerRef.current?.contains(t)) return
+      if (popoverRef.current?.contains(t)) return
+      setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  // Reset inline forms whenever the popover closes so the next opening is
+  // a clean slate.
+  useEffect(() => {
+    if (!open) {
+      setCreating(false)
+      setEditingId(null)
+    }
+  }, [open])
+
+  const triggerLabel = activeView
+    ? activeView.name
+    : views.length === 0 ? '新建视角' : '选择视角'
+  const triggerOwnerHint = activeView
+    ? (activeView.owner_id === currentUserId ? '我的' : activeView.owner_name ?? '系统')
+    : null
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
-      {/* Row 1: view chips + new button */}
-      <div className="flex flex-wrap items-center gap-2">
-        {views.length === 0 && !creating && (
-          <span className="text-sm text-slate-400">还没有任何视角 — 创建一个开始预测</span>
+    <div className="relative inline-block">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={busy && !open}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+          open
+            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+        } ${busy && !open ? 'opacity-60 cursor-not-allowed' : ''}`}
+      >
+        <Layers className={`w-3.5 h-3.5 ${open ? 'text-indigo-100' : 'text-slate-400'}`} />
+        <span className="hidden sm:inline text-[10px] font-medium uppercase tracking-wider opacity-80">视角</span>
+        <span className="truncate max-w-[12rem]">{triggerLabel}</span>
+        {triggerOwnerHint && (
+          <span className={`text-[10px] font-medium ${open ? 'text-indigo-100' : 'text-slate-400'}`}>
+            · {triggerOwnerHint}
+          </span>
         )}
-
-        {views.map((view) => (
-          <ViewChip
-            key={view.id}
-            view={view}
-            active={view.id === activeViewId}
-            currentUserId={currentUserId}
-            disabled={busy}
-            onClick={() => onSelect(view.id)}
-          />
-        ))}
-
-        {!creating && (
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            disabled={!canCreate || busy}
-            title={canCreate ? '新建视角' : `最多 ${MAX_VIEWS_PER_USER} 个自有视角，请先删除一个`}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-              canCreate && !busy
-                ? 'bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400'
-                : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
-            }`}
-          >
-            <Plus className="w-3.5 h-3.5" /> 新建视角
-            <span className="ml-1 text-[10px] text-slate-400 tabular-nums">{ownedCount}/{MAX_VIEWS_PER_USER}</span>
-          </button>
+        {activeView?.is_public && (
+          <Globe className={`w-3 h-3 ${open ? 'text-indigo-100' : 'text-emerald-500'}`} />
         )}
-      </div>
-
-      {/* Row 2: inline create form */}
-      {creating && (
-        <CreateForm
-          onCancel={() => setCreating(false)}
-          onSubmit={async (input) => {
-            await onCreate(input)
-            setCreating(false)
-          }}
+        <ChevronDown
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         />
-      )}
+      </button>
 
-      {/* Row 3: active view metadata + edit/delete actions */}
-      {activeView && !creating && (
-        <div className="mt-3 pt-3 border-t border-slate-100">
-          {editingId === activeView.id ? (
-            <EditForm
-              view={activeView}
-              canTogglePublic={isAdmin}
-              onCancel={() => setEditingId(null)}
-              onSubmit={async (patch) => {
-                await onUpdate(activeView.id, patch)
-                setEditingId(null)
+      {open && (
+        <div
+          ref={popoverRef}
+          role="menu"
+          className="absolute top-full left-0 mt-2 w-[min(640px,calc(100vw-2rem))] bg-white border border-slate-200 rounded-xl shadow-xl z-40 p-4 space-y-3"
+        >
+          {/* Row 1: view chips + new button */}
+          <div className="flex flex-wrap items-center gap-2">
+            {views.length === 0 && !creating && (
+              <span className="text-sm text-slate-400">还没有任何视角 — 创建一个开始预测</span>
+            )}
+
+            {views.map((view) => (
+              <ViewChip
+                key={view.id}
+                view={view}
+                active={view.id === activeViewId}
+                currentUserId={currentUserId}
+                disabled={busy}
+                onClick={() => {
+                  onSelect(view.id)
+                  setOpen(false)
+                }}
+              />
+            ))}
+
+            {!creating && (
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                disabled={!canCreate || busy}
+                title={canCreate ? '新建视角' : `最多 ${MAX_VIEWS_PER_USER} 个自有视角，请先删除一个`}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                  canCreate && !busy
+                    ? 'bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400'
+                    : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" /> 新建视角
+                <span className="ml-1 text-[10px] text-slate-400 tabular-nums">{ownedCount}/{MAX_VIEWS_PER_USER}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Row 2: inline create form */}
+          {creating && (
+            <CreateForm
+              onCancel={() => setCreating(false)}
+              onSubmit={async (input) => {
+                await onCreate(input)
+                setCreating(false)
               }}
             />
-          ) : (
-            <MetadataDisplay
-              view={activeView}
-              isAdmin={isAdmin}
-              currentUserId={currentUserId}
-              canEdit={canEditActive}
-              onStartEdit={() => setEditingId(activeView.id)}
-              onRequestDelete={() => setConfirmDeleteId(activeView.id)}
-              onTogglePublic={() => onUpdate(activeView.id, { is_public: !activeView.is_public })}
-            />
+          )}
+
+          {/* Row 3: active view metadata + edit/delete actions */}
+          {activeView && !creating && (
+            <div className="pt-3 border-t border-slate-100">
+              {editingId === activeView.id ? (
+                <EditForm
+                  view={activeView}
+                  canTogglePublic={isAdmin}
+                  onCancel={() => setEditingId(null)}
+                  onSubmit={async (patch) => {
+                    await onUpdate(activeView.id, patch)
+                    setEditingId(null)
+                  }}
+                />
+              ) : (
+                <MetadataDisplay
+                  view={activeView}
+                  isAdmin={isAdmin}
+                  currentUserId={currentUserId}
+                  canEdit={canEditActive}
+                  onStartEdit={() => setEditingId(activeView.id)}
+                  onRequestDelete={() => setConfirmDeleteId(activeView.id)}
+                  onTogglePublic={() => onUpdate(activeView.id, { is_public: !activeView.is_public })}
+                />
+              )}
+            </div>
           )}
         </div>
       )}
 
-      {/* Delete confirm */}
+      {/* Delete confirm — rendered at root so closing the popover doesn't
+          accidentally dismiss it. */}
       {confirmDeleteId && (
         <DeleteConfirm
           view={views.find((v) => v.id === confirmDeleteId)!}
@@ -123,6 +209,7 @@ export default function ForecastViewBar({
           onConfirm={async () => {
             await onDelete(confirmDeleteId)
             setConfirmDeleteId(null)
+            setOpen(false)
           }}
         />
       )}
@@ -351,7 +438,7 @@ function CreateForm({
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
+    <div className="pt-3 border-t border-slate-100 space-y-3">
       <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
         <label className="block">
           <span className="block text-xs font-medium text-slate-700 mb-1">名称（必填）</span>
