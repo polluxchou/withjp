@@ -30,6 +30,54 @@ export const CHANGELOG: DailyChangelog[] = [
     date: '2026-05-13',
     items: [
       {
+        kind: 'feat',
+        scope: '配置',
+        title: '设置页新增"更新日志"二级 tab，按天展示新增功能与变更',
+        details: '就是这个页面本身——后续每次发功能会持续往这里追加。',
+      },
+      {
+        kind: 'feat',
+        scope: '战略时间轴',
+        title: '新增轻量"接下来 30 天"时间轴视图',
+        details: '把已有 milestone 数据按近期窗口重新整理，更聚焦于"马上要发生什么"。',
+      },
+      {
+        kind: 'feat',
+        scope: '财务预测',
+        title: '新增"盈亏分解"图表模式：显式展示 收入 − 成本 = 利润',
+      },
+      {
+        kind: 'feat',
+        scope: '财务预测',
+        title: '支持滚动 3 年视野，默认进入"全年"视图',
+      },
+      {
+        kind: 'feat',
+        scope: '财务预测',
+        title: '默认聚焦"当年月度"视图，并统一了 scope 选择器',
+      },
+      {
+        kind: 'feat',
+        scope: '财务预测',
+        title: '视图条收纳为一个触发器 + 下拉浮层，节省顶部空间',
+      },
+      {
+        kind: 'feat',
+        scope: '财务预测',
+        title: 'KPI 区按所选月份动态刷新，标签同步重命名',
+      },
+      {
+        kind: 'feat',
+        scope: '财务预测',
+        title: '"已保存的视图"按用户隔离，管理员可单独设为公开可见',
+      },
+      {
+        kind: 'feat',
+        scope: '财务预测',
+        title: '账户预测输入在手机端体验全面优化',
+        details: '光标稳定、键盘弹起不再遮挡输入框、节流保存避免抖动。',
+      },
+      {
         kind: 'security',
         scope: '自然语言指令',
         title: 'NL Intent 流水线加固，抵御提示词注入与越权调用',
@@ -37,10 +85,24 @@ export const CHANGELOG: DailyChangelog[] = [
           '在 intent 解析与执行之间增加签名 / 范围校验，确保 LLM 解出来的动作只能命中调用方有权限的资源；同时清洗用户文本中的指令片段。',
       },
       {
-        kind: 'feat',
+        kind: 'fix',
+        scope: '战略时间轴',
+        title: '修复触摸滑动导航：手机端左右切换时间段恢复正常',
+      },
+      {
+        kind: 'fix',
         scope: '财务预测',
-        title: '账户预测输入在手机端体验全面优化',
-        details: '光标稳定、键盘弹起不再遮挡输入框、节流保存避免抖动。',
+        title: '自动保存定时器始终读取最新月份数据，不再保存到陈旧闭包里',
+      },
+      {
+        kind: 'fix',
+        scope: '财务预测',
+        title: '删除行按 row id 而不是数组下标，避免快速操作时误删邻近行',
+      },
+      {
+        kind: 'fix',
+        scope: '基础设施',
+        title: '修复中间件错误拦截 favicon 与 API 路由，恢复直链访问',
       },
     ],
   },
