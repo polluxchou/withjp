@@ -8,6 +8,7 @@ import {
   getTimelinePosition,
   getTimelineVisual,
   groupTimelineItems,
+  shouldNavigateTimelinePress,
   type TimelineMilestone,
 } from './next-timeline.ts'
 
@@ -78,4 +79,32 @@ test('groupTimelineItems clusters items that are close together', () => {
   assert.equal(groups.length, 2)
   assert.deepEqual(groups[0].milestones.map((m) => m.id), ['a', 'b'])
   assert.deepEqual(groups[1].milestones.map((m) => m.id), ['c'])
+})
+
+test('shouldNavigateTimelinePress keeps desktop clicks direct', () => {
+  assert.equal(shouldNavigateTimelinePress({
+    isTouchLike: false,
+    milestoneId: 'a',
+    armedMilestoneId: null,
+  }), true)
+})
+
+test('shouldNavigateTimelinePress requires a second tap for touch-like input', () => {
+  assert.equal(shouldNavigateTimelinePress({
+    isTouchLike: true,
+    milestoneId: 'a',
+    armedMilestoneId: null,
+  }), false)
+
+  assert.equal(shouldNavigateTimelinePress({
+    isTouchLike: true,
+    milestoneId: 'a',
+    armedMilestoneId: 'b',
+  }), false)
+
+  assert.equal(shouldNavigateTimelinePress({
+    isTouchLike: true,
+    milestoneId: 'a',
+    armedMilestoneId: 'a',
+  }), true)
 })
