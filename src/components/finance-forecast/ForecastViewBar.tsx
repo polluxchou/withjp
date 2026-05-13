@@ -1,20 +1,23 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Pencil, Trash2, Globe, Lock, Check, X, ChevronDown, Layers } from 'lucide-react'
+import { Plus, Pencil, Trash2, Globe, Lock, Check, X, ChevronDown, Layers, Repeat } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { MAX_VIEWS_PER_USER, type ForecastView } from '@/lib/finance-forecast/views'
 
 interface Props {
-  views:          ForecastView[]
-  activeViewId:   string | null
-  currentUserId:  string
-  isAdmin:        boolean
-  busy:           boolean
-  onSelect:       (viewId: string) => void
-  onCreate:       (input: { name: string; note: string }) => Promise<void>
-  onUpdate:       (id: string, patch: { name?: string; note?: string; is_public?: boolean }) => Promise<void>
-  onDelete:       (id: string) => Promise<void>
+  views:               ForecastView[]
+  activeViewId:        string | null
+  currentUserId:       string
+  isAdmin:             boolean
+  busy:                boolean
+  onSelect:            (viewId: string) => void
+  onCreate:            (input: { name: string; note: string }) => Promise<void>
+  onUpdate:            (id: string, patch: { name?: string; note?: string; is_public?: boolean }) => Promise<void>
+  onDelete:            (id: string) => Promise<void>
+  // Opens the per-user lifecycle templates editor. Lives next to the view
+  // controls because that's the natural "settings hub" for the forecast.
+  onOpenLifecycle?:    () => void
 }
 
 // Compact trigger + drop-down popover that houses the full view-management
@@ -31,6 +34,7 @@ export default function ForecastViewBar({
   onCreate,
   onUpdate,
   onDelete,
+  onOpenLifecycle,
 }: Props) {
   const [open, setOpen]                       = useState(false)
   const [creating, setCreating]               = useState(false)
@@ -195,6 +199,22 @@ export default function ForecastViewBar({
                   onTogglePublic={() => onUpdate(activeView.id, { is_public: !activeView.is_public })}
                 />
               )}
+            </div>
+          )}
+
+          {/* Row 4: personal lifecycle-template entry. Lives here because
+              "things you configure for the forecast" all open from this
+              popover, but the templates themselves are per-user, not
+              per-view — the hint text makes that explicit. */}
+          {onOpenLifecycle && !creating && editingId === null && (
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-700">账号生命周期模板</p>
+                <p className="text-[11px] text-slate-400">个人配置 · 跨视角共享 · 用于"+ 从模板新增账号"</p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => { onOpenLifecycle(); setOpen(false) }}>
+                <Repeat className="w-3.5 h-3.5" /> 编辑模板
+              </Button>
             </div>
           )}
         </div>
