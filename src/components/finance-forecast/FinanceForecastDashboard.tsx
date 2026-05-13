@@ -56,10 +56,11 @@ const ACCOUNT_TYPE_NOTES: Record<ForecastAccountType, string> = {
 }
 
 const CHART_TABS = [
+  { key: 'breakdown',  label: '盈亏分解' },
+  { key: 'cumulative', label: '累计' },
   { key: 'stacked',    label: 'Stacked' },
   { key: 'lines',      label: 'Lines' },
   { key: 'indexed',    label: 'Indexed' },
-  { key: 'cumulative', label: '累计' },
 ] as const
 
 type ChartMode = typeof CHART_TABS[number]['key']
@@ -97,7 +98,7 @@ export default function FinanceForecastDashboard({
   const [selectedYear, setSelectedYear] = useState<number>(anchorYear)
   const [selectedMonth, setSelectedMonth] = useState<number>(initialSelectedMonth)
   const [showYearView, setShowYearView] = useState(false)
-  const [chartMode, setChartMode] = useState<ChartMode>('stacked')
+  const [chartMode, setChartMode] = useState<ChartMode>('breakdown')
   const [inputOpen, setInputOpen] = useState(true)
   const [hydratedDraft, setHydratedDraft] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
@@ -176,6 +177,10 @@ export default function FinanceForecastDashboard({
   // Cumulative running totals — used by both the "累计" chart tab and the
   // breakeven KPI card. Computed once so the chart and the card agree.
   const cumulativeData = useMemo(() => buildCumulativeData(summary.months), [summary.months])
+
+  // 盈亏分解 — one record per month with the three quantities the user
+  // really wants to compare in the formula 收入 − 成本 = 利润.
+  const breakdownData = useMemo(() => buildBreakdownData(summary.months), [summary.months])
   const breakevenIndex = cumulativeData.findIndex((row) => row.cum_profit >= 0 && row.cum_revenue > 0)
   const breakevenMonth = breakevenIndex >= 0 ? summary.months[breakevenIndex].month : null
   const yearMarginPct  = summary.yearly_forecast_usd > 0
@@ -830,7 +835,9 @@ export default function FinanceForecastDashboard({
                 <div>
                   <h2 className="text-sm font-semibold text-slate-900">{selectedYear} 预测曲线</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {chartMode === 'cumulative'
+                    {chartMode === 'breakdown'
+                      ? '每月「收入 − 成本 = 利润」分解 — 柱长直观，折线即结余'
+                      : chartMode === 'cumulative'
                       ? '累计收益 vs 累计成本 — 交叉点即首次盈利月'
                       : '按账户类型展示开播收益、实际收益和同步预算成本'}
                   </p>
@@ -852,7 +859,67 @@ export default function FinanceForecastDashboard({
               </div>
 
               <ResponsiveContainer width="100%" height={340}>
-                {chartMode === 'stacked' ? (
+                {chartMode === 'breakdown' ? (
+                  <ComposedChart data={breakdownData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={formatUsdCompact}
+                      width={56}
+                    />
+                    {/* Custom tooltip spells out the formula */}
+                    <Tooltip
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                      content={(props) => {
+                        const { active, payload, label } = props as unknown as {
+                          active?: boolean
+                          label?: string
+                          payload?: { payload: { revenue: number; cost: number; profit: number } }[]
+                        }
+                        if (!active || !payload || payload.length === 0) return null
+                        const { revenue, cost, profit } = payload[0].payload
+                        const profitColor = profit >= 0 ? '#10b981' : '#e11d48'
+                        const profitWord  = profit >= 0 ? '利润' : '亏损'
+                        return (
+                          <div className="bg-white border border-slate-200 rounded-lg shadow-md p-2.5 text-xs min-w-[180px]">
+                            <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
+                            <p className="flex items-center justify-between gap-3">
+                              <span className="text-slate-500">收入</span>
+                              <span className="font-medium text-slate-900 tabular-nums">{formatUsd(revenue)}</span>
+                            </p>
+                            <p className="flex items-center justify-between gap-3">
+                              <span className="text-slate-500">− 成本</span>
+                              <span className="font-medium text-slate-900 tabular-nums">{formatUsd(cost)}</span>
+                            </p>
+                            <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-slate-100">
+                              <span className="text-slate-500">= {profitWord}</span>
+                              <span className="font-bold tabular-nums" style={{ color: profitColor }}>
+                                {formatUsd(profit)}
+                              </span>
+                            </p>
+                          </div>
+                        )
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {/* Zero baseline so negative profit bars read clearly below it. */}
+                    <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
+                    <Bar dataKey="revenue" name="收入" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="cost"    name="成本" fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Line
+                      type="monotone"
+                      dataKey="profit"
+                      name="利润 (= 收入 − 成本)"
+                      stroke="#6366f1"
+                      strokeWidth={2.5}
+                      dot={{ fill: '#6366f1', r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </ComposedChart>
+                ) : chartMode === 'stacked' ? (
                   <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
@@ -1578,6 +1645,20 @@ function StatusBadge({ revenue }: { revenue: number }) {
     return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">稳定</span>
   }
   return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">观察</span>
+}
+
+function buildBreakdownData(months: ReturnType<typeof summarizeForecast>['months']) {
+  return months.map((month) => {
+    const revenue = month.forecast_revenue_usd
+    const cost    = month.budget_cost_usd
+    const profit  = revenue - cost
+    return {
+      label: month.month.slice(5),
+      revenue,
+      cost,
+      profit,
+    }
+  })
 }
 
 function buildCumulativeData(months: ReturnType<typeof summarizeForecast>['months']) {
