@@ -26,5 +26,6 @@ test('matcher excludes Next internals and static assets', () => {
   assert.equal(matchesAppMiddlewarePath('/_next/static/chunks/main.js'), false)
   assert.equal(matchesAppMiddlewarePath('/_next/image'), false)
   assert.equal(matchesAppMiddlewarePath('/favicon.ico'), false)
+  assert.equal(matchesAppMiddlewarePath('/icon.svg'), false)
   assert.equal(matchesAppMiddlewarePath('/images/logo.png'), false)
 })
