@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Copy, Edit2, Trash2, Plus } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -42,6 +43,8 @@ function fmtRmb(v: number) {
 }
 
 export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRefresh }: Props) {
+  const t = useTranslations('workTasks')
+  const tCommon = useTranslations('common')
   const [editing,   setEditing]   = useState<WorkTask | null>(null)
   const [creating,  setCreating]  = useState(false)
   const [dupTarget, setDupTarget] = useState<WorkTask | null>(null)
@@ -78,10 +81,10 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
       {/* Summary bar */}
       <div className="grid grid-cols-4 gap-3 mb-5">
         {[
-          { label: '总工时', value: `${summary.totalHours}h` },
-          { label: '参与人数', value: `${summary.totalPeople}人` },
-          { label: '人力成本', value: fmtRmb(summary.totalLabourCost) },
-          { label: '任务数', value: `${tasks.filter(t => t.status !== 'cancelled').length}个` },
+          { label: t('summary.totalHours'),    value: t('summary.hoursValue',         { hours: summary.totalHours }) },
+          { label: t('summary.participants'),  value: t('summary.participantsValue', { count: summary.totalPeople }) },
+          { label: t('summary.labourCost'),    value: fmtRmb(summary.totalLabourCost) },
+          { label: t('summary.taskCount'),     value: t('summary.taskCountValue',    { count: tasks.filter(task => task.status !== 'cancelled').length }) },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white border border-slate-200 rounded-xl p-3">
             <p className="text-xs text-slate-500 mb-0.5">{label}</p>
@@ -110,14 +113,14 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
       {/* Add button */}
       <div className="flex justify-end mb-3">
         <Button onClick={() => setCreating(true)}>
-          <Plus className="w-4 h-4" /> 添加任务
+          <Plus className="w-4 h-4" /> {t('addTask')}
         </Button>
       </div>
 
       {/* Per-person rows */}
       {workloads.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-sm text-slate-400">
-          当天暂无任务
+          {t('emptyDay')}
         </div>
       ) : (
         <div className="space-y-3">
@@ -151,38 +154,38 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
 
               {/* Task list */}
               <div className="divide-y divide-slate-50">
-                {row.tasks.map((t) => (
-                  <div key={t.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                {row.tasks.map((task) => (
+                  <div key={task.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
                     <div className="flex gap-1.5 mt-0.5 flex-shrink-0">
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${TYPE_COLOR[t.task_type]}`}>
-                        {WORK_TASK_TYPE_LABELS[t.task_type]}
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${TYPE_COLOR[task.task_type]}`}>
+                        {WORK_TASK_TYPE_LABELS[task.task_type]}
                       </span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${STATUS_COLOR[t.status]}`}>
-                        {WORK_TASK_STATUS_LABELS[t.status]}
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${STATUS_COLOR[task.status]}`}>
+                        {WORK_TASK_STATUS_LABELS[task.status]}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{t.title}</p>
-                      {t.milestone && (
-                        <p className="text-xs text-slate-400 mt-0.5">🎯 {t.milestone.title}</p>
+                      <p className="text-sm font-medium text-slate-900 truncate">{task.title}</p>
+                      {task.milestone && (
+                        <p className="text-xs text-slate-400 mt-0.5">🎯 {task.milestone.title}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-slate-400 flex-shrink-0">
-                      <span className="font-medium text-slate-600">{t.effort_hours}h</span>
+                      <span className="font-medium text-slate-600">{task.effort_hours}h</span>
                       <span>·</span>
-                      <span>{t.owner_user_id === row.user_id ? '负责人' : '执行人'}</span>
+                      <span>{task.owner_user_id === row.user_id ? t('roleOwner') : t('roleAssignee')}</span>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
-                      <button onClick={() => { setDupTarget(t); setDupDate('') }}
-                        className="p-1 text-slate-400 hover:text-indigo-600 transition-colors" title="复制到">
+                      <button onClick={() => { setDupTarget(task); setDupDate('') }}
+                        className="p-1 text-slate-400 hover:text-indigo-600 transition-colors" title={t('rowAction.duplicate')}>
                         <Copy className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => setEditing(t)}
-                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors" title="编辑">
+                      <button onClick={() => setEditing(task)}
+                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors" title={t('rowAction.edit')}>
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => setDeleting(t)}
-                        className="p-1 text-slate-400 hover:text-red-600 transition-colors" title="删除">
+                      <button onClick={() => setDeleting(task)}
+                        className="p-1 text-slate-400 hover:text-red-600 transition-colors" title={t('rowAction.delete')}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -195,7 +198,7 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
       )}
 
       {/* Create Modal */}
-      <Modal open={creating} onClose={() => setCreating(false)} title="添加任务" width="max-w-2xl">
+      <Modal open={creating} onClose={() => setCreating(false)} title={t('addTask')} width="max-w-2xl">
         <WorkTaskForm
           defaultDate={date}
           onSuccess={() => { setCreating(false); onRefresh() }}
@@ -204,7 +207,7 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
       </Modal>
 
       {/* Edit Modal */}
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="编辑任务" width="max-w-2xl">
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={t('editTask')} width="max-w-2xl">
         {editing && (
           <WorkTaskForm
             task={editing}
@@ -215,32 +218,38 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
       </Modal>
 
       {/* Duplicate Modal */}
-      <Modal open={!!dupTarget} onClose={() => setDupTarget(null)} title="复制任务到">
+      <Modal open={!!dupTarget} onClose={() => setDupTarget(null)} title={t('duplicateTaskTo')}>
         {dupTarget && (
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              将「<span className="font-medium">{dupTarget.title}</span>」复制到：
+              {t.rich('duplicateConfirm', {
+                name: dupTarget.title,
+                title: (chunks) => <span className="font-medium">{chunks}</span>,
+              })}
             </p>
             <input type="date" value={dupDate} onChange={(e) => setDupDate(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDupTarget(null)}>取消</Button>
-              <Button onClick={handleDuplicate} disabled={!dupDate}>确认复制</Button>
+              <Button variant="secondary" onClick={() => setDupTarget(null)}>{tCommon('cancel')}</Button>
+              <Button onClick={handleDuplicate} disabled={!dupDate}>{t('confirmDuplicate')}</Button>
             </div>
           </div>
         )}
       </Modal>
 
       {/* Delete Modal */}
-      <Modal open={!!deleting} onClose={() => setDeleting(null)} title="确认删除">
+      <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
         {deleting && (
           <div className="space-y-4">
             <p className="text-sm text-slate-700">
-              确认删除任务「<span className="font-semibold">{deleting.title}</span>」？
+              {t.rich('deleteConfirm', {
+                name: deleting.title,
+                title: (chunks) => <span className="font-semibold">{chunks}</span>,
+              })}
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDeleting(null)}>取消</Button>
-              <Button variant="danger" loading={delLoading} onClick={handleDelete}>删除</Button>
+              <Button variant="secondary" onClick={() => setDeleting(null)}>{tCommon('cancel')}</Button>
+              <Button variant="danger" loading={delLoading} onClick={handleDelete}>{tCommon('delete')}</Button>
             </div>
           </div>
         )}

@@ -56,12 +56,13 @@ const PRIORITY_COLOR: Record<MilestonePriority, string> = {
   low:    '#6366f1',
 }
 
-const STATUS_LABEL: Record<MilestoneStatus, string> = {
-  planned:   '计划中',
-  active:    '进行中',
-  at_risk:   '有风险',
-  completed: '已完成',
-  missed:    '已逾期',
+// Map MilestoneStatus snake_case to the camelCase key under timeline.status.
+const TIMELINE_STATUS_KEY: Record<MilestoneStatus, string> = {
+  planned:   'planned',
+  active:    'active',
+  at_risk:   'atRisk',
+  completed: 'completed',
+  missed:    'missed',
 }
 
 const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
@@ -83,6 +84,8 @@ interface ChartTooltipProps {
   payload?: any[]
   label?: string
   fmt:    (cny: number, opts?: { compact?: boolean }) => string
+  /** Localized "{count} expenses, over {max}" message — required by DayTooltip. */
+  dayCountAlert?: (count: number, max: string) => string
 }
 
 interface CategoryTooltipProps {
@@ -126,7 +129,7 @@ function CategoryTooltip({
 }
 
 // ── Custom tooltip: shows expense count on days that exceed ¥100k CNY ──
-function DayTooltip({ active, payload, label, fmt }: ChartTooltipProps) {
+function DayTooltip({ active, payload, label, fmt, dayCountAlert }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
 
   const total = (payload.find((p) => p.dataKey === 'total')?.value as number) ?? 0
@@ -146,11 +149,11 @@ function DayTooltip({ active, payload, label, fmt }: ChartTooltipProps) {
           </p>
         ))}
       </div>
-      {total >= 100000 && count > 0 && (
+      {total >= 100000 && count > 0 && dayCountAlert && (
         <div className="mt-2 pt-2 border-t border-red-100">
           <p className="text-red-600 font-semibold flex items-center gap-1">
             <span>⚠️</span>
-            <span>共 {count} 笔支出，超 {fmt(100000, { compact: true })}</span>
+            <span>{dayCountAlert(count, fmt(100000, { compact: true }))}</span>
           </p>
         </div>
       )}
@@ -172,6 +175,7 @@ export default function ExpenseCategoryChart({
   const [monthlyView, setMonthlyView] = useState<MonthlyView>('table')
   const [monthlyGran, setMonthlyGran] = useState<MonthlyGran>('day')
   const t = useTranslations('expenses')
+  const tTimeline = useTranslations('timeline')
   const { fmt } = useCurrency()
   const fmtCompact = (v: number) => fmt(v, { compact: true })
 
@@ -319,7 +323,7 @@ export default function ExpenseCategoryChart({
                 catView === 'pie' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
               }`}
             >
-              饼图
+              {t('category.viewPie')}
             </button>
             <button
               onClick={() => setCatView('sankey')}
@@ -328,7 +332,7 @@ export default function ExpenseCategoryChart({
               }`}
             >
               <Workflow className="w-3 h-3" />
-              流向图
+              {t('category.viewSankey')}
             </button>
           </div>
         )}
@@ -450,7 +454,7 @@ export default function ExpenseCategoryChart({
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2.5 px-1">
                 {selectedCategory
                   ? `${t(`categories.${selectedCategory as ExpenseCategory}`)} · ${t('buyer')}`
-                  : `全部 · ${t('buyer')}`
+                  : `${t('category.allBuyersLabel')} · ${t('buyer')}`
                 }
               </p>
               {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
@@ -465,7 +469,7 @@ export default function ExpenseCategoryChart({
                       <span className="text-xs text-slate-700 truncate">{displayName}</span>
                       {isCrossBorder && (
                         <span
-                          title={`跨境转账成本 ${fmtCompact(crossBorder)}`}
+                          title={t('category.crossBorderTooltip', { amount: fmtCompact(crossBorder) })}
                           className="flex items-center gap-0.5 text-[10px] font-medium text-rose-500 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded whitespace-nowrap"
                         >
                           <Globe className="w-2.5 h-2.5 flex-shrink-0" />
@@ -525,7 +529,7 @@ export default function ExpenseCategoryChart({
                 <button
                   onClick={toggleMilestones}
                   disabled={msLoading}
-                  title="战略时间轴节点"
+                  title={t('monthly.milestonesTooltip')}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
                     showMilestones
                       ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
@@ -533,7 +537,7 @@ export default function ExpenseCategoryChart({
                   }`}
                 >
                   <Flag className="w-3 h-3" />
-                  {msLoading ? '加载中…' : '战略节点'}
+                  {msLoading ? t('monthly.milestonesLoading') : t('monthly.milestonesShort')}
                 </button>
               )}
             </div>
@@ -583,7 +587,7 @@ export default function ExpenseCategoryChart({
                   />
                   <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={56} />
                   {monthlyGran === 'day'
-                    ? <Tooltip content={<DayTooltip fmt={fmt} />} />
+                    ? <Tooltip content={<DayTooltip fmt={fmt} dayCountAlert={(count, max) => t('dayCountAlert', { count, max })} />} />
                     : <Tooltip formatter={(v) => [fmt(Number(v)), '']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                   }
                   <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -623,7 +627,7 @@ export default function ExpenseCategoryChart({
                                   : PRIORITY_COLOR.low
                       const label = ms.length === 1
                         ? ms[0].title.length > 10 ? ms[0].title.slice(0, 9) + '…' : ms[0].title
-                        : `${ms.length}个节点`
+                        : t('monthly.milestonesGroupLabel', { count: ms.length })
                       return (
                         <ReferenceLine
                           key={xVal}
@@ -648,7 +652,7 @@ export default function ExpenseCategoryChart({
                         stroke="#6366f1"
                         strokeWidth={2}
                         ifOverflow="extendDomain"
-                        label={{ value: '已筛选', position: 'top', fontSize: 9, fill: '#6366f1' }}
+                        label={{ value: t('monthly.activePeriodLabel'), position: 'top', fontSize: 9, fill: '#6366f1' }}
                       />
                     )
                   })()}
@@ -668,15 +672,15 @@ export default function ExpenseCategoryChart({
                   <div className="mt-3 border-t border-slate-100 pt-3 min-h-[3rem]">
                     <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
                       <Flag className="w-3 h-3" />
-                      <span>战略时间轴节点</span>
+                      <span>{t('monthly.milestonesTooltip')}</span>
                       {hoveredPeriod && (
                         <span className="text-slate-400 font-normal">— {hoveredPeriod}</span>
                       )}
                     </p>
                     {!hoveredPeriod ? (
-                      <p className="text-xs text-slate-400">将鼠标悬停在曲线上查看对应日期的节点</p>
+                      <p className="text-xs text-slate-400">{t('monthly.milestonesHoverHint')}</p>
                     ) : visible.length === 0 ? (
-                      <p className="text-xs text-slate-400">该日期无战略节点</p>
+                      <p className="text-xs text-slate-400">{t('monthly.noMilestonesForDay')}</p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {visible.map((m) => (
@@ -694,7 +698,7 @@ export default function ExpenseCategoryChart({
                               className="px-1 py-0.5 rounded text-xs"
                               style={{ color: PRIORITY_COLOR[m.priority] }}
                             >
-                              {STATUS_LABEL[m.status]}
+                              {tTimeline(`status.${TIMELINE_STATUS_KEY[m.status]}`)}
                             </span>
                           </div>
                         ))}

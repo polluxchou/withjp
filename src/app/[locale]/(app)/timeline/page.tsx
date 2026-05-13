@@ -31,28 +31,30 @@ import {
   Dot,
 } from 'recharts'
 import { Plus, List, BarChart2, TrendingUp, Target, AlertTriangle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import type { Milestone, MilestoneStatus, MilestoneType } from '@/lib/types'
 import { AT_RISK_DAYS } from '@/lib/milestones/constants'
 
 // ── Constants ─────────────────────────────────────────────────
 
-const STATUS_TABS: { value: MilestoneStatus | 'all'; label: string }[] = [
-  { value: 'all',       label: 'All' },
-  { value: 'planned',   label: 'Planned' },
-  { value: 'active',    label: 'Active' },
-  { value: 'at_risk',   label: 'At Risk' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'missed',    label: 'Missed' },
+// Labels resolved at render time via t('status.<key>') / t('type.<key>').
+const STATUS_TAB_VALUES: (MilestoneStatus | 'all')[] = [
+  'all', 'planned', 'active', 'at_risk', 'completed', 'missed',
 ]
 
-const TYPE_OPTIONS: { value: MilestoneType | 'all'; label: string }[] = [
-  { value: 'all',         label: 'All Types' },
-  { value: 'campaign',    label: 'Campaign' },
-  { value: 'launch',      label: 'Launch' },
-  { value: 'recruitment', label: 'Recruitment' },
-  { value: 'finance',     label: 'Finance' },
-  { value: 'review',      label: 'Review' },
+const TYPE_OPTION_VALUES: (MilestoneType | 'all')[] = [
+  'all', 'campaign', 'launch', 'recruitment', 'finance', 'review',
 ]
+
+// MilestoneStatus snake_case → camelCase key under `timeline.status`.
+const STATUS_KEY: Record<MilestoneStatus | 'all', string> = {
+  all:       'all',
+  planned:   'planned',
+  active:    'active',
+  at_risk:   'atRisk',
+  completed: 'completed',
+  missed:    'missed',
+}
 
 // ── Gantt helpers ─────────────────────────────────────────────
 
@@ -86,6 +88,7 @@ function getBar(m: Milestone, rangeStart: Date) {
 // ── Page component ────────────────────────────────────────────
 
 export default function TimelinePage() {
+  const t = useTranslations('timeline')
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [loading, setLoading]       = useState(true)
   const [view, setView]             = useState<'list' | 'gantt' | 'curve'>('list')
@@ -117,27 +120,27 @@ export default function TimelinePage() {
   return (
     <div>
       <Header
-        title="Master Timeline"
-        subtitle="Company-level strategic milestones and execution plan"
+        title={t('title')}
+        subtitle={t('subtitle')}
         actions={
           <div className="flex items-center gap-2">
             {/* View toggle */}
             <div className="flex bg-slate-100 rounded-lg p-0.5">
               <button onClick={() => setView('list')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
-                <List className="w-3.5 h-3.5" /> List
+                <List className="w-3.5 h-3.5" /> {t('view.list')}
               </button>
               <button onClick={() => setView('gantt')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'gantt' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
-                <BarChart2 className="w-3.5 h-3.5" /> Timeline
+                <BarChart2 className="w-3.5 h-3.5" /> {t('view.gantt')}
               </button>
               <button onClick={() => setView('curve')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'curve' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
-                <TrendingUp className="w-3.5 h-3.5" /> 进度曲线
+                <TrendingUp className="w-3.5 h-3.5" /> {t('view.curve')}
               </button>
             </div>
             <Button onClick={() => setShowForm(true)}>
-              <Plus className="w-4 h-4" /> New Milestone
+              <Plus className="w-4 h-4" /> {t('newMilestone')}
             </Button>
           </div>
         }
@@ -148,7 +151,11 @@ export default function TimelinePage() {
         <div className="flex items-center gap-2 mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
           <p className="text-sm text-amber-800">
-            <strong>{atRiskCount}</strong> milestone{atRiskCount > 1 ? 's are' : ' is'} at risk — target date approaching within {AT_RISK_DAYS} days.
+            {t.rich('atRiskAlert', {
+              count: atRiskCount,
+              days:  AT_RISK_DAYS,
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </p>
         </div>
       )}
@@ -157,14 +164,14 @@ export default function TimelinePage() {
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         {/* Status tabs */}
         <div className="flex items-center gap-1 flex-wrap">
-          {STATUS_TABS.map(t => (
-            <button key={t.value} onClick={() => setStatusFilter(t.value)}
+          {STATUS_TAB_VALUES.map(value => (
+            <button key={value} onClick={() => setStatusFilter(value)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                statusFilter === t.value
+                statusFilter === value
                   ? 'bg-indigo-600 text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}>
-              {t.label}
+              {t(`status.${STATUS_KEY[value]}`)}
             </button>
           ))}
         </div>
@@ -172,18 +179,18 @@ export default function TimelinePage() {
         {/* Type filter */}
         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as MilestoneType | 'all')}
           className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-400">
-          {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {TYPE_OPTION_VALUES.map(value => <option key={value} value={value}>{t(`type.${value}`)}</option>)}
         </select>
       </div>
 
       {/* Content */}
       {loading ? (
-        <div className="p-12 text-center text-sm text-slate-400">Loading milestones…</div>
+        <div className="p-12 text-center text-sm text-slate-400">{t('loading')}</div>
       ) : milestones.length === 0 ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-xl">
           <Target className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-500 mb-3">No milestones found.</p>
-          <Button onClick={() => setShowForm(true)}><Plus className="w-4 h-4" /> Create your first milestone</Button>
+          <p className="text-sm text-slate-500 mb-3">{t('empty')}</p>
+          <Button onClick={() => setShowForm(true)}><Plus className="w-4 h-4" /> {t('createFirst')}</Button>
         </div>
       ) : view === 'list' ? (
         <ListView milestones={milestones} onUpdated={load} />
@@ -194,7 +201,7 @@ export default function TimelinePage() {
       )}
 
       {/* Create modal */}
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="New Milestone" width="max-w-2xl">
+      <Modal open={showForm} onClose={() => setShowForm(false)} title={t('newMilestone')} width="max-w-2xl">
         <MilestoneForm
           onSuccess={() => { setShowForm(false); load() }}
           onCancel={() => setShowForm(false)}
@@ -207,8 +214,9 @@ export default function TimelinePage() {
 // ── List view ─────────────────────────────────────────────────
 
 function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdated: () => void }) {
+  const t = useTranslations('timeline')
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this milestone?')) return
+    if (!confirm(t('deleteConfirm'))) return
     const res = await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
     if (res.ok) onUpdated()
   }
@@ -218,14 +226,14 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-100 bg-slate-50">
-            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Milestone</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Type</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Status</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Priority</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Owner</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Start</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Target</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">Days left</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{t('table.milestone')}</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{t('table.type')}</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{t('table.status')}</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{t('table.priority')}</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{t('table.owner')}</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{t('table.start')}</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{t('table.target')}</th>
+            <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{t('table.daysLeft')}</th>
             <th />
           </tr>
         </thead>
@@ -247,7 +255,7 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
                 <td className="px-5 py-3"><MilestoneStatusBadge status={m.status} size="sm" /></td>
                 <td className="px-5 py-3"><MilestonePriorityBadge priority={m.priority} size="sm" /></td>
                 <td className="px-5 py-3 text-slate-500 text-xs">
-                  {(m.owner_agent as { name?: string } | null | undefined)?.name ?? '—'}
+                  {(m.owner_agent as { name?: string } | null | undefined)?.name ?? t('table.ownerEmpty')}
                 </td>
                 <td className="px-5 py-3 text-slate-400 text-xs">
                   {format(new Date(m.start_date), 'MMM d, yyyy')}
@@ -256,17 +264,17 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
                   {format(new Date(m.target_date), 'MMM d, yyyy')}
                 </td>
                 <td className={`px-5 py-3 text-xs font-medium ${daysColor}`}>
-                  {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d`}
+                  {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
                 </td>
                 <td className="px-5 py-3 text-right">
                   <div className="flex items-center justify-end gap-3">
                     <Link href={`/timeline/${m.id}`}
                       className="text-xs text-indigo-600 font-medium hover:text-indigo-800">
-                      View →
+                      {t('table.view')}
                     </Link>
                     <button type="button" onClick={() => handleDelete(m.id)}
                       className="text-xs text-slate-400 hover:text-red-500 transition-colors">
-                      Delete
+                      {t('table.delete')}
                     </button>
                   </div>
                 </td>
@@ -282,6 +290,7 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
 // ── Gantt view ────────────────────────────────────────────────
 
 function GanttView({ milestones }: { milestones: Milestone[] }) {
+  const t = useTranslations('timeline')
   const { rangeStart, totalDays } = buildGanttRange(milestones)
   const totalWidth = LABEL_WIDTH + totalDays * PX_PER_DAY
 
@@ -318,7 +327,7 @@ function GanttView({ milestones }: { milestones: Milestone[] }) {
           <div style={{ position: 'absolute', left: LABEL_WIDTH + todayOffset, top: 0, bottom: 0, width: 2, zIndex: 10 }}
             className="bg-red-400 opacity-70">
             <span style={{ position: 'absolute', top: 10, left: 4 }}
-              className="text-xs text-red-500 font-medium whitespace-nowrap">Today</span>
+              className="text-xs text-red-500 font-medium whitespace-nowrap">{t('gantt.today')}</span>
           </div>
 
           {/* Milestone rows */}
@@ -357,12 +366,12 @@ function GanttView({ milestones }: { milestones: Milestone[] }) {
         {(['planned', 'active', 'at_risk', 'completed', 'missed'] as MilestoneStatus[]).map(s => (
           <div key={s} className="flex items-center gap-1.5">
             <div className={`w-3 h-3 rounded ${STATUS_BAR_COLOR[s]}`} />
-            <span className="text-xs text-slate-500 capitalize">{s.replace('_', ' ')}</span>
+            <span className="text-xs text-slate-500">{t(`status.${STATUS_KEY[s]}`)}</span>
           </div>
         ))}
         <div className="flex items-center gap-1.5 ml-auto">
           <div className="w-0.5 h-4 bg-red-400" />
-          <span className="text-xs text-slate-500">Today</span>
+          <span className="text-xs text-slate-500">{t('gantt.today')}</span>
         </div>
       </div>
     </div>
@@ -430,6 +439,7 @@ interface ChartTooltipProps {
 
 // Custom tooltip for the curve chart
 function CurveTooltip({ active, payload, label }: ChartTooltipProps) {
+  const t = useTranslations('timeline')
   if (!active || !payload || payload.length === 0) return null
 
   const point = payload[0]?.payload as CurvePoint | undefined
@@ -449,7 +459,7 @@ function CurveTooltip({ active, payload, label }: ChartTooltipProps) {
       </div>
       {markers.length > 0 && (
         <div className="border-t border-slate-100 pt-2 space-y-1">
-          <p className="text-slate-400 mb-1">本月节点</p>
+          <p className="text-slate-400 mb-1">{t('curve.tooltipMonthMilestones')}</p>
           {markers.map(m => (
             <p key={m.id} className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_BAR_COLOR[m.status]}`} />
@@ -459,7 +469,7 @@ function CurveTooltip({ active, payload, label }: ChartTooltipProps) {
                 m.status === 'missed'    ? 'text-red-600 bg-red-50' :
                 m.status === 'at_risk'  ? 'text-amber-600 bg-amber-50' :
                 'text-slate-500 bg-slate-50'
-              }`}>{m.status}</span>
+              }`}>{t(`status.${STATUS_KEY[m.status]}`)}</span>
             </p>
           ))}
         </div>
@@ -469,6 +479,7 @@ function CurveTooltip({ active, payload, label }: ChartTooltipProps) {
 }
 
 function CurveView({ milestones }: { milestones: Milestone[] }) {
+  const t = useTranslations('timeline')
   const data    = buildCurveData(milestones)
   const today   = format(new Date(), 'yyyy-MM')
   const total   = milestones.length
@@ -479,7 +490,7 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
   if (milestones.length === 0) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-sm text-slate-400">
-        暂无数据
+        {t('curve.empty')}
       </div>
     )
   }
@@ -489,10 +500,10 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
       {/* KPI row */}
       <div className="grid grid-cols-4 gap-3 mb-5">
         {[
-          { label: '总节点',  value: total,  color: 'text-slate-900' },
-          { label: '已完成', value: done,   color: 'text-green-700' },
-          { label: '已逾期', value: missed, color: 'text-red-600'   },
-          { label: '有风险', value: atRisk, color: 'text-amber-600' },
+          { label: t('curve.kpiTotal'),     value: total,  color: 'text-slate-900' },
+          { label: t('curve.kpiCompleted'), value: done,   color: 'text-green-700' },
+          { label: t('curve.kpiMissed'),    value: missed, color: 'text-red-600'   },
+          { label: t('curve.kpiAtRisk'),    value: atRisk, color: 'text-amber-600' },
         ].map(({ label, value, color }) => (
           <div key={label} className="border border-slate-100 rounded-xl px-4 py-3">
             <p className="text-xs text-slate-500 mb-0.5">{label}</p>
@@ -529,7 +540,7 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
             stroke="#ef4444"
             strokeWidth={1.5}
             strokeDasharray="4 3"
-            label={{ value: 'Today', position: 'insideTopLeft', fontSize: 10, fill: '#ef4444' }}
+            label={{ value: t('curve.todayLabel'), position: 'insideTopLeft', fontSize: 10, fill: '#ef4444' }}
           />
 
           {/* Total capacity reference */}
@@ -537,14 +548,14 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
             y={total}
             stroke="#94a3b8"
             strokeDasharray="3 3"
-            label={{ value: `总量 ${total}`, position: 'insideTopRight', fontSize: 10, fill: '#94a3b8' }}
+            label={{ value: t('curve.totalLabel', { total }), position: 'insideTopRight', fontSize: 10, fill: '#94a3b8' }}
           />
 
           {/* Lines */}
           <Line
             type="monotone"
             dataKey="planned"
-            name="计划累计"
+            name={t('curve.seriesPlanned')}
             stroke="#6366f1"
             strokeWidth={2}
             dot={false}
@@ -553,7 +564,7 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
           <Line
             type="monotone"
             dataKey="completed"
-            name="已完成"
+            name={t('curve.seriesCompleted')}
             stroke="#10b981"
             strokeWidth={2.5}
             dot={(props) => {
@@ -576,7 +587,7 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
           <Line
             type="monotone"
             dataKey="active"
-            name="已启动"
+            name={t('curve.seriesActive')}
             stroke="#f59e0b"
             strokeWidth={1.5}
             dot={false}
@@ -586,16 +597,23 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
       </ResponsiveContainer>
 
       {/* Gap analysis note */}
-      {done < milestones.filter(m => new Date(m.target_date) <= new Date()).length && (
-        <div className="mt-4 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          <span>
-            截至今天，计划应完成 <strong>{milestones.filter(m => new Date(m.target_date) <= new Date()).length}</strong> 个节点，
-            实际完成 <strong>{done}</strong> 个，
-            缺口 <strong>{milestones.filter(m => new Date(m.target_date) <= new Date()).length - done}</strong> 个。
-          </span>
-        </div>
-      )}
+      {(() => {
+        const planned = milestones.filter(m => new Date(m.target_date) <= new Date()).length
+        if (done >= planned) return null
+        return (
+          <div className="mt-4 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>
+              {t.rich('curve.gap', {
+                planned,
+                done,
+                gap: planned - done,
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
+            </span>
+          </div>
+        )
+      })()}
     </div>
   )
 }
