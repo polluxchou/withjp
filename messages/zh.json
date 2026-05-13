@@ -352,9 +352,148 @@
     "legal": "法务"
   },
   "financeForecast": {
+    "pageTitle": "财务预测看板",
+    "pageSubtitle": "按直播账号输入月度预测，成本自动同步当前预算，计算开播收益与毛利润结余。",
     "statusSaving": "正在保存...",
     "statusSaved": "已保存",
     "statusError": "保存失败，已保留本机草稿",
-    "months": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+    "months": [
+      "1月",
+      "2月",
+      "3月",
+      "4月",
+      "5月",
+      "6月",
+      "7月",
+      "8月",
+      "9月",
+      "10月",
+      "11月",
+      "12月"
+    ],
+    "kpi": {
+      "yearForecast": "全年预测开播收益",
+      "yearForecastCollapse": "点击收起账号明细",
+      "yearForecastExpand": "点击展开账号明细",
+      "yearBudget": "全年成本预算",
+      "yearBudgetSub": "当前预算 CNY 按 1 USD = 7 CNY 换算",
+      "yearBudgetLink": "去支出管理",
+      "yearProfit": "年度累计利润",
+      "yearProfitPositive": "全年预计结余",
+      "yearProfitNegative": "全年预计亏损",
+      "yearMargin": "年度毛利率",
+      "yearMarginSub": "年度利润 / 年度收益",
+      "breakevenMonth": "首个盈利月",
+      "breakevenPositive": "累计利润首次转正",
+      "breakevenNone": "本年度累计未转正",
+      "currentMargin": "当前月毛利率",
+      "currentMarginEditing": "{month} 正在编辑",
+      "empty": "—"
+    },
+    "section": {
+      "title": "收入预测",
+      "subtitle": "每个月单独设置账号参数，输入自动保存",
+      "actionsAria": "操作",
+      "collapseAria": "折叠",
+      "expandAria": "展开"
+    },
+    "actions": {
+      "copyPrevious": "复制上月",
+      "applyForward": "应用到后续月份",
+      "clearMonth": "清空本月",
+      "addAccount": "添加账号"
+    },
+    "monthPicker": {
+      "year": "全年"
+    },
+    "fields": {
+      "actualRevenue": "当前月实际开播收益（美金）",
+      "budgetSynced": "当前月成本预算（同步）",
+      "budgetSyncedHint": "已同步当前预算成本，并换算为美金",
+      "note": "备注事件标注"
+    },
+    "table": {
+      "account": "账号",
+      "type": "类型",
+      "liveDays": "开播天数",
+      "avgDailyHours": "平均每日开播时长",
+      "revenuePerMinute": "分钟收益（美金）",
+      "shareRatio": "可分润比例（%）",
+      "monthlyRevenue": "月开播收益",
+      "status": "状态",
+      "deleteRowAria": "删除该行",
+      "emptyMonth": "当前月份还没有预测输入。添加账号后，账号类型贡献、曲线和 KPI 才会开始计算。"
+    },
+    "formula": "计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。收入预测会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。",
+    "chart": {
+      "title": "预测曲线",
+      "subtitleCumulative": "累计收益 vs 累计成本 — 交叉点即首次盈利月",
+      "subtitleDefault": "按账户类型展示开播收益、实际收益和同步预算成本",
+      "tabStacked": "堆叠",
+      "tabLines": "折线",
+      "tabIndexed": "指数化",
+      "tabCumulative": "累计",
+      "seriesActual": "实际开播收益",
+      "seriesBudget": "同步预算成本",
+      "seriesCumProfit": "累计净利润",
+      "seriesCumRevenue": "累计开播收益",
+      "seriesCumCost": "累计预算成本",
+      "breakevenLabel": "盈亏平衡 {label}"
+    },
+    "aside": {
+      "title": "账号类型贡献",
+      "subtitle": "12 个月预测输入汇总",
+      "currentForecast": "当前月预测",
+      "currentBudget": "当前月同步预算",
+      "currentBalance": "当前月结余",
+      "notes": {
+        "key": "高 ROI 账号",
+        "mature": "稳定贡献",
+        "growing": "爬坡账号",
+        "newbie": "新开账号",
+        "test": "活动测试",
+        "other": "未分类"
+      }
+    },
+    "deleteModal": {
+      "title": "删除账号",
+      "confirm": "确定要删除 <strong>{name}</strong> 吗？删除后无法恢复，本月的账号类型贡献和 KPI 会立刻重新计算。",
+      "thisAccount": "此账号",
+      "cancel": "取消",
+      "delete": "删除"
+    },
+    "year": {
+      "empty": "还没有任何月份配置了收入预测。",
+      "month": "月份",
+      "configuredAccounts": "已配置账号",
+      "forecastRevenue": "预测开播收益",
+      "actualRevenue": "实际开播收益",
+      "budgetCost": "预算成本",
+      "forecastProfit": "预测毛利润",
+      "rowTitle": "点击进入该月详情",
+      "totalLabel": "全年合计",
+      "totalMonths": "共 {count} 个月",
+      "accountSeparator": "、",
+      "emptyMark": "—"
+    },
+    "mobile": {
+      "untitled": "未命名",
+      "monthlyRevenueLabel": "月开播收益",
+      "editAccount": "编辑账号",
+      "accountName": "账号名",
+      "type": "类型",
+      "liveDays": "开播天数",
+      "avgHours": "平均时长 (h)",
+      "revenuePerMin": "分钟收益 ($)",
+      "shareRatio": "分润比例 (%)",
+      "deleteAccount": "删除账号",
+      "done": "完成",
+      "summary": "{days}天 · {hours}h · ${rpm}/min · 分润{share}%"
+    },
+    "statusBadge": {
+      "priority": "重点跟进",
+      "stable": "稳定",
+      "watch": "观察"
+    }
   }
 }

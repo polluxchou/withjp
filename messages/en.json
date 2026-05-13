@@ -352,9 +352,148 @@
     "legal": "Legal"
   },
   "financeForecast": {
+    "pageTitle": "Finance Forecast Dashboard",
+    "pageSubtitle": "Per-broadcast-account monthly forecasting. Costs sync from the current budget; the dashboard computes revenue and gross profit balance.",
     "statusSaving": "Saving...",
     "statusSaved": "Saved",
     "statusError": "Save failed, local draft retained",
-    "months": ["Jan.", "Feb.", "Mar.", "Apr.", "May", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."]
+    "months": [
+      "Jan.",
+      "Feb.",
+      "Mar.",
+      "Apr.",
+      "May",
+      "Jun.",
+      "Jul.",
+      "Aug.",
+      "Sep.",
+      "Oct.",
+      "Nov.",
+      "Dec."
+    ],
+    "kpi": {
+      "yearForecast": "Annual revenue forecast",
+      "yearForecastCollapse": "Click to collapse account details",
+      "yearForecastExpand": "Click to expand account details",
+      "yearBudget": "Annual cost budget",
+      "yearBudgetSub": "Current CNY budget converted at 1 USD = 7 CNY",
+      "yearBudgetLink": "Go to Expense Management",
+      "yearProfit": "Annual cumulative profit",
+      "yearProfitPositive": "Projected annual surplus",
+      "yearProfitNegative": "Projected annual loss",
+      "yearMargin": "Annual gross margin",
+      "yearMarginSub": "Annual profit / annual revenue",
+      "breakevenMonth": "First profitable month",
+      "breakevenPositive": "Cumulative profit first turns positive",
+      "breakevenNone": "Not yet positive this year",
+      "currentMargin": "Current month gross margin",
+      "currentMarginEditing": "Editing {month}",
+      "empty": "—"
+    },
+    "section": {
+      "title": "Revenue Forecast",
+      "subtitle": "Configure account parameters per month — inputs auto-save",
+      "actionsAria": "Actions",
+      "collapseAria": "Collapse",
+      "expandAria": "Expand"
+    },
+    "actions": {
+      "copyPrevious": "Copy previous month",
+      "applyForward": "Apply to later months",
+      "clearMonth": "Clear this month",
+      "addAccount": "Add account"
+    },
+    "monthPicker": {
+      "year": "Full year"
+    },
+    "fields": {
+      "actualRevenue": "Actual revenue this month (USD)",
+      "budgetSynced": "Cost budget this month (synced)",
+      "budgetSyncedHint": "Synced from current budget and converted to USD",
+      "note": "Event note"
+    },
+    "table": {
+      "account": "Account",
+      "type": "Type",
+      "liveDays": "Live days",
+      "avgDailyHours": "Avg. daily live hours",
+      "revenuePerMinute": "Revenue per minute (USD)",
+      "shareRatio": "Share ratio (%)",
+      "monthlyRevenue": "Monthly revenue",
+      "status": "Status",
+      "deleteRowAria": "Delete row",
+      "emptyMonth": "No forecast inputs for this month yet. Add accounts to start computing account-type contribution, the curve, and KPIs."
+    },
+    "formula": "Formula: monthly revenue = live days × avg daily hours × 60 × revenue per minute × share ratio. Revenue forecast is saved to Supabase; cost budget is synced from the current budget — amounts stored in CNY are converted at 1 USD = 7 CNY before contributing to gross profit.",
+    "chart": {
+      "title": "Forecast curve",
+      "subtitleCumulative": "Cumulative revenue vs. cumulative cost — the crossover is the first profitable month",
+      "subtitleDefault": "Revenue, actuals, and synced budget cost broken down by account type",
+      "tabStacked": "Stacked",
+      "tabLines": "Lines",
+      "tabIndexed": "Indexed",
+      "tabCumulative": "Cumulative",
+      "seriesActual": "Actual revenue",
+      "seriesBudget": "Synced budget cost",
+      "seriesCumProfit": "Cumulative net profit",
+      "seriesCumRevenue": "Cumulative revenue",
+      "seriesCumCost": "Cumulative budget cost",
+      "breakevenLabel": "Breakeven {label}"
+    },
+    "aside": {
+      "title": "Account type contribution",
+      "subtitle": "12-month forecast input summary",
+      "currentForecast": "Current month forecast",
+      "currentBudget": "Current month synced budget",
+      "currentBalance": "Current month balance",
+      "notes": {
+        "key": "High-ROI accounts",
+        "mature": "Steady contributors",
+        "growing": "Ramping accounts",
+        "newbie": "New accounts",
+        "test": "Campaign tests",
+        "other": "Uncategorized"
+      }
+    },
+    "deleteModal": {
+      "title": "Delete account",
+      "confirm": "Delete <strong>{name}</strong>? This cannot be undone — this month's account-type contribution and KPIs will recalculate immediately.",
+      "thisAccount": "this account",
+      "cancel": "Cancel",
+      "delete": "Delete"
+    },
+    "year": {
+      "empty": "No month has revenue forecast inputs yet.",
+      "month": "Month",
+      "configuredAccounts": "Configured accounts",
+      "forecastRevenue": "Forecast revenue",
+      "actualRevenue": "Actual revenue",
+      "budgetCost": "Budget cost",
+      "forecastProfit": "Forecast gross profit",
+      "rowTitle": "Click to open this month",
+      "totalLabel": "Annual total",
+      "totalMonths": "{count} months",
+      "accountSeparator": ", ",
+      "emptyMark": "—"
+    },
+    "mobile": {
+      "untitled": "Untitled",
+      "monthlyRevenueLabel": "Monthly revenue",
+      "editAccount": "Edit account",
+      "accountName": "Account name",
+      "type": "Type",
+      "liveDays": "Live days",
+      "avgHours": "Avg. hours (h)",
+      "revenuePerMin": "Revenue/min ($)",
+      "shareRatio": "Share ratio (%)",
+      "deleteAccount": "Delete account",
+      "done": "Done",
+      "summary": "{days}d · {hours}h · ${rpm}/min · {share}% share"
+    },
+    "statusBadge": {
+      "priority": "Priority",
+      "stable": "Stable",
+      "watch": "Watch"
+    }
   }
 }
