@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Sparkles, Send, Copy, Check } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -24,8 +25,6 @@ type ServerResult =
   | { kind: 'clarification'; message: string; candidates?: Expense[] }
   | { kind: 'error'; code?: 'parser_failed' | 'executor_failed' | 'bad_request' | 'unknown'; message: string }
 
-const PLACEHOLDER = '用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元'
-
 // ── Custom event to open from elsewhere ───────────────────────
 
 const OPEN_EVENT = 'intent:open'
@@ -38,6 +37,7 @@ export function openCommandBar(initialText?: string) {
 // ── Component ─────────────────────────────────────────────────
 
 export default function CommandBar() {
+  const t = useTranslations('intent')
   const [open,   setOpen]   = useState(false)
   const [text,   setText]   = useState('')
   const [busy,   setBusy]   = useState(false)
@@ -107,21 +107,21 @@ export default function CommandBar() {
         onClick={() => setOpen(true)}
         className="fixed right-5 z-30 flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors text-sm text-slate-700"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
-        title="自然语言操作 (⌘K)"
+        title={t('openButtonTooltip')}
       >
         <Sparkles className="w-4 h-4 text-indigo-500" />
-        <span className="text-xs font-medium">用文字操作</span>
+        <span className="text-xs font-medium">{t('openButtonLabel')}</span>
         <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] rounded bg-slate-100 text-slate-500 border border-slate-200">⌘K</kbd>
       </button>
 
-      <Modal open={open} onClose={close} title="用一句话操作" width="max-w-2xl">
+      <Modal open={open} onClose={close} title={t('modalTitle')} width="max-w-2xl">
         <div className="space-y-4">
           <form onSubmit={submit} className="flex gap-2">
             <input
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={PLACEHOLDER}
+              placeholder={t('placeholder')}
               className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               disabled={busy}
             />
@@ -167,9 +167,14 @@ function ResultView({
 // ── Query result ──────────────────────────────────────────────
 
 function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result' }> }) {
+  const t = useTranslations('intent')
   const isRatio        = !!r.denominator
   const denomEmpty     = isRatio && r.denominator!.count === 0
   const numeratorEmpty = r.numerator.count === 0
+  const formatValue = (v: number, kind: 'sum_total' | 'count' | 'avg_total' | 'list'): string => {
+    if (kind === 'count') return t('query.countShort', { count: v })
+    return `¥${v.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`
+  }
 
   return (
     <div className="space-y-3">
@@ -178,23 +183,15 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
       {/* Empty-state branches come first so a 0 doesn't masquerade as a real answer. */}
       {denomEmpty ? (
         <EmptyHint
-          title="无法计算占比"
-          body="分母（背景集）没有匹配到任何支出。"
-          suggestions={[
-            '把分母条件放宽一些，例如换一个更长的时间范围',
-            '检查类别 / 周期 / 关键词是否拼写正确',
-            '试试改成单一汇总而非占比：「Q3 薪资总额是多少」',
-          ]}
+          title={t('query.emptyDenom.title')}
+          body={t('query.emptyDenom.body')}
+          suggestions={t.raw('query.emptyDenom.suggestions') as string[]}
         />
       ) : numeratorEmpty ? (
         <EmptyHint
-          title="没有找到匹配的支出"
-          body="按你给的筛选条件，库里 0 条记录。"
-          suggestions={[
-            '把时间范围放宽（例如把月份改成整个季度）',
-            '检查关键词是否在记录里实际出现过（使用人 / 名称 / 用途）',
-            '去掉非必要的筛选条件，例如不指定支付方式或经办人',
-          ]}
+          title={t('query.emptyNumerator.title')}
+          body={t('query.emptyNumerator.body')}
+          suggestions={t.raw('query.emptyNumerator.suggestions') as string[]}
         />
       ) : isRatio ? (
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-1">
@@ -206,7 +203,7 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
             {formatValue(r.denominator!.value, r.aggregate)}
           </div>
           <div className="text-xs text-slate-500">
-            分子 {r.numerator.count} 条 · 分母 {r.denominator!.count} 条
+            {t('query.ratioCounts', { num: r.numerator.count, denom: r.denominator!.count })}
           </div>
         </div>
       ) : (
@@ -214,7 +211,7 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
           <div className="text-2xl font-semibold text-slate-900">
             {formatValue(r.numerator.value, r.aggregate)}
           </div>
-          <div className="text-xs text-slate-500">{r.numerator.count} 条</div>
+          <div className="text-xs text-slate-500">{t('query.countShort', { count: r.numerator.count })}</div>
         </div>
       )}
 
@@ -222,7 +219,7 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
         <div className="border border-slate-200 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs">
-              <tr><th className="text-left px-3 py-2">分组</th><th className="text-right px-3 py-2">值</th><th className="text-right px-3 py-2">条数</th></tr>
+              <tr><th className="text-left px-3 py-2">{t('query.groupCol')}</th><th className="text-right px-3 py-2">{t('query.groupValueCol')}</th><th className="text-right px-3 py-2">{t('query.groupCountCol')}</th></tr>
             </thead>
             <tbody>
               {r.groups.map((g) => (
@@ -239,21 +236,17 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
 
       {r.sample && r.sample.length > 0 && (
         <div className="text-xs text-slate-500">
-          已返回 {r.sample.length} 条样例。完整筛选请到支出列表页操作。
+          {t('query.sampleHint', { count: r.sample.length })}
         </div>
       )}
     </div>
   )
 }
 
-function formatValue(v: number, kind: 'sum_total' | 'count' | 'avg_total' | 'list'): string {
-  if (kind === 'count') return `${v} 条`
-  return `¥${v.toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`
-}
-
 // ── Clarification ─────────────────────────────────────────────
 
 function ClarificationView({ r }: { r: Extract<ServerResult, { kind: 'clarification' }> }) {
+  const t = useTranslations('intent.clarification')
   return (
     <div className="space-y-3">
       <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -264,10 +257,10 @@ function ClarificationView({ r }: { r: Extract<ServerResult, { kind: 'clarificat
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600 text-xs">
               <tr>
-                <th className="text-left px-3 py-2">日期</th>
-                <th className="text-left px-3 py-2">名称</th>
-                <th className="text-right px-3 py-2">金额</th>
-                <th className="text-left px-3 py-2">经办人</th>
+                <th className="text-left px-3 py-2">{t('dateCol')}</th>
+                <th className="text-left px-3 py-2">{t('nameCol')}</th>
+                <th className="text-right px-3 py-2">{t('amountCol')}</th>
+                <th className="text-left px-3 py-2">{t('buyerCol')}</th>
               </tr>
             </thead>
             <tbody>
@@ -296,11 +289,12 @@ function EmptyHint({
   body:        string
   suggestions: string[]
 }) {
+  const t = useTranslations('intent.emptyHint')
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
       <div className="text-sm font-medium text-amber-900">{title}</div>
       <div className="text-sm text-amber-800">{body}</div>
-      <div className="text-xs font-medium text-amber-900 pt-1">可以这样调整：</div>
+      <div className="text-xs font-medium text-amber-900 pt-1">{t('suggestionsHeader')}</div>
       <ul className="text-xs text-amber-800 list-disc list-inside space-y-1">
         {suggestions.map((s, i) => <li key={i}>{s}</li>)}
       </ul>
@@ -317,7 +311,21 @@ function ErrorView({
   message:   string
   inputText: string
 }) {
-  const friendly = friendlyError(code, message)
+  const t = useTranslations('intent.error')
+  // Map error code → which sub-key under intent.error.* to read. 'bad_request'
+  // is the only one that hides the raw report (it's a user input problem, not
+  // a backend failure).
+  const subKey =
+    code === 'parser_failed'   ? 'parserFailed'   :
+    code === 'executor_failed' ? 'executorFailed' :
+    code === 'bad_request'     ? 'badRequest'     :
+                                 'unknown'
+  const friendly = {
+    title:       t(`${subKey}.title`),
+    body:        t(`${subKey}.body`),
+    suggestions: t.raw(`${subKey}.suggestions`) as string[],
+    showRaw:     subKey !== 'badRequest',
+  }
   const [copied, setCopied] = useState(false)
 
   const report =
@@ -346,16 +354,16 @@ function ErrorView({
           type="button"
           onClick={copy}
           className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-red-200 bg-white text-red-700 hover:bg-red-100 transition-colors"
-          title="复制完整错误信息发给开发者"
+          title={t('copyTooltip')}
         >
           {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? '已复制' : '复制报错'}
+          {copied ? t('copied') : t('copyButton')}
         </button>
       </div>
       <div className="text-sm text-red-800">{friendly.body}</div>
       {friendly.suggestions.length > 0 && (
         <>
-          <div className="text-xs font-medium text-red-900 pt-1">可以这样改：</div>
+          <div className="text-xs font-medium text-red-900 pt-1">{t('suggestionsHeader')}</div>
           <ul className="text-xs text-red-800 list-disc list-inside space-y-1">
             {friendly.suggestions.map((s, i) => <li key={i}>{s}</li>)}
           </ul>
@@ -363,7 +371,7 @@ function ErrorView({
       )}
       {friendly.showRaw && (
         <details className="text-xs text-red-600 pt-1">
-          <summary className="cursor-pointer select-none">技术细节</summary>
+          <summary className="cursor-pointer select-none">{t('techDetails')}</summary>
           <pre className="mt-1 whitespace-pre-wrap font-mono text-[11px]">{report}</pre>
         </details>
       )}
@@ -371,53 +379,3 @@ function ErrorView({
   )
 }
 
-function friendlyError(code: string | undefined, _message: string): {
-  title:       string
-  body:        string
-  suggestions: string[]
-  showRaw:     boolean
-} {
-  if (code === 'parser_failed') {
-    return {
-      title: '我没完全看懂这句话',
-      body:  '可以把意图说得更具体一点，让我能识别出操作、字段和时间。',
-      suggestions: [
-        '【新增】写明类别 + 日期 + 金额 + 经办人，例：「新增差旅费 5月10日 打车 320 元 pollux 经办」',
-        '【修改】先指明要改哪一条，再说改成什么，例：「把 5 月 10 日 pollux 那笔差旅改成 350 元」',
-        '【删除】明确日期和经办人，例：「删除 5 月 10 日 pollux 那笔差旅」',
-        '【查询】说清楚类别、时间范围和你想看的指标，例：「Q3 薪资中 MC 占了多少」',
-      ],
-      showRaw: true,
-    }
-  }
-  if (code === 'executor_failed') {
-    return {
-      title: '操作没能完成',
-      body:  '识别出来的意图在执行时被库拒绝了，常见原因是字段约束。',
-      suggestions: [
-        '检查是否选择了「公司公共账户」但经办人不是 with-new / JP-代理陈昊 / JP-代理小兽 之一',
-        '检查支付状态、类别是否落在允许值范围内',
-        '如有需要，换一句更具体的描述重试',
-      ],
-      showRaw: true,
-    }
-  }
-  if (code === 'bad_request') {
-    return {
-      title: '请求格式有问题',
-      body:  '请输入一段非空文字再试。',
-      suggestions: [],
-      showRaw: false,
-    }
-  }
-  return {
-    title: '出错了',
-    body:  '可以稍后重试，或换一种说法。',
-    suggestions: [
-      '简化你的句子，先只表达一个操作',
-      '把模糊的时间词（如「最近」「之前」）换成具体日期',
-      '检查网络是否正常',
-    ],
-    showRaw: true,
-  }
-}

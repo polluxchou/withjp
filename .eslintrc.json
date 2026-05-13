@@ -1,0 +1,32 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "ecmaFeatures": { "jsx": true }
+  },
+  "ignorePatterns": ["node_modules/", ".next/", "out/", "messages/"],
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "JSXText[value=/[\\u4e00-\\u9fff]/]",
+        "message": "Bare Chinese in JSX text. Move the string into messages/{zh,en}.json and use useTranslations(). See docs/copy-glossary.md."
+      },
+      {
+        "selector": "JSXAttribute Literal[value=/[\\u4e00-\\u9fff]/]",
+        "message": "Bare Chinese in JSX attribute. Move the string into messages/{zh,en}.json and use useTranslations(). See docs/copy-glossary.md."
+      },
+      {
+        "selector": "JSXExpressionContainer Literal[value=/[\\u4e00-\\u9fff]/]",
+        "message": "Bare Chinese inside a JSX expression. Move the string into messages/{zh,en}.json and use useTranslations(). See docs/copy-glossary.md."
+      },
+      {
+        "selector": "JSXExpressionContainer TemplateElement[value.raw=/[\\u4e00-\\u9fff]/]",
+        "message": "Bare Chinese inside a JSX template literal. Move the string into messages/{zh,en}.json — use t() with placeholders. See docs/copy-glossary.md."
+      }
+    ]
+  },
+  "overrides": []
+}

@@ -242,8 +242,8 @@ export default function ExpensesPage() {
         const [y, m] = ym.split('-').map(Number)
         const first  = `${ym}-01`
         const last   = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
-        const label  = ym === currentYM  ? '本月'
-                     : ym === previousYM ? '上月'
+        const label  = ym === currentYM  ? t('thisMonth')
+                     : ym === previousYM ? t('lastMonth')
                      : ym
         return { ym, first, last, label }
       })
@@ -470,7 +470,7 @@ export default function ExpensesPage() {
         className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50 text-left text-sm text-slate-600 transition-colors"
       >
         <Sparkles className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-        <span>用一句话操作支出 — 例：「Q3 薪资中 MC 占了多少」 / 「新增差旅费 5月10日打车 320元」</span>
+        <span>{t('kpi.nlHint')}</span>
         <kbd className="ml-auto px-1.5 py-0.5 text-[10px] rounded bg-white text-slate-500 border border-slate-200">⌘K</kbd>
       </button>
 
@@ -484,7 +484,7 @@ export default function ExpensesPage() {
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('totalExpense')}</p>
           <p className="text-lg sm:text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? '点击清除筛选' : t('includesFees')}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}</p>
         </button>
         <button
           type="button"
@@ -498,7 +498,7 @@ export default function ExpensesPage() {
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('paid')}</p>
           <p className="text-lg sm:text-xl font-bold text-green-700">{fmtRmb(summary.paidCost)}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'paid' ? '已筛选 · 再次点击清除' : '点击筛选已付款'}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}</p>
         </button>
         <button
           type="button"
@@ -512,7 +512,7 @@ export default function ExpensesPage() {
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('budgetPending')}</p>
           <p className="text-lg sm:text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost)}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'unpaid' ? '已筛选 · 再次点击清除' : '点击筛选预算+待付款'}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}</p>
         </button>
         <div ref={monthPickerRef} className="relative">
           <button
@@ -528,18 +528,18 @@ export default function ExpensesPage() {
             }`}
           >
             <p className="text-xs font-medium text-slate-500 mb-1">
-              {activeMonth ? `${activeMonth} 支出` : t('thisMonth')}
+              {activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
             </p>
             <p className="text-lg sm:text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">
-              {activeMonth ? `已筛选 · 点击切换月份` : '点击选择月份筛选'}
+              {activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
             </p>
           </button>
 
           {monthPickerOpen && (
             <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-white border border-slate-200 rounded-xl shadow-lg p-2">
               <div className="text-[10px] font-medium text-slate-400 px-2 py-1 uppercase tracking-wider">
-                选择月份
+                {t('kpi.selectMonth')}
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {monthOptions.map((opt) => {
@@ -569,7 +569,7 @@ export default function ExpensesPage() {
                   onClick={clearMonth}
                   className="mt-1 w-full px-2 py-1.5 rounded-md text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                 >
-                  清除月份筛选
+                  {t('kpi.clearMonthFilter')}
                 </button>
               )}
             </div>
@@ -588,7 +588,7 @@ export default function ExpensesPage() {
           <p className="text-xs font-medium text-slate-500 mb-1">{t('crossBorderCost')}</p>
           <p className="text-lg sm:text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost)}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">
-            {activeKpi === 'crossBorder' ? '已筛选 · 再次点击清除' : `${CROSS_BORDER_FEE_RATE * 100}% × 非租金/非内账`}
+            {activeKpi === 'crossBorder' ? t('kpi.filterActive') : t('kpi.crossBorderHint', { rate: CROSS_BORDER_FEE_RATE * 100 })}
           </p>
         </button>
       </div>

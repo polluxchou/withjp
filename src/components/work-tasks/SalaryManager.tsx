@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Plus, Trash2, Edit2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -29,6 +30,8 @@ function fmtRmb(v: number) {
 }
 
 export default function SalaryManager() {
+  const t = useTranslations('workTasks.salary')
+  const tCommon = useTranslations('common')
   const [records,  setRecords]  = useState<SalaryRecord[]>([])
   const [users,    setUsers]    = useState<UserOption[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -79,10 +82,10 @@ export default function SalaryManager() {
   }
 
   async function handleSave() {
-    if (!form.user_id)         { setFormError('请选择员工'); return }
-    if (!form.monthly_salary)  { setFormError('请输入月薪'); return }
-    if (!form.effective_from)  { setFormError('请输入生效日期'); return }
-    if (Number(form.monthly_salary) < 0) { setFormError('月薪不能为负数'); return }
+    if (!form.user_id)         { setFormError(t('errEmployee')); return }
+    if (!form.monthly_salary)  { setFormError(t('errMonthly')); return }
+    if (!form.effective_from)  { setFormError(t('errEffective')); return }
+    if (Number(form.monthly_salary) < 0) { setFormError(t('errNegative')); return }
 
     setSaving(true)
     setFormError(null)
@@ -144,34 +147,34 @@ export default function SalaryManager() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">员工薪资管理</h3>
-          <p className="text-xs text-slate-500 mt-0.5">薪资记录用于计算每个任务对应的人力成本</p>
+          <h3 className="text-sm font-semibold text-slate-900">{t('title')}</h3>
+          <p className="text-xs text-slate-500 mt-0.5">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
-          <Plus className="w-3.5 h-3.5" /> 添加薪资记录
+          <Plus className="w-3.5 h-3.5" /> {t('addRecord')}
         </Button>
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="py-8 text-center text-sm text-slate-400">加载中…</div>
+        <div className="py-8 text-center text-sm text-slate-400">{tCommon('loading')}</div>
       ) : records.length === 0 ? (
         <div className="py-12 text-center bg-white border border-slate-200 rounded-xl">
-          <p className="text-sm text-slate-400">暂无薪资记录</p>
-          <p className="text-xs text-slate-300 mt-1">添加员工薪资后才能准确计算人力成本</p>
+          <p className="text-sm text-slate-400">{t('empty')}</p>
+          <p className="text-xs text-slate-300 mt-1">{t('emptyHint')}</p>
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">员工</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">部门</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-500">月薪</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">生效日期</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">截止日期</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">备注</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-500">操作</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableEmployee')}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableDepartment')}</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-500">{t('tableMonthly')}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableEffectiveFrom')}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableEffectiveTo')}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableNotes')}</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-500">{t('tableActions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -186,7 +189,7 @@ export default function SalaryManager() {
                         </div>
                         <span className="font-medium text-slate-900">{r.user.name}</span>
                         {isCurrent && (
-                          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">当前</span>
+                          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">{t('current')}</span>
                         )}
                       </div>
                     </td>
@@ -204,14 +207,14 @@ export default function SalaryManager() {
                         <button
                           onClick={() => openEdit(r)}
                           className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
-                          title="编辑"
+                          title={t('editTooltip')}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => setDeleting(r)}
                           className="p-1 text-slate-400 hover:text-red-600 transition-colors"
-                          title="删除"
+                          title={t('deleteTooltip')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -229,7 +232,7 @@ export default function SalaryManager() {
       <Modal
         open={creating || !!editing}
         onClose={() => { setCreating(false); setEditing(null) }}
-        title={editing ? '编辑薪资记录' : '添加薪资记录'}
+        title={editing ? t('modalEdit') : t('modalAdd')}
       >
         <div className="space-y-4">
           {formError && (
@@ -238,27 +241,27 @@ export default function SalaryManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={LABEL}>员工 *</label>
+              <label className={LABEL}>{t('employeeField')}</label>
               <select
                 value={form.user_id}
                 onChange={(e) => setForm((f) => ({ ...f, user_id: e.target.value }))}
                 className={INPUT}
                 disabled={!!editing}
               >
-                <option value="">请选择员工</option>
+                <option value="">{t('employeeSelect')}</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>{u.name} ({DEPARTMENT_LABELS[u.role]})</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className={LABEL}>月薪（元）*</label>
+              <label className={LABEL}>{t('monthlyField')}</label>
               <input
                 type="number"
                 min={0}
                 value={form.monthly_salary}
                 onChange={(e) => setForm((f) => ({ ...f, monthly_salary: e.target.value }))}
-                placeholder="例如 15000"
+                placeholder={t('monthlyPlaceholder')}
                 className={INPUT}
               />
             </div>
@@ -266,7 +269,7 @@ export default function SalaryManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={LABEL}>生效日期 *</label>
+              <label className={LABEL}>{t('effectiveFromField')}</label>
               <input
                 type="date"
                 value={form.effective_from}
@@ -275,7 +278,7 @@ export default function SalaryManager() {
               />
             </div>
             <div>
-              <label className={LABEL}>截止日期（留空表示当前有效）</label>
+              <label className={LABEL}>{t('effectiveToField')}</label>
               <input
                 type="date"
                 value={form.effective_to}
@@ -286,34 +289,38 @@ export default function SalaryManager() {
           </div>
 
           <div>
-            <label className={LABEL}>备注</label>
+            <label className={LABEL}>{t('notesField')}</label>
             <input
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              placeholder="可选备注"
+              placeholder={t('notesPlaceholder')}
               className={INPUT}
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="secondary" onClick={() => { setCreating(false); setEditing(null) }}>取消</Button>
+            <Button variant="secondary" onClick={() => { setCreating(false); setEditing(null) }}>{tCommon('cancel')}</Button>
             <Button loading={saving} onClick={handleSave}>
-              {editing ? '保存更改' : '添加记录'}
+              {editing ? tCommon('saveChanges') : t('addRecordBtn')}
             </Button>
           </div>
         </div>
       </Modal>
 
       {/* Delete Modal */}
-      <Modal open={!!deleting} onClose={() => setDeleting(null)} title="确认删除">
+      <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
         {deleting && (
           <div className="space-y-4">
             <p className="text-sm text-slate-700">
-              确认删除 <span className="font-semibold">{deleting.user.name}</span> 的薪资记录（生效：{deleting.effective_from}）？
+              {t.rich('deleteConfirm', {
+                name: deleting.user.name,
+                from: deleting.effective_from,
+                strong: (chunks) => <span className="font-semibold">{chunks}</span>,
+              })}
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDeleting(null)}>取消</Button>
-              <Button variant="danger" loading={delLoading} onClick={handleDelete}>删除</Button>
+              <Button variant="secondary" onClick={() => setDeleting(null)}>{tCommon('cancel')}</Button>
+              <Button variant="danger" loading={delLoading} onClick={handleDelete}>{tCommon('delete')}</Button>
             </div>
           </div>
         )}

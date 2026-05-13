@@ -16,7 +16,9 @@
     "none": "无",
     "notFound": "未找到",
     "confirmDelete": "确认删除",
-    "close": "关闭"
+    "close": "关闭",
+    "singleDay": "单日",
+    "days": "{count}天"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -39,6 +41,95 @@
     "zh": "中文",
     "en": "English",
     "switchLanguage": "切换语言"
+  },
+  "currency": {
+    "switchHint": "按固定汇率切换显示币种（1 USD = 7 CNY；1 CNY = 20 JPY）"
+  },
+  "intent": {
+    "openButtonLabel": "用文字操作",
+    "openButtonTooltip": "自然语言操作 (⌘K)",
+    "modalTitle": "用一句话操作",
+    "placeholder": "用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元",
+    "query": {
+      "emptyDenom": {
+        "title": "无法计算占比",
+        "body": "分母（背景集）没有匹配到任何支出。",
+        "suggestions": [
+          "把分母条件放宽一些，例如换一个更长的时间范围",
+          "检查类别 / 周期 / 关键词是否拼写正确",
+          "试试改成单一汇总而非占比：「Q3 薪资总额是多少」"
+        ]
+      },
+      "emptyNumerator": {
+        "title": "没有找到匹配的支出",
+        "body": "按你给的筛选条件，库里 0 条记录。",
+        "suggestions": [
+          "把时间范围放宽（例如把月份改成整个季度）",
+          "检查关键词是否在记录里实际出现过（使用人 / 名称 / 用途）",
+          "去掉非必要的筛选条件，例如不指定支付方式或经办人"
+        ]
+      },
+      "ratioCounts": "分子 {num} 条 · 分母 {denom} 条",
+      "countShort": "{count} 条",
+      "groupCol": "分组",
+      "groupValueCol": "值",
+      "groupCountCol": "条数",
+      "sampleHint": "已返回 {count} 条样例。完整筛选请到支出列表页操作。"
+    },
+    "clarification": {
+      "dateCol": "日期",
+      "nameCol": "名称",
+      "amountCol": "金额",
+      "buyerCol": "经办人"
+    },
+    "emptyHint": {
+      "suggestionsHeader": "可以这样调整："
+    },
+    "error": {
+      "suggestionsHeader": "可以这样改：",
+      "copyTooltip": "复制完整错误信息发给开发者",
+      "copyButton": "复制报错",
+      "copied": "已复制",
+      "techDetails": "技术细节",
+      "parserFailed": {
+        "title": "我没完全看懂这句话",
+        "body": "可以把意图说得更具体一点，让我能识别出操作、字段和时间。",
+        "suggestions": [
+          "【新增】写明类别 + 日期 + 金额 + 经办人，例：「新增差旅费 5月10日 打车 320 元 pollux 经办」",
+          "【修改】先指明要改哪一条，再说改成什么，例：「把 5 月 10 日 pollux 那笔差旅改成 350 元」",
+          "【删除】明确日期和经办人，例：「删除 5 月 10 日 pollux 那笔差旅」",
+          "【查询】说清楚类别、时间范围和你想看的指标，例：「Q3 薪资中 MC 占了多少」"
+        ]
+      },
+      "executorFailed": {
+        "title": "操作没能完成",
+        "body": "识别出来的意图在执行时被库拒绝了，常见原因是字段约束。",
+        "suggestions": [
+          "检查是否选择了「公司公共账户」但经办人不是 with-new / JP-代理陈昊 / JP-代理小兽 之一",
+          "检查支付状态、类别是否落在允许值范围内",
+          "如有需要，换一句更具体的描述重试"
+        ]
+      },
+      "badRequest": {
+        "title": "请求格式有问题",
+        "body": "请输入一段非空文字再试。",
+        "suggestions": []
+      },
+      "unknown": {
+        "title": "出错了",
+        "body": "可以稍后重试，或换一种说法。",
+        "suggestions": [
+          "简化你的句子，先只表达一个操作",
+          "把模糊的时间词（如「最近」「之前」）换成具体日期",
+          "检查网络是否正常"
+        ]
+      }
+    },
+    "pending": {
+      "autoExpire": "将于 {expiry} 自动过期",
+      "apply": "确认",
+      "editModalTitle": "编辑后保存"
+    }
   },
   "auth": {
     "signIn": "登录",
@@ -199,16 +290,189 @@
     "reactivate": "重新激活（回到已联系）",
     "confirmTerminate": "确认将该创作者标记为已解约？"
   },
+  "workTasks": {
+    "addTask": "添加任务",
+    "editTask": "编辑任务",
+    "createTask": "创建任务",
+    "duplicateTaskTo": "复制任务到",
+    "duplicateConfirm": "将<title>{name}</title>复制到：",
+    "confirmDuplicate": "确认复制",
+    "deleteConfirm": "确认删除任务<title>{name}</title>？",
+    "emptyDay": "当天暂无任务",
+    "emptyWeek": "本周暂无任务",
+    "emptyMonth": "本月暂无任务",
+    "roleOwner": "负责人",
+    "roleAssignee": "执行人",
+    "rowAction": {
+      "duplicate": "复制到",
+      "edit": "编辑",
+      "delete": "删除"
+    },
+    "summary": {
+      "totalHours": "总工时",
+      "hoursValue": "{hours}h",
+      "participants": "参与人数",
+      "participantsValue": "{count}人",
+      "labourCost": "人力成本",
+      "taskCount": "任务数",
+      "taskCountValue": "{count}个",
+      "tasksItem": "{count}项"
+    },
+    "table": {
+      "member": "成员",
+      "department": "部门",
+      "totalHoursCol": "总工时",
+      "labourCostCol": "人力成本",
+      "monthHoursCol": "月工时",
+      "dayTotal": "日合计",
+      "rowTotal": "合计",
+      "weekN": "第{n}周",
+      "addToWeek": "+ 第{n}周 添加",
+      "addToDay": "+ {month}/{day} 添加",
+      "ymLabel": "{year}年{month}月"
+    },
+    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "status": {
+      "done": "已完成",
+      "doing": "进行中",
+      "planned": "计划中"
+    },
+    "form": {
+      "errTitle": "任务标题不能为空",
+      "errDate": "日期不能为空",
+      "errOwner": "请选择负责人",
+      "taskType": "任务类型",
+      "titleField": "任务标题 *",
+      "titlePlaceholder": "任务标题",
+      "date": "日期 *",
+      "department": "部门",
+      "hours": "工时",
+      "status": "状态",
+      "milestone": "关联目标（战略时间轴）",
+      "milestoneNone": "不关联目标",
+      "owner": "负责人 *",
+      "ownerSelect": "请选择负责人",
+      "assignees": "执行人（多选）",
+      "description": "任务描述",
+      "descriptionPlaceholder": "任务详情",
+      "notes": "备注",
+      "notesPlaceholder": "可选备注",
+      "submitCreate": "创建任务"
+    },
+    "salary": {
+      "title": "员工薪资管理",
+      "subtitle": "薪资记录用于计算每个任务对应的人力成本",
+      "addRecord": "添加薪资记录",
+      "empty": "暂无薪资记录",
+      "emptyHint": "添加员工薪资后才能准确计算人力成本",
+      "errEmployee": "请选择员工",
+      "errMonthly": "请输入月薪",
+      "errEffective": "请输入生效日期",
+      "errNegative": "月薪不能为负数",
+      "tableEmployee": "员工",
+      "tableDepartment": "部门",
+      "tableMonthly": "月薪",
+      "tableEffectiveFrom": "生效日期",
+      "tableEffectiveTo": "截止日期",
+      "tableNotes": "备注",
+      "tableActions": "操作",
+      "current": "当前",
+      "editTooltip": "编辑",
+      "deleteTooltip": "删除",
+      "modalEdit": "编辑薪资记录",
+      "modalAdd": "添加薪资记录",
+      "employeeField": "员工 *",
+      "employeeSelect": "请选择员工",
+      "monthlyField": "月薪（元）*",
+      "monthlyPlaceholder": "例如 15000",
+      "effectiveFromField": "生效日期 *",
+      "effectiveToField": "截止日期（留空表示当前有效）",
+      "notesField": "备注",
+      "notesPlaceholder": "可选备注",
+      "addRecordBtn": "添加记录",
+      "deleteConfirm": "确认删除 <strong>{name}</strong> 的薪资记录（生效：{from}）？"
+    }
+  },
+  "timeline": {
+    "title": "战略时间轴",
+    "subtitle": "公司级战略节点与执行计划",
+    "newMilestone": "新建节点",
+    "createFirst": "创建第一个节点",
+    "loading": "正在加载节点…",
+    "empty": "暂无节点。",
+    "deleteConfirm": "确认删除该节点？",
+    "view": {
+      "list": "列表",
+      "gantt": "时间线",
+      "curve": "进度曲线"
+    },
+    "status": {
+      "all": "全部",
+      "planned": "计划中",
+      "active": "进行中",
+      "atRisk": "有风险",
+      "completed": "已完成",
+      "missed": "已逾期"
+    },
+    "type": {
+      "all": "全部类型",
+      "campaign": "活动",
+      "launch": "发布",
+      "recruitment": "招聘",
+      "finance": "财务",
+      "review": "复盘"
+    },
+    "atRiskAlert": "<strong>{count}</strong> 个节点存在风险 — 目标日期将在 {days} 天内到达。",
+    "table": {
+      "milestone": "节点",
+      "type": "类型",
+      "status": "状态",
+      "priority": "优先级",
+      "owner": "负责人",
+      "start": "开始",
+      "target": "目标",
+      "daysLeft": "剩余天数",
+      "view": "查看 →",
+      "delete": "删除",
+      "overdue": "逾期 {days} 天",
+      "daysShort": "剩 {days} 天",
+      "ownerEmpty": "—"
+    },
+    "gantt": {
+      "today": "今天"
+    },
+    "curve": {
+      "kpiTotal": "总节点",
+      "kpiCompleted": "已完成",
+      "kpiMissed": "已逾期",
+      "kpiAtRisk": "有风险",
+      "todayLabel": "今天",
+      "totalLabel": "总量 {total}",
+      "seriesPlanned": "计划累计",
+      "seriesCompleted": "已完成",
+      "seriesActive": "已启动",
+      "tooltipMonthMilestones": "本月节点",
+      "empty": "暂无数据",
+      "gap": "截至今天，计划应完成 <strong>{planned}</strong> 个节点，实际完成 <strong>{done}</strong> 个，缺口 <strong>{gap}</strong> 个。"
+    }
+  },
   "tasks": {
     "title": "任务中心",
-    "subtitle": "所有创作者的所有代理任务",
+    "subtitle": "管理 AI 任务流程与团队工时",
     "pending": "待处理",
     "running": "运行中",
     "done": "已完成",
     "failed": "失败",
     "noTasksInView": "此视图中没有任务。",
     "agent": "代理",
-    "viewOutput": "查看结构化输出"
+    "viewOutput": "查看结构化输出",
+    "tabAi": "AI 任务",
+    "tabWorkload": "工时视图",
+    "periodDay": "日",
+    "periodWeek": "周",
+    "periodMonth": "月",
+    "salarySettings": "薪资设置",
+    "salaryManagement": "薪资管理"
   },
   "expenses": {
     "title": "支出管理",
@@ -223,6 +487,20 @@
     "paid": "已付款",
     "budgetPending": "预算/待付款",
     "thisMonth": "本月支出",
+    "lastMonth": "上月",
+    "kpi": {
+      "nlHint": "用一句话操作支出 — 例：「Q3 薪资中 MC 占了多少」 / 「新增差旅费 5月10日打车 320元」",
+      "clickToClearFilter": "点击清除筛选",
+      "filterActive": "已筛选 · 再次点击清除",
+      "clickToFilterPaid": "点击筛选已付款",
+      "clickToFilterPending": "点击筛选预算+待付款",
+      "monthExpenseLabel": "{month} 支出",
+      "monthFilterActive": "已筛选 · 点击切换月份",
+      "clickToFilterMonth": "点击选择月份筛选",
+      "selectMonth": "选择月份",
+      "clearMonthFilter": "清除月份筛选",
+      "crossBorderHint": "{rate}% × 非租金/非内账"
+    },
     "searchPlaceholder": "搜索支出名称/用途...",
     "allCategories": "全部类别",
     "allStatuses": "全部状态",
@@ -317,7 +595,35 @@
       "notes": "备注",
       "optionalNotes": "可选备注",
       "saveExpense": "保存更改",
-      "addExpense": "添加支出"
+      "addExpense": "添加支出",
+      "companyAccountGroup": "公司账户经办人",
+      "companyAccountHint": "选择公司账户支付，经办人必须为：{buyers}"
+    },
+    "dayCountAlert": "共 {count} 笔支出，超 {max}",
+    "category": {
+      "viewPie": "饼图",
+      "viewSankey": "流向图",
+      "crossBorderTooltip": "跨境转账成本 {amount}",
+      "crossBorderBadge": "跨境 +{amount}",
+      "allBuyersLabel": "全部"
+    },
+    "monthly": {
+      "milestonesTooltip": "战略时间轴节点",
+      "milestonesLoading": "加载中…",
+      "milestonesShort": "战略节点",
+      "milestonesGroupLabel": "{count}个节点",
+      "activePeriodLabel": "已筛选",
+      "milestonesHoverHint": "将鼠标悬停在曲线上查看对应日期的节点",
+      "noMilestonesForDay": "该日期无战略节点"
+    },
+    "savedViews": {
+      "namePrompt": "视图名称（例：本月待付款 / 跨境差旅）",
+      "saveFailed": "保存失败：{error}",
+      "deleteFailed": "删除失败：{error}",
+      "deleteConfirm": "删除视图「{name}」？",
+      "loading": "视图加载中…",
+      "deleteTooltip": "删除视图",
+      "saveCurrent": "保存当前"
     }
   },
   "profile": {
@@ -331,7 +637,13 @@
     "nameRequired": "姓名不能为空",
     "nameTooLong": "姓名不能超过30个字符",
     "saveFailed": "保存失败",
-    "loadFailed": "加载个人信息失败"
+    "loadFailed": "加载个人信息失败",
+    "logoutConfirm": "确认退出登录？",
+    "accountType": "账号类型",
+    "roleAdmin": "管理员",
+    "roleUser": "普通用户",
+    "adminScope": "可管理所有条目",
+    "userScope": "仅可管理自己创建的条目"
   },
   "status": {
     "prospect": "潜在客户",
@@ -357,20 +669,7 @@
     "statusSaving": "正在保存...",
     "statusSaved": "已保存",
     "statusError": "保存失败，已保留本机草稿",
-    "months": [
-      "1月",
-      "2月",
-      "3月",
-      "4月",
-      "5月",
-      "6月",
-      "7月",
-      "8月",
-      "9月",
-      "10月",
-      "11月",
-      "12月"
-    ],
+    "months": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
     "kpi": {
       "yearForecast": "全年预测开播收益",
       "yearForecastCollapse": "点击收起账号明细",

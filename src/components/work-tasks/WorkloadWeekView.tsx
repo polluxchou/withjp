@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -23,13 +24,13 @@ interface Props {
   onRefresh: () => void
 }
 
-const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-
 function fmtRmb(v: number) {
   return '¥' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh }: Props) {
+  const t = useTranslations('workTasks')
+  const DAY_LABELS = t.raw('weekdays') as string[]
   const [refDate,  setRefDate]  = useState(new Date())
   const [creating, setCreating] = useState<string | null>(null)   // date string
   const [detail,   setDetail]   = useState<{ user: string; date: string; tasks: WorkTask[] } | null>(null)
@@ -113,7 +114,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         {/* Header row */}
         <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}>
-          <div className="px-3 py-2 text-xs font-medium text-slate-500 bg-slate-50 border-r border-slate-100">成员</div>
+          <div className="px-3 py-2 text-xs font-medium text-slate-500 bg-slate-50 border-r border-slate-100">{t('table.member')}</div>
           {weekDates.map((d, i) => {
             const ds = toDateStr(d)
             const isToday = ds === today
@@ -129,13 +130,13 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
               </div>
             )
           })}
-          <div className="px-2 py-2 text-center text-xs font-medium text-slate-500 bg-slate-50 border-r border-slate-100">总工时</div>
-          <div className="px-2 py-2 text-center text-xs font-medium text-slate-500 bg-slate-50">人力成本</div>
+          <div className="px-2 py-2 text-center text-xs font-medium text-slate-500 bg-slate-50 border-r border-slate-100">{t('table.totalHoursCol')}</div>
+          <div className="px-2 py-2 text-center text-xs font-medium text-slate-500 bg-slate-50">{t('table.labourCostCol')}</div>
         </div>
 
         {/* User rows */}
         {sortedUsers.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-400">本周暂无任务</div>
+          <div className="py-12 text-center text-sm text-slate-400">{t('emptyWeek')}</div>
         ) : (
           sortedUsers.map((u) => (
             <div
@@ -172,7 +173,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${utilisationColor(h)}`}>
                           {h}h
                         </span>
-                        <span className="text-xs text-slate-400">{dayTasks.length}项</span>
+                        <span className="text-xs text-slate-400">{t('summary.tasksItem', { count: dayTasks.length })}</span>
                       </>
                     ) : (
                       <span className="w-2 h-2 rounded-full bg-slate-100" />
@@ -202,7 +203,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
             className="grid bg-slate-50 border-t border-slate-200"
             style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}
           >
-            <div className="px-3 py-2 text-xs font-medium text-slate-500 border-r border-slate-100">日合计</div>
+            <div className="px-3 py-2 text-xs font-medium text-slate-500 border-r border-slate-100">{t('table.dayTotal')}</div>
             {weekStrs.map((ds) => {
               const totalH = sortedUsers.reduce((s, u) => s + hoursForUserDay(u.id, ds), 0)
               return (
@@ -237,7 +238,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
               onClick={() => setCreating(ds)}
               className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
             >
-              + {d.getMonth() + 1}/{d.getDate()} 添加
+              {t('table.addToDay', { month: d.getMonth() + 1, day: d.getDate() })}
             </button>
           )
         })}
@@ -251,15 +252,15 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
       >
         {detail && (
           <div className="space-y-2">
-            {detail.tasks.map((t) => (
-              <div key={t.id} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
-                <span className="text-xs font-medium text-slate-600 flex-1">{t.title}</span>
-                <span className="text-xs text-slate-400">{t.effort_hours}h</span>
+            {detail.tasks.map((task) => (
+              <div key={task.id} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
+                <span className="text-xs font-medium text-slate-600 flex-1">{task.title}</span>
+                <span className="text-xs text-slate-400">{task.effort_hours}h</span>
                 <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                  t.status === 'done' ? 'bg-green-100 text-green-700' :
-                  t.status === 'doing' ? 'bg-blue-100 text-blue-700' :
-                  'bg-slate-100 text-slate-600'
-                }`}>{t.status === 'done' ? '已完成' : t.status === 'doing' ? '进行中' : '计划中'}</span>
+                  task.status === 'done'  ? 'bg-green-100 text-green-700' :
+                  task.status === 'doing' ? 'bg-blue-100 text-blue-700' :
+                                            'bg-slate-100 text-slate-600'
+                }`}>{task.status === 'done' ? t('status.done') : task.status === 'doing' ? t('status.doing') : t('status.planned')}</span>
               </div>
             ))}
           </div>
@@ -267,7 +268,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
       </Modal>
 
       {/* Create modal */}
-      <Modal open={!!creating} onClose={() => setCreating(null)} title="添加任务" width="max-w-2xl">
+      <Modal open={!!creating} onClose={() => setCreating(null)} title={t('addTask')} width="max-w-2xl">
         {creating && (
           <WorkTaskForm
             defaultDate={creating}

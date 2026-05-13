@@ -274,7 +274,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
                 <option key={u} value={u} disabled={isCompanyAcct}>{u}</option>
               ))}
             </optgroup>
-            <optgroup label="公司账户经办人">
+            <optgroup label={t('companyAccountGroup')}>
               {COMPANY_ACCOUNT_BUYERS.map((b) => (
                 <option key={b} value={b}>{b}</option>
               ))}
@@ -282,7 +282,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
           </select>
           {isCompanyAcct && (
             <p className="mt-1 text-[10px] text-amber-600">
-              选择公司账户支付，经办人必须为：{COMPANY_ACCOUNT_BUYERS.join(' / ')}
+              {t('companyAccountHint', { buyers: COMPANY_ACCOUNT_BUYERS.join(' / ') })}
             </p>
           )}
         </div>

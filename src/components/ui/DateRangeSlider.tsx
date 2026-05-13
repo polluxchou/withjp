@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 
 const MS = 86_400_000
 const dateToOrd = (s: string) => Math.round(new Date(s).getTime() / MS)
@@ -59,6 +60,7 @@ interface Props {
 }
 
 export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }: Props) {
+  const tCommon = useTranslations('common')
   const rangeStart = minDate || FALLBACK_START
   const rangeEnd   = maxDate || FALLBACK_END
   const ORD_MIN = useMemo(() => dateToOrd(rangeStart), [rangeStart])
@@ -121,7 +123,7 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
             className="absolute top-0 bg-indigo-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none"
             style={badgeStyle(aPct)}
           >
-            {fmtDate(ordToDate(draft.a))} · 单日
+            {fmtDate(ordToDate(draft.a))} · {tCommon('singleDay')}
           </div>
         ) : (
           <>
@@ -136,7 +138,7 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
                 className="absolute top-0.5 -translate-x-1/2 text-[10px] font-medium text-indigo-500 pointer-events-none"
                 style={{ left: `${(aPct + bPct) / 2}%` }}
               >
-                {draft.b - draft.a}天
+                {tCommon('days', { count: draft.b - draft.a })}
               </div>
             )}
             <div
