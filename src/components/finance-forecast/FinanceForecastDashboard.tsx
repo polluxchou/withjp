@@ -297,50 +297,98 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     setActionsMenuOpen(false)
   }
 
+  // Cumulative profit through the selected month (inclusive). Used by the
+  // month-view "当月累计利润" KPI so users can see whether they've turned
+  // the corner on a running basis without flipping back to the year view.
+  const selectedCumulativeProfit = cumulativeData[selectedMonth]?.cum_profit ?? 0
+  const selectedCumulativeProfitColor = selectedCumulativeProfit >= 0 ? 'text-emerald-700' : 'text-red-600'
+  const monthMarginColor = selected.margin_pct === null
+    ? 'text-slate-400'
+    : selected.margin_pct >= 0 ? 'text-emerald-700' : 'text-red-600'
+
   return (
     <>
-      {/* Row 1: KPI summary — 6 cards covering revenue, cost, profit, margin
-          and breakeven; collapses to 2-col on mobile, 3-col on tablet. */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-4">
-        <KpiCard
-          label="全年预测开播收益"
-          value={formatUsd(summary.yearly_forecast_usd)}
-          sub={inputOpen ? '点击收起账号明细' : '点击展开账号明细'}
-          onClick={() => setInputOpen((o) => !o)}
-          active={inputOpen}
-        />
-        <KpiCard
-          label="全年成本预算"
-          value={formatUsd(summary.yearly_budget_usd)}
-          sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
-          linkTo="/expenses"
-          linkLabel="去支出管理"
-        />
-        <KpiCard
-          label="年度累计利润"
-          value={formatUsd(summary.yearly_profit_usd)}
-          sub={summary.yearly_profit_usd >= 0 ? '全年预计结余' : '全年预计亏损'}
-          valueClassName={yearlyProfitColor}
-        />
-        <KpiCard
-          label="年度毛利率"
-          value={`${Math.round(yearMarginPct)}%`}
-          sub="年度利润 / 年度收益"
-          valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
-        />
-        <KpiCard
-          label="首个盈利月"
-          value={breakevenMonth ? breakevenMonth.slice(5) + '月' : '—'}
-          sub={breakevenMonth ? '累计利润首次转正' : '本年度累计未转正'}
-          valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
-        />
-        <KpiCard
-          label="当前月毛利率"
-          value={selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
-          sub={`${selected.month} 正在编辑`}
-          valueClassName={selectedProfitColor}
-        />
-      </div>
+      {/* Row 1: KPI summary. Two distinct shapes:
+            - Year view (showYearView=true): 6 cards summarising the whole 12 months.
+            - Month view (showYearView=false): 5 cards focused on the selected month
+              so the user sees this-month metrics at a glance while editing. */}
+      {showYearView ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-4">
+          <KpiCard
+            label="全年预测开播收益"
+            value={formatUsd(summary.yearly_forecast_usd)}
+            sub={inputOpen ? '点击收起账号明细' : '点击展开账号明细'}
+            onClick={() => setInputOpen((o) => !o)}
+            active={inputOpen}
+          />
+          <KpiCard
+            label="全年成本预算"
+            value={formatUsd(summary.yearly_budget_usd)}
+            sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
+            linkTo="/expenses"
+            linkLabel="去支出管理"
+          />
+          <KpiCard
+            label="年度累计利润"
+            value={formatUsd(summary.yearly_profit_usd)}
+            sub={summary.yearly_profit_usd >= 0 ? '全年预计结余' : '全年预计亏损'}
+            valueClassName={yearlyProfitColor}
+          />
+          <KpiCard
+            label="年度毛利率"
+            value={`${Math.round(yearMarginPct)}%`}
+            sub="年度利润 / 年度收益"
+            valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
+          />
+          <KpiCard
+            label="首个盈利月"
+            value={breakevenMonth ? breakevenMonth.slice(5) + '月' : '—'}
+            sub={breakevenMonth ? '累计利润首次转正' : '本年度累计未转正'}
+            valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
+          />
+          <KpiCard
+            label="当前月毛利率"
+            value={selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
+            sub={`${selected.month} 正在编辑`}
+            valueClassName={selectedProfitColor}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 mb-4">
+          <KpiCard
+            label="当月预测开播收益"
+            value={formatUsd(selected.forecast_revenue_usd)}
+            sub={inputOpen ? '点击收起账号明细' : '点击展开账号明细'}
+            onClick={() => setInputOpen((o) => !o)}
+            active={inputOpen}
+          />
+          <KpiCard
+            label="当月成本预算"
+            value={formatUsd(selected.budget_cost_usd)}
+            sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
+            linkTo="/expenses"
+            linkLabel="去支出管理"
+          />
+          <KpiCard
+            label="当月利润"
+            value={formatUsd(selected.profit_usd)}
+            sub={selected.profit_usd >= 0 ? '本月预计结余' : '本月预计亏损'}
+            valueClassName={selectedProfitColor}
+          />
+          <KpiCard
+            label="当月累计利润"
+            value={formatUsd(selectedCumulativeProfit)}
+            sub={`截至 ${selectedMonthLabel} 累计`}
+            valueClassName={selectedCumulativeProfitColor}
+          />
+          <KpiCard
+            label="当月毛利率"
+            value={selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
+            sub="当月利润 / 当月收益"
+            valueClassName={monthMarginColor}
+          />
+        </div>
+      )}
 
       {/* Row 2: Account forecast input (collapsible) */}
       <section className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
@@ -354,7 +402,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
               <span className="text-xl font-bold text-indigo-600 tabular-nums tracking-tight">
                 {selectedMonthLabel}
               </span>
-              <span className="text-sm font-medium text-slate-500 ml-1.5">账号预测输入</span>
+              <span className="text-sm font-medium text-slate-500 ml-1.5">预测收入</span>
             </h2>
             <span className="hidden sm:block text-xs text-slate-400 truncate">每个月单独设置账号参数，输入自动保存</span>
           </div>
@@ -623,7 +671,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 />
 
                 <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
-                  计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
+                  计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。预测收入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
                 </div>
               </>
             )}
@@ -814,7 +862,7 @@ function YearSummaryTable({
   if (configured.length === 0) {
     return (
       <div className="px-5 pb-8 pt-2 text-center text-sm text-slate-400">
-        还没有任何月份配置了账号预测输入。
+        还没有任何月份配置了预测收入。
       </div>
     )
   }
