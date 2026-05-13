@@ -21,6 +21,15 @@ export const ExpensePaymentStatusEnum = z.enum([
 // period is stored as 'YYYY-QN' (quarter) per migration 013.
 const PERIOD_RE = /^\d{4}-Q[1-4]$/
 
+// `*_contains` is used as a postgres ILIKE pattern. A single character or a
+// pure-wildcard value matches almost every row, which makes it cheap to
+// enumerate the table one character at a time. Require at least 2 non-wildcard
+// characters and reject pure wildcards / whitespace.
+const ContainsField = z.string().min(2).max(64).refine(
+  v => v.replace(/[%_\s]/g, '').length >= 2,
+  '过滤词必须包含至少 2 个非通配符字符',
+)
+
 export const ExpenseFiltersSchema = z.object({
   expense_category:    z.array(ExpenseCategoryEnum).optional(),
   period_in:           z.array(z.string().regex(PERIOD_RE)).optional(),
@@ -30,11 +39,23 @@ export const ExpenseFiltersSchema = z.object({
   }).optional(),
   payment_status:      z.array(ExpensePaymentStatusEnum).optional(),
   payment_method:      z.array(ExpensePaymentMethodEnum).optional(),
-  user_name_contains:  z.string().min(1).optional(),
-  buyer_name_contains: z.string().min(1).optional(),
-  item_name_contains:  z.string().min(1).optional(),
-  purpose_contains:    z.string().min(1).optional(),
+  user_name_contains:  ContainsField.optional(),
+  buyer_name_contains: ContainsField.optional(),
+  item_name_contains:  ContainsField.optional(),
+  purpose_contains:    ContainsField.optional(),
 }).strict()
+
+// Update/delete must narrow to a specific record. ID alone is fine; otherwise
+// we require a date/period selector. Pure-category or pure-name selectors are
+// rejected to prevent "delete every travel expense" type blast radius.
+function hasDateSelector(f: ExpenseFilters | undefined): boolean {
+  if (!f) return false
+  return !!(
+    f.date_range?.from ||
+    f.date_range?.to ||
+    (f.period_in && f.period_in.length > 0)
+  )
+}
 
 export type ExpenseFilters = z.infer<typeof ExpenseFiltersSchema>
 
@@ -74,7 +95,10 @@ export const ExpenseUpdateIntentSchema = z.object({
   targetMatch: z.object({
     id:      z.string().uuid().optional(),
     filters: ExpenseFiltersSchema.optional(),
-  }).refine(v => !!v.id || !!v.filters, { message: 'targetMatch requires id or filters' }),
+  }).refine(
+    v => !!v.id || hasDateSelector(v.filters),
+    { message: 'targetMatch 必须给出具体 id，或者在 filters 中指定 date_range/period_in 范围' },
+  ),
   patch:   ExpenseWritePayloadSchema,
   summary: z.string().min(1),
   ambiguities: z.array(z.string()).optional(),
@@ -86,7 +110,10 @@ export const ExpenseDeleteIntentSchema = z.object({
   targetMatch: z.object({
     id:      z.string().uuid().optional(),
     filters: ExpenseFiltersSchema.optional(),
-  }).refine(v => !!v.id || !!v.filters, { message: 'targetMatch requires id or filters' }),
+  }).refine(
+    v => !!v.id || hasDateSelector(v.filters),
+    { message: 'targetMatch 必须给出具体 id，或者在 filters 中指定 date_range/period_in 范围' },
+  ),
   summary: z.string().min(1),
   ambiguities: z.array(z.string()).optional(),
 }).strict()

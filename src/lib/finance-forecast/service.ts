@@ -52,7 +52,14 @@ export async function loadFinanceForecastYear(
   const db = createServerClient()
   const [monthsRes, accountsRes] = await Promise.all([
     db.from('finance_forecast_months').select('*').eq('view_id', viewId).eq('year', year),
-    db.from('finance_forecast_accounts').select('*').eq('view_id', viewId).eq('year', year).order('month', { ascending: true }),
+    // Order by month, then by created_at so the visual order of rows
+    // within a month is stable across reloads. Without the secondary
+    // sort, Postgres returns rows in arbitrary order, which made it
+    // possible to click "delete" on what looked like row A but hit
+    // row B's underlying array index.
+    db.from('finance_forecast_accounts').select('*').eq('view_id', viewId).eq('year', year)
+      .order('month',      { ascending: true })
+      .order('created_at', { ascending: true }),
   ])
 
   if (monthsRes.error) return err('db_error', monthsRes.error.message)
@@ -77,7 +84,9 @@ export async function loadFinanceForecastYears(
   const db = createServerClient()
   const [monthsRes, accountsRes] = await Promise.all([
     db.from('finance_forecast_months').select('*').eq('view_id', viewId).in('year', years),
-    db.from('finance_forecast_accounts').select('*').eq('view_id', viewId).in('year', years).order('month', { ascending: true }),
+    db.from('finance_forecast_accounts').select('*').eq('view_id', viewId).in('year', years)
+      .order('month',      { ascending: true })
+      .order('created_at', { ascending: true }),
   ])
 
   if (monthsRes.error) return err('db_error', monthsRes.error.message)
@@ -176,16 +185,6 @@ export async function saveFinanceForecastYear(
     }))
   )
 
-  // Fetch existing IDs (scoped to this view) before upserting so we can
-  // compute stale rows after.
-  const { data: existingRows, error: fetchError } = await db
-    .from('finance_forecast_accounts')
-    .select('id')
-    .eq('view_id', viewId)
-    .eq('year', year)
-
-  if (fetchError) return err('db_error', fetchError.message)
-
   // Upsert first (safe even if subsequent delete fails — data is preserved)
   if (accountRows.length > 0) {
     const { error: upsertError } = await db
@@ -195,28 +194,29 @@ export async function saveFinanceForecastYear(
     if (upsertError) return err('db_error', upsertError.message)
   }
 
-  // Delete rows that are no longer in the dataset using explicit ID list
-  const currentIdSet = new Set(accountRows.map((r) => r.id))
-  const staleIds = (existingRows ?? []).map((r) => r.id).filter((id) => !currentIdSet.has(id))
-  console.log('[forecast-save] view=%s year=%s existing=%d current=%d stale=%d ids=%j',
-    viewId, year, existingRows?.length ?? 0, accountRows.length, staleIds.length, staleIds)
-  if (staleIds.length > 0) {
-    const { error: deleteError } = await db
-      .from('finance_forecast_accounts')
-      .delete()
-      .in('id', staleIds)
-    if (deleteError) {
-      console.error('[forecast-save] delete failed:', deleteError.message)
-      return err('db_error', deleteError.message)
-    }
-    console.log('[forecast-save] deleted %d stale rows', staleIds.length)
+  // Single atomic DELETE: remove accounts for this (view, year) whose IDs
+  // are absent from the current payload. Avoids the fetch-then-delete race
+  // where a concurrent insert between snapshot and delete would be missed.
+  const currentIds = accountRows.map((r) => r.id)
+  const deleteBase = db
+    .from('finance_forecast_accounts')
+    .delete()
+    .eq('view_id', viewId)
+    .eq('year', year)
+
+  const { error: deleteError } = currentIds.length > 0
+    ? await deleteBase.not('id', 'in', `(${currentIds.join(',')})`)
+    : await deleteBase
+
+  if (deleteError) {
+    console.error('[forecast-save] delete failed:', deleteError.message)
+    return err('db_error', deleteError.message)
   }
 
+  console.log('[forecast-save] view=%s year=%s current=%d', viewId, year, accountRows.length)
+
   return ok(months, {
-    existing: existingRows?.length ?? 0,
-    current:  accountRows.length,
-    stale:    staleIds.length,
-    staleIds,
+    current: accountRows.length,
   })
 }
 
