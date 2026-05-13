@@ -36,6 +36,14 @@ import {
 import { createLatestSaveQueue } from '@/lib/finance-forecast/save-queue'
 import type { ForecastView } from '@/lib/finance-forecast/views'
 import ForecastViewBar from '@/components/finance-forecast/ForecastViewBar'
+import LifecycleTemplateEditor from '@/components/finance-forecast/LifecycleTemplateEditor'
+import {
+  LIFECYCLE_STARTING_STAGES,
+  LIFECYCLE_STARTING_STAGE_LABELS,
+  type LifecycleStartingStage,
+  type LifecycleTemplateSet,
+} from '@/lib/finance-forecast/lifecycle'
+import { planLifecycleApplication } from '@/lib/finance-forecast/lifecycle-apply'
 
 const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
   key:     '#6366f1',
@@ -106,6 +114,16 @@ export default function FinanceForecastDashboard({
   const [viewBarBusy, setViewBarBusy] = useState(false)
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
+
+  // Lifecycle template plumbing.
+  // - `lifecycleEditorOpen` controls the per-user templates modal.
+  // - `addFromTemplateOpen` controls the "pick stage + name → fan out 12
+  //    months" modal that lives next to the "+ 添加账号" button.
+  // - `lifecycleSet` caches the user's templates so the add-from-template
+  //    flow doesn't refetch on every modal open. Hydrated lazily.
+  const [lifecycleEditorOpen, setLifecycleEditorOpen] = useState(false)
+  const [addFromTemplateOpen, setAddFromTemplateOpen] = useState(false)
+  const [lifecycleSet, setLifecycleSet] = useState<LifecycleTemplateSet | null>(null)
 
   const activeView = views.find((v) => v.id === activeViewId) ?? null
   const canEditActive = activeView ? (isAdmin || activeView.owner_id === currentUserId) : false
@@ -248,6 +266,85 @@ export default function FinanceForecastDashboard({
         ],
       }
     }))
+  }
+
+  // Lazy-fetch the user's lifecycle templates the first time the
+  // add-from-template flow opens. Subsequent opens reuse the cache; the
+  // editor refreshes the cache via its onSaved callback.
+  async function ensureLifecycleSet(): Promise<LifecycleTemplateSet | null> {
+    if (lifecycleSet) return lifecycleSet
+    try {
+      const res = await fetch('/api/finance-forecast/lifecycle')
+      const body = await res.json() as { data: LifecycleTemplateSet | null; error: string | null }
+      if (!res.ok || !body.data) return null
+      setLifecycleSet(body.data)
+      return body.data
+    } catch {
+      return null
+    }
+  }
+
+  // Apply a template starting at the current (selectedYear,
+  // safeSelectedMonth). For each of the 12 month cells, work out the
+  // target (year, monthIndex), group rows by year, then merge into
+  // byYear. The autosave effect picks the changes up per-year.
+  function applyLifecycleTemplate(stage: LifecycleStartingStage, accountName: string) {
+    if (!activeViewId || !canEditActive) return
+    const set = lifecycleSet
+    if (!set) return
+    const template = set[stage]
+    const planned = planLifecycleApplication({
+      template,
+      startYear:       selectedYear,
+      startMonthIndex: safeSelectedMonth,
+      horizonYears:    years,
+      accountName,
+      idSeed:          `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    })
+    if (planned.length === 0) return
+
+    const rowsByYear = new Map<number, typeof planned>()
+    for (const row of planned) {
+      const list = rowsByYear.get(row.year) ?? []
+      list.push(row)
+      rowsByYear.set(row.year, list)
+    }
+
+    setByYear((prev) => {
+      const next = { ...prev }
+      for (const [year, rows] of rowsByYear) {
+        const yearMonths = prev[year] ?? []
+        next[year] = yearMonths.map((month) => {
+          const additions = rows.filter((r) => r.monthKey === month.month)
+          if (additions.length === 0) return month
+          return {
+            ...month,
+            rows: [
+              ...month.rows,
+              ...additions.map((r) => ({
+                id:                     r.rowId,
+                account_name:           accountName.trim() || '新账号',
+                account_type:           r.account_type,
+                live_days:              r.live_days,
+                avg_daily_hours:        r.avg_daily_hours,
+                revenue_per_minute_usd: r.revenue_per_minute_usd,
+                share_ratio_pct:        r.share_ratio_pct,
+              })),
+            ],
+          }
+        })
+      }
+      return next
+    })
+
+    // Move the editor focus to the first inserted row's month so the
+    // user can immediately see the freshly-applied data.
+    const first = planned[0]
+    if (first) {
+      setSelectedYear(first.year)
+      setSelectedMonth(first.monthIndex)
+      setExpandedRowId(first.rowId)
+    }
   }
 
   // Destructive ops: state update + immediate save (bypass the 700ms debounce)
@@ -523,6 +620,7 @@ export default function FinanceForecastDashboard({
       onCreate={handleCreateView}
       onUpdate={handleUpdateView}
       onDelete={handleDeleteView}
+      onOpenLifecycle={() => setLifecycleEditorOpen(true)}
     />
   )
 
@@ -649,6 +747,17 @@ export default function FinanceForecastDashboard({
                     </Button>
                     <Button variant="secondary" size="sm" onClick={clearMonth}>
                       <RotateCcw className="w-3.5 h-3.5" /> 清空本月
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={async () => {
+                        await ensureLifecycleSet()
+                        setAddFromTemplateOpen(true)
+                      }}
+                      title="按生命周期模板一次性创建 12 个月的数据"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> 从模板新增
                     </Button>
                     <Button size="sm" onClick={addRow}>
                       <Plus className="w-3.5 h-3.5" /> 添加账号
@@ -1034,7 +1143,125 @@ export default function FinanceForecastDashboard({
         </>
       )}
       </>)}
+
+      {/* Lifecycle templates editor (per-user, opened from the view popover). */}
+      <LifecycleTemplateEditor
+        open={lifecycleEditorOpen}
+        onClose={() => setLifecycleEditorOpen(false)}
+        onSaved={(set) => setLifecycleSet(set)}
+      />
+
+      {/* Add-from-template picker — small modal launched by "+ 从模板新增". */}
+      {addFromTemplateOpen && (
+        <AddFromTemplateModal
+          lifecycleSet={lifecycleSet}
+          startLabel={selected?.month ?? `${selectedYear}-${String(safeSelectedMonth + 1).padStart(2, '0')}`}
+          horizonYears={years}
+          onOpenEditor={() => {
+            setAddFromTemplateOpen(false)
+            setLifecycleEditorOpen(true)
+          }}
+          onCancel={() => setAddFromTemplateOpen(false)}
+          onConfirm={(stage, name) => {
+            applyLifecycleTemplate(stage, name)
+            setAddFromTemplateOpen(false)
+          }}
+        />
+      )}
     </>
+  )
+}
+
+function AddFromTemplateModal({
+  lifecycleSet,
+  startLabel,
+  horizonYears,
+  onOpenEditor,
+  onCancel,
+  onConfirm,
+}: {
+  lifecycleSet: LifecycleTemplateSet | null
+  startLabel:   string
+  horizonYears: number[]
+  onOpenEditor: () => void
+  onCancel:     () => void
+  onConfirm:    (stage: LifecycleStartingStage, name: string) => void
+}) {
+  const [stage, setStage] = useState<LifecycleStartingStage>('newbie')
+  const [name, setName]   = useState('')
+  const canConfirm = !!lifecycleSet && name.trim().length > 0
+
+  function describeTemplate(s: LifecycleStartingStage): string {
+    const tpl = lifecycleSet?.[s]
+    if (!tpl) return '加载中…'
+    // A quick at-a-glance hint: total broadcasting hours implied by the
+    // template, so users can sanity-check the assumption before applying.
+    const totalHours = tpl.reduce((sum, c) => sum + c.live_days * c.avg_daily_hours, 0)
+    return `${totalHours.toFixed(0)} 小时 / 12 个月`
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-lg p-5">
+        <h2 className="text-base font-bold text-slate-900 mb-1">从生命周期模板新增账号</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          从 <strong className="text-slate-700">{startLabel}</strong> 起，按所选模板自动填充未来 12 个月的账号数据。
+          跨年时会写入 {horizonYears[0]}–{horizonYears[horizonYears.length - 1]} 范围内的对应月份。
+        </p>
+
+        <label className="block mb-3">
+          <span className="block text-xs font-medium text-slate-700 mb-1">账号名称</span>
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="例如：A 主播 / 新号-Zoe"
+            className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </label>
+
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-slate-700">起始阶段</span>
+          <button
+            type="button"
+            onClick={onOpenEditor}
+            className="text-[11px] text-indigo-600 hover:text-indigo-700"
+          >
+            编辑模板 →
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-1.5 mb-4">
+          {LIFECYCLE_STARTING_STAGES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStage(s)}
+              className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors text-left ${
+                s === stage
+                  ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300'
+              }`}
+            >
+              <span>从 {LIFECYCLE_STARTING_STAGE_LABELS[s]} 起步</span>
+              <span className="text-[10px] font-normal text-slate-400 tabular-nums">{describeTemplate(s)}</span>
+            </button>
+          ))}
+        </div>
+
+        {!lifecycleSet && (
+          <p className="text-[11px] text-amber-600 mb-3">
+            模板还在加载… 也可以先<button type="button" onClick={onOpenEditor} className="underline">编辑模板</button>把参数填好。
+          </p>
+        )}
+
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="secondary" size="sm" onClick={onCancel}>取消</Button>
+          <Button size="sm" onClick={() => canConfirm && onConfirm(stage, name)} disabled={!canConfirm}>
+            <Plus className="w-3.5 h-3.5" /> 创建 12 个月
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 
