@@ -16,8 +16,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight } from 'lucide-react'
+import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, MoreHorizontal } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import Modal from '@/components/ui/Modal'
 import { Link } from '@/i18n/navigation'
 import {
   FORECAST_ACCOUNT_TYPE_LABELS,
@@ -76,6 +77,14 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const [inputOpen, setInputOpen] = useState(true)
   const [hydratedDraft, setHydratedDraft] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  // Mobile-only UI state. On `<lg` the account list renders as a card list
+  // where only one card can be expanded for editing at a time. `null` =
+  // everything collapsed (the default state per UX spec).
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
+  // Pending-delete row drives the confirm modal. Shared between desktop
+  // and mobile so deletions on either layout require a second tap.
+  const [deletingRow, setDeletingRow] = useState<{ index: number; name: string } | null>(null)
   const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
   const didLoadDraft    = useRef(false)
   const storageKeyRef   = useRef(storageKey)
@@ -133,15 +142,18 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   }
 
   function addRow() {
+    // Capture the new id outside setMonths so we can auto-expand the new
+    // card on mobile (the only natural follow-up to clicking "添加账号"
+    // is filling in the name).
+    const newId = `${selectedRaw.month}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     setMonths((prev) => prev.map((month, i) => {
       if (i !== selectedMonth) return month
-      const id = `${month.month}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
       return {
         ...month,
         rows: [
           ...month.rows,
           {
-            id,
+            id:                     newId,
             account_name:           '新账号',
             account_type:           'newbie',
             live_days:              0,
@@ -152,6 +164,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         ],
       }
     }))
+    setExpandedRowId(newId)
   }
 
   // Queue destructive ops immediately so a slower previous autosave cannot
@@ -169,6 +182,17 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     )
     setMonths(newMonths)
     persistNow(newMonths)
+    setExpandedRowId(null)
+  }
+
+  function requestDeleteRow(rowIndex: number) {
+    const row = selectedRaw.rows[rowIndex]
+    setDeletingRow({ index: rowIndex, name: row?.account_name ?? '此账号' })
+  }
+
+  function confirmDelete() {
+    if (deletingRow) deleteRow(deletingRow.index)
+    setDeletingRow(null)
   }
 
   function clearMonth() {
@@ -242,8 +266,36 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     }
   }, [hydratedDraft, months, storageKey])
 
+  // Always collapse the expanded card when switching months. Editing is
+  // strictly scoped to the currently-selected month, so an "open" state
+  // is meaningless after the user moves to another month.
+  useEffect(() => { setExpandedRowId(null) }, [selectedMonth])
+
+  // Close the mobile actions dropdown on outside click / Escape.
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!actionsMenuOpen) return
+    const onPointer = (e: PointerEvent) => {
+      if (!actionsMenuRef.current?.contains(e.target as Node)) setActionsMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setActionsMenuOpen(false) }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [actionsMenuOpen])
+
   const monthLabels = t.raw('months') as string[]
   const selectedMonthLabel = monthLabels[parseInt(selected.month.slice(5), 10) - 1] ?? selected.month.slice(5)
+
+  // Wrap each action so the dropdown closes after invoking. Shared between
+  // the desktop button row and the mobile menu.
+  function runAction(fn: () => void) {
+    fn()
+    setActionsMenuOpen(false)
+  }
 
   return (
     <>
@@ -310,8 +362,9 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
             <span className={`text-xs font-medium ${saveStatusClass(saveStatus)}`}>
               {saveStatus === 'saving' ? t('statusSaving') : saveStatus === 'saved' ? t('statusSaved') : saveStatus === 'error' ? t('statusError') : ''}
             </span>
+            {/* Desktop: 4 buttons inline — same as before. */}
             {inputOpen && (
-              <>
+              <div className="hidden lg:flex items-center gap-2">
                 <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={selectedMonth === 0}>
                   <Copy className="w-3.5 h-3.5" /> 复制上月
                 </Button>
@@ -324,7 +377,65 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 <Button size="sm" onClick={addRow}>
                   <Plus className="w-3.5 h-3.5" /> 添加账号
                 </Button>
-              </>
+              </div>
+            )}
+            {/* Mobile: all 4 actions collapse into a single dropdown so the
+                header stays one line and destructive actions sit away from
+                the additive "添加账号" primary. */}
+            {inputOpen && (
+              <div ref={actionsMenuRef} className="lg:hidden relative">
+                <button
+                  type="button"
+                  onClick={() => setActionsMenuOpen((v) => !v)}
+                  aria-haspopup="menu"
+                  aria-expanded={actionsMenuOpen}
+                  aria-label="操作"
+                  className="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+                {actionsMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full mt-1.5 z-20 w-44 bg-white border border-slate-200 rounded-lg shadow-lg py-1"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => runAction(addRow)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-indigo-600 font-medium hover:bg-indigo-50"
+                    >
+                      <Plus className="w-4 h-4" /> 添加账号
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={selectedMonth === 0}
+                      onClick={() => runAction(copyPreviousMonth)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:text-slate-300 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    >
+                      <Copy className="w-4 h-4" /> 复制上月
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => runAction(applyForward)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <Copy className="w-4 h-4" /> 应用到后续月份
+                    </button>
+                    <div className="my-1 border-t border-slate-100" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => runAction(clearMonth)}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <RotateCcw className="w-4 h-4" /> 清空本月
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             <button
               type="button"
@@ -424,7 +535,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
               <YearSummaryTable months={summary.months} onSelectMonth={(index) => { setShowYearView(false); setSelectedMonth(index) }} />
             ) : (
               <>
-                <div className="overflow-x-auto">
+                {/* Desktop / tablet: wide editable table. */}
+                <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-sm min-w-[1120px]">
                 <thead>
                   <tr className="border-y border-slate-100 bg-slate-50">
@@ -486,7 +598,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                         <button
                           type="button"
                           aria-label="Delete row"
-                          onClick={() => deleteRow(index)}
+                          onClick={() => requestDeleteRow(index)}
                           className="inline-flex items-center text-xs font-medium text-red-500 hover:text-red-700"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -497,6 +609,18 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 </tbody>
               </table>
             </div>
+
+                {/* Mobile: card list. Each row collapses to a one-glance summary
+                    and expands inline into a stacked form. Only one card open
+                    at a time. */}
+                <MobileAccountList
+                  rows={calculatedRows}
+                  expandedRowId={expandedRowId}
+                  onToggle={(id) => setExpandedRowId((cur) => cur === id ? null : id)}
+                  onChange={updateRow}
+                  onDelete={requestDeleteRow}
+                  onAdd={addRow}
+                />
 
                 <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
                   计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
@@ -650,6 +774,23 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           </div>
         </aside>
       </div>
+
+      {/* Delete confirmation — shared by the desktop table row trash icon
+          and the mobile card's delete button so we never lose a row to a
+          stray tap. */}
+      <Modal open={!!deletingRow} onClose={() => setDeletingRow(null)} title="删除账号">
+        {deletingRow && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700">
+              确定要删除 <strong className="text-slate-900">{deletingRow.name}</strong> 吗？删除后无法恢复，本月的账号类型贡献和 KPI 会立刻重新计算。
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button variant="secondary" onClick={() => setDeletingRow(null)}>取消</Button>
+              <Button variant="danger" onClick={confirmDelete}>删除</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   )
 }
@@ -869,6 +1010,162 @@ function KpiCard({
         {value}
       </p>
       <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate" title={sub}>{sub}</p>
+    </div>
+  )
+}
+
+// ── Mobile account list ──────────────────────────────────────────
+//
+// On `<lg` we drop the wide editable table in favour of a card list.
+// Each card has two states:
+//   collapsed → one-line summary: name + type/status + key meta + 月开播收益
+//   expanded  → stacked form with full-width inputs (good touch targets)
+// Only one card can be expanded at a time so the page stays scannable.
+
+type CalculatedRow = ForecastAccountInput & { monthly_revenue_usd: number }
+
+function MobileAccountList({
+  rows,
+  expandedRowId,
+  onToggle,
+  onChange,
+  onDelete,
+  onAdd,
+}: {
+  rows:          CalculatedRow[]
+  expandedRowId: string | null
+  onToggle:      (id: string) => void
+  onChange:      (rowIndex: number, patch: Partial<ForecastAccountInput>) => void
+  onDelete:      (rowIndex: number) => void
+  onAdd:         () => void
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="lg:hidden px-4 py-8 text-center">
+        <p className="text-sm text-slate-500 mb-3">
+          当前月份还没有预测输入。添加账号后，账号类型贡献、曲线和 KPI 才会开始计算。
+        </p>
+        <Button onClick={onAdd}>
+          <Plus className="w-4 h-4" /> 添加账号
+        </Button>
+      </div>
+    )
+  }
+  return (
+    <ul className="lg:hidden divide-y divide-slate-100">
+      {rows.map((row, index) => {
+        const open = expandedRowId === row.id
+        return (
+          <li key={row.id}>
+            {open
+              ? <MobileAccountCardExpanded row={row} index={index} onCollapse={() => onToggle(row.id)} onChange={onChange} onDelete={onDelete} />
+              : <MobileAccountCardCollapsed row={row} onExpand={() => onToggle(row.id)} />}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function MobileAccountCardCollapsed({
+  row,
+  onExpand,
+}: {
+  row:      CalculatedRow
+  onExpand: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-start justify-between gap-3"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-semibold text-slate-900 truncate">{row.account_name || '未命名'}</span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 flex-shrink-0">
+            {FORECAST_ACCOUNT_TYPE_LABELS[row.account_type]}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 mb-1">
+          <StatusBadge revenue={row.monthly_revenue_usd} />
+        </div>
+        <div className="text-[11px] text-slate-500 tabular-nums truncate">
+          {row.live_days}天 · {row.avg_daily_hours}h · ${row.revenue_per_minute_usd}/min · 分润{row.share_ratio_pct}%
+        </div>
+      </div>
+      <div className="text-right whitespace-nowrap flex-shrink-0">
+        <div className="text-base font-bold text-slate-900 tabular-nums">{formatUsd(row.monthly_revenue_usd)}</div>
+        <div className="text-[10px] text-slate-400 mt-0.5">月开播收益</div>
+      </div>
+    </button>
+  )
+}
+
+function MobileAccountCardExpanded({
+  row,
+  index,
+  onCollapse,
+  onChange,
+  onDelete,
+}: {
+  row:        CalculatedRow
+  index:      number
+  onCollapse: () => void
+  onChange:   (rowIndex: number, patch: Partial<ForecastAccountInput>) => void
+  onDelete:   (rowIndex: number) => void
+}) {
+  return (
+    <div className="px-4 py-4 bg-indigo-50/30 border-l-2 border-indigo-500 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">编辑账号</span>
+        <span className="text-base font-bold text-slate-900 tabular-nums">{formatUsd(row.monthly_revenue_usd)}</span>
+      </div>
+      <Field label="账号名">
+        <input
+          value={row.account_name}
+          onChange={(event) => onChange(index, { account_name: event.target.value })}
+          className={INPUT_CLASS}
+          autoFocus={!row.account_name || row.account_name === '新账号'}
+        />
+      </Field>
+      <Field label="类型">
+        <select
+          value={row.account_type}
+          onChange={(event) => onChange(index, { account_type: event.target.value as ForecastAccountType })}
+          className={INPUT_CLASS}
+        >
+          {FORECAST_ACCOUNT_TYPES.map((type) => (
+            <option key={type} value={type}>{FORECAST_ACCOUNT_TYPE_LABELS[type]}</option>
+          ))}
+        </select>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="开播天数">
+          <NumberInput value={row.live_days} onChange={(live_days) => onChange(index, { live_days })} />
+        </Field>
+        <Field label="平均时长 (h)">
+          <NumberInput value={row.avg_daily_hours} onChange={(avg_daily_hours) => onChange(index, { avg_daily_hours })} step={0.5} />
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="分钟收益 ($)">
+          <NumberInput value={row.revenue_per_minute_usd} onChange={(revenue_per_minute_usd) => onChange(index, { revenue_per_minute_usd })} step={0.01} />
+        </Field>
+        <Field label="分润比例 (%)">
+          <NumberInput value={row.share_ratio_pct} onChange={(share_ratio_pct) => onChange(index, { share_ratio_pct })} max={100} />
+        </Field>
+      </div>
+      <div className="flex items-center justify-between pt-1">
+        <button
+          type="button"
+          onClick={() => onDelete(index)}
+          className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700"
+        >
+          <Trash2 className="w-3.5 h-3.5" /> 删除账号
+        </button>
+        <Button variant="secondary" size="sm" onClick={onCollapse}>完成</Button>
+      </div>
     </div>
   )
 }
