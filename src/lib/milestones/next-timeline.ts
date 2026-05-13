@@ -33,6 +33,12 @@ export interface TimelineGroup<T extends TimelineMilestone = TimelineMilestone> 
   milestones: T[]
 }
 
+export interface TimelinePressState {
+  isTouchLike: boolean
+  milestoneId: string
+  armedMilestoneId: string | null
+}
+
 export function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
@@ -103,4 +109,13 @@ export function groupTimelineItems<T extends TimelineMilestone>(
   }
 
   return groups
+}
+
+export function shouldNavigateTimelinePress({
+  isTouchLike,
+  milestoneId,
+  armedMilestoneId,
+}: TimelinePressState): boolean {
+  if (!isTouchLike) return true
+  return armedMilestoneId === milestoneId
 }

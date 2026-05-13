@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { Link } from '@/i18n/navigation'
 import { format } from 'date-fns/format'
 import type { Milestone } from '@/lib/types'
@@ -12,6 +12,7 @@ import {
   getTimelinePosition,
   getTimelineVisual,
   groupTimelineItems,
+  shouldNavigateTimelinePress,
 } from '@/lib/milestones/next-timeline'
 
 const RANGE_OPTIONS = [14, 30, 90] as const
@@ -19,6 +20,17 @@ type RangeDays = (typeof RANGE_OPTIONS)[number]
 
 function readableX(x: number): number {
   return Math.min(94, Math.max(6, x))
+}
+
+function isTouchLikeTimelineClick(event: ReactMouseEvent<HTMLElement>): boolean {
+  const nativeEvent = event.nativeEvent as MouseEvent & { pointerType?: string }
+  if (nativeEvent.pointerType) return nativeEvent.pointerType !== 'mouse'
+  if (typeof window === 'undefined') return false
+
+  return (
+    window.matchMedia?.('(hover: none), (pointer: coarse)').matches ||
+    navigator.maxTouchPoints > 0
+  )
 }
 
 const TONE_CLASS = {
@@ -55,6 +67,7 @@ const TONE_CLASS = {
 export default function NextTimelineView({ milestones }: { milestones: Milestone[] }) {
   const [rangeDays, setRangeDays] = useState<RangeDays>(30)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [armedId, setArmedId] = useState<string | null>(null)
 
   const range = useMemo(() => buildUpcomingRange(new Date(), rangeDays), [rangeDays])
   const upcoming = useMemo(() => filterUpcomingMilestones(milestones, range), [milestones, range])
@@ -77,13 +90,33 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
     ]
   }, [range, rangeDays])
 
+  const handleRangeChange = (days: RangeDays) => {
+    setRangeDays(days)
+    setActiveId(null)
+    setArmedId(null)
+  }
+
+  const handleMilestonePress = (event: ReactMouseEvent<HTMLElement>, milestoneId: string) => {
+    const shouldNavigate = shouldNavigateTimelinePress({
+      isTouchLike: isTouchLikeTimelineClick(event),
+      milestoneId,
+      armedMilestoneId: armedId,
+    })
+
+    if (shouldNavigate) return
+
+    event.preventDefault()
+    setActiveId(milestoneId)
+    setArmedId(milestoneId)
+  }
+
   if (upcoming.length === 0) {
     return (
       <section className="bg-white border border-slate-200 rounded-xl p-10 text-center">
         <p className="text-sm font-medium text-slate-600">未来 {rangeDays} 天暂无战略节点</p>
         <p className="text-xs text-slate-400 mt-1">可以切换到 90 天查看更远的规划。</p>
         <div className="mt-5 flex justify-center">
-          <RangeSwitch value={rangeDays} onChange={setRangeDays} />
+          <RangeSwitch value={rangeDays} onChange={handleRangeChange} />
         </div>
       </section>
     )
@@ -96,7 +129,7 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
           <h2 className="text-lg font-bold text-slate-900">接下来 {rangeDays} 天</h2>
           <p className="text-xs text-slate-500 mt-1">按日期查看即将到来的战略节点</p>
         </div>
-        <RangeSwitch value={rangeDays} onChange={setRangeDays} />
+        <RangeSwitch value={rangeDays} onChange={handleRangeChange} />
       </div>
 
       <div className="overflow-x-auto pb-2">
@@ -139,6 +172,7 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
                     isCluster={isCluster}
                     count={group.milestones.length}
                     selected={!!selected}
+                    onPress={handleMilestonePress}
                   />
                 )}
                 <div className={`mx-auto w-0.5 ${above ? 'h-10' : 'h-8'} ${cls.stem}`} />
@@ -148,6 +182,7 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
                   isCluster={isCluster}
                   selected={!!selected}
                   onFocus={() => setActiveId(first.id)}
+                  onPress={handleMilestonePress}
                 />
                 {!above && (
                   <TimelineCard
@@ -155,6 +190,7 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
                     isCluster={isCluster}
                     count={group.milestones.length}
                     selected={!!selected}
+                    onPress={handleMilestonePress}
                   />
                 )}
               </div>
@@ -201,12 +237,14 @@ function TimelineDot({
   isCluster,
   selected,
   onFocus,
+  onPress,
 }: {
   milestone: Milestone
   count: number
   isCluster: boolean
   selected: boolean
   onFocus: () => void
+  onPress: (event: ReactMouseEvent<HTMLElement>, milestoneId: string) => void
 }) {
   const visual = getTimelineVisual(milestone)
   const cls = TONE_CLASS[visual.tone]
@@ -236,6 +274,7 @@ function TimelineDot({
     <Link
       href={`/timeline/${milestone.id}`}
       title={title}
+      onClick={(event) => onPress(event, milestone.id)}
       className={`mx-auto block h-4 w-4 rounded-full ring-4 transition-transform hover:scale-110 ${dotClass} ${selected ? 'scale-125' : ''}`}
     />
   )
@@ -246,11 +285,13 @@ function TimelineCard({
   isCluster,
   count,
   selected,
+  onPress,
 }: {
   milestone: Milestone
   isCluster: boolean
   count: number
   selected: boolean
+  onPress: (event: ReactMouseEvent<HTMLElement>, milestoneId: string) => void
 }) {
   const visual = getTimelineVisual(milestone)
   const daysLeft = getDaysLeft(milestone.target_date)
@@ -261,6 +302,7 @@ function TimelineCard({
     <Link
       href={`/timeline/${milestone.id}`}
       title={`${milestone.title} · ${visual.label}`}
+      onClick={(event) => onPress(event, milestone.id)}
       className={`block w-44 rounded-lg border px-3 py-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${cls.card} ${selected ? 'ring-2 ring-indigo-300' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
