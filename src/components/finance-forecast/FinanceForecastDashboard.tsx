@@ -18,7 +18,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, ChevronRight } from 'lucide-react'
+import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, ChevronRight, Lock } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { Link } from '@/i18n/navigation'
 import {
@@ -34,6 +34,8 @@ import {
   type ForecastSummary,
 } from '@/lib/finance-forecast/calculations'
 import { createLatestSaveQueue } from '@/lib/finance-forecast/save-queue'
+import type { ForecastView } from '@/lib/finance-forecast/views'
+import ForecastViewBar from '@/components/finance-forecast/ForecastViewBar'
 
 const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
   key:     '#6366f1',
@@ -65,21 +67,31 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 type ViewMode = 'annual' | 'monthly'
 
 interface Props {
+  views:                 ForecastView[]
+  defaultViewId:         string | null
   monthsByYear:          Record<number, ForecastMonthInput[]>
   years:                 number[]
   anchorYear:            number
   initialSelectedMonth?: number
+  currentUserId:         string
+  isAdmin:               boolean
 }
 
 const STORAGE_KEY_PREFIX = 'finance-forecast:draft'
 
 export default function FinanceForecastDashboard({
+  views: initialViews,
+  defaultViewId,
   monthsByYear: initialByYear,
   years,
   anchorYear,
   initialSelectedMonth = 0,
+  currentUserId,
+  isAdmin,
 }: Props) {
   const t = useTranslations('financeForecast')
+  const [views, setViews] = useState<ForecastView[]>(initialViews)
+  const [activeViewId, setActiveViewId] = useState<string | null>(defaultViewId)
   const [byYear, setByYear] = useState<Record<number, ForecastMonthInput[]>>(initialByYear)
   const [viewMode, setViewMode] = useState<ViewMode>('annual')
   const [selectedYear, setSelectedYear] = useState<number>(anchorYear)
@@ -89,14 +101,23 @@ export default function FinanceForecastDashboard({
   const [inputOpen, setInputOpen] = useState(true)
   const [hydratedDraft, setHydratedDraft] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [loadingView, setLoadingView] = useState(false)
+  const [viewBarBusy, setViewBarBusy] = useState(false)
+
+  const activeView = views.find((v) => v.id === activeViewId) ?? null
+  const canEditActive = activeView ? (isAdmin || activeView.owner_id === currentUserId) : false
 
   const didLoadDraft = useRef(false)
   const mountedRef   = useRef(false)
-  // One save queue per year so saving 2026 doesn't ship 2027's snapshot.
-  const saveQueuesRef = useRef(new Map<number, ReturnType<typeof createLatestSaveQueue<ForecastMonthInput[]>>>())
-  // Track the last persisted reference per year so the autosave effect only
-  // enqueues years that actually changed.
+  // Save queues are keyed by `${view_id}:${year}` so a slow in-flight save
+  // for view A won't ship a snapshot under view B after the user switches.
+  const saveQueuesRef = useRef(new Map<string, ReturnType<typeof createLatestSaveQueue<ForecastMonthInput[]>>>())
+  // Track the last persisted reference per (view, year) so the autosave
+  // effect only enqueues years that actually changed.
   const prevByYearRef = useRef<Record<number, ForecastMonthInput[]>>(initialByYear)
+  // Tracks which view id `prevByYearRef` belongs to. When we swap views we
+  // reset the ref to the freshly-fetched snapshot.
+  const prevViewIdRef = useRef<string | null>(defaultViewId)
 
   const months = byYear[selectedYear] ?? []
   const summary = useMemo(() => summarizeForecast(months), [months])
@@ -159,15 +180,16 @@ export default function FinanceForecastDashboard({
     ? (summary.yearly_profit_usd / summary.yearly_forecast_usd) * 100
     : 0
 
-  function getOrCreateQueue(year: number) {
-    let queue = saveQueuesRef.current.get(year)
+  function getOrCreateQueue(viewId: string, year: number) {
+    const key = `${viewId}:${year}`
+    let queue = saveQueuesRef.current.get(key)
     if (queue) return queue
     queue = createLatestSaveQueue<ForecastMonthInput[]>(
       async (snapshot) => {
         const res = await fetch('/api/finance-forecast', {
           method:  'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ year, months: snapshot }),
+          body:    JSON.stringify({ view_id: viewId, year, months: snapshot }),
         })
         if (!res.ok) throw new Error('Failed to save finance forecast')
       },
@@ -175,7 +197,7 @@ export default function FinanceForecastDashboard({
         if (mountedRef.current) setSaveStatus(status)
       },
     )
-    saveQueuesRef.current.set(year, queue)
+    saveQueuesRef.current.set(key, queue)
     return queue
   }
 
@@ -224,10 +246,11 @@ export default function FinanceForecastDashboard({
   // Destructive ops: state update + immediate save (bypass the 700ms debounce)
   // so a stale in-flight save can't resurrect a deleted row.
   function persistImmediate(year: number, newMonths: ForecastMonthInput[]) {
+    if (!activeViewId || !canEditActive) return
     setByYear((prev) => ({ ...prev, [year]: newMonths }))
-    writeDraft(buildStorageKey(year), newMonths)
+    writeDraft(buildStorageKey(activeViewId, year), newMonths)
     prevByYearRef.current = { ...prevByYearRef.current, [year]: newMonths }
-    getOrCreateQueue(year).enqueue(newMonths)
+    getOrCreateQueue(activeViewId, year).enqueue(newMonths)
   }
 
   function deleteRow(rowIndex: number) {
@@ -290,16 +313,19 @@ export default function FinanceForecastDashboard({
     }
   }, [])
 
-  // Hydrate localStorage drafts for every year in the horizon. Each year
-  // owns its own draft slot so editing 2027 doesn't disturb 2026.
+  // Hydrate localStorage drafts for the active view's 3 years. Each (view,
+  // year) pair owns its own draft slot so editing one view never disturbs
+  // another. Re-runs after view switches.
   useEffect(() => {
-    if (didLoadDraft.current) return
+    if (!activeViewId) return
+    if (didLoadDraft.current && prevViewIdRef.current === activeViewId) return
     didLoadDraft.current = true
+    prevViewIdRef.current = activeViewId
 
     setByYear((current) => {
       const next = { ...current }
       for (const year of years) {
-        const draft = readDraft(buildStorageKey(year))
+        const draft = readDraft(buildStorageKey(activeViewId, year))
         if (!draft) continue
         const existing = next[year] ?? []
         if (hasForecastInputs(existing)) continue
@@ -309,12 +335,14 @@ export default function FinanceForecastDashboard({
       return next
     })
     setHydratedDraft(true)
-  }, [years])
+  }, [activeViewId, years])
 
-  // Per-year debounced autosave. We only enqueue years whose snapshot ref
-  // changed — typing into 2026 must not retransmit 2027.
+  // Per-(view, year) debounced autosave. We only enqueue years whose
+  // snapshot ref changed — typing into 2026 must not retransmit 2027. We
+  // also skip entirely when the active view is read-only.
   useEffect(() => {
     if (!hydratedDraft) return
+    if (!activeViewId || !canEditActive) return
 
     // If nothing is in flight, reset the visible status.
     const anySaving = Array.from(saveQueuesRef.current.values()).some((q) => q.isSaving())
@@ -322,12 +350,13 @@ export default function FinanceForecastDashboard({
 
     const timers: number[] = []
     const prev = prevByYearRef.current
+    const viewId = activeViewId
     for (const year of years) {
       const cur = byYear[year]
       if (!cur || cur === prev[year]) continue
-      writeDraft(buildStorageKey(year), cur)
+      writeDraft(buildStorageKey(viewId, year), cur)
       const timer = window.setTimeout(() => {
-        getOrCreateQueue(year).enqueue(cur)
+        getOrCreateQueue(viewId, year).enqueue(cur)
       }, 700)
       timers.push(timer)
     }
@@ -336,7 +365,7 @@ export default function FinanceForecastDashboard({
     return () => {
       for (const timer of timers) window.clearTimeout(timer)
     }
-  }, [hydratedDraft, byYear, years])
+  }, [hydratedDraft, byYear, years, activeViewId, canEditActive])
 
   const monthLabels = t.raw('months') as string[]
   const selectedMonthLabel = selected
@@ -350,8 +379,147 @@ export default function FinanceForecastDashboard({
     setViewMode('monthly')
   }
 
+  // Fetch a view's forecast data over the full 3-year horizon. Used when
+  // the user switches views (server-loaded data only covers the default).
+  async function fetchViewForecast(viewId: string) {
+    setLoadingView(true)
+    try {
+      const yearsParam = years.join(',')
+      const res = await fetch(`/api/finance-forecast?view_id=${viewId}&years=${yearsParam}`)
+      if (!res.ok) {
+        console.error('Failed to load view', viewId, await res.text())
+        return
+      }
+      const body = await res.json() as { data: Record<number, ForecastMonthInput[]> | null }
+      if (body.data) {
+        const next: Record<number, ForecastMonthInput[]> = {}
+        for (const year of years) next[year] = body.data[year] ?? []
+        // Reset draft hydration; the new view gets its own draft pass.
+        didLoadDraft.current = false
+        prevViewIdRef.current = viewId
+        prevByYearRef.current = next
+        setByYear(next)
+        setHydratedDraft(false)
+      }
+    } finally {
+      setLoadingView(false)
+    }
+  }
+
+  async function handleSelectView(viewId: string) {
+    if (viewId === activeViewId) return
+    setActiveViewId(viewId)
+    setSelectedYear(anchorYear)
+    setSelectedMonth(initialSelectedMonth)
+    setShowYearView(false)
+    await fetchViewForecast(viewId)
+  }
+
+  async function handleCreateView(input: { name: string; note: string }) {
+    setViewBarBusy(true)
+    try {
+      const res = await fetch('/api/finance-forecast/views', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(input),
+      })
+      const body = await res.json() as { data: ForecastView | null; error: string | null }
+      if (!res.ok || !body.data) throw new Error(body.error ?? 'Failed to create view')
+      const newView = body.data
+      setViews((prev) => [...prev, newView])
+      // Auto-switch into the newly created (empty) view.
+      setActiveViewId(newView.id)
+      setSelectedYear(anchorYear)
+      setSelectedMonth(initialSelectedMonth)
+      setShowYearView(false)
+      await fetchViewForecast(newView.id)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '创建失败')
+    } finally {
+      setViewBarBusy(false)
+    }
+  }
+
+  async function handleUpdateView(
+    id: string,
+    patch: { name?: string; note?: string; is_public?: boolean },
+  ) {
+    setViewBarBusy(true)
+    try {
+      const res = await fetch(`/api/finance-forecast/views/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(patch),
+      })
+      const body = await res.json() as { data: ForecastView | null; error: string | null }
+      if (!res.ok || !body.data) throw new Error(body.error ?? 'Failed to update view')
+      const updated = body.data
+      setViews((prev) => prev.map((v) => v.id === id ? updated : v))
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '更新失败')
+    } finally {
+      setViewBarBusy(false)
+    }
+  }
+
+  async function handleDeleteView(id: string) {
+    setViewBarBusy(true)
+    try {
+      const res = await fetch(`/api/finance-forecast/views/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string }
+        throw new Error(body.error ?? 'Failed to delete view')
+      }
+      // Drop the deleted view; switch to another visible one if it was active.
+      setViews((prev) => {
+        const next = prev.filter((v) => v.id !== id)
+        if (id === activeViewId) {
+          const fallback = next.find((v) => v.owner_id === currentUserId) ?? next[0] ?? null
+          setActiveViewId(fallback?.id ?? null)
+          if (fallback) void fetchViewForecast(fallback.id)
+          else {
+            const empty: Record<number, ForecastMonthInput[]> = {}
+            for (const year of years) empty[year] = []
+            setByYear(empty)
+          }
+        }
+        return next
+      })
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '删除失败')
+    } finally {
+      setViewBarBusy(false)
+    }
+  }
+
   return (
     <>
+      <ForecastViewBar
+        views={views}
+        activeViewId={activeViewId}
+        currentUserId={currentUserId}
+        isAdmin={isAdmin}
+        busy={viewBarBusy || loadingView}
+        onSelect={handleSelectView}
+        onCreate={handleCreateView}
+        onUpdate={handleUpdateView}
+        onDelete={handleDeleteView}
+      />
+
+      {!activeView ? (
+        <div className="bg-white border border-dashed border-slate-300 rounded-xl p-10 text-center">
+          <p className="text-sm text-slate-500 mb-2">还没有任何可见的预测视角。</p>
+          <p className="text-xs text-slate-400">使用上方"新建视角"按钮创建第一个预测场景。</p>
+        </div>
+      ) : (<>
+
+      {!canEditActive && (
+        <div className="mb-4 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+          <Lock className="w-3.5 h-3.5" />
+          只读视角 — 此视角属于 {activeView.owner_id === null ? '系统' : activeView.owner_name ?? '其他用户'}，你可以查看但无法修改。
+        </div>
+      )}
+
       <ViewModeToolbar
         viewMode={viewMode}
         onChangeViewMode={setViewMode}
@@ -367,6 +535,7 @@ export default function FinanceForecastDashboard({
         savingLabel={t('statusSaving')}
         savedLabel={t('statusSaved')}
         errorLabel={t('statusError')}
+        loading={loadingView}
       />
 
       {viewMode === 'annual' ? (
@@ -441,7 +610,7 @@ export default function FinanceForecastDashboard({
                 <span className="hidden sm:block text-xs text-slate-400 truncate">每个月单独设置账号参数，输入自动保存</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                {inputOpen && (
+                {inputOpen && canEditActive && (
                   <>
                     <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={safeSelectedMonth === 0}>
                       <Copy className="w-3.5 h-3.5" /> 复制上月
@@ -517,6 +686,7 @@ export default function FinanceForecastDashboard({
                         value={selectedRaw.actual_revenue_usd}
                         onChange={(actual_revenue_usd) => updateSelectedMonth({ actual_revenue_usd })}
                         step={1000}
+                        disabled={!canEditActive}
                       />
                     </Field>
                     <Field label="当前月成本预算（同步）">
@@ -531,7 +701,10 @@ export default function FinanceForecastDashboard({
                       <input
                         value={selectedRaw.note ?? ''}
                         onChange={(event) => updateSelectedMonth({ note: event.target.value })}
-                        className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        readOnly={!canEditActive}
+                        className={!canEditActive
+                          ? 'w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500'
+                          : 'w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'}
                       />
                     </Field>
                   </div>}
@@ -569,14 +742,16 @@ export default function FinanceForecastDashboard({
                             <input
                               value={row.account_name}
                               onChange={(event) => updateRow(index, { account_name: event.target.value })}
-                              className={INPUT_CLASS}
+                              readOnly={!canEditActive}
+                              className={!canEditActive ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed` : INPUT_CLASS}
                             />
                           </td>
                           <td className="px-4 py-3">
                             <select
                               value={row.account_type}
                               onChange={(event) => updateRow(index, { account_type: event.target.value as ForecastAccountType })}
-                              className={INPUT_CLASS}
+                              disabled={!canEditActive}
+                              className={!canEditActive ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed` : INPUT_CLASS}
                             >
                               {FORECAST_ACCOUNT_TYPES.map((type) => (
                                 <option key={type} value={type}>{FORECAST_ACCOUNT_TYPE_LABELS[type]}</option>
@@ -584,30 +759,30 @@ export default function FinanceForecastDashboard({
                             </select>
                           </td>
                           <td className="px-4 py-3">
-                            <NumberInput value={row.live_days} onChange={(live_days) => updateRow(index, { live_days })} />
+                            <NumberInput disabled={!canEditActive} value={row.live_days} onChange={(live_days) => updateRow(index, { live_days })} />
                           </td>
                           <td className="px-4 py-3">
-                            <NumberInput value={row.avg_daily_hours} onChange={(avg_daily_hours) => updateRow(index, { avg_daily_hours })} step={0.5} />
+                            <NumberInput disabled={!canEditActive} value={row.avg_daily_hours} onChange={(avg_daily_hours) => updateRow(index, { avg_daily_hours })} step={0.5} />
                           </td>
                           <td className="px-4 py-3">
-                            <NumberInput value={row.revenue_per_minute_usd} onChange={(revenue_per_minute_usd) => updateRow(index, { revenue_per_minute_usd })} step={0.01} />
+                            <NumberInput disabled={!canEditActive} value={row.revenue_per_minute_usd} onChange={(revenue_per_minute_usd) => updateRow(index, { revenue_per_minute_usd })} step={0.01} />
                           </td>
                           <td className="px-4 py-3">
-                            <NumberInput value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} max={100} />
+                            <NumberInput disabled={!canEditActive} value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} max={100} />
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{formatUsd(row.monthly_revenue_usd)}</td>
                           <td className="px-4 py-3">
                             <StatusBadge revenue={row.monthly_revenue_usd} />
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <button
+                            {canEditActive && (<button
                               type="button"
                               aria-label="Delete row"
                               onClick={() => deleteRow(index)}
                               className="inline-flex items-center text-xs font-medium text-red-500 hover:text-red-700"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            </button>)}
                           </td>
                         </tr>
                       ))}
@@ -767,6 +942,7 @@ export default function FinanceForecastDashboard({
           </div>
         </>
       )}
+      </>)}
     </>
   )
 }
@@ -782,6 +958,7 @@ function ViewModeToolbar({
   savingLabel,
   savedLabel,
   errorLabel,
+  loading,
 }: {
   viewMode:         ViewMode
   onChangeViewMode: (mode: ViewMode) => void
@@ -793,11 +970,15 @@ function ViewModeToolbar({
   savingLabel:      string
   savedLabel:       string
   errorLabel:       string
+  loading?:         boolean
 }) {
-  const statusText =
-    saveStatus === 'saving' ? savingLabel :
-    saveStatus === 'saved'  ? savedLabel  :
-    saveStatus === 'error'  ? errorLabel  : ''
+  const statusText = loading
+    ? '加载视角中…'
+    : saveStatus === 'saving' ? savingLabel
+    : saveStatus === 'saved'  ? savedLabel
+    : saveStatus === 'error'  ? errorLabel
+    : ''
+  const statusClass = loading ? 'text-slate-500' : saveStatusClass(saveStatus)
 
   return (
     <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -837,7 +1018,7 @@ function ViewModeToolbar({
         )}
       </div>
 
-      <span className={`text-xs font-medium ${saveStatusClass(saveStatus)}`}>{statusText}</span>
+      <span className={`text-xs font-medium ${statusClass}`}>{statusText}</span>
     </div>
   )
 }
@@ -1093,8 +1274,8 @@ function YearSummaryTable({
   )
 }
 
-function buildStorageKey(year: number | string): string {
-  return `${STORAGE_KEY_PREFIX}:${year}`
+function buildStorageKey(viewId: string, year: number | string): string {
+  return `${STORAGE_KEY_PREFIX}:${viewId}:${year}`
 }
 
 function readDraft(storageKey: string): ForecastDraft | null {
@@ -1227,11 +1408,13 @@ function NumberInput({
   onChange,
   step = 1,
   max,
+  disabled,
 }: {
   value: number
   onChange: (value: number) => void
   step?: number
   max?: number
+  disabled?: boolean
 }) {
   return (
     <input
@@ -1241,7 +1424,10 @@ function NumberInput({
       step={step}
       value={Number.isFinite(value) ? value : 0}
       onChange={(event) => onChange(Number(event.target.value))}
-      className={INPUT_CLASS}
+      readOnly={disabled}
+      className={disabled
+        ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed`
+        : INPUT_CLASS}
     />
   )
 }
