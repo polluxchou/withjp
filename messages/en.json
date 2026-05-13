@@ -356,5 +356,28 @@
     "statusSaved": "Saved",
     "statusError": "Save failed, local draft retained",
     "months": ["Jan.", "Feb.", "Mar.", "Apr.", "May", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."]
+  },
+  "config": {
+    "tabs": {
+      "rules": "Rules",
+      "changelog": "Changelog"
+    },
+    "changelog": {
+      "title": "Changelog",
+      "subtitle": "Daily roll-up of new features and changes",
+      "today": "Today",
+      "summaryDays": "{count} day(s) recorded",
+      "summaryFeat": "{count} new feature(s)",
+      "summaryFix": "{count} fix(es)",
+      "itemCount": "{count} item(s)",
+      "footer": "Only user-visible changes are listed here. For raw commit history, see the repo git log.",
+      "kinds": {
+        "feat": "Feature",
+        "fix": "Fix",
+        "improve": "Polish",
+        "security": "Security",
+        "infra": "Infra"
+      }
+    }
   }
 }

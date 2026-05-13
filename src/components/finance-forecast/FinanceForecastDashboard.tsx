@@ -118,6 +118,9 @@ export default function FinanceForecastDashboard({
   // Tracks which view id `prevByYearRef` belongs to. When we swap views we
   // reset the ref to the freshly-fetched snapshot.
   const prevViewIdRef = useRef<string | null>(defaultViewId)
+  // Anchor for the mobile actions dropdown — used by the outside-click
+  // / Escape effect that closes it.
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null)
 
   const months = byYear[selectedYear] ?? []
   const summary = useMemo(() => summarizeForecast(months), [months])
@@ -306,6 +309,15 @@ export default function FinanceForecastDashboard({
   const yearlyProfitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
   const selectedProfitColor = selected && selected.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
 
+  // Cumulative profit through the selected month (inclusive). Used by
+  // the month-view KPI strip so users can see running profit without
+  // flipping back to the year view.
+  const selectedCumulativeProfit = cumulativeData[safeSelectedMonth]?.cum_profit ?? 0
+  const selectedCumulativeProfitColor = selectedCumulativeProfit >= 0 ? 'text-emerald-700' : 'text-red-600'
+  const monthMarginColor = !selected || selected.margin_pct === null
+    ? 'text-slate-400'
+    : selected.margin_pct >= 0 ? 'text-emerald-700' : 'text-red-600'
+
   useEffect(() => {
     mountedRef.current = true
     return () => {
@@ -367,6 +379,26 @@ export default function FinanceForecastDashboard({
     }
   }, [hydratedDraft, byYear, years, activeViewId, canEditActive])
 
+  // Always collapse the expanded card when switching month, year, or
+  // view. Editing is scoped to the currently-selected slot, so an
+  // "open" state is meaningless after the user navigates elsewhere.
+  useEffect(() => { setExpandedRowId(null) }, [activeViewId, selectedYear, selectedMonth])
+
+  // Close the mobile actions dropdown on outside click / Escape.
+  useEffect(() => {
+    if (!actionsMenuOpen) return
+    const onPointer = (e: PointerEvent) => {
+      if (!actionsMenuRef.current?.contains(e.target as Node)) setActionsMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setActionsMenuOpen(false) }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [actionsMenuOpen])
+
   const monthLabels = t.raw('months') as string[]
   const selectedMonthLabel = selected
     ? monthLabels[parseInt(selected.month.slice(5), 10) - 1] ?? selected.month.slice(5)
@@ -379,6 +411,13 @@ export default function FinanceForecastDashboard({
     setViewMode('monthly')
   }
 
+  // Wrap each action so the mobile actions dropdown closes after
+  // invoking. Shared between the desktop button row and the mobile menu.
+  function runAction(fn: () => void) {
+    fn()
+    setActionsMenuOpen(false)
+  }
+
   // Fetch a view's forecast data over the full 3-year horizon. Used when
   // the user switches views (server-loaded data only covers the default).
   async function fetchViewForecast(viewId: string) {
@@ -388,6 +427,7 @@ export default function FinanceForecastDashboard({
       const res = await fetch(`/api/finance-forecast?view_id=${viewId}&years=${yearsParam}`)
       if (!res.ok) {
         console.error('Failed to load view', viewId, await res.text())
+        setSaveStatus('error')
         return
       }
       const body = await res.json() as { data: Record<number, ForecastMonthInput[]> | null }
@@ -401,6 +441,9 @@ export default function FinanceForecastDashboard({
         setByYear(next)
         setHydratedDraft(false)
       }
+    } catch (e) {
+      console.error('Failed to load view forecast', viewId, e)
+      setSaveStatus('error')
     } finally {
       setLoadingView(false)
     }

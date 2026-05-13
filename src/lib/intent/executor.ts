@@ -5,9 +5,53 @@ import {
   deleteExpense,
   type ServiceError,
 } from '@/lib/expenses/service'
+import { canModify, getActorProfile, type ActorProfile } from '@/lib/auth/actor'
 import type { Expense } from '@/lib/types'
-import { isWriteIntent, type ExpenseFilters, type ExpenseIntent, type ExpenseQueryIntent, type ExpenseWriteIntent } from './schema'
+import {
+  ExpenseIntentSchema,
+  isWriteIntent,
+  type ExpenseFilters,
+  type ExpenseIntent,
+  type ExpenseQueryIntent,
+  type ExpenseWriteIntent,
+} from './schema'
+import type { ClassifiedKind } from './parser'
+import { logIntentViolation } from './audit'
 import { describeFilters, previewCreate, previewDelete, previewQuery, previewUpdate } from './preview'
+
+// ── Defensive sanitiser for LLM-sourced write payloads ────────
+//
+// The HTTP entry strips control chars from the user's raw text before it ever
+// reaches Gemini, but the model can still re-emit control chars (or smuggle
+// `<<<system>>>`-style markers via Unicode tricks) inside the structured
+// payload it returns. We strip C0/C1 controls from every free-text field that
+// gets written back to the DB so:
+//   1. The string can be safely shown elsewhere without rendering surprises.
+//   2. If a later feature ever feeds these fields back into a downstream LLM
+//      (e.g. an end-of-month natural-language summary), there are no
+//      prompt-injection markers hiding in stored data — i.e. second-order
+//      prompt injection has fewer surfaces.
+// Length caps mirror typical DB-side reasonableness; anything longer is
+// already pathological and almost certainly an attack payload.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\x00-\x08\x0B-\x1F\x7F-\x9F]/g
+const TEXT_FIELD_MAX = 500
+
+function sanitiseText(v: unknown): string | undefined {
+  if (typeof v !== 'string') return undefined
+  const cleaned = v.replace(CONTROL_CHARS, ' ').trim().slice(0, TEXT_FIELD_MAX)
+  return cleaned
+}
+
+function sanitisePayload<T extends Record<string, unknown>>(p: T): T {
+  const out: Record<string, unknown> = { ...p }
+  for (const k of ['item_name', 'location', 'purpose', 'user_name', 'buyer_name', 'notes']) {
+    if (typeof out[k] === 'string') {
+      out[k] = sanitiseText(out[k])
+    }
+  }
+  return out as T
+}
 
 // ── Public result types ───────────────────────────────────────
 
@@ -52,6 +96,10 @@ export interface ExecuteContext {
   channel: string             // 'web' | 'telegram' | ...
   rawText: string             // original user message (for logging)
   channelMessageId?: string
+  // Set by the route from the parser's classifier output. Used to cross-check
+  // the final intent.op so a compromised extractor cannot promote a "query"
+  // into a write — see executeIntent below.
+  classifiedAs?: ClassifiedKind
 }
 
 // ── Entry point ───────────────────────────────────────────────
@@ -60,6 +108,52 @@ export async function executeIntent(
   intent:  ExpenseIntent,
   ctx:     ExecuteContext,
 ): Promise<ExecuteResult> {
+  // P1-G — Defense in depth: re-parse the intent with the same schema before
+  // executing. Catches any caller that bypassed the parser or mutated the
+  // object between parse and execute.
+  const reparsed = ExpenseIntentSchema.safeParse(intent)
+  if (!reparsed.success) {
+    const reason = `intent rejected by schema: ${reparsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`
+    await logIntentViolation({
+      userId:     ctx.userId,
+      channel:    ctx.channel,
+      stage:      'schema_refine',
+      reason,
+      rawText:    ctx.rawText,
+      intentJson: intent,
+    })
+    return { kind: 'error', code: 'executor_failed', message: reason }
+  }
+  intent = reparsed.data
+
+  // P0-D — Classifier/extractor cross-check. The extractor is told via prompt
+  // that "this is a query, op must be query", but that is a soft constraint
+  // the LLM can ignore. Reject hard at the code level.
+  if (ctx.classifiedAs === 'query' && intent.op !== 'query') {
+    const reason = '分类与抽取结果不一致：分类为查询但抽取为写操作，已拒绝。'
+    await logIntentViolation({
+      userId:     ctx.userId,
+      channel:    ctx.channel,
+      stage:      'cross_check',
+      reason,
+      rawText:    ctx.rawText,
+      intentJson: intent,
+    })
+    return { kind: 'error', code: 'executor_failed', message: reason }
+  }
+  if (ctx.classifiedAs === 'write' && intent.op === 'query') {
+    const reason = '分类与抽取结果不一致：分类为写操作但抽取为查询，已拒绝。'
+    await logIntentViolation({
+      userId:     ctx.userId,
+      channel:    ctx.channel,
+      stage:      'cross_check',
+      reason,
+      rawText:    ctx.rawText,
+      intentJson: intent,
+    })
+    return { kind: 'error', code: 'executor_failed', message: reason }
+  }
+
   if (intent.op === 'query')   return runQuery(intent, ctx)
   if (isWriteIntent(intent))   return stageWrite(intent, ctx)
   return { kind: 'error', code: 'unknown', message: 'Unsupported intent.op' }
@@ -92,6 +186,14 @@ export async function applyPendingAction(
     return { kind: 'noop', reason: 'expired' }
   }
 
+  // P0-B — Load actor and forward to service so canModify() is enforced.
+  // Without this, any logged-in user could update/delete records they don't own
+  // by staging an intent against someone else's row.
+  const actor = await getActorProfile(userId)
+  if (!actor) {
+    return { kind: 'error', message: 'actor profile not found' }
+  }
+
   const intent = row.intent_json as ExpenseWriteIntent
   let appliedId = ''
   let err: ServiceError | null = null
@@ -102,20 +204,20 @@ export async function applyPendingAction(
       payment_status: intent.payload.payment_status!,
       item_name:      intent.payload.item_name!,
       expense_date:   intent.payload.expense_date!,
-    })
+    }, actor.id)
     if (r.error) err = r.error; else appliedId = r.data.id
   } else if (intent.op === 'update') {
     if (!row.target_id) {
       err = { code: 'invalid_input', message: 'pending action has no target_id' }
     } else {
-      const r = await updateExpense(row.target_id, intent.patch)
+      const r = await updateExpense(row.target_id, intent.patch, actor)
       if (r.error) err = r.error; else appliedId = r.data.id
     }
   } else if (intent.op === 'delete') {
     if (!row.target_id) {
       err = { code: 'invalid_input', message: 'pending action has no target_id' }
     } else {
-      const r = await deleteExpense(row.target_id)
+      const r = await deleteExpense(row.target_id, actor)
       if (r.error) err = r.error; else appliedId = r.data.id
     }
   }
@@ -125,6 +227,16 @@ export async function applyPendingAction(
       status: 'failed',
       error_message: err.message,
     }).eq('id', row.id)
+    // Forbidden at apply time means the row's owner changed between stage and
+    // apply (a TOCTOU race), or stage-time pre-filter was bypassed. Audit it.
+    if (err.code === 'forbidden') {
+      await logIntentViolation({
+        userId:     userId,
+        stage:      'authz_apply',
+        reason:     err.message,
+        intentJson: intent,
+      })
+    }
     return { kind: 'error', message: err.message }
   }
 
@@ -163,13 +275,41 @@ async function stageWrite(
 ): Promise<ExecuteResult> {
   const db = createServerClient()
 
+  // P0-B/C — Actor is required to scope target lookup to records the user is
+  // allowed to modify. Non-admins should not see other users' rows surface as
+  // edit/delete candidates (and certainly should not be able to stage them).
+  const actor = await getActorProfile(ctx.userId)
+  if (!actor) {
+    return { kind: 'error', code: 'executor_failed', message: 'actor profile not found' }
+  }
+
+  // L5-2 — Strip control chars from any LLM-emitted free-text field before
+  // we persist the intent. See sanitisePayload() above.
+  let sanitised: ExpenseWriteIntent = intent
+  if (sanitised.op === 'create') {
+    sanitised = { ...sanitised, payload: sanitisePayload(sanitised.payload) }
+  } else if (sanitised.op === 'update') {
+    sanitised = { ...sanitised, patch:   sanitisePayload(sanitised.patch)   }
+  }
+
   let target: Expense | null = null
   let targetId: string | undefined
 
-  if (intent.op === 'update' || intent.op === 'delete') {
-    const lookup = await resolveTarget(intent.targetMatch)
-    if (lookup.kind === 'none')      return { kind: 'clarification', message: '未找到匹配的支出记录。请放宽或修正筛选条件。' }
-    if (lookup.kind === 'multiple')  return {
+  if (sanitised.op === 'update' || sanitised.op === 'delete') {
+    const lookup = await resolveTarget(sanitised.targetMatch, actor)
+    if (lookup.kind === 'none')          return { kind: 'clarification', message: '未找到你有权限修改的匹配记录。请放宽或修正筛选条件。' }
+    if (lookup.kind === 'forbidden') {
+      await logIntentViolation({
+        userId:     ctx.userId,
+        channel:    ctx.channel,
+        stage:      'authz_stage',
+        reason:     `${sanitised.op} blocked: target not owned by actor`,
+        rawText:    ctx.rawText,
+        intentJson: sanitised,
+      })
+      return { kind: 'clarification', message: '匹配到的记录不是你创建的，无权修改。' }
+    }
+    if (lookup.kind === 'multiple')      return {
       kind:       'clarification',
       message:    `匹配到 ${lookup.candidates.length} 条记录，请增加筛选条件后重试。`,
       candidates: lookup.candidates,
@@ -179,9 +319,9 @@ async function stageWrite(
   }
 
   let previewText: string
-  if (intent.op === 'create')      previewText = previewCreate(intent)
-  else if (intent.op === 'update') previewText = previewUpdate(intent, target!)
-  else                             previewText = previewDelete(intent, target!)
+  if (sanitised.op === 'create')      previewText = previewCreate(sanitised)
+  else if (sanitised.op === 'update') previewText = previewUpdate(sanitised, target!)
+  else                                previewText = previewDelete(sanitised, target!)
 
   const { data: inserted, error } = await db
     .from('pending_actions')
@@ -190,8 +330,8 @@ async function stageWrite(
       channel:         ctx.channel,
       channel_msg_id:  ctx.channelMessageId ?? null,
       entity:          'expense',
-      op:              intent.op,
-      intent_json:     intent,
+      op:              sanitised.op,
+      intent_json:     sanitised,
       target_id:       targetId ?? null,
       preview_text:    previewText,
     })
@@ -205,34 +345,46 @@ async function stageWrite(
   return {
     kind:            'pending',
     pendingActionId: inserted.id,
-    op:              intent.op,
+    op:              sanitised.op,
     preview:         previewText,
     targetId,
     expiresAt:       inserted.expires_at,
-    payload:         intent.op === 'create' ? intent.payload : undefined,
-    patch:           intent.op === 'update' ? intent.patch   : undefined,
+    payload:         sanitised.op === 'create' ? sanitised.payload : undefined,
+    patch:           sanitised.op === 'update' ? sanitised.patch   : undefined,
     target:          target ?? undefined,
   }
 }
 
 type LookupResult =
-  | { kind: 'one';      row: Expense }
-  | { kind: 'multiple'; candidates: Expense[] }
+  | { kind: 'one';       row: Expense }
+  | { kind: 'multiple';  candidates: Expense[] }
   | { kind: 'none' }
+  | { kind: 'forbidden' }  // matched a row, but actor isn't allowed to modify it
 
 async function resolveTarget(
   targetMatch: { id?: string; filters?: ExpenseFilters },
+  actor:       ActorProfile,
 ): Promise<LookupResult> {
   const db = createServerClient()
 
   if (targetMatch.id) {
     const { data } = await db.from('expenses').select('*').eq('id', targetMatch.id).maybeSingle()
-    return data ? { kind: 'one', row: data as Expense } : { kind: 'none' }
+    if (!data) return { kind: 'none' }
+    if (!canModify(actor, (data as Expense).created_by_user_id ?? null)) {
+      return { kind: 'forbidden' }
+    }
+    return { kind: 'one', row: data as Expense }
   }
 
-  const q = applyFilters(db.from('expenses').select('*'), targetMatch.filters ?? {})
-    .order('expense_date', { ascending: false })
-    .limit(11)
+  let q = applyFilters(db.from('expenses').select('*'), targetMatch.filters ?? {})
+  // P0-C — Non-admins can only target rows they created. Service-layer
+  // canModify() is the authoritative gate, but pre-filtering here keeps the
+  // candidate list honest so users don't see preview/clarification UI built
+  // from records they can't actually touch.
+  if (!actor.is_admin) {
+    q = q.eq('created_by_user_id', actor.id)
+  }
+  q = q.order('expense_date', { ascending: false }).limit(11)
 
   const { data } = await q
   const rows = (data ?? []) as Expense[]
