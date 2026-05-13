@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { getTranslations } from 'next-intl/server'
 import Header from '@/components/layout/Header'
 import FinanceForecastDashboard from '@/components/finance-forecast/FinanceForecastDashboard'
 import { createServerClient } from '@/lib/supabase/server'
@@ -11,6 +12,7 @@ import { loadFinanceForecastYear } from '@/lib/finance-forecast/service'
 import { buildForecastYearMonths } from '@/lib/finance-forecast/year'
 
 export default async function FinanceForecastPage() {
+  const t = await getTranslations('financeForecast')
   const db = createServerClient()
   const now = new Date()
   const year = now.getUTCFullYear()
@@ -32,8 +34,8 @@ export default async function FinanceForecastPage() {
   return (
     <div>
       <Header
-        title="财务预测看板"
-        subtitle="按直播账号输入月度预测，成本自动同步当前预算，计算开播收益与毛利润结余。"
+        title={t('pageTitle')}
+        subtitle={t('pageSubtitle')}
       />
       <FinanceForecastDashboard initialMonths={months} initialSelectedMonth={selectedMonth} />
     </div>
