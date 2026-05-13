@@ -93,6 +93,13 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const storageKeyRef   = useRef(storageKey)
   const mountedRef      = useRef(false)
   const saveQueueRef = useRef<ReturnType<typeof createLatestSaveQueue<ForecastMonthInput[]>> | null>(null)
+  // Always points at the latest months. The autosave timer's callback
+  // reads this ref instead of the closure variable, so that a setTimeout
+  // scheduled before a destructive op (delete / clear) — but firing
+  // *after* it because React 18 hadn't yet committed the cleanup — can't
+  // re-PUT the pre-delete snapshot and resurrect the deleted row.
+  const monthsRef = useRef(months)
+  monthsRef.current = months
 
   const summary = useMemo(() => summarizeForecast(months), [months])
   const selected = summary.months[selectedMonth]
@@ -266,7 +273,9 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     if (!saveQueueRef.current?.isSaving()) setSaveStatus('idle')
     writeDraft(storageKey, months)
     const timer = window.setTimeout(async () => {
-      saveQueueRef.current?.enqueue(months)
+      // Read latest from ref — not the closure — to avoid a stale
+      // snapshot resurrecting rows that were just deleted.
+      saveQueueRef.current?.enqueue(monthsRef.current)
     }, 700)
 
     return () => {
