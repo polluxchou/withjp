@@ -30,6 +30,7 @@ import {
   type ForecastAccountType,
   type ForecastMonthInput,
 } from '@/lib/finance-forecast/calculations'
+import { createLatestSaveQueue } from '@/lib/finance-forecast/save-queue'
 
 const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
   key:     '#6366f1',
@@ -78,7 +79,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
   const didLoadDraft    = useRef(false)
   const storageKeyRef   = useRef(storageKey)
-  const persistingNow   = useRef(false)   // true while persistNow is in-flight
+  const mountedRef      = useRef(false)
+  const saveQueueRef = useRef<ReturnType<typeof createLatestSaveQueue<ForecastMonthInput[]>> | null>(null)
 
   const summary = useMemo(() => summarizeForecast(months), [months])
   const selected = summary.months[selectedMonth]
@@ -95,6 +97,26 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const yearMarginPct  = summary.yearly_forecast_usd > 0
     ? (summary.yearly_profit_usd / summary.yearly_forecast_usd) * 100
     : 0
+
+  if (!saveQueueRef.current) {
+    saveQueueRef.current = createLatestSaveQueue<ForecastMonthInput[]>(
+      async (snapshot) => {
+        const res = await fetch('/api/finance-forecast', {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            year: Number(snapshot[0]?.month.slice(0, 4)) || new Date().getUTCFullYear(),
+            months: snapshot,
+          }),
+        })
+
+        if (!res.ok) throw new Error('Failed to save finance forecast')
+      },
+      (status) => {
+        if (mountedRef.current) setSaveStatus(status)
+      },
+    )
+  }
 
   function updateSelectedMonth(patch: Partial<ForecastMonthInput>) {
     setMonths((prev) => prev.map((month, index) => index === selectedMonth ? { ...month, ...patch } : month))
@@ -132,26 +154,11 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     }))
   }
 
-  // Persist months immediately to DB — used for destructive ops (delete /
-  // clear) where we can't afford to lose the change if the user navigates
-  // away before the 700 ms debounce fires.
-  async function persistNow(newMonths: ForecastMonthInput[]) {
-    const year = Number(newMonths[0]?.month.slice(0, 4)) || new Date().getUTCFullYear()
+  // Queue destructive ops immediately so a slower previous autosave cannot
+  // resurrect deleted rows.
+  function persistNow(newMonths: ForecastMonthInput[]) {
     writeDraft(storageKeyRef.current, newMonths)
-    persistingNow.current = true
-    setSaveStatus('saving')
-    try {
-      const res = await fetch('/api/finance-forecast', {
-        method:  'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ year, months: newMonths }),
-      })
-      setSaveStatus(res.ok ? 'saved' : 'error')
-    } catch {
-      setSaveStatus('error')
-    } finally {
-      persistingNow.current = false
-    }
+    saveQueueRef.current?.enqueue(newMonths)
   }
 
   function deleteRow(rowIndex: number) {
@@ -161,7 +168,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         : month
     )
     setMonths(newMonths)
-    void persistNow(newMonths)
+    persistNow(newMonths)
   }
 
   function clearMonth() {
@@ -169,7 +176,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
       index === selectedMonth ? { ...month, rows: [], note: '' } : month
     )
     setMonths(newMonths)
-    void persistNow(newMonths)
+    persistNow(newMonths)
   }
 
   function copyPreviousMonth() {
@@ -206,6 +213,13 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const selectedProfitColor = selected.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
 
   useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (didLoadDraft.current) return
     didLoadDraft.current = true
     const draft = readDraft(storageKey)
@@ -217,29 +231,13 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   useEffect(() => {
     if (!hydratedDraft) return
-    if (!persistingNow.current) setSaveStatus('idle')
+    if (!saveQueueRef.current?.isSaving()) setSaveStatus('idle')
     writeDraft(storageKey, months)
-    const controller = new AbortController()
     const timer = window.setTimeout(async () => {
-      setSaveStatus('saving')
-      try {
-        const res = await fetch('/api/finance-forecast', {
-          method:  'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
-            year: Number(months[0]?.month.slice(0, 4)) || new Date().getUTCFullYear(),
-            months,
-          }),
-          signal: controller.signal,
-        })
-        setSaveStatus(res.ok ? 'saved' : 'error')
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') setSaveStatus('error')
-      }
+      saveQueueRef.current?.enqueue(months)
     }, 700)
 
     return () => {
-      controller.abort()
       window.clearTimeout(timer)
     }
   }, [hydratedDraft, months, storageKey])
