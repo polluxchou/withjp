@@ -103,6 +103,8 @@ export default function FinanceForecastDashboard({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [loadingView, setLoadingView] = useState(false)
   const [viewBarBusy, setViewBarBusy] = useState(false)
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
 
   const activeView = views.find((v) => v.id === activeViewId) ?? null
   const canEditActive = activeView ? (isAdmin || activeView.owner_id === currentUserId) : false
@@ -118,9 +120,6 @@ export default function FinanceForecastDashboard({
   // Tracks which view id `prevByYearRef` belongs to. When we swap views we
   // reset the ref to the freshly-fetched snapshot.
   const prevViewIdRef = useRef<string | null>(defaultViewId)
-  // Anchor for the mobile actions dropdown — used by the outside-click
-  // / Escape effect that closes it.
-  const actionsMenuRef = useRef<HTMLDivElement | null>(null)
 
   const months = byYear[selectedYear] ?? []
   const summary = useMemo(() => summarizeForecast(months), [months])
@@ -379,26 +378,6 @@ export default function FinanceForecastDashboard({
     }
   }, [hydratedDraft, byYear, years, activeViewId, canEditActive])
 
-  // Always collapse the expanded card when switching month, year, or
-  // view. Editing is scoped to the currently-selected slot, so an
-  // "open" state is meaningless after the user navigates elsewhere.
-  useEffect(() => { setExpandedRowId(null) }, [activeViewId, selectedYear, selectedMonth])
-
-  // Close the mobile actions dropdown on outside click / Escape.
-  useEffect(() => {
-    if (!actionsMenuOpen) return
-    const onPointer = (e: PointerEvent) => {
-      if (!actionsMenuRef.current?.contains(e.target as Node)) setActionsMenuOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setActionsMenuOpen(false) }
-    document.addEventListener('pointerdown', onPointer)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onPointer)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [actionsMenuOpen])
-
   const monthLabels = t.raw('months') as string[]
   const selectedMonthLabel = selected
     ? monthLabels[parseInt(selected.month.slice(5), 10) - 1] ?? selected.month.slice(5)
@@ -409,13 +388,6 @@ export default function FinanceForecastDashboard({
     setSelectedMonth(year === anchorYear ? initialSelectedMonth : 0)
     setShowYearView(false)
     setViewMode('monthly')
-  }
-
-  // Wrap each action so the mobile actions dropdown closes after
-  // invoking. Shared between the desktop button row and the mobile menu.
-  function runAction(fn: () => void) {
-    fn()
-    setActionsMenuOpen(false)
   }
 
   // Fetch a view's forecast data over the full 3-year horizon. Used when
