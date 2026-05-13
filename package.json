@@ -8,7 +8,7 @@
     "start": "next start --port 3001",
     "lint": "next lint",
     "test:i18n": "node scripts/check-i18n.mjs",
-    "test": "node --test --experimental-strip-types src/lib/supabase/errors.test.ts src/lib/creators/platforms.test.ts src/lib/users/user-code.test.ts src/lib/devices/costs.test.ts src/lib/views/session.test.ts src/lib/activity/activity-events.test.ts src/lib/expenses/category-filter.test.ts src/lib/expenses/costs.test.ts src/lib/intent/events.test.ts src/lib/finance-forecast/calculations.test.ts src/lib/finance-forecast/save-queue.test.ts"
+    "test": "node --test --experimental-strip-types src/lib/supabase/errors.test.ts src/lib/creators/platforms.test.ts src/lib/users/user-code.test.ts src/lib/devices/costs.test.ts src/lib/views/session.test.ts src/lib/activity/activity-events.test.ts src/lib/expenses/category-filter.test.ts src/lib/expenses/costs.test.ts src/lib/intent/events.test.ts src/lib/finance-forecast/calculations.test.ts src/lib/finance-forecast/save-queue.test.ts src/lib/finance-forecast/year.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

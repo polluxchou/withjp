@@ -55,15 +55,55 @@ export async function loadFinanceForecastYear(
   if (monthsRes.error) return err('db_error', monthsRes.error.message)
   if (accountsRes.error) return err('db_error', accountsRes.error.message)
 
-  const monthMeta = new Map((monthsRes.data ?? [] as MonthRow[]).map((row) => [row.month, row]))
+  return ok(mergeServerData(baseMonths, monthsRes.data as MonthRow[] | null, accountsRes.data as AccountRow[] | null))
+}
+
+// Multi-year load. baseMonthsByYear maps each year to its 12-month skeleton
+// (already containing synced budget_cost_usd from expenses). One round-trip
+// pulls forecast inputs for the entire range so we don't fan out N queries.
+export async function loadFinanceForecastYears(
+  years: number[],
+  baseMonthsByYear: Map<number, ForecastMonthInput[]>,
+): Promise<ServiceResult<Map<number, ForecastMonthInput[]>>> {
+  if (years.length === 0) return ok(new Map())
+  for (const year of years) {
+    if (!validYear(year)) return err('invalid_input', `Invalid year: ${year}`)
+  }
+
+  const db = createServerClient()
+  const [monthsRes, accountsRes] = await Promise.all([
+    db.from('finance_forecast_months').select('*').in('year', years),
+    db.from('finance_forecast_accounts').select('*').in('year', years).order('month', { ascending: true }),
+  ])
+
+  if (monthsRes.error) return err('db_error', monthsRes.error.message)
+  if (accountsRes.error) return err('db_error', accountsRes.error.message)
+
+  const monthsByYear  = groupBy((monthsRes.data ?? []) as MonthRow[],  (row) => row.year)
+  const accountsByYear = groupBy((accountsRes.data ?? []) as AccountRow[], (row) => row.year)
+
+  const result = new Map<number, ForecastMonthInput[]>()
+  for (const year of years) {
+    const base = baseMonthsByYear.get(year) ?? []
+    result.set(year, mergeServerData(base, monthsByYear.get(year) ?? null, accountsByYear.get(year) ?? null))
+  }
+  return ok(result)
+}
+
+function mergeServerData(
+  baseMonths: ForecastMonthInput[],
+  monthRows:  MonthRow[]   | null,
+  accountRows: AccountRow[] | null,
+): ForecastMonthInput[] {
+  const monthMeta = new Map((monthRows ?? []).map((row) => [row.month, row]))
   const accountsByMonth = new Map<string, ForecastAccountInput[]>()
-  for (const row of (accountsRes.data ?? []) as AccountRow[]) {
+  for (const row of accountRows ?? []) {
     const list = accountsByMonth.get(row.month) ?? []
     list.push(accountFromRow(row))
     accountsByMonth.set(row.month, list)
   }
 
-  return ok(baseMonths.map((base) => {
+  return baseMonths.map((base) => {
     const meta = monthMeta.get(base.month)
     return {
       ...base,
@@ -71,7 +111,18 @@ export async function loadFinanceForecastYear(
       note:               meta?.note ?? '',
       rows:               accountsByMonth.get(base.month) ?? [],
     }
-  }))
+  })
+}
+
+function groupBy<T, K>(items: T[], keyOf: (item: T) => K): Map<K, T[]> {
+  const out = new Map<K, T[]>()
+  for (const item of items) {
+    const key = keyOf(item)
+    const list = out.get(key) ?? []
+    list.push(item)
+    out.set(key, list)
+  }
+  return out
 }
 
 export async function saveFinanceForecastYear(
