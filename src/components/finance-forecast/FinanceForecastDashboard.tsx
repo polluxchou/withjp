@@ -312,7 +312,9 @@ export default function FinanceForecastDashboard({
 
     setByYear((prev) => {
       const next = { ...prev }
-      for (const [year, rows] of rowsByYear) {
+      // Array.from — the project's tsconfig doesn't enable
+      // downlevelIteration, so `for...of` over a Map fails the build.
+      for (const [year, rows] of Array.from(rowsByYear.entries())) {
         const yearMonths = prev[year] ?? []
         next[year] = yearMonths.map((month) => {
           const additions = rows.filter((r) => r.monthKey === month.month)
