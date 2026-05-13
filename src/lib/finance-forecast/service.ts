@@ -49,7 +49,14 @@ export async function loadFinanceForecastYear(
   const db = createServerClient()
   const [monthsRes, accountsRes] = await Promise.all([
     db.from('finance_forecast_months').select('*').eq('year', year),
-    db.from('finance_forecast_accounts').select('*').eq('year', year).order('month', { ascending: true }),
+    // Order by month, then by created_at so the visual order of rows
+    // within a month is stable across reloads. Without the secondary
+    // sort, Postgres returns rows in arbitrary order, which made it
+    // possible to click "delete" on what looked like row A but hit
+    // row B's underlying array index.
+    db.from('finance_forecast_accounts').select('*').eq('year', year)
+      .order('month',      { ascending: true })
+      .order('created_at', { ascending: true }),
   ])
 
   if (monthsRes.error) return err('db_error', monthsRes.error.message)
