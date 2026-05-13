@@ -84,7 +84,10 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
   // Pending-delete row drives the confirm modal. Shared between desktop
   // and mobile so deletions on either layout require a second tap.
-  const [deletingRow, setDeletingRow] = useState<{ index: number; name: string } | null>(null)
+  // We capture both the row's id and the month index it lives in at click
+  // time, so a month-switch while the modal is open can't redirect the
+  // delete to the wrong row.
+  const [deletingRow, setDeletingRow] = useState<{ monthIndex: number; rowId: string; name: string } | null>(null)
   const storageKey = useMemo(() => buildStorageKey(initialMonths), [initialMonths])
   const didLoadDraft    = useRef(false)
   const storageKeyRef   = useRef(storageKey)
@@ -174,10 +177,14 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
     saveQueueRef.current?.enqueue(newMonths)
   }
 
-  function deleteRow(rowIndex: number) {
+  // Delete by row id (not by array index). Order of `rows` is not
+  // guaranteed stable across renders/reloads — the DB query has no
+  // secondary sort, and the user can switch months while the confirm
+  // modal is open. Filtering by id makes the delete robust to both.
+  function deleteRowById(monthIndex: number, rowId: string) {
     const newMonths = months.map((month, index) =>
-      index === selectedMonth
-        ? { ...month, rows: month.rows.filter((_, i) => i !== rowIndex) }
+      index === monthIndex
+        ? { ...month, rows: month.rows.filter((row) => row.id !== rowId) }
         : month
     )
     setMonths(newMonths)
@@ -187,11 +194,12 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   function requestDeleteRow(rowIndex: number) {
     const row = selectedRaw.rows[rowIndex]
-    setDeletingRow({ index: rowIndex, name: row?.account_name ?? '此账号' })
+    if (!row) return
+    setDeletingRow({ monthIndex: selectedMonth, rowId: row.id, name: row.account_name || '此账号' })
   }
 
   function confirmDelete() {
-    if (deletingRow) deleteRow(deletingRow.index)
+    if (deletingRow) deleteRowById(deletingRow.monthIndex, deletingRow.rowId)
     setDeletingRow(null)
   }
 
