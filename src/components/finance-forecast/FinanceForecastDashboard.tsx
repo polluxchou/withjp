@@ -507,25 +507,33 @@ export default function FinanceForecastDashboard({
     }
   }
 
+  const viewMenu = (
+    <ForecastViewBar
+      views={views}
+      activeViewId={activeViewId}
+      currentUserId={currentUserId}
+      isAdmin={isAdmin}
+      busy={viewBarBusy || loadingView}
+      onSelect={handleSelectView}
+      onCreate={handleCreateView}
+      onUpdate={handleUpdateView}
+      onDelete={handleDeleteView}
+    />
+  )
+
   return (
     <>
-      <ForecastViewBar
-        views={views}
-        activeViewId={activeViewId}
-        currentUserId={currentUserId}
-        isAdmin={isAdmin}
-        busy={viewBarBusy || loadingView}
-        onSelect={handleSelectView}
-        onCreate={handleCreateView}
-        onUpdate={handleUpdateView}
-        onDelete={handleDeleteView}
-      />
-
       {!activeView ? (
-        <div className="bg-white border border-dashed border-slate-300 rounded-xl p-10 text-center">
-          <p className="text-sm text-slate-500 mb-2">还没有任何可见的预测视角。</p>
-          <p className="text-xs text-slate-400">使用上方"新建视角"按钮创建第一个预测场景。</p>
-        </div>
+        <>
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            {viewMenu}
+            <span className="text-sm text-slate-400">还没有任何可见的预测视角 — 点击左侧创建第一个</span>
+          </div>
+          <div className="bg-white border border-dashed border-slate-300 rounded-xl p-10 text-center">
+            <p className="text-sm text-slate-500 mb-2">还没有任何可见的预测视角。</p>
+            <p className="text-xs text-slate-400">在上方"视角"菜单里新建一个预测场景即可开始。</p>
+          </div>
+        </>
       ) : (<>
 
       {!canEditActive && (
@@ -551,6 +559,7 @@ export default function FinanceForecastDashboard({
         savedLabel={t('statusSaved')}
         errorLabel={t('statusError')}
         loading={loadingView}
+        leftSlot={viewMenu}
       />
 
       {viewMode === 'annual' ? (
@@ -974,6 +983,7 @@ function ViewModeToolbar({
   savedLabel,
   errorLabel,
   loading,
+  leftSlot,
 }: {
   viewMode:         ViewMode
   onChangeViewMode: (mode: ViewMode) => void
@@ -986,6 +996,10 @@ function ViewModeToolbar({
   savedLabel:       string
   errorLabel:       string
   loading?:         boolean
+  // Optional left-edge content (eg. the view-picker popover trigger).
+  // Rendered before the view-mode toggle so the whole control row
+  // collapses to a single line of chrome on most viewports.
+  leftSlot?:        ReactNode
 }) {
   const statusText = loading
     ? '加载视角中…'
@@ -998,6 +1012,7 @@ function ViewModeToolbar({
   return (
     <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
       <div className="flex items-center gap-2 flex-wrap">
+        {leftSlot}
         <div className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5">
           {(['annual', 'monthly'] as const).map((mode) => (
             <button
