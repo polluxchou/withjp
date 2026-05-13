@@ -22,6 +22,7 @@ const err = <T = never,>(code: ServiceErrorCode, message: string): ServiceResult
   ({ data: null, error: { code, message } })
 
 type MonthRow = {
+  view_id:            string
   year:               number
   month:              string
   actual_revenue_usd: number | string
@@ -30,6 +31,7 @@ type MonthRow = {
 
 type AccountRow = {
   id:                     string
+  view_id:                string
   year:                   number
   month:                  string
   account_name:           string
@@ -41,6 +43,7 @@ type AccountRow = {
 }
 
 export async function loadFinanceForecastYear(
+  viewId: string,
   year: number,
   baseMonths: ForecastMonthInput[],
 ): Promise<ServiceResult<ForecastMonthInput[]>> {
@@ -48,8 +51,8 @@ export async function loadFinanceForecastYear(
 
   const db = createServerClient()
   const [monthsRes, accountsRes] = await Promise.all([
-    db.from('finance_forecast_months').select('*').eq('year', year),
-    db.from('finance_forecast_accounts').select('*').eq('year', year).order('month', { ascending: true }),
+    db.from('finance_forecast_months').select('*').eq('view_id', viewId).eq('year', year),
+    db.from('finance_forecast_accounts').select('*').eq('view_id', viewId).eq('year', year).order('month', { ascending: true }),
   ])
 
   if (monthsRes.error) return err('db_error', monthsRes.error.message)
@@ -62,6 +65,7 @@ export async function loadFinanceForecastYear(
 // (already containing synced budget_cost_usd from expenses). One round-trip
 // pulls forecast inputs for the entire range so we don't fan out N queries.
 export async function loadFinanceForecastYears(
+  viewId: string,
   years: number[],
   baseMonthsByYear: Map<number, ForecastMonthInput[]>,
 ): Promise<ServiceResult<Map<number, ForecastMonthInput[]>>> {
@@ -72,8 +76,8 @@ export async function loadFinanceForecastYears(
 
   const db = createServerClient()
   const [monthsRes, accountsRes] = await Promise.all([
-    db.from('finance_forecast_months').select('*').in('year', years),
-    db.from('finance_forecast_accounts').select('*').in('year', years).order('month', { ascending: true }),
+    db.from('finance_forecast_months').select('*').eq('view_id', viewId).in('year', years),
+    db.from('finance_forecast_accounts').select('*').eq('view_id', viewId).in('year', years).order('month', { ascending: true }),
   ])
 
   if (monthsRes.error) return err('db_error', monthsRes.error.message)
@@ -126,6 +130,7 @@ function groupBy<T, K>(items: T[], keyOf: (item: T) => K): Map<K, T[]> {
 }
 
 export async function saveFinanceForecastYear(
+  viewId: string,
   year: number,
   months: ForecastMonthInput[],
 ): Promise<ServiceResult<ForecastMonthInput[]>> {
@@ -143,6 +148,7 @@ export async function saveFinanceForecastYear(
 
   const db = createServerClient()
   const monthRows = months.map((month) => ({
+    view_id:            viewId,
     year,
     month:              month.month,
     actual_revenue_usd: numeric(month.actual_revenue_usd),
@@ -151,13 +157,14 @@ export async function saveFinanceForecastYear(
 
   const { error: monthError } = await db
     .from('finance_forecast_months')
-    .upsert(monthRows, { onConflict: 'year,month' })
+    .upsert(monthRows, { onConflict: 'view_id,year,month' })
 
   if (monthError) return err('db_error', monthError.message)
 
   const accountRows = months.flatMap((month) =>
     month.rows.map((row) => ({
       id:                     row.id,
+      view_id:                viewId,
       year,
       month:                  month.month,
       account_name:           row.account_name,
@@ -169,10 +176,12 @@ export async function saveFinanceForecastYear(
     }))
   )
 
-  // Fetch existing IDs before upserting so we can compute stale rows after
+  // Fetch existing IDs (scoped to this view) before upserting so we can
+  // compute stale rows after.
   const { data: existingRows, error: fetchError } = await db
     .from('finance_forecast_accounts')
     .select('id')
+    .eq('view_id', viewId)
     .eq('year', year)
 
   if (fetchError) return err('db_error', fetchError.message)
@@ -189,8 +198,8 @@ export async function saveFinanceForecastYear(
   // Delete rows that are no longer in the dataset using explicit ID list
   const currentIdSet = new Set(accountRows.map((r) => r.id))
   const staleIds = (existingRows ?? []).map((r) => r.id).filter((id) => !currentIdSet.has(id))
-  console.log('[forecast-save] year=%s existing=%d current=%d stale=%d ids=%j',
-    year, existingRows?.length ?? 0, accountRows.length, staleIds.length, staleIds)
+  console.log('[forecast-save] view=%s year=%s existing=%d current=%d stale=%d ids=%j',
+    viewId, year, existingRows?.length ?? 0, accountRows.length, staleIds.length, staleIds)
   if (staleIds.length > 0) {
     const { error: deleteError } = await db
       .from('finance_forecast_accounts')

@@ -1,24 +1,76 @@
 export const dynamic = 'force-dynamic'
 
+import { redirect } from 'next/navigation'
 import Header from '@/components/layout/Header'
 import FinanceForecastDashboard from '@/components/finance-forecast/FinanceForecastDashboard'
 import { createServerClient } from '@/lib/supabase/server'
+import { createAuthServerClient } from '@/lib/supabase/auth-server'
+import { getActorProfile } from '@/lib/auth/actor'
 import {
   calculateMonthlyBudgetCosts,
   type ExpenseForBudget,
   type ForecastMonthInput,
 } from '@/lib/finance-forecast/calculations'
 import { loadFinanceForecastYears } from '@/lib/finance-forecast/service'
+import { listVisibleViews, type ForecastView } from '@/lib/finance-forecast/views'
 import {
   buildForecastYearMonthsByYear,
   forecastYearRange,
 } from '@/lib/finance-forecast/year'
 
 export default async function FinanceForecastPage() {
-  const db = createServerClient()
+  const auth = await createAuthServerClient()
+  const { data: { user } } = await auth.auth.getUser()
+  if (!user) redirect('/login')
+
+  const actor = await getActorProfile(user.id)
+  if (!actor) redirect('/login')
+
+  const viewsResult = await listVisibleViews(actor)
+  if (viewsResult.error) console.error('listVisibleViews failed:', viewsResult.error)
+  const views = viewsResult.data ?? []
+
+  const defaultView = pickDefaultView(views, actor.id)
+
   const now = new Date()
   const anchorYear = now.getUTCFullYear()
   const years = forecastYearRange(anchorYear)
+
+  const monthsByYear = defaultView
+    ? await loadDefaultViewMonths(defaultView.id, years)
+    : emptyByYear(years)
+
+  return (
+    <div>
+      <Header
+        title="财务预测看板"
+        subtitle="按视角管理 3 年滚动预测。每位用户最多 3 个视角；管理员可将任意视角设为公开。"
+      />
+      <FinanceForecastDashboard
+        views={views}
+        defaultViewId={defaultView?.id ?? null}
+        monthsByYear={monthsByYear}
+        years={years}
+        anchorYear={anchorYear}
+        initialSelectedMonth={now.getUTCMonth()}
+        currentUserId={actor.id}
+        isAdmin={actor.is_admin}
+      />
+    </div>
+  )
+}
+
+// Most-recently-updated own view first, otherwise most-recently-updated public.
+function pickDefaultView(views: ForecastView[], currentUserId: string): ForecastView | null {
+  if (views.length === 0) return null
+  const owned = views.filter((v) => v.owner_id === currentUserId)
+  const sortByUpdated = (a: ForecastView, b: ForecastView) => b.updated_at.localeCompare(a.updated_at)
+  if (owned.length > 0) return [...owned].sort(sortByUpdated)[0]
+  return [...views].sort(sortByUpdated)[0]
+}
+
+async function loadDefaultViewMonths(viewId: string, years: number[]): Promise<Record<number, ForecastMonthInput[]>> {
+  const db = createServerClient()
   const startYear = years[0]
   const endYear   = years[years.length - 1]
 
@@ -32,26 +84,17 @@ export default async function FinanceForecastPage() {
 
   const budgetByMonth = calculateMonthlyBudgetCosts((data ?? []) as ExpenseForBudget[])
   const baseMonthsByYear = buildForecastYearMonthsByYear(years, budgetByMonth)
-  const savedForecast = await loadFinanceForecastYears(years, baseMonthsByYear)
-  if (savedForecast.error) console.error('loadFinanceForecastYears failed:', savedForecast.error)
+  const saved = await loadFinanceForecastYears(viewId, years, baseMonthsByYear)
 
-  const monthsByYear: Record<number, ForecastMonthInput[]> = {}
+  const out: Record<number, ForecastMonthInput[]> = {}
   for (const year of years) {
-    monthsByYear[year] = savedForecast.data?.get(year) ?? baseMonthsByYear.get(year) ?? []
+    out[year] = saved.data?.get(year) ?? baseMonthsByYear.get(year) ?? []
   }
+  return out
+}
 
-  return (
-    <div>
-      <Header
-        title="财务预测看板"
-        subtitle="管理当前年和后 2 年的滚动预测；账号参数按月输入，成本自动同步预算。"
-      />
-      <FinanceForecastDashboard
-        monthsByYear={monthsByYear}
-        years={years}
-        anchorYear={anchorYear}
-        initialSelectedMonth={now.getUTCMonth()}
-      />
-    </div>
-  )
+function emptyByYear(years: number[]): Record<number, ForecastMonthInput[]> {
+  const out: Record<number, ForecastMonthInput[]> = {}
+  for (const year of years) out[year] = []
+  return out
 }
