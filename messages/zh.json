@@ -42,6 +42,98 @@
     "en": "English",
     "switchLanguage": "切换语言"
   },
+  "sidebar": {
+    "openMenu": "打开菜单",
+    "closeMenu": "关闭菜单",
+    "collapse": "折叠侧边栏",
+    "expand": "展开侧边栏"
+  },
+  "knowledge": {
+    "title": "知识库",
+    "subtitle": "按创作者生命周期阶段，可供 AI 代理检索的结构化知识",
+    "addEntry": "添加条目",
+    "addEntryModalTitle": "添加知识条目",
+    "allFilter": "全部",
+    "loading": "加载中...",
+    "noEntries": "暂无条目。",
+    "selectEntry": "选择左侧条目查看内容",
+    "deletePrompt": "确认删除这条知识？",
+    "categoryField": "类别 *",
+    "categorySelect": "选择类别",
+    "tagsField": "标签（逗号分隔）",
+    "tagsPlaceholder": "外联, 跟进",
+    "titleField": "标题 *",
+    "titlePlaceholder": "例如：游戏类创作者冷启动话术",
+    "contentField": "内容 *",
+    "contentPlaceholder": "话术或策略内容…",
+    "categories": {
+      "outreach_scripts": "外联话术",
+      "onboarding_materials": "入驻材料",
+      "live_strategies": "直播策略",
+      "objection_handling": "异议处理"
+    }
+  },
+  "team": {
+    "title": "团队（AI 代理）",
+    "subtitle": "驱动创作者运营流程的 AI 代理",
+    "inputSchema": "输入 Schema",
+    "outputSchema": "输出 Schema",
+    "viewPrompt": "查看 Prompt 模板",
+    "architectureTitle": "代理架构",
+    "architectureBody": "代理是<strong>数据驱动</strong>的——所有行为由数据库里的 Prompt 模板定义。执行器是单一通用函数：加载任务和创作者、按创作者状态拉取相关知识、套用配置规则、渲染 Prompt 模板、调用配置的模型、解析结构化 JSON 输出。每个代理可独立使用 <strong>Anthropic</strong>、<strong>OpenAI</strong> 或 <strong>Gemini</strong>——通过上方下拉框配置。添加新代理只需在数据库插入一行，无需改代码。",
+    "stats": {
+      "pending": "待处理",
+      "done": "已完成",
+      "failed": "失败"
+    },
+    "role": {
+      "bd": "商务拓展",
+      "ops": "运营",
+      "finance": "财务",
+      "content": "内容策略",
+      "growth": "增长与营销",
+      "legal": "法务合规"
+    }
+  },
+  "agents": {
+    "modelConfig": "模型配置",
+    "provider": "提供方",
+    "model": "模型",
+    "testTooltip": "实测发起一次请求以验证 API key 和模型可用",
+    "test": "测试",
+    "testing": "测试中…",
+    "testOk": "OK ✓",
+    "testFail": "失败",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "已保存 ✓"
+  },
+  "devices": {
+    "chartTitle": "设备累计支出",
+    "chartSubtitle": "按购买日期，按支付状态堆叠",
+    "chartEmpty": "暂无购买数据可绘图。",
+    "errDeviceName": "设备名称不能为空",
+    "errPurchaseDate": "购买日期不能为空",
+    "errPaymentStatus": "请选择支付状态",
+    "deviceName": "设备名称 *",
+    "deviceNamePlaceholder": "例如 MacBook Pro 14",
+    "unitPrice": "单价 (¥)",
+    "quantity": "数量",
+    "purchaseDate": "购买日期 *",
+    "purchaseLocation": "购买渠道",
+    "purchaseLocationPlaceholder": "例如 京东",
+    "purchasePurpose": "用途",
+    "purchasePurposePlaceholder": "例如 内容制作",
+    "userField": "使用人",
+    "userFieldPlaceholder": "使用该设备的人",
+    "buyerField": "经办人",
+    "buyerFieldPlaceholder": "采购的人",
+    "paymentMethod": "支付方式",
+    "paymentMethodPlaceholder": "例如 公司卡",
+    "paymentStatus": "支付状态 *",
+    "selectStatus": "选择状态",
+    "addDevice": "添加设备"
+  },
   "currency": {
     "switchHint": "按固定汇率切换显示币种（1 USD = 7 CNY；1 CNY = 20 JPY）"
   },
@@ -233,7 +325,12 @@
     "notes": "备注",
     "notesPlaceholder": "更多上下文...",
     "addCreator": "添加创作者",
-    "saveCreator": "保存更改"
+    "saveCreator": "保存更改",
+    "url": "URL",
+    "handlePlaceholder": "@account",
+    "urlPlaceholder": "https://...",
+    "emailPlaceholder": "creator@email.com",
+    "wechatPlaceholder": "微信号"
   },
   "creatorDetail": {
     "visitPlatform": "访问 {platform} 主页",
@@ -454,6 +551,79 @@
       "tooltipMonthMilestones": "本月节点",
       "empty": "暂无数据",
       "gap": "截至今天，计划应完成 <strong>{planned}</strong> 个节点，实际完成 <strong>{done}</strong> 个，缺口 <strong>{gap}</strong> 个。"
+    },
+    "detail": {
+      "loading": "正在加载节点…",
+      "notFound": "未找到该节点。",
+      "back": "← 返回时间轴",
+      "backLink": "战略时间轴",
+      "deleteConfirm": "永久删除该节点？",
+      "taskProgress": "任务进度",
+      "taskProgressValue": "{done}/{total} 已完成（{pct}%）",
+      "daysUntilTarget": "距目标天数",
+      "overdue": "已逾期",
+      "remaining": "剩余",
+      "level": "层级",
+      "levelCompany": "公司",
+      "levelDepartment": "部门",
+      "levelCreator": "创作者",
+      "startDate": "开始日期",
+      "targetDate": "目标日期",
+      "ownerAgent": "负责代理",
+      "successMetric": "成功指标",
+      "metricTarget": "目标：",
+      "notes": "备注",
+      "involvedAgents": "参与代理",
+      "linkedCreators": "关联创作者（{count}）",
+      "linkedTasks": "关联任务（{count}）",
+      "noLinkedTasks": "暂无关联任务。当节点同时设置了负责代理与关联创作者后，会自动生成任务。",
+      "subMilestones": "子节点（{count}）",
+      "executeRunning": "运行中…",
+      "executeBtn": "执行",
+      "viewLink": "查看",
+      "editTitle": "编辑节点"
+    },
+    "form": {
+      "errTitle": "标题不能为空。",
+      "errDates": "起止日期不能为空。",
+      "errDateOrder": "目标日期必须晚于开始日期。",
+      "errSaveFailed": "保存失败",
+      "errNetwork": "网络错误，请重试。",
+      "title": "标题 *",
+      "titlePlaceholder": "例如：Q3 创作者发布活动",
+      "description": "描述",
+      "descriptionPlaceholder": "节点的战略背景…",
+      "type": "类型 *",
+      "level": "层级",
+      "priority": "优先级",
+      "riskLevel": "风险等级",
+      "startDate": "开始日期 *",
+      "targetDate": "目标日期 *",
+      "ownerAgent": "负责代理",
+      "ownerAgentNone": "— 无 —",
+      "involvedAgents": "参与代理",
+      "successMetric": "成功指标",
+      "metricName": "指标名",
+      "metricTarget": "目标值",
+      "metricUnit": "单位 (¥, %, #)",
+      "notes": "备注",
+      "notesPlaceholder": "其他上下文、依赖或风险…",
+      "createBtn": "创建节点",
+      "levelValue": {
+        "company": "公司",
+        "department": "部门",
+        "creator": "创作者"
+      },
+      "priorityValue": {
+        "high": "高",
+        "medium": "中",
+        "low": "低"
+      },
+      "riskValue": {
+        "low": "低",
+        "medium": "中",
+        "high": "高"
+      }
     }
   },
   "tasks": {

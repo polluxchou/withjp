@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
@@ -9,15 +10,18 @@ import { Plus, BookOpen, Trash2, Tag } from 'lucide-react'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Knowledge, KnowledgeCategory } from '@/lib/types'
 
-const CATEGORIES: { key: KnowledgeCategory; label: string; color: 'blue' | 'purple' | 'green' | 'amber' }[] = [
-  { key: 'outreach_scripts',    label: 'Outreach Scripts',    color: 'blue' },
-  { key: 'onboarding_materials',label: 'Onboarding Materials',color: 'purple' },
-  { key: 'live_strategies',     label: 'Live Strategies',     color: 'green' },
-  { key: 'objection_handling',  label: 'Objection Handling',  color: 'amber' },
+const CATEGORY_KEYS: { key: KnowledgeCategory; color: 'blue' | 'purple' | 'green' | 'amber' }[] = [
+  { key: 'outreach_scripts',     color: 'blue' },
+  { key: 'onboarding_materials', color: 'purple' },
+  { key: 'live_strategies',      color: 'green' },
+  { key: 'objection_handling',   color: 'amber' },
 ]
 
 export default function KnowledgePage() {
+  const t = useTranslations('knowledge')
+  const tCommon = useTranslations('common')
   const currentUser = useCurrentUser()
+  const categoryLabel = (key: KnowledgeCategory) => t(`categories.${key}`)
   const [items,   setItems]   = useState<Knowledge[]>([])
   const [loading, setLoading] = useState(true)
   const [filter,  setFilter]  = useState<KnowledgeCategory | 'all'>('all')
@@ -43,7 +47,7 @@ export default function KnowledgePage() {
   useEffect(() => { load() }, [load])
 
   async function deleteItem(id: string) {
-    if (!confirm('Delete this knowledge entry?')) return
+    if (!confirm(t('deletePrompt'))) return
     await fetch(`/api/knowledge?id=${id}`, { method: 'DELETE' })
     setSelected(null)
     load()
@@ -66,7 +70,7 @@ export default function KnowledgePage() {
     load()
   }
 
-  const grouped = CATEGORIES.reduce((acc, { key }) => {
+  const grouped = CATEGORY_KEYS.reduce((acc, { key }) => {
     acc[key] = items.filter((i) => i.category === key)
     return acc
   }, {} as Record<KnowledgeCategory, Knowledge[]>)
@@ -74,11 +78,11 @@ export default function KnowledgePage() {
   return (
     <div>
       <Header
-        title="Knowledge Base"
-        subtitle="Structured knowledge agents can retrieve by creator lifecycle stage"
+        title={t('title')}
+        subtitle={t('subtitle')}
         actions={
           <Button size="sm" onClick={() => setShowAdd(true)}>
-            <Plus className="w-4 h-4" /> Add Entry
+            <Plus className="w-4 h-4" /> {t('addEntry')}
           </Button>
         }
       />
@@ -87,18 +91,18 @@ export default function KnowledgePage() {
       <div className="flex items-center gap-1.5 mb-5">
         <button onClick={() => setFilter('all')}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-          All ({items.length})
+          {t('allFilter')} ({items.length})
         </button>
-        {CATEGORIES.map(({ key, label, color }) => (
+        {CATEGORY_KEYS.map(({ key }) => (
           <button key={key} onClick={() => setFilter(key)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === key ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-            {label} ({grouped[key]?.length ?? 0})
+            {categoryLabel(key)} ({grouped[key]?.length ?? 0})
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-sm text-slate-400">Loading...</div>
+        <div className="text-center py-12 text-sm text-slate-400">{t('loading')}</div>
       ) : (
         <div className="grid grid-cols-3 gap-5">
           {/* Entry list */}
@@ -106,15 +110,15 @@ export default function KnowledgePage() {
             {items.length === 0 && (
               <div className="bg-white border border-slate-200 rounded-xl p-8 text-center">
                 <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-400">No entries yet.</p>
+                <p className="text-sm text-slate-400">{t('noEntries')}</p>
               </div>
             )}
             {items.map((item) => {
-              const cat = CATEGORIES.find((c) => c.key === item.category)
+              const cat = CATEGORY_KEYS.find((c) => c.key === item.category)
               return (
                 <button key={item.id} onClick={() => setSelected(item)}
                   className={`w-full text-left bg-white border rounded-xl p-3 hover:shadow-sm transition-all ${selected?.id === item.id ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-slate-200'}`}>
-                  <Badge label={cat?.label ?? item.category} color={cat?.color ?? 'slate'} size="sm" />
+                  <Badge label={categoryLabel(item.category)} color={cat?.color ?? 'slate'} size="sm" />
                   <div className="font-medium text-sm text-slate-900 mt-1.5 line-clamp-2">{item.title}</div>
                 </button>
               )
@@ -127,7 +131,7 @@ export default function KnowledgePage() {
               <div className="bg-white border border-slate-200 rounded-xl h-full flex items-center justify-center p-12">
                 <div className="text-center">
                   <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-400">Select an entry to view its content</p>
+                  <p className="text-sm text-slate-400">{t('selectEntry')}</p>
                 </div>
               </div>
             ) : (
@@ -135,8 +139,8 @@ export default function KnowledgePage() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <Badge
-                      label={CATEGORIES.find((c) => c.key === selected.category)?.label ?? selected.category}
-                      color={CATEGORIES.find((c) => c.key === selected.category)?.color ?? 'slate'}
+                      label={categoryLabel(selected.category)}
+                      color={CATEGORY_KEYS.find((c) => c.key === selected.category)?.color ?? 'slate'}
                     />
                     <h2 className="text-base font-semibold text-slate-900 mt-2">{selected.title}</h2>
                   </div>
@@ -152,8 +156,8 @@ export default function KnowledgePage() {
                 {selected.tags.length > 0 && (
                   <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-slate-100">
                     <Tag className="w-3.5 h-3.5 text-slate-400" />
-                    {selected.tags.map((t) => (
-                      <span key={t} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">{t}</span>
+                    {selected.tags.map((tag) => (
+                      <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">{tag}</span>
                     ))}
                   </div>
                 )}
@@ -164,39 +168,39 @@ export default function KnowledgePage() {
       )}
 
       {/* Add Entry Modal */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Knowledge Entry" width="max-w-2xl">
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title={t('addEntryModalTitle')} width="max-w-2xl">
         <form onSubmit={addItem} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Category *</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t('categoryField')}</label>
               <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as KnowledgeCategory }))} required
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="">Select category</option>
-                {CATEGORIES.map(({ key, label }) => <option key={key} value={key}>{label}</option>)}
+                <option value="">{t('categorySelect')}</option>
+                {CATEGORY_KEYS.map(({ key }) => <option key={key} value={key}>{categoryLabel(key)}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Tags (comma-separated)</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t('tagsField')}</label>
               <input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
-                placeholder="outreach, follow-up"
+                placeholder={t('tagsPlaceholder')}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Title *</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t('titleField')}</label>
             <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} required
-              placeholder="e.g. Cold outreach — gaming creators"
+              placeholder={t('titlePlaceholder')}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Content *</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t('contentField')}</label>
             <textarea value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} required
-              rows={8} placeholder="Script or strategy content..."
+              rows={8} placeholder={t('contentPlaceholder')}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" type="button" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button type="submit">Add Entry</Button>
+            <Button variant="secondary" type="button" onClick={() => setShowAdd(false)}>{tCommon('cancel')}</Button>
+            <Button type="submit">{t('addEntry')}</Button>
           </div>
         </form>
       </Modal>

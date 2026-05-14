@@ -249,14 +249,14 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">{t('handle')}</label>
-              <input value={newBroadcast.account_handle} onChange={setBroadcast('account_handle')} placeholder="@account"
+              <input value={newBroadcast.account_handle} onChange={setBroadcast('account_handle')} placeholder={t('handlePlaceholder')}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">URL</label>
-              <input value={newBroadcast.account_url} onChange={setBroadcast('account_url')} placeholder="https://..."
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t('url')}</label>
+              <input value={newBroadcast.account_url} onChange={setBroadcast('account_url')} placeholder={t('urlPlaceholder')}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
@@ -298,12 +298,12 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">{t('email')}</label>
-          <input type="email" value={form.email} onChange={set('email')} placeholder="creator@email.com"
+          <input type="email" value={form.email} onChange={set('email')} placeholder={t('emailPlaceholder')}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1">{t('wechat')}</label>
-          <input value={form.wechat} onChange={set('wechat')} placeholder="wechat_id"
+          <input value={form.wechat} onChange={set('wechat')} placeholder={t('wechatPlaceholder')}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         </div>
       </div>

@@ -42,6 +42,98 @@
     "en": "English",
     "switchLanguage": "Switch language"
   },
+  "sidebar": {
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
+  },
+  "knowledge": {
+    "title": "Knowledge Base",
+    "subtitle": "Structured knowledge agents can retrieve by creator lifecycle stage",
+    "addEntry": "Add entry",
+    "addEntryModalTitle": "Add knowledge entry",
+    "allFilter": "All",
+    "loading": "Loading...",
+    "noEntries": "No entries yet.",
+    "selectEntry": "Select an entry to view its content",
+    "deletePrompt": "Delete this knowledge entry?",
+    "categoryField": "Category *",
+    "categorySelect": "Select category",
+    "tagsField": "Tags (comma-separated)",
+    "tagsPlaceholder": "outreach, follow-up",
+    "titleField": "Title *",
+    "titlePlaceholder": "e.g. Cold outreach — gaming creators",
+    "contentField": "Content *",
+    "contentPlaceholder": "Script or strategy content…",
+    "categories": {
+      "outreach_scripts": "Outreach scripts",
+      "onboarding_materials": "Onboarding materials",
+      "live_strategies": "Live strategies",
+      "objection_handling": "Objection handling"
+    }
+  },
+  "team": {
+    "title": "Team (AI Agents)",
+    "subtitle": "AI agents driving the creator workflow",
+    "inputSchema": "Input schema",
+    "outputSchema": "Output schema",
+    "viewPrompt": "View prompt template",
+    "architectureTitle": "Agent architecture",
+    "architectureBody": "Agents are <strong>data-driven</strong> — all behavior is defined by the prompt template stored in the database. The executor is a single generic function: it loads the task + creator, fetches relevant knowledge by creator status, applies config rules, renders the prompt template, calls the configured model, and parses the structured JSON output. Each agent can independently use <strong>Anthropic</strong>, <strong>OpenAI</strong>, or <strong>Gemini</strong> — configure via the dropdowns above. Adding a new agent requires only inserting a new row — no code changes.",
+    "stats": {
+      "pending": "Pending",
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "role": {
+      "bd": "Business Development",
+      "ops": "Operations",
+      "finance": "Finance",
+      "content": "Content Strategy",
+      "growth": "Growth & Marketing",
+      "legal": "Legal & Compliance"
+    }
+  },
+  "agents": {
+    "modelConfig": "Model configuration",
+    "provider": "Provider",
+    "model": "Model",
+    "testTooltip": "Make a live ping to verify the API key and model are reachable",
+    "test": "Test",
+    "testing": "Testing…",
+    "testOk": "OK ✓",
+    "testFail": "Failed",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved ✓"
+  },
+  "devices": {
+    "chartTitle": "Cumulative device spend",
+    "chartSubtitle": "By purchase date, stacked across payment status",
+    "chartEmpty": "No purchase data to chart yet.",
+    "errDeviceName": "Device name is required",
+    "errPurchaseDate": "Purchase date is required",
+    "errPaymentStatus": "Payment status is required",
+    "deviceName": "Device name *",
+    "deviceNamePlaceholder": "e.g. MacBook Pro 14",
+    "unitPrice": "Unit price (¥)",
+    "quantity": "Quantity",
+    "purchaseDate": "Purchase date *",
+    "purchaseLocation": "Purchase location",
+    "purchaseLocationPlaceholder": "e.g. JD.com",
+    "purchasePurpose": "Purchase purpose",
+    "purchasePurposePlaceholder": "e.g. Content creation",
+    "userField": "User",
+    "userFieldPlaceholder": "Who uses this device",
+    "buyerField": "Buyer",
+    "buyerFieldPlaceholder": "Who purchased",
+    "paymentMethod": "Payment method",
+    "paymentMethodPlaceholder": "e.g. Company card",
+    "paymentStatus": "Payment status *",
+    "selectStatus": "Select status",
+    "addDevice": "Add device"
+  },
   "currency": {
     "switchHint": "Switch the displayed currency at fixed rates (1 USD = 7 CNY; 1 CNY = 20 JPY)"
   },
@@ -233,7 +325,12 @@
     "notes": "Notes",
     "notesPlaceholder": "Any additional context...",
     "addCreator": "Add creator",
-    "saveCreator": "Save changes"
+    "saveCreator": "Save changes",
+    "url": "URL",
+    "handlePlaceholder": "@account",
+    "urlPlaceholder": "https://...",
+    "emailPlaceholder": "creator@email.com",
+    "wechatPlaceholder": "wechat_id"
   },
   "creatorDetail": {
     "visitPlatform": "Visit {platform} profile",
@@ -454,6 +551,79 @@
       "tooltipMonthMilestones": "This month's milestones",
       "empty": "No data",
       "gap": "As of today, <strong>{planned}</strong> {planned, plural, =1 {milestone} other {milestones}} should be complete, but only <strong>{done}</strong> {done, plural, =1 {is} other {are}} done — gap of <strong>{gap}</strong>."
+    },
+    "detail": {
+      "loading": "Loading milestone…",
+      "notFound": "Milestone not found.",
+      "back": "← Back to Timeline",
+      "backLink": "Strategic Timeline",
+      "deleteConfirm": "Delete this milestone permanently?",
+      "taskProgress": "Task progress",
+      "taskProgressValue": "{done}/{total} done ({pct}%)",
+      "daysUntilTarget": "Days until target",
+      "overdue": "overdue",
+      "remaining": "remaining",
+      "level": "Level",
+      "levelCompany": "Company",
+      "levelDepartment": "Department",
+      "levelCreator": "Creator",
+      "startDate": "Start date",
+      "targetDate": "Target date",
+      "ownerAgent": "Owner agent",
+      "successMetric": "Success metric",
+      "metricTarget": "target: ",
+      "notes": "Notes",
+      "involvedAgents": "Involved agents",
+      "linkedCreators": "Linked creators ({count})",
+      "linkedTasks": "Linked tasks ({count})",
+      "noLinkedTasks": "No tasks linked yet. Tasks are auto-created when a milestone with an owner agent and linked creators is saved.",
+      "subMilestones": "Sub-milestones ({count})",
+      "executeRunning": "Running…",
+      "executeBtn": "Execute",
+      "viewLink": "View",
+      "editTitle": "Edit milestone"
+    },
+    "form": {
+      "errTitle": "Title is required.",
+      "errDates": "Both dates are required.",
+      "errDateOrder": "Target date must be after start date.",
+      "errSaveFailed": "Save failed",
+      "errNetwork": "Network error. Please try again.",
+      "title": "Title *",
+      "titlePlaceholder": "e.g. Q3 Creator Launch Campaign",
+      "description": "Description",
+      "descriptionPlaceholder": "Strategic context for this milestone…",
+      "type": "Type *",
+      "level": "Level",
+      "priority": "Priority",
+      "riskLevel": "Risk level",
+      "startDate": "Start date *",
+      "targetDate": "Target date *",
+      "ownerAgent": "Owner agent",
+      "ownerAgentNone": "— None —",
+      "involvedAgents": "Involved agents",
+      "successMetric": "Success metric",
+      "metricName": "Metric name",
+      "metricTarget": "Target value",
+      "metricUnit": "Unit (¥, %, #)",
+      "notes": "Notes",
+      "notesPlaceholder": "Additional context, dependencies, or risks…",
+      "createBtn": "Create milestone",
+      "levelValue": {
+        "company": "Company",
+        "department": "Department",
+        "creator": "Creator"
+      },
+      "priorityValue": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "riskValue": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      }
     }
   },
   "tasks": {
