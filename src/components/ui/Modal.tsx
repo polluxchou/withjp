@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode, useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
@@ -13,6 +14,7 @@ interface ModalProps {
 }
 
 export default function Modal({ open, onClose, title, children, width = 'max-w-lg' }: ModalProps) {
+  const tCommon = useTranslations('common')
   // Portal to document.body so a `position: fixed` modal always escapes any
   // ancestor that creates a containing block via transform / filter / etc.
   // The mobile sidebar uses translate-x for its drawer animation; without
@@ -41,7 +43,7 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={tCommon('close')}
             onClick={onClose}
             className="-mr-1 w-9 h-9 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
