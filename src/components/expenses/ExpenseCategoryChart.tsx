@@ -80,7 +80,7 @@ type MonthlyGran = 'day' | 'month'
 
 interface ChartTooltipProps {
   active?: boolean
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line
   payload?: any[]
   label?: string
   fmt:    (cny: number, opts?: { compact?: boolean }) => string
@@ -90,7 +90,7 @@ interface ChartTooltipProps {
 
 interface CategoryTooltipProps {
   active?: boolean
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line
   payload?: any[]
   fmt: (cny: number, opts?: { compact?: boolean }) => string
   categoryLabel: (category: ExpenseCategory) => string

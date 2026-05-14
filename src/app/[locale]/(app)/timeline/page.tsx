@@ -432,7 +432,7 @@ function buildCurveData(milestones: Milestone[]): CurvePoint[] {
 
 interface ChartTooltipProps {
   active?: boolean
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line
   payload?: any[]
   label?: string
 }
