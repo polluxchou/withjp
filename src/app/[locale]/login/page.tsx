@@ -234,7 +234,7 @@ export default function LoginPage() {
                     /* px/py give a finger-sized tap target on mobile without
                        moving the visual baseline */
                     className="-mr-2 px-2 py-1 text-[10px] tracking-[0.15em] text-slate-400 hover:text-slate-700 transition-colors uppercase"
-                    onClick={() => alert('请联系管理员重置密码')}
+                    onClick={() => alert(t('forgotPasswordAlert'))}
                   >
                     {t('forgot')}
                   </button>

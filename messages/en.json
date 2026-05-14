@@ -17,6 +17,7 @@
     "notFound": "Not found",
     "confirmDelete": "Confirm delete",
     "close": "Close",
+    "details": "Details",
     "singleDay": "Single day",
     "days": "{count, plural, =1 {1 day} other {# days}}"
   },
@@ -241,6 +242,7 @@
     "emailLabel": "Work email",
     "passwordLabel": "Password",
     "forgot": "Forgot?",
+    "forgotPasswordAlert": "Please contact an admin to reset your password.",
     "stepLabel": "Sign-in · Step 01 / 01"
   },
   "dashboard": {
