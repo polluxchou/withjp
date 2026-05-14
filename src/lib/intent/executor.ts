@@ -498,7 +498,7 @@ function aggregate(
 // because supabase-js's filter builder generics are awkward to thread
 // through a helper. All call sites pass `db.from('expenses').select(...)`.
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line
 function applyFilters(q: any, f: ExpenseFilters): any {
   let query = q
   if (f.expense_category?.length) query = query.in('expense_category', f.expense_category)
