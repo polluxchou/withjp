@@ -1,4 +1,4 @@
-import { ExpenseIntentSchema, type ExpenseIntent } from './schema'
+import { ExpenseIntentSchema, WorkTaskCreateIntentSchema, type ExpenseIntent, type WorkTaskCreateIntent } from './schema'
 
 // ── Gemini transport ──────────────────────────────────────────
 // Minimal local shim — keeps src/lib/agents/providers.ts unchanged.
@@ -44,10 +44,15 @@ export interface ParserContext {
 }
 
 export type ClassifiedKind = 'write' | 'query' | 'unknown'
+export type EntityKind     = 'expense' | 'work_task' | 'unknown'
 
 export type ParserResult =
   | { ok: true;  intent: ExpenseIntent; classifiedAs: ClassifiedKind; modelUsed: string;  durationMs: number }
   | { ok: false; reason: string;                                                          durationMs: number }
+
+export type WorkTaskParserResult =
+  | { ok: true;  intent: WorkTaskCreateIntent; modelUsed: string; durationMs: number }
+  | { ok: false; reason: string;                                  durationMs: number }
 
 // ── Classification stage ──────────────────────────────────────
 
@@ -238,4 +243,99 @@ function tryParse(raw: string): ParseAttempt {
 
 function stripFences(s: string): string {
   return s.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim()
+}
+
+// ── Entity classification ──────────────────────────────────────
+// Determines whether input is about expenses or work tasks before
+// routing to the appropriate parser.
+
+export async function classifyEntity(text: string): Promise<EntityKind> {
+  const prompt = `判断下面这句话是在操作哪类数据：
+- expense（支出/费用）：记录花钱、采购、报销、差旅费、薪资支出、云服务费等财务记录
+- work_task（工作任务）：创建或安排一项工作任务，可能提到截止日期、负责人、执行人、审核人、工作内容等
+- unknown：完全无法判断
+
+只返回 JSON：{"entity":"expense"} 或 {"entity":"work_task"} 或 {"entity":"unknown"}。
+
+输入：${JSON.stringify(text)}`
+  try {
+    const raw = await geminiJson(MODEL_FLASH, prompt)
+    const obj = JSON.parse(raw) as { entity?: string }
+    if (obj.entity === 'expense' || obj.entity === 'work_task') return obj.entity
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+// ── Work task parser ──────────────────────────────────────────
+
+const WORK_TASK_SCHEMA_DOC = `
+你必须输出一个合法的 JSON，描述一个创建工作任务的意图：
+
+{
+  "op": "create",
+  "entity": "work_task",
+  "payload": {
+    "title":               string,            // 必填，任务标题
+    "task_type":           "fixed"|"adhoc",   // fixed=固定/周期任务, adhoc=临时任务, 默认 adhoc
+    "department":          "bd"|"ops"|"finance"|"content"|"growth"|"legal",  // 所属部门
+    "owner_name":          string,            // 主负责人姓名（用户说的名字，不是 ID）
+    "reviewer_name":       string|null,       // 审核人姓名
+    "executor_names":      string[],          // 执行人姓名列表
+    "task_date":           "YYYY-MM-DD",      // 开始日期，默认今天
+    "due_date":            "YYYY-MM-DD"|null, // 截止日期
+    "effort_hours":        2|4|8,             // 工时，默认 2
+    "repeat_interval":     "daily"|"weekly"|"biweekly"|"monthly"|null,  // 重复周期，仅 fixed 任务填
+    "completion_criteria": string|null,       // 如何判断完成
+    "notes":               string|null
+  },
+  "summary": "一句话摘要",
+  "ambiguities": ["..."]?                    // 不确定的点
+}
+`
+
+const WORK_TASK_RULES = `
+关键规则：
+1. title 是必填项，如果用户说了任务名就提取，否则用任务描述概括。
+2. 相对时间转绝对日期，"明天" "下周五" 等都换成 YYYY-MM-DD。
+3. 人名只提取原文，不要猜 ID，交由后端解析。
+4. 不确定的字段放进 ambiguities，不要凭空填值。
+5. 只输出 JSON，不要 markdown 围栏，不要解释文字。
+`
+
+export async function parseWorkTaskIntent(
+  text: string,
+  ctx:  ParserContext,
+): Promise<WorkTaskParserResult> {
+  const t0 = Date.now()
+  try {
+    const prompt = `今天是 ${ctx.todayISO}。\n\n${WORK_TASK_SCHEMA_DOC}\n${WORK_TASK_RULES}\n\n用户输入：${JSON.stringify(text)}`
+    const raw    = await geminiJson(MODEL_PRO, prompt)
+    const parsed = tryParseWorkTask(raw)
+    if (parsed.success) {
+      return { ok: true, intent: parsed.data, modelUsed: MODEL_PRO, durationMs: Date.now() - t0 }
+    }
+    return { ok: false, reason: parsed.error, durationMs: Date.now() - t0 }
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e), durationMs: Date.now() - t0 }
+  }
+}
+
+type WorkTaskParseAttempt =
+  | { success: true;  data: WorkTaskCreateIntent }
+  | { success: false; error: string }
+
+function tryParseWorkTask(raw: string): WorkTaskParseAttempt {
+  let json: unknown
+  try {
+    json = JSON.parse(stripFences(raw))
+  } catch (e) {
+    return { success: false, error: `invalid JSON: ${(e as Error).message}` }
+  }
+  const result = WorkTaskCreateIntentSchema.safeParse(json)
+  if (!result.success) {
+    return { success: false, error: result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ') }
+  }
+  return { success: true, data: result.data }
 }
