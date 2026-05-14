@@ -250,10 +250,14 @@ function stripFences(s: string): string {
 // routing to the appropriate parser.
 
 export async function classifyEntity(text: string): Promise<EntityKind> {
-  const prompt = `判断下面这句话是在操作哪类数据：
-- expense（支出/费用）：记录花钱、采购、报销、差旅费、薪资支出、云服务费等财务记录
-- work_task（工作任务）：创建或安排一项工作任务，可能提到截止日期、负责人、执行人、审核人、工作内容等
-- unknown：完全无法判断
+  const prompt = `判断下面这句话的意图类型。
+
+判断核心原则：
+- expense（支出记录）：用户在【记录】一笔已发生或即将发生的财务流水，重点是"钱从哪来/到哪去、花了多少"。典型特征：出现金额数字、"新增支出/费用"、"记一笔"、"报销"等记账动作。
+- work_task（工作任务）：用户在【描述一件需要完成的工作】，重点是"做什么事、谁来做"。即使这件事涉及钱（如"去付款"、"完成转账"、"处理费用"），只要核心是一项待办工作而非记账，就应该分类为 work_task。典型特征：以动词开头描述动作（完成/安排/处理/跟进/确认等），或提到负责人/截止日期。
+- unknown：无法判断。
+
+判断顺序：先问"这是在记一笔账吗？"——如果是，expense；如果是在描述要做某件事，work_task。
 
 只返回 JSON：{"entity":"expense"} 或 {"entity":"work_task"} 或 {"entity":"unknown"}。
 
@@ -297,11 +301,12 @@ const WORK_TASK_SCHEMA_DOC = `
 
 const WORK_TASK_RULES = `
 关键规则：
-1. title 是必填项，如果用户说了任务名就提取，否则用任务描述概括。
-2. 相对时间转绝对日期，"明天" "下周五" 等都换成 YYYY-MM-DD。
-3. 人名只提取原文，不要猜 ID，交由后端解析。
-4. 不确定的字段放进 ambiguities，不要凭空填值。
-5. 只输出 JSON，不要 markdown 围栏，不要解释文字。
+1. title 是必填项。如果用户描述的是"去完成某件事"，把这件事本身作为 title（如"完成新公司主体注册费用转账"）。
+2. 任务描述里提到的银行账号、注意事项、操作细节等放到 notes 里，不要丢弃。
+3. 相对时间转绝对日期，"明天" "下周五" 等都换成 YYYY-MM-DD。
+4. 人名只提取原文，不要猜 ID，交由后端解析。
+5. 不确定的字段放进 ambiguities，不要凭空填值。
+6. 只输出 JSON，不要 markdown 围栏，不要解释文字。
 `
 
 export async function parseWorkTaskIntent(
