@@ -27,7 +27,7 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
-    date: '2026-05-13',
+    date: '2026-05-14',
     items: [
       {
         kind: 'improve',
@@ -40,6 +40,11 @@ export const CHANGELOG: DailyChangelog[] = [
         scope: '财务预测',
         title: '"全年"视图下顶部标题不再继续显示上一次选中的月份',
       },
+    ],
+  },
+  {
+    date: '2026-05-13',
+    items: [
       {
         kind: 'feat',
         scope: '配置',
