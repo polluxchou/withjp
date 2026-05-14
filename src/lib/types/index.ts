@@ -440,30 +440,43 @@ export interface UserSalary {
 
 // ── Work Task ─────────────────────────────────────────────
 
-export type WorkTaskType   = 'fixed' | 'adhoc'
-export type WorkTaskStatus = 'planned' | 'doing' | 'done' | 'cancelled'
-export type WorkTaskEffort = 2 | 4 | 8
+export type WorkTaskType           = 'fixed' | 'adhoc'
+export type WorkTaskStatus         = 'planned' | 'doing' | 'done' | 'cancelled'
+export type WorkTaskEffort         = 2 | 4 | 8
+export type WorkTaskRepeatInterval = 'daily' | 'weekly' | 'biweekly' | 'monthly'
 
 export const WORK_TASK_EFFORT_OPTIONS: WorkTaskEffort[] = [2, 4, 8]
 
+export const WORK_TASK_REPEAT_INTERVAL_LABELS: Record<WorkTaskRepeatInterval, string> = {
+  daily:    '每日',
+  weekly:   '每周',
+  biweekly: '每两周',
+  monthly:  '每月',
+}
+
 export interface WorkTask {
-  id:            string
-  task_type:     WorkTaskType
-  title:         string
-  description:   string | null
-  department:    AgentRole
-  milestone_id:  string | null
-  owner_user_id: string
-  executor_ids:  string[]
-  task_date:     string        // date string YYYY-MM-DD
-  effort_hours:  WorkTaskEffort
-  status:        WorkTaskStatus
-  notes:         string | null
-  created_at:    string
-  updated_at:    string
+  id:                   string
+  task_type:            WorkTaskType
+  title:                string
+  description:          string | null
+  department:           AgentRole
+  milestone_id:         string | null
+  owner_user_id:        string
+  reviewer_user_id:     string | null
+  executor_ids:         string[]
+  task_date:            string        // YYYY-MM-DD
+  due_date:             string | null // deadline
+  effort_hours:         WorkTaskEffort
+  repeat_interval:      WorkTaskRepeatInterval | null
+  completion_criteria:  string | null
+  status:               WorkTaskStatus
+  notes:                string | null
+  created_at:           string
+  updated_at:           string
   // joined
-  owner?:        Pick<UserProfile, 'id' | 'name' | 'user_code' | 'role'>
-  milestone?:    { id: string; title: string } | null
+  owner?:     Pick<UserProfile, 'id' | 'name' | 'user_code' | 'role'>
+  reviewer?:  Pick<UserProfile, 'id' | 'name' | 'user_code' | 'role'> | null
+  milestone?: { id: string; title: string } | null
 }
 
 // Workload computed per user per date
