@@ -17,6 +17,7 @@
     "notFound": "未找到",
     "confirmDelete": "确认删除",
     "close": "关闭",
+    "details": "详情",
     "singleDay": "单日",
     "days": "{count}天"
   },
@@ -241,6 +242,7 @@
     "emailLabel": "工作邮箱 · WORK EMAIL",
     "passwordLabel": "密码 · PASSWORD",
     "forgot": "忘记密码？",
+    "forgotPasswordAlert": "请联系管理员重置密码",
     "stepLabel": "登录 · STEP 01 / 01"
   },
   "dashboard": {

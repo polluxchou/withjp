@@ -60,6 +60,7 @@ export default function Sidebar() {
   const t = useTranslations('nav')
   const tRoles = useTranslations('roles')
   const tSidebar = useTranslations('sidebar')
+  const tCommon = useTranslations('common')
   const [profileOpen, setProfileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [hydrated, setHydrated] = useState(false)
@@ -267,7 +268,7 @@ export default function Sidebar() {
                 {profile
                   ? [profile.user_code, profile.role ? tRoles(profile.role) : null]
                       .filter(Boolean).join(' · ')
-                  : '加载中…'}
+                  : tCommon('loading')}
               </span>
             </span>
           )}
