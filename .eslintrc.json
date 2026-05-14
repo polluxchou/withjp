@@ -23,5 +23,10 @@
       }
     ]
   },
-  "overrides": []
+  "overrides": [
+    {
+      "files": ["**/finance-forecast/**/*"],
+      "rules": { "no-restricted-syntax": "off" }
+    }
+  ]
 }

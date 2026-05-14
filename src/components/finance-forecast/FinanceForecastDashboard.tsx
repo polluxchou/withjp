@@ -42,15 +42,20 @@ const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
   other:   '#64748b',
 }
 
-// Default account_name for newly added rows — stored verbatim in Supabase,
-// so it stays in zh regardless of UI locale (data, not UI).
-const NEW_ROW_DEFAULT_NAME = '新账号'
+const ACCOUNT_TYPE_NOTES: Record<ForecastAccountType, string> = {
+  key:     '高 ROI 账号',
+  mature:  '稳定贡献',
+  growing: '爬坡账号',
+  newbie:  '新开账号',
+  test:    '活动测试',
+  other:   '未分类',
+}
 
 const CHART_TABS = [
-  { key: 'stacked',    labelKey: 'chart.tabStacked'    },
-  { key: 'lines',      labelKey: 'chart.tabLines'      },
-  { key: 'indexed',    labelKey: 'chart.tabIndexed'    },
-  { key: 'cumulative', labelKey: 'chart.tabCumulative' },
+  { key: 'stacked',    label: 'Stacked' },
+  { key: 'lines',      label: 'Lines' },
+  { key: 'indexed',    label: 'Indexed' },
+  { key: 'cumulative', label: '累计' },
 ] as const
 
 type ChartMode = typeof CHART_TABS[number]['key']
@@ -149,7 +154,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           ...month.rows,
           {
             id:                     newId,
-            account_name:           NEW_ROW_DEFAULT_NAME,
+            account_name:           '新账号',
             account_type:           'newbie',
             live_days:              0,
             avg_daily_hours:        0,
@@ -182,7 +187,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
 
   function requestDeleteRow(rowIndex: number) {
     const row = selectedRaw.rows[rowIndex]
-    setDeletingRow({ index: rowIndex, name: row?.account_name ?? t('deleteModal.thisAccount') })
+    setDeletingRow({ index: rowIndex, name: row?.account_name ?? '此账号' })
   }
 
   function confirmDelete() {
@@ -298,41 +303,41 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           and breakeven; collapses to 2-col on mobile, 3-col on tablet. */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-4">
         <KpiCard
-          label={t('kpi.yearForecast')}
+          label="全年预测开播收益"
           value={formatUsd(summary.yearly_forecast_usd)}
-          sub={inputOpen ? t('kpi.yearForecastCollapse') : t('kpi.yearForecastExpand')}
+          sub={inputOpen ? '点击收起账号明细' : '点击展开账号明细'}
           onClick={() => setInputOpen((o) => !o)}
           active={inputOpen}
         />
         <KpiCard
-          label={t('kpi.yearBudget')}
+          label="全年成本预算"
           value={formatUsd(summary.yearly_budget_usd)}
-          sub={t('kpi.yearBudgetSub')}
+          sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
           linkTo="/expenses"
-          linkLabel={t('kpi.yearBudgetLink')}
+          linkLabel="去支出管理"
         />
         <KpiCard
-          label={t('kpi.yearProfit')}
+          label="年度累计利润"
           value={formatUsd(summary.yearly_profit_usd)}
-          sub={summary.yearly_profit_usd >= 0 ? t('kpi.yearProfitPositive') : t('kpi.yearProfitNegative')}
+          sub={summary.yearly_profit_usd >= 0 ? '全年预计结余' : '全年预计亏损'}
           valueClassName={yearlyProfitColor}
         />
         <KpiCard
-          label={t('kpi.yearMargin')}
+          label="年度毛利率"
           value={`${Math.round(yearMarginPct)}%`}
-          sub={t('kpi.yearMarginSub')}
+          sub="年度利润 / 年度收益"
           valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
         />
         <KpiCard
-          label={t('kpi.breakevenMonth')}
-          value={breakevenMonth ? (monthLabels[parseInt(breakevenMonth.slice(5), 10) - 1] ?? breakevenMonth.slice(5)) : t('kpi.empty')}
-          sub={breakevenMonth ? t('kpi.breakevenPositive') : t('kpi.breakevenNone')}
+          label="首个盈利月"
+          value={breakevenMonth ? breakevenMonth.slice(5) + '月' : '—'}
+          sub={breakevenMonth ? '累计利润首次转正' : '本年度累计未转正'}
           valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
         />
         <KpiCard
-          label={t('kpi.currentMargin')}
+          label="当前月毛利率"
           value={selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
-          sub={t('kpi.currentMarginEditing', { month: selected.month })}
+          sub={`${selected.month} 正在编辑`}
           valueClassName={selectedProfitColor}
         />
       </div>
@@ -349,9 +354,9 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
               <span className="text-xl font-bold text-indigo-600 tabular-nums tracking-tight">
                 {selectedMonthLabel}
               </span>
-              <span className="text-sm font-medium text-slate-500 ml-1.5">{t('section.title')}</span>
+              <span className="text-sm font-medium text-slate-500 ml-1.5">账号预测输入</span>
             </h2>
-            <span className="hidden sm:block text-xs text-slate-400 truncate">{t('section.subtitle')}</span>
+            <span className="hidden sm:block text-xs text-slate-400 truncate">每个月单独设置账号参数，输入自动保存</span>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className={`text-xs font-medium ${saveStatusClass(saveStatus)}`}>
@@ -361,16 +366,16 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
             {inputOpen && (
               <div className="hidden lg:flex items-center gap-2">
                 <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={selectedMonth === 0}>
-                  <Copy className="w-3.5 h-3.5" /> {t('actions.copyPrevious')}
+                  <Copy className="w-3.5 h-3.5" /> 复制上月
                 </Button>
                 <Button variant="secondary" size="sm" onClick={applyForward}>
-                  <Copy className="w-3.5 h-3.5" /> {t('actions.applyForward')}
+                  <Copy className="w-3.5 h-3.5" /> 应用到后续月份
                 </Button>
                 <Button variant="secondary" size="sm" onClick={clearMonth}>
-                  <RotateCcw className="w-3.5 h-3.5" /> {t('actions.clearMonth')}
+                  <RotateCcw className="w-3.5 h-3.5" /> 清空本月
                 </Button>
                 <Button size="sm" onClick={addRow}>
-                  <Plus className="w-3.5 h-3.5" /> {t('actions.addAccount')}
+                  <Plus className="w-3.5 h-3.5" /> 添加账号
                 </Button>
               </div>
             )}
@@ -384,7 +389,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                   onClick={() => setActionsMenuOpen((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={actionsMenuOpen}
-                  aria-label={t('section.actionsAria')}
+                  aria-label="操作"
                   className="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors"
                 >
                   <MoreHorizontal className="w-4 h-4" />
@@ -400,7 +405,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                       onClick={() => runAction(addRow)}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-indigo-600 font-medium hover:bg-indigo-50"
                     >
-                      <Plus className="w-4 h-4" /> {t('actions.addAccount')}
+                      <Plus className="w-4 h-4" /> 添加账号
                     </button>
                     <button
                       type="button"
@@ -409,7 +414,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                       onClick={() => runAction(copyPreviousMonth)}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 disabled:text-slate-300 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
-                      <Copy className="w-4 h-4" /> {t('actions.copyPrevious')}
+                      <Copy className="w-4 h-4" /> 复制上月
                     </button>
                     <button
                       type="button"
@@ -417,7 +422,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                       onClick={() => runAction(applyForward)}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
-                      <Copy className="w-4 h-4" /> {t('actions.applyForward')}
+                      <Copy className="w-4 h-4" /> 应用到后续月份
                     </button>
                     <div className="my-1 border-t border-slate-100" />
                     <button
@@ -426,7 +431,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                       onClick={() => runAction(clearMonth)}
                       className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50"
                     >
-                      <RotateCcw className="w-4 h-4" /> {t('actions.clearMonth')}
+                      <RotateCcw className="w-4 h-4" /> 清空本月
                     </button>
                   </div>
                 )}
@@ -435,7 +440,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
             <button
               type="button"
               onClick={() => setInputOpen((o) => !o)}
-              aria-label={inputOpen ? t('section.collapseAria') : t('section.expandAria')}
+              aria-label={inputOpen ? '折叠' : '展开'}
               className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
             >
               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${inputOpen ? '' : '-rotate-90'}`} />
@@ -496,27 +501,27 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                       : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                   }`}
                 >
-                  {t('monthPicker.year')}
+                  全年
                 </button>
               </div>
 
               {!showYearView && <div className="grid gap-3 md:grid-cols-3 mb-4">
-                <Field label={t('fields.actualRevenue')}>
+                <Field label="当前月实际开播收益（美金）">
                   <NumberInput
                     value={selectedRaw.actual_revenue_usd}
                     onChange={(actual_revenue_usd) => updateSelectedMonth({ actual_revenue_usd })}
                     step={1000}
                   />
                 </Field>
-                <Field label={t('fields.budgetSynced')}>
+                <Field label="当前月成本预算（同步）">
                   <input
                     value={formatUsd(selectedRaw.budget_cost_usd)}
                     readOnly
                     className="w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
                   />
-                  <div className="text-xs text-indigo-600 font-medium mt-1">{t('fields.budgetSyncedHint')}</div>
+                  <div className="text-xs text-indigo-600 font-medium mt-1">已同步当前预算成本，并换算为美金</div>
                 </Field>
-                <Field label={t('fields.note')}>
+                <Field label="备注事件标注">
                   <input
                     value={selectedRaw.note ?? ''}
                     onChange={(event) => updateSelectedMonth({ note: event.target.value })}
@@ -535,14 +540,14 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
               <table className="w-full text-sm min-w-[1120px]">
                 <thead>
                   <tr className="border-y border-slate-100 bg-slate-50">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('table.account')}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('table.type')}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('table.liveDays')}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('table.avgDailyHours')}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('table.revenuePerMinute')}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('table.shareRatio')}</th>
-                    <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('table.monthlyRevenue')}</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('table.status')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">账号</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">类型</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">开播天数</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">平均每日开播时长</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">分钟收益（美金）</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">可分润比例（%）</th>
+                    <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">月开播收益</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">状态</th>
                     <th />
                   </tr>
                 </thead>
@@ -550,7 +555,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                   {selectedRaw.rows.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
-                        {t('table.emptyMonth')}
+                        当前月份还没有预测输入。添加账号后，账号类型贡献、曲线和 KPI 才会开始计算。
                       </td>
                     </tr>
                   ) : calculatedRows.map((row, index) => (
@@ -592,7 +597,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
-                          aria-label={t('table.deleteRowAria')}
+                          aria-label="Delete row"
                           onClick={() => requestDeleteRow(index)}
                           className="inline-flex items-center text-xs font-medium text-red-500 hover:text-red-700"
                         >
@@ -618,7 +623,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 />
 
                 <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
-                  {t('formula')}
+                  计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
                 </div>
               </>
             )}
@@ -631,11 +636,11 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">{t('chart.title')}</h2>
+              <h2 className="text-sm font-semibold text-slate-900">预测曲线</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {chartMode === 'cumulative'
-                  ? t('chart.subtitleCumulative')
-                  : t('chart.subtitleDefault')}
+                  ? '累计收益 vs 累计成本 — 交叉点即首次盈利月'
+                  : '按账户类型展示开播收益、实际收益和同步预算成本'}
               </p>
             </div>
             <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
@@ -648,7 +653,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                     chartMode === tab.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  {t(tab.labelKey)}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -674,8 +679,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                     fillOpacity={0.72}
                   />
                 ))}
-                <Line type="monotone" dataKey="actual" name={t('chart.seriesActual')} stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-                <Line type="monotone" dataKey="budget" name={t('chart.seriesBudget')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                <Line type="monotone" dataKey="actual" name="实际开播收益" stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                <Line type="monotone" dataKey="budget" name="同步预算成本" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
               </ComposedChart>
             ) : chartMode === 'cumulative' ? (
               <ComposedChart data={cumulativeData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
@@ -692,20 +697,20 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                     x={cumulativeData[breakevenIndex].label}
                     stroke="#10b981"
                     strokeDasharray="4 4"
-                    label={{ value: t('chart.breakevenLabel', { label: cumulativeData[breakevenIndex].label }), position: 'top', fontSize: 11, fill: '#10b981' }}
+                    label={{ value: `盈亏平衡 ${cumulativeData[breakevenIndex].label}`, position: 'top', fontSize: 11, fill: '#10b981' }}
                   />
                 )}
                 <Area
                   type="monotone"
                   dataKey="cum_profit"
-                  name={t('chart.seriesCumProfit')}
+                  name="累计净利润"
                   stroke="#6366f1"
                   fill="#6366f1"
                   fillOpacity={0.18}
                   strokeWidth={2}
                 />
-                <Line type="monotone" dataKey="cum_revenue" name={t('chart.seriesCumRevenue')} stroke="#10b981" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="cum_cost"    name={t('chart.seriesCumCost')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                <Line type="monotone" dataKey="cum_revenue" name="累计开播收益" stroke="#10b981" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="cum_cost"    name="累计预算成本" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
               </ComposedChart>
             ) : (
               <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
@@ -733,8 +738,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 ))}
                 {chartMode === 'lines' && (
                   <>
-                    <Line type="monotone" dataKey="actual" name={t('chart.seriesActual')} stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="budget" name={t('chart.seriesBudget')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                    <Line type="monotone" dataKey="actual" name="实际开播收益" stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="budget" name="同步预算成本" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
                   </>
                 )}
               </LineChart>
@@ -745,8 +750,8 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
         <aside className="bg-white border border-slate-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">{t('aside.title')}</h2>
-              <p className="text-xs text-slate-500 mt-0.5">{t('aside.subtitle')}</p>
+              <h2 className="text-sm font-semibold text-slate-900">账号类型贡献</h2>
+              <p className="text-xs text-slate-500 mt-0.5">12 个月预测输入汇总</p>
             </div>
           </div>
           <div className="space-y-1">
@@ -755,7 +760,7 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
                 <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: ACCOUNT_TYPE_COLORS[type] }} />
                 <div className="min-w-0">
                   <div className="text-xs font-semibold text-slate-700">{FORECAST_ACCOUNT_TYPE_LABELS[type]}</div>
-                  <div className="text-xs text-slate-400">{t(`aside.notes.${type}`)}</div>
+                  <div className="text-xs text-slate-400">{ACCOUNT_TYPE_NOTES[type]}</div>
                 </div>
                 <div className="text-xs font-semibold text-slate-900">{formatUsd(summary.by_account_type[type] || 0)}</div>
               </div>
@@ -763,9 +768,9 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
           </div>
 
           <div className="mt-5 space-y-3">
-            <SideStat label={t('aside.currentForecast')} value={formatUsd(selected.forecast_revenue_usd)} />
-            <SideStat label={t('aside.currentBudget')} value={formatUsd(selected.budget_cost_usd)} />
-            <SideStat label={t('aside.currentBalance')} value={formatUsd(selected.profit_usd)} valueClassName={selectedProfitColor} />
+            <SideStat label="当前月预测" value={formatUsd(selected.forecast_revenue_usd)} />
+            <SideStat label="当前月同步预算" value={formatUsd(selected.budget_cost_usd)} />
+            <SideStat label="当前月结余" value={formatUsd(selected.profit_usd)} valueClassName={selectedProfitColor} />
           </div>
         </aside>
       </div>
@@ -773,18 +778,15 @@ export default function FinanceForecastDashboard({ initialMonths, initialSelecte
       {/* Delete confirmation — shared by the desktop table row trash icon
           and the mobile card's delete button so we never lose a row to a
           stray tap. */}
-      <Modal open={!!deletingRow} onClose={() => setDeletingRow(null)} title={t('deleteModal.title')}>
+      <Modal open={!!deletingRow} onClose={() => setDeletingRow(null)} title="删除账号">
         {deletingRow && (
           <div className="space-y-4">
             <p className="text-sm text-slate-700">
-              {t.rich('deleteModal.confirm', {
-                name: deletingRow.name,
-                strong: (chunks) => <strong className="text-slate-900">{chunks}</strong>,
-              })}
+              确定要删除 <strong className="text-slate-900">{deletingRow.name}</strong> 吗？删除后无法恢复，本月的账号类型贡献和 KPI 会立刻重新计算。
             </p>
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDeletingRow(null)}>{t('deleteModal.cancel')}</Button>
-              <Button variant="danger" onClick={confirmDelete}>{t('deleteModal.delete')}</Button>
+              <Button variant="secondary" onClick={() => setDeletingRow(null)}>取消</Button>
+              <Button variant="danger" onClick={confirmDelete}>删除</Button>
             </div>
           </div>
         )}
@@ -800,7 +802,6 @@ function YearSummaryTable({
   months: ReturnType<typeof summarizeForecast>['months']
   onSelectMonth: (index: number) => void
 }) {
-  const t = useTranslations('financeForecast')
   const configured = months
     .map((m, index) => ({ ...m, index }))
     .filter((m) => m.rows.length > 0)
@@ -809,13 +810,11 @@ function YearSummaryTable({
   const totalActual   = configured.reduce((sum, m) => sum + m.actual_revenue_usd,   0)
   const totalBudget   = configured.reduce((sum, m) => sum + m.budget_cost_usd,      0)
   const totalProfit   = configured.reduce((sum, m) => sum + m.profit_usd,           0)
-  const separator     = t('year.accountSeparator')
-  const emptyMark     = t('year.emptyMark')
 
   if (configured.length === 0) {
     return (
       <div className="px-5 pb-8 pt-2 text-center text-sm text-slate-400">
-        {t('year.empty')}
+        还没有任何月份配置了账号预测输入。
       </div>
     )
   }
@@ -825,12 +824,12 @@ function YearSummaryTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-y border-slate-100 bg-slate-50">
-            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('year.month')}</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('year.configuredAccounts')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('year.forecastRevenue')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('year.actualRevenue')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('year.budgetCost')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('year.forecastProfit')}</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">月份</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">已配置账号</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预测开播收益</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">实际开播收益</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预算成本</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预测毛利润</th>
           </tr>
         </thead>
         <tbody>
@@ -841,7 +840,7 @@ function YearSummaryTable({
                 key={m.month}
                 className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
                 onClick={() => onSelectMonth(m.index)}
-                title={t('year.rowTitle')}
+                title="点击进入该月详情"
               >
                 <td className="px-4 py-3 font-semibold text-slate-900 tabular-nums">
                   {m.month}
@@ -850,13 +849,13 @@ function YearSummaryTable({
                   )}
                 </td>
                 <td className="px-4 py-3 text-slate-500">
-                  {m.rows.map((r) => r.account_name).join(separator)}
+                  {m.rows.map((r) => r.account_name).join('、')}
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">
                   {formatUsd(m.forecast_revenue_usd)}
                 </td>
                 <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
-                  {m.actual_revenue_usd > 0 ? formatUsd(m.actual_revenue_usd) : emptyMark}
+                  {m.actual_revenue_usd > 0 ? formatUsd(m.actual_revenue_usd) : '—'}
                 </td>
                 <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
                   {formatUsd(m.budget_cost_usd)}
@@ -871,14 +870,14 @@ function YearSummaryTable({
         <tfoot>
           <tr className="border-t-2 border-slate-200 bg-slate-50">
             <td className="px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wide">
-              {t('year.totalLabel')}
+              全年合计
             </td>
-            <td className="px-4 py-3 text-xs text-slate-400">{t('year.totalMonths', { count: configured.length })}</td>
+            <td className="px-4 py-3 text-xs text-slate-400">共 {configured.length} 个月</td>
             <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums text-base">
               {formatUsd(totalForecast)}
             </td>
             <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
-              {totalActual > 0 ? formatUsd(totalActual) : emptyMark}
+              {totalActual > 0 ? formatUsd(totalActual) : '—'}
             </td>
             <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
               {formatUsd(totalBudget)}
@@ -1040,15 +1039,14 @@ function MobileAccountList({
   onDelete:      (rowIndex: number) => void
   onAdd:         () => void
 }) {
-  const t = useTranslations('financeForecast')
   if (rows.length === 0) {
     return (
       <div className="lg:hidden px-4 py-8 text-center">
         <p className="text-sm text-slate-500 mb-3">
-          {t('table.emptyMonth')}
+          当前月份还没有预测输入。添加账号后，账号类型贡献、曲线和 KPI 才会开始计算。
         </p>
         <Button onClick={onAdd}>
-          <Plus className="w-4 h-4" /> {t('actions.addAccount')}
+          <Plus className="w-4 h-4" /> 添加账号
         </Button>
       </div>
     )
@@ -1076,7 +1074,6 @@ function MobileAccountCardCollapsed({
   row:      CalculatedRow
   onExpand: () => void
 }) {
-  const t = useTranslations('financeForecast')
   return (
     <button
       type="button"
@@ -1085,7 +1082,7 @@ function MobileAccountCardCollapsed({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-semibold text-slate-900 truncate">{row.account_name || t('mobile.untitled')}</span>
+          <span className="text-sm font-semibold text-slate-900 truncate">{row.account_name || '未命名'}</span>
           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 flex-shrink-0">
             {FORECAST_ACCOUNT_TYPE_LABELS[row.account_type]}
           </span>
@@ -1094,17 +1091,12 @@ function MobileAccountCardCollapsed({
           <StatusBadge revenue={row.monthly_revenue_usd} />
         </div>
         <div className="text-[11px] text-slate-500 tabular-nums truncate">
-          {t('mobile.summary', {
-            days:  row.live_days,
-            hours: row.avg_daily_hours,
-            rpm:   row.revenue_per_minute_usd,
-            share: row.share_ratio_pct,
-          })}
+          {row.live_days}天 · {row.avg_daily_hours}h · ${row.revenue_per_minute_usd}/min · 分润{row.share_ratio_pct}%
         </div>
       </div>
       <div className="text-right whitespace-nowrap flex-shrink-0">
         <div className="text-base font-bold text-slate-900 tabular-nums">{formatUsd(row.monthly_revenue_usd)}</div>
-        <div className="text-[10px] text-slate-400 mt-0.5">{t('mobile.monthlyRevenueLabel')}</div>
+        <div className="text-[10px] text-slate-400 mt-0.5">月开播收益</div>
       </div>
     </button>
   )
@@ -1123,22 +1115,21 @@ function MobileAccountCardExpanded({
   onChange:   (rowIndex: number, patch: Partial<ForecastAccountInput>) => void
   onDelete:   (rowIndex: number) => void
 }) {
-  const t = useTranslations('financeForecast')
   return (
     <div className="px-4 py-4 bg-indigo-50/30 border-l-2 border-indigo-500 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">{t('mobile.editAccount')}</span>
+        <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">编辑账号</span>
         <span className="text-base font-bold text-slate-900 tabular-nums">{formatUsd(row.monthly_revenue_usd)}</span>
       </div>
-      <Field label={t('mobile.accountName')}>
+      <Field label="账号名">
         <input
           value={row.account_name}
           onChange={(event) => onChange(index, { account_name: event.target.value })}
           className={INPUT_CLASS}
-          autoFocus={!row.account_name || row.account_name === NEW_ROW_DEFAULT_NAME}
+          autoFocus={!row.account_name || row.account_name === '新账号'}
         />
       </Field>
-      <Field label={t('mobile.type')}>
+      <Field label="类型">
         <select
           value={row.account_type}
           onChange={(event) => onChange(index, { account_type: event.target.value as ForecastAccountType })}
@@ -1150,18 +1141,18 @@ function MobileAccountCardExpanded({
         </select>
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label={t('mobile.liveDays')}>
+        <Field label="开播天数">
           <NumberInput value={row.live_days} onChange={(live_days) => onChange(index, { live_days })} />
         </Field>
-        <Field label={t('mobile.avgHours')}>
+        <Field label="平均时长 (h)">
           <NumberInput value={row.avg_daily_hours} onChange={(avg_daily_hours) => onChange(index, { avg_daily_hours })} step={0.5} />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label={t('mobile.revenuePerMin')}>
+        <Field label="分钟收益 ($)">
           <NumberInput value={row.revenue_per_minute_usd} onChange={(revenue_per_minute_usd) => onChange(index, { revenue_per_minute_usd })} step={0.01} />
         </Field>
-        <Field label={t('mobile.shareRatio')}>
+        <Field label="分润比例 (%)">
           <NumberInput value={row.share_ratio_pct} onChange={(share_ratio_pct) => onChange(index, { share_ratio_pct })} max={100} />
         </Field>
       </div>
@@ -1171,9 +1162,9 @@ function MobileAccountCardExpanded({
           onClick={() => onDelete(index)}
           className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700"
         >
-          <Trash2 className="w-3.5 h-3.5" /> {t('mobile.deleteAccount')}
+          <Trash2 className="w-3.5 h-3.5" /> 删除账号
         </button>
-        <Button variant="secondary" size="sm" onClick={onCollapse}>{t('mobile.done')}</Button>
+        <Button variant="secondary" size="sm" onClick={onCollapse}>完成</Button>
       </div>
     </div>
   )
@@ -1222,14 +1213,13 @@ function NumberInput({
 }
 
 function StatusBadge({ revenue }: { revenue: number }) {
-  const t = useTranslations('financeForecast')
   if (revenue >= 8000) {
-    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{t('statusBadge.priority')}</span>
+    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">重点跟进</span>
   }
   if (revenue >= 3500) {
-    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{t('statusBadge.stable')}</span>
+    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">稳定</span>
   }
-  return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">{t('statusBadge.watch')}</span>
+  return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">观察</span>
 }
 
 function buildCumulativeData(months: ReturnType<typeof summarizeForecast>['months']) {
