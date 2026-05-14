@@ -5,19 +5,22 @@ import {
   deleteExpense,
   type ServiceError,
 } from '@/lib/expenses/service'
+import { createWorkTaskFromIntent } from '@/lib/work-tasks/service'
 import { canModify, getActorProfile, type ActorProfile } from '@/lib/auth/actor'
 import type { Expense } from '@/lib/types'
 import {
   ExpenseIntentSchema,
+  WorkTaskCreateIntentSchema,
   isWriteIntent,
   type ExpenseFilters,
   type ExpenseIntent,
   type ExpenseQueryIntent,
   type ExpenseWriteIntent,
+  type WorkTaskCreateIntent,
 } from './schema'
 import type { ClassifiedKind } from './parser'
 import { logIntentViolation } from './audit'
-import { describeFilters, previewCreate, previewDelete, previewQuery, previewUpdate } from './preview'
+import { describeFilters, previewCreate, previewDelete, previewQuery, previewUpdate, previewWorkTaskCreate } from './preview'
 
 // ── Defensive sanitiser for LLM-sourced write payloads ────────
 //
@@ -194,31 +197,38 @@ export async function applyPendingAction(
     return { kind: 'error', message: 'actor profile not found' }
   }
 
-  const intent = row.intent_json as ExpenseWriteIntent
   let appliedId = ''
   let err: ServiceError | null = null
 
-  if (intent.op === 'create') {
-    const r = await createExpense({
-      ...intent.payload,
-      payment_status: intent.payload.payment_status!,
-      item_name:      intent.payload.item_name!,
-      expense_date:   intent.payload.expense_date!,
-    }, actor.id)
+  if (row.entity === 'work_task') {
+    const intent = row.intent_json as WorkTaskCreateIntent
+    const r = await createWorkTaskFromIntent(intent.payload, actor.id)
     if (r.error) err = r.error; else appliedId = r.data.id
-  } else if (intent.op === 'update') {
-    if (!row.target_id) {
-      err = { code: 'invalid_input', message: 'pending action has no target_id' }
-    } else {
-      const r = await updateExpense(row.target_id, intent.patch, actor)
+  } else {
+    // Default: expense
+    const intent = row.intent_json as ExpenseWriteIntent
+    if (intent.op === 'create') {
+      const r = await createExpense({
+        ...intent.payload,
+        payment_status: intent.payload.payment_status!,
+        item_name:      intent.payload.item_name!,
+        expense_date:   intent.payload.expense_date!,
+      }, actor.id)
       if (r.error) err = r.error; else appliedId = r.data.id
-    }
-  } else if (intent.op === 'delete') {
-    if (!row.target_id) {
-      err = { code: 'invalid_input', message: 'pending action has no target_id' }
-    } else {
-      const r = await deleteExpense(row.target_id, actor)
-      if (r.error) err = r.error; else appliedId = r.data.id
+    } else if (intent.op === 'update') {
+      if (!row.target_id) {
+        err = { code: 'invalid_input', message: 'pending action has no target_id' }
+      } else {
+        const r = await updateExpense(row.target_id, intent.patch, actor)
+        if (r.error) err = r.error; else appliedId = r.data.id
+      }
+    } else if (intent.op === 'delete') {
+      if (!row.target_id) {
+        err = { code: 'invalid_input', message: 'pending action has no target_id' }
+      } else {
+        const r = await deleteExpense(row.target_id, actor)
+        if (r.error) err = r.error; else appliedId = r.data.id
+      }
     }
   }
 
@@ -512,4 +522,61 @@ function applyFilters(q: any, f: ExpenseFilters): any {
   if (f.item_name_contains)       query = query.ilike('item_name',  `%${f.item_name_contains}%`)
   if (f.purpose_contains)         query = query.ilike('purpose',    `%${f.purpose_contains}%`)
   return query
+}
+
+// ── Work task intent execution ────────────────────────────────
+
+export async function executeWorkTaskIntent(
+  intent: WorkTaskCreateIntent,
+  ctx:    ExecuteContext,
+): Promise<ExecuteResult> {
+  // Re-validate at executor boundary (same pattern as expense executor)
+  const reparsed = WorkTaskCreateIntentSchema.safeParse(intent)
+  if (!reparsed.success) {
+    const reason = `work_task intent rejected by schema: ${reparsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}`
+    await logIntentViolation({ userId: ctx.userId, channel: ctx.channel, stage: 'schema_refine', reason, rawText: ctx.rawText, intentJson: intent })
+    return { kind: 'error', code: 'executor_failed', message: reason }
+  }
+
+  const sanitised: WorkTaskCreateIntent = {
+    ...reparsed.data,
+    payload: {
+      ...reparsed.data.payload,
+      title:               sanitiseText(reparsed.data.payload.title)               ?? reparsed.data.payload.title,
+      completion_criteria: sanitiseText(reparsed.data.payload.completion_criteria) ?? null,
+      notes:               sanitiseText(reparsed.data.payload.notes)               ?? null,
+    },
+  }
+
+  const previewText = previewWorkTaskCreate(sanitised)
+  const db = createServerClient()
+
+  const { data: inserted, error } = await db
+    .from('pending_actions')
+    .insert({
+      user_id:        ctx.userId,
+      channel:        ctx.channel,
+      channel_msg_id: ctx.channelMessageId ?? null,
+      entity:         'work_task',
+      op:             'create',
+      intent_json:    sanitised,
+      target_id:      null,
+      preview_text:   previewText,
+    })
+    .select('id, expires_at')
+    .single()
+
+  if (error || !inserted) {
+    return { kind: 'error', code: 'executor_failed', message: error?.message ?? 'failed to stage work task' }
+  }
+
+  return {
+    kind:            'pending',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pendingActionId: (inserted as any).id,
+    op:              'create',
+    preview:         previewText,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expiresAt:       (inserted as any).expires_at,
+  }
 }

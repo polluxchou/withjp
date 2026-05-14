@@ -24,7 +24,7 @@ type ServerResult =
   | { kind: 'clarification'; message: string; candidates?: Expense[] }
   | { kind: 'error'; code?: 'parser_failed' | 'executor_failed' | 'bad_request' | 'unknown'; message: string }
 
-const PLACEHOLDER = '用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元'
+const PLACEHOLDER = '用一句话操作。例：新增差旅费 5月10日打车 320 元 / 新建任务 陈浩负责 下周五前完成直播间布置'
 
 // ── Custom event to open from elsewhere ───────────────────────
 

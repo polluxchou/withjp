@@ -156,3 +156,32 @@ export type ExpenseWriteIntent =
 export function isWriteIntent(intent: ExpenseIntent): intent is ExpenseWriteIntent {
   return intent.op === 'create' || intent.op === 'update' || intent.op === 'delete'
 }
+
+// ── Work Task intent ──────────────────────────────────────────
+// Only create is supported for now; update/delete/query to be added later.
+
+export const WorkTaskCreatePayloadSchema = z.object({
+  title:               z.string().min(1),
+  task_type:           z.enum(['fixed', 'adhoc']).optional(),
+  department:          z.enum(['bd', 'ops', 'finance', 'content', 'growth', 'legal']).optional(),
+  owner_name:          z.string().optional(),           // resolved to owner_user_id at apply time
+  reviewer_name:       z.string().nullable().optional(),
+  executor_names:      z.array(z.string()).optional(),
+  task_date:           z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  due_date:            z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  effort_hours:        z.union([z.literal(2), z.literal(4), z.literal(8)]).optional(),
+  repeat_interval:     z.enum(['daily', 'weekly', 'biweekly', 'monthly']).nullable().optional(),
+  completion_criteria: z.string().nullable().optional(),
+  notes:               z.string().nullable().optional(),
+}).strict()
+
+export const WorkTaskCreateIntentSchema = z.object({
+  op:          z.literal('create'),
+  entity:      z.literal('work_task'),
+  payload:     WorkTaskCreatePayloadSchema,
+  summary:     z.string().min(1),
+  ambiguities: z.array(z.string()).optional(),
+}).strict()
+
+export type WorkTaskCreatePayload = z.infer<typeof WorkTaskCreatePayloadSchema>
+export type WorkTaskCreateIntent  = z.infer<typeof WorkTaskCreateIntentSchema>
