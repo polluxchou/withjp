@@ -27,6 +27,22 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-05-14',
+    items: [
+      {
+        kind: 'improve',
+        scope: '财务预测',
+        title: '账号预测输入体验改造：聚焦自动全选、不再吞小数点、滚轮不再误改数值',
+        details: '同步给四个数字列加上合理的上下限（开播天数 ≤ 31、平均时长 ≤ 24、可分润比例支持一位小数），月开播收益作为派生列改为浅底纹以与可编辑列区分。',
+      },
+      {
+        kind: 'fix',
+        scope: '财务预测',
+        title: '"全年"视图下顶部标题不再继续显示上一次选中的月份',
+      },
+    ],
+  },
+  {
     date: '2026-05-13',
     items: [
       {

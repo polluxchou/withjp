@@ -730,10 +730,14 @@ export default function FinanceForecastDashboard({
                   <span className="text-xl font-bold text-slate-900 tabular-nums tracking-tight">
                     {selected?.month.slice(0, 4) ?? selectedYear}
                   </span>
-                  <span className="text-xl font-bold text-slate-300">·</span>
-                  <span className="text-xl font-bold text-indigo-600 tabular-nums tracking-tight">
-                    {selectedMonthLabel}
-                  </span>
+                  {!showYearView && (
+                    <>
+                      <span className="text-xl font-bold text-slate-300">·</span>
+                      <span className="text-xl font-bold text-indigo-600 tabular-nums tracking-tight">
+                        {selectedMonthLabel}
+                      </span>
+                    </>
+                  )}
                   <span className="text-sm font-medium text-slate-500 ml-1.5">收入预测</span>
                 </h2>
               </div>
@@ -907,18 +911,18 @@ export default function FinanceForecastDashboard({
                             </select>
                           </td>
                           <td className="px-4 py-3">
-                            <NumberInput disabled={!canEditActive} value={row.live_days} onChange={(live_days) => updateRow(index, { live_days })} />
+                            <NumberInput disabled={!canEditActive} value={row.live_days} onChange={(live_days) => updateRow(index, { live_days })} max={31} />
                           </td>
                           <td className="px-4 py-3">
-                            <NumberInput disabled={!canEditActive} value={row.avg_daily_hours} onChange={(avg_daily_hours) => updateRow(index, { avg_daily_hours })} step={0.5} />
+                            <NumberInput disabled={!canEditActive} value={row.avg_daily_hours} onChange={(avg_daily_hours) => updateRow(index, { avg_daily_hours })} step={0.5} max={24} />
                           </td>
                           <td className="px-4 py-3">
-                            <NumberInput disabled={!canEditActive} value={row.revenue_per_minute_usd} onChange={(revenue_per_minute_usd) => updateRow(index, { revenue_per_minute_usd })} step={0.01} />
+                            <NumberInput disabled={!canEditActive} value={row.revenue_per_minute_usd} onChange={(revenue_per_minute_usd) => updateRow(index, { revenue_per_minute_usd })} step={0.01} max={10000} />
                           </td>
                           <td className="px-4 py-3">
-                            <NumberInput disabled={!canEditActive} value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} max={100} />
+                            <NumberInput disabled={!canEditActive} value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} step={0.1} max={100} />
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap">{formatUsd(row.monthly_revenue_usd)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap tabular-nums bg-slate-50/70 border-l border-slate-100">{formatUsd(row.monthly_revenue_usd)}</td>
                           <td className="px-4 py-3">
                             <StatusBadge revenue={row.monthly_revenue_usd} />
                           </td>
@@ -1849,23 +1853,66 @@ function NumberInput({
   value,
   onChange,
   step = 1,
+  min = 0,
   max,
   disabled,
 }: {
   value: number
   onChange: (value: number) => void
   step?: number
+  min?: number
   max?: number
   disabled?: boolean
 }) {
+  const format = (v: number) => (Number.isFinite(v) ? String(v) : '')
+  const [draft, setDraft] = useState(() => format(value))
+  const [focused, setFocused] = useState(false)
+
+  // Re-sync from parent only while not editing, so partial inputs like "0." aren't clobbered.
+  useEffect(() => {
+    if (!focused) setDraft(format(value))
+  }, [value, focused])
+
+  const clamp = (n: number) => {
+    let r = n
+    if (r < min) r = min
+    if (max !== undefined && r > max) r = max
+    return r
+  }
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = event.target.value
+    // Allow empty or a digits + single decimal point pattern.
+    if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return
+    setDraft(raw)
+    // Live-commit when parseable so the result column updates as the user types.
+    if (raw === '' || raw === '.') return
+    const n = Number(raw)
+    if (!Number.isFinite(n)) return
+    const clamped = clamp(n)
+    if (clamped !== value) onChange(clamped)
+  }
+
+  const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    setFocused(false)
+    const raw = event.target.value
+    const parsed = raw === '' || raw === '.' ? min : Number(raw)
+    const next = Number.isFinite(parsed) ? clamp(parsed) : min
+    if (next !== value) onChange(next)
+    setDraft(format(next))
+  }
+
   return (
     <input
-      type="number"
-      min={0}
-      max={max}
-      step={step}
-      value={Number.isFinite(value) ? value : 0}
-      onChange={(event) => onChange(Number(event.target.value))}
+      type="text"
+      inputMode={step < 1 ? 'decimal' : 'numeric'}
+      pattern="[0-9]*\.?[0-9]*"
+      value={draft}
+      onChange={handleChange}
+      onFocus={(event) => { setFocused(true); event.currentTarget.select() }}
+      onBlur={handleBlur}
+      onWheel={(event) => event.currentTarget.blur()}
+      onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
       readOnly={disabled}
       className={disabled
         ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed`
