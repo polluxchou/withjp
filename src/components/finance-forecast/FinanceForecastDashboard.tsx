@@ -105,7 +105,7 @@ export default function FinanceForecastDashboard({
   const [viewMode, setViewMode] = useState<ViewMode>('monthly')
   const [selectedYear, setSelectedYear] = useState<number>(anchorYear)
   const [selectedMonth, setSelectedMonth] = useState<number>(initialSelectedMonth)
-  const [showYearView, setShowYearView] = useState(false)
+  const [showYearView, setShowYearView] = useState(true)
   const [chartMode, setChartMode] = useState<ChartMode>('breakdown')
   const [inputOpen, setInputOpen] = useState(true)
   const [hydratedDraft, setHydratedDraft] = useState(false)
@@ -734,37 +734,18 @@ export default function FinanceForecastDashboard({
                   <span className="text-xl font-bold text-indigo-600 tabular-nums tracking-tight">
                     {selectedMonthLabel}
                   </span>
-                  <span className="text-sm font-medium text-slate-500 ml-1.5">账号预测输入</span>
+                  <span className="text-sm font-medium text-slate-500 ml-1.5">收入预测</span>
                 </h2>
-                <span className="hidden sm:block text-xs text-slate-400 truncate">每个月单独设置账号参数，输入自动保存</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {inputOpen && canEditActive && (
-                  <>
-                    <Button variant="secondary" size="sm" onClick={copyPreviousMonth} disabled={safeSelectedMonth === 0}>
-                      <Copy className="w-3.5 h-3.5" /> 复制上月
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={applyForward}>
-                      <Copy className="w-3.5 h-3.5" /> 应用到后续月份
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={clearMonth}>
-                      <RotateCcw className="w-3.5 h-3.5" /> 清空本月
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={async () => {
-                        await ensureLifecycleSet()
-                        setAddFromTemplateOpen(true)
-                      }}
-                      title="按生命周期模板一次性创建 12 个月的数据"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> 从模板新增
-                    </Button>
-                    <Button size="sm" onClick={addRow}>
-                      <Plus className="w-3.5 h-3.5" /> 添加账号
-                    </Button>
-                  </>
+                  <AddAccountMenu
+                    onAddTemplate={async () => {
+                      await ensureLifecycleSet()
+                      setAddFromTemplateOpen(true)
+                    }}
+                    onAddBlank={addRow}
+                  />
                 )}
                 <button
                   type="button"
@@ -780,11 +761,9 @@ export default function FinanceForecastDashboard({
             {inputOpen && (
               <>
                 <div className="px-5 pt-4">
-                  <div className="flex gap-3 flex-wrap mb-4">
+                  <div className="flex items-center gap-3 flex-wrap mb-4 justify-between">
+                    {/* Left: month pills + 全年 toggle */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] font-semibold text-slate-400 tracking-wider tabular-nums">
-                        {selectedYear}
-                      </span>
                       <div className="flex gap-1 flex-wrap">
                         {months.map((month, index) => {
                           const monthNum = parseInt(month.month.slice(5), 10) - 1
@@ -806,18 +785,47 @@ export default function FinanceForecastDashboard({
                           )
                         })}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowYearView((v) => !v)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                          showYearView
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                        }`}
+                      >
+                        全年
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowYearView((v) => !v)}
-                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-                        showYearView
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                      }`}
-                    >
-                      {selectedYear} 全年
-                    </button>
+
+                    {/* Right: month-scoped actions — visually attached to the month
+                        bar so they don't get confused with the global "添加账号" */}
+                    {!showYearView && canEditActive && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={copyPreviousMonth}
+                          disabled={safeSelectedMonth === 0}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Copy className="w-3 h-3" /> 复制上月
+                        </button>
+                        <button
+                          type="button"
+                          onClick={applyForward}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+                        >
+                          <Copy className="w-3 h-3" /> 应用到后续月份
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearMonth}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
+                        >
+                          <RotateCcw className="w-3 h-3" /> 清空本月
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {!showYearView && selectedRaw && <div className="grid gap-3 md:grid-cols-3 mb-4">
@@ -1863,6 +1871,81 @@ function NumberInput({
         ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed`
         : INPUT_CLASS}
     />
+  )
+}
+
+/**
+ * Split button: primary action "从模板新增" (clones the last row),
+ * secondary action "添加账号" (blank row) hidden behind a chevron menu.
+ * Click outside / Escape closes the popover.
+ */
+function AddAccountMenu({
+  onAddTemplate,
+  onAddBlank,
+}: {
+  onAddTemplate: () => void
+  onAddBlank: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => { onAddTemplate(); setOpen(false) }}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+      >
+        <Plus className="w-3.5 h-3.5" /> 从模板新增
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex items-center px-1.5 py-1.5 rounded-r-lg bg-indigo-600 text-white border-l border-indigo-500 hover:bg-indigo-700 transition-colors"
+      >
+        <ChevronDown className="w-3.5 h-3.5" />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1 z-20 min-w-[10rem] bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { onAddTemplate(); setOpen(false) }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 text-left"
+          >
+            <Plus className="w-3.5 h-3.5 text-indigo-600" /> 从模板新增
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { onAddBlank(); setOpen(false) }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100"
+          >
+            <Plus className="w-3.5 h-3.5 text-slate-400" /> 添加账号（空白）
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
