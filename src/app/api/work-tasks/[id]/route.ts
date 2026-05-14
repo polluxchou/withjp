@@ -5,8 +5,10 @@ import { getActorProfile, canModify } from '@/lib/auth/actor'
 
 type Params = { params: { id: string } }
 
-const VALID_STATUSES = ['planned', 'doing', 'done', 'cancelled']
-const VALID_EFFORTS  = [2, 4, 8]
+const VALID_STATUSES  = ['planned', 'doing', 'done', 'cancelled']
+const VALID_EFFORTS   = [2, 4, 8]
+const REVIEWER_JOIN   = 'reviewer:users!work_tasks_reviewer_user_id_fkey(id,name,user_code,role)'
+const FULL_SELECT     = `*, owner:users!work_tasks_owner_user_id_fkey(id,name,user_code,role), ${REVIEWER_JOIN}, milestone:milestones(id,title)`
 
 // PATCH /api/work-tasks/:id
 export async function PATCH(req: NextRequest, { params }: Params) {
@@ -28,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const body = await req.json()
-  const { id: _id, created_at: _ca, updated_at: _ua, owner: _o, milestone: _m, ...updates } = body
+  const { id: _id, created_at: _ca, updated_at: _ua, owner: _o, reviewer: _r, milestone: _m, ...updates } = body
 
   if ('effort_hours' in updates && !VALID_EFFORTS.includes(Number(updates.effort_hours))) {
     return NextResponse.json({ data: null, error: 'effort_hours must be 2, 4, or 8' }, { status: 400 })
@@ -44,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .from('work_tasks')
     .update(updates)
     .eq('id', params.id)
-    .select('*, owner:users!work_tasks_owner_user_id_fkey(id,name,user_code,role), milestone:milestones(id,title)')
+    .select(FULL_SELECT)
     .single()
 
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
