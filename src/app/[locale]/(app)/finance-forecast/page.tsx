@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import Header from '@/components/layout/Header'
+import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import FinanceForecastDashboard from '@/components/finance-forecast/FinanceForecastDashboard'
 import { createServerClient } from '@/lib/supabase/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-server'
@@ -52,6 +53,7 @@ export default async function FinanceForecastPage({
       <Header
         title={t('pageTitle')}
         subtitle={t('pageSubtitle')}
+        actions={<CurrencySwitcher />}
       />
       <FinanceForecastDashboard
         views={views}
