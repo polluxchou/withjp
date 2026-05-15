@@ -13,6 +13,7 @@ import { Link } from '@/i18n/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 import type { DashboardStats, Task, Creator, CreatorStatus } from '@/lib/types'
 import { ALL_STATUSES } from '@/lib/state-machine/creator-lifecycle'
+import { fmtCompact } from '@/lib/currency'
 
 async function getDashboardData() {
   const db = createServerClient()
@@ -71,11 +72,7 @@ export default async function DashboardPage() {
   const tStatus = await getTranslations('status')
   const locale = await getLocale()
 
-  const fmt = (n: number) => {
-    if (locale === 'zh' && n >= 10000) return `¥${(n / 10000).toFixed(1)}万`
-    if (locale === 'en' && n >= 1000) return `¥${(n / 1000).toFixed(1)}K`
-    return `¥${n.toFixed(0)}`
-  }
+  const fmt = (n: number) => `¥${fmtCompact(n, locale)}`
 
   return (
     <div>
