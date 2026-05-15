@@ -451,7 +451,7 @@ export default function FinanceForecastDashboard({
         prevViewIdRef.current = viewId
         prevByYearRef.current = next
         setByYear(next)
-        setHydratedDraft(false)
+        setHydratedDraft(true)
       }
     } catch (e) {
       console.error('Failed to load view forecast', viewId, e)
