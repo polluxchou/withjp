@@ -168,6 +168,9 @@ export default function FinanceForecastDashboard({
     ? (summary.yearly_profit_usd / summary.yearly_forecast_usd) * 100
     : 0
 
+  const monthCumProfit      = cumulativeData[safeSelectedMonth]?.cum_profit ?? 0
+  const monthsUntilBreakeven = breakevenIndex < 0 ? null : breakevenIndex - safeSelectedMonth
+
   function getOrCreateQueue(viewId: string, year: number) {
     const key = `${viewId}:${year}`
     let queue = saveQueuesRef.current.get(key)
@@ -648,44 +651,109 @@ export default function FinanceForecastDashboard({
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-4">
-            <KpiCard
-              label={t('kpiYearForecast', { year: selectedYear })}
-              value={formatUsd(summary.yearly_forecast_usd)}
-              sub={inputOpen ? t('kpiCollapseHint') : t('kpiExpandHint')}
-              onClick={() => setInputOpen((o) => !o)}
-              active={inputOpen}
-            />
-            <KpiCard
-              label={t('kpiYearBudget', { year: selectedYear })}
-              value={formatUsd(summary.yearly_budget_usd)}
-              sub={t('kpiYearBudgetSub')}
-              linkTo="/expenses"
-              linkLabel={t('goToExpenses')}
-            />
-            <KpiCard
-              label={t('kpiYearProfit', { year: selectedYear })}
-              value={formatUsd(summary.yearly_profit_usd)}
-              sub={summary.yearly_profit_usd >= 0 ? t('kpiProfitSurplus') : t('kpiProfitLoss')}
-              valueClassName={yearlyProfitColor}
-            />
-            <KpiCard
-              label={t('kpiYearMargin', { year: selectedYear })}
-              value={`${Math.round(yearMarginPct)}%`}
-              sub={t('kpiYearMarginSub')}
-              valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
-            />
-            <KpiCard
-              label={t('kpiBreakeven')}
-              value={breakevenMonth ? (monthLabels[parseInt(breakevenMonth.slice(5), 10) - 1] ?? breakevenMonth.slice(5)) : '—'}
-              sub={breakevenMonth ? t('kpiBreakevenPositive') : t('kpiBreakevenNegative')}
-              valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
-            />
-            <KpiCard
-              label={t('kpiMonthMargin')}
-              value={!selected || selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
-              sub={selected ? t('kpiMonthEditing', { month: selected.month }) : ''}
-              valueClassName={selectedProfitColor}
-            />
+            {showYearView ? (
+              <>
+                <KpiCard
+                  label={t('kpiYearForecast', { year: selectedYear })}
+                  value={formatUsd(summary.yearly_forecast_usd)}
+                  sub={inputOpen ? t('kpiCollapseHint') : t('kpiExpandHint')}
+                  onClick={() => setInputOpen((o) => !o)}
+                  active={inputOpen}
+                />
+                <KpiCard
+                  label={t('kpiYearBudget', { year: selectedYear })}
+                  value={formatUsd(summary.yearly_budget_usd)}
+                  sub={t('kpiYearBudgetSub')}
+                  linkTo="/expenses"
+                  linkLabel={t('goToExpenses')}
+                />
+                <KpiCard
+                  label={t('kpiYearProfit', { year: selectedYear })}
+                  value={formatUsd(summary.yearly_profit_usd)}
+                  sub={summary.yearly_profit_usd >= 0 ? t('kpiProfitSurplus') : t('kpiProfitLoss')}
+                  valueClassName={yearlyProfitColor}
+                />
+                <KpiCard
+                  label={t('kpiYearMargin', { year: selectedYear })}
+                  value={`${Math.round(yearMarginPct)}%`}
+                  sub={t('kpiYearMarginSub')}
+                  valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
+                />
+                <KpiCard
+                  label={t('kpiBreakeven')}
+                  value={breakevenMonth ? (monthLabels[parseInt(breakevenMonth.slice(5), 10) - 1] ?? breakevenMonth.slice(5)) : '—'}
+                  sub={breakevenMonth ? t('kpiBreakevenPositive') : t('kpiBreakevenNegative')}
+                  valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
+                />
+                <KpiCard
+                  label={t('kpiMonthMargin')}
+                  value={!selected || selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
+                  sub={selected ? t('kpiMonthEditing', { month: selected.month }) : ''}
+                  valueClassName={selectedProfitColor}
+                />
+              </>
+            ) : (
+              <>
+                <KpiCard
+                  label={t('kpiMonthForecast')}
+                  value={selected ? formatUsd(selected.forecast_revenue_usd) : '—'}
+                  sub={inputOpen ? t('kpiCollapseHint') : t('kpiExpandHint')}
+                  onClick={() => setInputOpen((o) => !o)}
+                  active={inputOpen}
+                />
+                <KpiCard
+                  label={t('kpiMonthBudget')}
+                  value={selected ? formatUsd(selected.budget_cost_usd) : '—'}
+                  sub={t('kpiYearBudgetSub')}
+                  linkTo="/expenses"
+                  linkLabel={t('goToExpenses')}
+                />
+                <KpiCard
+                  label={t('kpiMonthProfit')}
+                  value={selected ? formatUsd(selected.profit_usd) : '—'}
+                  sub={selected && selected.profit_usd >= 0 ? t('kpiMonthProfitSurplus') : t('kpiMonthProfitLoss')}
+                  valueClassName={selectedProfitColor}
+                />
+                <KpiCard
+                  label={t('kpiMonthCumProfit')}
+                  value={formatUsd(monthCumProfit)}
+                  sub={selected ? t('kpiMonthCumProfitSub', { month: selected.month }) : ''}
+                  valueClassName={monthCumProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}
+                />
+                <KpiCard
+                  label={t('kpiMonthUntilBreakeven')}
+                  value={
+                    monthsUntilBreakeven === null
+                      ? '—'
+                      : monthsUntilBreakeven <= 0
+                        ? t('kpiBreakevenReached')
+                        : t('kpiBreakevenInMonths', { n: monthsUntilBreakeven })
+                  }
+                  sub={
+                    monthsUntilBreakeven === null
+                      ? t('kpiBreakevenNegative')
+                      : monthsUntilBreakeven <= 0
+                        ? t('kpiBreakevenPositive')
+                        : breakevenMonth
+                          ? (monthLabels[parseInt(breakevenMonth.slice(5), 10) - 1] ?? breakevenMonth.slice(5))
+                          : ''
+                  }
+                  valueClassName={
+                    monthsUntilBreakeven === null
+                      ? 'text-slate-400'
+                      : monthsUntilBreakeven <= 0
+                        ? 'text-emerald-700'
+                        : 'text-slate-900'
+                  }
+                />
+                <KpiCard
+                  label={t('kpiMonthMargin')}
+                  value={!selected || selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
+                  sub={t('kpiMonthMarginSub')}
+                  valueClassName={selectedProfitColor}
+                />
+              </>
+            )}
           </div>
 
           <section className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
