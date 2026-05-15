@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, CheckCircle2, Loader2, Send, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2, Plus, Send, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import type { Message, Thread } from '@/lib/discussions/types'
@@ -10,6 +10,11 @@ interface Props {
   thread:     Thread
   onClose:    () => void
   onBack?:    () => void
+  // Always available: lets the user start a fresh discussion on the
+  // same subject without backtracking through the list. Especially
+  // important when this ThreadView was auto-routed (single thread) and
+  // there's no list to return to.
+  onStartNew?: () => void
   // Fired after a successful resolve so the parent can refresh counts.
   onResolved?: (thread: Thread) => void
 }
@@ -25,7 +30,7 @@ function fmtDateTime(iso: string) {
   return `${y}-${m}-${day} ${hh}:${mm}`
 }
 
-export default function ThreadView({ thread: initialThread, onClose, onBack, onResolved }: Props) {
+export default function ThreadView({ thread: initialThread, onClose, onBack, onStartNew, onResolved }: Props) {
   const tThread = useTranslations('discussions.thread')
   const tPanel  = useTranslations('discussions.panel')
   const me = useCurrentUser()
@@ -136,6 +141,17 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onR
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {onStartNew && (
+            <button
+              type="button"
+              onClick={onStartNew}
+              aria-label={tThread('startAnother')}
+              title={tThread('startAnother')}
+              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
           {canResolve && (
             <button
               type="button"

@@ -12,16 +12,9 @@ import {
 import ThreadList from './ThreadList'
 import ThreadView from './ThreadView'
 
-export type PanelMode = 'auto' | 'compose' | 'list'
-
 interface Props {
   open:     boolean
   subject:  SubjectInput | null
-  // How to route on open:
-  //   'auto'    – default: 0 thread→compose, 1→thread, ≥2→list
-  //   'compose' – force the new-discussion form (e.g. from a + button)
-  //   'list'    – force the thread list, even with 0 or 1 thread
-  mode?:    PanelMode
   onClose:  () => void
 }
 
@@ -45,7 +38,7 @@ function buildListQuery(subject: SubjectInput): string {
   return sp.toString()
 }
 
-export default function DiscussionPanel({ open, subject, mode = 'auto', onClose }: Props) {
+export default function DiscussionPanel({ open, subject, onClose }: Props) {
   const tPanel = useTranslations('discussions.panel')
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
@@ -91,28 +84,20 @@ export default function DiscussionPanel({ open, subject, mode = 'auto', onClose 
         return
       }
       setThreads(json.data)
-      // Force-modes override the default routing. 'compose' is what the
-      // hover-revealed "+" button sends; 'list' is reserved for future
-      // entrypoints that always want to start at the picker.
-      if (mode === 'compose') {
-        setView({ kind: 'compose' })
-      } else if (mode === 'list') {
-        setView({ kind: 'list' })
-      } else if (json.data.length === 0) {
-        setView({ kind: 'compose' })
-      } else if (json.data.length === 1) {
-        setView({ kind: 'thread', thread: json.data[0], cameFromList: false })
-      } else {
-        setView({ kind: 'list' })
-      }
+      // Auto-route: 0 → compose, 1 → thread view, >1 → list.
+      // "+ 新建讨论" is reachable from inside ThreadView's header even
+      // after auto-routing to a single (possibly resolved) thread.
+      if (json.data.length === 0) setView({ kind: 'compose' })
+      else if (json.data.length === 1) setView({ kind: 'thread', thread: json.data[0], cameFromList: false })
+      else setView({ kind: 'list' })
     } catch (e) {
       setError(e instanceof Error ? e.message : tPanel('loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [subject, tPanel, mode])
+  }, [subject, tPanel])
 
-  useEffect(() => { if (open && subject) void loadThreads() }, [open, subject, mode, loadThreads])
+  useEffect(() => { if (open && subject) void loadThreads() }, [open, subject, loadThreads])
 
   const submitCompose = useCallback(async () => {
     if (!subject || creating) return
@@ -144,7 +129,10 @@ export default function DiscussionPanel({ open, subject, mode = 'auto', onClose 
         openCount:     all.filter(t => t.status === 'open').length,
         resolvedCount: all.filter(t => t.status === 'resolved').length,
       })
-      setView({ kind: 'thread', thread: json.data.thread, cameFromList: false })
+      // After creating, the new thread lands as ThreadView. If we now have
+      // ≥2 threads total, the user benefits from a "back to list" affordance
+      // (the just-created thread plus the earlier one(s)).
+      setView({ kind: 'thread', thread: json.data.thread, cameFromList: all.length >= 2 })
       setDraftTitle('')
       setDraftMessage('')
     } catch (e) {
@@ -253,6 +241,7 @@ export default function DiscussionPanel({ open, subject, mode = 'auto', onClose 
           thread={view.thread}
           onClose={onClose}
           onBack={view.cameFromList ? () => setView({ kind: 'list' }) : undefined}
+          onStartNew={() => setView({ kind: 'compose' })}
           onResolved={onResolved}
         />
       )

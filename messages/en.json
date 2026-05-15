@@ -1095,8 +1095,7 @@
       "resolved": "Resolved {count}",
       "ariaOpen": "{count} open discussions",
       "ariaResolved": "{count} resolved discussions",
-      "ariaStart": "Start a discussion",
-      "createNew": "New discussion"
+      "ariaStart": "Start a discussion"
     },
     "panel": {
       "title": "Discussion",
@@ -1122,6 +1121,7 @@
     "thread": {
       "open": "Open",
       "resolved": "Resolved",
+      "startAnother": "New discussion",
       "resolveAction": "Resolve",
       "resolveFailed": "Failed to resolve discussion",
       "resolvedNotice": "This discussion is resolved; you can no longer post.",
