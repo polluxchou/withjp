@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  canDeleteMessage,
   canReadThread,
   canResolveThread,
   evaluateReadThread,
   type Actor,
   type SavedViewLike,
 } from './permissions.ts'
-import type { Thread } from './types.ts'
+import type { Message, Thread } from './types.ts'
 
 const ADMIN: Actor = { id: 'admin-1', is_admin: true }
 const ALICE: Actor = { id: 'alice', is_admin: false }
@@ -117,4 +118,37 @@ test('canResolveThread: thread creator passes', () => {
 
 test('canResolveThread: non-creator non-admin denied', () => {
   assert.equal(canResolveThread(BOB, thread({ createdByUserId: ALICE.id })), false)
+})
+
+// ── canDeleteMessage ─────────────────────────────────────────
+
+function userMsg(senderUserId: string): Pick<Message, 'senderType' | 'senderUserId'> {
+  return { senderType: 'user', senderUserId }
+}
+
+test('canDeleteMessage: sender can delete their own user message', () => {
+  assert.equal(canDeleteMessage(ALICE, userMsg(ALICE.id)), true)
+})
+
+test('canDeleteMessage: other users cannot delete your message', () => {
+  assert.equal(canDeleteMessage(BOB, userMsg(ALICE.id)), false)
+})
+
+test('canDeleteMessage: admin gets no special privilege in v1', () => {
+  // Intentional: admin moderation is deferred. The DB still supports it
+  // (via Supabase dashboard), but the API surface stays narrow.
+  assert.equal(canDeleteMessage(ADMIN, userMsg(ALICE.id)), false)
+})
+
+test('canDeleteMessage: agent messages are never user-deletable', () => {
+  const agentMsg: Pick<Message, 'senderType' | 'senderUserId'> =
+    { senderType: 'agent', senderUserId: null }
+  assert.equal(canDeleteMessage(ALICE, agentMsg), false)
+  assert.equal(canDeleteMessage(ADMIN, agentMsg), false)
+})
+
+test('canDeleteMessage: external messages are never user-deletable', () => {
+  const externalMsg: Pick<Message, 'senderType' | 'senderUserId'> =
+    { senderType: 'external', senderUserId: null }
+  assert.equal(canDeleteMessage(ALICE, externalMsg), false)
 })
