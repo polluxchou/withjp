@@ -800,7 +800,7 @@ export default function ExpensesPage() {
             <table className="w-full text-sm min-w-[1100px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('category')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('categoryColumn')}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('name')}</th>
                   <th className="text-right px-4 py-3 text-xs font-medium">
                     <button type="button" onClick={() => toggleSort('amount')} className={sortableHeaderClass('amount')}>

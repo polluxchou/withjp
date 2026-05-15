@@ -738,6 +738,7 @@
     "crossBorderFeeShort": "cross-border",
     "crossBorderFeeTooltip": "4% cross-border transfer cost for non-with-new, non-rent expenses",
     "effectiveCost": "Effective cost (incl. fee)",
+    "categoryColumn": "Category",
     "discussionsColumn": "Discussion",
     "categories": {
       "tangible_asset": "Tangible assets",
