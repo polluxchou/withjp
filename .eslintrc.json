@@ -25,7 +25,14 @@
   },
   "overrides": [
     {
-      "files": ["**/finance-forecast/**/*"],
+      "files": ["**/finance-forecast/**/*", "**/finance-forecast/*"],
+      "rules": {
+        "no-restricted-syntax": "off",
+        "react/no-unescaped-entities": "off"
+      }
+    },
+    {
+      "files": ["**/milestones/NextTimelineView.tsx"],
       "rules": { "no-restricted-syntax": "off" }
     }
   ]

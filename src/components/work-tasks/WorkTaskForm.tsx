@@ -83,7 +83,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
       const res  = await fetch(`/api/work-tasks?title_search=${encodeURIComponent(q)}&limit=8`)
       const json = await res.json()
       const titles = (json.data ?? []).map((t: WorkTask) => t.title) as string[]
-      const unique  = [...new Set(titles)].filter((t) => t !== q)
+      const unique  = Array.from(new Set(titles)).filter((t) => t !== q)
       setSuggestions(unique.slice(0, 5))
       setShowSuggestions(unique.length > 0)
     }, 300)

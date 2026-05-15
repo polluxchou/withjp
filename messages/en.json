@@ -519,7 +519,8 @@
     "view": {
       "list": "List",
       "gantt": "Timeline",
-      "curve": "Progress curve"
+      "curve": "Progress curve",
+      "next": "Next 30 days"
     },
     "status": {
       "all": "All",
