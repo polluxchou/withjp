@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import {
@@ -9,9 +9,10 @@ import {
   DEPARTMENT_OPTIONS,
   EFFORT_LABELS,
 } from '@/lib/work-tasks/cost'
+import { WORK_TASK_REPEAT_INTERVAL_LABELS } from '@/lib/types'
 import { EXPENSE_USER_OPTIONS } from '@/lib/expenses/costs'
 import type {
-  WorkTask, WorkTaskType, WorkTaskStatus, AgentRole, WorkTaskEffort,
+  WorkTask, WorkTaskType, WorkTaskStatus, AgentRole, WorkTaskEffort, WorkTaskRepeatInterval,
 } from '@/lib/types'
 
 interface Props {
@@ -28,6 +29,8 @@ interface UserOption { id: string; name: string; user_code: string }
 const INPUT = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
 const LABEL = 'block text-xs font-medium text-slate-700 mb-1'
 
+const REPEAT_OPTIONS = Object.entries(WORK_TASK_REPEAT_INTERVAL_LABELS) as [WorkTaskRepeatInterval, string][]
+
 export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSuccess, onCancel }: Props) {
   const t = useTranslations('workTasks.form')
   const tCommon = useTranslations('common')
@@ -38,20 +41,29 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
   const [users,      setUsers]      = useState<UserOption[]>([])
 
   const [form, setForm] = useState({
-    task_type:     (source?.task_type     ?? 'adhoc')     as WorkTaskType,
-    title:         source?.title          ?? '',
-    description:   source?.description   ?? '',
-    department:    (source?.department    ?? 'ops')        as AgentRole,
-    milestone_id:  source?.milestone_id  ?? '',
-    owner_user_id: source?.owner_user_id ?? '',
-    executor_ids:  source?.executor_ids  ?? [] as string[],
-    task_date:     source?.task_date     ?? defaultDate ?? '',
-    effort_hours:  (source?.effort_hours ?? 2)             as WorkTaskEffort,
-    status:        (source?.status       ?? 'planned')     as WorkTaskStatus,
-    notes:         source?.notes         ?? '',
+    task_type:            (source?.task_type            ?? 'adhoc')  as WorkTaskType,
+    title:                source?.title                 ?? '',
+    description:          source?.description           ?? '',
+    department:           (source?.department           ?? 'ops')    as AgentRole,
+    milestone_id:         source?.milestone_id          ?? '',
+    owner_user_id:        source?.owner_user_id         ?? '',
+    reviewer_user_id:     source?.reviewer_user_id      ?? '',
+    executor_ids:         source?.executor_ids          ?? [] as string[],
+    task_date:            source?.task_date             ?? defaultDate ?? '',
+    due_date:             source?.due_date              ?? '',
+    effort_hours:         (source?.effort_hours         ?? 2)        as WorkTaskEffort,
+    repeat_interval:      (source?.repeat_interval      ?? '')       as WorkTaskRepeatInterval | '',
+    completion_criteria:  source?.completion_criteria   ?? '',
+    status:               (source?.status               ?? 'planned') as WorkTaskStatus,
+    notes:                source?.notes                 ?? '',
   })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
+
+  // Title fuzzy search
+  const [suggestions,     setSuggestions]     = useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     Promise.all([
@@ -61,6 +73,32 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
       setMilestones(ms.data ?? [])
       setUsers(us.data ?? [])
     })
+  }, [])
+
+  // Debounced title search
+  useEffect(() => {
+    const q = form.title.trim()
+    if (q.length < 2) { setSuggestions([]); setShowSuggestions(false); return }
+    const timer = setTimeout(async () => {
+      const res  = await fetch(`/api/work-tasks?title_search=${encodeURIComponent(q)}&limit=8`)
+      const json = await res.json()
+      const titles = (json.data ?? []).map((t: WorkTask) => t.title) as string[]
+      const unique  = [...new Set(titles)].filter((t) => t !== q)
+      setSuggestions(unique.slice(0, 5))
+      setShowSuggestions(unique.length > 0)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [form.title])
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
   const set = (k: keyof typeof form) =>
@@ -76,6 +114,11 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
     }))
   }
 
+  function pickSuggestion(title: string) {
+    setForm((f) => ({ ...f, title }))
+    setShowSuggestions(false)
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.title.trim())    { setError(t('errTitle')); return }
@@ -87,11 +130,15 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
 
     const payload = {
       ...form,
-      title:        form.title.trim(),
-      description:  form.description  || null,
-      milestone_id: form.milestone_id || null,
-      notes:        form.notes        || null,
-      effort_hours: Number(form.effort_hours),
+      title:               form.title.trim(),
+      description:         form.description         || null,
+      milestone_id:        form.milestone_id        || null,
+      reviewer_user_id:    form.reviewer_user_id    || null,
+      due_date:            form.due_date            || null,
+      repeat_interval:     form.repeat_interval     || null,
+      completion_criteria: form.completion_criteria || null,
+      notes:               form.notes               || null,
+      effort_hours:        Number(form.effort_hours),
     }
 
     const url    = isEditing ? `/api/work-tasks/${task.id}` : '/api/work-tasks'
@@ -104,15 +151,13 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
     onSuccess(json.data)
   }
 
-  const ownerUser = users.find((u) => u.id === form.owner_user_id)
-
   return (
     <form onSubmit={submit} className="space-y-4">
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>
       )}
 
-      {/* Row 1: Type + Title */}
+      {/* Row 1: Type + Title with fuzzy suggestions */}
       <div className="grid grid-cols-4 gap-3">
         <div>
           <label className={LABEL}>{t('taskType')}</label>
@@ -122,17 +167,41 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
             ))}
           </select>
         </div>
-        <div className="col-span-3">
+        <div className="col-span-3 relative" ref={suggestionsRef}>
           <label className={LABEL}>{t('titleField')}</label>
-          <input value={form.title} onChange={set('title')} placeholder={t('titlePlaceholder')} className={INPUT} />
+          <input
+            value={form.title}
+            onChange={set('title')}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            placeholder={t('titleSuggestionPlaceholder')}
+            className={INPUT}
+            autoComplete="off"
+          />
+          {showSuggestions && (
+            <ul className="absolute z-20 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-md overflow-hidden text-sm">
+              {suggestions.map((s) => (
+                <li
+                  key={s}
+                  onMouseDown={() => pickSuggestion(s)}
+                  className="px-3 py-2 cursor-pointer hover:bg-indigo-50 text-slate-700 truncate"
+                >
+                  {s}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
-      {/* Row 2: Date + Department + Effort + Status */}
+      {/* Row 2: Start date + Due date + Department + Effort */}
       <div className="grid grid-cols-4 gap-3">
         <div>
           <label className={LABEL}>{t('date')}</label>
           <input type="date" value={form.task_date} onChange={set('task_date')} className={INPUT} />
+        </div>
+        <div>
+          <label className={LABEL}>{t('dueDate')}</label>
+          <input type="date" value={form.due_date} onChange={set('due_date')} className={INPUT} />
         </div>
         <div>
           <label className={LABEL}>{t('department')}</label>
@@ -150,6 +219,10 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Row 3: Status + Repeat interval (only for fixed tasks) */}
+      <div className="grid grid-cols-4 gap-3">
         <div>
           <label className={LABEL}>{t('status')}</label>
           <select value={form.status} onChange={set('status')} className={INPUT}>
@@ -158,9 +231,20 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
             ))}
           </select>
         </div>
+        {form.task_type === 'fixed' && (
+          <div>
+            <label className={LABEL}>{t('repeatInterval')}</label>
+            <select value={form.repeat_interval} onChange={set('repeat_interval')} className={INPUT}>
+              <option value="">{t('noRepeat')}</option>
+              {REPEAT_OPTIONS.map(([v, label]) => (
+                <option key={v} value={v}>{label}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Row 3: Milestone */}
+      {/* Row 4: Milestone */}
       <div>
         <label className={LABEL}>{t('milestone')}</label>
         <select value={form.milestone_id} onChange={set('milestone_id')} className={INPUT}>
@@ -171,8 +255,8 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
         </select>
       </div>
 
-      {/* Row 4: Owner + Executors */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Row 5: Owner + Reviewer + Executors */}
+      <div className="grid grid-cols-4 gap-3">
         <div>
           <label className={LABEL}>{t('owner')}</label>
           <select value={form.owner_user_id} onChange={set('owner_user_id')} className={INPUT}>
@@ -188,6 +272,15 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
           </select>
         </div>
         <div>
+          <label className={LABEL}>{t('reviewer')}</label>
+          <select value={form.reviewer_user_id} onChange={set('reviewer_user_id')} className={INPUT}>
+            <option value="">{t('reviewerNone')}</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="col-span-2">
           <label className={LABEL}>{t('assignees')}</label>
           <div className="flex flex-wrap gap-1.5 border border-slate-200 rounded-lg p-2 min-h-[38px]">
             {users.filter((u) => u.id !== form.owner_user_id).map((u) => {
@@ -214,7 +307,19 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
         </div>
       </div>
 
-      {/* Row 5: Description + Notes */}
+      {/* Row 6: Completion criteria */}
+      <div>
+        <label className={LABEL}>{t('completionCriteria')}</label>
+        <textarea
+          value={form.completion_criteria}
+          onChange={set('completion_criteria')}
+          rows={2}
+          placeholder={t('completionCriteriaPlaceholder')}
+          className={`${INPUT} resize-none`}
+        />
+      </div>
+
+      {/* Row 7: Description + Notes */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className={LABEL}>{t('description')}</label>

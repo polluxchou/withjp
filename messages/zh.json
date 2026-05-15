@@ -430,7 +430,15 @@
       "addToDay": "+ {month}/{day} 添加",
       "ymLabel": "{year}年{month}月"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ],
     "status": {
       "done": "已完成",
       "doing": "进行中",
@@ -456,7 +464,15 @@
       "descriptionPlaceholder": "任务详情",
       "notes": "备注",
       "notesPlaceholder": "可选备注",
-      "submitCreate": "创建任务"
+      "submitCreate": "创建任务",
+      "dueDate": "截止日期",
+      "reviewer": "审核人",
+      "reviewerNone": "无审核人",
+      "titleSuggestionPlaceholder": "输入标题，自动匹配已有任务",
+      "repeatInterval": "重复周期",
+      "noRepeat": "不重复",
+      "completionCriteria": "完成目标评定方式",
+      "completionCriteriaPlaceholder": "描述如何判断这个任务已完成，例如：完成直播 2 小时且销售额 ≥ 5000 元"
     },
     "salary": {
       "title": "员工薪资管理",
@@ -683,7 +699,13 @@
     "to": "至",
     "empty": "暂无支出记录",
     "addFirst": "添加第一条支出",
-    "category": "类别",
+    "category": {
+      "viewPie": "饼图",
+      "viewSankey": "流向图",
+      "crossBorderTooltip": "跨境转账成本 {amount}",
+      "crossBorderBadge": "跨境 +{amount}",
+      "allBuyersLabel": "全部"
+    },
     "name": "名称",
     "amount": "金额",
     "period": "归属周期",
@@ -772,13 +794,6 @@
       "companyAccountHint": "选择公司账户支付，经办人必须为：{buyers}"
     },
     "dayCountAlert": "共 {count} 笔支出，超 {max}",
-    "category": {
-      "viewPie": "饼图",
-      "viewSankey": "流向图",
-      "crossBorderTooltip": "跨境转账成本 {amount}",
-      "crossBorderBadge": "跨境 +{amount}",
-      "allBuyersLabel": "全部"
-    },
     "monthly": {
       "milestonesTooltip": "战略时间轴节点",
       "milestonesLoading": "加载中…",
@@ -841,7 +856,20 @@
     "statusSaving": "正在保存...",
     "statusSaved": "已保存",
     "statusError": "保存失败，已保留本机草稿",
-    "months": ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+    "months": [
+      "1月",
+      "2月",
+      "3月",
+      "4月",
+      "5月",
+      "6月",
+      "7月",
+      "8月",
+      "9月",
+      "10月",
+      "11月",
+      "12月"
+    ],
     "kpi": {
       "yearForecast": "全年预测开播收益",
       "yearForecastCollapse": "点击收起账号明细",
@@ -965,6 +993,29 @@
       "priority": "重点跟进",
       "stable": "稳定",
       "watch": "观察"
+    }
+  },
+  "config": {
+    "tabs": {
+      "rules": "规则配置",
+      "changelog": "更新日志"
+    },
+    "changelog": {
+      "title": "更新日志",
+      "subtitle": "按天展示每日新增功能与变更",
+      "today": "今天",
+      "summaryDays": "{count} 天记录",
+      "summaryFeat": "{count} 项新功能",
+      "summaryFix": "{count} 项修复",
+      "itemCount": "{count} 条",
+      "footer": "想看更细的提交记录请查看仓库 git log；这里只收录用户视角能感知到的变化。",
+      "kinds": {
+        "feat": "新功能",
+        "fix": "修复",
+        "improve": "优化",
+        "security": "安全",
+        "infra": "基础设施"
+      }
     }
   }
 }

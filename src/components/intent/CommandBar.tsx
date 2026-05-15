@@ -25,6 +25,7 @@ type ServerResult =
   | { kind: 'clarification'; message: string; candidates?: Expense[] }
   | { kind: 'error'; code?: 'parser_failed' | 'executor_failed' | 'bad_request' | 'unknown'; message: string }
 
+
 // ── Custom event to open from elsewhere ───────────────────────
 
 const OPEN_EVENT = 'intent:open'

@@ -1,4 +1,4 @@
-import { ExpenseIntentSchema, type ExpenseIntent } from './schema'
+import { ExpenseIntentSchema, WorkTaskCreateIntentSchema, type ExpenseIntent, type WorkTaskCreateIntent } from './schema'
 
 // ── Gemini transport ──────────────────────────────────────────
 // Minimal local shim — keeps src/lib/agents/providers.ts unchanged.
@@ -44,10 +44,15 @@ export interface ParserContext {
 }
 
 export type ClassifiedKind = 'write' | 'query' | 'unknown'
+export type EntityKind     = 'expense' | 'work_task' | 'unknown'
 
 export type ParserResult =
   | { ok: true;  intent: ExpenseIntent; classifiedAs: ClassifiedKind; modelUsed: string;  durationMs: number }
   | { ok: false; reason: string;                                                          durationMs: number }
+
+export type WorkTaskParserResult =
+  | { ok: true;  intent: WorkTaskCreateIntent; modelUsed: string; durationMs: number }
+  | { ok: false; reason: string;                                  durationMs: number }
 
 // ── Classification stage ──────────────────────────────────────
 
@@ -238,4 +243,104 @@ function tryParse(raw: string): ParseAttempt {
 
 function stripFences(s: string): string {
   return s.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim()
+}
+
+// ── Entity classification ──────────────────────────────────────
+// Determines whether input is about expenses or work tasks before
+// routing to the appropriate parser.
+
+export async function classifyEntity(text: string): Promise<EntityKind> {
+  const prompt = `判断下面这句话的意图类型。
+
+判断核心原则：
+- expense（支出记录）：用户在【记录】一笔已发生或即将发生的财务流水，重点是"钱从哪来/到哪去、花了多少"。典型特征：出现金额数字、"新增支出/费用"、"记一笔"、"报销"等记账动作。
+- work_task（工作任务）：用户在【描述一件需要完成的工作】，重点是"做什么事、谁来做"。即使这件事涉及钱（如"去付款"、"完成转账"、"处理费用"），只要核心是一项待办工作而非记账，就应该分类为 work_task。典型特征：以动词开头描述动作（完成/安排/处理/跟进/确认等），或提到负责人/截止日期。
+- unknown：无法判断。
+
+判断顺序：先问"这是在记一笔账吗？"——如果是，expense；如果是在描述要做某件事，work_task。
+
+只返回 JSON：{"entity":"expense"} 或 {"entity":"work_task"} 或 {"entity":"unknown"}。
+
+输入：${JSON.stringify(text)}`
+  try {
+    const raw = await geminiJson(MODEL_FLASH, prompt)
+    const obj = JSON.parse(raw) as { entity?: string }
+    if (obj.entity === 'expense' || obj.entity === 'work_task') return obj.entity
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+// ── Work task parser ──────────────────────────────────────────
+
+const WORK_TASK_SCHEMA_DOC = `
+你必须输出一个合法的 JSON，描述一个创建工作任务的意图：
+
+{
+  "op": "create",
+  "entity": "work_task",
+  "payload": {
+    "title":               string,            // 必填，任务标题
+    "task_type":           "fixed"|"adhoc",   // fixed=固定/周期任务, adhoc=临时任务, 默认 adhoc
+    "department":          "bd"|"ops"|"finance"|"content"|"growth"|"legal",  // 所属部门
+    "owner_name":          string,            // 主负责人姓名（用户说的名字，不是 ID）
+    "reviewer_name":       string|null,       // 审核人姓名
+    "executor_names":      string[],          // 执行人姓名列表
+    "task_date":           "YYYY-MM-DD",      // 开始日期，默认今天
+    "due_date":            "YYYY-MM-DD"|null, // 截止日期
+    "effort_hours":        2|4|8,             // 工时，默认 2
+    "repeat_interval":     "daily"|"weekly"|"biweekly"|"monthly"|null,  // 重复周期，仅 fixed 任务填
+    "completion_criteria": string|null,       // 如何判断完成
+    "notes":               string|null
+  },
+  "summary": "一句话摘要",
+  "ambiguities": ["..."]?                    // 不确定的点
+}
+`
+
+const WORK_TASK_RULES = `
+关键规则：
+1. title 是必填项。如果用户描述的是"去完成某件事"，把这件事本身作为 title（如"完成新公司主体注册费用转账"）。
+2. 任务描述里提到的银行账号、注意事项、操作细节等放到 notes 里，不要丢弃。
+3. 相对时间转绝对日期，"明天" "下周五" 等都换成 YYYY-MM-DD。
+4. 人名只提取原文，不要猜 ID，交由后端解析。
+5. 不确定的字段放进 ambiguities，不要凭空填值。
+6. 只输出 JSON，不要 markdown 围栏，不要解释文字。
+`
+
+export async function parseWorkTaskIntent(
+  text: string,
+  ctx:  ParserContext,
+): Promise<WorkTaskParserResult> {
+  const t0 = Date.now()
+  try {
+    const prompt = `今天是 ${ctx.todayISO}。\n\n${WORK_TASK_SCHEMA_DOC}\n${WORK_TASK_RULES}\n\n用户输入：${JSON.stringify(text)}`
+    const raw    = await geminiJson(MODEL_PRO, prompt)
+    const parsed = tryParseWorkTask(raw)
+    if (parsed.success) {
+      return { ok: true, intent: parsed.data, modelUsed: MODEL_PRO, durationMs: Date.now() - t0 }
+    }
+    return { ok: false, reason: parsed.error, durationMs: Date.now() - t0 }
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e), durationMs: Date.now() - t0 }
+  }
+}
+
+type WorkTaskParseAttempt =
+  | { success: true;  data: WorkTaskCreateIntent }
+  | { success: false; error: string }
+
+function tryParseWorkTask(raw: string): WorkTaskParseAttempt {
+  let json: unknown
+  try {
+    json = JSON.parse(stripFences(raw))
+  } catch (e) {
+    return { success: false, error: `invalid JSON: ${(e as Error).message}` }
+  }
+  const result = WorkTaskCreateIntentSchema.safeParse(json)
+  if (!result.success) {
+    return { success: false, error: result.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ') }
+  }
+  return { success: true, data: result.data }
 }

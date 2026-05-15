@@ -430,7 +430,15 @@
       "addToDay": "+ Add {month}/{day}",
       "ymLabel": "{month}/{year}"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "status": {
       "done": "Done",
       "doing": "Doing",
@@ -456,7 +464,15 @@
       "descriptionPlaceholder": "Task details",
       "notes": "Notes",
       "notesPlaceholder": "Optional notes",
-      "submitCreate": "Create task"
+      "submitCreate": "Create task",
+      "dueDate": "Due date",
+      "reviewer": "Reviewer",
+      "reviewerNone": "No reviewer",
+      "titleSuggestionPlaceholder": "Enter title, suggestions will appear",
+      "repeatInterval": "Repeat interval",
+      "noRepeat": "No repeat",
+      "completionCriteria": "Completion criteria",
+      "completionCriteriaPlaceholder": "Describe how to verify this task is done, e.g. 2 h live + sales ≥ 5000 CNY"
     },
     "salary": {
       "title": "Employee salary management",
@@ -683,7 +699,13 @@
     "to": "to",
     "empty": "No expense records yet",
     "addFirst": "Add first expense",
-    "category": "Category",
+    "category": {
+      "viewPie": "Pie",
+      "viewSankey": "Flow",
+      "crossBorderTooltip": "Cross-border transfer cost {amount}",
+      "crossBorderBadge": "Cross-border +{amount}",
+      "allBuyersLabel": "All"
+    },
     "name": "Name",
     "amount": "Amount",
     "period": "Period",
@@ -772,13 +794,6 @@
       "companyAccountHint": "Company account payment requires buyer to be one of: {buyers}"
     },
     "dayCountAlert": "{count, plural, =1 {1 expense} other {# expenses}}, over {max}",
-    "category": {
-      "viewPie": "Pie",
-      "viewSankey": "Flow",
-      "crossBorderTooltip": "Cross-border transfer cost {amount}",
-      "crossBorderBadge": "Cross-border +{amount}",
-      "allBuyersLabel": "All"
-    },
     "monthly": {
       "milestonesTooltip": "Strategic Timeline milestones",
       "milestonesLoading": "Loading…",
@@ -841,7 +856,20 @@
     "statusSaving": "Saving...",
     "statusSaved": "Saved",
     "statusError": "Save failed, local draft retained",
-    "months": ["Jan.", "Feb.", "Mar.", "Apr.", "May", "Jun.", "Jul.", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."],
+    "months": [
+      "Jan.",
+      "Feb.",
+      "Mar.",
+      "Apr.",
+      "May",
+      "Jun.",
+      "Jul.",
+      "Aug.",
+      "Sep.",
+      "Oct.",
+      "Nov.",
+      "Dec."
+    ],
     "kpi": {
       "yearForecast": "Annual revenue forecast",
       "yearForecastCollapse": "Click to collapse account details",
@@ -965,6 +993,29 @@
       "priority": "Priority",
       "stable": "Stable",
       "watch": "Watch"
+    }
+  },
+  "config": {
+    "tabs": {
+      "rules": "Rules",
+      "changelog": "Changelog"
+    },
+    "changelog": {
+      "title": "Changelog",
+      "subtitle": "Daily roll-up of new features and changes",
+      "today": "Today",
+      "summaryDays": "{count} day(s) recorded",
+      "summaryFeat": "{count} new feature(s)",
+      "summaryFix": "{count} fix(es)",
+      "itemCount": "{count} item(s)",
+      "footer": "Only user-visible changes are listed here. For raw commit history, see the repo git log.",
+      "kinds": {
+        "feat": "Feature",
+        "fix": "Fix",
+        "improve": "Polish",
+        "security": "Security",
+        "infra": "Infra"
+      }
     }
   }
 }
