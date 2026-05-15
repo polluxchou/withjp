@@ -31,15 +31,9 @@ const SRC = path.join(ROOT, 'src')
 // entry only if a single PR needs to land partial migration; the ratchet's
 // stale-allowlist check will flag it for removal once the file is fully
 // migrated.
-// finance-forecast migration was deferred (reverted from this PR) — tracked
-// as a follow-up. ESLint carries a matching override in .eslintrc.json.
 // NextTimelineView + timeline page string added by main after this PR branched;
-// also deferred to the follow-up migration.
+// deferred to a follow-up migration.
 const ALLOWLIST = new Set([
-  'src/app/[locale]/(app)/finance-forecast/page.tsx',
-  'src/components/finance-forecast/FinanceForecastDashboard.tsx',
-  'src/components/finance-forecast/ForecastViewBar.tsx',
-  'src/components/finance-forecast/LifecycleTemplateEditor.tsx',
   'src/components/milestones/NextTimelineView.tsx',
 ])
 
