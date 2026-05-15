@@ -79,7 +79,7 @@ test('calculateMonthlyBudgetCosts places each cost in the month of its expense_d
   const expectedMarchCost = (1000 + 500 * 1.04 + 2000) / 7
   assert.equal(budgets.get('2026-01') ?? 0, 0)
   assert.equal(budgets.get('2026-02') ?? 0, 0)
-  assert.equal(budgets.get('2026-03'), expectedMarchCost)
+  assert.ok(Math.abs((budgets.get('2026-03') ?? 0) - expectedMarchCost) < 1e-9)
 })
 
 test('calculateMonthlyBudgetCosts uses expense_date even when a period is set', () => {

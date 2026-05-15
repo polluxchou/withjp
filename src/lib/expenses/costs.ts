@@ -4,7 +4,7 @@ import {
   type ExpensePaymentMethod,
   type ExpensePaymentStatus,
   type ExpensePaymentMethod as EPM,
-} from '@/lib/types'
+} from '../types/index.ts'
 
 // ── Team members (使用人枚举) ─────────────────────────────────
 
