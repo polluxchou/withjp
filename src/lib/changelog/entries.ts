@@ -27,6 +27,17 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-05-15',
+    items: [
+      {
+        kind: 'feat',
+        scope: '财务预测',
+        title: '财务预测页面支持英文界面',
+        details: '财务预测看板（KPI 卡片、收入表格、图表、视角管理、生命周期模板编辑器）全面接入 next-intl 国际化，切换语言后所有文案随界面语言同步显示。',
+      },
+    ],
+  },
+  {
     date: '2026-05-14',
     items: [
       {
