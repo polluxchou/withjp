@@ -19,3 +19,4 @@ out/
 *.tsbuildinfo
 *.bak
 npm-debug.log*
+.vercel
