@@ -109,13 +109,11 @@ export default function FinanceForecastDashboard({
   const { fmt: fmtCurrency } = useCurrency()
   const USD_TO_CNY = 7
   const fmtForecast = useCallback(
-    (usd: number) => fmtCurrency(usd * USD_TO_CNY),
-    [fmtCurrency],
-  )
-  const fmtForecastCompact = useCallback(
     (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true }),
     [fmtCurrency],
   )
+  // Alias kept for chart axis/tooltip call sites that pass fmtForecastCompact by name.
+  const fmtForecastCompact = fmtForecast
 
   const activeView = views.find((v) => v.id === activeViewId) ?? null
   const canEditActive = activeView ? (isAdmin || activeView.owner_id === currentUserId) : false
@@ -1537,8 +1535,8 @@ function AnnualOverview({
   const t = useTranslations('financeForecast')
   const { fmt: fmtCurrency } = useCurrency()
   const USD_TO_CNY = 7
-  const fmtForecast      = (usd: number) => fmtCurrency(usd * USD_TO_CNY)
-  const fmtForecastCompact = (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true })
+  const fmtForecast        = (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true })
+  const fmtForecastCompact = fmtForecast
   const aggregateProfitColor = aggregate.profit >= 0 ? 'text-emerald-700' : 'text-red-600'
   const aggregateMarginColor = aggregate.margin >= 0 ? 'text-emerald-700' : 'text-red-600'
 
@@ -1691,7 +1689,7 @@ function YearSummaryTable({
   const t = useTranslations('financeForecast')
   const { fmt: fmtCurrency } = useCurrency()
   const USD_TO_CNY = 7
-  const fmtForecast = (usd: number) => fmtCurrency(usd * USD_TO_CNY)
+  const fmtForecast = (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true })
   const configured = months
     .map((m, index) => ({ ...m, index }))
     .filter((m) => m.rows.length > 0)
