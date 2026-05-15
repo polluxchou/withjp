@@ -41,7 +41,6 @@ const ALLOWLIST = new Set([
   'src/components/finance-forecast/ForecastViewBar.tsx',
   'src/components/finance-forecast/LifecycleTemplateEditor.tsx',
   'src/components/milestones/NextTimelineView.tsx',
-  'src/app/[locale]/(app)/timeline/page.tsx',
 ])
 
 function* walkFiles(dir) {

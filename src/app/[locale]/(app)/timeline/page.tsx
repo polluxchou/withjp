@@ -129,7 +129,7 @@ export default function TimelinePage() {
             <div className="flex bg-slate-100 rounded-lg p-0.5">
               <button onClick={() => setView('next')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'next' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
-                <CalendarDays className="w-3.5 h-3.5" /> 接下来 30 天
+                <CalendarDays className="w-3.5 h-3.5" /> {t('view.next')}
               </button>
               <button onClick={() => setView('list')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>
