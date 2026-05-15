@@ -31,11 +31,32 @@ function trim1(n: number): string {
   return s.endsWith('.0') ? n.toFixed(0) : s
 }
 
-/** Compact-format a plain number (followers, views, etc.) by locale. */
-export function fmtCompact(n: number, locale: string): string {
+/**
+ * Compact-format a number.
+ *
+ * For **money amounts**, the abbreviation system should follow the
+ * currency, not the UI locale — a USD value should always read as $28.6K,
+ * even when the page is in Chinese, because "$2.86w" is nonsense to
+ * readers of either language.
+ *
+ * For **non-money counts** (followers, view counts, etc.), there is no
+ * currency, so we fall back to the UI locale: zh → 万-based, everything
+ * else → K/M.
+ *
+ * `currency` arg:
+ *   - 'CNY' / 'JPY': 万-based ("w" suffix), 10000 threshold
+ *   - 'USD':         K/M-based, 1000/1000000 thresholds
+ *   - undefined:     locale-driven, for non-money counts
+ */
+export function fmtCompact(n: number, locale: string, currency?: Currency): string {
   const abs  = Math.abs(n)
   const sign = n < 0 ? '-' : ''
-  if (locale === 'zh') {
+
+  const useWan =
+    currency === 'CNY' || currency === 'JPY' ||
+    (currency === undefined && locale === 'zh')
+
+  if (useWan) {
     if (abs >= 10000) return `${sign}${trim1(abs / 10000)}w`
     return n.toFixed(0)
   }
@@ -58,7 +79,7 @@ export function fmtAmount(
   const sym = CURRENCY_SYMBOLS[currency]
 
   if (opts?.compact) {
-    return `${sym}${fmtCompact(v, opts.locale ?? 'zh')}`
+    return `${sym}${fmtCompact(v, opts.locale ?? 'zh', currency)}`
   }
 
   const decimals = currency === 'JPY' ? 0 : 2
