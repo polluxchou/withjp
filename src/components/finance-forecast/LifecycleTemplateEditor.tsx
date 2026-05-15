@@ -5,14 +5,12 @@ import { useTranslations } from 'next-intl'
 import { Check, X, Save } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import {
-  FORECAST_ACCOUNT_TYPE_LABELS,
   FORECAST_ACCOUNT_TYPES,
   type ForecastAccountType,
 } from '@/lib/finance-forecast/calculations'
 import {
   LIFECYCLE_MONTH_COUNT,
   LIFECYCLE_STARTING_STAGES,
-  LIFECYCLE_STARTING_STAGE_LABELS,
   emptyLifecycleSet,
   type LifecycleStartingStage,
   type LifecycleTemplate,
@@ -27,6 +25,23 @@ interface Props {
 
 export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Props) {
   const t = useTranslations('financeForecast')
+  const accountTypeLabels: Record<ForecastAccountType, string> = {
+    key:     t('typeNameKey'),
+    mature:  t('typeNameMature'),
+    growing: t('typeNameGrowing'),
+    newbie:  t('typeNameNewbie'),
+    test:    t('typeNameTest'),
+    other:   t('typeNameOther'),
+  }
+
+  const stageLabels: Record<LifecycleStartingStage, string> = {
+    key:     t('stageNameKey'),
+    mature:  t('stageNameMature'),
+    growing: t('stageNameGrowing'),
+    newbie:  t('stageNameNewbie'),
+    test:    t('stageNameTest'),
+  }
+
   const [set, setSet]       = useState<LifecycleTemplateSet | null>(null)
   const [stage, setStage]   = useState<LifecycleStartingStage>('test')
   const [loading, setLoading]   = useState(false)
@@ -130,7 +145,7 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
                   : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
               }`}
             >
-              {t('lifecycleStageFrom', { stage: LIFECYCLE_STARTING_STAGE_LABELS[s] })}
+              {t('lifecycleStageFrom', { stage: stageLabels[s] })}
             </button>
           ))}
         </div>
@@ -161,7 +176,7 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
                         className={INPUT_CLASS}
                       >
                         {FORECAST_ACCOUNT_TYPES.map((type) => (
-                          <option key={type} value={type}>{FORECAST_ACCOUNT_TYPE_LABELS[type]}</option>
+                          <option key={type} value={type}>{accountTypeLabels[type]}</option>
                         ))}
                       </select>
                     </td>

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import Header from '@/components/layout/Header'
 import FinanceForecastDashboard from '@/components/finance-forecast/FinanceForecastDashboard'
 import { createServerClient } from '@/lib/supabase/server'
@@ -19,7 +19,12 @@ import {
   forecastYearRange,
 } from '@/lib/finance-forecast/year'
 
-export default async function FinanceForecastPage() {
+export default async function FinanceForecastPage({
+  params,
+}: {
+  params: { locale: string }
+}) {
+  setRequestLocale(params.locale)
   const t = await getTranslations('financeForecast')
   const auth = await createAuthServerClient()
   const { data: { user } } = await auth.auth.getUser()
