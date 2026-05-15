@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import Header from '@/components/layout/Header'
 import FinanceForecastDashboard from '@/components/finance-forecast/FinanceForecastDashboard'
 import { createServerClient } from '@/lib/supabase/server'
@@ -19,6 +20,7 @@ import {
 } from '@/lib/finance-forecast/year'
 
 export default async function FinanceForecastPage() {
+  const t = await getTranslations('financeForecast')
   const auth = await createAuthServerClient()
   const { data: { user } } = await auth.auth.getUser()
   if (!user) redirect('/login')
@@ -43,8 +45,8 @@ export default async function FinanceForecastPage() {
   return (
     <div>
       <Header
-        title="财务预测看板"
-        subtitle="按视角管理 3 年滚动预测。每位用户最多 3 个视角；管理员可将任意视角设为公开。"
+        title={t('pageTitle')}
+        subtitle={t('pageSubtitle')}
       />
       <FinanceForecastDashboard
         views={views}
