@@ -738,6 +738,7 @@
     "crossBorderFeeShort": "跨境",
     "crossBorderFeeTooltip": "非 with-new 且非租金支出的 4% 跨境转账成本",
     "effectiveCost": "实际成本（含跨境）",
+    "categoryColumn": "类别",
     "discussionsColumn": "讨论",
     "categories": {
       "tangible_asset": "有形资产",
