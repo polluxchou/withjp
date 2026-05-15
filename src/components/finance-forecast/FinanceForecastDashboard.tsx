@@ -1163,6 +1163,18 @@ function AddFromTemplateModal({
   const [name, setName]   = useState('')
   const canConfirm = !!lifecycleSet && name.trim().length > 0
 
+  // Mirror parent's stage labels — the i18n migration defined these only
+  // on FinanceForecastDashboard, but this child modal references them at
+  // render time. Production build caught the out-of-scope reference even
+  // though preview builds (with cached compilation) silently passed.
+  const stageLabels: Record<LifecycleStartingStage, string> = {
+    key:     t('stageNameKey'),
+    mature:  t('stageNameMature'),
+    growing: t('stageNameGrowing'),
+    newbie:  t('stageNameNewbie'),
+    test:    t('stageNameTest'),
+  }
+
   function describeTemplate(s: LifecycleStartingStage): string {
     const tpl = lifecycleSet?.[s]
     if (!tpl) return t('lifecycleLoading')
