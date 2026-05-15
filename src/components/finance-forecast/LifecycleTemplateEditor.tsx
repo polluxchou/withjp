@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Check, X, Save } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import {
@@ -21,14 +22,11 @@ import {
 interface Props {
   open:     boolean
   onClose:  () => void
-  // Notifies the parent of a fresh templates snapshot so the "add from
-  // template" flow always uses the latest values.
   onSaved?: (set: LifecycleTemplateSet) => void
 }
 
-// Modal-style editor with one tab per starting stage and a 12-row table
-// inside each tab. Loads + saves through /api/finance-forecast/lifecycle.
 export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Props) {
+  const t = useTranslations('financeForecast')
   const [set, setSet]       = useState<LifecycleTemplateSet | null>(null)
   const [stage, setStage]   = useState<LifecycleStartingStage>('test')
   const [loading, setLoading]   = useState(false)
@@ -36,8 +34,6 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
   const [error, setError]       = useState<string | null>(null)
   const [dirty, setDirty]       = useState(false)
 
-  // Fetch on open. We deliberately re-fetch every time the modal opens
-  // so concurrent edits from another tab don't surface stale data.
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -48,7 +44,7 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
       .then((body: { data: LifecycleTemplateSet | null; error: string | null }) => {
         if (cancelled) return
         if (body.error || !body.data) {
-          setError(body.error ?? '加载失败')
+          setError(body.error ?? t('lifecycleLoadFailed'))
           setSet(emptyLifecycleSet())
         } else {
           setSet(body.data)
@@ -57,12 +53,12 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
       })
       .catch((e) => {
         if (cancelled) return
-        setError(e instanceof Error ? e.message : '加载失败')
+        setError(e instanceof Error ? e.message : t('lifecycleLoadFailed'))
         setSet(emptyLifecycleSet())
       })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [open])
+  }, [open, t])
 
   function updateCell(stage: LifecycleStartingStage, monthOffset: number, patch: Partial<LifecycleTemplate[number]>) {
     setSet((prev) => {
@@ -84,19 +80,19 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
         body:    JSON.stringify({ templates: set }),
       })
       const body = await res.json() as { data: LifecycleTemplateSet | null; error: string | null }
-      if (!res.ok || !body.data) throw new Error(body.error ?? '保存失败')
+      if (!res.ok || !body.data) throw new Error(body.error ?? t('lifecycleSaveFailed'))
       setSet(body.data)
       setDirty(false)
       onSaved?.(body.data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '保存失败')
+      setError(e instanceof Error ? e.message : t('lifecycleSaveFailed'))
     } finally {
       setSaving(false)
     }
   }
 
   function handleClose() {
-    if (dirty && !window.confirm('有未保存的改动，确定关闭吗？')) return
+    if (dirty && !window.confirm(t('lifecycleUnsaved'))) return
     onClose()
   }
 
@@ -109,23 +105,19 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
       <div className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-base font-bold text-slate-900">账号生命周期模板</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              5 个起始阶段 × 12 个月。新增账号时按"起始阶段"一键应用 12 个月的预设参数；
-              个人配置，跨视角共享。
-            </p>
+            <h2 className="text-base font-bold text-slate-900">{t('lifecycleTitle')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('lifecycleDesc')}</p>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            aria-label="关闭"
+            aria-label={t('lifecycleClose')}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Stage tabs */}
         <div className="px-5 pt-4 flex gap-1 flex-wrap">
           {LIFECYCLE_STARTING_STAGES.map((s) => (
             <button
@@ -138,25 +130,24 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
                   : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
               }`}
             >
-              从 {LIFECYCLE_STARTING_STAGE_LABELS[s]} 起步
+              {t('lifecycleStageFrom', { stage: LIFECYCLE_STARTING_STAGE_LABELS[s] })}
             </button>
           ))}
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-auto px-5 py-4">
           {loading || !tpl ? (
-            <div className="py-10 text-center text-sm text-slate-400">加载中…</div>
+            <div className="py-10 text-center text-sm text-slate-400">{t('lifecycleLoading')}</div>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-y border-slate-100 bg-slate-50">
-                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500 w-16">月份</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">本月状态</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">开播天数</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">日均时长</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">分钟收益 (USD)</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">分润比例 (%)</th>
+                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500 w-16">{t('lifecycleColMonth')}</th>
+                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">{t('lifecycleColStatus')}</th>
+                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">{t('lifecycleColLiveDays')}</th>
+                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">{t('lifecycleColAvgHours')}</th>
+                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">{t('lifecycleColRevPerMin')}</th>
+                  <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">{t('lifecycleColShareRatio')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,8 +160,8 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
                         onChange={(e) => updateCell(stage, i, { account_type: e.target.value as ForecastAccountType })}
                         className={INPUT_CLASS}
                       >
-                        {FORECAST_ACCOUNT_TYPES.map((t) => (
-                          <option key={t} value={t}>{FORECAST_ACCOUNT_TYPE_LABELS[t]}</option>
+                        {FORECAST_ACCOUNT_TYPES.map((type) => (
+                          <option key={type} value={type}>{FORECAST_ACCOUNT_TYPE_LABELS[type]}</option>
                         ))}
                       </select>
                     </td>
@@ -210,17 +201,17 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
 
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-slate-100">
           <span className="text-xs text-slate-400">
-            共 {LIFECYCLE_STARTING_STAGES.length} 个模板 × {LIFECYCLE_MONTH_COUNT} 个月。
+            {t('lifecycleFooter', { stages: LIFECYCLE_STARTING_STAGES.length, months: LIFECYCLE_MONTH_COUNT })}
             {error && <span className="ml-2 text-red-500">{error}</span>}
           </span>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={handleClose} disabled={saving}>
-              <X className="w-3.5 h-3.5" /> 关闭
+              <X className="w-3.5 h-3.5" /> {t('lifecycleClose')}
             </Button>
             <Button size="sm" onClick={handleSave} disabled={!dirty || saving || loading}>
               {saving
-                ? <><Save className="w-3.5 h-3.5" /> 保存中…</>
-                : <><Check className="w-3.5 h-3.5" /> 保存</>}
+                ? <><Save className="w-3.5 h-3.5" /> {t('lifecycleSaving')}</>
+                : <><Check className="w-3.5 h-3.5" /> {t('lifecycleSave')}</>}
             </Button>
           </div>
         </div>

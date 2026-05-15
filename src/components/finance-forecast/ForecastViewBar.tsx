@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Plus, Pencil, Trash2, Globe, Lock, Check, X, ChevronDown, Layers, Repeat } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { MAX_VIEWS_PER_USER, type ForecastView } from '@/lib/finance-forecast/views'
@@ -15,15 +16,9 @@ interface Props {
   onCreate:            (input: { name: string; note: string }) => Promise<void>
   onUpdate:            (id: string, patch: { name?: string; note?: string; is_public?: boolean }) => Promise<void>
   onDelete:            (id: string) => Promise<void>
-  // Opens the per-user lifecycle templates editor. Lives next to the view
-  // controls because that's the natural "settings hub" for the forecast.
   onOpenLifecycle?:    () => void
 }
 
-// Compact trigger + drop-down popover that houses the full view-management
-// UI (chips, create / edit forms, admin public toggle, delete confirm).
-// When the popover is closed the dashboard only spends ~32px of vertical
-// space on this control — significantly less than the prior always-on bar.
 export default function ForecastViewBar({
   views,
   activeViewId,
@@ -36,6 +31,7 @@ export default function ForecastViewBar({
   onDelete,
   onOpenLifecycle,
 }: Props) {
+  const t = useTranslations('financeForecast')
   const [open, setOpen]                       = useState(false)
   const [creating, setCreating]               = useState(false)
   const [editingId, setEditingId]             = useState<string | null>(null)
@@ -51,15 +47,12 @@ export default function ForecastViewBar({
     ? (isAdmin || activeView.owner_id === currentUserId)
     : false
 
-  // Close on outside pointer / Escape. We allow clicks inside the trigger
-  // itself (so the trigger toggles cleanly) and inside the popover (so
-  // typing into forms doesn't dismiss the menu).
   useEffect(() => {
     if (!open) return
     const onPointer = (e: PointerEvent) => {
-      const t = e.target as Node
-      if (triggerRef.current?.contains(t)) return
-      if (popoverRef.current?.contains(t)) return
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (popoverRef.current?.contains(target)) return
       setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
@@ -73,8 +66,6 @@ export default function ForecastViewBar({
     }
   }, [open])
 
-  // Reset inline forms whenever the popover closes so the next opening is
-  // a clean slate.
   useEffect(() => {
     if (!open) {
       setCreating(false)
@@ -84,9 +75,9 @@ export default function ForecastViewBar({
 
   const triggerLabel = activeView
     ? activeView.name
-    : views.length === 0 ? '新建视角' : '选择视角'
+    : views.length === 0 ? t('viewCreateNew') : t('viewSelectView')
   const triggerOwnerHint = activeView
-    ? (activeView.owner_id === currentUserId ? '我的' : activeView.owner_name ?? '系统')
+    ? (activeView.owner_id === currentUserId ? t('viewOwnerMe') : activeView.owner_name ?? t('viewOwnerSystem'))
     : null
 
   return (
@@ -105,7 +96,7 @@ export default function ForecastViewBar({
         } ${busy && !open ? 'opacity-60 cursor-not-allowed' : ''}`}
       >
         <Layers className={`w-3.5 h-3.5 ${open ? 'text-indigo-100' : 'text-slate-400'}`} />
-        <span className="hidden sm:inline text-[10px] font-medium uppercase tracking-wider opacity-80">视角</span>
+        <span className="hidden sm:inline text-[10px] font-medium uppercase tracking-wider opacity-80">{t('viewBarLabel')}</span>
         <span className="truncate max-w-[12rem]">{triggerLabel}</span>
         {triggerOwnerHint && (
           <span className={`text-[10px] font-medium ${open ? 'text-indigo-100' : 'text-slate-400'}`}>
@@ -126,10 +117,9 @@ export default function ForecastViewBar({
           role="menu"
           className="absolute top-full left-0 mt-2 w-[min(640px,calc(100vw-2rem))] bg-white border border-slate-200 rounded-xl shadow-xl z-40 p-4 space-y-3"
         >
-          {/* Row 1: view chips + new button */}
           <div className="flex flex-wrap items-center gap-2">
             {views.length === 0 && !creating && (
-              <span className="text-sm text-slate-400">还没有任何视角 — 创建一个开始预测</span>
+              <span className="text-sm text-slate-400">{t('viewNoViews')}</span>
             )}
 
             {views.map((view) => (
@@ -151,20 +141,19 @@ export default function ForecastViewBar({
                 type="button"
                 onClick={() => setCreating(true)}
                 disabled={!canCreate || busy}
-                title={canCreate ? '新建视角' : `最多 ${MAX_VIEWS_PER_USER} 个自有视角，请先删除一个`}
+                title={canCreate ? t('viewCreateNew') : t('viewMaxHint', { max: MAX_VIEWS_PER_USER })}
                 className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                   canCreate && !busy
                     ? 'bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400'
                     : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
                 }`}
               >
-                <Plus className="w-3.5 h-3.5" /> 新建视角
+                <Plus className="w-3.5 h-3.5" /> {t('viewCreateNew')}
                 <span className="ml-1 text-[10px] text-slate-400 tabular-nums">{ownedCount}/{MAX_VIEWS_PER_USER}</span>
               </button>
             )}
           </div>
 
-          {/* Row 2: inline create form */}
           {creating && (
             <CreateForm
               onCancel={() => setCreating(false)}
@@ -175,7 +164,6 @@ export default function ForecastViewBar({
             />
           )}
 
-          {/* Row 3: active view metadata + edit/delete actions */}
           {activeView && !creating && (
             <div className="pt-3 border-t border-slate-100">
               {editingId === activeView.id ? (
@@ -202,26 +190,20 @@ export default function ForecastViewBar({
             </div>
           )}
 
-          {/* Row 4: personal lifecycle-template entry. Lives here because
-              "things you configure for the forecast" all open from this
-              popover, but the templates themselves are per-user, not
-              per-view — the hint text makes that explicit. */}
           {onOpenLifecycle && !creating && editingId === null && (
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-700">账号生命周期模板</p>
-                <p className="text-[11px] text-slate-400">个人配置 · 跨视角共享 · 用于"+ 从模板新增账号"</p>
+                <p className="text-xs font-semibold text-slate-700">{t('viewLifecycleTitle')}</p>
+                <p className="text-[11px] text-slate-400">{t('viewLifecycleSub')}</p>
               </div>
               <Button variant="secondary" size="sm" onClick={() => { onOpenLifecycle(); setOpen(false) }}>
-                <Repeat className="w-3.5 h-3.5" /> 编辑模板
+                <Repeat className="w-3.5 h-3.5" /> {t('viewEditTemplate')}
               </Button>
             </div>
           )}
         </div>
       )}
 
-      {/* Delete confirm — rendered at root so closing the popover doesn't
-          accidentally dismiss it. */}
       {confirmDeleteId && (
         <DeleteConfirm
           view={views.find((v) => v.id === confirmDeleteId)!}
@@ -250,8 +232,9 @@ function ViewChip({
   disabled:      boolean
   onClick:       () => void
 }) {
+  const t = useTranslations('financeForecast')
   const isMine = view.owner_id === currentUserId
-  const ownerLabel = isMine ? '我的' : (view.owner_name ?? '系统')
+  const ownerLabel = isMine ? t('viewOwnerMe') : (view.owner_name ?? t('viewOwnerSystem'))
   return (
     <button
       type="button"
@@ -291,11 +274,12 @@ function MetadataDisplay({
   onRequestDelete: () => void
   onTogglePublic: () => void
 }) {
+  const t = useTranslations('financeForecast')
   const isMine = view.owner_id === currentUserId
   const ownerLabel = view.owner_id === null
-    ? '系统'
+    ? t('viewOwnerSystem')
     : isMine
-      ? '我' : view.owner_name ?? '匿名用户'
+      ? t('viewOwnerMeLabel') : view.owner_name ?? t('viewOwnerAnon')
 
   return (
     <div className="flex items-start gap-4 flex-wrap">
@@ -303,15 +287,15 @@ function MetadataDisplay({
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="text-sm font-bold text-slate-900 truncate">{view.name}</h3>
           <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-            所属 · {ownerLabel}
+            {t('viewOwnerBadge', { owner: ownerLabel })}
           </span>
           {view.is_public ? (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-              <Globe className="w-3 h-3" /> 全员可见
+              <Globe className="w-3 h-3" /> {t('viewPublic')}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-              <Lock className="w-3 h-3" /> 仅自己可见
+              <Lock className="w-3 h-3" /> {t('viewPrivate')}
             </span>
           )}
         </div>
@@ -325,26 +309,26 @@ function MetadataDisplay({
           <button
             type="button"
             onClick={onTogglePublic}
-            title={view.is_public ? '取消公开（管理员）' : '设为全员可见（管理员）'}
+            title={view.is_public ? t('viewRemovePublicAdmin') : t('viewMakePublicAdmin')}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
           >
             {view.is_public ? <Lock className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
-            {view.is_public ? '取消公开' : '设为公开'}
+            {view.is_public ? t('viewRemovePublicAdmin') : t('viewMakePublic')}
           </button>
         )}
         {canEdit && (
           <Button variant="secondary" size="sm" onClick={onStartEdit}>
-            <Pencil className="w-3.5 h-3.5" /> 编辑
+            <Pencil className="w-3.5 h-3.5" /> {t('viewEdit')}
           </Button>
         )}
         {canEdit && (
           <button
             type="button"
             onClick={onRequestDelete}
-            title="删除视角（连同其全部预测数据）"
+            title={t('viewDeleteHint')}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
           >
-            <Trash2 className="w-3.5 h-3.5" /> 删除
+            <Trash2 className="w-3.5 h-3.5" /> {t('viewDelete')}
           </button>
         )}
       </div>
@@ -363,6 +347,7 @@ function EditForm({
   onCancel:        () => void
   onSubmit:        (patch: { name?: string; note?: string; is_public?: boolean }) => Promise<void>
 }) {
+  const t = useTranslations('financeForecast')
   const [name, setName]         = useState(view.name)
   const [note, setNote]         = useState(view.note)
   const [isPublic, setIsPublic] = useState(view.is_public)
@@ -388,7 +373,7 @@ function EditForm({
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
         <label className="block">
-          <span className="block text-xs font-medium text-slate-700 mb-1">名称</span>
+          <span className="block text-xs font-medium text-slate-700 mb-1">{t('viewEditNameLabel')}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -397,11 +382,11 @@ function EditForm({
           />
         </label>
         <label className="block">
-          <span className="block text-xs font-medium text-slate-700 mb-1">备注</span>
+          <span className="block text-xs font-medium text-slate-700 mb-1">{t('viewEditNoteLabel')}</span>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="可选 — 描述这个视角的预测假设、用途等"
+            placeholder={t('viewEditNotePlaceholder')}
             className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </label>
@@ -416,17 +401,17 @@ function EditForm({
               onChange={(e) => setIsPublic(e.target.checked)}
               className="w-3.5 h-3.5"
             />
-            全员可见（管理员开关）
+            {t('viewPublicToggle')}
           </label>
         ) : (
-          <span className="text-xs text-slate-400">公开开关仅管理员可调整</span>
+          <span className="text-xs text-slate-400">{t('viewPublicReadonly')}</span>
         )}
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel}>
-            <X className="w-3.5 h-3.5" /> 取消
+            <X className="w-3.5 h-3.5" /> {t('viewEditCancel')}
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-            <Check className="w-3.5 h-3.5" /> {submitting ? '保存中…' : '保存'}
+            <Check className="w-3.5 h-3.5" /> {submitting ? t('viewSaving') : t('viewSave')}
           </Button>
         </div>
       </div>
@@ -441,6 +426,7 @@ function CreateForm({
   onCancel: () => void
   onSubmit: (input: { name: string; note: string }) => Promise<void>
 }) {
+  const t = useTranslations('financeForecast')
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -461,32 +447,32 @@ function CreateForm({
     <div className="pt-3 border-t border-slate-100 space-y-3">
       <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
         <label className="block">
-          <span className="block text-xs font-medium text-slate-700 mb-1">名称（必填）</span>
+          <span className="block text-xs font-medium text-slate-700 mb-1">{t('viewCreateNameLabel')}</span>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
-            placeholder="例如：保守预测 / Q1 复盘"
+            placeholder={t('viewCreateNamePlaceholder')}
             className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </label>
         <label className="block">
-          <span className="block text-xs font-medium text-slate-700 mb-1">备注</span>
+          <span className="block text-xs font-medium text-slate-700 mb-1">{t('viewCreateNoteLabel')}</span>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="可选 — 描述这个视角的预测假设"
+            placeholder={t('viewCreateNotePlaceholder')}
             className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </label>
       </div>
       <div className="flex items-center justify-end gap-2">
         <Button variant="secondary" size="sm" onClick={onCancel}>
-          <X className="w-3.5 h-3.5" /> 取消
+          <X className="w-3.5 h-3.5" /> {t('viewCreateCancel')}
         </Button>
         <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-          <Check className="w-3.5 h-3.5" /> {submitting ? '创建中…' : '创建'}
+          <Check className="w-3.5 h-3.5" /> {submitting ? t('viewCreating') : t('viewCreate')}
         </Button>
       </div>
     </div>
@@ -502,6 +488,7 @@ function DeleteConfirm({
   onCancel:  () => void
   onConfirm: () => Promise<void>
 }) {
+  const t = useTranslations('financeForecast')
   const [submitting, setSubmitting] = useState(false)
 
   async function handleConfirm() {
@@ -516,14 +503,14 @@ function DeleteConfirm({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-5">
-        <h3 className="text-base font-bold text-slate-900 mb-2">确认删除视角</h3>
+        <h3 className="text-base font-bold text-slate-900 mb-2">{t('viewDeleteTitle')}</h3>
         <p className="text-sm text-slate-600 mb-1">
-          将永久删除视角 <strong className="text-slate-900">{view.name}</strong> 以及它包含的全部预测输入（3 年的月度账号数据、实收、备注）。
+          {t('viewDeleteDesc', { name: view.name })}
         </p>
-        <p className="text-xs text-red-600 mb-4">此操作不可撤销。</p>
+        <p className="text-xs text-red-600 mb-4">{t('viewDeleteWarning')}</p>
         <div className="flex items-center justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={submitting}>
-            取消
+            {t('viewDeleteCancel')}
           </Button>
           <button
             type="button"
@@ -531,7 +518,7 @@ function DeleteConfirm({
             disabled={submitting}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
           >
-            <Trash2 className="w-3.5 h-3.5" /> {submitting ? '删除中…' : '确认删除'}
+            <Trash2 className="w-3.5 h-3.5" /> {submitting ? t('viewDeleting') : t('viewDeleteConfirm')}
           </button>
         </div>
       </div>
