@@ -6,14 +6,16 @@ import LifecycleBadge from '@/components/creators/LifecycleBadge'
 import Button from '@/components/ui/Button'
 import { ChevronRight, ChevronLeft, Users, XCircle, RotateCcw } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import type { Creator, CreatorStatus } from '@/lib/types'
+import { fmtCompact } from '@/lib/currency'
 import { ALL_STATUSES, nextStatus, canTransition } from '@/lib/state-machine/creator-lifecycle'
 
 export default function PipelinePage() {
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
   const [moving, setMoving] = useState<string | null>(null)
+  const locale = useLocale()
   const t = useTranslations('pipeline')
   const tCommon = useTranslations('common')
   const tStatus = useTranslations('status')
@@ -140,7 +142,7 @@ export default function PipelinePage() {
                           )}
                           {creator.profile?.followers && (
                             <div className="text-xs text-slate-400 mt-1">
-                              {creator.profile.followers.toLocaleString()} {t('followers')}
+                              {fmtCompact(creator.profile.followers, locale)} {t('followers')}
                             </div>
                           )}
                         </Link>

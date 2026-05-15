@@ -2030,16 +2030,13 @@ function buildChartData(months: ReturnType<typeof summarizeForecast>['months'], 
 }
 
 function formatUsd(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style:                 'currency',
-    currency:              'USD',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
-function formatUsdCompact(value: number): string {
-  if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(0)}K`
+  const abs  = Math.abs(value)
+  const sign = value < 0 ? '-' : ''
+  if (abs >= 1000000) return `$${sign}${(abs / 1000000).toFixed(1).replace(/\.0$/, '')}m`
+  if (abs >= 1000)    return `$${sign}${(abs / 1000).toFixed(1).replace(/\.0$/, '')}k`
   return `$${Number(value).toFixed(0)}`
 }
+
+const formatUsdCompact = formatUsd
 
 const INPUT_CLASS = 'w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
