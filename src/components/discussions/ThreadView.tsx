@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, CheckCircle2, Loader2, Plus, Send, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2, Plus, Send, Trash2, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import type { Message, Thread } from '@/lib/discussions/types'
@@ -88,6 +88,24 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
       setPosting(false)
     }
   }, [draft, posting, thread.id, tThread])
+
+  const deleteMessageAction = useCallback(async (messageId: string) => {
+    if (!confirm(tThread('deleteConfirm'))) return
+    setError(null)
+    try {
+      const res = await fetch(`/api/discussions/threads/${thread.id}/messages/${messageId}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json() as { data: unknown; error: string | null }
+      if (!res.ok || json.error) {
+        setError(json.error ?? tThread('deleteFailed'))
+        return
+      }
+      setMessages(prev => prev.filter(m => m.id !== messageId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tThread('deleteFailed'))
+    }
+  }, [thread.id, tThread])
 
   const resolve = useCallback(async () => {
     if (resolving || thread.status === 'resolved') return
@@ -196,19 +214,33 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
               msg.senderType === 'external' ? tThread('senderExternal') :
               isMine                        ? tThread('senderYou')    :
                                               tThread('senderOther')
+            const canDelete = isMine && msg.senderType === 'user'
             return (
-              <div key={msg.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+              <div key={msg.id} className={`flex flex-col group ${isMine ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-0.5">
                   <span>{senderLabel}</span>
                   <span>·</span>
                   <span>{fmtDateTime(msg.createdAt)}</span>
                 </div>
-                <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap break-words ${
-                  isMine
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-900'
-                }`}>
-                  {msg.body}
+                <div className={`flex items-center gap-1.5 max-w-[85%] ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`px-3 py-2 rounded-lg text-sm whitespace-pre-wrap break-words ${
+                    isMine
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-900'
+                  }`}>
+                    {msg.body}
+                  </div>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => void deleteMessageAction(msg.id)}
+                      aria-label={tThread('deleteMessage')}
+                      title={tThread('deleteMessage')}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             )
