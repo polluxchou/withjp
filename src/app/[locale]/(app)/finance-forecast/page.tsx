@@ -67,11 +67,14 @@ export default async function FinanceForecastPage({
   )
 }
 
-// Most-recently-updated own view first, otherwise most-recently-updated public.
+// Public (全员) view first; fall back to own most-recently-updated, then any view.
 function pickDefaultView(views: ForecastView[], currentUserId: string): ForecastView | null {
   if (views.length === 0) return null
-  const owned = views.filter((v) => v.owner_id === currentUserId)
+  // Prefer the oldest public view (全员视角); list is already ordered by created_at ASC.
+  const publicView = views.find((v) => v.is_public)
+  if (publicView) return publicView
   const sortByUpdated = (a: ForecastView, b: ForecastView) => b.updated_at.localeCompare(a.updated_at)
+  const owned = views.filter((v) => v.owner_id === currentUserId)
   if (owned.length > 0) return [...owned].sort(sortByUpdated)[0]
   return [...views].sort(sortByUpdated)[0]
 }
