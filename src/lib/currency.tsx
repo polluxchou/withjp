@@ -25,11 +25,28 @@ export function convertFromCny(cny: number, target: Currency): number {
   return cny * CURRENCY_RATES[target]
 }
 
+function trim1(n: number): string {
+  const s = n.toFixed(1)
+  return s.endsWith('.0') ? n.toFixed(0) : s
+}
+
+/** Compact-format a plain number (followers, views, etc.) by locale. */
+export function fmtCompact(n: number, locale: string): string {
+  const abs  = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (locale === 'zh') {
+    if (abs >= 10000) return `${sign}${trim1(abs / 10000)}w`
+    return n.toFixed(0)
+  }
+  if (abs >= 1000000) return `${sign}${trim1(abs / 1000000)}m`
+  if (abs >= 1000)    return `${sign}${trim1(abs / 1000)}k`
+  return n.toFixed(0)
+}
+
 /**
  * Format a CNY-denominated amount in the given currency.
  * `compact` produces a short label suitable for chart axes / KPI cards
- * (¥3.8万 / $5.4K / ¥7,480,000 JPY). Default is full precision with
- * thousands separators.
+ * (¥3.8w / $5.4k / $1.2m). Default is full precision with thousands separators.
  */
 export function fmtAmount(
   cnyAmount: number,
@@ -41,10 +58,11 @@ export function fmtAmount(
 
   if (opts?.compact) {
     if (currency === 'USD') {
-      return v >= 1000 ? `${sym}${(v / 1000).toFixed(1)}K` : `${sym}${v.toFixed(0)}`
+      if (Math.abs(v) >= 1000000) return `${sym}${trim1(v / 1000000)}m`
+      return Math.abs(v) >= 1000 ? `${sym}${trim1(v / 1000)}k` : `${sym}${v.toFixed(0)}`
     }
-    // CNY and JPY both use 万 (10,000 unit) since the magnitudes are similar
-    return v >= 10000 ? `${sym}${(v / 10000).toFixed(1)}万` : `${sym}${v.toFixed(0)}`
+    // CNY and JPY — use w (万) unit since magnitudes are similar
+    return Math.abs(v) >= 10000 ? `${sym}${trim1(v / 10000)}w` : `${sym}${v.toFixed(0)}`
   }
 
   const decimals = currency === 'JPY' ? 0 : 2

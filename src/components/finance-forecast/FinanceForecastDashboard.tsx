@@ -2038,7 +2038,10 @@ function formatUsd(value: number): string {
 }
 
 function formatUsdCompact(value: number): string {
-  if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(0)}K`
+  const abs = Math.abs(value)
+  const sign = value < 0 ? '-' : ''
+  if (abs >= 1000000) return `$${sign}${(abs / 1000000).toFixed(1).replace(/\.0$/, '')}m`
+  if (abs >= 1000)    return `$${sign}${(abs / 1000).toFixed(0)}k`
   return `$${Number(value).toFixed(0)}`
 }
 
