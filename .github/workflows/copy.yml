@@ -31,7 +31,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - run: npm ci --ignore-scripts
+      - run: npm install --ignore-scripts
 
       - name: zh/en key parity
         run: npm run test:i18n
