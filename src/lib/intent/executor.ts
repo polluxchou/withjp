@@ -203,7 +203,7 @@ export async function applyPendingAction(
   if (row.entity === 'work_task') {
     const intent = row.intent_json as WorkTaskCreateIntent
     const r = await createWorkTaskFromIntent(intent.payload, actor.id)
-    if (r.error) err = r.error; else appliedId = r.data.id
+    if (r.error) err = r.error as unknown as ServiceError; else appliedId = r.data.id
   } else {
     // Default: expense
     const intent = row.intent_json as ExpenseWriteIntent
@@ -214,20 +214,20 @@ export async function applyPendingAction(
         item_name:      intent.payload.item_name!,
         expense_date:   intent.payload.expense_date!,
       }, actor.id)
-      if (r.error) err = r.error; else appliedId = r.data.id
+      if (r.error) err = r.error as unknown as ServiceError; else appliedId = r.data.id
     } else if (intent.op === 'update') {
       if (!row.target_id) {
         err = { code: 'invalid_input', message: 'pending action has no target_id' }
       } else {
         const r = await updateExpense(row.target_id, intent.patch, actor)
-        if (r.error) err = r.error; else appliedId = r.data.id
+        if (r.error) err = r.error as unknown as ServiceError; else appliedId = r.data.id
       }
     } else if (intent.op === 'delete') {
       if (!row.target_id) {
         err = { code: 'invalid_input', message: 'pending action has no target_id' }
       } else {
         const r = await deleteExpense(row.target_id, actor)
-        if (r.error) err = r.error; else appliedId = r.data.id
+        if (r.error) err = r.error as unknown as ServiceError; else appliedId = r.data.id
       }
     }
   }
@@ -244,7 +244,7 @@ export async function applyPendingAction(
         userId:     userId,
         stage:      'authz_apply',
         reason:     err.message,
-        intentJson: intent,
+        intentJson: row.intent_json,
       })
     }
     return { kind: 'error', message: err.message }
@@ -508,7 +508,7 @@ function aggregate(
 // because supabase-js's filter builder generics are awkward to thread
 // through a helper. All call sites pass `db.from('expenses').select(...)`.
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line
 function applyFilters(q: any, f: ExpenseFilters): any {
   let query = q
   if (f.expense_category?.length) query = query.in('expense_category', f.expense_category)
@@ -572,11 +572,11 @@ export async function executeWorkTaskIntent(
 
   return {
     kind:            'pending',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     pendingActionId: (inserted as any).id,
     op:              'create',
     preview:         previewText,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line
     expiresAt:       (inserted as any).expires_at,
   }
 }

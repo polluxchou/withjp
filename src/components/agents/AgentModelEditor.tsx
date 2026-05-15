@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import type { ModelProvider } from '@/lib/types'
 
 const PROVIDERS: { value: ModelProvider; label: string }[] = [
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export default function AgentModelEditor({ agentId, initialProvider, initialModel }: Props) {
+  const t = useTranslations('agents')
   const [provider, setProvider]     = useState<ModelProvider>(initialProvider ?? 'anthropic')
   const [modelName, setModelName]   = useState<string>(initialModel ?? 'claude-sonnet-4-6')
   const [saving, setSaving]         = useState(false)
@@ -101,10 +103,10 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
   }
 
   const testLabel: Record<TestStatus, string> = {
-    idle:    'Test',
-    testing: 'Testing…',
-    ok:      'OK ✓',
-    fail:    'Failed',
+    idle:    t('test'),
+    testing: t('testing'),
+    ok:      t('testOk'),
+    fail:    t('testFail'),
   }
 
   const testColor: Record<TestStatus, string> = {
@@ -118,12 +120,12 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
 
   return (
     <div className="mt-3 pt-3 border-t border-slate-100">
-      <p className="text-xs font-medium text-slate-500 mb-2">Model Configuration</p>
+      <p className="text-xs font-medium text-slate-500 mb-2">{t('modelConfig')}</p>
 
       <div className="flex gap-2 items-end">
         {/* Provider */}
         <div className="flex-1">
-          <label className="text-xs text-slate-400 block mb-1">Provider</label>
+          <label className="text-xs text-slate-400 block mb-1">{t('provider')}</label>
           <select
             value={provider}
             onChange={(e) => handleProviderChange(e.target.value as ModelProvider)}
@@ -137,7 +139,7 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
 
         {/* Model */}
         <div className="flex-1">
-          <label className="text-xs text-slate-400 block mb-1">Model</label>
+          <label className="text-xs text-slate-400 block mb-1">{t('model')}</label>
           <select
             value={resolvedModel}
             onChange={(e) => handleModelChange(e.target.value)}
@@ -153,7 +155,7 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
         <button
           onClick={handleTest}
           disabled={testStatus === 'testing'}
-          title="Make a live ping to verify the API key and model are reachable"
+          title={t('testTooltip')}
           className={`text-xs px-2.5 py-1.5 rounded-md whitespace-nowrap transition-colors disabled:opacity-50 ${testColor[testStatus]}`}
         >
           {testLabel[testStatus]}
@@ -165,7 +167,7 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
           disabled={saving}
           className="text-xs px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
         >
-          {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save'}
+          {saving ? t('saving') : saved ? t('saved') : t('save')}
         </button>
       </div>
 

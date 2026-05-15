@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { useParams, useRouter } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
 import { format } from 'date-fns/format'
@@ -16,17 +17,10 @@ import {
 } from '@/components/milestones/MilestoneStatusBadge'
 import { ArrowLeft, CheckSquare, Users, Bot, Target, ChevronRight } from 'lucide-react'
 import { AT_RISK_DAYS } from '@/lib/milestones/constants'
-import type { MilestoneDetail, MilestoneStatus, Milestone } from '@/lib/types'
+import type { MilestoneDetail, MilestoneStatus, MilestoneLevel, Milestone } from '@/lib/types'
 
-// ── Status options for the inline selector ────────────────────
-
-const STATUS_OPTIONS: { value: MilestoneStatus; label: string }[] = [
-  { value: 'planned',   label: 'Planned' },
-  { value: 'active',    label: 'Active' },
-  { value: 'at_risk',   label: 'At Risk' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'missed',    label: 'Missed' },
-]
+// Status values for the inline selector — labels resolved via t('status.<key>').
+const STATUS_VALUES: MilestoneStatus[] = ['planned', 'active', 'at_risk', 'completed', 'missed']
 
 const TASK_STATUS_COLOR: Record<string, string> = {
   pending: 'text-amber-600',
@@ -38,6 +32,8 @@ const TASK_STATUS_COLOR: Record<string, string> = {
 // ── Page ──────────────────────────────────────────────────────
 
 export default function MilestoneDetailPage() {
+  const t = useTranslations('timeline')
+  const tCommon = useTranslations('common')
   const { id }   = useParams<{ id: string }>()
   const router   = useRouter()
 
@@ -81,7 +77,7 @@ export default function MilestoneDetailPage() {
   }
 
   const handleDelete = async () => {
-    if (!confirm('Delete this milestone permanently?')) return
+    if (!confirm(t('detail.deleteConfirm'))) return
     const res = await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
     if (res.ok) router.push('/timeline')
   }
@@ -104,15 +100,15 @@ export default function MilestoneDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-12 text-center text-sm text-slate-400">Loading milestone…</div>
+      <div className="p-12 text-center text-sm text-slate-400">{t('detail.loading')}</div>
     )
   }
 
   if (!milestone) {
     return (
       <div className="p-12 text-center">
-        <p className="text-sm text-slate-500 mb-3">Milestone not found.</p>
-        <Link href="/timeline" className="text-sm text-indigo-600 font-medium">← Back to Timeline</Link>
+        <p className="text-sm text-slate-500 mb-3">{t('detail.notFound')}</p>
+        <Link href="/timeline" className="text-sm text-indigo-600 font-medium">{t('detail.back')}</Link>
       </div>
     )
   }
@@ -132,7 +128,7 @@ export default function MilestoneDetailPage() {
       {/* Back link */}
       <Link href="/timeline"
         className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-4 transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Master Timeline
+        <ArrowLeft className="w-4 h-4" /> {t('detail.backLink')}
       </Link>
 
       {/* Header */}
@@ -141,8 +137,8 @@ export default function MilestoneDetailPage() {
         subtitle={milestone.description ?? undefined}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setShowEdit(true)}>Edit</Button>
-            <Button variant="danger"    size="sm" onClick={handleDelete}>Delete</Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowEdit(true)}>{tCommon('edit')}</Button>
+            <Button variant="danger"    size="sm" onClick={handleDelete}>{tCommon('delete')}</Button>
           </div>
         }
       />
@@ -155,16 +151,16 @@ export default function MilestoneDetailPage() {
         <span className="text-slate-300">|</span>
         {/* Status selector */}
         <div className="flex items-center gap-1">
-          {STATUS_OPTIONS.map(opt => (
-            <button key={opt.value}
-              onClick={() => handleStatusChange(opt.value)}
+          {STATUS_VALUES.map(value => (
+            <button key={value}
+              onClick={() => handleStatusChange(value)}
               disabled={statusBusy}
               className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all disabled:opacity-50 ${
-                milestone.status === opt.value
+                milestone.status === value
                   ? 'ring-2 ring-offset-1 ring-indigo-400 opacity-100'
                   : 'opacity-50 hover:opacity-80'
               }`}>
-              <MilestoneStatusBadge status={opt.value} size="sm" />
+              <MilestoneStatusBadge status={value} size="sm" />
             </button>
           ))}
         </div>
@@ -175,9 +171,9 @@ export default function MilestoneDetailPage() {
         {/* Task progress */}
         <div className="col-span-2 bg-white border border-slate-200 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-500">Task Progress</span>
+            <span className="text-xs font-medium text-slate-500">{t('detail.taskProgress')}</span>
             <span className="text-xs font-semibold text-slate-700">
-              {task_progress.done}/{task_progress.total} done ({progressPct}%)
+              {t('detail.taskProgressValue', { done: task_progress.done, total: task_progress.total, pct: progressPct })}
             </span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2">
@@ -188,36 +184,36 @@ export default function MilestoneDetailPage() {
 
         {/* Days left */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
-          <div className="text-xs text-slate-500 mb-1">Days until target</div>
+          <div className="text-xs text-slate-500 mb-1">{t('detail.daysUntilTarget')}</div>
           <div className={`text-2xl font-bold ${daysColor}`}>
             {daysLeft < 0 ? Math.abs(daysLeft) : daysLeft}
           </div>
-          <div className="text-xs text-slate-400">{daysLeft < 0 ? 'overdue' : 'remaining'}</div>
+          <div className="text-xs text-slate-400">{daysLeft < 0 ? t('detail.overdue') : t('detail.remaining')}</div>
         </div>
 
         {/* Level */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
-          <div className="text-xs text-slate-500 mb-1">Level</div>
-          <div className="text-sm font-semibold text-slate-700 capitalize">{milestone.level}</div>
+          <div className="text-xs text-slate-500 mb-1">{t('detail.level')}</div>
+          <div className="text-sm font-semibold text-slate-700">{t(`form.levelValue.${milestone.level as MilestoneLevel}`)}</div>
         </div>
       </div>
 
       {/* Dates + owner */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white border border-slate-200 rounded-xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Start date</div>
+          <div className="text-xs text-slate-400 mb-1">{t('detail.startDate')}</div>
           <div className="text-sm font-medium text-slate-800">
             {format(new Date(milestone.start_date), 'MMM d, yyyy')}
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Target date</div>
+          <div className="text-xs text-slate-400 mb-1">{t('detail.targetDate')}</div>
           <div className="text-sm font-medium text-slate-800">
             {format(new Date(milestone.target_date), 'MMM d, yyyy')}
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4">
-          <div className="text-xs text-slate-400 mb-1">Owner agent</div>
+          <div className="text-xs text-slate-400 mb-1">{t('detail.ownerAgent')}</div>
           <div className="text-sm font-medium text-slate-800">
             {milestone.owner_agent
               ? `${milestone.owner_agent.name} (${milestone.owner_agent.role})`
@@ -231,11 +227,11 @@ export default function MilestoneDetailPage() {
         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-6">
           <div className="flex items-center gap-2 mb-1">
             <Target className="w-4 h-4 text-indigo-600" />
-            <span className="text-sm font-semibold text-indigo-900">Success Metric</span>
+            <span className="text-sm font-semibold text-indigo-900">{t('detail.successMetric')}</span>
           </div>
           <p className="text-sm text-indigo-800">
             {metric.name}
-            {metric.target && <> — target: <strong>{metric.target}{metric.unit ? ` ${metric.unit}` : ''}</strong></>}
+            {metric.target && <> — {t('detail.metricTarget')}<strong>{metric.target}{metric.unit ? ` ${metric.unit}` : ''}</strong></>}
           </p>
         </div>
       )}
@@ -243,14 +239,14 @@ export default function MilestoneDetailPage() {
       {/* Notes */}
       {milestone.notes && (
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-6">
-          <p className="text-xs font-medium text-slate-500 mb-1">Notes</p>
+          <p className="text-xs font-medium text-slate-500 mb-1">{t('detail.notes')}</p>
           <p className="text-sm text-slate-700 whitespace-pre-wrap">{milestone.notes}</p>
         </div>
       )}
 
       {/* Involved agents */}
       {involved_agents.length > 0 && (
-        <Section icon={<Bot className="w-4 h-4" />} title="Involved Agents">
+        <Section icon={<Bot className="w-4 h-4" />} title={t('detail.involvedAgents')}>
           <div className="flex flex-wrap gap-2">
             {involved_agents.map(a => (
               <span key={a.id}
@@ -264,7 +260,7 @@ export default function MilestoneDetailPage() {
 
       {/* Linked creators */}
       {linked_creators.length > 0 && (
-        <Section icon={<Users className="w-4 h-4" />} title={`Linked Creators (${linked_creators.length})`}>
+        <Section icon={<Users className="w-4 h-4" />} title={t('detail.linkedCreators', { count: linked_creators.length })}>
           <div className="divide-y divide-slate-50">
             {linked_creators.map(c => (
               <div key={c.id} className="flex items-center justify-between py-2">
@@ -276,7 +272,7 @@ export default function MilestoneDetailPage() {
                   <span className="text-xs text-slate-400 capitalize">{c.status.replace('_', ' ')}</span>
                   <Link href={`/creators/${c.id}`}
                     className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
-                    View <ChevronRight className="inline w-3 h-3" />
+                    {t('detail.viewLink')} <ChevronRight className="inline w-3 h-3" />
                   </Link>
                 </div>
               </div>
@@ -286,34 +282,34 @@ export default function MilestoneDetailPage() {
       )}
 
       {/* Linked tasks */}
-      <Section icon={<CheckSquare className="w-4 h-4" />} title={`Linked Tasks (${linked_tasks.length})`}>
+      <Section icon={<CheckSquare className="w-4 h-4" />} title={t('detail.linkedTasks', { count: linked_tasks.length })}>
         {linked_tasks.length === 0 ? (
           <p className="text-xs text-slate-400">
-            No tasks linked yet. Tasks are auto-created when a milestone with an owner agent and linked creators is saved.
+            {t('detail.noLinkedTasks')}
           </p>
         ) : (
           <div className="divide-y divide-slate-50">
-            {linked_tasks.map(t => (
-              <div key={t.id} className="flex items-center justify-between py-2.5">
+            {linked_tasks.map(task => (
+              <div key={task.id} className="flex items-center justify-between py-2.5">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">{t.title}</p>
+                  <p className="text-sm font-medium text-slate-800 truncate">{task.title}</p>
                   <p className="text-xs text-slate-400">
-                    {(t.creator as { name?: string } | null)?.name ?? '—'}
-                    {(t.agent as { name?: string } | null)?.name && (
-                      <> · {(t.agent as { name?: string }).name}</>
+                    {(task.creator as { name?: string } | null)?.name ?? '—'}
+                    {(task.agent as { name?: string } | null)?.name && (
+                      <> · {(task.agent as { name?: string }).name}</>
                     )}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-                  <span className={`text-xs font-medium capitalize ${TASK_STATUS_COLOR[t.status] ?? 'text-slate-500'}`}>
-                    {t.status}
+                  <span className={`text-xs font-medium capitalize ${TASK_STATUS_COLOR[task.status] ?? 'text-slate-500'}`}>
+                    {task.status}
                   </span>
-                  {t.status === 'pending' && (t.agent as { id?: string } | null)?.id && (
+                  {task.status === 'pending' && (task.agent as { id?: string } | null)?.id && (
                     <button
-                      onClick={() => handleExecuteTask(t.id, (t.agent as { id: string }).id)}
-                      disabled={executing === t.id}
+                      onClick={() => handleExecuteTask(task.id, (task.agent as { id: string }).id)}
+                      disabled={executing === task.id}
                       className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">
-                      {executing === t.id ? 'Running…' : 'Execute'}
+                      {executing === task.id ? t('detail.executeRunning') : t('detail.executeBtn')}
                     </button>
                   )}
                 </div>
@@ -325,7 +321,7 @@ export default function MilestoneDetailPage() {
 
       {/* Child milestones */}
       {(children ?? []).length > 0 && (
-        <Section icon={<ChevronRight className="w-4 h-4" />} title={`Sub-milestones (${children!.length})`}>
+        <Section icon={<ChevronRight className="w-4 h-4" />} title={t('detail.subMilestones', { count: children!.length })}>
           <div className="divide-y divide-slate-50">
             {(children as Milestone[]).map(c => (
               <div key={c.id} className="flex items-center justify-between py-2.5">
@@ -349,7 +345,7 @@ export default function MilestoneDetailPage() {
       )}
 
       {/* Edit modal */}
-      <Modal open={showEdit} onClose={() => setShowEdit(false)} title="Edit Milestone" width="max-w-2xl">
+      <Modal open={showEdit} onClose={() => setShowEdit(false)} title={t('detail.editTitle')} width="max-w-2xl">
         <MilestoneForm
           initial={milestone}
           onSuccess={updated => { setMilestone(m => m ? { ...m, ...updated } : m); setShowEdit(false) }}

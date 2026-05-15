@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import ExpenseForm from '@/components/expenses/ExpenseForm'
@@ -26,6 +27,8 @@ interface Props {
 }
 
 export default function PendingActionCard({ state, onApplied, onCancel }: Props) {
+  const t = useTranslations('intent.pending')
+  const tCommon = useTranslations('common')
   const [busy,     setBusy]     = useState<'apply' | 'cancel' | null>(null)
   const [error,    setError]    = useState<string | null>(null)
   const [editing,  setEditing]  = useState(false)
@@ -67,7 +70,7 @@ export default function PendingActionCard({ state, onApplied, onCancel }: Props)
   return (
     <div className="space-y-3">
       <div className="text-xs text-slate-500">
-        将于 {formatExpiry(state.expiresAt)} 自动过期
+        {t('autoExpire', { expiry: formatExpiry(state.expiresAt) })}
       </div>
 
       <pre className="text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-lg p-3 whitespace-pre-wrap font-sans leading-relaxed">
@@ -81,14 +84,14 @@ export default function PendingActionCard({ state, onApplied, onCancel }: Props)
       )}
 
       <div className="flex gap-2 justify-end">
-        <Button variant="ghost"     onClick={cancel} loading={busy === 'cancel'} disabled={busy !== null}>取消</Button>
+        <Button variant="ghost"     onClick={cancel} loading={busy === 'cancel'} disabled={busy !== null}>{tCommon('cancel')}</Button>
         {canEdit && (
-          <Button variant="secondary" onClick={() => setEditing(true)} disabled={busy !== null}>编辑</Button>
+          <Button variant="secondary" onClick={() => setEditing(true)} disabled={busy !== null}>{tCommon('edit')}</Button>
         )}
-        <Button variant="primary"   onClick={apply}  loading={busy === 'apply'}  disabled={busy !== null}>确认</Button>
+        <Button variant="primary"   onClick={apply}  loading={busy === 'apply'}  disabled={busy !== null}>{t('apply')}</Button>
       </div>
 
-      <Modal open={editing} onClose={() => setEditing(false)} title="编辑后保存" width="max-w-2xl">
+      <Modal open={editing} onClose={() => setEditing(false)} title={t('editModalTitle')} width="max-w-2xl">
         <ExpenseForm
           expense={formExpense}
           duplicateFrom={formDuplicate}

@@ -1,0 +1,40 @@
+name: copy
+
+# Guards the i18n contract:
+#   * messages/zh.json and messages/en.json must have identical key shape
+#   * No new JSX file may introduce bare Chinese (use useTranslations() instead)
+# Both checks are pure Node scripts and need no extra install beyond the
+# project's existing devDependencies.
+
+on:
+  pull_request:
+    paths:
+      - 'src/**/*.tsx'
+      - 'src/**/*.jsx'
+      - 'src/**/*.ts'
+      - 'messages/**'
+      - 'scripts/check-i18n.mjs'
+      - 'scripts/check-no-bare-han.mjs'
+      - 'docs/copy-glossary.md'
+      - '.github/workflows/copy.yml'
+  push:
+    branches: [main]
+
+jobs:
+  copy-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm install --ignore-scripts
+
+      - name: zh/en key parity
+        run: npm run test:i18n
+
+      - name: No bare Chinese in JSX
+        run: npm run test:no-bare-han
