@@ -22,7 +22,6 @@ import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, ChevronRight,
 import Button from '@/components/ui/Button'
 import { Link } from '@/i18n/navigation'
 import {
-  FORECAST_ACCOUNT_TYPE_LABELS,
   FORECAST_ACCOUNT_TYPES,
   calculateForecastRows,
   mergeForecastDraft,
@@ -39,7 +38,6 @@ import ForecastViewBar from '@/components/finance-forecast/ForecastViewBar'
 import LifecycleTemplateEditor from '@/components/finance-forecast/LifecycleTemplateEditor'
 import {
   LIFECYCLE_STARTING_STAGES,
-  LIFECYCLE_STARTING_STAGE_LABELS,
   type LifecycleStartingStage,
   type LifecycleTemplateSet,
 } from '@/lib/finance-forecast/lifecycle'
@@ -559,6 +557,23 @@ export default function FinanceForecastDashboard({
     />
   )
 
+  const accountTypeLabels: Record<ForecastAccountType, string> = {
+    key:     t('typeNameKey'),
+    mature:  t('typeNameMature'),
+    growing: t('typeNameGrowing'),
+    newbie:  t('typeNameNewbie'),
+    test:    t('typeNameTest'),
+    other:   t('typeNameOther'),
+  }
+
+  const stageLabels: Record<LifecycleStartingStage, string> = {
+    key:     t('stageNameKey'),
+    mature:  t('stageNameMature'),
+    growing: t('stageNameGrowing'),
+    newbie:  t('stageNameNewbie'),
+    test:    t('stageNameTest'),
+  }
+
   const accountTypeNotes: Record<ForecastAccountType, string> = {
     key:     t('typeNoteKey'),
     mature:  t('typeNoteMature'),
@@ -853,7 +868,7 @@ export default function FinanceForecastDashboard({
                               className={!canEditActive ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed` : INPUT_CLASS}
                             >
                               {FORECAST_ACCOUNT_TYPES.map((type) => (
-                                <option key={type} value={type}>{FORECAST_ACCOUNT_TYPE_LABELS[type]}</option>
+                                <option key={type} value={type}>{accountTypeLabels[type]}</option>
                               ))}
                             </select>
                           </td>
@@ -998,7 +1013,7 @@ export default function FinanceForecastDashboard({
                         key={type}
                         type="monotone"
                         dataKey={type}
-                        name={FORECAST_ACCOUNT_TYPE_LABELS[type]}
+                        name={accountTypeLabels[type]}
                         stackId="forecast"
                         stroke={ACCOUNT_TYPE_COLORS[type]}
                         fill={ACCOUNT_TYPE_COLORS[type]}
@@ -1054,7 +1069,7 @@ export default function FinanceForecastDashboard({
                         key={type}
                         type="monotone"
                         dataKey={type}
-                        name={FORECAST_ACCOUNT_TYPE_LABELS[type]}
+                        name={accountTypeLabels[type]}
                         stroke={ACCOUNT_TYPE_COLORS[type]}
                         strokeWidth={2}
                         dot={false}
@@ -1083,7 +1098,7 @@ export default function FinanceForecastDashboard({
                   <div key={type} className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 border-b border-slate-50 last:border-0">
                     <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: ACCOUNT_TYPE_COLORS[type] }} />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-700">{FORECAST_ACCOUNT_TYPE_LABELS[type]}</div>
+                      <div className="text-xs font-semibold text-slate-700">{accountTypeLabels[type]}</div>
                       <div className="text-xs text-slate-400">{accountTypeNotes[type]}</div>
                     </div>
                     <div className="text-xs font-semibold text-slate-900">{formatUsd(summary.by_account_type[type] || 0)}</div>
@@ -1200,7 +1215,7 @@ function AddFromTemplateModal({
                   : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300'
               }`}
             >
-              <span>{t('templateStageFrom', { stage: LIFECYCLE_STARTING_STAGE_LABELS[s] })}</span>
+              <span>{t('templateStageFrom', { stage: stageLabels[s] })}</span>
               <span className="text-[10px] font-normal text-slate-400 tabular-nums">{describeTemplate(s)}</span>
             </button>
           ))}
