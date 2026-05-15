@@ -13,7 +13,7 @@ import { Link } from '@/i18n/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 import type { DashboardStats, Task, Creator, CreatorStatus } from '@/lib/types'
 import { ALL_STATUSES } from '@/lib/state-machine/creator-lifecycle'
-import { fmtCompact } from '@/lib/currency'
+import { fmtCompact } from '@/lib/currency-format'
 
 async function getDashboardData() {
   const db = createServerClient()
