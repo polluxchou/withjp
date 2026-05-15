@@ -1,13 +1,20 @@
 'use client'
 
-import { MessageSquare, CheckCircle2 } from 'lucide-react'
+import { MessageSquare, CheckCircle2, Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useDiscussionCount } from './DiscussionContext'
 import type { SubjectInput } from '@/lib/discussions/types'
 
 interface Props {
   subject:   SubjectInput
+  // Primary click target: opens the panel using its default routing
+  // (0 thread→compose, 1→thread, ≥2→list).
   onClick?:  () => void
+  // Optional secondary action revealed on row hover (or always visible
+  // on touch). Wires the caller's "open panel in compose mode" handler.
+  // Without it, the only way to create a new discussion on a row that
+  // already has one is via the thread-list footer button.
+  onCreate?: () => void
   // Compact variant for dense tables; default fits filter bars.
   compact?:  boolean
 }
@@ -18,7 +25,7 @@ interface Props {
 //   [已结束 N]   — only resolved threads remain
 // Mixed state intentionally favors the open count, so users notice
 // active discussions first.
-export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
+export function DiscussionBadge({ subject, onClick, onCreate, compact = false }: Props) {
   const t = useTranslations('discussions.badge')
   const { openCount, resolvedCount, loading } = useDiscussionCount(subject)
 
@@ -57,7 +64,7 @@ export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
 
   const iconClass = compact ? 'w-3 h-3' : 'w-3.5 h-3.5'
 
-  return (
+  const chip = (
     <button
       type="button"
       onClick={onClick}
@@ -72,5 +79,30 @@ export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
       <Icon className={iconClass} aria-hidden="true" />
       <span>{label}</span>
     </button>
+  )
+
+  if (!onCreate) return chip
+
+  // Visibility: hidden by default, revealed when the parent .group element
+  // is hovered or focused. Use the table row as the .group container so
+  // the "+" follows row hover, not just badge hover.
+  return (
+    <span className="inline-flex items-center gap-1">
+      {chip}
+      <button
+        type="button"
+        onClick={onCreate}
+        aria-label={t('createNew')}
+        title={t('createNew')}
+        className={[
+          'inline-flex items-center justify-center rounded-md border border-dashed',
+          'border-slate-300 text-slate-500 hover:bg-slate-50 hover:text-slate-700',
+          'opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity',
+          compact ? 'w-5 h-5' : 'w-6 h-6',
+        ].join(' ')}
+      >
+        <Plus className={iconClass} aria-hidden="true" />
+      </button>
+    </span>
   )
 }

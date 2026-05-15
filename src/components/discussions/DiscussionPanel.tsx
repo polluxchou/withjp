@@ -12,9 +12,16 @@ import {
 import ThreadList from './ThreadList'
 import ThreadView from './ThreadView'
 
+export type PanelMode = 'auto' | 'compose' | 'list'
+
 interface Props {
   open:     boolean
   subject:  SubjectInput | null
+  // How to route on open:
+  //   'auto'    – default: 0 thread→compose, 1→thread, ≥2→list
+  //   'compose' – force the new-discussion form (e.g. from a + button)
+  //   'list'    – force the thread list, even with 0 or 1 thread
+  mode?:    PanelMode
   onClose:  () => void
 }
 
@@ -38,7 +45,7 @@ function buildListQuery(subject: SubjectInput): string {
   return sp.toString()
 }
 
-export default function DiscussionPanel({ open, subject, onClose }: Props) {
+export default function DiscussionPanel({ open, subject, mode = 'auto', onClose }: Props) {
   const tPanel = useTranslations('discussions.panel')
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
@@ -84,18 +91,28 @@ export default function DiscussionPanel({ open, subject, onClose }: Props) {
         return
       }
       setThreads(json.data)
-      // Auto-route: 0 → compose, 1 → thread view, >1 → list.
-      if (json.data.length === 0) setView({ kind: 'compose' })
-      else if (json.data.length === 1) setView({ kind: 'thread', thread: json.data[0], cameFromList: false })
-      else setView({ kind: 'list' })
+      // Force-modes override the default routing. 'compose' is what the
+      // hover-revealed "+" button sends; 'list' is reserved for future
+      // entrypoints that always want to start at the picker.
+      if (mode === 'compose') {
+        setView({ kind: 'compose' })
+      } else if (mode === 'list') {
+        setView({ kind: 'list' })
+      } else if (json.data.length === 0) {
+        setView({ kind: 'compose' })
+      } else if (json.data.length === 1) {
+        setView({ kind: 'thread', thread: json.data[0], cameFromList: false })
+      } else {
+        setView({ kind: 'list' })
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : tPanel('loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [subject, tPanel])
+  }, [subject, tPanel, mode])
 
-  useEffect(() => { if (open && subject) void loadThreads() }, [open, subject, loadThreads])
+  useEffect(() => { if (open && subject) void loadThreads() }, [open, subject, mode, loadThreads])
 
   const submitCompose = useCallback(async () => {
     if (!subject || creating) return

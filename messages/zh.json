@@ -1095,7 +1095,8 @@
       "resolved": "已结束 {count}",
       "ariaOpen": "{count} 条进行中的讨论",
       "ariaResolved": "{count} 条已结束的讨论",
-      "ariaStart": "发起讨论"
+      "ariaStart": "发起讨论",
+      "createNew": "新建讨论"
     },
     "panel": {
       "title": "讨论",

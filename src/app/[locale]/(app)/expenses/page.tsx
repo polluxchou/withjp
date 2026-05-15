@@ -40,12 +40,20 @@ import { nextExpenseCategoryFilter } from '@/lib/expenses/category-filter'
 import { INTENT_APPLIED_EVENT } from '@/lib/intent/events'
 import { DiscussionProvider } from '@/components/discussions/DiscussionContext'
 import { DiscussionBadge } from '@/components/discussions/DiscussionBadge'
-import DiscussionPanel from '@/components/discussions/DiscussionPanel'
+import DiscussionPanel, { type PanelMode } from '@/components/discussions/DiscussionPanel'
 import {
   expenseFilterSubject,
   expenseRecordSubject,
 } from '@/lib/discussions/expense-subjects'
 import type { SubjectInput } from '@/lib/discussions/types'
+
+// Panel state combines the subject and how to open the panel. `mode`
+// lets the row's "+" button always land on the compose form, even
+// when there are already (possibly resolved) threads on the row.
+interface PanelState {
+  subject: SubjectInput
+  mode:    PanelMode
+}
 
 
 const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
@@ -96,7 +104,7 @@ export default function ExpensesPage() {
   const [sortDir,    setSortDir]    = useState<SortDir>('desc')
   const [refreshSeq, setRefreshSeq] = useState(0)
   const [searchInput, setSearchInput] = useState('')
-  const [panelSubject, setPanelSubject] = useState<SubjectInput | null>(null)
+  const [panel, setPanel] = useState<PanelState | null>(null)
   const loadCtrl = useRef<AbortController | null>(null)
   const t = useTranslations('expenses')
   const tCommon = useTranslations('common')
@@ -615,13 +623,14 @@ export default function ExpensesPage() {
       />
 
       {/* Saved filter views (localStorage) */}
-      <div className="mb-3 flex items-center gap-3 flex-wrap">
+      <div className="mb-3 flex items-center gap-3 flex-wrap group">
         <div className="flex-1 min-w-0">
           <SavedViewsBar currentFilters={filters} onApply={setFilters} />
         </div>
         <DiscussionBadge
           subject={expenseFilterSubject(filters, pathname, tDiscussFilter)}
-          onClick={() => setPanelSubject(expenseFilterSubject(filters, pathname, tDiscussFilter))}
+          onClick={() => setPanel({ subject: expenseFilterSubject(filters, pathname, tDiscussFilter), mode: 'auto' })}
+          onCreate={() => setPanel({ subject: expenseFilterSubject(filters, pathname, tDiscussFilter), mode: 'compose' })}
         />
       </div>
 
@@ -726,7 +735,7 @@ export default function ExpensesPage() {
               detail modal opened by the card body. */}
           <ul className="md:hidden divide-y divide-slate-100">
             {sortedExpenses.map((e) => (
-              <li key={e.id} className="px-4 py-3">
+              <li key={e.id} className="px-4 py-3 group">
                 <button
                   type="button"
                   onClick={() => setViewing(e)}
@@ -760,7 +769,8 @@ export default function ExpensesPage() {
                 <div className="mt-2 flex items-center justify-end gap-1">
                   <DiscussionBadge
                     subject={expenseRecordSubject(e)}
-                    onClick={() => setPanelSubject(expenseRecordSubject(e))}
+                    onClick={() => setPanel({ subject: expenseRecordSubject(e), mode: 'auto' })}
+                    onCreate={() => setPanel({ subject: expenseRecordSubject(e), mode: 'compose' })}
                     compact
                   />
                   {canEdit(currentUser, e.created_by_user_id) && (
@@ -828,7 +838,7 @@ export default function ExpensesPage() {
               </thead>
               <tbody>
                 {sortedExpenses.map((e) => (
-                  <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                  <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors group">
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${CATEGORY_COLOR[e.expense_category]}`}>
                         {t(`categories.${e.expense_category}`)}
@@ -871,7 +881,8 @@ export default function ExpensesPage() {
                     <td className="px-4 py-3">
                       <DiscussionBadge
                         subject={expenseRecordSubject(e)}
-                        onClick={() => setPanelSubject(expenseRecordSubject(e))}
+                        onClick={() => setPanel({ subject: expenseRecordSubject(e), mode: 'auto' })}
+                        onCreate={() => setPanel({ subject: expenseRecordSubject(e), mode: 'compose' })}
                         compact
                       />
                     </td>
@@ -973,9 +984,10 @@ export default function ExpensesPage() {
       </Modal>
 
       <DiscussionPanel
-        open={panelSubject !== null}
-        subject={panelSubject}
-        onClose={() => setPanelSubject(null)}
+        open={panel !== null}
+        subject={panel?.subject ?? null}
+        mode={panel?.mode}
+        onClose={() => setPanel(null)}
       />
     </div>
     </DiscussionProvider>
