@@ -738,6 +738,7 @@
     "crossBorderFeeShort": "跨境",
     "crossBorderFeeTooltip": "非 with-new 且非租金支出的 4% 跨境转账成本",
     "effectiveCost": "实际成本（含跨境）",
+    "discussionsColumn": "讨论",
     "categories": {
       "tangible_asset": "有形资产",
       "salary": "薪资成本",
@@ -1096,6 +1097,69 @@
         "security": "安全",
         "infra": "基础设施"
       }
+    }
+  },
+  "discussions": {
+    "badge": {
+      "default": "讨论",
+      "open": "讨论 {count}",
+      "resolved": "已结束 {count}",
+      "ariaOpen": "{count} 条进行中的讨论",
+      "ariaResolved": "{count} 条已结束的讨论",
+      "ariaStart": "发起讨论"
+    },
+    "panel": {
+      "title": "讨论",
+      "newTitle": "新建讨论",
+      "listTitle": "讨论列表",
+      "subjectLine": "绑定对象：{label}",
+      "loading": "加载中",
+      "loadFailed": "加载讨论失败",
+      "createFailed": "创建讨论失败",
+      "titleLabel": "讨论标题",
+      "titlePlaceholder": "比如：为什么这笔费用还没付款？",
+      "messageLabel": "首条留言",
+      "messagePlaceholder": "补充上下文…",
+      "titleRequired": "请填写讨论标题",
+      "messageRequired": "请填写首条留言",
+      "submit": "创建讨论",
+      "cancel": "取消",
+      "close": "关闭",
+      "back": "返回列表",
+      "startNew": "新建讨论",
+      "empty": "还没有讨论"
+    },
+    "thread": {
+      "open": "进行中",
+      "resolved": "已结束",
+      "startAnother": "新建讨论",
+      "resolveAction": "结束讨论",
+      "resolveFailed": "结束讨论失败",
+      "resolvedNotice": "讨论已结束，无法继续留言。",
+      "resolvedNoticeAt": "讨论已结束（{time}），无法继续留言。",
+      "lastActivity": "最近活动 {date}",
+      "loading": "加载中",
+      "emptyMessages": "暂无消息",
+      "loadMessagesFailed": "加载消息失败",
+      "send": "发送",
+      "sendFailed": "发送失败",
+      "draftPlaceholder": "说点什么…（⌘/Ctrl + Enter 发送）",
+      "senderYou": "你",
+      "senderOther": "其他用户",
+      "senderAgent": "Agent",
+      "senderExternal": "外部"
+    },
+    "filterDescribe": {
+      "all": "全部费用",
+      "category": "类别={value}",
+      "paymentStatus": "状态={value}",
+      "paymentMethod": "方式={value}",
+      "userName": "使用人={value}",
+      "buyerName": "购买人={value}",
+      "period": "期间={value}",
+      "dateRange": "日期 {from} ~ {to}",
+      "unpaidOnly": "仅未付",
+      "crossBorderOnly": "仅跨境"
     }
   }
 }

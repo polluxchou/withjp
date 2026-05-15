@@ -38,6 +38,14 @@ import {
 } from '@/lib/expenses/costs'
 import { nextExpenseCategoryFilter } from '@/lib/expenses/category-filter'
 import { INTENT_APPLIED_EVENT } from '@/lib/intent/events'
+import { DiscussionProvider } from '@/components/discussions/DiscussionContext'
+import { DiscussionBadge } from '@/components/discussions/DiscussionBadge'
+import DiscussionPanel from '@/components/discussions/DiscussionPanel'
+import {
+  expenseFilterSubject,
+  expenseRecordSubject,
+} from '@/lib/discussions/expense-subjects'
+import type { SubjectInput } from '@/lib/discussions/types'
 
 
 const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
@@ -88,9 +96,11 @@ export default function ExpensesPage() {
   const [sortDir,    setSortDir]    = useState<SortDir>('desc')
   const [refreshSeq, setRefreshSeq] = useState(0)
   const [searchInput, setSearchInput] = useState('')
+  const [panelSubject, setPanelSubject] = useState<SubjectInput | null>(null)
   const loadCtrl = useRef<AbortController | null>(null)
   const t = useTranslations('expenses')
   const tCommon = useTranslations('common')
+  const tDiscussFilter = useTranslations('discussions.filterDescribe')
   const { fmt: fmtRmb } = useCurrency()
 
   // ── Filter ↔ URL synchronisation ───────────────────────────
@@ -449,6 +459,7 @@ export default function ExpensesPage() {
   const INPUT = 'border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
 
   return (
+    <DiscussionProvider>
     <div>
       <Header
         title={t('title')}
@@ -604,8 +615,14 @@ export default function ExpensesPage() {
       />
 
       {/* Saved filter views (localStorage) */}
-      <div className="mb-3">
-        <SavedViewsBar currentFilters={filters} onApply={setFilters} />
+      <div className="mb-3 flex items-center gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <SavedViewsBar currentFilters={filters} onApply={setFilters} />
+        </div>
+        <DiscussionBadge
+          subject={expenseFilterSubject(filters, pathname, tDiscussFilter)}
+          onClick={() => setPanelSubject(expenseFilterSubject(filters, pathname, tDiscussFilter))}
+        />
       </div>
 
       {/* Filters — stack vertically (2-col) on mobile, single row from sm: up */}
@@ -741,6 +758,11 @@ export default function ExpensesPage() {
                   </div>
                 </button>
                 <div className="mt-2 flex items-center justify-end gap-1">
+                  <DiscussionBadge
+                    subject={expenseRecordSubject(e)}
+                    onClick={() => setPanelSubject(expenseRecordSubject(e))}
+                    compact
+                  />
                   {canEdit(currentUser, e.created_by_user_id) && (
                     <button
                       type="button"
@@ -800,6 +822,7 @@ export default function ExpensesPage() {
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('buyer')}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('paymentMethod')}</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('paymentStatus')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('discussionsColumn')}</th>
                   <th />
                 </tr>
               </thead>
@@ -844,6 +867,13 @@ export default function ExpensesPage() {
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[e.payment_status]}`}>
                         {t(`paymentStatuses.${e.payment_status}`)}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <DiscussionBadge
+                        subject={expenseRecordSubject(e)}
+                        onClick={() => setPanelSubject(expenseRecordSubject(e))}
+                        compact
+                      />
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <div className="inline-flex items-center gap-1">
@@ -941,6 +971,13 @@ export default function ExpensesPage() {
           </div>
         )}
       </Modal>
+
+      <DiscussionPanel
+        open={panelSubject !== null}
+        subject={panelSubject}
+        onClose={() => setPanelSubject(null)}
+      />
     </div>
+    </DiscussionProvider>
   )
 }
