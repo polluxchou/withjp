@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
+import { useCurrency } from '@/lib/currency'
 import {
   Area,
   Bar,
@@ -101,6 +102,20 @@ export default function FinanceForecastDashboard({
   const [lifecycleEditorOpen, setLifecycleEditorOpen] = useState(false)
   const [addFromTemplateOpen, setAddFromTemplateOpen] = useState(false)
   const [lifecycleSet, setLifecycleSet] = useState<LifecycleTemplateSet | null>(null)
+
+  // ── Currency formatting ──────────────────────────────────────────────────
+  // Forecast amounts are stored in USD. The shared CurrencyContext uses CNY
+  // as its base unit, so we convert USD → CNY (× 7) before calling fmt().
+  const { fmt: fmtCurrency } = useCurrency()
+  const USD_TO_CNY = 7
+  const fmtForecast = useCallback(
+    (usd: number) => fmtCurrency(usd * USD_TO_CNY),
+    [fmtCurrency],
+  )
+  const fmtForecastCompact = useCallback(
+    (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true }),
+    [fmtCurrency],
+  )
 
   const activeView = views.find((v) => v.id === activeViewId) ?? null
   const canEditActive = activeView ? (isAdmin || activeView.owner_id === currentUserId) : false
@@ -655,21 +670,21 @@ export default function FinanceForecastDashboard({
               <>
                 <KpiCard
                   label={t('kpiYearForecast', { year: selectedYear })}
-                  value={formatUsd(summary.yearly_forecast_usd)}
+                  value={fmtForecast(summary.yearly_forecast_usd)}
                   sub={inputOpen ? t('kpiCollapseHint') : t('kpiExpandHint')}
                   onClick={() => setInputOpen((o) => !o)}
                   active={inputOpen}
                 />
                 <KpiCard
                   label={t('kpiYearBudget', { year: selectedYear })}
-                  value={formatUsd(summary.yearly_budget_usd)}
+                  value={fmtForecast(summary.yearly_budget_usd)}
                   sub={t('kpiYearBudgetSub')}
                   linkTo="/expenses"
                   linkLabel={t('goToExpenses')}
                 />
                 <KpiCard
                   label={t('kpiYearProfit', { year: selectedYear })}
-                  value={formatUsd(summary.yearly_profit_usd)}
+                  value={fmtForecast(summary.yearly_profit_usd)}
                   sub={summary.yearly_profit_usd >= 0 ? t('kpiProfitSurplus') : t('kpiProfitLoss')}
                   valueClassName={yearlyProfitColor}
                 />
@@ -696,27 +711,27 @@ export default function FinanceForecastDashboard({
               <>
                 <KpiCard
                   label={t('kpiMonthForecast')}
-                  value={selected ? formatUsd(selected.forecast_revenue_usd) : '—'}
+                  value={selected ? fmtForecast(selected.forecast_revenue_usd) : '—'}
                   sub={inputOpen ? t('kpiCollapseHint') : t('kpiExpandHint')}
                   onClick={() => setInputOpen((o) => !o)}
                   active={inputOpen}
                 />
                 <KpiCard
                   label={t('kpiMonthBudget')}
-                  value={selected ? formatUsd(selected.budget_cost_usd) : '—'}
+                  value={selected ? fmtForecast(selected.budget_cost_usd) : '—'}
                   sub={t('kpiYearBudgetSub')}
                   linkTo="/expenses"
                   linkLabel={t('goToExpenses')}
                 />
                 <KpiCard
                   label={t('kpiMonthProfit')}
-                  value={selected ? formatUsd(selected.profit_usd) : '—'}
+                  value={selected ? fmtForecast(selected.profit_usd) : '—'}
                   sub={selected && selected.profit_usd >= 0 ? t('kpiMonthProfitSurplus') : t('kpiMonthProfitLoss')}
                   valueClassName={selectedProfitColor}
                 />
                 <KpiCard
                   label={t('kpiMonthCumProfit')}
-                  value={formatUsd(monthCumProfit)}
+                  value={fmtForecast(monthCumProfit)}
                   sub={selected ? t('kpiMonthCumProfitSub', { month: selected.month }) : ''}
                   valueClassName={monthCumProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}
                 />
@@ -873,7 +888,7 @@ export default function FinanceForecastDashboard({
                     </Field>
                     <Field label={t('budgetSyncLabel')}>
                       <input
-                        value={formatUsd(selectedRaw.budget_cost_usd)}
+                        value={fmtForecast(selectedRaw.budget_cost_usd)}
                         readOnly
                         className="w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
                       />
@@ -952,7 +967,7 @@ export default function FinanceForecastDashboard({
                           <td className="px-4 py-3">
                             <NumberInput disabled={!canEditActive} value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} step={0.1} max={100} />
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap tabular-nums bg-slate-50/70 border-l border-slate-100">{formatUsd(row.monthly_revenue_usd)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap tabular-nums bg-slate-50/70 border-l border-slate-100">{fmtForecast(row.monthly_revenue_usd)}</td>
                           <td className="px-4 py-3">
                             <StatusBadge revenue={row.monthly_revenue_usd} />
                           </td>
@@ -1019,7 +1034,7 @@ export default function FinanceForecastDashboard({
                       tick={{ fontSize: 11, fill: '#94a3b8' }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={formatUsdCompact}
+                      tickFormatter={fmtForecastCompact}
                       width={56}
                     />
                     <Tooltip
@@ -1039,16 +1054,16 @@ export default function FinanceForecastDashboard({
                             <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
                             <p className="flex items-center justify-between gap-3">
                               <span className="text-slate-500">{t('tooltipRevenue')}</span>
-                              <span className="font-medium text-slate-900 tabular-nums">{formatUsd(revenue)}</span>
+                              <span className="font-medium text-slate-900 tabular-nums">{fmtForecast(revenue)}</span>
                             </p>
                             <p className="flex items-center justify-between gap-3">
                               <span className="text-slate-500">{t('tooltipCost')}</span>
-                              <span className="font-medium text-slate-900 tabular-nums">{formatUsd(cost)}</span>
+                              <span className="font-medium text-slate-900 tabular-nums">{fmtForecast(cost)}</span>
                             </p>
                             <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-slate-100">
                               <span className="text-slate-500">{profitWord}</span>
                               <span className="font-bold tabular-nums" style={{ color: profitColor }}>
-                                {formatUsd(profit)}
+                                {fmtForecast(profit)}
                               </span>
                             </p>
                           </div>
@@ -1073,8 +1088,8 @@ export default function FinanceForecastDashboard({
                   <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={formatUsdCompact} width={56} />
-                    <Tooltip formatter={(value) => formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
+                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
                       <Area
@@ -1095,8 +1110,8 @@ export default function FinanceForecastDashboard({
                   <ComposedChart data={cumulativeData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={formatUsdCompact} width={56} />
-                    <Tooltip formatter={(value) => formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
+                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
                     {breakevenIndex >= 0 && (
@@ -1127,10 +1142,10 @@ export default function FinanceForecastDashboard({
                       tick={{ fontSize: 11, fill: '#94a3b8' }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={chartMode === 'indexed' ? (v) => `${Number(v).toFixed(0)}` : formatUsdCompact}
+                      tickFormatter={chartMode === 'indexed' ? (v) => `${Number(v).toFixed(0)}` : fmtForecastCompact}
                       width={56}
                     />
-                    <Tooltip formatter={(value) => chartMode === 'indexed' ? Number(value).toFixed(0) : formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <Tooltip formatter={(value) => chartMode === 'indexed' ? Number(value).toFixed(0) : fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
                       <Line
@@ -1169,15 +1184,15 @@ export default function FinanceForecastDashboard({
                       <div className="text-xs font-semibold text-slate-700">{accountTypeLabels[type]}</div>
                       <div className="text-xs text-slate-400">{accountTypeNotes[type]}</div>
                     </div>
-                    <div className="text-xs font-semibold text-slate-900">{formatUsd(summary.by_account_type[type] || 0)}</div>
+                    <div className="text-xs font-semibold text-slate-900">{fmtForecast(summary.by_account_type[type] || 0)}</div>
                   </div>
                 ))}
               </div>
 
               <div className="mt-5 space-y-3">
-                <SideStat label={t('sideMonthForecast')} value={formatUsd(selected?.forecast_revenue_usd ?? 0)} />
-                <SideStat label={t('sideMonthBudget')}   value={formatUsd(selected?.budget_cost_usd ?? 0)} />
-                <SideStat label={t('sideMonthProfit')}   value={formatUsd(selected?.profit_usd ?? 0)} valueClassName={selectedProfitColor} />
+                <SideStat label={t('sideMonthForecast')} value={fmtForecast(selected?.forecast_revenue_usd ?? 0)} />
+                <SideStat label={t('sideMonthBudget')}   value={fmtForecast(selected?.budget_cost_usd ?? 0)} />
+                <SideStat label={t('sideMonthProfit')}   value={fmtForecast(selected?.profit_usd ?? 0)} valueClassName={selectedProfitColor} />
               </div>
             </aside>
           </div>
@@ -1520,6 +1535,10 @@ function AnnualOverview({
   monthLabels:   string[]
 }) {
   const t = useTranslations('financeForecast')
+  const { fmt: fmtCurrency } = useCurrency()
+  const USD_TO_CNY = 7
+  const fmtForecast      = (usd: number) => fmtCurrency(usd * USD_TO_CNY)
+  const fmtForecastCompact = (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true })
   const aggregateProfitColor = aggregate.profit >= 0 ? 'text-emerald-700' : 'text-red-600'
   const aggregateMarginColor = aggregate.margin >= 0 ? 'text-emerald-700' : 'text-red-600'
 
@@ -1528,19 +1547,19 @@ function AnnualOverview({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
         <KpiCard
           label={t('annualForecastTotal')}
-          value={formatUsd(aggregate.forecast)}
+          value={fmtForecast(aggregate.forecast)}
           sub={`${years[0]}–${years[years.length - 1]}`}
         />
         <KpiCard
           label={t('annualBudgetTotal')}
-          value={formatUsd(aggregate.budget)}
+          value={fmtForecast(aggregate.budget)}
           sub={t('annualBudgetSub')}
           linkTo="/expenses"
           linkLabel={t('goToExpenses')}
         />
         <KpiCard
           label={t('annualProfitTotal')}
-          value={formatUsd(aggregate.profit)}
+          value={fmtForecast(aggregate.profit)}
           sub={aggregate.profit >= 0 ? t('annualProfitSurplus') : t('annualProfitLoss')}
           valueClassName={aggregateProfitColor}
         />
@@ -1603,10 +1622,10 @@ function AnnualOverview({
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-x-4 gap-y-3">
-                <YearStat label={t('annualForecastRevenue')} value={formatUsd(summary.yearly_forecast_usd)} />
-                <YearStat label={t('annualActualRevenue')}   value={summary.yearly_actual_usd > 0 ? formatUsd(summary.yearly_actual_usd) : '—'} />
-                <YearStat label={t('annualBudgetCost')}      value={formatUsd(summary.yearly_budget_usd)} />
-                <YearStat label={t('annualForecastProfit')}  value={formatUsd(summary.yearly_profit_usd)} valueClassName={profitColor} />
+                <YearStat label={t('annualForecastRevenue')} value={fmtForecast(summary.yearly_forecast_usd)} />
+                <YearStat label={t('annualActualRevenue')}   value={summary.yearly_actual_usd > 0 ? fmtForecast(summary.yearly_actual_usd) : '—'} />
+                <YearStat label={t('annualBudgetCost')}      value={fmtForecast(summary.yearly_budget_usd)} />
+                <YearStat label={t('annualForecastProfit')}  value={fmtForecast(summary.yearly_profit_usd)} valueClassName={profitColor} />
                 <YearStat
                   label={t('annualMarginBreakeven')}
                   value={`${Math.round(margin)}%${breakevenLabel}`}
@@ -1625,8 +1644,8 @@ function AnnualOverview({
           <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={formatUsdCompact} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={56} />
-            <Tooltip formatter={(value) => formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+            <YAxis tickFormatter={fmtForecastCompact} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={56} />
+            <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Bar dataKey="forecast" name={t('chartForecast')} fill="#6366f1" radius={[4, 4, 0, 0]} />
             <Bar dataKey="actual"   name={t('chartActual')}   fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -1670,6 +1689,9 @@ function YearSummaryTable({
   monthLabels: string[]
 }) {
   const t = useTranslations('financeForecast')
+  const { fmt: fmtCurrency } = useCurrency()
+  const USD_TO_CNY = 7
+  const fmtForecast = (usd: number) => fmtCurrency(usd * USD_TO_CNY)
   const configured = months
     .map((m, index) => ({ ...m, index }))
     .filter((m) => m.rows.length > 0)
@@ -1722,16 +1744,16 @@ function YearSummaryTable({
                   {m.rows.map((r) => r.account_name).join('、')}
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">
-                  {formatUsd(m.forecast_revenue_usd)}
+                  {fmtForecast(m.forecast_revenue_usd)}
                 </td>
                 <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
-                  {m.actual_revenue_usd > 0 ? formatUsd(m.actual_revenue_usd) : '—'}
+                  {m.actual_revenue_usd > 0 ? fmtForecast(m.actual_revenue_usd) : '—'}
                 </td>
                 <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
-                  {formatUsd(m.budget_cost_usd)}
+                  {fmtForecast(m.budget_cost_usd)}
                 </td>
                 <td className={`px-4 py-3 text-right font-semibold tabular-nums ${profitColor}`}>
-                  {formatUsd(m.profit_usd)}
+                  {fmtForecast(m.profit_usd)}
                 </td>
               </tr>
             )
@@ -1744,16 +1766,16 @@ function YearSummaryTable({
             </td>
             <td className="px-4 py-3 text-xs text-slate-400">{t('yearTotalMonths', { count: configured.length })}</td>
             <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums text-base">
-              {formatUsd(totalForecast)}
+              {fmtForecast(totalForecast)}
             </td>
             <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
-              {totalActual > 0 ? formatUsd(totalActual) : '—'}
+              {totalActual > 0 ? fmtForecast(totalActual) : '—'}
             </td>
             <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
-              {formatUsd(totalBudget)}
+              {fmtForecast(totalBudget)}
             </td>
             <td className={`px-4 py-3 text-right font-bold tabular-nums text-base ${totalProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-              {formatUsd(totalProfit)}
+              {fmtForecast(totalProfit)}
             </td>
           </tr>
         </tfoot>
@@ -2097,14 +2119,5 @@ function buildChartData(months: ReturnType<typeof summarizeForecast>['months'], 
   })
 }
 
-function formatUsd(value: number): string {
-  const abs  = Math.abs(value)
-  const sign = value < 0 ? '-' : ''
-  if (abs >= 1000000) return `$${sign}${(abs / 1000000).toFixed(1).replace(/\.0$/, '')}m`
-  if (abs >= 1000)    return `$${sign}${(abs / 1000).toFixed(1).replace(/\.0$/, '')}k`
-  return `$${Number(value).toFixed(0)}`
-}
-
-const formatUsdCompact = formatUsd
 
 const INPUT_CLASS = 'w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
