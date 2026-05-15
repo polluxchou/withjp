@@ -54,24 +54,9 @@ const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
   other:   '#64748b',
 }
 
-const ACCOUNT_TYPE_NOTES: Record<ForecastAccountType, string> = {
-  key:     '高 ROI 账号',
-  mature:  '稳定贡献',
-  growing: '爬坡账号',
-  newbie:  '新开账号',
-  test:    '活动测试',
-  other:   '未分类',
-}
+const CHART_TAB_KEYS = ['breakdown', 'cumulative', 'stacked', 'lines', 'indexed'] as const
 
-const CHART_TABS = [
-  { key: 'breakdown',  label: '盈亏分解' },
-  { key: 'cumulative', label: '累计' },
-  { key: 'stacked',    label: 'Stacked' },
-  { key: 'lines',      label: 'Lines' },
-  { key: 'indexed',    label: 'Indexed' },
-] as const
-
-type ChartMode = typeof CHART_TABS[number]['key']
+type ChartMode = typeof CHART_TAB_KEYS[number]
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 type ViewMode = 'annual' | 'monthly'
 
@@ -115,12 +100,6 @@ export default function FinanceForecastDashboard({
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false)
 
-  // Lifecycle template plumbing.
-  // - `lifecycleEditorOpen` controls the per-user templates modal.
-  // - `addFromTemplateOpen` controls the "pick stage + name → fan out 12
-  //    months" modal that lives next to the "+ 添加账号" button.
-  // - `lifecycleSet` caches the user's templates so the add-from-template
-  //    flow doesn't refetch on every modal open. Hydrated lazily.
   const [lifecycleEditorOpen, setLifecycleEditorOpen] = useState(false)
   const [addFromTemplateOpen, setAddFromTemplateOpen] = useState(false)
   const [lifecycleSet, setLifecycleSet] = useState<LifecycleTemplateSet | null>(null)
@@ -130,14 +109,8 @@ export default function FinanceForecastDashboard({
 
   const didLoadDraft = useRef(false)
   const mountedRef   = useRef(false)
-  // Save queues are keyed by `${view_id}:${year}` so a slow in-flight save
-  // for view A won't ship a snapshot under view B after the user switches.
   const saveQueuesRef = useRef(new Map<string, ReturnType<typeof createLatestSaveQueue<ForecastMonthInput[]>>>())
-  // Track the last persisted reference per (view, year) so the autosave
-  // effect only enqueues years that actually changed.
   const prevByYearRef = useRef<Record<number, ForecastMonthInput[]>>(initialByYear)
-  // Tracks which view id `prevByYearRef` belongs to. When we swap views we
-  // reset the ref to the freshly-fetched snapshot.
   const prevViewIdRef = useRef<string | null>(defaultViewId)
 
   const months = byYear[selectedYear] ?? []
@@ -146,14 +119,12 @@ export default function FinanceForecastDashboard({
   const selected = summary.months[safeSelectedMonth]
   const selectedRaw = months[safeSelectedMonth]
 
-  // Per-year summaries fuel the annual rollup view.
   const summaryByYear = useMemo(() => {
     const out: Record<number, ForecastSummary> = {}
     for (const y of years) out[y] = summarizeForecast(byYear[y] ?? [])
     return out
   }, [byYear, years])
 
-  // Three-year aggregate KPIs.
   const aggregate = useMemo(() => {
     let forecast = 0
     let actual   = 0
@@ -174,7 +145,6 @@ export default function FinanceForecastDashboard({
     }
   }, [summaryByYear, years])
 
-  // Bar chart input: one group per year, four metrics each.
   const multiYearChartData = useMemo(() => years.map((y) => {
     const s = summaryByYear[y]
     return {
@@ -192,12 +162,7 @@ export default function FinanceForecastDashboard({
     [selectedRaw],
   )
 
-  // Cumulative running totals — used by both the "累计" chart tab and the
-  // breakeven KPI card. Computed once so the chart and the card agree.
   const cumulativeData = useMemo(() => buildCumulativeData(summary.months), [summary.months])
-
-  // 盈亏分解 — one record per month with the three quantities the user
-  // really wants to compare in the formula 收入 − 成本 = 利润.
   const breakdownData = useMemo(() => buildBreakdownData(summary.months), [summary.months])
   const breakevenIndex = cumulativeData.findIndex((row) => row.cum_profit >= 0 && row.cum_revenue > 0)
   const breakevenMonth = breakevenIndex >= 0 ? summary.months[breakevenIndex].month : null
@@ -256,7 +221,7 @@ export default function FinanceForecastDashboard({
           ...month.rows,
           {
             id,
-            account_name:           '新账号',
+            account_name:           t('newAccountName'),
             account_type:           'newbie',
             live_days:              0,
             avg_daily_hours:        0,
@@ -268,9 +233,6 @@ export default function FinanceForecastDashboard({
     }))
   }
 
-  // Lazy-fetch the user's lifecycle templates the first time the
-  // add-from-template flow opens. Subsequent opens reuse the cache; the
-  // editor refreshes the cache via its onSaved callback.
   async function ensureLifecycleSet(): Promise<LifecycleTemplateSet | null> {
     if (lifecycleSet) return lifecycleSet
     try {
@@ -284,10 +246,6 @@ export default function FinanceForecastDashboard({
     }
   }
 
-  // Apply a template starting at the current (selectedYear,
-  // safeSelectedMonth). For each of the 12 month cells, work out the
-  // target (year, monthIndex), group rows by year, then merge into
-  // byYear. The autosave effect picks the changes up per-year.
   function applyLifecycleTemplate(stage: LifecycleStartingStage, accountName: string) {
     if (!activeViewId || !canEditActive) return
     const set = lifecycleSet
@@ -312,8 +270,6 @@ export default function FinanceForecastDashboard({
 
     setByYear((prev) => {
       const next = { ...prev }
-      // Array.from — the project's tsconfig doesn't enable
-      // downlevelIteration, so `for...of` over a Map fails the build.
       for (const [year, rows] of Array.from(rowsByYear.entries())) {
         const yearMonths = prev[year] ?? []
         next[year] = yearMonths.map((month) => {
@@ -325,7 +281,7 @@ export default function FinanceForecastDashboard({
               ...month.rows,
               ...additions.map((r) => ({
                 id:                     r.rowId,
-                account_name:           accountName.trim() || '新账号',
+                account_name:           accountName.trim() || t('newAccountName'),
                 account_type:           r.account_type,
                 live_days:              r.live_days,
                 avg_daily_hours:        r.avg_daily_hours,
@@ -339,8 +295,6 @@ export default function FinanceForecastDashboard({
       return next
     })
 
-    // Move the editor focus to the first inserted row's month so the
-    // user can immediately see the freshly-applied data.
     const first = planned[0]
     if (first) {
       setSelectedYear(first.year)
@@ -349,8 +303,6 @@ export default function FinanceForecastDashboard({
     }
   }
 
-  // Destructive ops: state update + immediate save (bypass the 700ms debounce)
-  // so a stale in-flight save can't resurrect a deleted row.
   function persistImmediate(year: number, newMonths: ForecastMonthInput[]) {
     if (!activeViewId || !canEditActive) return
     setByYear((prev) => ({ ...prev, [year]: newMonths }))
@@ -378,9 +330,6 @@ export default function FinanceForecastDashboard({
   }
 
   function copyPreviousMonth() {
-    // Stops at January of the active year — crossing year boundaries on a
-    // simple "copy previous" would be surprising. Use "apply forward" or
-    // edit the next year directly if needed.
     if (safeSelectedMonth === 0) return
     setMonthsForYear(selectedYear, (prev) => {
       const previous = prev[safeSelectedMonth - 1]
@@ -396,7 +345,6 @@ export default function FinanceForecastDashboard({
   }
 
   function applyForward() {
-    // Applies only within the current year — keeps the action predictable.
     setMonthsForYear(selectedYear, (prev) => {
       const source = prev[safeSelectedMonth]
       return prev.map((month, index) => {
@@ -412,9 +360,6 @@ export default function FinanceForecastDashboard({
   const yearlyProfitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
   const selectedProfitColor = selected && selected.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
 
-  // Cumulative profit through the selected month (inclusive). Used by
-  // the month-view KPI strip so users can see running profit without
-  // flipping back to the year view.
   const selectedCumulativeProfit = cumulativeData[safeSelectedMonth]?.cum_profit ?? 0
   const selectedCumulativeProfitColor = selectedCumulativeProfit >= 0 ? 'text-emerald-700' : 'text-red-600'
   const monthMarginColor = !selected || selected.margin_pct === null
@@ -428,9 +373,6 @@ export default function FinanceForecastDashboard({
     }
   }, [])
 
-  // Hydrate localStorage drafts for the active view's 3 years. Each (view,
-  // year) pair owns its own draft slot so editing one view never disturbs
-  // another. Re-runs after view switches.
   useEffect(() => {
     if (!activeViewId) return
     if (didLoadDraft.current && prevViewIdRef.current === activeViewId) return
@@ -452,14 +394,10 @@ export default function FinanceForecastDashboard({
     setHydratedDraft(true)
   }, [activeViewId, years])
 
-  // Per-(view, year) debounced autosave. We only enqueue years whose
-  // snapshot ref changed — typing into 2026 must not retransmit 2027. We
-  // also skip entirely when the active view is read-only.
   useEffect(() => {
     if (!hydratedDraft) return
     if (!activeViewId || !canEditActive) return
 
-    // If nothing is in flight, reset the visible status.
     const anySaving = Array.from(saveQueuesRef.current.values()).some((q) => q.isSaving())
     if (!anySaving) setSaveStatus('idle')
 
@@ -494,8 +432,6 @@ export default function FinanceForecastDashboard({
     setViewMode('monthly')
   }
 
-  // Fetch a view's forecast data over the full 3-year horizon. Used when
-  // the user switches views (server-loaded data only covers the default).
   async function fetchViewForecast(viewId: string) {
     setLoadingView(true)
     try {
@@ -510,7 +446,6 @@ export default function FinanceForecastDashboard({
       if (body.data) {
         const next: Record<number, ForecastMonthInput[]> = {}
         for (const year of years) next[year] = body.data[year] ?? []
-        // Reset draft hydration; the new view gets its own draft pass.
         didLoadDraft.current = false
         prevViewIdRef.current = viewId
         prevByYearRef.current = next
@@ -546,14 +481,13 @@ export default function FinanceForecastDashboard({
       if (!res.ok || !body.data) throw new Error(body.error ?? 'Failed to create view')
       const newView = body.data
       setViews((prev) => [...prev, newView])
-      // Auto-switch into the newly created (empty) view.
       setActiveViewId(newView.id)
       setSelectedYear(anchorYear)
       setSelectedMonth(initialSelectedMonth)
       setShowYearView(false)
       await fetchViewForecast(newView.id)
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : '创建失败')
+      window.alert(e instanceof Error ? e.message : t('alertCreateFailed'))
     } finally {
       setViewBarBusy(false)
     }
@@ -575,7 +509,7 @@ export default function FinanceForecastDashboard({
       const updated = body.data
       setViews((prev) => prev.map((v) => v.id === id ? updated : v))
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : '更新失败')
+      window.alert(e instanceof Error ? e.message : t('alertUpdateFailed'))
     } finally {
       setViewBarBusy(false)
     }
@@ -589,7 +523,6 @@ export default function FinanceForecastDashboard({
         const body = await res.json().catch(() => ({})) as { error?: string }
         throw new Error(body.error ?? 'Failed to delete view')
       }
-      // Drop the deleted view; switch to another visible one if it was active.
       setViews((prev) => {
         const next = prev.filter((v) => v.id !== id)
         if (id === activeViewId) {
@@ -605,7 +538,7 @@ export default function FinanceForecastDashboard({
         return next
       })
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : '删除失败')
+      window.alert(e instanceof Error ? e.message : t('alertDeleteFailed'))
     } finally {
       setViewBarBusy(false)
     }
@@ -626,17 +559,34 @@ export default function FinanceForecastDashboard({
     />
   )
 
+  const accountTypeNotes: Record<ForecastAccountType, string> = {
+    key:     t('typeNoteKey'),
+    mature:  t('typeNoteMature'),
+    growing: t('typeNoteGrowing'),
+    newbie:  t('typeNoteNewbie'),
+    test:    t('typeNoteTest'),
+    other:   t('typeNoteOther'),
+  }
+
+  const chartTabLabels: Record<ChartMode, string> = {
+    breakdown:  t('chartBreakdown'),
+    cumulative: t('chartCumulative'),
+    stacked:    'Stacked',
+    lines:      'Lines',
+    indexed:    'Indexed',
+  }
+
   return (
     <>
       {!activeView ? (
         <>
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             {viewMenu}
-            <span className="text-sm text-slate-400">还没有任何可见的预测视角 — 点击左侧创建第一个</span>
+            <span className="text-sm text-slate-400">{t('noViewHint')}</span>
           </div>
           <div className="bg-white border border-dashed border-slate-300 rounded-xl p-10 text-center">
-            <p className="text-sm text-slate-500 mb-2">还没有任何可见的预测视角。</p>
-            <p className="text-xs text-slate-400">在上方"视角"菜单里新建一个预测场景即可开始。</p>
+            <p className="text-sm text-slate-500 mb-2">{t('noViewEmpty')}</p>
+            <p className="text-xs text-slate-400">{t('noViewGuide')}</p>
           </div>
         </>
       ) : (<>
@@ -644,7 +594,9 @@ export default function FinanceForecastDashboard({
       {!canEditActive && (
         <div className="mb-4 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
           <Lock className="w-3.5 h-3.5" />
-          只读视角 — 此视角属于 {activeView.owner_id === null ? '系统' : activeView.owner_name ?? '其他用户'}，你可以查看但无法修改。
+          {t('readOnlyBanner', {
+            owner: activeView.owner_id === null ? t('readOnlySystem') : activeView.owner_name ?? t('readOnlyOther'),
+          })}
         </div>
       )}
 
@@ -676,53 +628,51 @@ export default function FinanceForecastDashboard({
           aggregate={aggregate}
           chartData={multiYearChartData}
           onDrillDown={drillIntoYear}
+          monthLabels={monthLabels}
         />
       ) : (
         <>
-          {/* Row 1: KPI summary — 6 cards covering revenue, cost, profit, margin
-              and breakeven; collapses to 2-col on mobile, 3-col on tablet. */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-4">
             <KpiCard
-              label={`${selectedYear} 预测开播收益`}
+              label={t('kpiYearForecast', { year: selectedYear })}
               value={formatUsd(summary.yearly_forecast_usd)}
-              sub={inputOpen ? '点击收起账号明细' : '点击展开账号明细'}
+              sub={inputOpen ? t('kpiCollapseHint') : t('kpiExpandHint')}
               onClick={() => setInputOpen((o) => !o)}
               active={inputOpen}
             />
             <KpiCard
-              label={`${selectedYear} 成本预算`}
+              label={t('kpiYearBudget', { year: selectedYear })}
               value={formatUsd(summary.yearly_budget_usd)}
-              sub="当前预算 CNY 按 1 USD = 7 CNY 换算"
+              sub={t('kpiYearBudgetSub')}
               linkTo="/expenses"
-              linkLabel="去支出管理"
+              linkLabel={t('goToExpenses')}
             />
             <KpiCard
-              label={`${selectedYear} 累计利润`}
+              label={t('kpiYearProfit', { year: selectedYear })}
               value={formatUsd(summary.yearly_profit_usd)}
-              sub={summary.yearly_profit_usd >= 0 ? '本年预计结余' : '本年预计亏损'}
+              sub={summary.yearly_profit_usd >= 0 ? t('kpiProfitSurplus') : t('kpiProfitLoss')}
               valueClassName={yearlyProfitColor}
             />
             <KpiCard
-              label={`${selectedYear} 毛利率`}
+              label={t('kpiYearMargin', { year: selectedYear })}
               value={`${Math.round(yearMarginPct)}%`}
-              sub="年度利润 / 年度收益"
+              sub={t('kpiYearMarginSub')}
               valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
             />
             <KpiCard
-              label="首个盈利月"
-              value={breakevenMonth ? breakevenMonth.slice(5) + '月' : '—'}
-              sub={breakevenMonth ? '累计利润首次转正' : '本年度累计未转正'}
+              label={t('kpiBreakeven')}
+              value={breakevenMonth ? (monthLabels[parseInt(breakevenMonth.slice(5), 10) - 1] ?? breakevenMonth.slice(5)) : '—'}
+              sub={breakevenMonth ? t('kpiBreakevenPositive') : t('kpiBreakevenNegative')}
               valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
             />
             <KpiCard
-              label="当前月毛利率"
+              label={t('kpiMonthMargin')}
               value={!selected || selected.margin_pct === null ? 'N/A' : `${Math.round(selected.margin_pct)}%`}
-              sub={selected ? `${selected.month} 正在编辑` : ''}
+              sub={selected ? t('kpiMonthEditing', { month: selected.month }) : ''}
               valueClassName={selectedProfitColor}
             />
           </div>
 
-          {/* Row 2: Account forecast input (collapsible) */}
           <section className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
             <div className={`flex items-center justify-between gap-4 px-5 py-3.5 ${inputOpen ? 'border-b border-slate-100' : ''}`}>
               <div className="flex items-center gap-2 min-w-0">
@@ -738,7 +688,7 @@ export default function FinanceForecastDashboard({
                       </span>
                     </>
                   )}
-                  <span className="text-sm font-medium text-slate-500 ml-1.5">收入预测</span>
+                  <span className="text-sm font-medium text-slate-500 ml-1.5">{t('revenueTitle')}</span>
                 </h2>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -754,7 +704,7 @@ export default function FinanceForecastDashboard({
                 <button
                   type="button"
                   onClick={() => setInputOpen((o) => !o)}
-                  aria-label={inputOpen ? '折叠' : '展开'}
+                  aria-label={inputOpen ? t('ariaCollapse') : t('ariaExpand')}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                 >
                   <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${inputOpen ? '' : '-rotate-90'}`} />
@@ -766,7 +716,6 @@ export default function FinanceForecastDashboard({
               <>
                 <div className="px-5 pt-4">
                   <div className="flex items-center gap-3 flex-wrap mb-4 justify-between">
-                    {/* Left: month pills + 全年 toggle */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="flex gap-1 flex-wrap">
                         {months.map((month, index) => {
@@ -798,12 +747,10 @@ export default function FinanceForecastDashboard({
                             : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
                         }`}
                       >
-                        全年
+                        {t('allYear')}
                       </button>
                     </div>
 
-                    {/* Right: month-scoped actions — visually attached to the month
-                        bar so they don't get confused with the global "添加账号" */}
                     {!showYearView && canEditActive && (
                       <div className="flex items-center gap-1.5">
                         <button
@@ -812,28 +759,28 @@ export default function FinanceForecastDashboard({
                           disabled={safeSelectedMonth === 0}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          <Copy className="w-3 h-3" /> 复制上月
+                          <Copy className="w-3 h-3" /> {t('copyPrevMonth')}
                         </button>
                         <button
                           type="button"
                           onClick={applyForward}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
                         >
-                          <Copy className="w-3 h-3" /> 应用到后续月份
+                          <Copy className="w-3 h-3" /> {t('applyForward')}
                         </button>
                         <button
                           type="button"
                           onClick={clearMonth}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
                         >
-                          <RotateCcw className="w-3 h-3" /> 清空本月
+                          <RotateCcw className="w-3 h-3" /> {t('clearMonth')}
                         </button>
                       </div>
                     )}
                   </div>
 
                   {!showYearView && selectedRaw && <div className="grid gap-3 md:grid-cols-3 mb-4">
-                    <Field label="当前月实际开播收益（美金）">
+                    <Field label={t('actualRevenueLabel')}>
                       <NumberInput
                         value={selectedRaw.actual_revenue_usd}
                         onChange={(actual_revenue_usd) => updateSelectedMonth({ actual_revenue_usd })}
@@ -841,15 +788,15 @@ export default function FinanceForecastDashboard({
                         disabled={!canEditActive}
                       />
                     </Field>
-                    <Field label="当前月成本预算（同步）">
+                    <Field label={t('budgetSyncLabel')}>
                       <input
                         value={formatUsd(selectedRaw.budget_cost_usd)}
                         readOnly
                         className="w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
                       />
-                      <div className="text-xs text-indigo-600 font-medium mt-1">已同步当前预算成本，并换算为美金</div>
+                      <div className="text-xs text-indigo-600 font-medium mt-1">{t('budgetSyncNote')}</div>
                     </Field>
-                    <Field label="备注事件标注">
+                    <Field label={t('noteLabel')}>
                       <input
                         value={selectedRaw.note ?? ''}
                         onChange={(event) => updateSelectedMonth({ note: event.target.value })}
@@ -863,21 +810,21 @@ export default function FinanceForecastDashboard({
                 </div>
 
                 {showYearView ? (
-                  <YearSummaryTable months={summary.months} onSelectMonth={(index) => { setShowYearView(false); setSelectedMonth(index) }} />
+                  <YearSummaryTable months={summary.months} onSelectMonth={(index) => { setShowYearView(false); setSelectedMonth(index) }} monthLabels={monthLabels} />
                 ) : (
                   <>
                     <div className="overflow-x-auto">
                   <table className="w-full text-sm min-w-[1120px]">
                     <thead>
                       <tr className="border-y border-slate-100 bg-slate-50">
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">账号</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">类型</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">开播天数</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">平均每日开播时长</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">分钟收益（美金）</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">可分润比例（%）</th>
-                        <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">月开播收益</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">状态</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colAccount')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colType')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colLiveDays')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colAvgHours')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colRevPerMin')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colShareRatio')}</th>
+                        <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('colMonthRevenue')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colStatus')}</th>
                         <th />
                       </tr>
                     </thead>
@@ -885,7 +832,7 @@ export default function FinanceForecastDashboard({
                       {(!selectedRaw || selectedRaw.rows.length === 0) ? (
                         <tr>
                           <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
-                            当前月份还没有预测输入。添加账号后，账号类型贡献、曲线和 KPI 才会开始计算。
+                            {t('emptyMonth')}
                           </td>
                         </tr>
                       ) : calculatedRows.map((row, index) => (
@@ -943,7 +890,7 @@ export default function FinanceForecastDashboard({
                 </div>
 
                     <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
-                      计算公式：月开播收益 = 开播天数 × 平均每日开播时长 × 60 × 分钟收益 × 可分润比例。账号预测输入会保存到 Supabase；成本预算从当前预算同步，支出金额按 CNY 存储，并按 1 USD = 7 CNY 换算为美金后参与毛利润计算。
+                      {t('formula')}
                     </div>
                   </>
                 )}
@@ -951,31 +898,30 @@ export default function FinanceForecastDashboard({
             )}
           </section>
 
-          {/* Row 3: Forecast curve + account type breakdown */}
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="bg-white border border-slate-200 rounded-xl p-5">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-900">{selectedYear} 预测曲线</h2>
+                  <h2 className="text-sm font-semibold text-slate-900">{t('chartTitle', { year: selectedYear })}</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {chartMode === 'breakdown'
-                      ? '每月「收入 − 成本 = 利润」分解 — 柱长直观，折线即结余'
+                      ? t('chartDescBreakdown')
                       : chartMode === 'cumulative'
-                      ? '累计收益 vs 累计成本 — 交叉点即首次盈利月'
-                      : '按账户类型展示开播收益、实际收益和同步预算成本'}
+                      ? t('chartDescCumulative')
+                      : t('chartDescOther')}
                   </p>
                 </div>
                 <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
-                  {CHART_TABS.map((tab) => (
+                  {CHART_TAB_KEYS.map((key) => (
                     <button
-                      key={tab.key}
+                      key={key}
                       type="button"
-                      onClick={() => setChartMode(tab.key)}
+                      onClick={() => setChartMode(key)}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        chartMode === tab.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        chartMode === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      {tab.label}
+                      {chartTabLabels[key]}
                     </button>
                   ))}
                 </div>
@@ -993,7 +939,6 @@ export default function FinanceForecastDashboard({
                       tickFormatter={formatUsdCompact}
                       width={56}
                     />
-                    {/* Custom tooltip spells out the formula */}
                     <Tooltip
                       contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
                       content={(props) => {
@@ -1005,20 +950,20 @@ export default function FinanceForecastDashboard({
                         if (!active || !payload || payload.length === 0) return null
                         const { revenue, cost, profit } = payload[0].payload
                         const profitColor = profit >= 0 ? '#10b981' : '#e11d48'
-                        const profitWord  = profit >= 0 ? '利润' : '亏损'
+                        const profitWord  = profit >= 0 ? t('tooltipProfit') : t('tooltipLoss')
                         return (
                           <div className="bg-white border border-slate-200 rounded-lg shadow-md p-2.5 text-xs min-w-[180px]">
                             <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
                             <p className="flex items-center justify-between gap-3">
-                              <span className="text-slate-500">收入</span>
+                              <span className="text-slate-500">{t('tooltipRevenue')}</span>
                               <span className="font-medium text-slate-900 tabular-nums">{formatUsd(revenue)}</span>
                             </p>
                             <p className="flex items-center justify-between gap-3">
-                              <span className="text-slate-500">− 成本</span>
+                              <span className="text-slate-500">{t('tooltipCost')}</span>
                               <span className="font-medium text-slate-900 tabular-nums">{formatUsd(cost)}</span>
                             </p>
                             <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-slate-100">
-                              <span className="text-slate-500">= {profitWord}</span>
+                              <span className="text-slate-500">{profitWord}</span>
                               <span className="font-bold tabular-nums" style={{ color: profitColor }}>
                                 {formatUsd(profit)}
                               </span>
@@ -1028,14 +973,13 @@ export default function FinanceForecastDashboard({
                       }}
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    {/* Zero baseline so negative profit bars read clearly below it. */}
                     <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
-                    <Bar dataKey="revenue" name="收入" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                    <Bar dataKey="cost"    name="成本" fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="revenue" name={t('legendRevenue')} fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="cost"    name={t('legendCost')}    fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={32} />
                     <Line
                       type="monotone"
                       dataKey="profit"
-                      name="利润 (= 收入 − 成本)"
+                      name={t('legendProfitLine')}
                       stroke="#6366f1"
                       strokeWidth={2.5}
                       dot={{ fill: '#6366f1', r: 3 }}
@@ -1061,8 +1005,8 @@ export default function FinanceForecastDashboard({
                         fillOpacity={0.72}
                       />
                     ))}
-                    <Line type="monotone" dataKey="actual" name="实际开播收益" stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="budget" name="同步预算成本" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                    <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
                   </ComposedChart>
                 ) : chartMode === 'cumulative' ? (
                   <ComposedChart data={cumulativeData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
@@ -1077,20 +1021,20 @@ export default function FinanceForecastDashboard({
                         x={cumulativeData[breakevenIndex].label}
                         stroke="#10b981"
                         strokeDasharray="4 4"
-                        label={{ value: `盈亏平衡 ${cumulativeData[breakevenIndex].label}`, position: 'top', fontSize: 11, fill: '#10b981' }}
+                        label={{ value: t('breakevenLabel', { month: cumulativeData[breakevenIndex].label }), position: 'top', fontSize: 11, fill: '#10b981' }}
                       />
                     )}
                     <Area
                       type="monotone"
                       dataKey="cum_profit"
-                      name="累计净利润"
+                      name={t('legendCumProfit')}
                       stroke="#6366f1"
                       fill="#6366f1"
                       fillOpacity={0.18}
                       strokeWidth={2}
                     />
-                    <Line type="monotone" dataKey="cum_revenue" name="累计开播收益" stroke="#10b981" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="cum_cost"    name="累计预算成本" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                    <Line type="monotone" dataKey="cum_revenue" name={t('legendCumRevenue')} stroke="#10b981" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="cum_cost"    name={t('legendCumCost')}    stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
                   </ComposedChart>
                 ) : (
                   <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
@@ -1118,8 +1062,8 @@ export default function FinanceForecastDashboard({
                     ))}
                     {chartMode === 'lines' && (
                       <>
-                        <Line type="monotone" dataKey="actual" name="实际开播收益" stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-                        <Line type="monotone" dataKey="budget" name="同步预算成本" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                        <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
                       </>
                     )}
                   </LineChart>
@@ -1130,8 +1074,8 @@ export default function FinanceForecastDashboard({
             <aside className="bg-white border border-slate-200 rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-900">{selectedYear} 账号类型贡献</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">12 个月预测输入汇总</p>
+                  <h2 className="text-sm font-semibold text-slate-900">{t('typeContribTitle', { year: selectedYear })}</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">{t('typeContribSub')}</p>
                 </div>
               </div>
               <div className="space-y-1">
@@ -1140,7 +1084,7 @@ export default function FinanceForecastDashboard({
                     <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: ACCOUNT_TYPE_COLORS[type] }} />
                     <div className="min-w-0">
                       <div className="text-xs font-semibold text-slate-700">{FORECAST_ACCOUNT_TYPE_LABELS[type]}</div>
-                      <div className="text-xs text-slate-400">{ACCOUNT_TYPE_NOTES[type]}</div>
+                      <div className="text-xs text-slate-400">{accountTypeNotes[type]}</div>
                     </div>
                     <div className="text-xs font-semibold text-slate-900">{formatUsd(summary.by_account_type[type] || 0)}</div>
                   </div>
@@ -1148,9 +1092,9 @@ export default function FinanceForecastDashboard({
               </div>
 
               <div className="mt-5 space-y-3">
-                <SideStat label="当前月预测" value={formatUsd(selected?.forecast_revenue_usd ?? 0)} />
-                <SideStat label="当前月同步预算" value={formatUsd(selected?.budget_cost_usd ?? 0)} />
-                <SideStat label="当前月结余" value={formatUsd(selected?.profit_usd ?? 0)} valueClassName={selectedProfitColor} />
+                <SideStat label={t('sideMonthForecast')} value={formatUsd(selected?.forecast_revenue_usd ?? 0)} />
+                <SideStat label={t('sideMonthBudget')}   value={formatUsd(selected?.budget_cost_usd ?? 0)} />
+                <SideStat label={t('sideMonthProfit')}   value={formatUsd(selected?.profit_usd ?? 0)} valueClassName={selectedProfitColor} />
               </div>
             </aside>
           </div>
@@ -1158,14 +1102,12 @@ export default function FinanceForecastDashboard({
       )}
       </>)}
 
-      {/* Lifecycle templates editor (per-user, opened from the view popover). */}
       <LifecycleTemplateEditor
         open={lifecycleEditorOpen}
         onClose={() => setLifecycleEditorOpen(false)}
         onSaved={(set) => setLifecycleSet(set)}
       />
 
-      {/* Add-from-template picker — small modal launched by "+ 从模板新增". */}
       {addFromTemplateOpen && (
         <AddFromTemplateModal
           lifecycleSet={lifecycleSet}
@@ -1201,47 +1143,49 @@ function AddFromTemplateModal({
   onCancel:     () => void
   onConfirm:    (stage: LifecycleStartingStage, name: string) => void
 }) {
+  const t = useTranslations('financeForecast')
   const [stage, setStage] = useState<LifecycleStartingStage>('newbie')
   const [name, setName]   = useState('')
   const canConfirm = !!lifecycleSet && name.trim().length > 0
 
   function describeTemplate(s: LifecycleStartingStage): string {
     const tpl = lifecycleSet?.[s]
-    if (!tpl) return '加载中…'
-    // A quick at-a-glance hint: total broadcasting hours implied by the
-    // template, so users can sanity-check the assumption before applying.
+    if (!tpl) return t('lifecycleLoading')
     const totalHours = tpl.reduce((sum, c) => sum + c.live_days * c.avg_daily_hours, 0)
-    return `${totalHours.toFixed(0)} 小时 / 12 个月`
+    return t('templateHours', { hours: totalHours.toFixed(0) })
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <div className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-lg p-5">
-        <h2 className="text-base font-bold text-slate-900 mb-1">从生命周期模板新增账号</h2>
+        <h2 className="text-base font-bold text-slate-900 mb-1">{t('templateModalTitle')}</h2>
         <p className="text-xs text-slate-500 mb-4">
-          从 <strong className="text-slate-700">{startLabel}</strong> 起，按所选模板自动填充未来 12 个月的账号数据。
-          跨年时会写入 {horizonYears[0]}–{horizonYears[horizonYears.length - 1]} 范围内的对应月份。
+          {t('templateModalDesc', {
+            startLabel,
+            startYear: horizonYears[0],
+            endYear:   horizonYears[horizonYears.length - 1],
+          })}
         </p>
 
         <label className="block mb-3">
-          <span className="block text-xs font-medium text-slate-700 mb-1">账号名称</span>
+          <span className="block text-xs font-medium text-slate-700 mb-1">{t('templateAccountLabel')}</span>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="例如：A 主播 / 新号-Zoe"
+            placeholder={t('templateAccountPlaceholder')}
             className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </label>
 
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-slate-700">起始阶段</span>
+          <span className="text-xs font-medium text-slate-700">{t('templateStageLabel')}</span>
           <button
             type="button"
             onClick={onOpenEditor}
             className="text-[11px] text-indigo-600 hover:text-indigo-700"
           >
-            编辑模板 →
+            {t('templateEditLink')}
           </button>
         </div>
         <div className="grid grid-cols-1 gap-1.5 mb-4">
@@ -1256,7 +1200,7 @@ function AddFromTemplateModal({
                   : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300'
               }`}
             >
-              <span>从 {LIFECYCLE_STARTING_STAGE_LABELS[s]} 起步</span>
+              <span>{t('templateStageFrom', { stage: LIFECYCLE_STARTING_STAGE_LABELS[s] })}</span>
               <span className="text-[10px] font-normal text-slate-400 tabular-nums">{describeTemplate(s)}</span>
             </button>
           ))}
@@ -1264,14 +1208,14 @@ function AddFromTemplateModal({
 
         {!lifecycleSet && (
           <p className="text-[11px] text-amber-600 mb-3">
-            模板还在加载… 也可以先<button type="button" onClick={onOpenEditor} className="underline">编辑模板</button>把参数填好。
+            {t('templateLoading')}<button type="button" onClick={onOpenEditor} className="underline mx-1">{t('templateEditInline')}</button>{t('templateLoadingSuffix')}
           </p>
         )}
 
         <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onCancel}>取消</Button>
+          <Button variant="secondary" size="sm" onClick={onCancel}>{t('templateCancel')}</Button>
           <Button size="sm" onClick={() => canConfirm && onConfirm(stage, name)} disabled={!canConfirm}>
-            <Plus className="w-3.5 h-3.5" /> 创建 12 个月
+            <Plus className="w-3.5 h-3.5" /> {t('templateCreate')}
           </Button>
         </div>
       </div>
@@ -1304,13 +1248,11 @@ function ViewModeToolbar({
   savedLabel:       string
   errorLabel:       string
   loading?:         boolean
-  // Optional left-edge content (eg. the view-picker popover trigger).
-  // Rendered before the view-mode toggle so the whole control row
-  // collapses to a single line of chrome on most viewports.
   leftSlot?:        ReactNode
 }) {
+  const t = useTranslations('financeForecast')
   const statusText = loading
-    ? '加载视角中…'
+    ? t('loadingView')
     : saveStatus === 'saving' ? savingLabel
     : saveStatus === 'saved'  ? savedLabel
     : saveStatus === 'error'  ? errorLabel
@@ -1336,13 +1278,6 @@ function ViewModeToolbar({
   )
 }
 
-// Unified scope selector — merges the previous [annual | monthly] toggle
-// and the year buttons into a single drop-down. The annual rollup is
-// listed alongside each year as four picker options:
-//   - 年度视图
-//   - 2026 · 本年
-//   - 2027
-//   - 2028
 function ViewScopeSelector({
   viewMode,
   onChangeViewMode,
@@ -1358,6 +1293,7 @@ function ViewScopeSelector({
   selectedYear:     number
   onChangeYear:     (year: number) => void
 }) {
+  const t = useTranslations('financeForecast')
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
@@ -1365,9 +1301,9 @@ function ViewScopeSelector({
   useEffect(() => {
     if (!open) return
     const onPointer = (e: PointerEvent) => {
-      const t = e.target as Node
-      if (triggerRef.current?.contains(t)) return
-      if (popoverRef.current?.contains(t)) return
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (popoverRef.current?.contains(target)) return
       setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
@@ -1390,8 +1326,8 @@ function ViewScopeSelector({
   }
 
   const triggerLabel = viewMode === 'annual'
-    ? '年度视图'
-    : `${selectedYear}${selectedYear === anchorYear ? ' · 本年' : ''}`
+    ? t('annualView')
+    : `${selectedYear}${selectedYear === anchorYear ? t('currentYearSuffix') : ''}`
 
   return (
     <div className="relative inline-block">
@@ -1407,7 +1343,7 @@ function ViewScopeSelector({
             : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
         }`}
       >
-        <span className="text-[10px] font-medium uppercase tracking-wider opacity-80">视图</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider opacity-80">{t('viewLabel')}</span>
         <span className="tabular-nums">{triggerLabel}</span>
         <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -1419,8 +1355,8 @@ function ViewScopeSelector({
           className="absolute top-full left-0 mt-2 min-w-[180px] bg-white border border-slate-200 rounded-xl shadow-xl z-40 p-1"
         >
           <ScopeOption
-            label="年度视图"
-            sub="3 年汇总对比"
+            label={t('annualView')}
+            sub={t('annualSub')}
             active={viewMode === 'annual'}
             onClick={pickAnnual}
           />
@@ -1428,8 +1364,8 @@ function ViewScopeSelector({
           {years.map((year) => (
             <ScopeOption
               key={year}
-              label={`${year}${year === anchorYear ? ' · 本年' : ''}`}
-              sub="月度编辑"
+              label={`${year}${year === anchorYear ? t('currentYearSuffix') : ''}`}
+              sub={t('monthlySub')}
               active={viewMode === 'monthly' && year === selectedYear}
               onClick={() => pickYear(year)}
             />
@@ -1477,6 +1413,7 @@ function AnnualOverview({
   aggregate,
   chartData,
   onDrillDown,
+  monthLabels,
 }: {
   years:         number[]
   anchorYear:    number
@@ -1485,7 +1422,9 @@ function AnnualOverview({
   aggregate:     { forecast: number; actual: number; budget: number; profit: number; margin: number }
   chartData:     { year: string; forecast: number; actual: number; budget: number; profit: number }[]
   onDrillDown:   (year: number) => void
+  monthLabels:   string[]
 }) {
+  const t = useTranslations('financeForecast')
   const aggregateProfitColor = aggregate.profit >= 0 ? 'text-emerald-700' : 'text-red-600'
   const aggregateMarginColor = aggregate.margin >= 0 ? 'text-emerald-700' : 'text-red-600'
 
@@ -1493,27 +1432,27 @@ function AnnualOverview({
     <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
         <KpiCard
-          label="三年累计预测开播收益"
+          label={t('annualForecastTotal')}
           value={formatUsd(aggregate.forecast)}
           sub={`${years[0]}–${years[years.length - 1]}`}
         />
         <KpiCard
-          label="三年累计成本预算"
+          label={t('annualBudgetTotal')}
           value={formatUsd(aggregate.budget)}
-          sub="预算同步当前支出"
+          sub={t('annualBudgetSub')}
           linkTo="/expenses"
-          linkLabel="去支出管理"
+          linkLabel={t('goToExpenses')}
         />
         <KpiCard
-          label="三年累计利润"
+          label={t('annualProfitTotal')}
           value={formatUsd(aggregate.profit)}
-          sub={aggregate.profit >= 0 ? '三年预计结余' : '三年预计亏损'}
+          sub={aggregate.profit >= 0 ? t('annualProfitSurplus') : t('annualProfitLoss')}
           valueClassName={aggregateProfitColor}
         />
         <KpiCard
-          label="三年综合毛利率"
+          label={t('annualMarginTotal')}
           value={`${Math.round(aggregate.margin)}%`}
-          sub="累计利润 / 累计收益"
+          sub={t('annualMarginSub')}
           valueClassName={aggregateMarginColor}
         />
       </div>
@@ -1529,7 +1468,6 @@ function AnnualOverview({
           const profitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
           const isCurrent = year === anchorYear
 
-          // First profitable month indicator (uses the same logic the monthly KPI cards use).
           let cumProfit = 0
           let cumRevenue = 0
           let breakevenMonth: string | null = null
@@ -1540,6 +1478,10 @@ function AnnualOverview({
               breakevenMonth = m.month
             }
           }
+
+          const breakevenLabel = breakevenMonth
+            ? ` · ${monthLabels[parseInt(breakevenMonth.slice(5), 10) - 1] ?? breakevenMonth.slice(5)}`
+            : ''
 
           return (
             <button
@@ -1553,26 +1495,26 @@ function AnnualOverview({
                   <span className="text-2xl font-bold tabular-nums text-slate-900">{year}</span>
                   {isCurrent && (
                     <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                      本年
+                      {t('currentYearBadge')}
                     </span>
                   )}
                   <span className="text-xs text-slate-400 ml-1">
-                    已配置 {configuredMonths}/12 月
+                    {t('configuredMonths', { count: configuredMonths })}
                   </span>
                 </div>
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
-                  编辑月度 <ChevronRight className="w-3.5 h-3.5" />
+                  {t('editMonthly')} <ChevronRight className="w-3.5 h-3.5" />
                 </span>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-x-4 gap-y-3">
-                <YearStat label="预测开播收益" value={formatUsd(summary.yearly_forecast_usd)} />
-                <YearStat label="实际开播收益" value={summary.yearly_actual_usd > 0 ? formatUsd(summary.yearly_actual_usd) : '—'} />
-                <YearStat label="同步预算成本" value={formatUsd(summary.yearly_budget_usd)} />
-                <YearStat label="预测利润" value={formatUsd(summary.yearly_profit_usd)} valueClassName={profitColor} />
+                <YearStat label={t('annualForecastRevenue')} value={formatUsd(summary.yearly_forecast_usd)} />
+                <YearStat label={t('annualActualRevenue')}   value={summary.yearly_actual_usd > 0 ? formatUsd(summary.yearly_actual_usd) : '—'} />
+                <YearStat label={t('annualBudgetCost')}      value={formatUsd(summary.yearly_budget_usd)} />
+                <YearStat label={t('annualForecastProfit')}  value={formatUsd(summary.yearly_profit_usd)} valueClassName={profitColor} />
                 <YearStat
-                  label="毛利率 / 盈亏平衡"
-                  value={`${Math.round(margin)}%${breakevenMonth ? ` · ${breakevenMonth.slice(5)}月` : ''}`}
+                  label={t('annualMarginBreakeven')}
+                  value={`${Math.round(margin)}%${breakevenLabel}`}
                   valueClassName={margin >= 0 ? 'text-emerald-700' : 'text-red-600'}
                 />
               </div>
@@ -1582,8 +1524,8 @@ function AnnualOverview({
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
-        <h2 className="text-sm font-semibold text-slate-900 mb-1">三年走势对比</h2>
-        <p className="text-xs text-slate-500 mb-4">每年聚合预测、实收、预算与利润；点击上方卡片下钻到月度</p>
+        <h2 className="text-sm font-semibold text-slate-900 mb-1">{t('annualChartTitle')}</h2>
+        <p className="text-xs text-slate-500 mb-4">{t('annualChartSub')}</p>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -1591,10 +1533,10 @@ function AnnualOverview({
             <YAxis tickFormatter={formatUsdCompact} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={56} />
             <Tooltip formatter={(value) => formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="forecast" name="预测开播收益" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="actual"   name="实际开播收益" fill="#10b981" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="budget"   name="同步预算成本" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="profit"   name="预测利润"   fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="forecast" name={t('chartForecast')} fill="#6366f1" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="actual"   name={t('chartActual')}   fill="#10b981" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="budget"   name={t('chartBudget')}   fill="#f59e0b" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="profit"   name={t('chartProfit')}   fill="#3b82f6" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -1626,10 +1568,13 @@ function YearStat({
 function YearSummaryTable({
   months,
   onSelectMonth,
+  monthLabels,
 }: {
   months: ReturnType<typeof summarizeForecast>['months']
   onSelectMonth: (index: number) => void
+  monthLabels: string[]
 }) {
+  const t = useTranslations('financeForecast')
   const configured = months
     .map((m, index) => ({ ...m, index }))
     .filter((m) => m.rows.length > 0)
@@ -1642,7 +1587,7 @@ function YearSummaryTable({
   if (configured.length === 0) {
     return (
       <div className="px-5 pb-8 pt-2 text-center text-sm text-slate-400">
-        还没有任何月份配置了账号预测输入。
+        {t('yearTableEmpty')}
       </div>
     )
   }
@@ -1652,26 +1597,28 @@ function YearSummaryTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-y border-slate-100 bg-slate-50">
-            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">月份</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">已配置账号</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预测开播收益</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">实际开播收益</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预算成本</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">预测毛利润</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('yearColMonth')}</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('yearColAccounts')}</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('yearColForecast')}</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('yearColActual')}</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('yearColBudget')}</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('yearColProfit')}</th>
           </tr>
         </thead>
         <tbody>
           {configured.map((m) => {
             const profitColor = m.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
+            const monthNum = parseInt(m.month.slice(5), 10) - 1
+            const monthLabel = monthLabels[monthNum] ?? m.month.slice(5)
             return (
               <tr
                 key={m.month}
                 className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
                 onClick={() => onSelectMonth(m.index)}
-                title="点击进入该月详情"
+                title={t('yearClickHint')}
               >
                 <td className="px-4 py-3 font-semibold text-slate-900 tabular-nums">
-                  {m.month}
+                  {monthLabel}
                   {m.note && (
                     <span className="ml-2 text-xs font-normal text-slate-400">{m.note}</span>
                   )}
@@ -1698,9 +1645,9 @@ function YearSummaryTable({
         <tfoot>
           <tr className="border-t-2 border-slate-200 bg-slate-50">
             <td className="px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wide">
-              全年合计
+              {t('yearTotal')}
             </td>
-            <td className="px-4 py-3 text-xs text-slate-400">共 {configured.length} 个月</td>
+            <td className="px-4 py-3 text-xs text-slate-400">{t('yearTotalMonths', { count: configured.length })}</td>
             <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums text-base">
               {formatUsd(totalForecast)}
             </td>
@@ -1868,7 +1815,6 @@ function NumberInput({
   const [draft, setDraft] = useState(() => format(value))
   const [focused, setFocused] = useState(false)
 
-  // Re-sync from parent only while not editing, so partial inputs like "0." aren't clobbered.
   useEffect(() => {
     if (!focused) setDraft(format(value))
   }, [value, focused])
@@ -1882,10 +1828,8 @@ function NumberInput({
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const raw = event.target.value
-    // Allow empty or a digits + single decimal point pattern.
     if (raw !== '' && !/^\d*\.?\d*$/.test(raw)) return
     setDraft(raw)
-    // Live-commit when parseable so the result column updates as the user types.
     if (raw === '' || raw === '.') return
     const n = Number(raw)
     if (!Number.isFinite(n)) return
@@ -1921,11 +1865,6 @@ function NumberInput({
   )
 }
 
-/**
- * Split button: primary action "从模板新增" (clones the last row),
- * secondary action "添加账号" (blank row) hidden behind a chevron menu.
- * Click outside / Escape closes the popover.
- */
 function AddAccountMenu({
   onAddTemplate,
   onAddBlank,
@@ -1933,6 +1872,7 @@ function AddAccountMenu({
   onAddTemplate: () => void
   onAddBlank: () => void
 }) {
+  const t = useTranslations('financeForecast')
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement | null>(null)
 
@@ -1957,7 +1897,7 @@ function AddAccountMenu({
         onClick={() => { onAddTemplate(); setOpen(false) }}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
       >
-        <Plus className="w-3.5 h-3.5" /> 从模板新增
+        <Plus className="w-3.5 h-3.5" /> {t('addFromTemplate')}
       </button>
       <button
         type="button"
@@ -1980,7 +1920,7 @@ function AddAccountMenu({
             onClick={() => { onAddTemplate(); setOpen(false) }}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 text-left"
           >
-            <Plus className="w-3.5 h-3.5 text-indigo-600" /> 从模板新增
+            <Plus className="w-3.5 h-3.5 text-indigo-600" /> {t('addFromTemplate')}
           </button>
           <button
             type="button"
@@ -1988,7 +1928,7 @@ function AddAccountMenu({
             onClick={() => { onAddBlank(); setOpen(false) }}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100"
           >
-            <Plus className="w-3.5 h-3.5 text-slate-400" /> 添加账号（空白）
+            <Plus className="w-3.5 h-3.5 text-slate-400" /> {t('addBlank')}
           </button>
         </div>
       )}
@@ -1997,13 +1937,14 @@ function AddAccountMenu({
 }
 
 function StatusBadge({ revenue }: { revenue: number }) {
+  const t = useTranslations('financeForecast')
   if (revenue >= 8000) {
-    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">重点跟进</span>
+    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{t('statusPriority')}</span>
   }
   if (revenue >= 3500) {
-    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">稳定</span>
+    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{t('statusStable')}</span>
   }
-  return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">观察</span>
+  return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">{t('statusWatch')}</span>
 }
 
 function buildBreakdownData(months: ReturnType<typeof summarizeForecast>['months']) {
