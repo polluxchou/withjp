@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import type { Expense, ExpenseCategory } from '@/lib/types'
 import { EXPENSE_CATEGORY_LABELS, crossBorderFee, effectiveCost } from '@/lib/expenses/costs'
 import { useCurrency } from '@/lib/currency'
@@ -161,6 +162,7 @@ interface Props {
 }
 
 export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props) {
+  const t = useTranslations('expenses')
   const [activeLink, setActiveLink] = useState<string | null>(null)
   const [activeNode, setActiveNode] = useState<string | null>(null)
 
@@ -322,7 +324,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
                 textAnchor="middle" dominantBaseline="middle"
                 fontSize={7.5} fill="#f43f5e"
               >
-                跨境 +{fmtC(l.crossBorder)}
+                {t('category.crossBorderBadge', { amount: fmtC(l.crossBorder) })}
               </text>
             )}
           </g>

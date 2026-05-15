@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Bookmark, X, Plus, Loader2 } from 'lucide-react'
 import {
   type Filters,
@@ -43,6 +44,8 @@ function normalizeFilters(raw: unknown): Filters {
 }
 
 export default function SavedViewsBar({ currentFilters, onApply }: Props) {
+  const t = useTranslations('expenses.savedViews')
+  const tCommon = useTranslations('common')
   const [views,    setViews]    = useState<SavedView[]>([])
   const [hydrated, setHydrated] = useState(false)
   const [busy,     setBusy]     = useState(false)
@@ -127,7 +130,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
   }, [])
 
   async function createView() {
-    const name = window.prompt('视图名称（例：本月待付款 / 跨境差旅）')?.trim()
+    const name = window.prompt(t('namePrompt'))?.trim()
     if (!name) return
     setBusy(true)
     try {
@@ -146,10 +149,10 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
           updated_at: json.data.updated_at,
         }])
       } else if (json?.error) {
-        window.alert(`保存失败：${json.error}`)
+        window.alert(t('saveFailed', { error: json.error }))
       }
     } catch (err) {
-      window.alert(`保存失败：${err instanceof Error ? err.message : String(err)}`)
+      window.alert(t('saveFailed', { error: err instanceof Error ? err.message : String(err) }))
     } finally {
       setBusy(false)
     }
@@ -158,7 +161,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
   async function deleteView(id: string) {
     const target = views.find((v) => v.id === id)
     if (!target) return
-    if (!window.confirm(`删除视图「${target.name}」？`)) return
+    if (!window.confirm(t('deleteConfirm', { name: target.name }))) return
     setBusy(true)
     // Optimistic local removal; revert on failure
     const prev = views
@@ -168,11 +171,11 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
       const json = await res.json()
       if (json?.error) {
         setViews(prev)
-        window.alert(`删除失败：${json.error}`)
+        window.alert(t('deleteFailed', { error: json.error }))
       }
     } catch (err) {
       setViews(prev)
-      window.alert(`删除失败：${err instanceof Error ? err.message : String(err)}`)
+      window.alert(t('deleteFailed', { error: err instanceof Error ? err.message : String(err) }))
     } finally {
       setBusy(false)
     }
@@ -188,7 +191,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
     return (
       <div className="h-9 flex items-center gap-2 text-xs text-slate-400">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        <span>视图加载中…</span>
+        <span>{t('loading')}</span>
       </div>
     )
   }
@@ -206,7 +209,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
             : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
         }`}
       >
-        全部
+        {tCommon('all')}
       </button>
 
       {views.map((v) => {
@@ -231,7 +234,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
               type="button"
               onClick={() => deleteView(v.id)}
               disabled={busy}
-              title="删除视图"
+              title={t('deleteTooltip')}
               className={`pr-2 pl-0.5 py-1 rounded-r-lg transition-colors disabled:opacity-50 ${
                 active ? 'hover:bg-indigo-700' : 'text-slate-300 hover:text-rose-600'
               }`}
@@ -249,7 +252,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
           disabled={busy}
           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50"
         >
-          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} 保存当前
+          {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} {t('saveCurrent')}
         </button>
       )}
     </div>

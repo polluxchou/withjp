@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import {
   WORK_TASK_TYPE_LABELS,
@@ -31,6 +32,8 @@ const LABEL = 'block text-xs font-medium text-slate-700 mb-1'
 const REPEAT_OPTIONS = Object.entries(WORK_TASK_REPEAT_INTERVAL_LABELS) as [WorkTaskRepeatInterval, string][]
 
 export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSuccess, onCancel }: Props) {
+  const t = useTranslations('workTasks.form')
+  const tCommon = useTranslations('common')
   const source    = task ?? duplicateFrom
   const isEditing = !!task
 
@@ -80,7 +83,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
       const res  = await fetch(`/api/work-tasks?title_search=${encodeURIComponent(q)}&limit=8`)
       const json = await res.json()
       const titles = (json.data ?? []).map((t: WorkTask) => t.title) as string[]
-      const unique  = [...new Set(titles)].filter((t) => t !== q)
+      const unique  = Array.from(new Set(titles)).filter((t) => t !== q)
       setSuggestions(unique.slice(0, 5))
       setShowSuggestions(unique.length > 0)
     }, 300)
@@ -118,9 +121,9 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.title.trim())    { setError('任务标题不能为空'); return }
-    if (!form.task_date)       { setError('日期不能为空'); return }
-    if (!form.owner_user_id)   { setError('请选择负责人'); return }
+    if (!form.title.trim())    { setError(t('errTitle')); return }
+    if (!form.task_date)       { setError(t('errDate')); return }
+    if (!form.owner_user_id)   { setError(t('errOwner')); return }
 
     setLoading(true)
     setError(null)
@@ -157,20 +160,20 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
       {/* Row 1: Type + Title with fuzzy suggestions */}
       <div className="grid grid-cols-4 gap-3">
         <div>
-          <label className={LABEL}>任务类型</label>
+          <label className={LABEL}>{t('taskType')}</label>
           <select value={form.task_type} onChange={set('task_type')} className={INPUT}>
-            {(['fixed', 'adhoc'] as WorkTaskType[]).map((t) => (
-              <option key={t} value={t}>{WORK_TASK_TYPE_LABELS[t]}</option>
+            {(['fixed', 'adhoc'] as WorkTaskType[]).map((tt) => (
+              <option key={tt} value={tt}>{WORK_TASK_TYPE_LABELS[tt]}</option>
             ))}
           </select>
         </div>
         <div className="col-span-3 relative" ref={suggestionsRef}>
-          <label className={LABEL}>任务标题 *</label>
+          <label className={LABEL}>{t('titleField')}</label>
           <input
             value={form.title}
             onChange={set('title')}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-            placeholder="输入标题，自动匹配已有任务"
+            placeholder={t('titleSuggestionPlaceholder')}
             className={INPUT}
             autoComplete="off"
           />
@@ -193,15 +196,15 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
       {/* Row 2: Start date + Due date + Department + Effort */}
       <div className="grid grid-cols-4 gap-3">
         <div>
-          <label className={LABEL}>开始日期 *</label>
+          <label className={LABEL}>{t('date')}</label>
           <input type="date" value={form.task_date} onChange={set('task_date')} className={INPUT} />
         </div>
         <div>
-          <label className={LABEL}>截止日期</label>
+          <label className={LABEL}>{t('dueDate')}</label>
           <input type="date" value={form.due_date} onChange={set('due_date')} className={INPUT} />
         </div>
         <div>
-          <label className={LABEL}>部门</label>
+          <label className={LABEL}>{t('department')}</label>
           <select value={form.department} onChange={set('department')} className={INPUT}>
             {DEPARTMENT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -209,7 +212,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
           </select>
         </div>
         <div>
-          <label className={LABEL}>工时</label>
+          <label className={LABEL}>{t('hours')}</label>
           <select value={form.effort_hours} onChange={set('effort_hours')} className={INPUT}>
             {([2, 4, 8] as WorkTaskEffort[]).map((h) => (
               <option key={h} value={h}>{EFFORT_LABELS[h]}</option>
@@ -221,7 +224,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
       {/* Row 3: Status + Repeat interval (only for fixed tasks) */}
       <div className="grid grid-cols-4 gap-3">
         <div>
-          <label className={LABEL}>状态</label>
+          <label className={LABEL}>{t('status')}</label>
           <select value={form.status} onChange={set('status')} className={INPUT}>
             {WORK_TASK_STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -230,9 +233,9 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
         </div>
         {form.task_type === 'fixed' && (
           <div>
-            <label className={LABEL}>重复周期</label>
+            <label className={LABEL}>{t('repeatInterval')}</label>
             <select value={form.repeat_interval} onChange={set('repeat_interval')} className={INPUT}>
-              <option value="">不重复</option>
+              <option value="">{t('noRepeat')}</option>
               {REPEAT_OPTIONS.map(([v, label]) => (
                 <option key={v} value={v}>{label}</option>
               ))}
@@ -243,9 +246,9 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
 
       {/* Row 4: Milestone */}
       <div>
-        <label className={LABEL}>关联目标（战略时间轴）</label>
+        <label className={LABEL}>{t('milestone')}</label>
         <select value={form.milestone_id} onChange={set('milestone_id')} className={INPUT}>
-          <option value="">不关联目标</option>
+          <option value="">{t('milestoneNone')}</option>
           {milestones.map((m) => (
             <option key={m.id} value={m.id}>{m.title}</option>
           ))}
@@ -255,9 +258,9 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
       {/* Row 5: Owner + Reviewer + Executors */}
       <div className="grid grid-cols-4 gap-3">
         <div>
-          <label className={LABEL}>主负责人 *</label>
+          <label className={LABEL}>{t('owner')}</label>
           <select value={form.owner_user_id} onChange={set('owner_user_id')} className={INPUT}>
-            <option value="">请选择</option>
+            <option value="">{t('ownerSelect')}</option>
             {EXPENSE_USER_OPTIONS.map((name) => {
               const u = users.find((u) => u.name === name || u.user_code === name)
               return u ? (
@@ -269,16 +272,16 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
           </select>
         </div>
         <div>
-          <label className={LABEL}>审核人</label>
+          <label className={LABEL}>{t('reviewer')}</label>
           <select value={form.reviewer_user_id} onChange={set('reviewer_user_id')} className={INPUT}>
-            <option value="">无审核人</option>
+            <option value="">{t('reviewerNone')}</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </select>
         </div>
         <div className="col-span-2">
-          <label className={LABEL}>执行人（多选）</label>
+          <label className={LABEL}>{t('assignees')}</label>
           <div className="flex flex-wrap gap-1.5 border border-slate-200 rounded-lg p-2 min-h-[38px]">
             {users.filter((u) => u.id !== form.owner_user_id).map((u) => {
               const selected = form.executor_ids.includes(u.id)
@@ -298,7 +301,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
               )
             })}
             {users.length === 0 && (
-              <span className="text-xs text-slate-400">加载中...</span>
+              <span className="text-xs text-slate-400">{tCommon('loading')}</span>
             )}
           </div>
         </div>
@@ -306,12 +309,12 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
 
       {/* Row 6: Completion criteria */}
       <div>
-        <label className={LABEL}>完成目标评定方式</label>
+        <label className={LABEL}>{t('completionCriteria')}</label>
         <textarea
           value={form.completion_criteria}
           onChange={set('completion_criteria')}
           rows={2}
-          placeholder="描述如何判断这个任务已完成，例如：完成直播 2 小时且销售额 ≥ 5000 元"
+          placeholder={t('completionCriteriaPlaceholder')}
           className={`${INPUT} resize-none`}
         />
       </div>
@@ -319,21 +322,21 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
       {/* Row 7: Description + Notes */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className={LABEL}>任务描述</label>
+          <label className={LABEL}>{t('description')}</label>
           <textarea value={form.description} onChange={set('description')} rows={2}
-            placeholder="任务详情" className={`${INPUT} resize-none`} />
+            placeholder={t('descriptionPlaceholder')} className={`${INPUT} resize-none`} />
         </div>
         <div>
-          <label className={LABEL}>备注</label>
+          <label className={LABEL}>{t('notes')}</label>
           <textarea value={form.notes} onChange={set('notes')} rows={2}
-            placeholder="可选备注" className={`${INPUT} resize-none`} />
+            placeholder={t('notesPlaceholder')} className={`${INPUT} resize-none`} />
         </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="secondary" type="button" onClick={onCancel}>取消</Button>
+        <Button variant="secondary" type="button" onClick={onCancel}>{tCommon('cancel')}</Button>
         <Button type="submit" loading={loading}>
-          {isEditing ? '保存更改' : '创建任务'}
+          {isEditing ? tCommon('saveChanges') : t('submitCreate')}
         </Button>
       </div>
     </form>

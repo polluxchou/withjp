@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -21,16 +22,12 @@ interface Props {
   devices: Device[]
 }
 
-const GRANULARITY_OPTIONS: { value: DeviceCostGranularity; label: string }[] = [
-  { value: 'month',   label: 'Monthly'   },
-  { value: 'quarter', label: 'Quarterly' },
-  { value: 'year',    label: 'Yearly'    },
-]
+const GRANULARITY_VALUES: DeviceCostGranularity[] = ['month', 'quarter', 'year']
 
-const SERIES = [
-  { key: 'budgeted',       label: 'Budgeted',       color: '#94a3b8' }, // slate-400
-  { key: 'ordered_unpaid', label: 'Ordered, Unpaid', color: '#f59e0b' }, // amber-500
-  { key: 'paid',           label: 'Paid',           color: '#10b981' }, // emerald-500
+const SERIES_KEYS = [
+  { key: 'budgeted',       color: '#94a3b8' }, // slate-400
+  { key: 'ordered_unpaid', color: '#f59e0b' }, // amber-500
+  { key: 'paid',           color: '#10b981' }, // emerald-500
 ] as const
 
 function fmtRmbShort(v: number): string {
@@ -44,6 +41,8 @@ function fmtRmbFull(v: number): string {
 }
 
 export default function DeviceCostChart({ devices }: Props) {
+  const t = useTranslations('devices')
+  const tExpenses = useTranslations('expenses')
   const [granularity, setGranularity] = useState<DeviceCostGranularity>('month')
 
   const data = useMemo(
@@ -57,23 +56,23 @@ export default function DeviceCostChart({ devices }: Props) {
     <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">Cumulative Device Spend</h3>
-          <p className="text-xs text-slate-500 mt-0.5">By purchase date, stacked across payment status</p>
+          <h3 className="text-sm font-semibold text-slate-900">{t('chartTitle')}</h3>
+          <p className="text-xs text-slate-500 mt-0.5">{t('chartSubtitle')}</p>
         </div>
         <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
-          {GRANULARITY_OPTIONS.map((o) => {
-            const active = o.value === granularity
+          {GRANULARITY_VALUES.map((value) => {
+            const active = value === granularity
             return (
               <button
-                key={o.value}
-                onClick={() => setGranularity(o.value)}
+                key={value}
+                onClick={() => setGranularity(value)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                   active
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                {o.label}
+                {tExpenses(value)}
               </button>
             )
           })}
@@ -85,7 +84,7 @@ export default function DeviceCostChart({ devices }: Props) {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <defs>
-                {SERIES.map((s) => (
+                {SERIES_KEYS.map((s) => (
                   <linearGradient key={s.key} id={`grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%"   stopColor={s.color} stopOpacity={0.6} />
                     <stop offset="100%" stopColor={s.color} stopOpacity={0.1} />
@@ -117,12 +116,12 @@ export default function DeviceCostChart({ devices }: Props) {
                 }}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
-              {SERIES.map((s) => (
+              {SERIES_KEYS.map((s) => (
                 <Area
                   key={s.key}
                   type="monotone"
                   dataKey={s.key}
-                  name={s.label}
+                  name={tExpenses(`paymentStatuses.${s.key}`)}
                   stackId="1"
                   stroke={s.color}
                   strokeWidth={2}
@@ -134,7 +133,7 @@ export default function DeviceCostChart({ devices }: Props) {
         </div>
       ) : (
         <div className="h-72 flex items-center justify-center text-sm text-slate-400">
-          No purchase data to chart yet.
+          {t('chartEmpty')}
         </div>
       )}
     </div>

@@ -15,6 +15,13 @@ function flattenKeys(value, prefix = '') {
     )
   }
 
+  // Arrays of strings (e.g. month-name lists) are valid leaf values. We
+  // record one key per index so parity across locales still requires the
+  // same length and shape.
+  if (Array.isArray(value)) {
+    return value.flatMap((child, index) => flattenKeys(child, `${prefix}[${index}]`))
+  }
+
   if (typeof value !== 'string' || value.trim() === '') {
     throw new Error(`Invalid message value at ${prefix}`)
   }

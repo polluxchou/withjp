@@ -1,39 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import type {
   Agent, Milestone,
   MilestoneType, MilestoneLevel, MilestonePriority, RiskLevel,
 } from '@/lib/types'
 
-// ── Option maps ───────────────────────────────────────────────
-
-const TYPE_OPTIONS: { value: MilestoneType; label: string }[] = [
-  { value: 'campaign',    label: 'Campaign' },
-  { value: 'launch',      label: 'Launch' },
-  { value: 'recruitment', label: 'Recruitment' },
-  { value: 'finance',     label: 'Finance' },
-  { value: 'review',      label: 'Review' },
-]
-
-const LEVEL_OPTIONS: { value: MilestoneLevel; label: string }[] = [
-  { value: 'company',    label: 'Company' },
-  { value: 'department', label: 'Department' },
-  { value: 'creator',    label: 'Creator' },
-]
-
-const PRIORITY_OPTIONS: { value: MilestonePriority; label: string }[] = [
-  { value: 'high',   label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low',    label: 'Low' },
-]
-
-const RISK_OPTIONS: { value: RiskLevel; label: string }[] = [
-  { value: 'low',    label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high',   label: 'High' },
-]
+// Option values — labels resolved at render time via t('type.<value>') etc.
+const TYPE_VALUES:     MilestoneType[]     = ['campaign', 'launch', 'recruitment', 'finance', 'review']
+const LEVEL_VALUES:    MilestoneLevel[]    = ['company', 'department', 'creator']
+const PRIORITY_VALUES: MilestonePriority[] = ['high', 'medium', 'low']
+const RISK_VALUES:     RiskLevel[]         = ['low', 'medium', 'high']
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -78,6 +57,8 @@ interface FormState {
 }
 
 export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
+  const t = useTranslations('timeline')
+  const tCommon = useTranslations('common')
   const [agents, setAgents]   = useState<Agent[]>([])
   const [saving, setSaving]   = useState(false)
   const [error,  setError]    = useState<string | null>(null)
@@ -121,10 +102,10 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.title.trim()) { setError('Title is required.'); return }
-    if (!form.start_date || !form.target_date) { setError('Both dates are required.'); return }
+    if (!form.title.trim()) { setError(t('form.errTitle')); return }
+    if (!form.start_date || !form.target_date) { setError(t('form.errDates')); return }
     if (new Date(form.start_date) >= new Date(form.target_date)) {
-      setError('Target date must be after start date.')
+      setError(t('form.errDateOrder'))
       return
     }
 
@@ -156,12 +137,12 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
       )
       const json = await res.json()
       if (!res.ok || json.error) {
-        setError(json.error ?? 'Save failed')
+        setError(json.error ?? t('form.errSaveFailed'))
         return
       }
       onSuccess(json.data)
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('form.errNetwork'))
     } finally {
       setSaving(false)
     }
@@ -176,34 +157,34 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
 
       {/* Title */}
       <div>
-        <label className={labelCls}>Title *</label>
+        <label className={labelCls}>{t('form.title')}</label>
         <input className={inputCls} value={form.title}
           onChange={e => set('title', e.target.value)}
-          placeholder="e.g. Q3 Creator Launch Campaign" />
+          placeholder={t('form.titlePlaceholder')} />
       </div>
 
       {/* Description */}
       <div>
-        <label className={labelCls}>Description</label>
+        <label className={labelCls}>{t('form.description')}</label>
         <textarea className={inputCls} rows={2} value={form.description}
           onChange={e => set('description', e.target.value)}
-          placeholder="Strategic context for this milestone…" />
+          placeholder={t('form.descriptionPlaceholder')} />
       </div>
 
       {/* Type + Level */}
       <div className={sectionCls}>
         <div>
-          <label className={labelCls}>Type *</label>
+          <label className={labelCls}>{t('form.type')}</label>
           <select className={inputCls} value={form.type}
             onChange={e => set('type', e.target.value as MilestoneType)}>
-            {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {TYPE_VALUES.map(v => <option key={v} value={v}>{t(`type.${v}`)}</option>)}
           </select>
         </div>
         <div>
-          <label className={labelCls}>Level</label>
+          <label className={labelCls}>{t('form.level')}</label>
           <select className={inputCls} value={form.level}
             onChange={e => set('level', e.target.value as MilestoneLevel)}>
-            {LEVEL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {LEVEL_VALUES.map(v => <option key={v} value={v}>{t(`form.levelValue.${v}`)}</option>)}
           </select>
         </div>
       </div>
@@ -211,17 +192,17 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
       {/* Priority + Risk */}
       <div className={sectionCls}>
         <div>
-          <label className={labelCls}>Priority</label>
+          <label className={labelCls}>{t('form.priority')}</label>
           <select className={inputCls} value={form.priority}
             onChange={e => set('priority', e.target.value as MilestonePriority)}>
-            {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {PRIORITY_VALUES.map(v => <option key={v} value={v}>{t(`form.priorityValue.${v}`)}</option>)}
           </select>
         </div>
         <div>
-          <label className={labelCls}>Risk Level</label>
+          <label className={labelCls}>{t('form.riskLevel')}</label>
           <select className={inputCls} value={form.risk_level}
             onChange={e => set('risk_level', e.target.value as RiskLevel)}>
-            {RISK_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {RISK_VALUES.map(v => <option key={v} value={v}>{t(`form.riskValue.${v}`)}</option>)}
           </select>
         </div>
       </div>
@@ -229,12 +210,12 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
       {/* Dates */}
       <div className={sectionCls}>
         <div>
-          <label className={labelCls}>Start Date *</label>
+          <label className={labelCls}>{t('form.startDate')}</label>
           <input type="date" className={inputCls} value={form.start_date}
             onChange={e => set('start_date', e.target.value)} />
         </div>
         <div>
-          <label className={labelCls}>Target Date *</label>
+          <label className={labelCls}>{t('form.targetDate')}</label>
           <input type="date" className={inputCls} value={form.target_date}
             onChange={e => set('target_date', e.target.value)} />
         </div>
@@ -242,10 +223,10 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
 
       {/* Owner Agent */}
       <div>
-        <label className={labelCls}>Owner Agent</label>
+        <label className={labelCls}>{t('form.ownerAgent')}</label>
         <select className={inputCls} value={form.owner_agent_id}
           onChange={e => set('owner_agent_id', e.target.value)}>
-          <option value="">— None —</option>
+          <option value="">{t('form.ownerAgentNone')}</option>
           {agents.map(a => (
             <option key={a.id} value={a.id}>{a.name} ({a.role})</option>
           ))}
@@ -255,7 +236,7 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
       {/* Involved Agents */}
       {agents.length > 0 && (
         <div>
-          <label className={labelCls}>Involved Agents</label>
+          <label className={labelCls}>{t('form.involvedAgents')}</label>
           <div className="border border-slate-200 rounded-lg p-2.5 space-y-1.5 max-h-32 overflow-y-auto">
             {agents.map(a => (
               <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -273,31 +254,31 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
 
       {/* Success Metric */}
       <div>
-        <label className={labelCls}>Success Metric</label>
+        <label className={labelCls}>{t('form.successMetric')}</label>
         <div className="grid grid-cols-3 gap-2">
-          <input className={inputCls} placeholder="Metric name"
+          <input className={inputCls} placeholder={t('form.metricName')}
             value={form.metric_name} onChange={e => set('metric_name', e.target.value)} />
-          <input className={inputCls} placeholder="Target value"
+          <input className={inputCls} placeholder={t('form.metricTarget')}
             value={form.metric_target} onChange={e => set('metric_target', e.target.value)} />
-          <input className={inputCls} placeholder="Unit (¥, %, #)"
+          <input className={inputCls} placeholder={t('form.metricUnit')}
             value={form.metric_unit} onChange={e => set('metric_unit', e.target.value)} />
         </div>
       </div>
 
       {/* Notes */}
       <div>
-        <label className={labelCls}>Notes</label>
+        <label className={labelCls}>{t('form.notes')}</label>
         <textarea className={inputCls} rows={2} value={form.notes}
           onChange={e => set('notes', e.target.value)}
-          placeholder="Additional context, dependencies, or risks…" />
+          placeholder={t('form.notesPlaceholder')} />
       </div>
 
       {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="flex gap-2 justify-end pt-1">
-        <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
+        <Button variant="secondary" type="button" onClick={onCancel}>{tCommon('cancel')}</Button>
         <Button type="submit" loading={saving}>
-          {initial?.id ? 'Save Changes' : 'Create Milestone'}
+          {initial?.id ? tCommon('saveChanges') : t('form.createBtn')}
         </Button>
       </div>
     </form>

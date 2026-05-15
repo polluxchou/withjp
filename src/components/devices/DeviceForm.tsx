@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import { DEVICE_PAYMENT_STATUS_OPTIONS } from '@/lib/devices/costs'
 import type { Device } from '@/lib/types'
@@ -27,6 +28,8 @@ interface Props {
 const INPUT = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
 
 export default function DeviceForm({ device, onSuccess, onCancel }: Props) {
+  const t = useTranslations('devices')
+  const tCommon = useTranslations('common')
   const [form, setForm] = useState<FormData>({
     device_name:       device?.device_name       ?? '',
     unit_price:        device?.unit_price?.toString() ?? '0',
@@ -49,9 +52,9 @@ export default function DeviceForm({ device, onSuccess, onCancel }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.device_name)   { setError('Device name is required'); return }
-    if (!form.purchase_date) { setError('Purchase date is required'); return }
-    if (!form.payment_status) { setError('Payment status is required'); return }
+    if (!form.device_name)   { setError(t('errDeviceName')); return }
+    if (!form.purchase_date) { setError(t('errPurchaseDate')); return }
+    if (!form.payment_status) { setError(t('errPaymentStatus')); return }
 
     setLoading(true)
     setError(null)
@@ -94,8 +97,8 @@ export default function DeviceForm({ device, onSuccess, onCancel }: Props) {
       {/* Row 1 */}
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-slate-700 mb-1">Device Name *</label>
-          <input value={form.device_name} onChange={set('device_name')} placeholder="e.g. MacBook Pro 14"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('deviceName')}</label>
+          <input value={form.device_name} onChange={set('device_name')} placeholder={t('deviceNamePlaceholder')}
             className={INPUT} />
         </div>
       </div>
@@ -103,17 +106,17 @@ export default function DeviceForm({ device, onSuccess, onCancel }: Props) {
       {/* Row 2 */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Unit Price (¥)</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('unitPrice')}</label>
           <input type="number" min="0" step="0.01" value={form.unit_price} onChange={set('unit_price')}
             placeholder="0.00" className={INPUT} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Quantity</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('quantity')}</label>
           <input type="number" min="1" step="1" value={form.quantity} onChange={set('quantity')}
             placeholder="1" className={INPUT} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Purchase Date *</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('purchaseDate')}</label>
           <input type="date" value={form.purchase_date} onChange={set('purchase_date')}
             className={INPUT} />
         </div>
@@ -122,13 +125,13 @@ export default function DeviceForm({ device, onSuccess, onCancel }: Props) {
       {/* Row 3 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Purchase Location</label>
-          <input value={form.purchase_location} onChange={set('purchase_location')} placeholder="e.g. JD.com"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('purchaseLocation')}</label>
+          <input value={form.purchase_location} onChange={set('purchase_location')} placeholder={t('purchaseLocationPlaceholder')}
             className={INPUT} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Purchase Purpose</label>
-          <input value={form.purchase_purpose} onChange={set('purchase_purpose')} placeholder="e.g. Content creation"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('purchasePurpose')}</label>
+          <input value={form.purchase_purpose} onChange={set('purchase_purpose')} placeholder={t('purchasePurposePlaceholder')}
             className={INPUT} />
         </div>
       </div>
@@ -136,13 +139,13 @@ export default function DeviceForm({ device, onSuccess, onCancel }: Props) {
       {/* Row 4 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">User</label>
-          <input value={form.user_name} onChange={set('user_name')} placeholder="Who uses this device"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('userField')}</label>
+          <input value={form.user_name} onChange={set('user_name')} placeholder={t('userFieldPlaceholder')}
             className={INPUT} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Buyer</label>
-          <input value={form.buyer_name} onChange={set('buyer_name')} placeholder="Who purchased"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('buyerField')}</label>
+          <input value={form.buyer_name} onChange={set('buyer_name')} placeholder={t('buyerFieldPlaceholder')}
             className={INPUT} />
         </div>
       </div>
@@ -150,14 +153,14 @@ export default function DeviceForm({ device, onSuccess, onCancel }: Props) {
       {/* Row 5 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Payment Method</label>
-          <input value={form.payment_method} onChange={set('payment_method')} placeholder="e.g. Company card"
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('paymentMethod')}</label>
+          <input value={form.payment_method} onChange={set('payment_method')} placeholder={t('paymentMethodPlaceholder')}
             className={INPUT} />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">Payment Status *</label>
+          <label className="block text-xs font-medium text-slate-700 mb-1">{t('paymentStatus')}</label>
           <select value={form.payment_status} onChange={set('payment_status')} className={INPUT}>
-            <option value="">Select status</option>
+            <option value="">{t('selectStatus')}</option>
             {DEVICE_PAYMENT_STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
@@ -166,9 +169,9 @@ export default function DeviceForm({ device, onSuccess, onCancel }: Props) {
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
+        <Button variant="secondary" type="button" onClick={onCancel}>{tCommon('cancel')}</Button>
         <Button type="submit" loading={loading}>
-          {isEditing ? 'Save Changes' : 'Add Device'}
+          {isEditing ? tCommon('saveChanges') : t('addDevice')}
         </Button>
       </div>
     </form>
