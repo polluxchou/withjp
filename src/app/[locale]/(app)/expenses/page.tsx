@@ -750,7 +750,12 @@ export default function ExpensesPage() {
                       </div>
                     </div>
                     <div className="text-right whitespace-nowrap flex-shrink-0">
-                      <div className="text-sm font-semibold text-slate-900">{fmtRmb(Number(e.total_price))}</div>
+                      <div
+                        className="text-sm font-semibold text-slate-900"
+                        title={fmtRmb(Number(e.total_price))}
+                      >
+                        {fmtRmb(Number(e.total_price), { compact: true })}
+                      </div>
                       {crossBorderFee(e) > 0 && (
                         <div className="text-[10px] text-amber-600 mt-0.5">+{fmtRmb(crossBorderFee(e))} {t('crossBorderFeeShort')}</div>
                       )}
@@ -838,7 +843,9 @@ export default function ExpensesPage() {
                       <ClampedText text={e.item_name} onOverflowClick={() => setViewing(e)} />
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">
-                      <div>{fmtRmb(Number(e.total_price))}</div>
+                      <div title={fmtRmb(Number(e.total_price))}>
+                        {fmtRmb(Number(e.total_price), { compact: true })}
+                      </div>
                       {crossBorderFee(e) > 0 && (
                         <div
                           className="text-[10px] text-amber-600 font-normal mt-0.5"
