@@ -11,6 +11,7 @@ import type {
   ExpenseQueryIntent,
   ExpenseUpdateIntent,
   ExpenseWritePayload,
+  WorkTaskCreateIntent,
 } from './schema'
 
 // ── Human-readable previews ───────────────────────────────────
@@ -122,6 +123,35 @@ function diffPayload(before: Expense, patch: ExpenseWritePayload): string[] {
 function fmt(v: unknown): string {
   if (v === null || v === undefined || v === '') return '—'
   return String(v)
+}
+
+// ── Work task previews ────────────────────────────────────────
+
+export function previewWorkTaskCreate(intent: WorkTaskCreateIntent): string {
+  const p = intent.payload
+  const DEPT_LABELS: Record<string, string> = {
+    bd: 'BD', ops: '运营', finance: '财务', content: '内容', growth: '增长', legal: '法务',
+  }
+  const INTERVAL_LABELS: Record<string, string> = {
+    daily: '每日', weekly: '每周', biweekly: '每两周', monthly: '每月',
+  }
+  const lines: string[] = ['【新建任务】']
+  lines.push(`  标题：${p.title}`)
+  if (p.task_type)           lines.push(`  类型：${p.task_type === 'fixed' ? '固定（周期）' : '临时'}`)
+  if (p.department)          lines.push(`  部门：${DEPT_LABELS[p.department] ?? p.department}`)
+  if (p.owner_name)          lines.push(`  主负责人：${p.owner_name}`)
+  if (p.reviewer_name)       lines.push(`  审核人：${p.reviewer_name}`)
+  if (p.executor_names?.length) lines.push(`  执行人：${p.executor_names.join('、')}`)
+  if (p.task_date)           lines.push(`  开始日期：${p.task_date}`)
+  if (p.due_date)            lines.push(`  截止日期：${p.due_date}`)
+  if (p.effort_hours)        lines.push(`  工时：${p.effort_hours}h`)
+  if (p.repeat_interval)     lines.push(`  重复周期：${INTERVAL_LABELS[p.repeat_interval] ?? p.repeat_interval}`)
+  if (p.completion_criteria) lines.push(`  完成标准：${p.completion_criteria}`)
+  if (p.notes)               lines.push(`  备注：${p.notes}`)
+  if (intent.ambiguities?.length) {
+    lines.push('', '⚠ 不确定项：', ...intent.ambiguities.map(s => `  · ${s}`))
+  }
+  return lines.join('\n')
 }
 
 export function describeFilters(f: ExpenseFilters): string {

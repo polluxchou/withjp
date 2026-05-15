@@ -33,9 +33,15 @@ const SRC = path.join(ROOT, 'src')
 // migrated.
 // finance-forecast migration was deferred (reverted from this PR) — tracked
 // as a follow-up. ESLint carries a matching override in .eslintrc.json.
+// NextTimelineView + timeline page string added by main after this PR branched;
+// also deferred to the follow-up migration.
 const ALLOWLIST = new Set([
   'src/app/[locale]/(app)/finance-forecast/page.tsx',
   'src/components/finance-forecast/FinanceForecastDashboard.tsx',
+  'src/components/finance-forecast/ForecastViewBar.tsx',
+  'src/components/finance-forecast/LifecycleTemplateEditor.tsx',
+  'src/components/milestones/NextTimelineView.tsx',
+  'src/app/[locale]/(app)/timeline/page.tsx',
 ])
 
 function* walkFiles(dir) {
