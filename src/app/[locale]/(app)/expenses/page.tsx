@@ -494,7 +494,7 @@ export default function ExpensesPage() {
           className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-300 hover:shadow-sm transition-all"
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('totalExpense')}</p>
-          <p className="text-lg sm:text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost, { compact: true })}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}</p>
         </button>
         <button
@@ -508,7 +508,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('paid')}</p>
-          <p className="text-lg sm:text-xl font-bold text-green-700">{fmtRmb(summary.paidCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-green-700">{fmtRmb(summary.paidCost, { compact: true })}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}</p>
         </button>
         <button
@@ -522,7 +522,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('budgetPending')}</p>
-          <p className="text-lg sm:text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost, { compact: true })}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}</p>
         </button>
         <div ref={monthPickerRef} className="relative">
@@ -541,7 +541,7 @@ export default function ExpensesPage() {
             <p className="text-xs font-medium text-slate-500 mb-1">
               {activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
             </p>
-            <p className="text-lg sm:text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost)}</p>
+            <p className="text-lg sm:text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost, { compact: true })}</p>
             <p className="text-[10px] text-slate-400 mt-0.5">
               {activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
             </p>
@@ -597,7 +597,7 @@ export default function ExpensesPage() {
           }`}
         >
           <p className="text-xs font-medium text-slate-500 mb-1">{t('crossBorderCost')}</p>
-          <p className="text-lg sm:text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost)}</p>
+          <p className="text-lg sm:text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost, { compact: true })}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">
             {activeKpi === 'crossBorder' ? t('kpi.filterActive') : t('kpi.crossBorderHint', { rate: CROSS_BORDER_FEE_RATE * 100 })}
           </p>
