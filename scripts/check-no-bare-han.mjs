@@ -27,11 +27,16 @@ const HAN = /[一-鿿]/
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..')
 const SRC = path.join(ROOT, 'src')
 
-// Grandfathered files — known to contain bare Han in JSX today. The list is
-// empty after P2 cluster A–D migrations. Re-add an entry only if a single PR
-// needs to land partial migration; the ratchet's stale-allowlist check will
-// flag it for removal once the file is fully migrated.
-const ALLOWLIST = new Set([])
+// Grandfathered files — known to contain bare Han in JSX today. Re-add an
+// entry only if a single PR needs to land partial migration; the ratchet's
+// stale-allowlist check will flag it for removal once the file is fully
+// migrated.
+// finance-forecast migration was deferred (reverted from this PR) — tracked
+// as a follow-up. ESLint carries a matching override in .eslintrc.json.
+const ALLOWLIST = new Set([
+  'src/app/[locale]/(app)/finance-forecast/page.tsx',
+  'src/components/finance-forecast/FinanceForecastDashboard.tsx',
+])
 
 function* walkFiles(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
