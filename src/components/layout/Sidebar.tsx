@@ -59,6 +59,8 @@ export default function Sidebar() {
   const path = usePathname()
   const t = useTranslations('nav')
   const tRoles = useTranslations('roles')
+  const tSidebar = useTranslations('sidebar')
+  const tCommon = useTranslations('common')
   const [profileOpen, setProfileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [hydrated, setHydrated] = useState(false)
@@ -139,7 +141,7 @@ export default function Sidebar() {
         onClick={() => setMobileOpen(true)}
         className="lg:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center justify-center"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
-        aria-label="Open menu"
+        aria-label={tSidebar('openMenu')}
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -183,7 +185,7 @@ export default function Sidebar() {
           <button
             onClick={() => setCollapsed(true)}
             className="w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex-shrink-0"
-            title="Collapse sidebar"
+            title={tSidebar('collapse')}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -196,7 +198,7 @@ export default function Sidebar() {
         <button
           onClick={() => setCollapsed(false)}
           className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center shadow-md"
-          title="Expand sidebar"
+          title={tSidebar('expand')}
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
@@ -208,7 +210,7 @@ export default function Sidebar() {
           type="button"
           onClick={() => setMobileOpen(false)}
           className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center"
-          aria-label="Close menu"
+          aria-label={tSidebar('closeMenu')}
         >
           <X className="w-5 h-5" />
         </button>
@@ -266,7 +268,7 @@ export default function Sidebar() {
                 {profile
                   ? [profile.user_code, profile.role ? tRoles(profile.role) : null]
                       .filter(Boolean).join(' · ')
-                  : '加载中…'}
+                  : tCommon('loading')}
               </span>
             </span>
           )}

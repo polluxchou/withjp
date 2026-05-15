@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Modal from './Modal'
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
 export default function ClampedText({
   text, lines = 2, title, className, emptyText = '—', onOverflowClick,
 }: Props) {
+  const tCommon = useTranslations('common')
   const ref = useRef<HTMLSpanElement>(null)
   const [overflowing, setOverflowing] = useState(false)
   const [open, setOpen] = useState(false)
@@ -65,7 +67,7 @@ export default function ClampedText({
       </span>
       {/* Built-in modal only used when no custom handler is provided */}
       {overflowing && !onOverflowClick && (
-        <Modal open={open} onClose={() => setOpen(false)} title={title ?? '详情'}>
+        <Modal open={open} onClose={() => setOpen(false)} title={title ?? tCommon('details')}>
           <div className="whitespace-pre-wrap break-words text-sm text-slate-700 max-h-[60vh] overflow-y-auto">
             {text}
           </div>

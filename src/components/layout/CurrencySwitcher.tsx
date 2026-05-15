@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { CURRENCIES, CURRENCY_LABELS, CURRENCY_SYMBOLS, useCurrency } from '@/lib/currency'
 
 /**
@@ -8,12 +9,13 @@ import { CURRENCIES, CURRENCY_LABELS, CURRENCY_SYMBOLS, useCurrency } from '@/li
  * CurrencyContext. The DB always stores CNY — this is display only.
  */
 export default function CurrencySwitcher() {
+  const t = useTranslations('currency')
   const { currency, setCurrency } = useCurrency()
 
   return (
     <div
       className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5"
-      title="按固定汇率切换显示币种（1 USD = 7 CNY；1 CNY = 20 JPY）"
+      title={t('switchHint')}
     >
       {CURRENCIES.map((c) => (
         <button

@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const level    = searchParams.get('level')
   const priority = searchParams.get('priority')
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line
   let query = (db.from('milestones') as any)
     .select('*, owner_agent:agents!owner_agent_id(id, name, role)')
     .order('target_date', { ascending: true })

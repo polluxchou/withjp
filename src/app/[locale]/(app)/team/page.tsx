@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { getTranslations } from 'next-intl/server'
 import { createServerClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
 import Badge from '@/components/ui/Badge'
@@ -14,15 +15,6 @@ const ROLE_COLOR = {
   growth:  'amber',
   legal:   'slate',
 } as const
-
-const ROLE_LABEL = {
-  bd:      'Business Development',
-  ops:     'Operations',
-  finance: 'Finance',
-  content: 'Content Strategy',
-  growth:  'Growth & Marketing',
-  legal:   'Legal & Compliance',
-}
 
 async function getAgents(): Promise<Agent[]> {
   const db = createServerClient()
@@ -48,13 +40,17 @@ async function getAgentStats() {
 }
 
 export default async function TeamPage() {
-  const [agents, agentStats] = await Promise.all([getAgents(), getAgentStats()])
+  const [agents, agentStats, t] = await Promise.all([
+    getAgents(),
+    getAgentStats(),
+    getTranslations('team'),
+  ])
 
   return (
     <div>
       <Header
-        title="Team (Agents)"
-        subtitle="AI agents driving the creator workflow"
+        title={t('title')}
+        subtitle={t('subtitle')}
       />
 
       <div className="grid grid-cols-3 gap-5">
@@ -66,7 +62,7 @@ export default async function TeamPage() {
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="font-semibold text-slate-900">{agent.name}</div>
-                  <Badge label={ROLE_LABEL[agent.role]} color={ROLE_COLOR[agent.role]} size="sm" />
+                  <Badge label={t(`role.${agent.role}`)} color={ROLE_COLOR[agent.role]} size="sm" />
                 </div>
                 <span className={`w-2.5 h-2.5 rounded-full mt-1 ${agent.is_active ? 'bg-green-400' : 'bg-slate-300'}`} />
               </div>
@@ -75,28 +71,30 @@ export default async function TeamPage() {
 
               {/* Task stats */}
               <div className="grid grid-cols-3 gap-2 mb-4">
-                {[
-                  { label: 'Pending', value: stats.pending, color: 'text-amber-600' },
-                  { label: 'Done',    value: stats.done,    color: 'text-green-600' },
-                  { label: 'Failed',  value: stats.failed,  color: 'text-red-500' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-slate-50 rounded-lg p-2.5 text-center">
-                    <div className={`text-lg font-bold ${color}`}>{value}</div>
-                    <div className="text-xs text-slate-400">{label}</div>
-                  </div>
-                ))}
+                {(['pending', 'done', 'failed'] as const).map((statKey) => {
+                  const color =
+                    statKey === 'pending' ? 'text-amber-600' :
+                    statKey === 'done'    ? 'text-green-600' :
+                                            'text-red-500'
+                  return (
+                    <div key={statKey} className="bg-slate-50 rounded-lg p-2.5 text-center">
+                      <div className={`text-lg font-bold ${color}`}>{stats[statKey]}</div>
+                      <div className="text-xs text-slate-400">{t(`stats.${statKey}`)}</div>
+                    </div>
+                  )
+                })}
               </div>
 
               {/* I/O Schema */}
               <div className="space-y-2">
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Input Schema</p>
+                  <p className="text-xs font-medium text-slate-500 mb-1">{t('inputSchema')}</p>
                   <pre className="text-xs bg-slate-50 rounded-lg p-2 text-slate-600 overflow-auto max-h-20">
                     {JSON.stringify(agent.input_schema, null, 2)}
                   </pre>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Output Schema</p>
+                  <p className="text-xs font-medium text-slate-500 mb-1">{t('outputSchema')}</p>
                   <pre className="text-xs bg-slate-50 rounded-lg p-2 text-slate-600 overflow-auto max-h-20">
                     {JSON.stringify(agent.output_schema, null, 2)}
                   </pre>
@@ -105,7 +103,7 @@ export default async function TeamPage() {
 
               {/* Prompt preview */}
               <details className="mt-3">
-                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 font-medium">View prompt template</summary>
+                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 font-medium">{t('viewPrompt')}</summary>
                 <pre className="mt-2 text-xs bg-slate-900 text-slate-300 rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap">
                   {agent.prompt_template}
                 </pre>
@@ -124,13 +122,11 @@ export default async function TeamPage() {
 
       {/* Architecture note */}
       <div className="mt-6 bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-indigo-900 mb-1">Agent Architecture</h3>
+        <h3 className="text-sm font-semibold text-indigo-900 mb-1">{t('architectureTitle')}</h3>
         <p className="text-xs text-indigo-700 leading-relaxed">
-          Agents are <strong>data-driven</strong> — all behavior is defined by the prompt template stored in the database.
-          The executor is a single generic function: it loads the task + creator, fetches relevant knowledge by creator status,
-          applies config rules, renders the prompt template, calls the configured model, and parses the structured JSON output.
-          Each agent can independently use <strong>Anthropic</strong>, <strong>OpenAI</strong>, or <strong>Gemini</strong> — configure via the dropdowns above.
-          Adding a new agent requires only inserting a new row — no code changes.
+          {t.rich('architectureBody', {
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
         </p>
       </div>
     </div>

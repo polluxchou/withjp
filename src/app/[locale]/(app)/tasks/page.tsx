@@ -120,13 +120,13 @@ export default function TasksPage() {
   return (
     <div>
       <Header
-        title="任务中心"
-        subtitle="管理 AI 任务流程与团队工时"
+        title={t('title')}
+        subtitle={t('subtitle')}
         actions={
           <div className="flex items-center gap-2">
             {mainTab === 'workload' && (
               <Button variant="secondary" size="sm" onClick={() => setShowSalary(true)}>
-                <Settings className="w-3.5 h-3.5" /> 薪资设置
+                <Settings className="w-3.5 h-3.5" /> {t('salarySettings')}
               </Button>
             )}
             <Button
@@ -143,9 +143,9 @@ export default function TasksPage() {
       {/* Main tabs */}
       <div className="flex items-center gap-1 mb-5 border-b border-slate-200">
         {([
-          { key: 'workload', label: '工时视图', icon: Calendar },
-          { key: 'ai',       label: 'AI 任务',  icon: CheckSquare },
-        ] as const).map(({ key, label, icon: Icon }) => (
+          { key: 'workload', labelKey: 'tabWorkload', icon: Calendar },
+          { key: 'ai',       labelKey: 'tabAi',       icon: CheckSquare },
+        ] as const).map(({ key, labelKey, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setMainTab(key)}
@@ -156,7 +156,7 @@ export default function TasksPage() {
             }`}
           >
             <Icon className="w-4 h-4" />
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>
@@ -242,7 +242,7 @@ export default function TasksPage() {
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  {p === 'day' ? '日' : p === 'week' ? '周' : '月'}
+                  {p === 'day' ? t('periodDay') : p === 'week' ? t('periodWeek') : t('periodMonth')}
                 </button>
               ))}
             </div>
@@ -258,7 +258,7 @@ export default function TasksPage() {
           </div>
 
           {wlLoading ? (
-            <div className="text-center py-12 text-sm text-slate-400">加载中…</div>
+            <div className="text-center py-12 text-sm text-slate-400">{tCommon('loading')}</div>
           ) : (
             <>
               {period === 'day'   && (
@@ -297,12 +297,12 @@ export default function TasksPage() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-semibold text-slate-900">薪资管理</h2>
+                  <h2 className="text-base font-semibold text-slate-900">{t('salaryManagement')}</h2>
                   <button
                     onClick={() => setShowSalary(false)}
                     className="text-slate-400 hover:text-slate-700 transition-colors text-sm"
                   >
-                    关闭
+                    {tCommon('close')}
                   </button>
                 </div>
                 <SalaryManager />

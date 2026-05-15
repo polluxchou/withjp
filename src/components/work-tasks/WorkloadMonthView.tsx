@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import WorkTaskForm from './WorkTaskForm'
@@ -26,6 +27,7 @@ function fmtRmb(v: number) {
 }
 
 export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefresh }: Props) {
+  const t = useTranslations('workTasks')
   const now    = new Date()
   const [year,  setYear]  = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -123,7 +125,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
         <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <span className="text-sm font-semibold text-slate-700">{year}年{month}月</span>
+        <span className="text-sm font-semibold text-slate-700">{t('table.ymLabel', { year, month })}</span>
         <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -138,7 +140,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
               <div key={dept} className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs flex items-center gap-2">
                 <span className="font-medium text-slate-700">{DEPARTMENT_LABELS[dept]}</span>
                 <span className="text-slate-400">·</span>
-                <span className="text-slate-600">{people.size}人</span>
+                <span className="text-slate-600">{t('summary.participantsValue', { count: people.size })}</span>
                 <span className="text-slate-400">·</span>
                 <span className="text-slate-600">{hours}h</span>
                 <span className="text-slate-400">·</span>
@@ -153,22 +155,22 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
         <table className="w-full text-xs border-collapse min-w-max">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="px-3 py-2 text-left font-medium text-slate-500 border-r border-slate-100 w-32">成员</th>
-              <th className="px-3 py-2 text-left font-medium text-slate-500 border-r border-slate-100 w-16">部门</th>
+              <th className="px-3 py-2 text-left font-medium text-slate-500 border-r border-slate-100 w-32">{t('table.member')}</th>
+              <th className="px-3 py-2 text-left font-medium text-slate-500 border-r border-slate-100 w-16">{t('table.department')}</th>
               {weekLabels.map((wl, i) => (
                 <th key={i} className="px-2 py-2 text-center font-medium text-slate-500 border-r border-slate-100 w-28">
-                  第{i + 1}周
+                  {t('table.weekN', { n: i + 1 })}
                   <div className="font-normal text-slate-400">{wl}</div>
                 </th>
               ))}
-              <th className="px-3 py-2 text-center font-medium text-slate-500 border-r border-slate-100 w-20">月工时</th>
-              <th className="px-3 py-2 text-center font-medium text-slate-500 w-24">人力成本</th>
+              <th className="px-3 py-2 text-center font-medium text-slate-500 border-r border-slate-100 w-20">{t('table.monthHoursCol')}</th>
+              <th className="px-3 py-2 text-center font-medium text-slate-500 w-24">{t('table.labourCostCol')}</th>
             </tr>
           </thead>
           <tbody>
             {sortedUsers.length === 0 ? (
               <tr>
-                <td colSpan={colCount} className="py-12 text-center text-slate-400">本月暂无任务</td>
+                <td colSpan={colCount} className="py-12 text-center text-slate-400">{t('emptyMonth')}</td>
               </tr>
             ) : (
               sortedUsers.map((u) => (
@@ -218,7 +220,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
           {sortedUsers.length > 0 && (
             <tfoot>
               <tr className="bg-slate-50 border-t border-slate-200 font-semibold">
-                <td className="px-3 py-2 text-slate-600 border-r border-slate-100" colSpan={2}>合计</td>
+                <td className="px-3 py-2 text-slate-600 border-r border-slate-100" colSpan={2}>{t('table.rowTotal')}</td>
                 {weeks.map((w, i) => {
                   const total = sortedUsers.reduce((s, u) => s + hoursForUserWeek(u.id, w), 0)
                   return (
@@ -249,14 +251,14 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
               onClick={() => setCreating(monday)}
               className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
             >
-              + 第{i + 1}周 添加
+              {t('table.addToWeek', { n: i + 1 })}
             </button>
           )
         })}
       </div>
 
       {/* Create modal */}
-      <Modal open={!!creating} onClose={() => setCreating(null)} title="添加任务" width="max-w-2xl">
+      <Modal open={!!creating} onClose={() => setCreating(null)} title={t('addTask')} width="max-w-2xl">
         {creating && (
           <WorkTaskForm
             defaultDate={creating}
