@@ -265,6 +265,7 @@
     "crossBorderFeeShort": "cross-border",
     "crossBorderFeeTooltip": "4% cross-border transfer cost for non-with-new, non-rent expenses",
     "effectiveCost": "Effective cost (incl. fee)",
+    "discussionsColumn": "Discussion",
     "categories": {
       "tangible_asset": "Tangible assets",
       "salary": "Salary costs",
@@ -378,6 +379,68 @@
         "security": "Security",
         "infra": "Infra"
       }
+    }
+  },
+  "discussions": {
+    "badge": {
+      "default": "Discuss",
+      "open": "Discuss {count}",
+      "resolved": "Resolved {count}",
+      "ariaOpen": "{count} open discussions",
+      "ariaResolved": "{count} resolved discussions",
+      "ariaStart": "Start a discussion"
+    },
+    "panel": {
+      "title": "Discussion",
+      "newTitle": "New discussion",
+      "listTitle": "Discussions",
+      "subjectLine": "About: {label}",
+      "loading": "Loading",
+      "loadFailed": "Failed to load discussions",
+      "createFailed": "Failed to create discussion",
+      "titleLabel": "Discussion title",
+      "titlePlaceholder": "e.g. Why is this expense still unpaid?",
+      "messageLabel": "First message",
+      "messagePlaceholder": "Add context…",
+      "titleRequired": "Title is required",
+      "messageRequired": "First message is required",
+      "submit": "Create discussion",
+      "cancel": "Cancel",
+      "close": "Close",
+      "back": "Back to list",
+      "startNew": "New discussion",
+      "empty": "No discussions yet"
+    },
+    "thread": {
+      "open": "Open",
+      "resolved": "Resolved",
+      "resolveAction": "Resolve",
+      "resolveFailed": "Failed to resolve discussion",
+      "resolvedNotice": "This discussion is resolved; you can no longer post.",
+      "resolvedNoticeAt": "Resolved at {time}; you can no longer post.",
+      "lastActivity": "Last activity {date}",
+      "loading": "Loading",
+      "emptyMessages": "No messages yet",
+      "loadMessagesFailed": "Failed to load messages",
+      "send": "Send",
+      "sendFailed": "Failed to send",
+      "draftPlaceholder": "Type a message… (⌘/Ctrl + Enter to send)",
+      "senderYou": "You",
+      "senderOther": "Other user",
+      "senderAgent": "Agent",
+      "senderExternal": "External"
+    },
+    "filterDescribe": {
+      "all": "All expenses",
+      "category": "Category={value}",
+      "paymentStatus": "Status={value}",
+      "paymentMethod": "Method={value}",
+      "userName": "User={value}",
+      "buyerName": "Buyer={value}",
+      "period": "Period={value}",
+      "dateRange": "Date {from} ~ {to}",
+      "unpaidOnly": "Unpaid only",
+      "crossBorderOnly": "Cross-border only"
     }
   }
 }
