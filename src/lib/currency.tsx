@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react'
+import { useLocale } from 'next-intl'
 import { CURRENCY_RATES as BASE_RATES } from './currency-rates'
 
 export type Currency = 'CNY' | 'USD' | 'JPY'
@@ -25,26 +26,39 @@ export function convertFromCny(cny: number, target: Currency): number {
   return cny * CURRENCY_RATES[target]
 }
 
+function trim1(n: number): string {
+  const s = n.toFixed(1)
+  return s.endsWith('.0') ? n.toFixed(0) : s
+}
+
+/** Compact-format a plain number (followers, views, etc.) by locale. */
+export function fmtCompact(n: number, locale: string): string {
+  const abs  = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (locale === 'zh') {
+    if (abs >= 10000) return `${sign}${trim1(abs / 10000)}w`
+    return n.toFixed(0)
+  }
+  if (abs >= 1000000) return `${sign}${trim1(abs / 1000000)}m`
+  if (abs >= 1000)    return `${sign}${trim1(abs / 1000)}k`
+  return n.toFixed(0)
+}
+
 /**
  * Format a CNY-denominated amount in the given currency.
  * `compact` produces a short label suitable for chart axes / KPI cards
- * (¥3.8万 / $5.4K / ¥7,480,000 JPY). Default is full precision with
- * thousands separators.
+ * (¥3.8w / $5.4k / $1.2m). Default is full precision with thousands separators.
  */
 export function fmtAmount(
   cnyAmount: number,
   currency: Currency,
-  opts?: { compact?: boolean },
+  opts?: { compact?: boolean; locale?: string },
 ): string {
   const v   = convertFromCny(cnyAmount, currency)
   const sym = CURRENCY_SYMBOLS[currency]
 
   if (opts?.compact) {
-    if (currency === 'USD') {
-      return v >= 1000 ? `${sym}${(v / 1000).toFixed(1)}K` : `${sym}${v.toFixed(0)}`
-    }
-    // CNY and JPY both use 万 (10,000 unit) since the magnitudes are similar
-    return v >= 10000 ? `${sym}${(v / 10000).toFixed(1)}万` : `${sym}${v.toFixed(0)}`
+    return `${sym}${fmtCompact(v, opts.locale ?? 'zh')}`
   }
 
   const decimals = currency === 'JPY' ? 0 : 2
@@ -65,6 +79,7 @@ const CurrencyContext = createContext<CurrencyContextValue | null>(null)
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<Currency>('CNY')
+  const locale = useLocale()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -78,8 +93,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const fmt = useCallback(
-    (cny: number, opts?: { compact?: boolean }) => fmtAmount(cny, currency, opts),
-    [currency],
+    (cny: number, opts?: { compact?: boolean }) => fmtAmount(cny, currency, { ...opts, locale }),
+    [currency, locale],
   )
 
   return (

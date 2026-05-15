@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import Header from '@/components/layout/Header'
 import LifecycleBadge from '@/components/creators/LifecycleBadge'
 import TaskCard from '@/components/tasks/TaskCard'
@@ -19,6 +19,7 @@ import {
   nextStatus, ALL_STATUSES,
 } from '@/lib/state-machine/creator-lifecycle'
 import { getPlatformUrl } from '@/lib/creators/platforms'
+import { fmtCompact } from '@/lib/currency'
 import { format } from 'date-fns/format'
 import { ExternalLink } from 'lucide-react'
 
@@ -39,6 +40,7 @@ export default function CreatorDetailPage() {
   const [showEdit, setShowEdit]           = useState(false)
   const [financeForm, setFinanceForm]     = useState({ revenue: '', cost: '', period: '', notes: '' })
   const [tab, setTab] = useState<'tasks' | 'finance' | 'timeline' | 'activity'>('tasks')
+  const locale = useLocale()
   const t = useTranslations('creatorDetail')
   const tCreators = useTranslations('creators')
   const tCommon = useTranslations('common')
@@ -141,7 +143,7 @@ export default function CreatorDetailPage() {
             )}
           </div>
         }
-        subtitle={`${data.platform} · ${data.profile?.niche ?? tCreators('noNiche')} · ${data.profile?.followers?.toLocaleString() ?? '—'} ${tCreators('followers')}`}
+        subtitle={`${data.platform} · ${data.profile?.niche ?? tCreators('noNiche')} · ${data.profile?.followers != null ? fmtCompact(data.profile.followers, locale) : '—'} ${tCreators('followers')}`}
         actions={
           <div className="flex items-center gap-2">
             <LifecycleBadge status={data.status} />
@@ -165,9 +167,9 @@ export default function CreatorDetailPage() {
       {data.finance.length > 0 && (
         <div className="grid grid-cols-4 gap-4 mb-6">
           {[
-            { label: t('revenue'),  value: `¥${totalRevenue.toLocaleString()}`,   color: 'text-emerald-600' },
-            { label: t('cost'),     value: `¥${totalCost.toLocaleString()}`,      color: 'text-red-500' },
-            { label: t('profit'),   value: `¥${totalProfit.toLocaleString()}`,    color: totalProfit >= 0 ? 'text-emerald-600' : 'text-red-500' },
+            { label: t('revenue'),  value: `¥${fmtCompact(totalRevenue, locale)}`,   color: 'text-emerald-600' },
+            { label: t('cost'),     value: `¥${fmtCompact(totalCost, locale)}`,      color: 'text-red-500' },
+            { label: t('profit'),   value: `¥${fmtCompact(totalProfit, locale)}`,    color: totalProfit >= 0 ? 'text-emerald-600' : 'text-red-500' },
             { label: t('avgROI'),   value: avgROI != null ? `${avgROI.toFixed(1)}%` : '—', color: (avgROI ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500' },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-white border border-slate-200 rounded-xl p-4">
@@ -235,8 +237,8 @@ export default function CreatorDetailPage() {
             </div>
             {[
               [tCreators('niche'),        data.profile?.niche ?? '—'],
-              [tCreators('followers'),    data.profile?.followers?.toLocaleString() ?? '—'],
-              [tCreators('avgViews'),     data.profile?.avg_views?.toLocaleString() ?? '—'],
+              [tCreators('followers'),    data.profile?.followers != null ? fmtCompact(data.profile.followers, locale) : '—'],
+              [tCreators('avgViews'),     data.profile?.avg_views  != null ? fmtCompact(data.profile.avg_views, locale)  : '—'],
               [tCreators('location'),     data.profile?.location ?? '—'],
               [tCreators('email'),        data.contact_info?.email ?? '—'],
               [tCreators('wechat'),       data.contact_info?.wechat ?? '—'],
@@ -358,10 +360,10 @@ export default function CreatorDetailPage() {
                   {data.finance.map((f) => (
                     <tr key={f.id} className="border-b border-slate-50">
                       <td className="px-5 py-3 font-medium">{f.period}</td>
-                      <td className="px-5 py-3 text-emerald-600">¥{Number(f.revenue).toLocaleString()}</td>
-                      <td className="px-5 py-3 text-red-500">¥{Number(f.cost).toLocaleString()}</td>
+                      <td className="px-5 py-3 text-emerald-600">¥{fmtCompact(Number(f.revenue), locale)}</td>
+                      <td className="px-5 py-3 text-red-500">¥{fmtCompact(Number(f.cost), locale)}</td>
                       <td className={`px-5 py-3 font-medium ${Number(f.profit) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        ¥{Number(f.profit).toLocaleString()}
+                        ¥{fmtCompact(Number(f.profit), locale)}
                       </td>
                       <td className={`px-5 py-3 font-medium ${Number(f.roi) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                         {Number(f.roi).toFixed(1)}%
