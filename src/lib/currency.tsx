@@ -2,89 +2,17 @@
 
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import { useLocale } from 'next-intl'
-import { CURRENCY_RATES as BASE_RATES } from './currency-rates'
-
-export type Currency = 'CNY' | 'USD' | 'JPY'
-
-export const CURRENCIES: Currency[] = ['CNY', 'USD', 'JPY']
-
-export const CURRENCY_RATES: Record<Currency, number> = BASE_RATES
-
-export const CURRENCY_SYMBOLS: Record<Currency, string> = {
-  CNY: '¥',
-  USD: '$',
-  JPY: '¥',
-}
-
-export const CURRENCY_LABELS: Record<Currency, string> = {
-  CNY: '人民币',
-  USD: '美金',
-  JPY: '日元',
-}
-
-export function convertFromCny(cny: number, target: Currency): number {
-  return cny * CURRENCY_RATES[target]
-}
-
-function trim1(n: number): string {
-  const s = n.toFixed(1)
-  return s.endsWith('.0') ? n.toFixed(0) : s
-}
-
-/**
- * Compact-format a number.
- *
- * For **money amounts**, the abbreviation system should follow the
- * currency, not the UI locale — a USD value should always read as $28.6K,
- * even when the page is in Chinese, because "$2.86w" is nonsense to
- * readers of either language.
- *
- * For **non-money counts** (followers, view counts, etc.), there is no
- * currency, so we fall back to the UI locale: zh → 万-based, everything
- * else → K/M.
- *
- * `currency` arg:
- *   - 'CNY' / 'JPY': 万-based ("w" suffix), 10000 threshold
- *   - 'USD':         K/M-based, 1000/1000000 thresholds
- *   - undefined:     locale-driven, for non-money counts
- */
-export function fmtCompact(n: number, locale: string, currency?: Currency): string {
-  const abs  = Math.abs(n)
-  const sign = n < 0 ? '-' : ''
-
-  const useWan =
-    currency === 'CNY' || currency === 'JPY' ||
-    (currency === undefined && locale === 'zh')
-
-  if (useWan) {
-    if (abs >= 10000) return `${sign}${trim1(abs / 10000)}w`
-    return n.toFixed(0)
-  }
-  if (abs >= 1000000) return `${sign}${trim1(abs / 1000000)}m`
-  if (abs >= 1000)    return `${sign}${trim1(abs / 1000)}k`
-  return n.toFixed(0)
-}
-
-/**
- * Format a CNY-denominated amount in the given currency.
- * `compact` produces a short label suitable for chart axes / KPI cards
- * (¥3.8w / $5.4k / $1.2m). Default is full precision with thousands separators.
- */
-export function fmtAmount(
-  cnyAmount: number,
-  currency: Currency,
-  opts?: { compact?: boolean; locale?: string },
-): string {
-  const v   = convertFromCny(cnyAmount, currency)
-  const sym = CURRENCY_SYMBOLS[currency]
-
-  if (opts?.compact) {
-    return `${sym}${fmtCompact(v, opts.locale ?? 'zh', currency)}`
-  }
-
-  const decimals = currency === 'JPY' ? 0 : 2
-  return sym + v.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-}
+export {
+  CURRENCIES,
+  CURRENCY_LABELS,
+  CURRENCY_RATES,
+  CURRENCY_SYMBOLS,
+  convertFromCny,
+  fmtAmount,
+  fmtCompact,
+  type Currency,
+} from './currency-format'
+import { CURRENCIES, fmtAmount, type Currency } from './currency-format'
 
 // ── Context + provider ─────────────────────────────────────────
 
