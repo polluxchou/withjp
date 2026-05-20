@@ -49,6 +49,15 @@
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar"
   },
+  "notifications": {
+    "title": "Messages",
+    "empty": "No messages",
+    "markAllRead": "Mark all as read",
+    "loadFailed": "Failed to load. Please try again.",
+    "types": {
+      "approval_requested": "Approval pending"
+    }
+  },
   "knowledge": {
     "title": "Knowledge Base",
     "subtitle": "Structured knowledge agents can retrieve by creator lifecycle stage",

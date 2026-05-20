@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
+import NotificationBell from '@/components/notifications/NotificationBell'
 import type { UserProfile } from '@/lib/types'
 
 const NAV = [
@@ -241,6 +242,11 @@ export default function Sidebar() {
       {/* Language Switcher */}
       <div className={effectiveCollapsed ? 'px-2 pb-2' : 'px-3 pb-2'}>
         <LanguageSwitcher collapsed={effectiveCollapsed} />
+      </div>
+
+      {/* Notifications */}
+      <div className={effectiveCollapsed ? 'px-2 pb-2' : 'px-3 pb-2'}>
+        <NotificationBell collapsed={effectiveCollapsed} />
       </div>
 
       {/* Profile Button — shows the logged-in user's nickname + role */}

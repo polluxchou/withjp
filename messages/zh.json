@@ -49,6 +49,15 @@
     "collapse": "折叠侧边栏",
     "expand": "展开侧边栏"
   },
+  "notifications": {
+    "title": "消息",
+    "empty": "暂无消息",
+    "markAllRead": "全部标记已读",
+    "loadFailed": "加载失败，请重试",
+    "types": {
+      "approval_requested": "待审批"
+    }
+  },
   "knowledge": {
     "title": "知识库",
     "subtitle": "按创作者生命周期阶段，可供 AI 代理检索的结构化知识",
