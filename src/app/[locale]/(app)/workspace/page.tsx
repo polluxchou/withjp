@@ -49,19 +49,21 @@ function AgentAvatar({ role, size = 'md' }: { role: string; size?: 'sm' | 'md' |
 
 function formatTime(iso: string): string {
   const d = new Date(iso)
-  const today = new Date()
-  const sameDay =
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
-  if (sameDay) {
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  }
-  // <7d → short weekday-ish; else date
-  const diffDays = Math.floor((today.getTime() - d.getTime()) / 86400000)
-  if (diffDays < 7) {
-    return `${diffDays}d`
-  }
+  if (Number.isNaN(d.getTime())) return ''
+  const now = Date.now()
+  const diffMs = now - d.getTime()
+  // Future / clock-skew: treat as "now" rather than negative.
+  if (diffMs < 0) return 'now'
+  const sec = Math.floor(diffMs / 1000)
+  if (sec < 30) return 'now'
+  const min = Math.floor(sec / 60)
+  if (min < 1) return `${sec}s`
+  if (min < 60) return `${min}m`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h`
+  const day = Math.floor(hr / 24)
+  if (day < 7) return `${day}d`
+  // older: M/D
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
@@ -80,8 +82,15 @@ export default function WorkspacePage() {
   const [sending,          setSending]          = useState(false)
   const [error,            setError]            = useState<string | null>(null)
   const [search,           setSearch]           = useState('')
+  // Tick once a minute so relative timestamps (`5m` → `6m`) update without reload.
+  const [, setTick]                              = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
 
   // ── Load agents on mount ────────────────────────────────────
   useEffect(() => {
