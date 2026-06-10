@@ -413,7 +413,7 @@
     "duplicateTaskTo": "タスクのコピー先を選択",
     "duplicateConfirm": "<title>{name}</title>をここにコピー：",
     "confirmDuplicate": "コピーを確認",
-    "deleteConfirm": "タスク<title>{name}</title>を削除しますか？",
+    "deleteConfirm": "タスク<title>{name}</title>を削除しますか？削除すると元に戻せません。",
     "emptyDay": "この日のタスクはありません",
     "emptyWeek": "今週のタスクはありません",
     "emptyMonth": "今月のタスクはありません",
@@ -532,7 +532,7 @@
     "createFirst": "最初のマイルストーンを作成",
     "loading": "マイルストーンを読み込み中…",
     "empty": "マイルストーンはまだありません。",
-    "deleteConfirm": "このマイルストーンを削除しますか？",
+    "deleteConfirm": "このマイルストーンを削除しますか？削除すると元に戻せません。",
     "view": {
       "list": "リスト",
       "gantt": "タイムライン",
