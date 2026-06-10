@@ -218,7 +218,7 @@ export default function LoginPage() {
                     className="w-full px-4 py-3 pr-11 bg-white border border-zinc-300 rounded-xl text-base text-zinc-900 placeholder-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition"
                   />
                   {emailValid && (
-                    <Check className="absolute right-3.5 top-1/2 -tranzinc-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
+                    <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
                   )}
                 </div>
               </div>
@@ -284,7 +284,7 @@ export default function LoginPage() {
                 className="group w-full bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-white font-medium py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 mt-2"
               >
                 {loading ? t('signingIn') : t('signIn')}
-                {!loading && <ArrowRight className="w-4 h-4 transition-transform group-hover:tranzinc-x-0.5" />}
+                {!loading && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />}
               </button>
             </form>
           </div>

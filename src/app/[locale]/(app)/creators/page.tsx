@@ -68,7 +68,7 @@ export default function CreatorsPage() {
       {/* Filters */}
       <div className="flex items-center gap-3 mb-5">
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -tranzinc-y-1/2 text-zinc-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder={t('searchCreators')}

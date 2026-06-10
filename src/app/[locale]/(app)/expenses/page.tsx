@@ -631,7 +631,7 @@ export default function ExpensesPage() {
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
           {/* Search — full width on mobile */}
           <div className="relative col-span-2 sm:col-span-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -tranzinc-y-1/2 text-zinc-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
