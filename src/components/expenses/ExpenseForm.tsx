@@ -38,8 +38,8 @@ interface Props {
   onCancel:       () => void
 }
 
-const INPUT = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
-const LABEL = 'block text-xs font-medium text-slate-700 mb-1'
+const INPUT = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
+const LABEL = 'block text-xs font-medium text-zinc-700 mb-1'
 
 export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCancel }: Props) {
   const source = expense ?? duplicateFrom
@@ -210,7 +210,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         )}
         <div className={showQty ? 'col-span-2 sm:col-span-1' : ''}>
           <label className={LABEL}>{t('total')}</label>
-          <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium">
+          <div className="w-full border border-zinc-200 bg-zinc-50 rounded-lg px-3 py-2 text-sm text-zinc-700 font-medium">
             ¥{displayTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
           </div>
         </div>
@@ -225,8 +225,8 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         {showPeriod && (
           <div>
             <label className={LABEL}>{t('period')}</label>
-            <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium">
-              {dateToQuarter(form.expense_date) || <span className="text-slate-400 font-normal">{t('periodAutoFromDate')}</span>}
+            <div className="w-full border border-zinc-200 bg-zinc-50 rounded-lg px-3 py-2 text-sm text-zinc-700 font-medium">
+              {dateToQuarter(form.expense_date) || <span className="text-zinc-400 font-normal">{t('periodAutoFromDate')}</span>}
             </div>
           </div>
         )}

@@ -106,13 +106,13 @@ export default function CommandBar() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-5 z-30 flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors text-sm text-slate-700"
+        className="fixed right-5 z-30 flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-zinc-200 shadow-sm hover:bg-zinc-50 transition-colors text-sm text-zinc-700"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
         title={t('openButtonTooltip')}
       >
-        <Sparkles className="w-4 h-4 text-indigo-500" />
+        <Sparkles className="w-4 h-4 text-violet-500" />
         <span className="text-xs font-medium">{t('openButtonLabel')}</span>
-        <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] rounded bg-slate-100 text-slate-500 border border-slate-200">⌘K</kbd>
+        <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] rounded bg-zinc-100 text-zinc-500 border border-zinc-200">⌘K</kbd>
       </button>
 
       <Modal open={open} onClose={close} title={t('modalTitle')} width="max-w-2xl">
@@ -123,7 +123,7 @@ export default function CommandBar() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={t('placeholder')}
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               disabled={busy}
             />
             <Button type="submit" variant="primary" loading={busy} disabled={!text.trim() || busy}>
@@ -132,7 +132,7 @@ export default function CommandBar() {
           </form>
 
           {result && (
-            <div className="border-t border-slate-100 pt-4">
+            <div className="border-t border-zinc-100 pt-4">
               <ResultView
                 result={result}
                 inputText={text}
@@ -179,7 +179,7 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-slate-500">{r.breadcrumbs}</div>
+      <div className="text-xs text-zinc-500">{r.breadcrumbs}</div>
 
       {/* Empty-state branches come first so a 0 doesn't masquerade as a real answer. */}
       {denomEmpty ? (
@@ -195,39 +195,39 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
           suggestions={t.raw('query.emptyNumerator.suggestions') as string[]}
         />
       ) : isRatio ? (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-1">
-          <div className="text-2xl font-semibold text-slate-900">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 space-y-1">
+          <div className="text-2xl font-semibold text-zinc-900">
             {(r.denominator!.ratio * 100).toFixed(1)}%
           </div>
-          <div className="text-sm text-slate-600">
-            {formatValue(r.numerator.value, r.aggregate)} <span className="text-slate-400">/</span>{' '}
+          <div className="text-sm text-zinc-600">
+            {formatValue(r.numerator.value, r.aggregate)} <span className="text-zinc-400">/</span>{' '}
             {formatValue(r.denominator!.value, r.aggregate)}
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-zinc-500">
             {t('query.ratioCounts', { num: r.numerator.count, denom: r.denominator!.count })}
           </div>
         </div>
       ) : (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-1">
-          <div className="text-2xl font-semibold text-slate-900">
+        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 space-y-1">
+          <div className="text-2xl font-semibold text-zinc-900">
             {formatValue(r.numerator.value, r.aggregate)}
           </div>
-          <div className="text-xs text-slate-500">{t('query.countShort', { count: r.numerator.count })}</div>
+          <div className="text-xs text-zinc-500">{t('query.countShort', { count: r.numerator.count })}</div>
         </div>
       )}
 
       {r.groups && r.groups.length > 0 && (
-        <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <div className="border border-zinc-200 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs">
+            <thead className="bg-zinc-50 text-zinc-600 text-xs">
               <tr><th className="text-left px-3 py-2">{t('query.groupCol')}</th><th className="text-right px-3 py-2">{t('query.groupValueCol')}</th><th className="text-right px-3 py-2">{t('query.groupCountCol')}</th></tr>
             </thead>
             <tbody>
               {r.groups.map((g) => (
-                <tr key={g.key} className="border-t border-slate-100">
+                <tr key={g.key} className="border-t border-zinc-100">
                   <td className="px-3 py-1.5">{g.key}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{formatValue(g.value, r.aggregate)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums text-slate-500">{g.count}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-zinc-500">{g.count}</td>
                 </tr>
               ))}
             </tbody>
@@ -236,7 +236,7 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
       )}
 
       {r.sample && r.sample.length > 0 && (
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-zinc-500">
           {t('query.sampleHint', { count: r.sample.length })}
         </div>
       )}
@@ -254,9 +254,9 @@ function ClarificationView({ r }: { r: Extract<ServerResult, { kind: 'clarificat
         {r.message}
       </div>
       {r.candidates && r.candidates.length > 0 && (
-        <div className="border border-slate-200 rounded-lg overflow-hidden">
+        <div className="border border-zinc-200 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600 text-xs">
+            <thead className="bg-zinc-50 text-zinc-600 text-xs">
               <tr>
                 <th className="text-left px-3 py-2">{t('dateCol')}</th>
                 <th className="text-left px-3 py-2">{t('nameCol')}</th>
@@ -266,11 +266,11 @@ function ClarificationView({ r }: { r: Extract<ServerResult, { kind: 'clarificat
             </thead>
             <tbody>
               {r.candidates.slice(0, 10).map((c) => (
-                <tr key={c.id} className="border-t border-slate-100">
-                  <td className="px-3 py-1.5 tabular-nums text-slate-600">{c.expense_date}</td>
+                <tr key={c.id} className="border-t border-zinc-100">
+                  <td className="px-3 py-1.5 tabular-nums text-zinc-600">{c.expense_date}</td>
                   <td className="px-3 py-1.5">{c.item_name}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">¥{Number(c.total_price).toLocaleString('zh-CN')}</td>
-                  <td className="px-3 py-1.5 text-slate-600">{c.buyer_name || '—'}</td>
+                  <td className="px-3 py-1.5 text-zinc-600">{c.buyer_name || '—'}</td>
                 </tr>
               ))}
             </tbody>

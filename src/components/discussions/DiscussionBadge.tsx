@@ -51,8 +51,8 @@ export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
     tone === 'open'
       ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
       : tone === 'resolved'
-      ? 'bg-slate-50 text-slate-500 hover:bg-slate-100 border-slate-200'
-      : 'bg-white text-slate-500 hover:bg-slate-50 border-slate-200 border-dashed'
+      ? 'bg-zinc-50 text-zinc-500 hover:bg-zinc-100 border-zinc-200'
+      : 'bg-white text-zinc-500 hover:bg-zinc-50 border-zinc-200 border-dashed'
 
   const sizeClass = compact
     ? 'px-1.5 py-0.5 text-[11px] gap-1'

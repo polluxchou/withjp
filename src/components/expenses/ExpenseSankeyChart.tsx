@@ -23,7 +23,7 @@ const CROSS_BORDER_BUYERS = new Set(['chenhao', 'xiaoshou'])
 const BUYER_DISPLAY: Record<string, string> = { chenhao: '陈昊', xiaoshou: '小兽' }
 
 const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
-  tangible_asset:  '#6366f1',
+  tangible_asset:  '#8b5cf6',
   salary:          '#f59e0b',
   rent:            '#10b981',
   travel:          '#3b82f6',
@@ -97,7 +97,7 @@ function computeLayout(
   const catNodes: SankeyNode[] = catEntries.map(([cat, val]) => {
     const h    = scale(val)
     const node = { id: cat, label: EXPENSE_CATEGORY_LABELS[cat as ExpenseCategory] ?? cat,
-                   value: val, color: CATEGORY_COLORS[cat as ExpenseCategory] ?? '#94a3b8',
+                   value: val, color: CATEGORY_COLORS[cat as ExpenseCategory] ?? '#a1a1aa',
                    y0: yAcc, y1: yAcc + h, col: 0 as const }
     yAcc += h + NODE_GAP
     return node
@@ -109,7 +109,7 @@ function computeLayout(
   const buyerNodes: SankeyNode[] = buyerEntries.map(([buyer, { total, crossBorder }]) => {
     const h    = scale(total)
     const node = { id: buyer, label: BUYER_DISPLAY[buyer] ?? buyer,
-                   value: total, color: crossBorder > 0 ? '#f43f5e' : '#94a3b8',
+                   value: total, color: crossBorder > 0 ? '#f43f5e' : '#a1a1aa',
                    y0: yAcc, y1: yAcc + h, col: 1 as const }
     yAcc += h + NODE_GAP
     return node
@@ -267,7 +267,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
             <rect
               x={TX0} y={n.y0}
               width={NODE_W} height={Math.max(n.y1 - n.y0, 2)}
-              rx={2} fill={isCB ? '#f43f5e' : '#64748b'}
+              rx={2} fill={isCB ? '#f43f5e' : '#71717a'}
               opacity={dimmed ? 0.25 : 1}
               style={{ transition: 'opacity 120ms' }}
             />
@@ -286,7 +286,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
               <text
                 x={TX0 - 4} y={(n.y0 + n.y1) / 2}
                 textAnchor="end" dominantBaseline="middle"
-                fontSize={7.5} fill={isCB ? '#f43f5e' : '#64748b'} fontWeight={600}
+                fontSize={7.5} fill={isCB ? '#f43f5e' : '#71717a'} fontWeight={600}
               >
                 {fmtC(n.value)}
               </text>

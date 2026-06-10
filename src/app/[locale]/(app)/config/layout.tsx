@@ -15,7 +15,7 @@ export default function ConfigLayout({ children }: { children: React.ReactNode }
 
   return (
     <div>
-      <div className="flex gap-1 mb-5 border-b border-slate-200 overflow-x-auto scrollbar-thin">
+      <div className="flex gap-1 mb-5 border-b border-zinc-200 overflow-x-auto scrollbar-thin">
         {TABS.map(({ href, key, icon: Icon }) => {
           // /config is the rules tab — only active on exact match so it
           // doesn't light up while we're on /config/changelog.
@@ -26,8 +26,8 @@ export default function ConfigLayout({ children }: { children: React.ReactNode }
               href={href}
               className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
                 active
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  ? 'border-violet-500 text-primary'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-700'
               }`}
             >
               <Icon className="w-4 h-4" />

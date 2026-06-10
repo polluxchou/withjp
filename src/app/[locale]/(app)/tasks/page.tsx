@@ -141,7 +141,7 @@ export default function TasksPage() {
       />
 
       {/* Main tabs */}
-      <div className="flex items-center gap-1 mb-5 border-b border-slate-200">
+      <div className="flex items-center gap-1 mb-5 border-b border-zinc-200">
         {([
           { key: 'workload', labelKey: 'tabWorkload', icon: Calendar },
           { key: 'ai',       labelKey: 'tabAi',       icon: CheckSquare },
@@ -151,8 +151,8 @@ export default function TasksPage() {
             onClick={() => setMainTab(key)}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
               mainTab === key
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-zinc-500 hover:text-zinc-700'
             }`}
           >
             <Icon className="w-4 h-4" />
@@ -174,12 +174,12 @@ export default function TasksPage() {
                   onClick={() => setFilter(key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
                     filter === key
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      ? 'bg-primary text-white'
+                      : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
                   }`}
                 >
                   {key === 'all' ? tCommon('all') : t(key)}
-                  <span className={`rounded-full px-1.5 py-0.5 text-xs ${filter === key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                  <span className={`rounded-full px-1.5 py-0.5 text-xs ${filter === key ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
                     {count}
                   </span>
                 </button>
@@ -188,11 +188,11 @@ export default function TasksPage() {
           </div>
 
           {aiLoading ? (
-            <div className="text-center py-12 text-sm text-slate-400">{tCommon('loading')}</div>
+            <div className="text-center py-12 text-sm text-zinc-400">{tCommon('loading')}</div>
           ) : tasks.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-12 text-center">
-              <CheckSquare className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm text-slate-400">{t('noTasksInView')}</p>
+            <div className="bg-white border border-zinc-200 rounded-xl p-12 text-center">
+              <CheckSquare className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
+              <p className="text-sm text-zinc-400">{t('noTasksInView')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -213,8 +213,8 @@ export default function TasksPage() {
                   )}
                   {task.status === 'done' && task.output && (
                     <details className="pl-7 pt-1">
-                      <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600">{t('viewOutput')}</summary>
-                      <pre className="mt-2 text-xs bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-auto max-h-48 text-slate-700">
+                      <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-600">{t('viewOutput')}</summary>
+                      <pre className="mt-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg p-3 overflow-auto max-h-48 text-zinc-700">
                         {JSON.stringify(task.output, null, 2)}
                       </pre>
                     </details>
@@ -231,15 +231,15 @@ export default function TasksPage() {
         <>
           {/* Period selector + day date picker */}
           <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+            <div className="flex items-center gap-1 bg-white border border-zinc-200 rounded-lg p-0.5">
               {(['day', 'week', 'month'] as WorkloadPeriod[]).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                     period === p
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
+                      ? 'bg-primary text-white shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-700'
                   }`}
                 >
                   {p === 'day' ? t('periodDay') : p === 'week' ? t('periodWeek') : t('periodMonth')}
@@ -252,13 +252,13 @@ export default function TasksPage() {
                 type="date"
                 value={dayDate}
                 onChange={(e) => setDayDate(e.target.value)}
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             )}
           </div>
 
           {wlLoading ? (
-            <div className="text-center py-12 text-sm text-slate-400">{tCommon('loading')}</div>
+            <div className="text-center py-12 text-sm text-zinc-400">{tCommon('loading')}</div>
           ) : (
             <>
               {period === 'day'   && (
@@ -297,10 +297,10 @@ export default function TasksPage() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-semibold text-slate-900">{t('salaryManagement')}</h2>
+                  <h2 className="text-base font-semibold text-zinc-900">{t('salaryManagement')}</h2>
                   <button
                     onClick={() => setShowSalary(false)}
-                    className="text-slate-400 hover:text-slate-700 transition-colors text-sm"
+                    className="text-zinc-400 hover:text-zinc-700 transition-colors text-sm"
                   >
                     {tCommon('close')}
                   </button>

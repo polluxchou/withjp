@@ -148,8 +148,8 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
     }
   }
 
-  const inputCls  = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white'
-  const labelCls  = 'block text-xs font-medium text-slate-600 mb-1'
+  const inputCls  = 'w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white'
+  const labelCls  = 'block text-xs font-medium text-zinc-600 mb-1'
   const sectionCls = 'grid grid-cols-2 gap-3'
 
   return (
@@ -237,15 +237,15 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
       {agents.length > 0 && (
         <div>
           <label className={labelCls}>{t('form.involvedAgents')}</label>
-          <div className="border border-slate-200 rounded-lg p-2.5 space-y-1.5 max-h-32 overflow-y-auto">
+          <div className="border border-zinc-200 rounded-lg p-2.5 space-y-1.5 max-h-32 overflow-y-auto">
             {agents.map(a => (
               <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox"
                   checked={form.involved_agent_ids.includes(a.id)}
                   onChange={e => toggleAgent(a.id, e.target.checked)}
                   className="rounded" />
-                <span className="text-slate-700">{a.name}</span>
-                <span className="text-slate-400 text-xs">({a.role})</span>
+                <span className="text-zinc-700">{a.name}</span>
+                <span className="text-zinc-400 text-xs">({a.role})</span>
               </label>
             ))}
           </div>

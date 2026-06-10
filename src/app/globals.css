@@ -41,7 +41,7 @@
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+    scrollbar-color: #d4d4d8 transparent;
   }
 
   /* 风格 B 纹理:顶部主色光晕(不重复) + 极淡点阵网格(平铺)。

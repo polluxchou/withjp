@@ -34,12 +34,12 @@ const THUMB_CLS = [
   '[&::-webkit-slider-thumb]:pointer-events-auto',
   '[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5',
   '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white',
-  '[&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-indigo-600',
+  '[&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-violet-600',
   '[&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab',
   '[&::-moz-range-thumb]:pointer-events-auto',
   '[&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5',
   '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white',
-  '[&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-indigo-600',
+  '[&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-violet-600',
   '[&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-grab',
   '[&::-moz-range-track]:bg-transparent',
 ].join(' ')
@@ -120,7 +120,7 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
       <div className="relative pt-7 pb-1">
         {isSingleDay ? (
           <div
-            className="absolute top-0 bg-indigo-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none"
+            className="absolute top-0 bg-primary text-white text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none"
             style={badgeStyle(aPct)}
           >
             {fmtDate(ordToDate(draft.a))} · {tCommon('singleDay')}
@@ -128,21 +128,21 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
         ) : (
           <>
             <div
-              className="absolute top-0 bg-indigo-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none"
+              className="absolute top-0 bg-primary text-white text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none"
               style={badgeStyle(aPct)}
             >
               {fmtDate(ordToDate(draft.a))}
             </div>
             {bPct - aPct > 12 && (
               <div
-                className="absolute top-0.5 -translate-x-1/2 text-[10px] font-medium text-indigo-500 pointer-events-none"
+                className="absolute top-0.5 -translate-x-1/2 text-[10px] font-medium text-violet-500 pointer-events-none"
                 style={{ left: `${(aPct + bPct) / 2}%` }}
               >
                 {tCommon('days', { count: draft.b - draft.a })}
               </div>
             )}
             <div
-              className="absolute top-0 bg-indigo-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none"
+              className="absolute top-0 bg-primary text-white text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap pointer-events-none"
               style={badgeStyle(bPct)}
             >
               {fmtDate(ordToDate(draft.b))}
@@ -158,16 +158,16 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
           onTouchStart={(e) => updateActiveByCursor(e.touches[0]?.clientX ?? 0)}
           onTouchMove={(e) => updateActiveByCursor(e.touches[0]?.clientX ?? 0)}
         >
-          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-slate-200 rounded-full" />
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-zinc-200 rounded-full" />
 
           {isSingleDay ? (
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-indigo-500 rounded-full pointer-events-none ring-2 ring-indigo-200"
+              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-violet-500 rounded-full pointer-events-none ring-2 ring-violet-200"
               style={{ left: `calc(${aPct}% - 5px)` }}
             />
           ) : (
             <div
-              className="absolute top-1/2 -translate-y-1/2 h-2 bg-indigo-500 rounded-full pointer-events-none"
+              className="absolute top-1/2 -translate-y-1/2 h-2 bg-violet-500 rounded-full pointer-events-none"
               style={{ left: `${aPct}%`, width: `${bPct - aPct}%` }}
             />
           )}
@@ -201,8 +201,8 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
               className="absolute flex flex-col items-center pointer-events-none"
               style={{ left: `${pct}%`, transform: 'translateX(-50%)' }}
             >
-              <div className="w-px h-2 bg-slate-300" />
-              <span className="text-[10px] text-slate-400 mt-0.5 whitespace-nowrap">{label}</span>
+              <div className="w-px h-2 bg-zinc-300" />
+              <span className="text-[10px] text-zinc-400 mt-0.5 whitespace-nowrap">{label}</span>
             </div>
           )
         })}
