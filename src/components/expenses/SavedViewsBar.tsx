@@ -189,7 +189,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
 
   if (!hydrated) {
     return (
-      <div className="h-9 flex items-center gap-2 text-xs text-slate-400">
+      <div className="h-9 flex items-center gap-2 text-xs text-zinc-400">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
         <span>{t('loading')}</span>
       </div>
@@ -198,15 +198,15 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <Bookmark className="w-3.5 h-3.5 text-slate-400 mr-0.5" />
+      <Bookmark className="w-3.5 h-3.5 text-zinc-400 mr-0.5" />
 
       <button
         type="button"
         onClick={() => onApply(EMPTY_FILTERS)}
         className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
           emptyActive
-            ? 'bg-indigo-600 text-white border border-indigo-600'
-            : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+            ? 'bg-primary text-white border border-primary'
+            : 'bg-white border border-zinc-200 text-zinc-600 hover:border-violet-300 hover:text-primary'
         }`}
       >
         {tCommon('all')}
@@ -219,8 +219,8 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
             key={v.id}
             className={`group inline-flex items-center rounded-lg text-xs font-medium border transition-colors ${
               active
-                ? 'bg-indigo-600 text-white border-indigo-600'
-                : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white border-zinc-200 text-zinc-600 hover:border-violet-300 hover:text-primary'
             }`}
           >
             <button
@@ -236,7 +236,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
               disabled={busy}
               title={t('deleteTooltip')}
               className={`pr-2 pl-0.5 py-1 rounded-r-lg transition-colors disabled:opacity-50 ${
-                active ? 'hover:bg-indigo-700' : 'text-slate-300 hover:text-rose-600'
+                active ? 'hover:bg-primary-hover' : 'text-zinc-300 hover:text-rose-600'
               }`}
             >
               <X className="w-3 h-3" />
@@ -250,7 +250,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
           type="button"
           onClick={createView}
           disabled={busy}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-dashed border-violet-300 text-primary hover:bg-primary-soft transition-colors disabled:opacity-50"
         >
           {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} {t('saveCurrent')}
         </button>
