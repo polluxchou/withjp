@@ -140,7 +140,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-primary-soft0 rounded-full transition-all"
+                      className="h-full bg-violet-500 rounded-full transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

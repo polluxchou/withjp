@@ -177,7 +177,7 @@ export default function MilestoneDetailPage() {
             </span>
           </div>
           <div className="w-full bg-zinc-100 rounded-full h-2">
-            <div className="bg-primary-soft0 h-2 rounded-full transition-all"
+            <div className="bg-violet-500 h-2 rounded-full transition-all"
               style={{ width: `${progressPct}%` }} />
           </div>
         </div>
