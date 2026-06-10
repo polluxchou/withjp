@@ -10,10 +10,12 @@ export default function PageGreeting({ name }: Props) {
   const t = useTranslations('greeting')
   const hour = new Date().getHours()
   const key = hour < 11 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
+  // Renders a span (not a heading): callers place this inside Header's <h1>.
   return (
-    <h1 className="text-xl font-semibold text-zinc-900" suppressHydrationWarning>
+    <span className="block text-xl font-semibold text-zinc-900" suppressHydrationWarning>
       {t(key)}
-      {name ? ` · ${name}` : ''} 👋
-    </h1>
+      {name ? ` · ${name}` : ''}
+      <span aria-hidden="true"> 👋</span>
+    </span>
   )
 }
