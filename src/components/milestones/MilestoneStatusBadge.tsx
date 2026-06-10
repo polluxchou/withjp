@@ -3,7 +3,7 @@ import type { MilestoneStatus, MilestonePriority, MilestoneType, RiskLevel } fro
 // ── Color maps ────────────────────────────────────────────────
 
 const STATUS_CFG: Record<MilestoneStatus, { label: string; cls: string }> = {
-  planned:   { label: 'Planned',   cls: 'bg-slate-100 text-slate-700' },
+  planned:   { label: 'Planned',   cls: 'bg-zinc-100 text-zinc-700' },
   active:    { label: 'Active',    cls: 'bg-blue-100 text-blue-700' },
   at_risk:   { label: 'At Risk',   cls: 'bg-amber-100 text-amber-800' },
   completed: { label: 'Completed', cls: 'bg-green-100 text-green-700' },
@@ -13,7 +13,7 @@ const STATUS_CFG: Record<MilestoneStatus, { label: string; cls: string }> = {
 const PRIORITY_CFG: Record<MilestonePriority, { label: string; cls: string }> = {
   high:   { label: 'High',   cls: 'bg-red-50 text-red-600 border border-red-200' },
   medium: { label: 'Medium', cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  low:    { label: 'Low',    cls: 'bg-slate-50 text-slate-500 border border-slate-200' },
+  low:    { label: 'Low',    cls: 'bg-zinc-50 text-zinc-500 border border-zinc-200' },
 }
 
 const TYPE_CFG: Record<MilestoneType, { label: string; cls: string }> = {
@@ -21,7 +21,7 @@ const TYPE_CFG: Record<MilestoneType, { label: string; cls: string }> = {
   launch:      { label: 'Launch',      cls: 'bg-blue-100 text-blue-700' },
   recruitment: { label: 'Recruitment', cls: 'bg-green-100 text-green-700' },
   finance:     { label: 'Finance',     cls: 'bg-amber-100 text-amber-700' },
-  review:      { label: 'Review',      cls: 'bg-slate-100 text-slate-600' },
+  review:      { label: 'Review',      cls: 'bg-zinc-100 text-zinc-600' },
 }
 
 const RISK_CFG: Record<RiskLevel, { label: string; cls: string }> = {
@@ -33,7 +33,7 @@ const RISK_CFG: Record<RiskLevel, { label: string; cls: string }> = {
 // ── Bar colors for Gantt timeline ─────────────────────────────
 
 export const STATUS_BAR_COLOR: Record<MilestoneStatus, string> = {
-  planned:   'bg-slate-400',
+  planned:   'bg-zinc-400',
   active:    'bg-blue-500',
   at_risk:   'bg-amber-500',
   completed: 'bg-green-500',
