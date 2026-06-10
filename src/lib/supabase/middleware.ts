@@ -14,16 +14,20 @@ function localizedLoginPath(pathname: string) {
   return `/${isLocale(locale) ? locale : defaultLocale}/login`
 }
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, extraRequestHeaders?: Headers) {
   const { pathname } = request.nextUrl
   const pathnameWithoutLocale = stripLocale(pathname)
 
+  // The requestInit lets callers (e.g. middleware) inject extra request headers
+  // (like X-NEXT-INTL-LOCALE) that must be visible to server components.
+  const requestInit = extraRequestHeaders ? { request: { headers: extraRequestHeaders } } : { request }
+
   // Skip Supabase auth check for public paths to avoid network timeout blocking page load
   if (PUBLIC_PATHS.some(p => pathnameWithoutLocale.startsWith(p)) || pathname.includes('.')) {
-    return NextResponse.next({ request })
+    return NextResponse.next(requestInit)
   }
 
-  let supabaseResponse = NextResponse.next({ request })
+  let supabaseResponse = NextResponse.next(requestInit)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +39,7 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = NextResponse.next(requestInit)
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
