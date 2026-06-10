@@ -8,6 +8,7 @@ import { useState } from 'react'
 const languages = [
   { code: 'zh', flag: '🇨🇳' },
   { code: 'en', flag: '🇺🇸' },
+  { code: 'ja', flag: '🇯🇵' },
 ]
 
 interface Props {
