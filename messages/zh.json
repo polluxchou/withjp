@@ -75,7 +75,7 @@
     "loading": "加载中...",
     "noEntries": "还没有条目，添加第一条吧。",
     "selectEntry": "点击左侧条目查看内容",
-    "deletePrompt": "确定要删掉这条知识吗？删了就没了。",
+    "deletePrompt": "确定要删掉这条知识吗？删了就找不回来了。",
     "categoryField": "类别 *",
     "categorySelect": "选择类别",
     "tagsField": "标签（逗号分隔）",
@@ -522,7 +522,7 @@
       "notesField": "备注",
       "notesPlaceholder": "可选备注",
       "addRecordBtn": "添加记录",
-      "deleteConfirm": "确定删除 <strong>{name}</strong> 的薪资记录（生效：{from}）？删了就没了。"
+      "deleteConfirm": "确定删除 <strong>{name}</strong> 的薪资记录（生效：{from}）？删了就找不回来了。"
     }
   },
   "timeline": {
@@ -593,7 +593,7 @@
       "notFound": "没找到这个节点，可能已被删除。",
       "back": "← 返回时间轴",
       "backLink": "战略时间轴",
-      "deleteConfirm": "确定要永久删除这个节点吗？删了找不回来了。",
+      "deleteConfirm": "确定要永久删除这个节点吗？删了就找不回来了。",
       "taskProgress": "任务进度",
       "taskProgressValue": "{done}/{total} 已完成（{pct}%）",
       "daysUntilTarget": "距目标天数",
@@ -716,7 +716,7 @@
     "date": "日期",
     "to": "至",
     "empty": "还没有支出记录",
-    "addFirst": "添加第一条支出吧",
+    "addFirst": "添加第一条支出",
     "category": {
       "viewPie": "饼图",
       "viewSankey": "流向图",
