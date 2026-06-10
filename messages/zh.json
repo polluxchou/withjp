@@ -19,7 +19,9 @@
     "close": "关闭",
     "details": "详情",
     "singleDay": "单日",
-    "days": "{count}天"
+    "days": "{count}天",
+    "emptyTitle": "还没有记录",
+    "emptyHint": "添加第一条吧"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -42,6 +44,11 @@
     "zh": "中文",
     "en": "English",
     "switchLanguage": "切换语言"
+  },
+  "greeting": {
+    "morning": "早上好",
+    "afternoon": "下午好",
+    "evening": "晚上好"
   },
   "sidebar": {
     "openMenu": "打开菜单",

@@ -7,7 +7,7 @@
     --sidebar-width: 240px;
   }
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-canvas text-zinc-900 antialiased;
   }
 
   /* iOS Safari auto-zooms when an <input> / <select> / <textarea> with a
@@ -42,5 +42,21 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
+  }
+
+  /* 风格 B 纹理:顶部主色光晕(不重复) + 极淡点阵网格(平铺)。
+     两层 background-image 必须合并在一个类里,拆成两个类会互相覆盖。 */
+  .bg-texture {
+    background-image:
+      radial-gradient(ellipse 600px 240px at 50% -60px, rgba(124, 58, 237, 0.12), transparent 70%),
+      radial-gradient(#d4d4d8 0.8px, transparent 0.8px);
+    background-size: 100% 100%, 14px 14px;
+    background-repeat: no-repeat, repeat;
+  }
+
+  .sidebar-frosted {
+    background-color: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 }
