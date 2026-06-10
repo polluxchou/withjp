@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
+import PageGreeting from '@/components/ui/PageGreeting'
 import type { DashboardStats, Task, Creator, CreatorStatus } from '@/lib/types'
 import { ALL_STATUSES } from '@/lib/state-machine/creator-lifecycle'
 import { fmtCompact } from '@/lib/currency-format'
@@ -77,7 +78,7 @@ export default async function DashboardPage() {
   return (
     <div>
       <Header
-        title={t('title')}
+        title={<PageGreeting />}
         subtitle={t('subtitle')}
         actions={
           <Link href="/creators" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-medium hover:text-indigo-800">

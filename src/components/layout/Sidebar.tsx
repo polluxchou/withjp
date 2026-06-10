@@ -140,7 +140,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center justify-center"
+        className="lg:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-zinc-200 text-zinc-700 shadow-sm flex items-center justify-center"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         aria-label={tSidebar('openMenu')}
       >
@@ -157,7 +157,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-screen bg-slate-900 flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
+        className={`fixed top-0 left-0 h-screen sidebar-frosted border-r border-zinc-200 flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0'
         }`}
         style={{
@@ -172,20 +172,20 @@ export default function Sidebar() {
         }}
       >
       {/* Logo + collapse toggle */}
-      <div className={`flex items-center border-b border-slate-800 ${effectiveCollapsed ? 'justify-center px-2 py-5' : 'gap-2.5 px-5 py-5'}`}>
-        <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0">
+      <div className={`flex items-center border-b border-zinc-200 ${effectiveCollapsed ? 'justify-center px-2 py-5' : 'gap-2.5 px-5 py-5'}`}>
+        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
           <Zap className="w-4 h-4 text-white" />
         </div>
         {showLabel && (
           <div className="min-w-0 flex-1">
-            <div className="text-white font-semibold text-sm leading-tight truncate">{t('appName')}</div>
-            <div className="text-slate-400 text-xs truncate">{t('appSubtitle')}</div>
+            <div className="text-zinc-900 font-semibold text-sm leading-tight truncate">{t('appName')}</div>
+            <div className="text-zinc-500 text-xs truncate">{t('appSubtitle')}</div>
           </div>
         )}
         {showLabel && !isMobile && (
           <button
             onClick={() => setCollapsed(true)}
-            className="w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex-shrink-0"
             title={tSidebar('collapse')}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -198,7 +198,7 @@ export default function Sidebar() {
       {effectiveCollapsed && (
         <button
           onClick={() => setCollapsed(false)}
-          className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center shadow-md"
+          className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex items-center justify-center shadow-md"
           title={tSidebar('expand')}
         >
           <ChevronRight className="w-3.5 h-3.5" />
@@ -210,7 +210,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center"
+          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
           aria-label={tSidebar('closeMenu')}
         >
           <X className="w-5 h-5" />
@@ -228,9 +228,9 @@ export default function Sidebar() {
               key={href}
               href={href}
               title={effectiveCollapsed ? t(key) : undefined}
-              className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center rounded-lg text-sm transition-colors ${
                 effectiveCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-              } ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+              } ${active ? 'bg-primary-soft text-primary font-semibold' : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               {showLabel && <span className="truncate">{t(key)}</span>}
@@ -254,23 +254,23 @@ export default function Sidebar() {
         <button
           onClick={() => setProfileOpen(true)}
           title={effectiveCollapsed ? (profile?.name ?? t('profile')) : undefined}
-          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800 w-full ${
+          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 w-full ${
             effectiveCollapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-2 py-2'
           }`}
         >
           {profile ? (
-            <span className="w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
+            <span className="w-7 h-7 rounded-full bg-primary text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
               {initialsOf(profile)}
             </span>
           ) : (
-            <UserCircle className="w-7 h-7 flex-shrink-0 text-slate-500" />
+            <UserCircle className="w-7 h-7 flex-shrink-0 text-zinc-400" />
           )}
           {showLabel && (
             <span className="min-w-0 flex-1 text-left">
-              <span className="block text-sm font-medium text-white truncate">
+              <span className="block text-sm font-medium text-zinc-900 truncate">
                 {profile?.name ?? t('profile')}
               </span>
-              <span className="block text-[10px] text-slate-400 truncate">
+              <span className="block text-[10px] text-zinc-500 truncate">
                 {profile
                   ? [profile.user_code, profile.role ? tRoles(profile.role) : null]
                       .filter(Boolean).join(' · ')
@@ -287,8 +287,8 @@ export default function Sidebar() {
       {/* Footer — hidden on mobile to save vertical room for the profile
           button above. */}
       {showLabel && !isMobile && (
-        <div className="px-5 py-4 border-t border-slate-800">
-          <div className="text-xs text-slate-600">v0.1.1</div>
+        <div className="px-5 py-4 border-t border-zinc-200">
+          <div className="text-xs text-zinc-400">v0.1.1</div>
         </div>
       )}
 

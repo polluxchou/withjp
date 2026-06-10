@@ -9,7 +9,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <CurrencyProvider>
       <Sidebar />
       <main
-        className="main-content min-h-screen px-4 pb-4 sm:p-6 md:p-8 transition-[margin-left] duration-200"
+        className="bg-texture main-content min-h-screen px-4 pb-4 sm:p-6 md:p-8 transition-[margin-left] duration-200"
         style={{ marginLeft: 'var(--sidebar-width, 0px)' }}
       >
         {children}

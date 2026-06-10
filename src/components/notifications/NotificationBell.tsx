@@ -97,7 +97,7 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
         onClick={() => setOpen((value) => !value)}
         title={collapsed ? t('title') : undefined}
         aria-label={t('title')}
-        className={`relative flex w-full items-center rounded-lg text-sm font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-white ${
+        className={`relative flex w-full items-center rounded-lg text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 ${
           collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
         }`}
       >
