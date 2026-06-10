@@ -228,9 +228,9 @@ export default function Sidebar() {
               key={href}
               href={href}
               title={effectiveCollapsed ? t(key) : undefined}
-              className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center rounded-lg text-sm transition-colors ${
                 effectiveCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-              } ${active ? 'bg-primary-soft text-primary font-semibold' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
+              } ${active ? 'bg-primary-soft text-primary font-semibold' : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               {showLabel && <span className="truncate">{t(key)}</span>}
