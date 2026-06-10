@@ -11,7 +11,7 @@ export default function PageGreeting({ name }: Props) {
   const hour = new Date().getHours()
   const key = hour < 11 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'
   return (
-    <h1 className="text-xl font-semibold text-zinc-900">
+    <h1 className="text-xl font-semibold text-zinc-900" suppressHydrationWarning>
       {t(key)}
       {name ? ` · ${name}` : ''} 👋
     </h1>
