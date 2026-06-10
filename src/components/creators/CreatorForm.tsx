@@ -168,14 +168,14 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('name')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('name')}</label>
           <input value={form.name} onChange={set('name')} placeholder={t('namePlaceholder')}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('platform')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('platform')}</label>
           <select value={form.platform} onChange={set('platform')}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
             <option value="">{t('selectPlatform')}</option>
             {CREATOR_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
@@ -183,18 +183,18 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-700 mb-1">{t('platformId')}</label>
+        <label className="block text-xs font-medium text-zinc-700 mb-1">{t('platformId')}</label>
         <input value={form.platform_id} onChange={set('platform_id')} placeholder={t('platformIdPlaceholder')}
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <p className="text-xs text-slate-400 mt-1">{t('platformIdHint')}</p>
+          className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+        <p className="text-xs text-zinc-400 mt-1">{t('platformIdHint')}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('broadcastAccount')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('broadcastAccount')}</label>
           <div className="flex gap-2">
             <select value={form.broadcast_account_id} onChange={set('broadcast_account_id')}
-              className="min-w-0 flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="min-w-0 flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
               <option value="">{t('unassigned')}</option>
               {broadcastAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
@@ -215,12 +215,12 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
               {t('new')}
             </Button>
           </div>
-          <p className="text-xs text-slate-400 mt-1">{t('broadcastHint')}</p>
+          <p className="text-xs text-zinc-400 mt-1">{t('broadcastHint')}</p>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('operator')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('operator')}</label>
           <select value={form.operator_user_id} onChange={set('operator_user_id')}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
             <option value="">{t('unassigned')}</option>
             {operators.map((operator) => (
               <option key={operator.id} value={operator.id}>
@@ -232,37 +232,37 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
       </div>
 
       {showNewBroadcast && (
-        <div className="border border-slate-200 rounded-lg p-3 space-y-3">
+        <div className="border border-zinc-200 rounded-lg p-3 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">{t('accountName')}</label>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('accountName')}</label>
               <input value={newBroadcast.name} onChange={setBroadcast('name')} placeholder={t('accountNamePlaceholder')}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">{t('platform')}</label>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('platform')}</label>
               <select value={newBroadcast.platform} onChange={setBroadcast('platform')}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
                 <option value="">{t('selectPlatform')}</option>
                 {CREATOR_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">{t('handle')}</label>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('handle')}</label>
               <input value={newBroadcast.account_handle} onChange={setBroadcast('account_handle')} placeholder={t('handlePlaceholder')}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">{t('url')}</label>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('url')}</label>
               <input value={newBroadcast.account_url} onChange={setBroadcast('account_url')} placeholder={t('urlPlaceholder')}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">{t('notes')}</label>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('notes')}</label>
               <input value={newBroadcast.notes} onChange={setBroadcast('notes')} placeholder={tCommon('none')}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -274,44 +274,44 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
 
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('niche')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('niche')}</label>
           <input value={form.niche} onChange={set('niche')} placeholder={t('nichePlaceholder')}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('followers')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('followers')}</label>
           <input type="number" min="0" value={form.followers} onChange={set('followers')} placeholder="200000"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('avgViews')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('avgViews')}</label>
           <input type="number" min="0" value={form.avg_views} onChange={set('avg_views')} placeholder="50000"
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('location')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('location')}</label>
           <input value={form.location} onChange={set('location')} placeholder={t('locationPlaceholder')}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('email')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('email')}</label>
           <input type="email" value={form.email} onChange={set('email')} placeholder={t('emailPlaceholder')}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">{t('wechat')}</label>
+          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('wechat')}</label>
           <input value={form.wechat} onChange={set('wechat')} placeholder={t('wechatPlaceholder')}
-            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-slate-700 mb-1">{t('notes')}</label>
+        <label className="block text-xs font-medium text-zinc-700 mb-1">{t('notes')}</label>
         <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder={t('notesPlaceholder')}
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+          className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none" />
       </div>
 
       <div className="flex justify-end gap-2 pt-2">

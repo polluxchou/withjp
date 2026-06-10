@@ -122,11 +122,11 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
     <div>
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+        <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <span className="text-sm font-semibold text-slate-700">{t('table.ymLabel', { year, month })}</span>
-        <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+        <span className="text-sm font-semibold text-zinc-700">{t('table.ymLabel', { year, month })}</span>
+        <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors">
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
@@ -137,60 +137,60 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
           {Array.from(deptMap.entries())
             .sort((a, b) => b[1].hours - a[1].hours)
             .map(([dept, { hours, cost, people }]) => (
-              <div key={dept} className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs flex items-center gap-2">
-                <span className="font-medium text-slate-700">{DEPARTMENT_LABELS[dept]}</span>
-                <span className="text-slate-400">·</span>
-                <span className="text-slate-600">{t('summary.participantsValue', { count: people.size })}</span>
-                <span className="text-slate-400">·</span>
-                <span className="text-slate-600">{hours}h</span>
-                <span className="text-slate-400">·</span>
-                <span className="text-slate-600">{fmtRmb(cost)}</span>
+              <div key={dept} className="bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs flex items-center gap-2">
+                <span className="font-medium text-zinc-700">{DEPARTMENT_LABELS[dept]}</span>
+                <span className="text-zinc-400">·</span>
+                <span className="text-zinc-600">{t('summary.participantsValue', { count: people.size })}</span>
+                <span className="text-zinc-400">·</span>
+                <span className="text-zinc-600">{hours}h</span>
+                <span className="text-zinc-400">·</span>
+                <span className="text-zinc-600">{fmtRmb(cost)}</span>
               </div>
             ))}
         </div>
       )}
 
       {/* Grid table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-auto">
+      <div className="bg-white border border-zinc-200 rounded-xl overflow-auto">
         <table className="w-full text-xs border-collapse min-w-max">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="px-3 py-2 text-left font-medium text-slate-500 border-r border-slate-100 w-32">{t('table.member')}</th>
-              <th className="px-3 py-2 text-left font-medium text-slate-500 border-r border-slate-100 w-16">{t('table.department')}</th>
+            <tr className="bg-zinc-50 border-b border-zinc-200">
+              <th className="px-3 py-2 text-left font-medium text-zinc-500 border-r border-zinc-100 w-32">{t('table.member')}</th>
+              <th className="px-3 py-2 text-left font-medium text-zinc-500 border-r border-zinc-100 w-16">{t('table.department')}</th>
               {weekLabels.map((wl, i) => (
-                <th key={i} className="px-2 py-2 text-center font-medium text-slate-500 border-r border-slate-100 w-28">
+                <th key={i} className="px-2 py-2 text-center font-medium text-zinc-500 border-r border-zinc-100 w-28">
                   {t('table.weekN', { n: i + 1 })}
-                  <div className="font-normal text-slate-400">{wl}</div>
+                  <div className="font-normal text-zinc-400">{wl}</div>
                 </th>
               ))}
-              <th className="px-3 py-2 text-center font-medium text-slate-500 border-r border-slate-100 w-20">{t('table.monthHoursCol')}</th>
-              <th className="px-3 py-2 text-center font-medium text-slate-500 w-24">{t('table.labourCostCol')}</th>
+              <th className="px-3 py-2 text-center font-medium text-zinc-500 border-r border-zinc-100 w-20">{t('table.monthHoursCol')}</th>
+              <th className="px-3 py-2 text-center font-medium text-zinc-500 w-24">{t('table.labourCostCol')}</th>
             </tr>
           </thead>
           <tbody>
             {sortedUsers.length === 0 ? (
               <tr>
-                <td colSpan={colCount} className="py-12 text-center text-slate-400">{t('emptyMonth')}</td>
+                <td colSpan={colCount} className="py-12 text-center text-zinc-400">{t('emptyMonth')}</td>
               </tr>
             ) : (
               sortedUsers.map((u) => (
-                <tr key={u.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors">
-                  <td className="px-3 py-2 border-r border-slate-100">
+                <tr key={u.id} className="border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50 transition-colors">
+                  <td className="px-3 py-2 border-r border-zinc-100">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 flex-shrink-0">
+                      <div className="w-5 h-5 rounded-full bg-primary-soft flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
                         {u.name.slice(0, 1).toUpperCase()}
                       </div>
-                      <span className="font-medium text-slate-900 truncate">{u.name}</span>
+                      <span className="font-medium text-zinc-900 truncate">{u.name}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-slate-500 border-r border-slate-100">
+                  <td className="px-3 py-2 text-zinc-500 border-r border-zinc-100">
                     {DEPARTMENT_LABELS[u.department]}
                   </td>
                   {weeks.map((w, i) => {
                     const h    = hoursForUserWeek(u.id, w)
                     const avg  = avgDailyHoursForWeek(u.id, w)
                     return (
-                      <td key={i} className="px-2 py-2 text-center border-r border-slate-100">
+                      <td key={i} className="px-2 py-2 text-center border-r border-zinc-100">
                         {h > 0 ? (
                           <div className="flex flex-col items-center gap-0.5">
                             <span className={`font-semibold px-1.5 py-0.5 rounded-full ${utilisationColor(avg)}`}>
@@ -198,17 +198,17 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
                             </span>
                           </div>
                         ) : (
-                          <span className="text-slate-200">—</span>
+                          <span className="text-zinc-200">—</span>
                         )}
                       </td>
                     )
                   })}
-                  <td className="px-3 py-2 text-center border-r border-slate-100">
+                  <td className="px-3 py-2 text-center border-r border-zinc-100">
                     <span className={`font-semibold px-2 py-0.5 rounded-full ${utilisationColor(monthHours(u.id) / 22)}`}>
                       {monthHours(u.id)}h
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center font-medium text-slate-700">
+                  <td className="px-3 py-2 text-center font-medium text-zinc-700">
                     {fmtRmb(monthCost(u.id))}
                   </td>
                 </tr>
@@ -219,20 +219,20 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
           {/* Footer totals */}
           {sortedUsers.length > 0 && (
             <tfoot>
-              <tr className="bg-slate-50 border-t border-slate-200 font-semibold">
-                <td className="px-3 py-2 text-slate-600 border-r border-slate-100" colSpan={2}>{t('table.rowTotal')}</td>
+              <tr className="bg-zinc-50 border-t border-zinc-200 font-semibold">
+                <td className="px-3 py-2 text-zinc-600 border-r border-zinc-100" colSpan={2}>{t('table.rowTotal')}</td>
                 {weeks.map((w, i) => {
                   const total = sortedUsers.reduce((s, u) => s + hoursForUserWeek(u.id, w), 0)
                   return (
-                    <td key={i} className="px-2 py-2 text-center text-slate-700 border-r border-slate-100">
+                    <td key={i} className="px-2 py-2 text-center text-zinc-700 border-r border-zinc-100">
                       {total > 0 ? `${total}h` : '—'}
                     </td>
                   )
                 })}
-                <td className="px-3 py-2 text-center text-slate-700 border-r border-slate-100">
+                <td className="px-3 py-2 text-center text-zinc-700 border-r border-zinc-100">
                   {sortedUsers.reduce((s, u) => s + monthHours(u.id), 0)}h
                 </td>
-                <td className="px-3 py-2 text-center text-slate-700">
+                <td className="px-3 py-2 text-center text-zinc-700">
                   {fmtRmb(sortedUsers.reduce((s, u) => s + monthCost(u.id), 0))}
                 </td>
               </tr>
@@ -249,7 +249,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
             <button
               key={i}
               onClick={() => setCreating(monday)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-zinc-300 text-zinc-400 hover:border-violet-400 hover:text-primary transition-colors"
             >
               {t('table.addToWeek', { n: i + 1 })}
             </button>

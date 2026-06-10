@@ -26,8 +26,8 @@ interface Props {
 interface Milestone { id: string; title: string }
 interface UserOption { id: string; name: string; user_code: string }
 
-const INPUT = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
-const LABEL = 'block text-xs font-medium text-slate-700 mb-1'
+const INPUT = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
+const LABEL = 'block text-xs font-medium text-zinc-700 mb-1'
 
 const REPEAT_OPTIONS = Object.entries(WORK_TASK_REPEAT_INTERVAL_LABELS) as [WorkTaskRepeatInterval, string][]
 
@@ -178,12 +178,12 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
             autoComplete="off"
           />
           {showSuggestions && (
-            <ul className="absolute z-20 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-md overflow-hidden text-sm">
+            <ul className="absolute z-20 top-full mt-1 w-full bg-white border border-zinc-200 rounded-lg shadow-md overflow-hidden text-sm">
               {suggestions.map((s) => (
                 <li
                   key={s}
                   onMouseDown={() => pickSuggestion(s)}
-                  className="px-3 py-2 cursor-pointer hover:bg-indigo-50 text-slate-700 truncate"
+                  className="px-3 py-2 cursor-pointer hover:bg-primary-soft text-zinc-700 truncate"
                 >
                   {s}
                 </li>
@@ -282,7 +282,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
         </div>
         <div className="col-span-2">
           <label className={LABEL}>{t('assignees')}</label>
-          <div className="flex flex-wrap gap-1.5 border border-slate-200 rounded-lg p-2 min-h-[38px]">
+          <div className="flex flex-wrap gap-1.5 border border-zinc-200 rounded-lg p-2 min-h-[38px]">
             {users.filter((u) => u.id !== form.owner_user_id).map((u) => {
               const selected = form.executor_ids.includes(u.id)
               return (
@@ -292,8 +292,8 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
                   onClick={() => toggleExecutor(u.id)}
                   className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                     selected
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-primary text-white'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
                   }`}
                 >
                   {u.name}
@@ -301,7 +301,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
               )
             })}
             {users.length === 0 && (
-              <span className="text-xs text-slate-400">{tCommon('loading')}</span>
+              <span className="text-xs text-zinc-400">{tCommon('loading')}</span>
             )}
           </div>
         </div>
