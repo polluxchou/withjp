@@ -12,6 +12,7 @@ import {
 import { Link } from '@/i18n/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 import PageGreeting from '@/components/ui/PageGreeting'
+import EmptyState from '@/components/ui/EmptyState'
 import type { DashboardStats, Task, Creator, CreatorStatus } from '@/lib/types'
 import { ALL_STATUSES } from '@/lib/state-machine/creator-lifecycle'
 import { fmtCompact } from '@/lib/currency-format'
@@ -159,8 +160,8 @@ export default async function DashboardPage() {
             <Link href="/tasks" className="text-xs text-primary font-medium hover:text-violet-800">{t('viewAll')}</Link>
           </div>
           {recentTasks.length === 0 && (
-            <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center text-sm text-zinc-400">
-              {t('noTasksYet')}
+            <div className="bg-white border border-zinc-200 rounded-xl">
+              <EmptyState emoji="📋" title={t('noTasksYet')} />
             </div>
           )}
           {recentTasks.map((task) => (
@@ -177,7 +178,7 @@ export default async function DashboardPage() {
         </div>
         <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
           {recentCreators.length === 0 ? (
-            <div className="p-8 text-center text-sm text-zinc-400">{t('noCreatorsYet')}</div>
+            <EmptyState emoji="🎤" title={t('noCreatorsYet')} />
           ) : (
             <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[560px]">
