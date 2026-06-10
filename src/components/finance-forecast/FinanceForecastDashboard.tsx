@@ -45,12 +45,12 @@ import {
 import { planLifecycleApplication } from '@/lib/finance-forecast/lifecycle-apply'
 
 const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
-  key:     '#6366f1',
+  key:     '#8b5cf6',
   mature:  '#10b981',
   growing: '#3b82f6',
   newbie:  '#f59e0b',
   test:    '#ec4899',
-  other:   '#64748b',
+  other:   '#71717a',
 }
 
 const CHART_TAB_KEYS = ['breakdown', 'cumulative', 'stacked', 'lines', 'indexed'] as const
@@ -1027,9 +1027,9 @@ export default function FinanceForecastDashboard({
                 {chartMode === 'breakdown' ? (
                   <ComposedChart data={breakdownData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      tick={{ fontSize: 11, fill: '#a1a1aa' }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={fmtForecastCompact}
@@ -1071,22 +1071,22 @@ export default function FinanceForecastDashboard({
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
                     <Bar dataKey="revenue" name={t('legendRevenue')} fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                    <Bar dataKey="cost"    name={t('legendCost')}    fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="cost"    name={t('legendCost')}    fill="#a1a1aa" radius={[4, 4, 0, 0]} maxBarSize={32} />
                     <Line
                       type="monotone"
                       dataKey="profit"
                       name={t('legendProfitLine')}
-                      stroke="#6366f1"
+                      stroke="#8b5cf6"
                       strokeWidth={2.5}
-                      dot={{ fill: '#6366f1', r: 3 }}
+                      dot={{ fill: '#8b5cf6', r: 3 }}
                       activeDot={{ r: 5 }}
                     />
                   </ComposedChart>
                 ) : chartMode === 'stacked' ? (
                   <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
                     <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
@@ -1107,8 +1107,8 @@ export default function FinanceForecastDashboard({
                 ) : chartMode === 'cumulative' ? (
                   <ComposedChart data={cumulativeData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
                     <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
@@ -1124,8 +1124,8 @@ export default function FinanceForecastDashboard({
                       type="monotone"
                       dataKey="cum_profit"
                       name={t('legendCumProfit')}
-                      stroke="#6366f1"
-                      fill="#6366f1"
+                      stroke="#8b5cf6"
+                      fill="#8b5cf6"
                       fillOpacity={0.18}
                       strokeWidth={2}
                     />
@@ -1135,9 +1135,9 @@ export default function FinanceForecastDashboard({
                 ) : (
                   <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      tick={{ fontSize: 11, fill: '#a1a1aa' }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={chartMode === 'indexed' ? (v) => `${Number(v).toFixed(0)}` : fmtForecastCompact}
@@ -1641,11 +1641,11 @@ function AnnualOverview({
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtForecastCompact} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={56} />
+            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#71717a' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={fmtForecastCompact} tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} width={56} />
             <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="forecast" name={t('chartForecast')} fill="#6366f1" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="forecast" name={t('chartForecast')} fill="#8b5cf6" radius={[4, 4, 0, 0]} />
             <Bar dataKey="actual"   name={t('chartActual')}   fill="#10b981" radius={[4, 4, 0, 0]} />
             <Bar dataKey="budget"   name={t('chartBudget')}   fill="#f59e0b" radius={[4, 4, 0, 0]} />
             <Bar dataKey="profit"   name={t('chartProfit')}   fill="#3b82f6" radius={[4, 4, 0, 0]} />
