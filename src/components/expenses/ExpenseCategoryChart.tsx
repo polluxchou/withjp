@@ -112,16 +112,16 @@ function CategoryTooltip({
   if (!item?.category) return null
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-md p-2.5 text-xs min-w-[150px]">
-      <p className="font-semibold text-slate-700 mb-1.5">{categoryLabel(item.category)}</p>
+    <div className="bg-white border border-zinc-200 rounded-lg shadow-md p-2.5 text-xs min-w-[150px]">
+      <p className="font-semibold text-zinc-700 mb-1.5">{categoryLabel(item.category)}</p>
       <div className="space-y-1">
         <p className="flex items-center justify-between gap-3">
-          <span className="text-slate-500">{amountLabel}</span>
-          <span className="font-medium text-slate-900">{fmt(Number(item.total ?? 0))}</span>
+          <span className="text-zinc-500">{amountLabel}</span>
+          <span className="font-medium text-zinc-900">{fmt(Number(item.total ?? 0))}</span>
         </p>
         <p className="flex items-center justify-between gap-3">
-          <span className="text-slate-500">{shareLabel}</span>
-          <span className="font-medium text-slate-900">{Number(item.pct ?? 0).toFixed(1)}%</span>
+          <span className="text-zinc-500">{shareLabel}</span>
+          <span className="font-medium text-zinc-900">{Number(item.pct ?? 0).toFixed(1)}%</span>
         </p>
       </div>
     </div>
@@ -136,14 +136,14 @@ function DayTooltip({ active, payload, label, fmt, dayCountAlert }: ChartTooltip
   const count = (payload[0]?.payload?.count as number) ?? 0
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-md p-2.5 text-xs min-w-[140px]">
-      <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
+    <div className="bg-white border border-zinc-200 rounded-lg shadow-md p-2.5 text-xs min-w-[140px]">
+      <p className="font-semibold text-zinc-700 mb-1.5">{label}</p>
       <div className="space-y-1">
         {payload.map((p) => (
           <p key={String(p.dataKey)} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-            <span className="text-slate-500">{p.name}:</span>
-            <span className="font-medium text-slate-800 ml-auto pl-2">
+            <span className="text-zinc-500">{p.name}:</span>
+            <span className="font-medium text-zinc-800 ml-auto pl-2">
               {fmt(Number(p.value ?? 0))}
             </span>
           </p>
@@ -296,18 +296,18 @@ export default function ExpenseCategoryChart({
   ]
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+    <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+        <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
           {TABS.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 tab === key
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-700'
               }`}
             >
               {label}
@@ -316,11 +316,11 @@ export default function ExpenseCategoryChart({
         </div>
 
         {tab === 'category' && (
-          <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+          <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
             <button
               onClick={() => setCatView('pie')}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                catView === 'pie' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                catView === 'pie' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
               }`}
             >
               {t('category.viewPie')}
@@ -328,7 +328,7 @@ export default function ExpenseCategoryChart({
             <button
               onClick={() => setCatView('sankey')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                catView === 'sankey' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                catView === 'sankey' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
               }`}
             >
               <Workflow className="w-3 h-3" />
@@ -338,13 +338,13 @@ export default function ExpenseCategoryChart({
         )}
 
         {tab === 'trend' && (
-          <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+          <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
             {(['month', 'quarter', 'year'] as CostGranularity[]).map((g) => (
               <button
                 key={g}
                 onClick={() => setGranularity(g)}
                 className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  granularity === g ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                  granularity === g ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
                 }`}
               >
                 {t(g)}
@@ -413,8 +413,8 @@ export default function ExpenseCategoryChart({
           </div>
 
           {/* ② 主成本分类 */}
-          <div className="space-y-2 self-start border-l border-slate-100 pl-5">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2.5 px-1">
+          <div className="space-y-2 self-start border-l border-zinc-100 pl-5">
+            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2.5 px-1">
               {t('categoryShare')}
             </p>
             {breakdown.map((item) => {
@@ -426,8 +426,8 @@ export default function ExpenseCategoryChart({
                   onClick={() => onCategorySelect?.(item.category)}
                   className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                     active
-                      ? 'border-slate-900 bg-slate-50'
-                      : 'border-transparent hover:border-slate-200 hover:bg-slate-50'
+                      ? 'border-zinc-900 bg-zinc-50'
+                      : 'border-transparent hover:border-zinc-200 hover:bg-zinc-50'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -436,13 +436,13 @@ export default function ExpenseCategoryChart({
                         className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
                         style={{ backgroundColor: CATEGORY_COLORS[item.category] }}
                       />
-                      <span className="text-xs font-medium text-slate-700 truncate">{t(`categories.${item.category}`)}</span>
+                      <span className="text-xs font-medium text-zinc-700 truncate">{t(`categories.${item.category}`)}</span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-900 whitespace-nowrap">
+                    <span className="text-xs font-semibold text-zinc-900 whitespace-nowrap">
                       {fmtCompact(item.total)}
                     </span>
                   </div>
-                  <div className="mt-1 text-xs text-slate-500">{item.pct.toFixed(1)}%</div>
+                  <div className="mt-1 text-xs text-zinc-500">{item.pct.toFixed(1)}%</div>
                 </button>
               )
             })}
@@ -450,8 +450,8 @@ export default function ExpenseCategoryChart({
 
           {/* ③ 经办人分类 */}
           {buyerBreakdown.length > 0 && (
-            <div className="space-y-1 self-start border-l border-slate-100 pl-5">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2.5 px-1">
+            <div className="space-y-1 self-start border-l border-zinc-100 pl-5">
+              <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2.5 px-1">
                 {selectedCategory
                   ? `${t(`categories.${selectedCategory as ExpenseCategory}`)} · ${t('buyer')}`
                   : `${t('category.allBuyersLabel')} · ${t('buyer')}`
@@ -463,10 +463,10 @@ export default function ExpenseCategoryChart({
                 return (
                   <div
                     key={buyer}
-                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50"
+                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-zinc-50"
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs text-slate-700 truncate">{displayName}</span>
+                      <span className="text-xs text-zinc-700 truncate">{displayName}</span>
                       {isCrossBorder && (
                         <span
                           title={t('category.crossBorderTooltip', { amount: fmtCompact(crossBorder) })}
@@ -477,7 +477,7 @@ export default function ExpenseCategoryChart({
                         </span>
                       )}
                     </div>
-                    <span className="text-xs font-semibold text-slate-900 whitespace-nowrap flex-shrink-0">
+                    <span className="text-xs font-semibold text-zinc-900 whitespace-nowrap flex-shrink-0">
                       {fmtCompact(total)}
                     </span>
                   </div>
@@ -512,13 +512,13 @@ export default function ExpenseCategoryChart({
         <>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+              <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
                 {(['table', 'chart'] as MonthlyView[]).map((v) => (
                   <button
                     key={v}
                     onClick={() => setMonthlyView(v)}
                     className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                      monthlyView === v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                      monthlyView === v ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
                     }`}
                   >
                     {v === 'table' ? t('tableView') : t('chartView')}
@@ -532,8 +532,8 @@ export default function ExpenseCategoryChart({
                   title={t('monthly.milestonesTooltip')}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
                     showMilestones
-                      ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                      : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600'
+                      ? 'bg-primary-soft border-violet-300 text-primary'
+                      : 'bg-white border-zinc-200 text-zinc-500 hover:border-violet-300 hover:text-primary'
                   }`}
                 >
                   <Flag className="w-3 h-3" />
@@ -542,13 +542,13 @@ export default function ExpenseCategoryChart({
               )}
             </div>
             {monthlyView === 'chart' && (
-              <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+              <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
                 {(['day', 'month'] as MonthlyGran[]).map((g) => (
                   <button
                     key={g}
                     onClick={() => setMonthlyGran(g)}
                     className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                      monthlyGran === g ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                      monthlyGran === g ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
                     }`}
                   >
                     {t(g)}
@@ -669,18 +669,18 @@ export default function ExpenseCategoryChart({
                   ? milestones.filter((m) => nearestPeriod(m.target_date, periods) === hoveredPeriod)
                   : []
                 return (
-                  <div className="mt-3 border-t border-slate-100 pt-3 min-h-[3rem]">
-                    <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
+                  <div className="mt-3 border-t border-zinc-100 pt-3 min-h-[3rem]">
+                    <p className="text-xs font-medium text-zinc-500 mb-2 flex items-center gap-1">
                       <Flag className="w-3 h-3" />
                       <span>{t('monthly.milestonesTooltip')}</span>
                       {hoveredPeriod && (
-                        <span className="text-slate-400 font-normal">— {hoveredPeriod}</span>
+                        <span className="text-zinc-400 font-normal">— {hoveredPeriod}</span>
                       )}
                     </p>
                     {!hoveredPeriod ? (
-                      <p className="text-xs text-slate-400">{t('monthly.milestonesHoverHint')}</p>
+                      <p className="text-xs text-zinc-400">{t('monthly.milestonesHoverHint')}</p>
                     ) : visible.length === 0 ? (
-                      <p className="text-xs text-slate-400">{t('monthly.noMilestonesForDay')}</p>
+                      <p className="text-xs text-zinc-400">{t('monthly.noMilestonesForDay')}</p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {visible.map((m) => (
@@ -693,7 +693,7 @@ export default function ExpenseCategoryChart({
                               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                               style={{ backgroundColor: PRIORITY_COLOR[m.priority] }}
                             />
-                            <span className="font-medium text-slate-800">{m.title}</span>
+                            <span className="font-medium text-zinc-800">{m.title}</span>
                             <span
                               className="px-1 py-0.5 rounded text-xs"
                               style={{ color: PRIORITY_COLOR[m.priority] }}
@@ -712,51 +712,51 @@ export default function ExpenseCategoryChart({
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-100">
-                <th className="text-left py-2 pr-4 font-medium text-slate-500 whitespace-nowrap">{t('monthColumn')}</th>
+              <tr className="border-b border-zinc-100">
+                <th className="text-left py-2 pr-4 font-medium text-zinc-500 whitespace-nowrap">{t('monthColumn')}</th>
                 {activeCategories.map((o) => (
                   <th key={o.value} className="text-right py-2 px-3 font-medium whitespace-nowrap" style={{ color: CATEGORY_COLORS[o.value] }}>
                     {t(`categories.${o.value}`)}
                   </th>
                 ))}
-                <th className="text-right py-2 px-3 font-semibold text-slate-700 whitespace-nowrap">{t('total')}</th>
+                <th className="text-right py-2 px-3 font-semibold text-zinc-700 whitespace-nowrap">{t('total')}</th>
                 <th className="text-right py-2 pl-3 font-medium text-green-600 whitespace-nowrap">{t('paid')}</th>
               </tr>
             </thead>
             <tbody>
               {monthlySummary.map((row) => (
-                <tr key={row.month} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 pr-4 font-medium text-slate-700 whitespace-nowrap">{row.month}</td>
+                <tr key={row.month} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
+                  <td className="py-2.5 pr-4 font-medium text-zinc-700 whitespace-nowrap">{row.month}</td>
                   {activeCategories.map((o) => {
                     const amt = row.byCategory[o.value] ?? 0
                     return (
-                      <td key={o.value} className="py-2.5 px-3 text-right text-slate-600 whitespace-nowrap">
-                        {amt > 0 ? fmt(amt) : <span className="text-slate-300">—</span>}
+                      <td key={o.value} className="py-2.5 px-3 text-right text-zinc-600 whitespace-nowrap">
+                        {amt > 0 ? fmt(amt) : <span className="text-zinc-300">—</span>}
                       </td>
                     )
                   })}
-                  <td className="py-2.5 px-3 text-right font-semibold text-slate-900 whitespace-nowrap">
+                  <td className="py-2.5 px-3 text-right font-semibold text-zinc-900 whitespace-nowrap">
                     {fmt(row.total)}
                   </td>
                   <td className="py-2.5 pl-3 text-right text-green-700 whitespace-nowrap">
-                    {row.paid > 0 ? fmt(row.paid) : <span className="text-slate-300">—</span>}
+                    {row.paid > 0 ? fmt(row.paid) : <span className="text-zinc-300">—</span>}
                   </td>
                 </tr>
               ))}
             </tbody>
             {/* Footer: column totals */}
             <tfoot>
-              <tr className="border-t-2 border-slate-200 bg-slate-50">
-                <td className="py-2.5 pr-4 font-semibold text-slate-700">{t('grandTotal')}</td>
+              <tr className="border-t-2 border-zinc-200 bg-zinc-50">
+                <td className="py-2.5 pr-4 font-semibold text-zinc-700">{t('grandTotal')}</td>
                 {activeCategories.map((o) => {
                   const total = monthlySummary.reduce((s, r) => s + (r.byCategory[o.value] ?? 0), 0)
                   return (
-                    <td key={o.value} className="py-2.5 px-3 text-right font-semibold text-slate-700 whitespace-nowrap">
+                    <td key={o.value} className="py-2.5 px-3 text-right font-semibold text-zinc-700 whitespace-nowrap">
                       {fmt(total)}
                     </td>
                   )
                 })}
-                <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                <td className="py-2.5 px-3 text-right font-bold text-zinc-900 whitespace-nowrap">
                   {fmt(monthlySummary.reduce((s, r) => s + r.total, 0))}
                 </td>
                 <td className="py-2.5 pl-3 text-right font-semibold text-green-700 whitespace-nowrap">
