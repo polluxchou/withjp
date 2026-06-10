@@ -6,7 +6,8 @@ import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Badge from '@/components/ui/Badge'
-import { Plus, BookOpen, Trash2, Tag } from 'lucide-react'
+import EmptyState from '@/components/ui/EmptyState'
+import { Plus, Trash2, Tag } from 'lucide-react'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Knowledge, KnowledgeCategory } from '@/lib/types'
 
@@ -108,9 +109,8 @@ export default function KnowledgePage() {
           {/* Entry list */}
           <div className="col-span-1 space-y-2">
             {items.length === 0 && (
-              <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center">
-                <BookOpen className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
-                <p className="text-sm text-zinc-400">{t('noEntries')}</p>
+              <div className="bg-white border border-zinc-200 rounded-xl">
+                <EmptyState emoji="📚" title={t('noEntries')} />
               </div>
             )}
             {items.map((item) => {

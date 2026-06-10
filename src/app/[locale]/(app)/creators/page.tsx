@@ -6,7 +6,8 @@ import LifecycleBadge from '@/components/creators/LifecycleBadge'
 import CreatorForm from '@/components/creators/CreatorForm'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { Plus, Search, Users, ExternalLink } from 'lucide-react'
+import EmptyState from '@/components/ui/EmptyState'
+import { Plus, Search, ExternalLink } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import type { Creator, CreatorStatus } from '@/lib/types'
@@ -102,11 +103,11 @@ export default function CreatorsPage() {
             </div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center">
-            <Users className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
-            <p className="text-sm text-zinc-500">{t('noCreatorsFound')}</p>
-            <button onClick={() => setShowForm(true)} className="mt-3 text-sm text-primary font-medium hover:underline">{t('addFirstCreator')}</button>
-          </div>
+          <EmptyState
+            emoji="🎤"
+            title={t('noCreatorsFound')}
+            action={<button onClick={() => setShowForm(true)} className="mt-1 text-sm text-primary font-medium hover:underline">{t('addFirstCreator')}</button>}
+          />
         ) : (
           <table className="w-full text-sm">
             <thead>

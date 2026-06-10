@@ -15,7 +15,8 @@ import ClampedText from '@/components/ui/ClampedText'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
-import { Plus, Search, Receipt, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
+import EmptyState from '@/components/ui/EmptyState'
+import { Plus, Search, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
@@ -711,13 +712,11 @@ export default function ExpensesPage() {
             </div>
           </div>
         ) : visibleExpenses.length === 0 ? (
-          <div className="p-12 text-center">
-            <Receipt className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
-            <p className="text-sm text-zinc-500">{t('empty')}</p>
-            <button type="button" onClick={() => setShowForm(true)} className="mt-3 text-sm text-primary font-medium hover:underline">
-              {t('addFirst')}
-            </button>
-          </div>
+          <EmptyState
+            emoji="🧾"
+            title={t('empty')}
+            action={<button type="button" onClick={() => setShowForm(true)} className="mt-1 text-sm text-primary font-medium hover:underline">{t('addFirst')}</button>}
+          />
         ) : (
           <>
           {/* Mobile card list — md:hidden. Each expense is a tap-to-view card with
