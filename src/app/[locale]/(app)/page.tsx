@@ -81,7 +81,7 @@ export default async function DashboardPage() {
         title={<PageGreeting />}
         subtitle={t('subtitle')}
         actions={
-          <Link href="/creators" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 font-medium hover:text-indigo-800">
+          <Link href="/creators" className="inline-flex items-center gap-1.5 text-sm text-primary font-medium hover:text-violet-800">
             {t('viewAllCreators')} <ArrowRight className="w-4 h-4" />
           </Link>
         }
@@ -121,10 +121,10 @@ export default async function DashboardPage() {
       {/* Pipeline funnel + recent activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Funnel */}
-        <div className="lg:col-span-1 bg-white border border-slate-200 rounded-xl p-5">
+        <div className="lg:col-span-1 bg-white border border-zinc-200 rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-900">{t('pipelineFunnel')}</h2>
+            <Activity className="w-4 h-4 text-zinc-400" />
+            <h2 className="text-sm font-semibold text-zinc-900">{t('pipelineFunnel')}</h2>
           </div>
           <div className="space-y-2">
             {ALL_STATUSES.map((s) => {
@@ -134,12 +134,12 @@ export default async function DashboardPage() {
               return (
                 <div key={s}>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-slate-600">{tStatus(s)}</span>
-                    <span className="font-medium text-slate-900">{count}</span>
+                    <span className="text-zinc-600">{tStatus(s)}</span>
+                    <span className="font-medium text-zinc-900">{count}</span>
                   </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-indigo-500 rounded-full transition-all"
+                      className="h-full bg-primary-soft0 rounded-full transition-all"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -147,7 +147,7 @@ export default async function DashboardPage() {
               )
             })}
           </div>
-          <Link href="/pipeline" className="mt-4 flex items-center gap-1 text-xs text-indigo-600 font-medium hover:text-indigo-800">
+          <Link href="/pipeline" className="mt-4 flex items-center gap-1 text-xs text-primary font-medium hover:text-violet-800">
             {t('openPipeline')} <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
@@ -155,11 +155,11 @@ export default async function DashboardPage() {
         {/* Recent Tasks */}
         <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">{t('recentTasks')}</h2>
-            <Link href="/tasks" className="text-xs text-indigo-600 font-medium hover:text-indigo-800">{t('viewAll')}</Link>
+            <h2 className="text-sm font-semibold text-zinc-900">{t('recentTasks')}</h2>
+            <Link href="/tasks" className="text-xs text-primary font-medium hover:text-violet-800">{t('viewAll')}</Link>
           </div>
           {recentTasks.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-sm text-slate-400">
+            <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center text-sm text-zinc-400">
               {t('noTasksYet')}
             </div>
           )}
@@ -172,33 +172,33 @@ export default async function DashboardPage() {
       {/* Recent Creators */}
       <div className="mt-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-slate-900">{t('recentlyAddedCreators')}</h2>
-          <Link href="/creators" className="text-xs text-indigo-600 font-medium hover:text-indigo-800">{t('viewAll')}</Link>
+          <h2 className="text-sm font-semibold text-zinc-900">{t('recentlyAddedCreators')}</h2>
+          <Link href="/creators" className="text-xs text-primary font-medium hover:text-violet-800">{t('viewAll')}</Link>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
           {recentCreators.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-400">{t('noCreatorsYet')}</div>
+            <div className="p-8 text-center text-sm text-zinc-400">{t('noCreatorsYet')}</div>
           ) : (
             <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[560px]">
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('creator')}</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('platform')}</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('status')}</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-slate-500">{tCreators('niche')}</th>
+                <tr className="border-b border-zinc-100">
+                  <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{tCreators('creator')}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{tCreators('platform')}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{tCreators('status')}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{tCreators('niche')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {recentCreators.map((c) => (
-                  <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3 font-medium text-slate-900">{c.name}</td>
-                    <td className="px-5 py-3 text-slate-500">{c.platform}</td>
+                  <tr key={c.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
+                    <td className="px-5 py-3 font-medium text-zinc-900">{c.name}</td>
+                    <td className="px-5 py-3 text-zinc-500">{c.platform}</td>
                     <td className="px-5 py-3"><LifecycleBadge status={c.status} size="sm" /></td>
-                    <td className="px-5 py-3 text-slate-400">{c.profile?.niche ?? '—'}</td>
+                    <td className="px-5 py-3 text-zinc-400">{c.profile?.niche ?? '—'}</td>
                     <td className="px-5 py-3 text-right">
-                      <Link href={`/creators/${c.id}`} className="text-xs text-indigo-600 hover:text-indigo-800">{tCreators('view')} →</Link>
+                      <Link href={`/creators/${c.id}`} className="text-xs text-primary hover:text-violet-800">{tCreators('view')} →</Link>
                     </td>
                   </tr>
                 ))}
