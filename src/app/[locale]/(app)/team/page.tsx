@@ -9,7 +9,7 @@ import type { Agent } from '@/lib/types'
 
 const ROLE_COLOR = {
   bd:      'blue',
-  ops:     'purple',
+  ops:     'red',
   finance: 'green',
   content: 'indigo',
   growth:  'amber',
