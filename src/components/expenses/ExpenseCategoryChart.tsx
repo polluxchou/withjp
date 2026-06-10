@@ -53,7 +53,7 @@ interface MilestoneMarker {
 const PRIORITY_COLOR: Record<MilestonePriority, string> = {
   high:   '#ef4444',
   medium: '#f59e0b',
-  low:    '#6366f1',
+  low:    '#8b5cf6',
 }
 
 // Map MilestoneStatus snake_case to the camelCase key under timeline.status.
@@ -66,7 +66,7 @@ const TIMELINE_STATUS_KEY: Record<MilestoneStatus, string> = {
 }
 
 const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
-  tangible_asset:  '#6366f1',
+  tangible_asset:  '#8b5cf6',
   salary:          '#f59e0b',
   rent:            '#10b981',
   travel:          '#3b82f6',
@@ -493,15 +493,15 @@ export default function ExpenseCategoryChart({
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={timeSeries} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={52} />
+            <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={52} />
             <Tooltip
               formatter={(v) => [fmt(Number(v)), '']}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Line type="monotone" dataKey="paid"          name={t('paymentStatuses.paid')} stroke="#10b981" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="budgeted"      name={t('paymentStatuses.budgeted')} stroke="#6366f1" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+            <Line type="monotone" dataKey="budgeted"      name={t('paymentStatuses.budgeted')} stroke="#8b5cf6" strokeWidth={2} dot={false} strokeDasharray="4 2" />
             <Line type="monotone" dataKey="ordered_unpaid" name={t('paymentStatuses.ordered_unpaid')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
           </LineChart>
         </ResponsiveContainer>
@@ -579,13 +579,13 @@ export default function ExpenseCategoryChart({
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis
                     dataKey="period"
-                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tick={{ fontSize: 11, fill: '#a1a1aa' }}
                     axisLine={false}
                     tickLine={false}
                     interval="preserveStartEnd"
                     minTickGap={50}
                   />
-                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={56} />
+                  <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={56} />
                   {monthlyGran === 'day'
                     ? <Tooltip content={<DayTooltip fmt={fmt} dayCountAlert={(count, max) => t('dayCountAlert', { count, max })} />} />
                     : <Tooltip formatter={(v) => [fmt(Number(v)), '']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
@@ -649,15 +649,15 @@ export default function ExpenseCategoryChart({
                     return (
                       <ReferenceLine
                         x={key}
-                        stroke="#6366f1"
+                        stroke="#8b5cf6"
                         strokeWidth={2}
                         ifOverflow="extendDomain"
-                        label={{ value: t('monthly.activePeriodLabel'), position: 'top', fontSize: 9, fill: '#6366f1' }}
+                        label={{ value: t('monthly.activePeriodLabel'), position: 'top', fontSize: 9, fill: '#8b5cf6' }}
                       />
                     )
                   })()}
 
-                  <Line type="monotone" dataKey="total" name={t('totalExpense')} stroke="#6366f1" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="total" name={t('totalExpense')} stroke="#8b5cf6" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="paid"  name={t('paid')}         stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 2" />
                 </LineChart>
               </ResponsiveContainer>

@@ -34,7 +34,7 @@ function isKnownRole(role: string): role is typeof KNOWN_ROLES[number] {
 }
 
 function AgentAvatar({ role, size = 'md' }: { role: string; size?: 'sm' | 'md' | 'lg' }) {
-  const meta = DEPT_META[role] ?? { color: '#6366f1', initials: '??' }
+  const meta = DEPT_META[role] ?? { color: '#8b5cf6', initials: '??' }
   const dim  = size === 'sm' ? 28 : size === 'lg' ? 36 : 32
   const font = size === 'sm' ? 11 : size === 'lg' ? 13 : 12
   return (

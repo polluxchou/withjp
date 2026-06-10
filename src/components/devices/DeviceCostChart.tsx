@@ -25,7 +25,7 @@ interface Props {
 const GRANULARITY_VALUES: DeviceCostGranularity[] = ['month', 'quarter', 'year']
 
 const SERIES_KEYS = [
-  { key: 'budgeted',       color: '#94a3b8' }, // zinc-400
+  { key: 'budgeted',       color: '#a1a1aa' }, // zinc-400
   { key: 'ordered_unpaid', color: '#f59e0b' }, // amber-500
   { key: 'paid',           color: '#10b981' }, // emerald-500
 ] as const
@@ -94,12 +94,12 @@ export default function DeviceCostChart({ devices }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
               <XAxis
                 dataKey="period"
-                tick={{ fontSize: 11, fill: '#64748b' }}
+                tick={{ fontSize: 11, fill: '#71717a' }}
                 tickLine={false}
                 axisLine={{ stroke: '#e2e8f0' }}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#64748b' }}
+                tick={{ fontSize: 11, fill: '#71717a' }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={fmtRmbShort}

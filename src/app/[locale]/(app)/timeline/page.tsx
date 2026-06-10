@@ -526,13 +526,13 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tick={{ fontSize: 11, fill: '#a1a1aa' }}
             axisLine={false}
             tickLine={false}
             interval="preserveStartEnd"
           />
           <YAxis
-            tick={{ fontSize: 11, fill: '#94a3b8' }}
+            tick={{ fontSize: 11, fill: '#a1a1aa' }}
             axisLine={false}
             tickLine={false}
             allowDecimals={false}
@@ -553,9 +553,9 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
           {/* Total capacity reference */}
           <ReferenceLine
             y={total}
-            stroke="#94a3b8"
+            stroke="#a1a1aa"
             strokeDasharray="3 3"
-            label={{ value: t('curve.totalLabel', { total }), position: 'insideTopRight', fontSize: 10, fill: '#94a3b8' }}
+            label={{ value: t('curve.totalLabel', { total }), position: 'insideTopRight', fontSize: 10, fill: '#a1a1aa' }}
           />
 
           {/* Lines */}
@@ -563,7 +563,7 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
             type="monotone"
             dataKey="planned"
             name={t('curve.seriesPlanned')}
-            stroke="#6366f1"
+            stroke="#8b5cf6"
             strokeWidth={2}
             dot={false}
             strokeDasharray="6 2"
