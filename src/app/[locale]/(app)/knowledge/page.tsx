@@ -7,7 +7,7 @@ import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
-import { Plus, Trash2, Tag } from 'lucide-react'
+import { Plus, BookOpen, Trash2, Tag } from 'lucide-react'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Knowledge, KnowledgeCategory } from '@/lib/types'
 
