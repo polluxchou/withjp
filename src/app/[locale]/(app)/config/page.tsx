@@ -79,20 +79,20 @@ export default function ConfigPage() {
       />
 
       {loading ? (
-        <div className="text-center py-12 text-sm text-slate-400">Loading...</div>
+        <div className="text-center py-12 text-sm text-zinc-400">Loading...</div>
       ) : (
         <div className="space-y-4">
           {configs.map((config) => {
             const meta = CONFIG_META[config.key]
             return (
-              <div key={config.id} className="bg-white border border-slate-200 rounded-xl p-5">
+              <div key={config.id} className="bg-white border border-zinc-200 rounded-xl p-5">
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    <Settings className="w-4 h-4 text-indigo-500" />
-                    <h3 className="font-semibold text-slate-900 text-sm">
+                    <Settings className="w-4 h-4 text-violet-500" />
+                    <h3 className="font-semibold text-zinc-900 text-sm">
                       {meta?.label ?? config.key}
                     </h3>
-                    <code className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{config.key}</code>
+                    <code className="text-xs bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded">{config.key}</code>
                   </div>
                   <Button
                     size="sm"
@@ -107,14 +107,14 @@ export default function ConfigPage() {
                     )}
                   </Button>
                 </div>
-                <p className="text-xs text-slate-400 mb-3 ml-6">
+                <p className="text-xs text-zinc-400 mb-3 ml-6">
                   {meta?.description ?? config.description}
                 </p>
                 <textarea
                   value={edits[config.key] ?? ''}
                   onChange={(e) => setEdits((prev) => ({ ...prev, [config.key]: e.target.value }))}
                   rows={Object.keys(config.value).length + 2}
-                  className="w-full font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
+                  className="w-full font-mono text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
                 />
               </div>
             )
