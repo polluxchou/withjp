@@ -1,6 +1,6 @@
 interface BadgeProps {
   label: string
-  color?: 'slate' | 'blue' | 'green' | 'red' | 'amber' | 'purple' | 'indigo'
+  color?: 'slate' | 'blue' | 'green' | 'red' | 'amber' | 'purple' | 'indigo' | 'teal'
   size?: 'sm' | 'md'
 }
 
@@ -12,6 +12,7 @@ const COLORS = {
   amber:  'bg-amber-100 text-amber-700',
   purple: 'bg-purple-100 text-purple-700',
   indigo: 'bg-violet-100 text-violet-700',
+  teal:   'bg-teal-100 text-teal-700',
 }
 
 export default function Badge({ label, color = 'slate', size = 'md' }: BadgeProps) {

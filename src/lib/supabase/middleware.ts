@@ -14,16 +14,28 @@ function localizedLoginPath(pathname: string) {
   return `/${isLocale(locale) ? locale : defaultLocale}/login`
 }
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, extraRequestHeaders?: Headers) {
   const { pathname } = request.nextUrl
   const pathnameWithoutLocale = stripLocale(pathname)
 
-  // Skip Supabase auth check for public paths to avoid network timeout blocking page load
-  if (PUBLIC_PATHS.some(p => pathnameWithoutLocale.startsWith(p)) || pathname.includes('.')) {
-    return NextResponse.next({ request })
+  // extraRequestHeaders carries ONLY the headers callers want injected (e.g.
+  // X-NEXT-INTL-LOCALE). Merge lazily at each NextResponse.next() so cookie
+  // mutations made by the Supabase token refresh (request.cookies.set above)
+  // remain visible to server components — a snapshot taken here would hold a
+  // stale cookie header for the rest of the request.
+  const requestInit = () => {
+    if (!extraRequestHeaders) return { request }
+    const headers = new Headers(request.headers)
+    extraRequestHeaders.forEach((value, key) => headers.set(key, value))
+    return { request: { headers } }
   }
 
-  let supabaseResponse = NextResponse.next({ request })
+  // Skip Supabase auth check for public paths to avoid network timeout blocking page load
+  if (PUBLIC_PATHS.some(p => pathnameWithoutLocale.startsWith(p)) || pathname.includes('.')) {
+    return NextResponse.next(requestInit())
+  }
+
+  let supabaseResponse = NextResponse.next(requestInit())
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +47,7 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = NextResponse.next(requestInit())
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
