@@ -59,7 +59,7 @@
   },
   "notifications": {
     "title": "消息",
-    "empty": "目前没有消息",
+    "empty": "还没有消息",
     "markAllRead": "全部标记已读",
     "loadFailed": "消息没加载出来，刷新试试？",
     "types": {
@@ -75,7 +75,7 @@
     "loading": "加载中...",
     "noEntries": "还没有条目，添加第一条吧。",
     "selectEntry": "点击左侧条目查看内容",
-    "deletePrompt": "确定要删掉这条知识吗？删了就找不回来了。",
+    "deletePrompt": "确定要删除这条知识吗？删了就找不回来了。",
     "categoryField": "类别 *",
     "categorySelect": "选择类别",
     "tagsField": "标签（逗号分隔）",
@@ -315,7 +315,7 @@
   },
   "creatorForm": {
     "nameRequired": "姓名和平台不能为空",
-    "relationsLoadFailed": "团播账号或负责人没加载出来，刷新看看",
+    "relationsLoadFailed": "团播账号或负责人没加载出来，刷新试试",
     "broadcastRequired": "团播账号名称、平台和账号不能为空",
     "name": "姓名 *",
     "namePlaceholder": "创作者姓名",
@@ -413,7 +413,7 @@
     "duplicateTaskTo": "复制任务到",
     "duplicateConfirm": "将<title>{name}</title>复制到：",
     "confirmDuplicate": "确认复制",
-    "deleteConfirm": "确认删除任务<title>{name}</title>？",
+    "deleteConfirm": "确定要删除任务<title>{name}</title>吗？删了就找不回来了。",
     "emptyDay": "今天没有任务",
     "emptyWeek": "本周还没有任务",
     "emptyMonth": "本月还没有任务",
@@ -527,12 +527,12 @@
   },
   "timeline": {
     "title": "战略时间轴",
-    "subtitle": "公司级战略节点，配执行计划",
+    "subtitle": "公司级战略节点和对应的执行计划",
     "newMilestone": "新建节点",
     "createFirst": "创建第一个节点",
     "loading": "正在加载节点…",
     "empty": "还没有节点，先创建一个吧。",
-    "deleteConfirm": "确定要删除这个节点吗？",
+    "deleteConfirm": "确定要删除这个节点吗？删了就找不回来了。",
     "view": {
       "list": "列表",
       "gantt": "时间线",
@@ -664,7 +664,7 @@
   },
   "tasks": {
     "title": "任务中心",
-    "subtitle": "AI 任务流程 + 团队工时，一起管",
+    "subtitle": "AI 任务和团队工时，都在这里管",
     "pending": "待处理",
     "running": "运行中",
     "done": "已完成",
@@ -1057,7 +1057,7 @@
     "viewEditTemplate": "编辑模板",
     "viewDeleteTitle": "确认删除视角",
     "viewDeleteDesc": "视角 {name} 以及它包含的全部预测输入（3 年的月度账号数据、实收、备注）将被永久删除。",
-    "viewDeleteWarning": "这一步没法撤销，想好再操作。",
+    "viewDeleteWarning": "这一步没法撤销。",
     "viewDeleteCancel": "取消",
     "viewDeleting": "删除中…",
     "viewDeleteConfirm": "确认删除",
