@@ -36,17 +36,20 @@ export async function middleware(request: NextRequest) {
   // next/headers and set <html lang="..."> correctly for SSR.
   // intlMiddleware (called above for unknown/root paths) sets this header itself;
   // for known-locale paths we handle auth separately and must set it manually.
-  // We pass modifiedHeaders into every NextResponse.next() below so the header
-  // propagates to server components regardless of which branch runs.
-  const modifiedHeaders = new Headers(request.headers)
-  modifiedHeaders.set(NEXT_INTL_LOCALE_HEADER, firstSegment)
+  // localeHeader holds ONLY the injected header — updateSession merges it with
+  // the live request headers per response, so Supabase token-refresh cookie
+  // mutations stay visible to server components.
+  const localeHeader = new Headers()
+  localeHeader.set(NEXT_INTL_LOCALE_HEADER, firstSegment)
 
   if (PUBLIC_PATHS.some((path) => pathnameWithoutLocale.startsWith(path)) || pathname.includes('.')) {
-    return NextResponse.next({ request: { headers: modifiedHeaders } })
+    const headers = new Headers(request.headers)
+    headers.set(NEXT_INTL_LOCALE_HEADER, firstSegment)
+    return NextResponse.next({ request: { headers } })
   }
 
   const { updateSession } = await import('@/lib/supabase/middleware')
-  return await updateSession(request, modifiedHeaders)
+  return await updateSession(request, localeHeader)
 }
 
 export const config = {
