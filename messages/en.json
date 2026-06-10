@@ -19,7 +19,9 @@
     "close": "Close",
     "details": "Details",
     "singleDay": "Single day",
-    "days": "{count, plural, =1 {1 day} other {# days}}"
+    "days": "{count, plural, =1 {1 day} other {# days}}",
+    "emptyTitle": "Nothing here yet",
+    "emptyHint": "Add the first one!"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -42,6 +44,11 @@
     "zh": "中文",
     "en": "English",
     "switchLanguage": "Switch language"
+  },
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening"
   },
   "sidebar": {
     "openMenu": "Open menu",
