@@ -1,12 +1,8 @@
-export type VenueItemType =
-  | 'equipment'
-  | 'renovation'
-  | 'area'
-  | 'corridor'
-  | 'workstation'
-  | 'fire'
-  | 'exit'
-  | 'safety'
+// Shapes occupy area and are drawn as resizable rectangles.
+export type VenueShapeType = 'equipment' | 'renovation' | 'area' | 'corridor'
+// Markers are point symbols that do not occupy area (doors, fire points, etc.).
+export type VenueMarkerType = 'door_inward' | 'door_outward' | 'door_sliding' | 'fire' | 'power' | 'network'
+export type VenueItemType = VenueShapeType | VenueMarkerType
 
 export type VenueItemStatus = 'planned' | 'in_progress' | 'completed' | 'maintenance'
 
@@ -21,6 +17,12 @@ export type VenueItem = {
   rotation: number
   status: VenueItemStatus
   note: string
+  // Z-axis (vertical) extrusion height in cm, used only by the 3D view.
+  // 0 = flat tile on the floor; renderer drops to a 1cm sliver in that case.
+  height3d: number
+  // Distance from the floor to the bottom of the item, in cm. Lets sockets
+  // and network ports "float" at desk height in 3D.
+  elevation: number
 }
 
 export type VenueFloor = {
@@ -28,9 +30,18 @@ export type VenueFloor = {
   name: string
   width: number
   height: number
+  // Net storey height in cm — informational in MVP (used by 3D ceiling hint
+  // and inspector display); not enforced as a hard cap on item.height3d.
+  floorHeight: number
   backgroundImage?: string
   items: VenueItem[]
 }
+
+// A saved viewport: zoom ratio + scroll offset. Persisted with the layout so
+// the team's quick views survive reloads and sync across devices.
+export type VenueViewBookmark = { zoom: number; left: number; top: number }
+
+export const MAX_VENUE_VIEW_BOOKMARKS = 3
 
 export type VenueLayout = {
   venueId: string
@@ -38,6 +49,7 @@ export type VenueLayout = {
   width: number
   height: number
   floors: VenueFloor[]
+  viewBookmarks?: VenueViewBookmark[]
 }
 
 export type VenueHistory = {
@@ -76,8 +88,17 @@ export type VenueCanvasFit = {
   height: number
 }
 
-export const VENUE_STORAGE_KEY = 'guild-venue:layout:v1'
+export const VENUE_STORAGE_KEY = 'guild-venue:layout:v2'
+// Pre-v2 data lives under this key; we migrate from it but never overwrite it,
+// so it stays as a recovery backup.
+export const VENUE_LEGACY_STORAGE_KEY = 'guild-venue:layout:v1'
+// Snapshot of the previous good write, taken before each save.
+export const VENUE_BACKUP_STORAGE_KEY = 'guild-venue:layout:backup'
 export const MAX_VENUE_HISTORY_STEPS = 20
+
+// Default net storey height (cm). Standard interior ceiling in CN/JP commercial
+// fit-outs sits around 2.7-2.9m, so 2.80m is a sensible centre value.
+export const DEFAULT_FLOOR_HEIGHT = 280
 
 export function centimetersToMeters(value: number): number {
   return Math.round((value / 100) * 100) / 100
@@ -92,6 +113,26 @@ export function formatVenueMeasurement(value: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}m`
+}
+
+export function venueAreaSquareMeters(item: Pick<VenueItem, 'width' | 'height'>): number {
+  return centimetersToMeters(item.width) * centimetersToMeters(item.height)
+}
+
+// Footprint that area shares are measured against: only 'area' items count —
+// equipment, renovation, corridors, etc. are excluded.
+export function totalVenueAreaSquareMeters(items: VenueItem[]): number {
+  return items.reduce(
+    (sum, item) => (item.type === 'area' ? sum + venueAreaSquareMeters(item) : sum),
+    0,
+  )
+}
+
+export function formatVenueArea(squareMeters: number): string {
+  return `${squareMeters.toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}m²`
 }
 
 export function calculateVenueCanvasFit({
@@ -119,16 +160,32 @@ export function calculateVenueCanvasFit({
   }
 }
 
-export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] = [
+export const VENUE_SHAPE_TYPE_OPTIONS: { value: VenueShapeType; label: string }[] = [
   { value: 'equipment', label: '设备' },
-  { value: 'renovation', label: '装修' },
-  { value: 'area', label: '区域' },
-  { value: 'corridor', label: '通道' },
-  { value: 'workstation', label: '工位' },
-  { value: 'fire', label: '消防' },
-  { value: 'exit', label: '安全出口' },
-  { value: 'safety', label: '安全' },
+  { value: 'renovation', label: '区域' },
+  { value: 'area', label: '空间' },
+  { value: 'corridor', label: '结构' },
 ]
+
+export const VENUE_MARKER_TYPE_OPTIONS: { value: VenueMarkerType; label: string }[] = [
+  { value: 'door_inward', label: '内开门' },
+  { value: 'door_outward', label: '外开门' },
+  { value: 'door_sliding', label: '推拉门' },
+  { value: 'fire', label: '消防' },
+  { value: 'power', label: '电源位' },
+  { value: 'network', label: '网络口' },
+]
+
+export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] = [
+  ...VENUE_SHAPE_TYPE_OPTIONS,
+  ...VENUE_MARKER_TYPE_OPTIONS,
+]
+
+const VENUE_MARKER_TYPE_SET = new Set<string>(VENUE_MARKER_TYPE_OPTIONS.map((option) => option.value))
+
+export function isVenueMarkerType(type: VenueItemType): boolean {
+  return VENUE_MARKER_TYPE_SET.has(type)
+}
 
 export const VENUE_ITEM_STATUS_OPTIONS: { value: VenueItemStatus; label: string }[] = [
   { value: 'planned', label: '规划中' },
@@ -148,6 +205,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
       name: '1F',
       width: 1200,
       height: 800,
+      floorHeight: DEFAULT_FLOOR_HEIGHT,
       items: [
         {
           id: 'eq-1',
@@ -160,6 +218,8 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           rotation: 0,
           status: 'completed',
           note: '靠墙放置，保留走线空间。',
+          height3d: 100,
+          elevation: 0,
         },
         {
           id: 'area-1',
@@ -172,6 +232,8 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           rotation: 3,
           status: 'in_progress',
           note: '吸音墙和灯光轨道施工中。',
+          height3d: 280,
+          elevation: 0,
         },
         {
           id: 'corridor-1',
@@ -184,18 +246,50 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           rotation: 0,
           status: 'planned',
           note: '保持通道净宽，不堆放设备。',
+          height3d: 0,
+          elevation: 0,
         },
         {
-          id: 'exit-1',
-          type: 'exit',
-          name: '安全出口',
-          x: 980,
-          y: 260,
-          width: 110,
-          height: 56,
+          id: 'door-1',
+          type: 'door_inward',
+          name: '主入口',
+          x: 640,
+          y: 600,
+          width: 45,
+          height: 45,
           rotation: 0,
           status: 'completed',
-          note: '出口标识需要保持可见。',
+          note: '内开门，注意开门半径。',
+          height3d: 200,
+          elevation: 0,
+        },
+        {
+          id: 'fire-1',
+          type: 'fire',
+          name: '灭火器',
+          x: 980,
+          y: 280,
+          width: 32,
+          height: 32,
+          rotation: 0,
+          status: 'completed',
+          note: '消防点位需保持可见。',
+          height3d: 60,
+          elevation: 0,
+        },
+        {
+          id: 'power-1',
+          type: 'power',
+          name: '设备区电源',
+          x: 200,
+          y: 200,
+          width: 32,
+          height: 32,
+          rotation: 0,
+          status: 'planned',
+          note: '',
+          height3d: 15,
+          elevation: 30,
         },
       ],
     },
@@ -204,44 +298,64 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
       name: '2F',
       width: 1200,
       height: 800,
-      items: [
-        {
-          id: 'workstation-1',
-          type: 'workstation',
-          name: '运营工位',
-          x: 180,
-          y: 140,
-          width: 220,
-          height: 120,
-          rotation: 0,
-          status: 'planned',
-          note: '预留 4 个运营工位。',
-        },
-      ],
+      floorHeight: DEFAULT_FLOOR_HEIGHT,
+      items: [],
     },
   ],
 }
 
+// Point markers (fire/power/network) render at a fixed on-screen size, so their
+// stored width/height only matters for drag/snap math — keep it small and square.
+const MARKER_SIZE = { width: 32, height: 32 }
+// Doors draw to their real footprint; 0.45m × 0.45m is the standard size.
+const DOOR_SIZE = { width: 45, height: 45 }
+
 const DEFAULT_SIZE: Record<VenueItemType, { width: number; height: number }> = {
-  equipment:   { width: 160, height: 80 },
-  renovation:  { width: 240, height: 160 },
-  area:        { width: 220, height: 140 },
-  corridor:    { width: 320, height: 64 },
-  workstation: { width: 180, height: 100 },
-  fire:        { width: 80, height: 80 },
-  exit:        { width: 110, height: 56 },
-  safety:      { width: 120, height: 72 },
+  equipment:    { width: 160, height: 80 },
+  renovation:   { width: 240, height: 160 },
+  area:         { width: 220, height: 140 },
+  corridor:     { width: 320, height: 64 },
+  door_inward:  DOOR_SIZE,
+  door_outward: DOOR_SIZE,
+  door_sliding: DOOR_SIZE,
+  fire:         MARKER_SIZE,
+  power:        MARKER_SIZE,
+  network:      MARKER_SIZE,
+}
+
+// Per-type Z-axis defaults used by the 3D view. `height3d`/`elevation` are
+// stored on each VenueItem; this table is the source of truth for "new item"
+// and "legacy item missing these fields" fall-backs.
+const DEFAULT_3D: Record<VenueItemType, { height3d: number; elevation: number }> = {
+  equipment:    { height3d: 100, elevation: 0  },
+  renovation:   { height3d: 280, elevation: 0  },
+  // Areas render as 4 perimeter walls in 3D — default to a full-height wall so
+  // new rooms read as enclosed spaces. Existing 0-height area items keep flat.
+  area:         { height3d: 280, elevation: 0  },
+  corridor:     { height3d: 0,   elevation: 0  },
+  door_inward:  { height3d: 200, elevation: 0  },
+  door_outward: { height3d: 200, elevation: 0  },
+  door_sliding: { height3d: 200, elevation: 0  },
+  fire:         { height3d: 60,  elevation: 0  },
+  power:        { height3d: 15,  elevation: 30 },
+  network:      { height3d: 10,  elevation: 30 },
+}
+
+export function default3DForType(type: VenueItemType): { height3d: number; elevation: number } {
+  return DEFAULT_3D[type]
 }
 
 const DEFAULT_NAME: Record<VenueItemType, string> = {
-  equipment:   '新增设备',
-  renovation:  '新增装修区',
-  area:        '新增区域',
-  corridor:    '新增通道',
-  workstation: '新增工位',
-  fire:        '新增消防点',
-  exit:        '新增安全出口',
-  safety:      '新增安全项',
+  equipment:    '新增设备',
+  renovation:   '新增区域',
+  area:         '新增空间',
+  corridor:     '新增结构',
+  door_inward:  '内开门',
+  door_outward: '外开门',
+  door_sliding: '推拉门',
+  fire:         '消防点',
+  power:        '电源位',
+  network:      '网络口',
 }
 
 export function createHistory(
@@ -291,17 +405,25 @@ export function addVenueItem(
   type: VenueItemType,
 ): VenueLayout {
   const size = DEFAULT_SIZE[type]
+  const z = DEFAULT_3D[type]
+  const floor = layout.floors.find((candidate) => candidate.id === floorId)
+  // Spawn centered in the floor so new items don't land under the floating panel
+  // in the top-left corner.
+  const x = floor ? Math.round(floor.width / 2 - size.width / 2) : 140
+  const y = floor ? Math.round(floor.height / 2 - size.height / 2) : 120
   const item: VenueItem = {
     id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     type,
     name: DEFAULT_NAME[type],
-    x: 140,
-    y: 120,
+    x,
+    y,
     width: size.width,
     height: size.height,
     rotation: 0,
     status: 'planned',
     note: '',
+    height3d: z.height3d,
+    elevation: z.elevation,
   }
 
   return updateFloor(layout, floorId, (floor) => ({
@@ -452,14 +574,112 @@ export function updateVenueFloor(
 }
 
 export function parseStoredVenueLayout(raw: string | null): VenueLayout {
-  if (!raw) return DEFAULT_VENUE_LAYOUT
+  return parseStoredVenueLayoutOrNull(raw) ?? DEFAULT_VENUE_LAYOUT
+}
+
+// Returns the sanitized layout, or null if the raw string is missing/invalid —
+// lets callers tell "no usable data" apart from a real layout.
+function parseStoredVenueLayoutOrNull(raw: string | null): VenueLayout | null {
+  if (!raw) return null
   try {
-    const parsed = JSON.parse(raw) as unknown
-    if (isVenueLayout(parsed)) return parsed
+    return sanitizeVenueLayout(JSON.parse(raw) as unknown)
   } catch {
-    return DEFAULT_VENUE_LAYOUT
+    return null
   }
-  return DEFAULT_VENUE_LAYOUT
+}
+
+export type VenueLoadResult = {
+  layout: VenueLayout
+  // false when raw data existed but couldn't be parsed — the caller must NOT
+  // auto-overwrite storage in that case, so the bad-but-present data is kept
+  // for manual recovery instead of being clobbered by a default.
+  persistable: boolean
+  // true when data was read from the legacy (v1) key and should be re-saved
+  // under the current key (the legacy key is left untouched as a backup).
+  migratedFromLegacy: boolean
+}
+
+// Load the venue layout with migration + safety: try the current key, then the
+// legacy key; never treat a parse failure of existing data as "save default".
+export function loadVenueLayout(storage: Pick<Storage, 'getItem'>): VenueLoadResult {
+  const rawCurrent = storage.getItem(VENUE_STORAGE_KEY)
+  if (rawCurrent != null) {
+    const layout = parseStoredVenueLayoutOrNull(rawCurrent)
+    return layout
+      ? { layout, persistable: true, migratedFromLegacy: false }
+      : { layout: DEFAULT_VENUE_LAYOUT, persistable: false, migratedFromLegacy: false }
+  }
+
+  const rawLegacy = storage.getItem(VENUE_LEGACY_STORAGE_KEY)
+  if (rawLegacy != null) {
+    const layout = parseStoredVenueLayoutOrNull(rawLegacy)
+    return layout
+      ? { layout, persistable: true, migratedFromLegacy: true }
+      : { layout: DEFAULT_VENUE_LAYOUT, persistable: false, migratedFromLegacy: false }
+  }
+
+  return { layout: DEFAULT_VENUE_LAYOUT, persistable: true, migratedFromLegacy: false }
+}
+
+// Accept a stored layout but drop items whose type is no longer supported,
+// rather than discarding the whole layout — keeps the user's work when
+// categories are removed.
+function sanitizeVenueLayout(value: unknown): VenueLayout | null {
+  if (!value || typeof value !== 'object') return null
+  const layout = value as VenueLayout
+  if (
+    typeof layout.venueId !== 'string' ||
+    typeof layout.name !== 'string' ||
+    typeof layout.width !== 'number' ||
+    typeof layout.height !== 'number' ||
+    !Array.isArray(layout.floors)
+  ) {
+    return null
+  }
+  // Pre-v2 layouts predate height3d/elevation/floorHeight. Don't reject them —
+  // backfill with type-defaults so the user's work survives the migration.
+  const floors = layout.floors
+    .filter(isVenueFloorShape)
+    .map((floor) => ({
+      ...floor,
+      floorHeight: finiteFloorHeight(floor.floorHeight),
+      items: floor.items.filter(isVenueItem).map(backfillItem3D),
+    }))
+  if (floors.length === 0) return null
+  return { ...layout, floors, viewBookmarks: sanitizeViewBookmarks(layout.viewBookmarks) }
+}
+
+// Keep only well-formed bookmarks, capped at the client limit. Returns undefined
+// when empty so a seeded layout stays deep-equal to DEFAULT_VENUE_LAYOUT.
+export function sanitizeViewBookmarks(value: unknown): VenueViewBookmark[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const list: VenueViewBookmark[] = []
+  for (const entry of value) {
+    const b = entry as VenueViewBookmark
+    if (b && typeof b === 'object'
+      && typeof b.zoom === 'number' && Number.isFinite(b.zoom)
+      && typeof b.left === 'number' && Number.isFinite(b.left)
+      && typeof b.top === 'number' && Number.isFinite(b.top)) {
+      list.push({ zoom: b.zoom, left: b.left, top: b.top })
+    }
+    if (list.length >= MAX_VENUE_VIEW_BOOKMARKS) break
+  }
+  return list.length ? list : undefined
+}
+
+function backfillItem3D(item: VenueItem): VenueItem {
+  const z = DEFAULT_3D[item.type]
+  return {
+    ...item,
+    height3d: Number.isFinite(item.height3d) ? Math.max(0, item.height3d as number) : z.height3d,
+    elevation: Number.isFinite(item.elevation) ? Math.max(0, item.elevation as number) : z.elevation,
+  }
+}
+
+function finiteFloorHeight(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.max(100, value)
+    : DEFAULT_FLOOR_HEIGHT
 }
 
 export function readStoredVenueLayout(storage: Pick<Storage, 'getItem'>): VenueLayout {
@@ -467,9 +687,19 @@ export function readStoredVenueLayout(storage: Pick<Storage, 'getItem'>): VenueL
 }
 
 export function writeStoredVenueLayout(
-  storage: Pick<Storage, 'setItem'>,
+  storage: Pick<Storage, 'getItem' | 'setItem'>,
   layout: VenueLayout,
 ): void {
+  // Snapshot the previous good write before overwriting, so a bad save can be
+  // rolled back from the backup key.
+  const previous = storage.getItem(VENUE_STORAGE_KEY)
+  if (previous != null) {
+    try {
+      storage.setItem(VENUE_BACKUP_STORAGE_KEY, previous)
+    } catch {
+      // Backup is best-effort (e.g. quota) — don't block the primary write.
+    }
+  }
   storage.setItem(VENUE_STORAGE_KEY, JSON.stringify(layout))
 }
 
@@ -492,6 +722,8 @@ function normalizeVenueItem(item: VenueItem): VenueItem {
     width: Math.max(8, finiteNumber(item.width)),
     height: Math.max(8, finiteNumber(item.height)),
     rotation: finiteNumber(item.rotation),
+    height3d: Math.max(0, finiteNumber(item.height3d)),
+    elevation: Math.max(0, finiteNumber(item.elevation)),
   }
 }
 
@@ -500,6 +732,7 @@ function normalizeVenueFloor(floor: VenueFloor): VenueFloor {
     ...floor,
     width: Math.max(100, finiteNumber(floor.width)),
     height: Math.max(100, finiteNumber(floor.height)),
+    floorHeight: Math.max(100, finiteNumber(floor.floorHeight) || DEFAULT_FLOOR_HEIGHT),
   }
 }
 
@@ -543,20 +776,7 @@ function finiteNumber(value: number): number {
   return Number.isFinite(value) ? value : 0
 }
 
-function isVenueLayout(value: unknown): value is VenueLayout {
-  if (!value || typeof value !== 'object') return false
-  const layout = value as VenueLayout
-  return (
-    typeof layout.venueId === 'string' &&
-    typeof layout.name === 'string' &&
-    typeof layout.width === 'number' &&
-    typeof layout.height === 'number' &&
-    Array.isArray(layout.floors) &&
-    layout.floors.every(isVenueFloor)
-  )
-}
-
-function isVenueFloor(value: unknown): value is VenueFloor {
+function isVenueFloorShape(value: unknown): value is VenueFloor {
   if (!value || typeof value !== 'object') return false
   const floor = value as VenueFloor
   return (
@@ -564,8 +784,7 @@ function isVenueFloor(value: unknown): value is VenueFloor {
     typeof floor.name === 'string' &&
     typeof floor.width === 'number' &&
     typeof floor.height === 'number' &&
-    Array.isArray(floor.items) &&
-    floor.items.every(isVenueItem)
+    Array.isArray(floor.items)
   )
 }
 

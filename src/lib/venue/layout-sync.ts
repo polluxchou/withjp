@@ -1,4 +1,8 @@
-import type { VenueItemType, VenueItemStatus, VenueLayout } from '@/venue/layoutData'
+// node --test ignores tsconfig path aliases — any *value* import via '@/venue/...'
+// fails at runtime. Type-only imports stay aliased; they're stripped before exec
+// and never reach the resolver.
+import { sanitizeViewBookmarks } from '../../venue/layoutData.ts'
+import type { VenueItemType, VenueItemStatus, VenueLayout, VenueViewBookmark } from '@/venue/layoutData'
 
 // 数据库行形态（text 主键，直接沿用画布的字符串 id）。
 export interface VenueRow {
@@ -6,6 +10,7 @@ export interface VenueRow {
   name: string
   width: number
   height: number
+  view_bookmarks?: VenueViewBookmark[] | null
 }
 
 export interface VenueFloorRow {
@@ -47,6 +52,7 @@ export function layoutToRows(layout: VenueLayout): {
     name: layout.name,
     width: layout.width,
     height: layout.height,
+    view_bookmarks: layout.viewBookmarks ?? [],
   }
   const floors: VenueFloorRow[] = layout.floors.map((floor, index) => ({
     id: floor.id,
@@ -88,11 +94,14 @@ export function rowsToLayout(
   const sortedFloors = [...floors].sort((a, b) => a.sort_order - b.sort_order)
   const sortedItems = [...items].sort((a, b) => a.z_index - b.z_index)
 
+  const bookmarks = sanitizeViewBookmarks(venue.view_bookmarks)
+
   return {
     venueId: venue.id,
     name: venue.name,
     width: venue.width,
     height: venue.height,
+    ...(bookmarks ? { viewBookmarks: bookmarks } : {}),
     floors: sortedFloors.map((floor) => ({
       id: floor.id,
       name: floor.name,

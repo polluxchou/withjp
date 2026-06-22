@@ -35,7 +35,7 @@ export async function getVenueLayout(): Promise<ServiceResult<VenueLayout>> {
 
   const { data: venue, error: venueErr } = await db
     .from('venues')
-    .select('id, name, width, height')
+    .select('id, name, width, height, view_bookmarks')
     .eq('id', SHARED_VENUE_ID)
     .single()
   if (venueErr) {
