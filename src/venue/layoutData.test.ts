@@ -6,6 +6,7 @@ import {
   centimetersToMeters,
   createHistory,
   deleteVenueItem,
+  formatVenueMeasurement,
   metersToCentimeters,
   moveVenueItemLayer,
   parseStoredVenueLayout,
@@ -23,6 +24,12 @@ test('centimetersToMeters and metersToCentimeters convert layout units for the i
   assert.equal(centimetersToMeters(125), 1.25)
   assert.equal(metersToCentimeters(1.6), 160)
   assert.equal(metersToCentimeters(1.255), 126)
+})
+
+test('formatVenueMeasurement formats centimeters as concise meters', () => {
+  assert.equal(formatVenueMeasurement(160), '1.6m')
+  assert.equal(formatVenueMeasurement(125), '1.25m')
+  assert.equal(formatVenueMeasurement(1200), '12m')
 })
 
 test('addVenueItem creates a unique item with default geometry and status', () => {

@@ -1111,6 +1111,7 @@
     "undo": "Undo",
     "redo": "Redo",
     "grid": "Grid",
+    "dimensionRulers": "Dimension rulers",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "exportJson": "Export JSON",

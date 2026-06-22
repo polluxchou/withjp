@@ -16,6 +16,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Redo2,
+  Ruler,
   ShieldCheck,
   Undo2,
   Users,
@@ -33,6 +34,7 @@ import {
   centimetersToMeters,
   createHistory,
   deleteVenueItem,
+  formatVenueMeasurement,
   moveVenueItemLayer,
   parseStoredVenueLayout,
   pushHistory,
@@ -68,6 +70,7 @@ export default function GuildVenuePage() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(DEFAULT_VENUE_LAYOUT.floors[0].items[0]?.id ?? null)
   const [zoom, setZoom] = useState(1)
   const [showGrid, setShowGrid] = useState(true)
+  const [showRulers, setShowRulers] = useState(true)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [hydrated, setHydrated] = useState(false)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -260,6 +263,7 @@ export default function GuildVenuePage() {
           <ToolbarButton icon={Undo2} label={t('undo')} onClick={undo} disabled={history.past.length === 0} />
           <ToolbarButton icon={Redo2} label={t('redo')} onClick={redo} disabled={history.future.length === 0} />
           <ToolbarButton icon={Grid3X3} label={t('grid')} onClick={() => setShowGrid((value) => !value)} active={showGrid} />
+          <ToolbarButton icon={Ruler} label={t('dimensionRulers')} onClick={() => setShowRulers((value) => !value)} active={showRulers} />
           <ToolbarButton icon={ZoomOut} label={t('zoomOut')} onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(2))))} />
           <span className="min-w-14 text-center text-xs font-semibold text-slate-500">{Math.round(zoom * 100)}%</span>
           <ToolbarButton icon={ZoomIn} label={t('zoomIn')} onClick={() => setZoom((value) => Math.min(1.8, Number((value + 0.1).toFixed(2))))} />
@@ -292,6 +296,7 @@ export default function GuildVenuePage() {
               selectedItemId={selectedItemId}
               zoom={zoom}
               showGrid={showGrid}
+              showRulers={showRulers}
               onSelectItem={setSelectedItemId}
               onItemChange={updateItem}
             />
@@ -471,7 +476,7 @@ function FloatingPanel({
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium truncate">{item.name}</span>
                 <span className="block text-[11px] text-slate-400 truncate">
-                  {formatMeters(item.width)}×{formatMeters(item.height)} · {formatMeters(item.x)}, {formatMeters(item.y)}
+                  {formatVenueMeasurement(item.width)}×{formatVenueMeasurement(item.height)} · {formatVenueMeasurement(item.x)}, {formatVenueMeasurement(item.y)}
                 </span>
               </span>
             </button>
@@ -540,13 +545,6 @@ function downloadFile(filename: string, content: string, type: string) {
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
-}
-
-function formatMeters(value: number) {
-  return `${centimetersToMeters(value).toLocaleString('zh-CN', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}m`
 }
 
 function isUndoTarget(target: EventTarget | null) {

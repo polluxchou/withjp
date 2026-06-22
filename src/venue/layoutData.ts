@@ -59,6 +59,13 @@ export function metersToCentimeters(value: number): number {
   return Math.round(Number(`${value}e2`))
 }
 
+export function formatVenueMeasurement(value: number): string {
+  return `${centimetersToMeters(value).toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}m`
+}
+
 export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] = [
   { value: 'equipment', label: '设备' },
   { value: 'renovation', label: '装修' },
