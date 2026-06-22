@@ -1142,7 +1142,10 @@
     "timelineEmpty": "No status changes",
     "timelineInitial": "Created",
     "deletePrompt": "Delete this item? This cannot be undone.",
-    "saveFailed": "Save failed: {message}"
+    "saveFailed": "Save failed: {message}",
+    "fieldPhoto": "Photo",
+    "uploading": "Uploading…",
+    "removePhoto": "Remove photo"
   },
   "venue": {
     "title": "Venue Layout",
@@ -1166,6 +1169,7 @@
     "exportJson": "Export JSON",
     "exportImage": "Export image",
     "currentVenue": "Current venue",
+    "totalSpaceArea": "Total space area",
     "collapseVenuePanel": "Collapse current venue",
     "expandVenuePanel": "Expand current venue",
     "collapseInspector": "Collapse inspector",
@@ -1190,6 +1194,12 @@
     "modeSwitchTo3d": "Switch to 3D view",
     "mode3dLoading": "Loading 3D view…",
     "mode3dMobileHint": "3D view works best on a desktop",
+    "transformSelect": "Select",
+    "transformTranslate": "Move",
+    "transformRotate": "Rotate",
+    "transformScale": "Height",
+    "transformResetView": "Reset view",
+    "transformExit3d": "Exit 3D",
     "backgroundImage": "Floor plan image",
     "backgroundPlaceholder": "Image URL or base64",
     "canvasAria": "{floor} venue layout canvas",
@@ -1261,7 +1271,11 @@
       "in_progress": "In progress",
       "completed": "Completed",
       "maintenance": "Needs maintenance"
-    }
+    },
+    "placedItemsTitle": "Items here",
+    "placedItemsEmpty": "No items in this zone",
+    "placedItemsTotal": "Total cost",
+    "manageItems": "Manage items"
   },
   "config": {
     "tabs": {
