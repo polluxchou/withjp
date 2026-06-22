@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl'
 import {
   VENUE_ITEM_TYPE_OPTIONS,
   formatVenueMeasurement,
+  snapVenueItemToAlignment,
+  type VenueAlignmentGuide,
   type VenueFloor,
   type VenueItem,
   type VenueItemType,
@@ -52,6 +54,7 @@ function VenueCanvas(
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
+  const [alignmentGuides, setAlignmentGuides] = useState<VenueAlignmentGuide[]>([])
   const [pan, setPan] = useState<PanState | null>(null)
   const itemTypeLabels = useMemo(
     () => Object.fromEntries(VENUE_ITEM_TYPE_OPTIONS.map((option) => [option.value, t(`types.${option.value}`)])),
@@ -106,7 +109,15 @@ function VenueCanvas(
     const pointer = svgPoint(event)
     const x = Math.round(drag.startItem.x + pointer.x - drag.startPointer.x)
     const y = Math.round(drag.startItem.y + pointer.y - drag.startPointer.y)
-    setDragPosition({ x, y })
+    const item = floor.items.find((candidate) => candidate.id === drag.itemId)
+    if (!item) {
+      setDragPosition({ x, y })
+      setAlignmentGuides([])
+      return
+    }
+    const snapped = snapVenueItemToAlignment(item, floor.items, { x, y })
+    setDragPosition({ x: snapped.x, y: snapped.y })
+    setAlignmentGuides(snapped.guides)
   }
 
   function finishDrag() {
@@ -115,6 +126,7 @@ function VenueCanvas(
     }
     setDrag(null)
     setDragPosition(null)
+    setAlignmentGuides([])
     setPan(null)
   }
 
@@ -189,9 +201,11 @@ function VenueCanvas(
               label={itemTypeLabels[item.type]}
               selected={item.id === selectedItemId}
               showRulers={showRulers}
+              zoom={zoom}
               onPointerDown={(event) => startDrag(event, item)}
             />
           ))}
+          <AlignmentGuides guides={alignmentGuides} />
         </svg>
       </div>
     </div>
@@ -200,22 +214,86 @@ function VenueCanvas(
 
 export default forwardRef(VenueCanvas)
 
+function AlignmentGuides({ guides }: { guides: VenueAlignmentGuide[] }) {
+  if (guides.length === 0) return null
+
+  return (
+    <g pointerEvents="none">
+      {guides.map((guide) => (
+        guide.axis === 'x'
+          ? <line
+              key={`x-${guide.position}-${guide.start}-${guide.end}`}
+              x1={guide.position}
+              y1={guide.start - 24}
+              x2={guide.position}
+              y2={guide.end + 24}
+              stroke="#db2777"
+              strokeWidth="2"
+              strokeDasharray="8 6"
+            />
+          : <line
+              key={`y-${guide.position}-${guide.start}-${guide.end}`}
+              x1={guide.start - 24}
+              y1={guide.position}
+              x2={guide.end + 24}
+              y2={guide.position}
+              stroke="#db2777"
+              strokeWidth="2"
+              strokeDasharray="8 6"
+            />
+      ))}
+    </g>
+  )
+}
+
+// CJK / full-width glyphs render ~1 em wide, latin ~0.6 em. Used to estimate
+// label width so it can be clamped to the object box.
+function estTextUnits(text: string): number {
+  let units = 0
+  for (const ch of text) {
+    units += /[⺀-〿　-鿿＀-￯]/.test(ch) ? 1 : 0.6
+  }
+  return units
+}
+
 function VenueShape({
   item,
   label,
   selected,
   showRulers,
+  zoom,
   onPointerDown,
 }: {
   item: VenueItem
   label: string
   selected: boolean
   showRulers: boolean
+  zoom: number
   onPointerDown: (event: PointerEvent<SVGGElement>) => void
 }) {
   const style = TYPE_STYLE[item.type]
   const cx = item.x + item.width / 2
   const cy = item.y + item.height / 2
+
+  // The canvas scales user units by zoom² on screen (rendered px = floor*zoom,
+  // viewBox = floor/zoom). Counter that so labels stay a near-constant on-screen
+  // size, then clamp to the box so they never overflow small objects.
+  const z2 = Math.max(zoom * zoom, 1e-4)
+  const PAD = 6
+  const innerW = Math.max(item.width - PAD * 2, 4)
+  const innerH = Math.max(item.height - PAD * 2, 4)
+  const hasLabel = label.length > 0
+
+  const nameByWidth = innerW / Math.max(estTextUnits(item.name), 1)
+  const nameByHeight = hasLabel ? innerH / 2.1 : innerH * 0.85
+  const nameFont = Math.max(Math.min(14 / z2, nameByWidth, nameByHeight), 1)
+
+  const showLabel = hasLabel && innerH >= nameFont * 2
+  const subByWidth = innerW / Math.max(estTextUnits(label), 1)
+  const subFont = Math.max(Math.min(11 / z2, subByWidth, nameFont * 0.82), 1)
+
+  const nameY = showLabel ? cy - subFont * 0.72 : cy
+  const subY = cy + nameFont * 0.72
 
   return (
     <g
@@ -237,27 +315,27 @@ function VenueShape({
       {showRulers && <DimensionRulers item={item} />}
       <text
         x={cx}
-        y={cy - 5}
+        y={nameY}
         textAnchor="middle"
         dominantBaseline="middle"
         fill="#0f172a"
-        fontSize="18"
+        fontSize={nameFont}
         fontWeight="700"
         pointerEvents="none"
       >
         {item.name}
       </text>
-      <text
+      {showLabel && <text
         x={cx}
-        y={cy + 18}
+        y={subY}
         textAnchor="middle"
         dominantBaseline="middle"
         fill="#475569"
-        fontSize="13"
+        fontSize={subFont}
         pointerEvents="none"
       >
         {label}
-      </text>
+      </text>}
       {selected && (
         <>
           <rect
