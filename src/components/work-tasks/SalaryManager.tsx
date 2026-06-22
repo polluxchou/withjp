@@ -139,16 +139,16 @@ export default function SalaryManager() {
     byUser.set(r.user_id, [...prev, r])
   }
 
-  const INPUT = 'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
-  const LABEL = 'block text-xs font-medium text-slate-700 mb-1'
+  const INPUT = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
+  const LABEL = 'block text-xs font-medium text-zinc-700 mb-1'
 
   return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">{t('title')}</h3>
-          <p className="text-xs text-slate-500 mt-0.5">{t('subtitle')}</p>
+          <h3 className="text-sm font-semibold text-zinc-900">{t('title')}</h3>
+          <p className="text-xs text-zinc-500 mt-0.5">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="w-3.5 h-3.5" /> {t('addRecord')}
@@ -157,63 +157,63 @@ export default function SalaryManager() {
 
       {/* Table */}
       {loading ? (
-        <div className="py-8 text-center text-sm text-slate-400">{tCommon('loading')}</div>
+        <div className="py-8 text-center text-sm text-zinc-400">{tCommon('loading')}</div>
       ) : records.length === 0 ? (
-        <div className="py-12 text-center bg-white border border-slate-200 rounded-xl">
-          <p className="text-sm text-slate-400">{t('empty')}</p>
-          <p className="text-xs text-slate-300 mt-1">{t('emptyHint')}</p>
+        <div className="py-12 text-center bg-white border border-zinc-200 rounded-xl">
+          <p className="text-sm text-zinc-400">{t('empty')}</p>
+          <p className="text-xs text-zinc-300 mt-1">{t('emptyHint')}</p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableEmployee')}</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableDepartment')}</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-500">{t('tableMonthly')}</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableEffectiveFrom')}</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableEffectiveTo')}</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">{t('tableNotes')}</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-500">{t('tableActions')}</th>
+              <tr className="bg-zinc-50 border-b border-zinc-200">
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableEmployee')}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableDepartment')}</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium text-zinc-500">{t('tableMonthly')}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableEffectiveFrom')}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableEffectiveTo')}</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableNotes')}</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium text-zinc-500">{t('tableActions')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-zinc-100">
               {records.map((r) => {
                 const isCurrent = !r.effective_to
                 return (
-                  <tr key={r.id} className={`hover:bg-slate-50 transition-colors ${isCurrent ? '' : 'opacity-60'}`}>
+                  <tr key={r.id} className={`hover:bg-zinc-50 transition-colors ${isCurrent ? '' : 'opacity-60'}`}>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700">
+                        <div className="w-6 h-6 rounded-full bg-primary-soft flex items-center justify-center text-xs font-bold text-primary">
                           {r.user.name.slice(0, 1).toUpperCase()}
                         </div>
-                        <span className="font-medium text-slate-900">{r.user.name}</span>
+                        <span className="font-medium text-zinc-900">{r.user.name}</span>
                         {isCurrent && (
                           <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">{t('current')}</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className="px-4 py-2.5 text-zinc-600">
                       {DEPARTMENT_LABELS[r.user.role]}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-slate-900">
+                    <td className="px-4 py-2.5 text-right font-semibold text-zinc-900">
                       {fmtRmb(r.monthly_salary)}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">{r.effective_from}</td>
-                    <td className="px-4 py-2.5 text-slate-400">{r.effective_to ?? '—'}</td>
-                    <td className="px-4 py-2.5 text-slate-400 max-w-[160px] truncate">{r.notes ?? '—'}</td>
+                    <td className="px-4 py-2.5 text-zinc-600">{r.effective_from}</td>
+                    <td className="px-4 py-2.5 text-zinc-400">{r.effective_to ?? '—'}</td>
+                    <td className="px-4 py-2.5 text-zinc-400 max-w-[160px] truncate">{r.notes ?? '—'}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex justify-end gap-1">
                         <button
                           onClick={() => openEdit(r)}
-                          className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
+                          className="p-1 text-zinc-400 hover:text-zinc-700 transition-colors"
                           title={t('editTooltip')}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => setDeleting(r)}
-                          className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                          className="p-1 text-zinc-400 hover:text-red-600 transition-colors"
                           title={t('deleteTooltip')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -311,7 +311,7 @@ export default function SalaryManager() {
       <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
         {deleting && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-zinc-700">
               {t.rich('deleteConfirm', {
                 name: deleting.user.name,
                 from: deleting.effective_from,

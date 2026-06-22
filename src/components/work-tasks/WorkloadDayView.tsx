@@ -27,7 +27,7 @@ interface Props {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  planned:   'bg-slate-100 text-slate-600',
+  planned:   'bg-zinc-100 text-zinc-600',
   doing:     'bg-blue-100 text-blue-700',
   done:      'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-500',
@@ -86,9 +86,9 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
           { label: t('summary.labourCost'),    value: fmtRmb(summary.totalLabourCost) },
           { label: t('summary.taskCount'),     value: t('summary.taskCountValue',    { count: tasks.filter(task => task.status !== 'cancelled').length }) },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-slate-200 rounded-xl p-3">
-            <p className="text-xs text-slate-500 mb-0.5">{label}</p>
-            <p className="text-lg font-bold text-slate-900">{value}</p>
+          <div key={label} className="bg-white border border-zinc-200 rounded-xl p-3">
+            <p className="text-xs text-zinc-500 mb-0.5">{label}</p>
+            <p className="text-lg font-bold text-zinc-900">{value}</p>
           </div>
         ))}
       </div>
@@ -99,12 +99,12 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
           {(Object.entries(summary.byDepartment) as [AgentRole, { hours: number; cost: number }][])
             .sort((a, b) => b[1].hours - a[1].hours)
             .map(([dept, { hours, cost }]) => (
-              <div key={dept} className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
-                <span className="font-medium text-slate-700">{DEPARTMENT_LABELS[dept]}</span>
-                <span className="text-slate-400 mx-1">·</span>
-                <span className="text-slate-600">{hours}h</span>
-                <span className="text-slate-400 mx-1">·</span>
-                <span className="text-slate-600">{fmtRmb(cost)}</span>
+              <div key={dept} className="bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs">
+                <span className="font-medium text-zinc-700">{DEPARTMENT_LABELS[dept]}</span>
+                <span className="text-zinc-400 mx-1">·</span>
+                <span className="text-zinc-600">{hours}h</span>
+                <span className="text-zinc-400 mx-1">·</span>
+                <span className="text-zinc-600">{fmtRmb(cost)}</span>
               </div>
             ))}
         </div>
@@ -119,21 +119,21 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
 
       {/* Per-person rows */}
       {workloads.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-sm text-slate-400">
+        <div className="bg-white border border-zinc-200 rounded-xl p-12 text-center text-sm text-zinc-400">
           {t('emptyDay')}
         </div>
       ) : (
         <div className="space-y-3">
           {workloads.map((row) => (
-            <div key={row.user_id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div key={row.user_id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
               {/* Person header */}
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50">
-                <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700">
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100 bg-zinc-50">
+                <div className="w-7 h-7 rounded-full bg-primary-soft flex items-center justify-center text-xs font-bold text-primary">
                   {row.user_name.slice(0, 1).toUpperCase()}
                 </div>
                 <div className="flex-1">
-                  <span className="text-sm font-semibold text-slate-900">{row.user_name}</span>
-                  <span className="ml-2 text-xs text-slate-400">{DEPARTMENT_LABELS[row.department]}</span>
+                  <span className="text-sm font-semibold text-zinc-900">{row.user_name}</span>
+                  <span className="ml-2 text-xs text-zinc-400">{DEPARTMENT_LABELS[row.department]}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Utilisation bar */}
@@ -141,21 +141,21 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
                     {Array.from({ length: WORKING_HOURS_PER_DAY }).map((_, i) => (
                       <div
                         key={i}
-                        className={`w-3 h-3 rounded-sm ${i < row.total_hours ? 'bg-indigo-500' : 'bg-slate-200'}`}
+                        className={`w-3 h-3 rounded-sm ${i < row.total_hours ? 'bg-violet-500' : 'bg-zinc-200'}`}
                       />
                     ))}
                   </div>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${utilisationColor(row.total_hours)}`}>
                     {row.total_hours}h
                   </span>
-                  <span className="text-xs text-slate-400">{fmtRmb(row.daily_cost * (row.total_hours / WORKING_HOURS_PER_DAY))}</span>
+                  <span className="text-xs text-zinc-400">{fmtRmb(row.daily_cost * (row.total_hours / WORKING_HOURS_PER_DAY))}</span>
                 </div>
               </div>
 
               {/* Task list */}
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-zinc-50">
                 {row.tasks.map((task) => (
-                  <div key={task.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                  <div key={task.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-zinc-50 transition-colors">
                     <div className="flex gap-1.5 mt-0.5 flex-shrink-0">
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${TYPE_COLOR[task.task_type]}`}>
                         {WORK_TASK_TYPE_LABELS[task.task_type]}
@@ -165,27 +165,27 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{task.title}</p>
+                      <p className="text-sm font-medium text-zinc-900 truncate">{task.title}</p>
                       {task.milestone && (
-                        <p className="text-xs text-slate-400 mt-0.5">🎯 {task.milestone.title}</p>
+                        <p className="text-xs text-zinc-400 mt-0.5">🎯 {task.milestone.title}</p>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-slate-400 flex-shrink-0">
-                      <span className="font-medium text-slate-600">{task.effort_hours}h</span>
+                    <div className="flex items-center gap-1 text-xs text-zinc-400 flex-shrink-0">
+                      <span className="font-medium text-zinc-600">{task.effort_hours}h</span>
                       <span>·</span>
                       <span>{task.owner_user_id === row.user_id ? t('roleOwner') : t('roleAssignee')}</span>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <button onClick={() => { setDupTarget(task); setDupDate('') }}
-                        className="p-1 text-slate-400 hover:text-indigo-600 transition-colors" title={t('rowAction.duplicate')}>
+                        className="p-1 text-zinc-400 hover:text-primary transition-colors" title={t('rowAction.duplicate')}>
                         <Copy className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => setEditing(task)}
-                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors" title={t('rowAction.edit')}>
+                        className="p-1 text-zinc-400 hover:text-zinc-700 transition-colors" title={t('rowAction.edit')}>
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => setDeleting(task)}
-                        className="p-1 text-slate-400 hover:text-red-600 transition-colors" title={t('rowAction.delete')}>
+                        className="p-1 text-zinc-400 hover:text-red-600 transition-colors" title={t('rowAction.delete')}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -221,14 +221,14 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
       <Modal open={!!dupTarget} onClose={() => setDupTarget(null)} title={t('duplicateTaskTo')}>
         {dupTarget && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-zinc-600">
               {t.rich('duplicateConfirm', {
                 name: dupTarget.title,
                 title: (chunks) => <span className="font-medium">{chunks}</span>,
               })}
             </p>
             <input type="date" value={dupDate} onChange={(e) => setDupDate(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setDupTarget(null)}>{tCommon('cancel')}</Button>
               <Button onClick={handleDuplicate} disabled={!dupDate}>{t('confirmDuplicate')}</Button>
@@ -241,7 +241,7 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
       <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
         {deleting && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-zinc-700">
               {t.rich('deleteConfirm', {
                 name: deleting.title,
                 title: (chunks) => <span className="font-semibold">{chunks}</span>,

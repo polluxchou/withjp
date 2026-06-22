@@ -56,11 +56,11 @@ const TONE_CLASS = {
     stem: 'bg-green-400',
   },
   neutral: {
-    dot: 'bg-slate-400 ring-slate-100',
-    hollow: 'border-slate-400 bg-white ring-slate-100',
-    card: 'border-slate-200 bg-white',
-    text: 'text-slate-500',
-    stem: 'bg-slate-300',
+    dot: 'bg-zinc-400 ring-zinc-100',
+    hollow: 'border-zinc-400 bg-white ring-zinc-100',
+    card: 'border-zinc-200 bg-white',
+    text: 'text-zinc-500',
+    stem: 'bg-zinc-300',
   },
 } as const
 
@@ -112,9 +112,9 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
 
   if (upcoming.length === 0) {
     return (
-      <section className="bg-white border border-slate-200 rounded-xl p-10 text-center">
-        <p className="text-sm font-medium text-slate-600">未来 {rangeDays} 天暂无战略节点</p>
-        <p className="text-xs text-slate-400 mt-1">可以切换到 90 天查看更远的规划。</p>
+      <section className="bg-white border border-zinc-200 rounded-card p-10 text-center">
+        <p className="text-sm font-medium text-zinc-600">未来 {rangeDays} 天暂无战略节点</p>
+        <p className="text-xs text-zinc-400 mt-1">可以切换到 90 天查看更远的规划。</p>
         <div className="mt-5 flex justify-center">
           <RangeSwitch value={rangeDays} onChange={handleRangeChange} />
         </div>
@@ -123,18 +123,18 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
   }
 
   return (
-    <section className="bg-white border border-slate-200 rounded-xl p-5">
+    <section className="bg-white border border-zinc-200 rounded-card p-5">
       <div className="flex items-end justify-between gap-4 mb-5 flex-wrap">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">接下来 {rangeDays} 天</h2>
-          <p className="text-xs text-slate-500 mt-1">按日期查看即将到来的战略节点</p>
+          <h2 className="text-lg font-bold text-zinc-900">接下来 {rangeDays} 天</h2>
+          <p className="text-xs text-zinc-500 mt-1">按日期查看即将到来的战略节点</p>
         </div>
         <RangeSwitch value={rangeDays} onChange={handleRangeChange} />
       </div>
 
       <div className="overflow-x-auto pb-2">
         <div className="relative min-w-[900px] h-[320px] mx-2">
-          <div className="absolute left-0 right-0 top-[150px] h-0.5 bg-slate-200" />
+          <div className="absolute left-0 right-0 top-[150px] h-0.5 bg-zinc-200" />
 
           {ticks.map((tick) => {
             const left = getTimelinePosition(tick.date.toISOString(), range)
@@ -144,9 +144,9 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
                 className="absolute top-[160px] -translate-x-1/2 text-center"
                 style={{ left: `${left}%` }}
               >
-                <div className="mx-auto mb-1 h-2 w-px bg-slate-300" />
-                <p className="text-[10px] font-medium text-slate-500">{tick.label}</p>
-                <p className="text-[10px] text-slate-400">{format(tick.date, 'MMM d')}</p>
+                <div className="mx-auto mb-1 h-2 w-px bg-zinc-300" />
+                <p className="text-[10px] font-medium text-zinc-500">{tick.label}</p>
+                <p className="text-[10px] text-zinc-400">{format(tick.date, 'MMM d')}</p>
               </div>
             )
           })}
@@ -212,7 +212,7 @@ function RangeSwitch({
   onChange: (value: RangeDays) => void
 }) {
   return (
-    <div className="flex bg-slate-100 rounded-lg p-0.5">
+    <div className="flex bg-zinc-100 rounded-lg p-0.5">
       {RANGE_OPTIONS.map((days) => (
         <button
           key={days}
@@ -220,8 +220,8 @@ function RangeSwitch({
           onClick={() => onChange(days)}
           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
             value === days
-              ? 'bg-white shadow-sm text-slate-900'
-              : 'text-slate-500 hover:text-slate-700'
+              ? 'bg-white shadow-sm text-zinc-900'
+              : 'text-zinc-500 hover:text-zinc-700'
           }`}
         >
           {days} 天
@@ -263,7 +263,7 @@ function TimelineDot({
         title={title}
         className={`relative mx-auto block h-4 w-4 rounded-full ring-4 transition-transform hover:scale-110 ${dotClass} ${selected ? 'scale-125' : ''}`}
       >
-        <span className="absolute -mt-5 ml-2 rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] text-white">
+        <span className="absolute -mt-5 ml-2 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] text-white">
           {count}
         </span>
       </button>
@@ -303,21 +303,21 @@ function TimelineCard({
       href={`/timeline/${milestone.id}`}
       title={`${milestone.title} · ${visual.label}`}
       onClick={(event) => onPress(event, milestone.id)}
-      className={`block w-44 rounded-lg border px-3 py-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${cls.card} ${selected ? 'ring-2 ring-indigo-300' : ''}`}
+      className={`block w-44 rounded-lg border px-3 py-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${cls.card} ${selected ? 'ring-2 ring-violet-300' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold text-slate-900 line-clamp-2">
+        <p className="text-xs font-semibold text-zinc-900 line-clamp-2">
           {isCluster ? `${count} 个节点` : milestone.title}
         </p>
         <span className={`text-[10px] font-semibold whitespace-nowrap ${cls.text}`}>
           {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d`}
         </span>
       </div>
-      <p className="text-[10px] text-slate-500 mt-1 truncate">
+      <p className="text-[10px] text-zinc-500 mt-1 truncate">
         {owner ?? 'Owner 未定'}
       </p>
       {isCluster && (
-        <p className="text-[10px] text-slate-400 mt-1 truncate">
+        <p className="text-[10px] text-zinc-400 mt-1 truncate">
           点击查看最近节点
         </p>
       )}
@@ -337,14 +337,14 @@ function FocusDetail({ milestone }: { milestone: Milestone }) {
         <div className="min-w-0">
           <Link
             href={`/timeline/${milestone.id}`}
-            className="text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
+            className="text-sm font-semibold text-zinc-900 hover:text-primary transition-colors"
           >
             {milestone.title}
           </Link>
           {milestone.description && (
-            <p className="text-xs text-slate-600 mt-1 line-clamp-2">{milestone.description}</p>
+            <p className="text-xs text-zinc-600 mt-1 line-clamp-2">{milestone.description}</p>
           )}
-          <div className="flex items-center gap-3 flex-wrap mt-2 text-xs text-slate-500">
+          <div className="flex items-center gap-3 flex-wrap mt-2 text-xs text-zinc-500">
             <span>{format(new Date(milestone.target_date), 'MMM d, yyyy')}</span>
             <span>{owner?.name ? `${owner.name}${owner.role ? ` (${owner.role})` : ''}` : 'Owner 未定'}</span>
             <span className={cls.text}>{visual.label}</span>

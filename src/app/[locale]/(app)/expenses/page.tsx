@@ -15,7 +15,8 @@ import ClampedText from '@/components/ui/ClampedText'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
-import { Plus, Search, Receipt, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
+import EmptyState from '@/components/ui/EmptyState'
+import { Plus, Search, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
@@ -49,7 +50,7 @@ import type { SubjectInput } from '@/lib/discussions/types'
 
 
 const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
-  budgeted:           'bg-slate-100 text-slate-600',
+  budgeted:           'bg-zinc-100 text-zinc-600',
   ordered_unpaid:     'bg-amber-100 text-amber-700',
   paid:               'bg-green-100 text-green-700',
   refunded:           'bg-red-100 text-red-600',
@@ -57,7 +58,7 @@ const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
 }
 
 const CATEGORY_COLOR: Record<ExpenseCategory, string> = {
-  tangible_asset:  'bg-indigo-100 text-indigo-700',
+  tangible_asset:  'bg-primary-soft text-primary',
   salary:          'bg-amber-100 text-amber-700',
   rent:            'bg-emerald-100 text-emerald-700',
   travel:          'bg-blue-100 text-blue-700',
@@ -428,15 +429,15 @@ export default function ExpensesPage() {
   }, [visibleExpenses, sortBy, sortDir])
 
   function SortIcon({ col }: { col: SortKey }) {
-    if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 text-slate-300" />
+    if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 text-zinc-300" />
     return sortDir === 'asc'
-      ? <ArrowUp   className="w-3 h-3 text-indigo-600" />
-      : <ArrowDown className="w-3 h-3 text-indigo-600" />
+      ? <ArrowUp   className="w-3 h-3 text-primary" />
+      : <ArrowDown className="w-3 h-3 text-primary" />
   }
 
   function sortableHeaderClass(col: SortKey) {
     const active = sortBy === col
-    return `inline-flex items-center gap-1 transition-colors ${active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'}`
+    return `inline-flex items-center gap-1 transition-colors ${active ? 'text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`
   }
 
   async function confirmDelete() {
@@ -456,7 +457,7 @@ export default function ExpensesPage() {
     }
   }
 
-  const INPUT = 'border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
+  const INPUT = 'border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
 
   return (
     <DiscussionProvider>
@@ -478,11 +479,11 @@ export default function ExpensesPage() {
       <button
         type="button"
         onClick={() => openCommandBar()}
-        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50 text-left text-sm text-slate-600 transition-colors"
+        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-violet-200 bg-primary-soft/40 hover:bg-primary-soft text-left text-sm text-zinc-600 transition-colors"
       >
-        <Sparkles className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+        <Sparkles className="w-4 h-4 text-violet-500 flex-shrink-0" />
         <span>{t('kpi.nlHint')}</span>
-        <kbd className="ml-auto px-1.5 py-0.5 text-[10px] rounded bg-white text-slate-500 border border-slate-200">⌘K</kbd>
+        <kbd className="ml-auto px-1.5 py-0.5 text-[10px] rounded bg-white text-zinc-500 border border-zinc-200">⌘K</kbd>
       </button>
 
       {/* KPI Cards — click to filter, click active card again to clear */}
@@ -491,11 +492,11 @@ export default function ExpensesPage() {
           type="button"
           onClick={() => toggleKpi('reset')}
           aria-pressed={activeKpi === null}
-          className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-300 hover:shadow-sm transition-all"
+          className="bg-white border border-zinc-200 rounded-xl p-4 text-left hover:border-zinc-300 hover:shadow-sm transition-all"
         >
-          <p className="text-xs font-medium text-slate-500 mb-1">{t('totalExpense')}</p>
-          <p className="text-lg sm:text-xl font-bold text-slate-900">{fmtRmb(summary.totalCost, { compact: true })}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}</p>
+          <p className="text-xs font-medium text-zinc-500 mb-1">{t('totalExpense')}</p>
+          <p className="text-lg sm:text-xl font-bold text-zinc-900">{fmtRmb(summary.totalCost, { compact: true })}</p>
+          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}</p>
         </button>
         <button
           type="button"
@@ -504,12 +505,12 @@ export default function ExpensesPage() {
           className={`bg-white border rounded-xl p-4 text-left transition-all ${
             activeKpi === 'paid'
               ? 'border-green-400 ring-2 ring-green-100 bg-green-50/40'
-              : 'border-slate-200 hover:border-green-200 hover:shadow-sm'
+              : 'border-zinc-200 hover:border-green-200 hover:shadow-sm'
           }`}
         >
-          <p className="text-xs font-medium text-slate-500 mb-1">{t('paid')}</p>
+          <p className="text-xs font-medium text-zinc-500 mb-1">{t('paid')}</p>
           <p className="text-lg sm:text-xl font-bold text-green-700">{fmtRmb(summary.paidCost, { compact: true })}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}</p>
+          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}</p>
         </button>
         <button
           type="button"
@@ -518,12 +519,12 @@ export default function ExpensesPage() {
           className={`bg-white border rounded-xl p-4 text-left transition-all ${
             activeKpi === 'unpaid'
               ? 'border-amber-400 ring-2 ring-amber-100 bg-amber-50/40'
-              : 'border-slate-200 hover:border-amber-200 hover:shadow-sm'
+              : 'border-zinc-200 hover:border-amber-200 hover:shadow-sm'
           }`}
         >
-          <p className="text-xs font-medium text-slate-500 mb-1">{t('budgetPending')}</p>
+          <p className="text-xs font-medium text-zinc-500 mb-1">{t('budgetPending')}</p>
           <p className="text-lg sm:text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost, { compact: true })}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">{activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}</p>
+          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}</p>
         </button>
         <div ref={monthPickerRef} className="relative">
           <button
@@ -534,22 +535,22 @@ export default function ExpensesPage() {
             aria-expanded={monthPickerOpen}
             className={`w-full bg-white border rounded-xl p-4 text-left transition-all ${
               activeKpi === 'monthFilter'
-                ? 'border-indigo-400 ring-2 ring-indigo-100 bg-indigo-50/40'
-                : 'border-slate-200 hover:border-indigo-200 hover:shadow-sm'
+                ? 'border-violet-400 ring-2 ring-violet-100 bg-primary-soft/40'
+                : 'border-zinc-200 hover:border-violet-200 hover:shadow-sm'
             }`}
           >
-            <p className="text-xs font-medium text-slate-500 mb-1">
+            <p className="text-xs font-medium text-zinc-500 mb-1">
               {activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
             </p>
-            <p className="text-lg sm:text-xl font-bold text-indigo-700">{fmtRmb(summary.currentMonthCost, { compact: true })}</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <p className="text-lg sm:text-xl font-bold text-primary">{fmtRmb(summary.currentMonthCost, { compact: true })}</p>
+            <p className="text-[10px] text-zinc-400 mt-0.5">
               {activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
             </p>
           </button>
 
           {monthPickerOpen && (
-            <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-white border border-slate-200 rounded-xl shadow-lg p-2">
-              <div className="text-[10px] font-medium text-slate-400 px-2 py-1 uppercase tracking-wider">
+            <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-white border border-zinc-200 rounded-xl shadow-lg p-2">
+              <div className="text-[10px] font-medium text-zinc-400 px-2 py-1 uppercase tracking-wider">
                 {t('kpi.selectMonth')}
               </div>
               <div className="max-h-64 overflow-y-auto">
@@ -562,12 +563,12 @@ export default function ExpensesPage() {
                       onClick={() => applyMonth(opt.ym)}
                       className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors ${
                         isActive
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-slate-700 hover:bg-slate-100'
+                          ? 'bg-primary text-white'
+                          : 'text-zinc-700 hover:bg-zinc-100'
                       }`}
                     >
                       <span className="font-medium">{opt.label}</span>
-                      <span className={isActive ? 'text-indigo-100' : 'text-slate-400'}>
+                      <span className={isActive ? 'text-violet-100' : 'text-zinc-400'}>
                         {opt.ym}
                       </span>
                     </button>
@@ -578,7 +579,7 @@ export default function ExpensesPage() {
                 <button
                   type="button"
                   onClick={clearMonth}
-                  className="mt-1 w-full px-2 py-1.5 rounded-md text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  className="mt-1 w-full px-2 py-1.5 rounded-md text-xs text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                 >
                   {t('kpi.clearMonthFilter')}
                 </button>
@@ -593,12 +594,12 @@ export default function ExpensesPage() {
           className={`bg-white border rounded-xl p-4 text-left transition-all ${
             activeKpi === 'crossBorder'
               ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/40'
-              : 'border-slate-200 hover:border-rose-200 hover:shadow-sm'
+              : 'border-zinc-200 hover:border-rose-200 hover:shadow-sm'
           }`}
         >
-          <p className="text-xs font-medium text-slate-500 mb-1">{t('crossBorderCost')}</p>
+          <p className="text-xs font-medium text-zinc-500 mb-1">{t('crossBorderCost')}</p>
           <p className="text-lg sm:text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost, { compact: true })}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">
+          <p className="text-[10px] text-zinc-400 mt-0.5">
             {activeKpi === 'crossBorder' ? t('kpi.filterActive') : t('kpi.crossBorderHint', { rate: CROSS_BORDER_FEE_RATE * 100 })}
           </p>
         </button>
@@ -626,16 +627,16 @@ export default function ExpensesPage() {
       </div>
 
       {/* Filters — stack vertically (2-col) on mobile, single row from sm: up */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 mb-3">
+      <div className="bg-white border border-zinc-200 rounded-xl p-3 sm:p-4 mb-3">
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
           {/* Search — full width on mobile */}
           <div className="relative col-span-2 sm:col-span-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder={t('searchPlaceholder')}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-52"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 sm:w-52"
             />
           </div>
 
@@ -682,7 +683,7 @@ export default function ExpensesPage() {
           <button
             type="button"
             onClick={resetFilters}
-            className="col-span-2 sm:col-span-1 sm:ml-auto flex items-center justify-center sm:justify-start gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors py-1"
+            className="col-span-2 sm:col-span-1 sm:ml-auto flex items-center justify-center sm:justify-start gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors py-1"
           >
             <RotateCcw className="w-3.5 h-3.5" /> {tCommon('reset')}
           </button>
@@ -690,7 +691,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* Date range timeline — full width */}
-      <div className="bg-white border border-slate-200 rounded-xl px-6 pt-4 pb-4 mb-5">
+      <div className="bg-white border border-zinc-200 rounded-xl px-6 pt-4 pb-4 mb-5">
         <DateRangeSlider
           from={filters.date_from}
           to={filters.date_to}
@@ -701,9 +702,9 @@ export default function ExpensesPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-sm text-slate-400">{tCommon('loading')}</div>
+          <div className="p-12 text-center text-sm text-zinc-400">{tCommon('loading')}</div>
         ) : loadError ? (
           <div className="p-6">
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -711,20 +712,18 @@ export default function ExpensesPage() {
             </div>
           </div>
         ) : visibleExpenses.length === 0 ? (
-          <div className="p-12 text-center">
-            <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">{t('empty')}</p>
-            <button type="button" onClick={() => setShowForm(true)} className="mt-3 text-sm text-indigo-600 font-medium hover:underline">
-              {t('addFirst')}
-            </button>
-          </div>
+          <EmptyState
+            emoji="🧾"
+            title={t('empty')}
+            action={<button type="button" onClick={() => setShowForm(true)} className="mt-1 text-sm text-primary font-medium hover:underline">{t('addFirst')}</button>}
+          />
         ) : (
           <>
           {/* Mobile card list — md:hidden. Each expense is a tap-to-view card with
               the most-used actions (edit / duplicate / delete) inline. Less-used
               columns (purpose, buyer, payment method) are surfaced via the
               detail modal opened by the card body. */}
-          <ul className="md:hidden divide-y divide-slate-100">
+          <ul className="md:hidden divide-y divide-zinc-100">
             {sortedExpenses.map((e) => (
               <li key={e.id} className="px-4 py-3">
                 <button
@@ -742,8 +741,8 @@ export default function ExpensesPage() {
                           {t(`paymentStatuses.${e.payment_status}`)}
                         </span>
                       </div>
-                      <div className="text-sm font-medium text-slate-900 truncate">{e.item_name}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">
+                      <div className="text-sm font-medium text-zinc-900 truncate">{e.item_name}</div>
+                      <div className="text-xs text-zinc-500 mt-0.5">
                         {e.expense_date}
                         {e.period ? ` · ${e.period}` : ''}
                         {e.user_name ? ` · ${e.user_name}` : ''}
@@ -751,7 +750,7 @@ export default function ExpensesPage() {
                     </div>
                     <div className="text-right whitespace-nowrap flex-shrink-0">
                       <div
-                        className="text-sm font-semibold text-slate-900"
+                        className="text-sm font-semibold text-zinc-900"
                         title={fmtRmb(Number(e.total_price))}
                       >
                         {fmtRmb(Number(e.total_price), { compact: true })}
@@ -773,7 +772,7 @@ export default function ExpensesPage() {
                       type="button"
                       onClick={() => setEditing(e)}
                       aria-label={tCommon('edit')}
-                      className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+                      className="p-2 rounded-md text-zinc-500 hover:text-primary hover:bg-primary-soft"
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -782,7 +781,7 @@ export default function ExpensesPage() {
                     type="button"
                     onClick={() => setDuplicating(e)}
                     aria-label={t('duplicateExpense')}
-                    className="p-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                    className="p-2 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -791,7 +790,7 @@ export default function ExpensesPage() {
                       type="button"
                       onClick={() => { setDeleting(e); setDeleteErr(null) }}
                       aria-label={tCommon('delete')}
-                      className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50"
+                      className="p-2 rounded-md text-zinc-500 hover:text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -804,9 +803,9 @@ export default function ExpensesPage() {
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm min-w-[1100px]">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('categoryColumn')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('name')}</th>
+                <tr className="border-b border-zinc-100 bg-zinc-50">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('categoryColumn')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('name')}</th>
                   <th className="text-right px-4 py-3 text-xs font-medium">
                     <button type="button" onClick={() => toggleSort('amount')} className={sortableHeaderClass('amount')}>
                       {t('amount')} <SortIcon col="amount" />
@@ -822,27 +821,27 @@ export default function ExpensesPage() {
                       {t('period')} <SortIcon col="period" />
                     </button>
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('purpose')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('user')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('buyer')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('paymentMethod')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('paymentStatus')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('discussionsColumn')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('purpose')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('user')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('buyer')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('paymentMethod')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('paymentStatus')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('discussionsColumn')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {sortedExpenses.map((e) => (
-                  <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                  <tr key={e.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${CATEGORY_COLOR[e.expense_category]}`}>
                         {t(`categories.${e.expense_category}`)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-900 max-w-[180px]">
+                    <td className="px-4 py-3 font-medium text-zinc-900 max-w-[180px]">
                       <ClampedText text={e.item_name} onOverflowClick={() => setViewing(e)} />
                     </td>
-                    <td className="px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">
+                    <td className="px-4 py-3 text-right font-medium text-zinc-900 whitespace-nowrap">
                       <div title={fmtRmb(Number(e.total_price))}>
                         {fmtRmb(Number(e.total_price), { compact: true })}
                       </div>
@@ -855,14 +854,14 @@ export default function ExpensesPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{e.expense_date}</td>
-                    <td className="px-4 py-3 text-slate-500">{e.period || '—'}</td>
-                    <td className="px-4 py-3 text-slate-500 max-w-[140px]">
+                    <td className="px-4 py-3 text-zinc-500 whitespace-nowrap">{e.expense_date}</td>
+                    <td className="px-4 py-3 text-zinc-500">{e.period || '—'}</td>
+                    <td className="px-4 py-3 text-zinc-500 max-w-[140px]">
                       <ClampedText text={e.purpose} onOverflowClick={() => setViewing(e)} />
                     </td>
-                    <td className="px-4 py-3 text-slate-500">{e.user_name || '—'}</td>
-                    <td className="px-4 py-3 text-slate-500">{e.buyer_name || '—'}</td>
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-zinc-500">{e.user_name || '—'}</td>
+                    <td className="px-4 py-3 text-zinc-500">{e.buyer_name || '—'}</td>
+                    <td className="px-4 py-3 text-zinc-500 whitespace-nowrap">
                       {e.payment_method
                         ? t(`paymentMethods.${e.payment_method}`)
                         : e.payment_method_legacy
@@ -890,7 +889,7 @@ export default function ExpensesPage() {
                             onClick={() => setEditing(e)}
                             aria-label={tCommon('edit')}
                             title={tCommon('edit')}
-                            className="p-2 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            className="p-2 rounded-md text-zinc-500 hover:text-primary hover:bg-primary-soft transition-colors"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -900,7 +899,7 @@ export default function ExpensesPage() {
                           onClick={() => setDuplicating(e)}
                           aria-label={t('duplicateExpense')}
                           title={t('copyRecordTitle')}
-                          className="p-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                          className="p-2 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
@@ -910,7 +909,7 @@ export default function ExpensesPage() {
                             onClick={() => { setDeleting(e); setDeleteErr(null) }}
                             aria-label={tCommon('delete')}
                             title={tCommon('delete')}
-                            className="p-2 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            className="p-2 rounded-md text-zinc-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -963,7 +962,7 @@ export default function ExpensesPage() {
       <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
         {deleting && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-zinc-700">
               {t('deleteMessage', { name: deleting.item_name })}
             </p>
             {deleteErr && (
