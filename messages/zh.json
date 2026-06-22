@@ -1142,7 +1142,10 @@
     "timelineEmpty": "暂无状态变更",
     "timelineInitial": "创建",
     "deletePrompt": "确认删除该物品？此操作不可撤销。",
-    "saveFailed": "保存失败：{message}"
+    "saveFailed": "保存失败：{message}",
+    "fieldPhoto": "照片",
+    "uploading": "上传中…",
+    "removePhoto": "移除照片"
   },
   "venue": {
     "title": "场地布置",
@@ -1166,6 +1169,7 @@
     "exportJson": "导出 JSON",
     "exportImage": "导出图片",
     "currentVenue": "当前场地",
+    "totalSpaceArea": "空间总面积",
     "collapseVenuePanel": "折叠当前场地",
     "expandVenuePanel": "展开当前场地",
     "collapseInspector": "折叠属性面板",
@@ -1190,6 +1194,12 @@
     "modeSwitchTo3d": "切到 3D 视图",
     "mode3dLoading": "正在加载 3D 视图…",
     "mode3dMobileHint": "3D 视图建议在桌面端使用",
+    "transformSelect": "选择",
+    "transformTranslate": "平移",
+    "transformRotate": "旋转",
+    "transformScale": "高度",
+    "transformResetView": "重置视角",
+    "transformExit3d": "退出 3D",
     "backgroundImage": "平面图底图",
     "backgroundPlaceholder": "图片 URL 或 base64",
     "canvasAria": "{floor} 场地布置画布",
@@ -1261,7 +1271,11 @@
       "in_progress": "施工中",
       "completed": "已完成",
       "maintenance": "待维修"
-    }
+    },
+    "placedItemsTitle": "该区域物品",
+    "placedItemsEmpty": "该区域暂无物品",
+    "placedItemsTotal": "总成本",
+    "manageItems": "去物品管理"
   },
   "config": {
     "tabs": {
