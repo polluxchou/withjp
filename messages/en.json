@@ -1133,6 +1133,7 @@
     "fieldNote": "Note",
     "fieldId": "Item ID",
     "geometry": "Position / Size",
+    "geometryUnit": "Unit: meters",
     "addTypes": {
       "equipment": "Add equipment",
       "renovation": "Add renovation",

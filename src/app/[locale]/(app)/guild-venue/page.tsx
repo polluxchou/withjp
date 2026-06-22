@@ -29,6 +29,7 @@ import {
   DEFAULT_VENUE_LAYOUT,
   VENUE_STORAGE_KEY,
   addVenueItem,
+  centimetersToMeters,
   createHistory,
   deleteVenueItem,
   parseStoredVenueLayout,
@@ -130,6 +131,33 @@ export default function GuildVenuePage() {
       return next
     })
   }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!isUndoTarget(event.target)) return
+      const meta = event.metaKey || event.ctrlKey
+      if (!meta) return
+
+      const key = event.key.toLowerCase()
+      if (key === 'z' && event.shiftKey) {
+        event.preventDefault()
+        redo()
+        return
+      }
+      if (key === 'z') {
+        event.preventDefault()
+        undo()
+        return
+      }
+      if (key === 'y') {
+        event.preventDefault()
+        redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  })
 
   function save() {
     try {
@@ -336,7 +364,7 @@ function FloatingPanel({
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium truncate">{item.name}</span>
                 <span className="block text-[11px] text-slate-400 truncate">
-                  {item.width}×{item.height} · {item.x}, {item.y}
+                  {formatMeters(item.width)}×{formatMeters(item.height)} · {formatMeters(item.x)}, {formatMeters(item.y)}
                 </span>
               </span>
             </button>
@@ -405,4 +433,17 @@ function downloadFile(filename: string, content: string, type: string) {
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+}
+
+function formatMeters(value: number) {
+  return `${centimetersToMeters(value).toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}m`
+}
+
+function isUndoTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return true
+  const tag = target.tagName.toLowerCase()
+  return !target.isContentEditable && tag !== 'input' && tag !== 'textarea' && tag !== 'select'
 }

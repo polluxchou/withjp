@@ -1133,6 +1133,7 @@
     "fieldNote": "备注",
     "fieldId": "对象 ID",
     "geometry": "位置 / 尺寸",
+    "geometryUnit": "单位：米",
     "addTypes": {
       "equipment": "添加设备",
       "renovation": "添加装修",

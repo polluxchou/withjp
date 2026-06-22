@@ -25,6 +25,11 @@ type DragState = {
   startItem: { x: number; y: number }
 }
 
+type PanState = {
+  startClient: { x: number; y: number }
+  startScroll: { left: number; top: number }
+}
+
 const TYPE_STYLE: Record<VenueItemType, { fill: string; stroke: string; dash?: string }> = {
   equipment:   { fill: '#dbeafe', stroke: '#2563eb' },
   renovation:  { fill: '#dcfce7', stroke: '#16a34a' },
@@ -42,8 +47,10 @@ function VenueCanvas(
 ) {
   const t = useTranslations('venue')
   const localSvgRef = useRef<SVGSVGElement | null>(null)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
+  const [pan, setPan] = useState<PanState | null>(null)
   const itemTypeLabels = useMemo(
     () => Object.fromEntries(VENUE_ITEM_TYPE_OPTIONS.map((option) => [option.value, t(`types.${option.value}`)])),
     [t],
@@ -86,6 +93,13 @@ function VenueCanvas(
   }
 
   function moveDrag(event: PointerEvent<SVGSVGElement>) {
+    if (pan) {
+      const scroller = scrollerRef.current
+      if (!scroller) return
+      scroller.scrollLeft = pan.startScroll.left - (event.clientX - pan.startClient.x)
+      scroller.scrollTop = pan.startScroll.top - (event.clientY - pan.startClient.y)
+      return
+    }
     if (!drag) return
     const pointer = svgPoint(event)
     const x = Math.round(drag.startItem.x + pointer.x - drag.startPointer.x)
@@ -99,6 +113,19 @@ function VenueCanvas(
     }
     setDrag(null)
     setDragPosition(null)
+    setPan(null)
+  }
+
+  function startPan(event: PointerEvent<SVGGElement>) {
+    const scroller = scrollerRef.current
+    if (!scroller) return
+    event.stopPropagation()
+    onSelectItem(null)
+    setPan({
+      startClient: { x: event.clientX, y: event.clientY },
+      startScroll: { left: scroller.scrollLeft, top: scroller.scrollTop },
+    })
+    event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   const viewWidth = Math.max(320, floor.width / zoom)
@@ -107,7 +134,7 @@ function VenueCanvas(
   const viewY = (floor.height - viewHeight) / 2
 
   return (
-    <div className="relative h-full min-h-[560px] overflow-auto bg-slate-200 p-4">
+    <div ref={scrollerRef} className="relative h-full min-h-[560px] overflow-auto bg-slate-200 p-4">
       <div
         className="mx-auto shadow-sm"
         style={{
@@ -137,19 +164,21 @@ function VenueCanvas(
             </pattern>
           </defs>
 
-          <rect x="0" y="0" width={floor.width} height={floor.height} fill="#fff" />
-          {showGrid && <rect x="0" y="0" width={floor.width} height={floor.height} fill="url(#venue-grid-major)" />}
-          {floor.backgroundImage && (
-            <image
-              href={floor.backgroundImage}
-              x="0"
-              y="0"
-              width={floor.width}
-              height={floor.height}
-              preserveAspectRatio="xMidYMid meet"
-              opacity="0.42"
-            />
-          )}
+          <g onPointerDown={startPan} className={pan ? 'cursor-grabbing' : 'cursor-grab'}>
+            <rect x="0" y="0" width={floor.width} height={floor.height} fill="#fff" />
+            {showGrid && <rect x="0" y="0" width={floor.width} height={floor.height} fill="url(#venue-grid-major)" />}
+            {floor.backgroundImage && (
+              <image
+                href={floor.backgroundImage}
+                x="0"
+                y="0"
+                width={floor.width}
+                height={floor.height}
+                preserveAspectRatio="xMidYMid meet"
+                opacity="0.42"
+              />
+            )}
+          </g>
 
           {items.map((item) => (
             <VenueShape
