@@ -17,17 +17,28 @@ import {
   CalendarRange,
   Receipt,
   TrendingUp,
+  Wallet,
+  Package,
+  Map as MapIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Menu,
   X,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import type { UserProfile } from '@/lib/types'
 
-const NAV = [
+type NavLeaf  = { href: string; key: string; icon: LucideIcon }
+type NavGroup = { key: string; icon: LucideIcon; children: NavLeaf[] }
+type NavItem  = NavLeaf | NavGroup
+
+const isGroup = (item: NavItem): item is NavGroup => 'children' in item
+
+const NAV: NavItem[] = [
   { href: '/',          key: 'dashboard', icon: LayoutDashboard },
   { href: '/creators',  key: 'creators',  icon: Users },
   { href: '/pipeline',  key: 'pipeline',  icon: GitBranch },
@@ -36,14 +47,23 @@ const NAV = [
   { href: '/workspace', key: 'workspace', icon: MessageSquare },
   { href: '/team',      key: 'team',      icon: Bot },
   { href: '/knowledge', key: 'knowledge', icon: BookOpen },
-  { href: '/expenses',  key: 'expenses',  icon: Receipt },
-  { href: '/finance-forecast', key: 'financeForecast', icon: TrendingUp },
+  {
+    key: 'costManagement',
+    icon: Wallet,
+    children: [
+      { href: '/expenses',         key: 'expenses',        icon: Receipt },
+      { href: '/items',            key: 'items',           icon: Package },
+      { href: '/guild-venue',      key: 'venue',           icon: MapIcon },
+      { href: '/finance-forecast', key: 'financeForecast', icon: TrendingUp },
+    ],
+  },
   { href: '/config',    key: 'config',    icon: Settings },
 ]
 
 const COLLAPSED_W = '60px'
 const EXPANDED_W  = '240px'
 const LS_KEY      = 'sidebar:collapsed'
+const LS_GROUPS   = 'sidebar:groups'
 
 // Quick "initials" derivation for the avatar bubble. Falls back to the
 // first character of email / user_code / generic placeholder.
@@ -68,6 +88,9 @@ export default function Sidebar() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Explicit open/closed state per nav group. A group not present here falls
+  // back to "auto" — open whenever one of its children is the active route.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   // Fetch the logged-in user's profile once on mount; refresh when the
   // ProfileEditor modal closes (so a rename reflects immediately).
@@ -87,8 +110,23 @@ export default function Sidebar() {
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(LS_KEY) : null
     setCollapsed(stored === '1')
+    try {
+      const rawGroups = typeof window !== 'undefined' ? localStorage.getItem(LS_GROUPS) : null
+      if (rawGroups) setOpenGroups(JSON.parse(rawGroups) as Record<string, boolean>)
+    } catch {
+      // ignore malformed persisted state
+    }
     setHydrated(true)
   }, [])
+
+  // Persist explicit group toggles
+  const toggleGroup = (key: string, open: boolean) => {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [key]: open }
+      try { localStorage.setItem(LS_GROUPS, JSON.stringify(next)) } catch { /* best-effort */ }
+      return next
+    })
+  }
 
   // Track whether we're in mobile-drawer mode (<lg breakpoint).
   // Below 1024 CSS px the sidebar lives off-canvas and ignores the
@@ -131,6 +169,31 @@ export default function Sidebar() {
   const effectiveCollapsed = isMobile ? false : collapsed
   const effectiveWidth     = effectiveCollapsed ? COLLAPSED_W : EXPANDED_W
   const showLabel          = !effectiveCollapsed
+
+  const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href))
+
+  // Render a single navigable item. `indented` nudges it right so children of
+  // a group read as a sub-level; when the sidebar is icon-only we skip the
+  // indent and rely on the flat icon list instead.
+  const renderLeaf = (item: NavLeaf, indented = false) => {
+    const active = isActive(item.href)
+    const Icon = item.icon
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        title={effectiveCollapsed ? t(item.key) : undefined}
+        className={`flex items-center rounded-lg text-sm transition-colors ${
+          effectiveCollapsed
+            ? 'justify-center px-2 py-2.5'
+            : `gap-3 py-2.5 ${indented ? 'pl-9 pr-3' : 'px-3'}`
+        } ${active ? 'bg-primary-soft text-primary font-semibold' : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
+      >
+        <Icon className="w-4 h-4 flex-shrink-0" />
+        {showLabel && <span className="truncate">{t(item.key)}</span>}
+      </Link>
+    )
+  }
 
   return (
     <>
@@ -221,20 +284,40 @@ export default function Sidebar() {
           size so the bottom items (profile / logout) are always anchored at
           the visible bottom instead of being pushed off-screen. */}
       <nav className={`flex-1 min-h-0 py-4 space-y-0.5 overflow-y-auto scrollbar-thin ${effectiveCollapsed ? 'px-2' : 'px-3'}`}>
-        {NAV.map(({ href, key, icon: Icon }) => {
-          const active = href === '/' ? path === '/' : path.startsWith(href)
+        {NAV.map((item) => {
+          if (!isGroup(item)) return renderLeaf(item)
+
+          // Icon-only sidebar has no room for a toggle + indented tree, so we
+          // flatten the group's children into the regular icon list.
+          if (effectiveCollapsed) {
+            return item.children.map((child) => renderLeaf(child))
+          }
+
+          const GroupIcon     = item.icon
+          const hasActiveChild = item.children.some((c) => isActive(c.href))
+          const open = openGroups[item.key] ?? hasActiveChild
           return (
-            <Link
-              key={href}
-              href={href}
-              title={effectiveCollapsed ? t(key) : undefined}
-              className={`flex items-center rounded-lg text-sm transition-colors ${
-                effectiveCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-              } ${active ? 'bg-primary-soft text-primary font-semibold' : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
-            >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {showLabel && <span className="truncate">{t(key)}</span>}
-            </Link>
+            <div key={item.key}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(item.key, !open)}
+                aria-expanded={open}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                  hasActiveChild
+                    ? 'bg-primary-soft text-primary font-semibold'
+                    : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+              >
+                <GroupIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate flex-1 text-left">{t(item.key)}</span>
+                <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+              </button>
+              {open && (
+                <div className="mt-0.5 space-y-0.5">
+                  {item.children.map((child) => renderLeaf(child, true))}
+                </div>
+              )}
+            </div>
           )
         })}
       </nav>

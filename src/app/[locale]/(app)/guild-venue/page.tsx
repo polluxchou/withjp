@@ -1,0 +1,1503 @@
+'use client'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
+import {
+  ArrowLeftRight,
+  Bookmark,
+  Box,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  DoorClosed,
+  DoorOpen,
+  Download,
+  Flame,
+  Grid3X3,
+  Image as ImageIcon,
+  Layers,
+  ListFilter,
+  Map as MapIcon,
+  MapPin,
+  Monitor,
+  Network,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plug,
+  Plus,
+  Redo2,
+  Ruler,
+  Undo2,
+  Wrench,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
+import Header from '@/components/layout/Header'
+import VenueCanvas from '@/venue/VenueCanvas'
+import Venue3DCanvas from '@/venue/Venue3DCanvas'
+import VenueInspector, { type PlacedItemSummary } from '@/venue/VenueInspector'
+import { useRouter } from '@/i18n/navigation'
+import type { Item } from '@/lib/items/types'
+import type { Expense } from '@/lib/types'
+import {
+  DEFAULT_VENUE_LAYOUT,
+  loadVenueLayout,
+  parseStoredVenueLayout,
+  addVenueItem,
+  centimetersToMeters,
+  createHistory,
+  deleteVenueItem,
+  formatVenueArea,
+  formatVenueMeasurement,
+  moveVenueItemLayer,
+  totalVenueAreaSquareMeters,
+  venueAreaSquareMeters,
+  isVenueMarkerType,
+  VENUE_ITEM_TYPE_OPTIONS,
+  VENUE_MARKER_TYPE_OPTIONS,
+  VENUE_SHAPE_TYPE_OPTIONS,
+  pushHistory,
+  redoHistory,
+  undoHistory,
+  updateVenueFloor,
+  updateVenueItem,
+  metersToCentimeters,
+  type VenueFloor,
+  type VenueLayerMove,
+  moveVenueItems,
+  writeStoredVenueLayout,
+  VENUE_STORAGE_KEY,
+  MAX_VENUE_VIEW_BOOKMARKS,
+  type VenueItem,
+  type VenueItemType,
+  type VenueLayout,
+  type VenueViewBookmark,
+} from '@/venue/layoutData'
+
+type SaveState = 'idle' | 'saved' | 'error'
+
+const TOOL_ICON: Record<VenueItemType, typeof Box> = {
+  equipment:    Monitor,
+  renovation:   Wrench,
+  area:         Building2,
+  corridor:     MapIcon,
+  door_inward:  DoorOpen,
+  door_outward: DoorClosed,
+  door_sliding: ArrowLeftRight,
+  fire:         Flame,
+  power:        Plug,
+  network:      Network,
+}
+
+const INSPECTOR_WIDTH = 320
+const INSPECTOR_COLLAPSED_WIDTH = 44
+const ALL_VENUE_TYPES = VENUE_ITEM_TYPE_OPTIONS.map((option) => option.value)
+
+export default function GuildVenuePage() {
+  const t = useTranslations('venue')
+  const [history, setHistory] = useState(() => createHistory(DEFAULT_VENUE_LAYOUT))
+  const [selectedFloorId, setSelectedFloorId] = useState(DEFAULT_VENUE_LAYOUT.floors[0].id)
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => {
+    const firstId = DEFAULT_VENUE_LAYOUT.floors[0].items[0]?.id
+    return firstId ? [firstId] : []
+  })
+  const [zoom, setZoom] = useState(1.2)
+  const [showGrid, setShowGrid] = useState(true)
+  const [showRulers, setShowRulers] = useState(true)
+  // 2D is the canonical edit surface; 3D is a read-only preview for now (S3).
+  // Selection state is shared so clicking a box in 3D updates the inspector.
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d')
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
+  const [visibleTypes, setVisibleTypes] = useState<VenueItemType[]>(ALL_VENUE_TYPES)
+  const [clipboard, setClipboard] = useState<VenueItem[]>([])
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [hydrated, setHydrated] = useState(false)
+  // false when stored data existed but couldn't be parsed: we then show the
+  // default WITHOUT auto-saving, so the bad-but-present data isn't clobbered.
+  // The first deliberate edit flips this back on.
+  const [persistable, setPersistable] = useState(true)
+  const [loading, setLoading] = useState(true)
+  // When set, a local (browser) layout exists that predates the cloud seed and
+  // can be imported once. Cleared after the user imports or the offer lapses.
+  const [localImportLayout, setLocalImportLayout] = useState<VenueLayout | null>(null)
+  // Bumped on every recall so the apply-scroll effect runs even when zoom is unchanged.
+  const [recallTick, setRecallTick] = useState(0)
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const canvasAreaRef = useRef<HTMLDivElement | null>(null)
+  const pendingScrollRef = useRef<{ left: number; top: number } | null>(null)
+  // Suppress the one debounced save that the effect would otherwise fire right
+  // after the initial load applies the freshly fetched (or fallback) layout.
+  const skipNextSave = useRef(true)
+
+  // Source of truth is the DB (GET /api/venue). localStorage is now only an
+  // offline fallback (on fetch failure) and a one-time import source.
+  useEffect(() => {
+    let cancelled = false
+
+    function applyLayout(layout: VenueLayout) {
+      // The next save effect run is the post-hydration echo of this loaded
+      // layout, not a user edit — skip it so we don't redundantly PUT.
+      skipNextSave.current = true
+      setHistory(createHistory(layout))
+      setSelectedFloorId(layout.floors[0]?.id ?? DEFAULT_VENUE_LAYOUT.floors[0].id)
+      setSelectedItemIds(layout.floors[0]?.items[0]?.id ? [layout.floors[0].items[0].id] : [])
+    }
+
+    async function load() {
+      try {
+        const res = await fetch('/api/venue')
+        if (!res.ok) throw new Error(`status ${res.status}`)
+        const body = (await res.json()) as { data: VenueLayout | null; error: string | null }
+        if (cancelled) return
+        const cloud = body.data ?? DEFAULT_VENUE_LAYOUT
+        applyLayout(cloud)
+        setPersistable(true)
+
+        // One-time import offer: when the cloud is still the untouched seed but
+        // this browser holds a non-default local layout, offer to import it.
+        try {
+          const raw = window.localStorage.getItem(VENUE_STORAGE_KEY)
+          if (raw) {
+            const local = parseStoredVenueLayout(raw)
+            const cloudIsSeed = layoutsEqual(cloud, DEFAULT_VENUE_LAYOUT)
+            if (cloudIsSeed && !layoutsEqual(local, cloud)) {
+              setLocalImportLayout(local)
+            }
+          }
+        } catch {
+          // localStorage unreadable — skip the import offer silently.
+        }
+      } catch {
+        if (cancelled) return
+        // Offline / API failure: fall back to whatever this browser cached.
+        const fallback = loadVenueLayout(window.localStorage)
+        applyLayout(fallback.layout)
+        setPersistable(fallback.persistable)
+        setSaveState('error')
+      } finally {
+        if (cancelled) return
+        setLoading(false)
+        setHydrated(true)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const layout = history.present
+  const viewBookmarks = layout.viewBookmarks ?? []
+  const activeFloor = useMemo(
+    () => layout.floors.find((floor) => floor.id === selectedFloorId) ?? layout.floors[0],
+    [layout.floors, selectedFloorId],
+  )
+  // Floor with the type filter applied — used by the 3D view (the 2D canvas
+  // filters internally via its visibleTypes prop).
+  const visibleFloor = useMemo(() => {
+    const allowed = new Set(visibleTypes)
+    return { ...activeFloor, items: activeFloor.items.filter((item) => allowed.has(item.type)) }
+  }, [activeFloor, visibleTypes])
+  const selectedItemId = selectedItemIds.at(-1) ?? null
+  const selectedItem = activeFloor?.items.find((item) => item.id === selectedItemId) ?? null
+  const selectedLayerIndex = activeFloor && selectedItemId
+    ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
+    : -1
+
+  // Cross-feature read: surface the items placed in the selected zone + their
+  // summed cost. Failure to load is non-fatal (the canvas still works).
+  const router = useRouter()
+  const [items, setItems] = useState<Item[]>([])
+  const [expenseById, setExpenseById] = useState<Record<string, Expense>>({})
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const [itemsRes, exRes] = await Promise.all([fetch('/api/items'), fetch('/api/expenses')])
+        const itemsJson = await itemsRes.json()
+        const exJson = await exRes.json()
+        if (itemsJson?.data) setItems(itemsJson.data as Item[])
+        if (exJson?.data) {
+          const map: Record<string, Expense> = {}
+          for (const e of exJson.data as Expense[]) map[e.id] = e
+          setExpenseById(map)
+        }
+      } catch { /* 联动展示是增强项，失败不阻断画布 */ }
+    })()
+  }, [])
+
+  const placedItems: PlacedItemSummary[] = useMemo(() => {
+    if (!selectedItem) return []
+    return items
+      .filter((it) => it.placement_venue_item_id === selectedItem.id)
+      .map((it) => {
+        const ex = it.expense_id ? expenseById[it.expense_id] : null
+        const cost = ex ? Number(ex.unit_price) * it.quantity : 0
+        return { id: it.id, item_code: it.item_code, name: it.name, quantity: it.quantity, cost }
+      })
+  }, [items, expenseById, selectedItem])
+  const placedItemsTotalCost = useMemo(
+    () => placedItems.reduce((sum, p) => sum + p.cost, 0),
+    [placedItems],
+  )
+
+  // Persist on change: cache to localStorage immediately (offline copy), then
+  // debounce a full PUT to the DB so rapid edits collapse into one request.
+  useEffect(() => {
+    if (!hydrated || !persistable) return
+    if (skipNextSave.current) { skipNextSave.current = false; return }
+
+    try {
+      writeStoredVenueLayout(window.localStorage, layout)
+    } catch {
+      // localStorage write failure shouldn't block the cloud save.
+    }
+
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch('/api/venue', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(layout),
+          })
+          if (cancelled) return
+          setSaveState(res.ok ? 'saved' : 'error')
+        } catch {
+          if (cancelled) return
+          setSaveState('error')
+        }
+      })()
+    }, 800)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [hydrated, persistable, layout])
+
+  // After a bookmark recall sets the zoom (and the canvas resizes), restore the
+  // saved scroll offset on the next frame.
+  useEffect(() => {
+    if (!pendingScrollRef.current) return
+    const target = pendingScrollRef.current
+    pendingScrollRef.current = null
+    const id = requestAnimationFrame(() => {
+      const scroller = scrollerRef.current
+      if (scroller) {
+        scroller.scrollLeft = target.left
+        scroller.scrollTop = target.top
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [recallTick])
+
+  function currentViewSnapshot(): VenueViewBookmark | null {
+    const scroller = scrollerRef.current
+    if (!scroller) return null
+    return { zoom, left: scroller.scrollLeft, top: scroller.scrollTop }
+  }
+
+  // Bookmarks live on the layout so they persist to the DB, but they're view
+  // state, not document content — update history.present in place (no undo step)
+  // and let the debounced save push them.
+  function updateViewBookmarks(updater: (prev: VenueViewBookmark[]) => VenueViewBookmark[]) {
+    setHistory((current) => {
+      const next = updater(current.present.viewBookmarks ?? [])
+      return {
+        ...current,
+        present: { ...current.present, viewBookmarks: next.length ? next : undefined },
+      }
+    })
+    setPersistable(true)
+  }
+
+  function addViewBookmark() {
+    const snapshot = currentViewSnapshot()
+    if (!snapshot) return
+    updateViewBookmarks((prev) => (prev.length >= MAX_VENUE_VIEW_BOOKMARKS ? prev : [...prev, snapshot]))
+  }
+
+  function overwriteViewBookmark(index: number) {
+    const snapshot = currentViewSnapshot()
+    if (!snapshot) return
+    updateViewBookmarks((prev) => prev.map((entry, i) => (i === index ? snapshot : entry)))
+  }
+
+  function removeViewBookmark(index: number) {
+    updateViewBookmarks((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function recallViewBookmark(index: number) {
+    const bookmark = viewBookmarks[index]
+    if (!bookmark) return
+    pendingScrollRef.current = { left: bookmark.left, top: bookmark.top }
+    setZoom(bookmark.zoom)
+    setRecallTick((tick) => tick + 1)
+  }
+
+  function commit(nextLayout: typeof layout, nextSelectedItemIds = selectedItemIds) {
+    setHistory((current) => pushHistory(current, nextLayout))
+    setSelectedItemIds(nextSelectedItemIds)
+    setSaveState('idle')
+    // A deliberate edit means we now own the state — safe to persist again even
+    // if the load was degraded (the previous raw is snapshotted to the backup key).
+    setPersistable(true)
+  }
+
+  function addItem(type: VenueItemType) {
+    if (!activeFloor) return
+    const next = addVenueItem(layout, activeFloor.id, type)
+    const nextFloor = next.floors.find((floor) => floor.id === activeFloor.id)
+    const nextItem = nextFloor?.items.at(-1)
+    commit(next, nextItem?.id ? [nextItem.id] : selectedItemIds)
+  }
+
+  function updateItem(itemId: string, patch: Partial<VenueItem>) {
+    if (!activeFloor) return
+    commit(updateVenueItem(layout, activeFloor.id, itemId, patch))
+  }
+
+  function moveItems(itemIds: string[], delta: { x: number; y: number }) {
+    if (!activeFloor) return
+    commit(moveVenueItems(layout, activeFloor.id, itemIds, delta), itemIds)
+  }
+
+  function removeSelectedItem() {
+    if (!activeFloor || !selectedItemId) return
+    const result = deleteVenueItem(layout, activeFloor.id, selectedItemId, selectedItemId)
+    commit(result.layout, selectedItemIds.filter((itemId) => itemId !== selectedItemId))
+  }
+
+  function removeSelectedItems() {
+    if (!activeFloor || selectedItemIds.length === 0) return
+    const ids = new Set(selectedItemIds)
+    const next = updateVenueFloor(layout, activeFloor.id, {
+      items: activeFloor.items.filter((item) => !ids.has(item.id)),
+    })
+    commit(next, [])
+  }
+
+  // Clone items with fresh ids, offset a little so the copies are visible, append
+  // them to the active floor, and select the new copies.
+  function cloneItemsToFloor(source: VenueItem[]) {
+    if (!activeFloor || source.length === 0) return
+    const stamp = Date.now()
+    const copies = source.map((item, index) => ({
+      ...item,
+      id: `${item.type}-${stamp}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      x: item.x + 24,
+      y: item.y + 24,
+    }))
+    const next = updateVenueFloor(layout, activeFloor.id, {
+      items: [...activeFloor.items, ...copies],
+    })
+    commit(next, copies.map((item) => item.id))
+  }
+
+  function copySelectedItems() {
+    if (!activeFloor || selectedItemIds.length === 0) return
+    const ids = new Set(selectedItemIds)
+    setClipboard(activeFloor.items.filter((item) => ids.has(item.id)))
+  }
+
+  function pasteClipboard() {
+    cloneItemsToFloor(clipboard)
+  }
+
+  function duplicateSelectedItems() {
+    if (!activeFloor) return
+    const ids = new Set(selectedItemIds)
+    cloneItemsToFloor(activeFloor.items.filter((item) => ids.has(item.id)))
+  }
+
+  function moveSelectedItemLayer(move: VenueLayerMove) {
+    if (!activeFloor || !selectedItemId) return
+    commit(moveVenueItemLayer(layout, activeFloor.id, selectedItemId, move), selectedItemIds)
+  }
+
+  function updateBackgroundImage(backgroundImage: string) {
+    if (!activeFloor) return
+    commit(updateVenueFloor(layout, activeFloor.id, { backgroundImage: backgroundImage.trim() || undefined }))
+  }
+
+  function updateFloorDefaults(patch: Pick<Partial<VenueFloor>, 'width' | 'height' | 'floorHeight'>) {
+    if (!activeFloor) return
+    const next = updateVenueFloor(layout, activeFloor.id, patch)
+    const nextFloor = next.floors.find((floor) => floor.id === activeFloor.id) ?? activeFloor
+    commit({
+      ...next,
+      width: activeFloor.id === layout.floors[0]?.id ? nextFloor.width : next.width,
+      height: activeFloor.id === layout.floors[0]?.id ? nextFloor.height : next.height,
+    })
+  }
+
+  function undo() {
+    setHistory((current) => {
+      const next = undoHistory(current)
+      const floor = next.present.floors.find((candidate) => candidate.id === selectedFloorId) ?? next.present.floors[0]
+      const existing = new Set(floor.items.map((item) => item.id))
+      const nextSelection = selectedItemIds.filter((itemId) => existing.has(itemId))
+      setSelectedFloorId(floor.id)
+      setSelectedItemIds(nextSelection.length > 0 ? nextSelection : (floor.items[0]?.id ? [floor.items[0].id] : []))
+      setSaveState('idle')
+      return next
+    })
+  }
+
+  function redo() {
+    setHistory((current) => {
+      const next = redoHistory(current)
+      const floor = next.present.floors.find((candidate) => candidate.id === selectedFloorId) ?? next.present.floors[0]
+      const existing = new Set(floor.items.map((item) => item.id))
+      const nextSelection = selectedItemIds.filter((itemId) => existing.has(itemId))
+      setSelectedFloorId(floor.id)
+      setSelectedItemIds(nextSelection.length > 0 ? nextSelection : (floor.items[0]?.id ? [floor.items[0].id] : []))
+      setSaveState('idle')
+      return next
+    })
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!isUndoTarget(event.target)) return
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (selectedItemIds.length === 0) return
+        event.preventDefault()
+        removeSelectedItems()
+        return
+      }
+
+      const meta = event.metaKey || event.ctrlKey
+      if (!meta) return
+
+      const key = event.key.toLowerCase()
+      if (key === 'c') {
+        if (selectedItemIds.length === 0) return
+        event.preventDefault()
+        copySelectedItems()
+        return
+      }
+      if (key === 'v') {
+        if (clipboard.length === 0) return
+        event.preventDefault()
+        pasteClipboard()
+        return
+      }
+      if (key === 'd') {
+        if (selectedItemIds.length === 0) return
+        event.preventDefault()
+        duplicateSelectedItems()
+        return
+      }
+      if (key === 'z' && event.shiftKey) {
+        event.preventDefault()
+        redo()
+        return
+      }
+      if (key === 'z') {
+        event.preventDefault()
+        undo()
+        return
+      }
+      if (key === 'y') {
+        event.preventDefault()
+        redo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  })
+
+  function exportJson() {
+    downloadFile(`${layout.venueId}.json`, JSON.stringify(layout, null, 2), 'application/json')
+  }
+
+  // Rasterize the canvas SVG to a PNG at the floor's native resolution
+  // (2x for retina sharpness). The selection chrome is stripped from a clone
+  // first, and a white backdrop is painted so transparent regions don't turn
+  // black in the PNG.
+  function exportPng() {
+    // In 3D, grab the WebGL canvas directly (preserveDrawingBuffer is enabled).
+    if (viewMode === '3d') {
+      const canvasEl = canvasAreaRef.current?.querySelector('canvas')
+      if (!canvasEl) {
+        setSaveState('error')
+        return
+      }
+      try {
+        canvasEl.toBlob((blob) => {
+          if (!blob) {
+            setSaveState('error')
+            return
+          }
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `${layout.venueId}-${activeFloor.name}-3d.png`
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          URL.revokeObjectURL(url)
+        }, 'image/png')
+      } catch {
+        setSaveState('error')
+      }
+      return
+    }
+
+    const svg = svgRef.current
+    if (!svg) {
+      setSaveState('error')
+      return
+    }
+    try {
+      const width = activeFloor.width
+      const height = activeFloor.height
+      const scale = 2
+
+      const clone = svg.cloneNode(true) as SVGSVGElement
+      clone.querySelectorAll('[data-venue-selection]').forEach((node) => node.remove())
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      clone.setAttribute('width', String(width))
+      clone.setAttribute('height', String(height))
+
+      const source = `<?xml version="1.0" encoding="UTF-8"?>\n${clone.outerHTML}`
+      const svgUrl = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml;charset=utf-8' }))
+
+      const image = new Image()
+      image.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = Math.round(width * scale)
+          canvas.height = Math.round(height * scale)
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            setSaveState('error')
+            return
+          }
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              setSaveState('error')
+              return
+            }
+            const pngUrl = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = pngUrl
+            link.download = `${layout.venueId}-${activeFloor.name}.png`
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(pngUrl)
+          }, 'image/png')
+        } catch {
+          setSaveState('error')
+        } finally {
+          URL.revokeObjectURL(svgUrl)
+        }
+      }
+      image.onerror = () => {
+        URL.revokeObjectURL(svgUrl)
+        setSaveState('error')
+      }
+      image.src = svgUrl
+    } catch {
+      setSaveState('error')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="h-[calc(100dvh-4rem)] min-h-[760px] flex items-center justify-center text-sm font-medium text-slate-500">
+        {t('loading')}
+      </div>
+    )
+  }
+
+  if (!activeFloor) return null
+
+  function importLocalLayout() {
+    if (!localImportLayout) return
+    commit(localImportLayout)
+    setSelectedFloorId(localImportLayout.floors[0]?.id ?? selectedFloorId)
+    setSelectedItemIds(localImportLayout.floors[0]?.items[0]?.id ? [localImportLayout.floors[0].items[0].id] : [])
+    setLocalImportLayout(null)
+  }
+
+  return (
+    <div className="h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)] min-h-[760px] flex flex-col">
+      <Header
+        title={t('title')}
+        subtitle={t('subtitle')}
+        actions={
+          <div className="flex items-center gap-2">
+            <StatusPill state={saveState} />
+          </div>
+        }
+      />
+
+      {localImportLayout && (
+        <div className="mb-2 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span className="flex-1">{t('importLocalPrompt')}</span>
+          <button
+            type="button"
+            onClick={importLocalLayout}
+            className="h-8 shrink-0 rounded-lg border border-amber-300 bg-white px-3 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+          >
+            {t('importLocal')}
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden flex-1 min-h-0 grid grid-rows-[auto_1fr]">
+        <div className="min-h-14 border-b border-slate-200 px-3 py-2 flex items-center gap-2 overflow-x-auto">
+          <select
+            value={selectedFloorId}
+            onChange={(event) => {
+              const floorId = event.target.value
+              const floor = layout.floors.find((candidate) => candidate.id === floorId)
+              setSelectedFloorId(floorId)
+              setSelectedItemIds(floor?.items[0]?.id ? [floor.items[0].id] : [])
+            }}
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            aria-label={t('floorSelect')}
+          >
+            {layout.floors.map((floor) => (
+              <option key={floor.id} value={floor.id}>{layout.name} · {floor.name}</option>
+            ))}
+          </select>
+
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+
+          {VENUE_SHAPE_TYPE_OPTIONS.map((option) => (
+            <ToolbarButton
+              key={option.value}
+              icon={TOOL_ICON[option.value]}
+              label={t(`addTypes.${option.value}`)}
+              onClick={() => addItem(option.value)}
+            />
+          ))}
+          <AddMarkerMenu onAdd={addItem} />
+
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+
+          <ToolbarButton iconOnly icon={Undo2} label={t('undo')} onClick={undo} disabled={history.past.length === 0} />
+          <ToolbarButton iconOnly icon={Redo2} label={t('redo')} onClick={redo} disabled={history.future.length === 0} />
+          <ToolbarButton iconOnly icon={Grid3X3} label={t('grid')} onClick={() => setShowGrid((value) => !value)} active={showGrid} />
+          <ToolbarButton iconOnly icon={Ruler} label={t('dimensionRulers')} onClick={() => setShowRulers((value) => !value)} active={showRulers} />
+
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+
+          <ToolbarButton iconOnly icon={ZoomOut} label={t('zoomOut')} onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(2))))} />
+          <span className="min-w-14 text-center text-xs font-semibold text-slate-500">{Math.round(zoom * 100)}%</span>
+          <ToolbarButton iconOnly icon={ZoomIn} label={t('zoomIn')} onClick={() => setZoom((value) => Math.min(1.8, Number((value + 0.1).toFixed(2))))} />
+
+          {viewMode === '2d' && (
+            <>
+              <div className="w-px h-6 bg-slate-200 mx-1" />
+              <ViewBookmarks
+                bookmarks={viewBookmarks}
+                max={MAX_VENUE_VIEW_BOOKMARKS}
+                onAdd={addViewBookmark}
+                onRecall={recallViewBookmark}
+                onOverwrite={overwriteViewBookmark}
+                onRemove={removeViewBookmark}
+              />
+            </>
+          )}
+
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setViewMode('2d')}
+              title={t('modeSwitchTo2d')}
+              aria-label={t('modeSwitchTo2d')}
+              aria-pressed={viewMode === '2d'}
+              className={`h-9 px-3 text-xs font-semibold transition-colors ${
+                viewMode === '2d'
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'bg-white text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              {t('mode2d')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('3d')}
+              title={t('modeSwitchTo3d')}
+              aria-label={t('modeSwitchTo3d')}
+              aria-pressed={viewMode === '3d'}
+              className={`h-9 px-3 text-xs font-semibold border-l border-slate-200 transition-colors ${
+                viewMode === '3d'
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'bg-white text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              {t('mode3d')}
+            </button>
+          </div>
+
+          <div className="flex-1" />
+        </div>
+
+        <div
+          className="min-h-0 grid"
+          style={{ gridTemplateColumns: `64px minmax(720px,1fr) ${inspectorCollapsed ? INSPECTOR_COLLAPSED_WIDTH : INSPECTOR_WIDTH}px` }}
+        >
+          <ToolRail activeFloor={activeFloor.name} />
+
+          <div ref={canvasAreaRef} className="relative min-h-0 bg-slate-100 overflow-hidden">
+            <FloatingPanel
+              layoutName={layout.name}
+              floorName={activeFloor.name}
+              items={activeFloor.items}
+              selectedItemIds={selectedItemIds}
+              onSelect={(itemId) => setSelectedItemIds([itemId])}
+              visibleTypes={visibleTypes}
+              floorWidth={activeFloor.width}
+              floorHeight={activeFloor.height}
+              storeyHeightCm={activeFloor.floorHeight}
+              onFloorDefaultsChange={updateFloorDefaults}
+              backgroundImage={activeFloor.backgroundImage ?? ''}
+              onBackgroundChange={updateBackgroundImage}
+            />
+            {viewMode === '3d' ? (
+              <Venue3DCanvas
+                floor={visibleFloor}
+                selectedItemIds={selectedItemIds}
+                onSelectItems={setSelectedItemIds}
+                onItemChange={updateItem}
+              />
+            ) : (
+              <VenueCanvas
+                ref={svgRef}
+                scrollRef={scrollerRef}
+                floor={activeFloor}
+                selectedItemIds={selectedItemIds}
+                zoom={zoom}
+                showGrid={showGrid}
+                showRulers={showRulers}
+                visibleTypes={visibleTypes}
+                fitWidthReserve={inspectorCollapsed ? INSPECTOR_WIDTH - INSPECTOR_COLLAPSED_WIDTH : 0}
+                onSelectItems={setSelectedItemIds}
+                onItemChange={updateItem}
+                onItemsMove={moveItems}
+              />
+            )}
+          </div>
+
+          <VenueInspector
+            item={selectedItem}
+            layerIndex={selectedLayerIndex}
+            layerCount={activeFloor.items.length}
+            collapsed={inspectorCollapsed}
+            storeyHeightCm={activeFloor.floorHeight}
+            placedItems={placedItems}
+            placedItemsTotalCost={placedItemsTotalCost}
+            onOpenItems={() => router.push('/items')}
+            emptyStateActions={
+              <>
+                <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
+                <button
+                  type="button"
+                  onClick={exportJson}
+                  className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  {t('exportJson')}
+                </button>
+                <button
+                  type="button"
+                  onClick={exportPng}
+                  className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  {t('exportImage')}
+                </button>
+              </>
+            }
+            onToggleCollapsed={() => setInspectorCollapsed((value) => !value)}
+            onChange={(patch) => selectedItem && updateItem(selectedItem.id, patch)}
+            onMoveLayer={moveSelectedItemLayer}
+            onDelete={removeSelectedItem}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ToolRail({ activeFloor }: { activeFloor: string }) {
+  const t = useTranslations('venue')
+  const tools = [
+    { key: 'venues', icon: Building2, label: t('railVenues') },
+    { key: 'areas', icon: MapIcon, label: t('railAreas') },
+    { key: 'library', icon: Box, label: t('railLibrary') },
+    { key: 'layers', icon: Layers, label: t('railLayers') },
+  ]
+
+  return (
+    <aside className="bg-white border-r border-slate-200 py-3 flex flex-col items-center gap-2">
+      {tools.map(({ key, icon: Icon, label }, index) => (
+        <button
+          key={key}
+          type="button"
+          title={label}
+          aria-label={label}
+          className={`w-11 h-11 rounded-xl inline-flex items-center justify-center transition-colors ${
+            index === 0 ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+        >
+          <Icon className="w-5 h-5" />
+        </button>
+      ))}
+      <div className="flex-1" />
+      <div className="w-10 min-h-10 rounded-lg bg-slate-100 text-[11px] font-semibold text-slate-500 flex items-center justify-center">
+        {activeFloor}
+      </div>
+    </aside>
+  )
+}
+
+function FloatingPanel({
+  layoutName,
+  floorName,
+  items,
+  selectedItemIds,
+  visibleTypes,
+  floorWidth,
+  floorHeight,
+  storeyHeightCm,
+  backgroundImage,
+  onSelect,
+  onFloorDefaultsChange,
+  onBackgroundChange,
+}: {
+  layoutName: string
+  floorName: string
+  items: VenueItem[]
+  selectedItemIds: string[]
+  visibleTypes: VenueItemType[]
+  floorWidth: number
+  floorHeight: number
+  storeyHeightCm: number
+  backgroundImage: string
+  onSelect: (id: string) => void
+  onFloorDefaultsChange: (patch: Pick<Partial<VenueFloor>, 'width' | 'height' | 'floorHeight'>) => void
+  onBackgroundChange: (value: string) => void
+}) {
+  const t = useTranslations('venue')
+  const [collapsed, setCollapsed] = useState(false)
+  const [settingsCollapsed, setSettingsCollapsed] = useState(false)
+  const [listTab, setListTab] = useState<'shapes' | 'markers'>('shapes')
+  const totalAreaSqMeters = totalVenueAreaSquareMeters(items)
+  const visibleTypeSet = useMemo(() => new Set(visibleTypes), [visibleTypes])
+  // Rank the three largest 'area' spaces (by area share) — computed over all
+  // items so the badge stays stable regardless of the active type filter.
+  const areaRank = useMemo(() => {
+    const map = new Map<string, number>()
+    items
+      .filter((item) => item.type === 'area')
+      .sort((a, b) => venueAreaSquareMeters(b) - venueAreaSquareMeters(a))
+      .slice(0, 3)
+      .forEach((item, index) => map.set(item.id, index))
+    return map
+  }, [items])
+  const markerCount = items.filter((item) => isVenueMarkerType(item.type)).length
+  const shapeCount = items.length - markerCount
+  const listItems = items
+    .filter((item) => visibleTypeSet.has(item.type))
+    .filter((item) => (listTab === 'markers' ? isVenueMarkerType(item.type) : !isVenueMarkerType(item.type)))
+    .sort((a, b) => venueAreaSquareMeters(b) - venueAreaSquareMeters(a))
+
+  if (collapsed) {
+    return (
+      <div className="absolute left-4 top-4 z-10">
+        <button
+          type="button"
+          title={t('expandVenuePanel')}
+          aria-label={t('expandVenuePanel')}
+          onClick={() => setCollapsed(false)}
+          className="h-11 max-w-56 rounded-xl border border-slate-200 bg-white/95 px-3 shadow-lg backdrop-blur inline-flex items-center gap-2 text-left text-slate-700 hover:border-indigo-200 hover:text-indigo-700 hover:bg-white transition-colors"
+        >
+          <PanelLeftOpen className="w-4 h-4 flex-shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-slate-500">{t('currentVenue')}</span>
+            <span className="block truncate text-sm font-semibold">{layoutName} · {floorName}</span>
+          </span>
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="absolute left-4 top-4 z-10 w-72 rounded-xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
+      <div className="p-4 border-b border-slate-100 flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-slate-500">{t('currentVenue')}</p>
+          <h2 className="text-sm font-semibold text-slate-900 mt-1 truncate">{layoutName} · {floorName}</h2>
+          <p className="text-[11px] text-slate-400 mt-1">{t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}</p>
+        </div>
+        <button
+          type="button"
+          title={t('collapseVenuePanel')}
+          aria-label={t('collapseVenuePanel')}
+          onClick={() => setCollapsed(true)}
+          className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
+        >
+          <PanelLeftClose className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="border-b border-slate-100">
+        <button
+          type="button"
+          title={settingsCollapsed ? t('expandCanvasSettings') : t('collapseCanvasSettings')}
+          aria-label={settingsCollapsed ? t('expandCanvasSettings') : t('collapseCanvasSettings')}
+          onClick={() => setSettingsCollapsed((value) => !value)}
+          className="w-full h-11 px-3 inline-flex items-center justify-between text-left text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          <span className="text-xs font-semibold text-slate-500">{t('canvasSettings')}</span>
+          {settingsCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+        {!settingsCollapsed && (
+          <div className="px-3 pb-3">
+            <p className="text-xs font-medium text-slate-500 mb-1.5">{t('canvasDefaults')}</p>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <label className="block">
+                <span className="block text-[11px] text-slate-400 mb-1">{t('canvasWidth')}</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  value={centimetersToMeters(floorWidth)}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value) && value > 0) {
+                      onFloorDefaultsChange({ width: metersToCentimeters(value) })
+                    }
+                  }}
+                  aria-label={t('canvasWidth')}
+                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] text-slate-400 mb-1">{t('canvasHeight')}</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  value={centimetersToMeters(floorHeight)}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value) && value > 0) {
+                      onFloorDefaultsChange({ height: metersToCentimeters(value) })
+                    }
+                  }}
+                  aria-label={t('canvasHeight')}
+                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+              <label className="block col-span-2">
+                <span className="block text-[11px] text-slate-400 mb-1">{t('floorStoreyHeight')}</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  value={centimetersToMeters(storeyHeightCm)}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value) && value > 0) {
+                      onFloorDefaultsChange({ floorHeight: metersToCentimeters(value) })
+                    }
+                  }}
+                  aria-label={t('floorStoreyHeight')}
+                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+            </div>
+            <label className="block">
+              <span className="block text-xs font-medium text-slate-500 mb-1.5">{t('backgroundImage')}</span>
+              <input
+                value={backgroundImage}
+                onChange={(event) => onBackgroundChange(event.target.value)}
+                placeholder={t('backgroundPlaceholder')}
+                className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </label>
+          </div>
+        )}
+      </div>
+      <div className="flex gap-1 border-b border-slate-100 px-2 pt-2">
+        {([
+          ['shapes', t('tabShapes'), shapeCount],
+          ['markers', t('tabMarkers'), markerCount],
+        ] as const).map(([key, tabLabel, count]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setListTab(key)}
+            className={`flex-1 rounded-t-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              listTab === key
+                ? 'bg-indigo-50 text-indigo-700'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+            }`}
+          >
+            {tabLabel} <span className="text-[10px] opacity-70">{count}</span>
+          </button>
+        ))}
+      </div>
+      <div className="max-h-[calc(100dvh-24rem)] min-h-72 overflow-auto p-2">
+        {listItems.length === 0 && (
+          <p className="px-3 py-6 text-center text-xs text-slate-400">{t('filterEmpty')}</p>
+        )}
+        {listItems.map((item) => {
+          const Icon = TOOL_ICON[item.type]
+          const active = selectedItemIds.includes(item.id)
+          const isMarker = isVenueMarkerType(item.type)
+          // Only 空间 participates in area accounting — 设备/区域/结构 show just
+          // their dimensions (no m² figure, no share).
+          const countsArea = item.type === 'area'
+          const areaSqMeters = venueAreaSquareMeters(item)
+          const share = item.type === 'area' && totalAreaSqMeters > 0
+            ? (areaSqMeters / totalAreaSqMeters) * 100
+            : null
+          // Top-3 spaces by area get an emphasized (bold + darker) metric line.
+          const isTopArea = areaRank.get(item.id) !== undefined
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Icon className="w-4 h-4 flex-shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium truncate">{item.name}</span>
+                <span className={`block text-[11px] truncate ${isTopArea ? 'font-semibold text-slate-600' : 'text-slate-400'}`}>
+                  {isMarker ? (
+                    t(`types.${item.type}`)
+                  ) : (
+                    <>
+                      {formatVenueMeasurement(item.width)}×{formatVenueMeasurement(item.height)}
+                      {countsArea && ` · ${formatVenueArea(areaSqMeters)}`}
+                      {share !== null && ` · ${share.toFixed(1)}%`}
+                    </>
+                  )}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Single-button view-bookmark control. Empty → an add button; with saved views
+// → a dropdown to switch / overwrite / remove, plus add until the cap is hit.
+function ViewBookmarks({
+  bookmarks,
+  max,
+  onAdd,
+  onRecall,
+  onOverwrite,
+  onRemove,
+}: {
+  bookmarks: VenueViewBookmark[]
+  max: number
+  onAdd: () => void
+  onRecall: (index: number) => void
+  onOverwrite: (index: number) => void
+  onRemove: (index: number) => void
+}) {
+  const t = useTranslations('venue')
+  const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const [active, setActive] = useState(0)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handle = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  const count = bookmarks.length
+  const safeActive = active < count ? active : 0
+
+  const goTo = (index: number) => {
+    setActive(index)
+    onRecall(index)
+  }
+
+  // One-click cycle to the next saved view.
+  const cycle = () => goTo(count === 0 ? 0 : (safeActive + 1) % count)
+
+  const openMenu = () => {
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
+    setOpen((value) => !value)
+  }
+
+  // Empty: a single add button.
+  if (count === 0) {
+    return (
+      <div ref={ref} className="flex-shrink-0">
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={onAdd}
+          title={t('viewSaveCurrent')}
+          aria-label={t('viewSaveCurrent')}
+          className="h-9 shrink-0 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-400 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+        >
+          <Bookmark className="w-4 h-4 flex-shrink-0" />
+          <Plus className="w-3 h-3 flex-shrink-0" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div ref={ref} className="flex-shrink-0 inline-flex rounded-lg border border-indigo-200 overflow-hidden">
+      {/* Main: one-click switch to the next saved view. */}
+      <button
+        type="button"
+        onClick={cycle}
+        title={t('viewSwitchNext')}
+        aria-label={t('viewSwitchNext')}
+        className="h-9 inline-flex items-center gap-1.5 bg-indigo-50 px-2.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
+      >
+        <Bookmark className="w-4 h-4 flex-shrink-0" />
+        <span>{safeActive + 1}</span>
+      </button>
+      {/* Chevron: open the manage menu (switch to a specific view / overwrite / remove / add). */}
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={openMenu}
+        title={t('viewBookmarks')}
+        aria-label={t('viewBookmarks')}
+        className="h-9 inline-flex items-center justify-center border-l border-indigo-200 bg-indigo-50 px-1.5 text-indigo-700 hover:bg-indigo-100 transition-colors"
+      >
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && menuPos && count > 0 && (
+        <div
+          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+          className="z-50 min-w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          {bookmarks.map((_, index) => (
+            <div key={index} className="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-50">
+              <button
+                type="button"
+                onClick={() => {
+                  goTo(index)
+                  setOpen(false)
+                }}
+                className={`flex-1 text-left text-xs font-medium ${index === safeActive ? 'text-indigo-700' : 'text-slate-700'}`}
+              >
+                {t('viewBookmarkN', { n: index + 1 })}
+              </button>
+              <button
+                type="button"
+                onClick={() => onOverwrite(index)}
+                title={t('viewOverwrite')}
+                className="px-1.5 py-0.5 text-[10px] font-medium text-slate-400 hover:text-indigo-600"
+              >
+                {t('viewOverwriteShort')}
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                title={t('viewRemove')}
+                className="text-slate-400 hover:text-red-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {count < max && (
+            <>
+              <div className="my-1 h-px bg-slate-100" />
+              <button
+                type="button"
+                onClick={() => onAdd()}
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-indigo-600 hover:bg-slate-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {t('viewSaveCurrent')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddMarkerMenu({ onAdd }: { onAdd: (type: VenueItemType) => void }) {
+  const t = useTranslations('venue')
+  const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handle = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  const toggleOpen = () => {
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
+    setOpen((value) => !value)
+  }
+
+  return (
+    <div ref={ref} className="flex-shrink-0">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggleOpen}
+        className="h-9 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+      >
+        <MapPin className="w-4 h-4 flex-shrink-0" />
+        <span className="whitespace-nowrap">{t('addMarker')}</span>
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && menuPos && (
+        <div
+          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+          className="z-50 min-w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          {VENUE_MARKER_TYPE_OPTIONS.map((option) => {
+            const Icon = TOOL_ICON[option.value]
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onAdd(option.value)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50"
+              >
+                <Icon className="w-3.5 h-3.5 text-slate-400" />
+                <span>{t(`types.${option.value}`)}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TypeFilter({
+  visibleTypes,
+  onChange,
+  fullWidth = false,
+}: {
+  visibleTypes: VenueItemType[]
+  onChange: (next: VenueItemType[]) => void
+  fullWidth?: boolean
+}) {
+  const t = useTranslations('venue')
+  const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handle = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  // The toolbar is horizontally scrollable, which clips an absolutely-positioned
+  // menu — anchor it with fixed coords from the trigger so it escapes the clip.
+  const toggleOpen = () => {
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
+    setOpen((value) => !value)
+  }
+
+  const visibleSet = new Set(visibleTypes)
+  const allSelected = VENUE_ITEM_TYPE_OPTIONS.every((option) => visibleSet.has(option.value))
+  const summary = allSelected
+    ? t('filterAllComponents')
+    : t('filterCount', { count: visibleTypes.length })
+
+  const toggle = (value: VenueItemType) => {
+    if (visibleSet.has(value)) {
+      // Always keep at least one type visible.
+      if (visibleTypes.length <= 1) return
+      onChange(visibleTypes.filter((type) => type !== value))
+    } else {
+      onChange([...visibleTypes, value])
+    }
+  }
+
+  return (
+    <div ref={ref} className={fullWidth ? 'w-full' : 'flex-shrink-0'}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggleOpen}
+        className={`h-9 inline-flex items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors ${
+          fullWidth ? 'w-full justify-between' : ''
+        } ${
+          allSelected
+            ? 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700'
+            : 'border-indigo-200 bg-indigo-50 text-indigo-700'
+        }`}
+      >
+        <span className="inline-flex items-center gap-1.5 min-w-0">
+          <ListFilter className="w-4 h-4 flex-shrink-0" />
+          <span className="whitespace-nowrap">{summary}</span>
+        </span>
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && menuPos && (
+        <div
+          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+          className="z-50 min-w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          <button
+            type="button"
+            onClick={() => onChange(ALL_VENUE_TYPES)}
+            disabled={allSelected}
+            className="w-full px-3 py-1.5 text-left text-xs font-medium text-indigo-600 hover:bg-slate-50 disabled:text-slate-300 disabled:hover:bg-transparent"
+          >
+            {t('filterShowAll')}
+          </button>
+          <div className="my-1 h-px bg-slate-100" />
+          {VENUE_ITEM_TYPE_OPTIONS.map((option) => {
+            const Icon = TOOL_ICON[option.value]
+            const checked = visibleSet.has(option.value)
+            const lockedLast = checked && visibleTypes.length <= 1
+            return (
+              <label
+                key={option.value}
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 ${lockedLast ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={lockedLast}
+                  onChange={() => toggle(option.value)}
+                  className="accent-indigo-600"
+                />
+                <Icon className="w-3.5 h-3.5 text-slate-400" />
+                <span>{t(`types.${option.value}`)}</span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolbarButton({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+  active,
+  primary,
+  iconOnly,
+}: {
+  icon: typeof Box
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  active?: boolean
+  primary?: boolean
+  // Always render as an icon-only square (label lives in the tooltip), trimming
+  // the horizontal footprint for self-explanatory utility controls.
+  iconOnly?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={`h-9 shrink-0 inline-flex items-center justify-center rounded-lg border text-xs font-semibold leading-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+        iconOnly ? 'w-9' : 'gap-1.5 px-3'
+      } ${
+        primary
+          ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+          : active
+            ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
+            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700'
+      }`}
+    >
+      <Icon className="w-4 h-4 shrink-0" />
+      {!iconOnly && <span className="hidden whitespace-nowrap xl:inline">{label}</span>}
+    </button>
+  )
+}
+
+function StatusPill({ state }: { state: SaveState }) {
+  const t = useTranslations('venue')
+  if (state === 'idle') return null
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+      state === 'saved' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+    }`}>
+      {state === 'saved' ? t('autoSaved') : t('saveFailed')}
+    </span>
+  )
+}
+
+function downloadFile(filename: string, content: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+// Structural equality for layouts. Sufficient here: layouts are plain JSON
+// (no functions/dates), so serialized comparison detects whether the cloud copy
+// is still the untouched seed and whether the local copy differs.
+function layoutsEqual(a: VenueLayout, b: VenueLayout): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function isUndoTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return true
+  const tag = target.tagName.toLowerCase()
+  return !target.isContentEditable && tag !== 'input' && tag !== 'textarea' && tag !== 'select'
+}
