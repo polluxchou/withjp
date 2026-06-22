@@ -6,8 +6,12 @@ import { useTranslations } from 'next-intl'
 import {
   VENUE_ITEM_TYPE_OPTIONS,
   calculateVenueCanvasFit,
+  formatVenueArea,
   formatVenueMeasurement,
+  isVenueMarkerType,
   snapVenueItemToAlignment,
+  totalVenueAreaSquareMeters,
+  venueAreaSquareMeters,
   type VenueAlignmentGuide,
   type VenueFloor,
   type VenueItem,
@@ -23,6 +27,13 @@ type Props = {
   onSelectItems: (itemIds: string[]) => void
   onItemChange: (itemId: string, patch: Partial<VenueItem>) => void
   onItemsMove: (itemIds: string[], delta: { x: number; y: number }) => void
+  // Right-side px to treat as unavailable when fitting, so collapsing/expanding
+  // the inspector never rescales the canvas (fit stays as if it were expanded).
+  fitWidthReserve?: number
+  // Item types to render; when omitted all types show.
+  visibleTypes?: VenueItemType[]
+  // Lets the page read/write the scroll container (for view bookmarks).
+  scrollRef?: { current: HTMLDivElement | null }
 }
 
 type DragState = {
@@ -38,22 +49,32 @@ type PanState = {
 }
 
 const TYPE_STYLE: Record<VenueItemType, { fill: string; stroke: string; dash?: string }> = {
-  equipment:   { fill: '#dbeafe', stroke: '#2563eb' },
-  renovation:  { fill: '#dcfce7', stroke: '#16a34a' },
-  area:        { fill: '#ede9fe', stroke: '#7c3aed' },
-  corridor:    { fill: '#fef3c7', stroke: '#d97706', dash: '10 7' },
-  workstation: { fill: '#e0f2fe', stroke: '#0284c7' },
-  fire:        { fill: '#fee2e2', stroke: '#dc2626' },
-  exit:        { fill: '#ffe4e6', stroke: '#e11d48' },
-  safety:      { fill: '#ccfbf1', stroke: '#0f766e' },
+  equipment:    { fill: '#dbeafe', stroke: '#2563eb' },
+  renovation:   { fill: '#dcfce7', stroke: '#16a34a' },
+  area:         { fill: '#ede9fe', stroke: '#7c3aed' },
+  corridor:     { fill: '#fef3c7', stroke: '#d97706', dash: '10 7' },
+  door_inward:  { fill: '#dbeafe', stroke: '#2563eb' },
+  door_outward: { fill: '#e0e7ff', stroke: '#4f46e5' },
+  door_sliding: { fill: '#cffafe', stroke: '#0891b2' },
+  fire:         { fill: '#fee2e2', stroke: '#dc2626' },
+  power:        { fill: '#fef3c7', stroke: '#d97706' },
+  network:      { fill: '#ede9fe', stroke: '#7c3aed' },
 }
 
 // Inner padding of the centering wrapper (p-4 = 16px each side) plus a little
 // breathing room, subtracted when fitting the floor to the viewport.
 const VIEWPORT_PADDING = 40
 
+// Dim layer drawn between the selected item (on top) and everything else.
+// Kept light so the layers underneath stay clearly visible.
+const SELECTION_SCRIM_FILL = '#0f172a'
+const SELECTION_SCRIM_OPACITY = 0.18
+
+// Emphasis colour for the selected item (border + selection chrome).
+const SELECTION_ACCENT = '#f4511e'
+
 function VenueCanvas(
-  { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove }: Props,
+  { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove, fitWidthReserve = 0, visibleTypes, scrollRef }: Props,
   ref: ForwardedRef<SVGSVGElement>,
 ) {
   const t = useTranslations('venue')
@@ -68,6 +89,12 @@ function VenueCanvas(
     () => Object.fromEntries(VENUE_ITEM_TYPE_OPTIONS.map((option) => [option.value, t(`types.${option.value}`)])),
     [t],
   ) as Record<VenueItemType, string>
+  const markerGlyphs = useMemo(
+    () => Object.fromEntries(VENUE_ITEM_TYPE_OPTIONS
+      .filter((option) => isVenueMarkerType(option.value))
+      .map((option) => [option.value, t(`markerShort.${option.value}`)])),
+    [t],
+  ) as Record<VenueItemType, string>
 
   // Track the visible canvas area so "100%" can mean "the whole floor fits".
   useEffect(() => {
@@ -80,11 +107,16 @@ function VenueCanvas(
     return () => observer.disconnect()
   }, [])
 
-  const items = useMemo(() => floor.items.map((item) => {
-    const position = dragPositions[item.id]
-    if (position) return { ...item, ...position }
-    return item
-  }), [floor.items, dragPositions])
+  const items = useMemo(() => {
+    const typeFilter = visibleTypes ? new Set(visibleTypes) : null
+    return floor.items
+      .filter((item) => !typeFilter || typeFilter.has(item.type))
+      .map((item) => {
+        const position = dragPositions[item.id]
+        if (position) return { ...item, ...position }
+        return item
+      })
+  }, [floor.items, dragPositions, visibleTypes])
 
   function setRefs(node: SVGSVGElement | null) {
     localSvgRef.current = node
@@ -199,15 +231,105 @@ function VenueCanvas(
   const fit = calculateVenueCanvasFit({
     floorWidth: floor.width,
     floorHeight: floor.height,
-    viewportWidth: viewport.width,
+    viewportWidth: Math.max(viewport.width - fitWidthReserve, 1),
     viewportHeight: viewport.height,
     zoom,
     padding: VIEWPORT_PADDING,
   })
   const { scale } = fit
 
+  // Plan dimension rulers per shape:
+  //  - dedupe: stacked shapes sharing a horizontal span (same x+width) draw the
+  //    width ruler once (topmost); same-vertical-span shapes draw height once
+  //    (rightmost).
+  //  - placement: keep the default side (width above, height right) unless a
+  //    neighbour occupies it — then push the ruler to the free opposite side
+  //    (width below, height left) so it sits outside the components.
+  //  - if both sides are blocked, keep the default side but dash the ruler to
+  //    show it's overlaying a component.
+  // Rotated shapes keep simple defaults (their spans aren't axis-aligned).
+  const rulerPlan = useMemo(() => {
+    const reach = 34 / scale
+    const axis = items.filter((item) => !isVenueMarkerType(item.type) && item.rotation === 0)
+    const occupied = (selfId: string, x: number, y: number, w: number, h: number) =>
+      axis.some((o) => o.id !== selfId
+        && o.x < x + w && o.x + o.width > x
+        && o.y < y + h && o.y + o.height > y)
+
+    const widthOwner = new Map<string, { id: string; y: number }>()
+    const heightOwner = new Map<string, { id: string; right: number }>()
+    for (const item of axis) {
+      const wKey = `${item.x}|${item.width}`
+      const wPrev = widthOwner.get(wKey)
+      if (!wPrev || item.y < wPrev.y) widthOwner.set(wKey, { id: item.id, y: item.y })
+      const hKey = `${item.y}|${item.height}`
+      const hPrev = heightOwner.get(hKey)
+      const right = item.x + item.width
+      if (!hPrev || right > hPrev.right) heightOwner.set(hKey, { id: item.id, right })
+    }
+
+    const plan = new Map<string, RulerPlan>()
+    for (const item of items) {
+      if (isVenueMarkerType(item.type)) continue
+      if (item.rotation !== 0) {
+        plan.set(item.id, { showWidth: true, widthSide: 'top', widthDashed: false, showHeight: true, heightSide: 'right', heightDashed: false })
+        continue
+      }
+      const right = item.x + item.width
+      const bottom = item.y + item.height
+
+      let widthSide: 'top' | 'bottom' = 'top'
+      let widthDashed = false
+      if (occupied(item.id, item.x, item.y - reach, item.width, reach)) {
+        if (!occupied(item.id, item.x, bottom, item.width, reach)) widthSide = 'bottom'
+        else widthDashed = true
+      }
+
+      let heightSide: 'right' | 'left' = 'right'
+      let heightDashed = false
+      if (occupied(item.id, right, item.y, reach, item.height)) {
+        if (!occupied(item.id, item.x - reach, item.y, reach, item.height)) heightSide = 'left'
+        else heightDashed = true
+      }
+
+      plan.set(item.id, {
+        showWidth: widthOwner.get(`${item.x}|${item.width}`)?.id === item.id,
+        widthSide,
+        widthDashed,
+        showHeight: heightOwner.get(`${item.y}|${item.height}`)?.id === item.id,
+        heightSide,
+        heightDashed,
+      })
+    }
+    return plan
+  }, [items, scale])
+
+  const defaultRulerPlan: RulerPlan = { showWidth: true, widthSide: 'top', widthDashed: false, showHeight: true, heightSide: 'right', heightDashed: false }
+
+  // Spotlight selection: dim everything except the selected layer(s), which render
+  // on top with their area + share of the total space footprint.
+  const selectedSet = new Set(selectedItemIds)
+  const unselectedItems = items.filter((item) => !selectedSet.has(item.id))
+  const selectedItems = items.filter((item) => selectedSet.has(item.id))
+  const totalAreaSqMeters = totalVenueAreaSquareMeters(floor.items)
+  const selectionMetrics = (item: VenueItem) => {
+    // Only 空间 is area-accounted — markers, 设备/区域/结构 get no on-canvas metric.
+    if (item.type !== 'area') return undefined
+    const areaSqMeters = venueAreaSquareMeters(item)
+    const share = item.type === 'area' && totalAreaSqMeters > 0
+      ? ` · ${((areaSqMeters / totalAreaSqMeters) * 100).toFixed(1)}%`
+      : ''
+    return `${formatVenueArea(areaSqMeters)}${share}`
+  }
+
   return (
-    <div ref={scrollerRef} className="relative h-full min-h-[560px] overflow-auto bg-slate-200">
+    <div
+      ref={(node) => {
+        scrollerRef.current = node
+        if (scrollRef) scrollRef.current = node
+      }}
+      className="relative h-full min-h-[560px] overflow-auto bg-slate-200"
+    >
       <div className="grid min-h-full min-w-full place-items-center p-4">
         <div className="shadow-sm" style={{ width: fit.width, height: fit.height }}>
           <svg
@@ -250,20 +372,29 @@ function VenueCanvas(
               )}
             </g>
 
-            {items.map((item) => (
+            {unselectedItems.map((item) => isVenueMarkerType(item.type) ? (
+              <VenueMarker
+                key={item.id}
+                item={item}
+                glyph={markerGlyphs[item.type]}
+                label={itemTypeLabels[item.type]}
+                selected={false}
+                scale={scale}
+                onPointerDown={(event) => startDrag(event, item)}
+              />
+            ) : (
               <VenueShape
                 key={item.id}
                 item={item}
                 label={itemTypeLabels[item.type]}
-                selected={selectedItemIds.includes(item.id)}
+                selected={false}
                 showRulers={showRulers}
+                ruler={rulerPlan.get(item.id) ?? defaultRulerPlan}
                 scale={scale}
                 onPointerDown={(event) => startDrag(event, item)}
               />
             ))}
-            <AlignmentGuides guides={alignmentGuides} scale={scale} />
-            {/* Callouts for objects too small to hold a label render last so they sit on top. */}
-            {items.map((item) => (
+            {unselectedItems.filter((item) => !isVenueMarkerType(item.type)).map((item) => (
               <VenueCallout
                 key={`callout-${item.id}`}
                 item={item}
@@ -272,6 +403,50 @@ function VenueCanvas(
                 floorWidth={floor.width}
               />
             ))}
+            {selectedItems.length > 0 && (
+              <rect
+                x="0"
+                y="0"
+                width={floor.width}
+                height={floor.height}
+                fill={SELECTION_SCRIM_FILL}
+                opacity={SELECTION_SCRIM_OPACITY}
+                pointerEvents="none"
+              />
+            )}
+            {selectedItems.map((item) => isVenueMarkerType(item.type) ? (
+              <VenueMarker
+                key={item.id}
+                item={item}
+                glyph={markerGlyphs[item.type]}
+                label={itemTypeLabels[item.type]}
+                selected
+                scale={scale}
+                onPointerDown={(event) => startDrag(event, item)}
+              />
+            ) : (
+              <VenueShape
+                key={item.id}
+                item={item}
+                label={itemTypeLabels[item.type]}
+                selected
+                showRulers={showRulers}
+                ruler={rulerPlan.get(item.id) ?? defaultRulerPlan}
+                scale={scale}
+                metricsText={selectionMetrics(item)}
+                onPointerDown={(event) => startDrag(event, item)}
+              />
+            ))}
+            {selectedItems.filter((item) => !isVenueMarkerType(item.type)).map((item) => (
+              <VenueCallout
+                key={`callout-${item.id}`}
+                item={item}
+                label={itemTypeLabels[item.type]}
+                scale={scale}
+                floorWidth={floor.width}
+              />
+            ))}
+            <AlignmentGuides guides={alignmentGuides} scale={scale} />
           </svg>
         </div>
       </div>
@@ -368,20 +543,26 @@ function VenueShape({
   label,
   selected,
   showRulers,
+  ruler,
   scale,
+  metricsText,
   onPointerDown,
 }: {
   item: VenueItem
   label: string
   selected: boolean
   showRulers: boolean
+  ruler: RulerPlan
   scale: number
+  metricsText?: string
   onPointerDown: (event: PointerEvent<SVGGElement>) => void
 }) {
   const style = TYPE_STYLE[item.type]
   const layout = computeLabelLayout(item, label, scale)
   const { cx, cy } = layout
   const stroke = 2 / scale
+  // Box border + selection dashes at 2/3 the handle stroke for a lighter outline.
+  const borderStroke = (4 / 3) / scale
 
   return (
     <g
@@ -394,13 +575,13 @@ function VenueShape({
         y={item.y}
         width={item.width}
         height={item.height}
-        rx={6 / scale}
+        rx={0}
         fill={style.fill}
-        stroke={style.stroke}
-        strokeWidth={stroke}
+        stroke={selected ? SELECTION_ACCENT : style.stroke}
+        strokeWidth={borderStroke}
         strokeDasharray={style.dash ? `${10 / scale} ${7 / scale}` : undefined}
       />
-      {showRulers && <DimensionRulers item={item} scale={scale} />}
+      {showRulers && <DimensionRulers item={item} scale={scale} plan={ruler} />}
       {layout.mode === 'inside' && (
         <>
           <text
@@ -431,23 +612,191 @@ function VenueShape({
         </>
       )}
       {selected && (
-        <>
+        // Tagged so PNG export can strip the on-screen selection chrome before
+        // rasterizing — see exportPng() in the guild-venue page.
+        <g data-venue-selection="true">
           <rect
             x={item.x - 5 / scale}
             y={item.y - 5 / scale}
             width={item.width + 10 / scale}
             height={item.height + 10 / scale}
-            rx={8 / scale}
+            rx={0}
             fill="none"
-            stroke="#0f172a"
-            strokeWidth={stroke}
+            stroke={SELECTION_ACCENT}
+            strokeWidth={borderStroke}
             strokeDasharray={`${8 / scale} ${5 / scale}`}
             pointerEvents="none"
           />
-          <circle cx={item.x + item.width + 14 / scale} cy={cy} r={8 / scale} fill="#fff" stroke="#0f172a" strokeWidth={stroke} pointerEvents="none" />
-          <circle cx={item.x + item.width + 14 / scale} cy={item.y - 14 / scale} r={6 / scale} fill="#0f172a" pointerEvents="none" />
+          <circle cx={item.x + item.width + 14 / scale} cy={cy} r={8 / scale} fill="#fff" stroke={SELECTION_ACCENT} strokeWidth={stroke} pointerEvents="none" />
+          <circle cx={item.x + item.width + 14 / scale} cy={item.y - 14 / scale} r={6 / scale} fill={SELECTION_ACCENT} pointerEvents="none" />
+          {metricsText && (
+            <text
+              x={cx}
+              y={item.y + item.height + 15 / scale}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={11.5 / scale}
+              fontWeight="700"
+              fill="#0f172a"
+              paintOrder="stroke"
+              stroke="#fff"
+              strokeWidth={4 / scale}
+              strokeLinejoin="round"
+              pointerEvents="none"
+            >
+              {metricsText}
+            </text>
+          )}
+        </g>
+      )}
+    </g>
+  )
+}
+
+// Point marker (door, fire point, power, network…) — a fixed-size badge with a
+// short glyph and a name label. Does not occupy area and is not resizable.
+function VenueMarker({
+  item,
+  glyph,
+  label,
+  selected,
+  scale,
+  onPointerDown,
+}: {
+  item: VenueItem
+  glyph: string
+  label: string
+  selected: boolean
+  scale: number
+  onPointerDown: (event: PointerEvent<SVGGElement>) => void
+}) {
+  const style = TYPE_STYLE[item.type]
+  const accent = selected ? SELECTION_ACCENT : style.stroke
+  const cx = item.x + item.width / 2
+  const cy = item.y + item.height / 2
+  const halo = 3.5 / scale
+  const isDoor = item.type === 'door_inward' || item.type === 'door_outward' || item.type === 'door_sliding'
+  const badgeR = 11 / scale
+  // Doors draw to their real footprint (item.width in floor units, scaled with
+  // the canvas); point markers stay a fixed on-screen badge.
+  const doorSpan = item.width
+  const halfExtent = isDoor ? doorSpan / 2 : badgeR
+  const vertExtent = isDoor ? doorSpan : badgeR
+  const labelX = cx + halfExtent + 5 / scale
+  const labelWidth = Math.max(estTextUnits(label), 1) * (11 / scale)
+  // Transparent hit area: the symbol is drawn with thin/pointer-none strokes, so
+  // without this there's almost nothing to click. Covers the symbol and its label.
+  const hitX = cx - halfExtent - 4 / scale
+  const hitWidth = labelX + labelWidth + 4 / scale - hitX
+  const hitHalf = vertExtent + 4 / scale
+
+  return (
+    <g
+      transform={`rotate(${item.rotation} ${cx} ${cy})`}
+      onPointerDown={onPointerDown}
+      className="cursor-move"
+    >
+      <rect
+        x={hitX}
+        y={cy - hitHalf}
+        width={hitWidth}
+        height={hitHalf * 2}
+        fill="transparent"
+      />
+      {selected && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={vertExtent + 5 / scale}
+          fill="none"
+          stroke={SELECTION_ACCENT}
+          strokeWidth={(4 / 3) / scale}
+          strokeDasharray={`${6 / scale} ${4 / scale}`}
+          pointerEvents="none"
+        />
+      )}
+      {isDoor ? (
+        <DoorSymbol type={item.type} cx={cx} cy={cy} span={doorSpan} color={accent} scale={scale} />
+      ) : (
+        <>
+          <circle cx={cx} cy={cy} r={11 / scale} fill={style.fill} stroke={accent} strokeWidth={1.5 / scale} />
+          <text
+            x={cx}
+            y={cy}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={11 / scale}
+            fontWeight="700"
+            fill={accent}
+            pointerEvents="none"
+          >
+            {glyph}
+          </text>
         </>
       )}
+      <text
+        x={labelX}
+        y={cy}
+        textAnchor="start"
+        dominantBaseline="central"
+        fontSize={11 / scale}
+        fontWeight="600"
+        fill="#0f172a"
+        paintOrder="stroke"
+        stroke="#fff"
+        strokeWidth={halo}
+        strokeLinejoin="round"
+        pointerEvents="none"
+      >
+        {label}
+      </text>
+    </g>
+  )
+}
+
+// Architectural door glyphs: a hinged leaf with a quarter-circle swing arc for
+// inward/outward doors (mirrored vertically), and offset panels for a slider.
+function DoorSymbol({
+  type,
+  cx,
+  cy,
+  span,
+  color,
+  scale,
+}: {
+  type: VenueItemType
+  cx: number
+  cy: number
+  span: number
+  color: string
+  scale: number
+}) {
+  const leafW = 2 / scale
+  const thinW = 1.25 / scale
+  const hx = cx - span / 2
+  const jx = cx + span / 2
+
+  if (type === 'door_sliding') {
+    // Two overlapping panels (one shifted up-left, one shifted down-right) read
+    // as the two leaves of a sliding door passing each other.
+    const len = span * 0.62
+    const depth = span * 0.14
+    return (
+      <g pointerEvents="none" stroke={color} fill="none" strokeLinejoin="round">
+        <line x1={hx} y1={cy} x2={jx} y2={cy} strokeWidth={thinW} opacity={0.35} />
+        <rect x={hx} y={cy - depth} width={len} height={depth} strokeWidth={leafW} />
+        <rect x={jx - len} y={cy} width={len} height={depth} strokeWidth={leafW} />
+      </g>
+    )
+  }
+
+  const ly = type === 'door_inward' ? cy - span : cy + span
+  const sweep = type === 'door_inward' ? 1 : 0
+  return (
+    <g pointerEvents="none" stroke={color} fill="none" strokeLinecap="round">
+      <line x1={hx} y1={cy} x2={jx} y2={cy} strokeWidth={thinW} opacity={0.4} />
+      <line x1={hx} y1={cy} x2={hx} y2={ly} strokeWidth={leafW} />
+      <path d={`M ${hx} ${ly} A ${span} ${span} 0 0 ${sweep} ${jx} ${cy}`} strokeWidth={thinW} />
     </g>
   )
 }
@@ -508,7 +857,24 @@ function VenueCallout({
   )
 }
 
-function DimensionRulers({ item, scale }: { item: VenueItem; scale: number }) {
+type RulerPlan = {
+  showWidth: boolean
+  widthSide: 'top' | 'bottom'
+  widthDashed: boolean
+  showHeight: boolean
+  heightSide: 'right' | 'left'
+  heightDashed: boolean
+}
+
+function DimensionRulers({
+  item,
+  scale,
+  plan,
+}: {
+  item: VenueItem
+  scale: number
+  plan: RulerPlan
+}) {
   const right = item.x + item.width
   const bottom = item.y + item.height
   const xLabel = item.x + item.width / 2
@@ -518,43 +884,59 @@ function DimensionRulers({ item, scale }: { item: VenueItem; scale: number }) {
   const lineW = 1.5 / scale
   const halo = 3.5 / scale
   const textGap = 7 / scale
-  const horizontalY = item.y - offset
-  const verticalX = right + offset
-  const vTextX = verticalX + textGap + 2 / scale
+  const dash = `${6 / scale} ${4 / scale}`
+
+  // Width ruler: above by default, flipped below when that side is occupied.
+  const horizontalY = plan.widthSide === 'bottom' ? bottom + offset : item.y - offset
+  const widthTextY = plan.widthSide === 'bottom' ? horizontalY + textGap : horizontalY - textGap
+  const widthBaseline = plan.widthSide === 'bottom' ? 'hanging' : 'auto'
+
+  // Height ruler: right by default, flipped left when that side is occupied.
+  const verticalX = plan.heightSide === 'left' ? item.x - offset : right + offset
+  const vTextX = plan.heightSide === 'left' ? verticalX - textGap - 2 / scale : verticalX + textGap + 2 / scale
 
   return (
     <g pointerEvents="none" stroke="#64748b" fill="#334155" fontSize={11 / scale} fontWeight="700">
-      <line x1={item.x} y1={horizontalY} x2={right} y2={horizontalY} strokeWidth={lineW} />
-      <line x1={item.x} y1={horizontalY - tick} x2={item.x} y2={horizontalY + tick} strokeWidth={lineW} />
-      <line x1={right} y1={horizontalY - tick} x2={right} y2={horizontalY + tick} strokeWidth={lineW} />
-      <text
-        x={xLabel}
-        y={horizontalY - textGap}
-        textAnchor="middle"
-        paintOrder="stroke"
-        stroke="#fff"
-        strokeWidth={halo}
-        strokeLinejoin="round"
-      >
-        {formatVenueMeasurement(item.width)}
-      </text>
+      {plan.showWidth && (
+        <>
+          <line x1={item.x} y1={horizontalY} x2={right} y2={horizontalY} strokeWidth={lineW} strokeDasharray={plan.widthDashed ? dash : undefined} />
+          <line x1={item.x} y1={horizontalY - tick} x2={item.x} y2={horizontalY + tick} strokeWidth={lineW} />
+          <line x1={right} y1={horizontalY - tick} x2={right} y2={horizontalY + tick} strokeWidth={lineW} />
+          <text
+            x={xLabel}
+            y={widthTextY}
+            textAnchor="middle"
+            dominantBaseline={widthBaseline}
+            paintOrder="stroke"
+            stroke="#fff"
+            strokeWidth={halo}
+            strokeLinejoin="round"
+          >
+            {formatVenueMeasurement(item.width)}
+          </text>
+        </>
+      )}
 
-      <line x1={verticalX} y1={item.y} x2={verticalX} y2={bottom} strokeWidth={lineW} />
-      <line x1={verticalX - tick} y1={item.y} x2={verticalX + tick} y2={item.y} strokeWidth={lineW} />
-      <line x1={verticalX - tick} y1={bottom} x2={verticalX + tick} y2={bottom} strokeWidth={lineW} />
-      <text
-        x={vTextX}
-        y={yLabel}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        transform={`rotate(90 ${vTextX} ${yLabel})`}
-        paintOrder="stroke"
-        stroke="#fff"
-        strokeWidth={halo}
-        strokeLinejoin="round"
-      >
-        {formatVenueMeasurement(item.height)}
-      </text>
+      {plan.showHeight && (
+        <>
+          <line x1={verticalX} y1={item.y} x2={verticalX} y2={bottom} strokeWidth={lineW} strokeDasharray={plan.heightDashed ? dash : undefined} />
+          <line x1={verticalX - tick} y1={item.y} x2={verticalX + tick} y2={item.y} strokeWidth={lineW} />
+          <line x1={verticalX - tick} y1={bottom} x2={verticalX + tick} y2={bottom} strokeWidth={lineW} />
+          <text
+            x={vTextX}
+            y={yLabel}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            transform={`rotate(90 ${vTextX} ${yLabel})`}
+            paintOrder="stroke"
+            stroke="#fff"
+            strokeWidth={halo}
+            strokeLinejoin="round"
+          >
+            {formatVenueMeasurement(item.height)}
+          </text>
+        </>
+      )}
     </g>
   )
 }

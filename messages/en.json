@@ -1230,12 +1230,12 @@
     "fieldElevation": "Elevation",
     "fieldStoreyHeight": "Storey net height {value}m",
     "addTypes": {
-      "equipment": "Add equipment",
-      "renovation": "Add zone",
-      "area": "Add space",
-      "corridor": "Add corridor"
+      "equipment": "+ Equipment",
+      "renovation": "+ Zone",
+      "area": "+ Space",
+      "corridor": "+ Structure"
     },
-    "addMarker": "Add marker",
+    "addMarker": "+ Marker",
     "canvasActions": "Canvas actions",
     "viewBookmarks": "Saved views",
     "viewSwitchNext": "Switch to next view",
@@ -1248,7 +1248,7 @@
       "equipment": "Equipment",
       "renovation": "Zone",
       "area": "Space",
-      "corridor": "Corridor",
+      "corridor": "Structure",
       "door_inward": "Inward door",
       "door_outward": "Outward door",
       "door_sliding": "Sliding door",
