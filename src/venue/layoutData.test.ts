@@ -9,6 +9,7 @@ import {
   formatVenueMeasurement,
   metersToCentimeters,
   moveVenueItemLayer,
+  moveVenueItems,
   parseStoredVenueLayout,
   pushHistory,
   redoHistory,
@@ -63,6 +64,22 @@ test('updateVenueItem changes only the targeted item', () => {
   assert.equal(changed?.name, '新设备架')
   assert.equal(changed?.x, 240)
   assert.deepEqual(untouched, second)
+})
+
+test('moveVenueItems moves every selected item by the same delta', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const floorId = layout.floors[0].id
+  const first = layout.floors[0].items[0]
+  const second = layout.floors[0].items[1]
+  const third = layout.floors[0].items[2]
+
+  const next = moveVenueItems(layout, floorId, [first.id, second.id], { x: 24, y: -12 })
+
+  assert.equal(next.floors[0].items[0].x, first.x + 24)
+  assert.equal(next.floors[0].items[0].y, first.y - 12)
+  assert.equal(next.floors[0].items[1].x, second.x + 24)
+  assert.equal(next.floors[0].items[1].y, second.y - 12)
+  assert.deepEqual(next.floors[0].items[2], third)
 })
 
 test('updateVenueFloor changes canvas dimensions and keeps them usable', () => {

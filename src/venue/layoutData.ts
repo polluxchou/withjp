@@ -284,6 +284,25 @@ export function updateVenueItem(
   }))
 }
 
+export function moveVenueItems(
+  layout: VenueLayout,
+  floorId: string,
+  itemIds: string[],
+  delta: { x: number; y: number },
+): VenueLayout {
+  const selected = new Set(itemIds)
+  if (selected.size === 0 || (delta.x === 0 && delta.y === 0)) return layout
+
+  return updateFloor(layout, floorId, (floor) => ({
+    ...floor,
+    items: floor.items.map((item) =>
+      selected.has(item.id)
+        ? normalizeVenueItem({ ...item, x: item.x + delta.x, y: item.y + delta.y })
+        : item
+    ),
+  }))
+}
+
 export function deleteVenueItem(
   layout: VenueLayout,
   floorId: string,
