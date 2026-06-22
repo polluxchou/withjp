@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   ArrowLeftRight,
+  Bookmark,
   Box,
   Building2,
   ChevronDown,
@@ -24,17 +25,22 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
+  Plus,
   Redo2,
   Ruler,
   Undo2,
   Wrench,
+  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import VenueCanvas from '@/venue/VenueCanvas'
 import Venue3DCanvas from '@/venue/Venue3DCanvas'
-import VenueInspector from '@/venue/VenueInspector'
+import VenueInspector, { type PlacedItemSummary } from '@/venue/VenueInspector'
+import { useRouter } from '@/i18n/navigation'
+import type { Item } from '@/lib/items/types'
+import type { Expense } from '@/lib/types'
 import {
   DEFAULT_VENUE_LAYOUT,
   loadVenueLayout,
@@ -63,9 +69,11 @@ import {
   moveVenueItems,
   writeStoredVenueLayout,
   VENUE_STORAGE_KEY,
+  MAX_VENUE_VIEW_BOOKMARKS,
   type VenueItem,
   type VenueItemType,
   type VenueLayout,
+  type VenueViewBookmark,
 } from '@/venue/layoutData'
 
 type SaveState = 'idle' | 'saved' | 'error'
@@ -114,7 +122,11 @@ export default function GuildVenuePage() {
   // When set, a local (browser) layout exists that predates the cloud seed and
   // can be imported once. Cleared after the user imports or the offer lapses.
   const [localImportLayout, setLocalImportLayout] = useState<VenueLayout | null>(null)
+  // Bumped on every recall so the apply-scroll effect runs even when zoom is unchanged.
+  const [recallTick, setRecallTick] = useState(0)
   const svgRef = useRef<SVGSVGElement | null>(null)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const pendingScrollRef = useRef<{ left: number; top: number } | null>(null)
   // Suppress the one debounced save that the effect would otherwise fire right
   // after the initial load applies the freshly fetched (or fallback) layout.
   const skipNextSave = useRef(true)
@@ -178,6 +190,7 @@ export default function GuildVenuePage() {
   }, [])
 
   const layout = history.present
+  const viewBookmarks = layout.viewBookmarks ?? []
   const activeFloor = useMemo(
     () => layout.floors.find((floor) => floor.id === selectedFloorId) ?? layout.floors[0],
     [layout.floors, selectedFloorId],
@@ -187,6 +200,43 @@ export default function GuildVenuePage() {
   const selectedLayerIndex = activeFloor && selectedItemId
     ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
     : -1
+
+  // Cross-feature read: surface the items placed in the selected zone + their
+  // summed cost. Failure to load is non-fatal (the canvas still works).
+  const router = useRouter()
+  const [items, setItems] = useState<Item[]>([])
+  const [expenseById, setExpenseById] = useState<Record<string, Expense>>({})
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const [itemsRes, exRes] = await Promise.all([fetch('/api/items'), fetch('/api/expenses')])
+        const itemsJson = await itemsRes.json()
+        const exJson = await exRes.json()
+        if (itemsJson?.data) setItems(itemsJson.data as Item[])
+        if (exJson?.data) {
+          const map: Record<string, Expense> = {}
+          for (const e of exJson.data as Expense[]) map[e.id] = e
+          setExpenseById(map)
+        }
+      } catch { /* 联动展示是增强项，失败不阻断画布 */ }
+    })()
+  }, [])
+
+  const placedItems: PlacedItemSummary[] = useMemo(() => {
+    if (!selectedItem) return []
+    return items
+      .filter((it) => it.placement_venue_item_id === selectedItem.id)
+      .map((it) => {
+        const ex = it.expense_id ? expenseById[it.expense_id] : null
+        const cost = ex ? Number(ex.unit_price) * it.quantity : 0
+        return { id: it.id, item_code: it.item_code, name: it.name, quantity: it.quantity, cost }
+      })
+  }, [items, expenseById, selectedItem])
+  const placedItemsTotalCost = useMemo(
+    () => placedItems.reduce((sum, p) => sum + p.cost, 0),
+    [placedItems],
+  )
 
   // Persist on change: cache to localStorage immediately (offline copy), then
   // debounce a full PUT to the DB so rapid edits collapse into one request.
@@ -223,6 +273,66 @@ export default function GuildVenuePage() {
       window.clearTimeout(timer)
     }
   }, [hydrated, persistable, layout])
+
+  // After a bookmark recall sets the zoom (and the canvas resizes), restore the
+  // saved scroll offset on the next frame.
+  useEffect(() => {
+    if (!pendingScrollRef.current) return
+    const target = pendingScrollRef.current
+    pendingScrollRef.current = null
+    const id = requestAnimationFrame(() => {
+      const scroller = scrollerRef.current
+      if (scroller) {
+        scroller.scrollLeft = target.left
+        scroller.scrollTop = target.top
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [recallTick])
+
+  function currentViewSnapshot(): VenueViewBookmark | null {
+    const scroller = scrollerRef.current
+    if (!scroller) return null
+    return { zoom, left: scroller.scrollLeft, top: scroller.scrollTop }
+  }
+
+  // Bookmarks live on the layout so they persist to the DB, but they're view
+  // state, not document content — update history.present in place (no undo step)
+  // and let the debounced save push them.
+  function updateViewBookmarks(updater: (prev: VenueViewBookmark[]) => VenueViewBookmark[]) {
+    setHistory((current) => {
+      const next = updater(current.present.viewBookmarks ?? [])
+      return {
+        ...current,
+        present: { ...current.present, viewBookmarks: next.length ? next : undefined },
+      }
+    })
+    setPersistable(true)
+  }
+
+  function addViewBookmark() {
+    const snapshot = currentViewSnapshot()
+    if (!snapshot) return
+    updateViewBookmarks((prev) => (prev.length >= MAX_VENUE_VIEW_BOOKMARKS ? prev : [...prev, snapshot]))
+  }
+
+  function overwriteViewBookmark(index: number) {
+    const snapshot = currentViewSnapshot()
+    if (!snapshot) return
+    updateViewBookmarks((prev) => prev.map((entry, i) => (i === index ? snapshot : entry)))
+  }
+
+  function removeViewBookmark(index: number) {
+    updateViewBookmarks((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function recallViewBookmark(index: number) {
+    const bookmark = viewBookmarks[index]
+    if (!bookmark) return
+    pendingScrollRef.current = { left: bookmark.left, top: bookmark.top }
+    setZoom(bookmark.zoom)
+    setRecallTick((tick) => tick + 1)
+  }
 
   function commit(nextLayout: typeof layout, nextSelectedItemIds = selectedItemIds) {
     setHistory((current) => pushHistory(current, nextLayout))
@@ -557,6 +667,20 @@ export default function GuildVenuePage() {
           <span className="min-w-14 text-center text-xs font-semibold text-slate-500">{Math.round(zoom * 100)}%</span>
           <ToolbarButton iconOnly icon={ZoomIn} label={t('zoomIn')} onClick={() => setZoom((value) => Math.min(1.8, Number((value + 0.1).toFixed(2))))} />
 
+          {viewMode === '2d' && (
+            <>
+              <div className="w-px h-6 bg-slate-200 mx-1" />
+              <ViewBookmarks
+                bookmarks={viewBookmarks}
+                max={MAX_VENUE_VIEW_BOOKMARKS}
+                onAdd={addViewBookmark}
+                onRecall={recallViewBookmark}
+                onOverwrite={overwriteViewBookmark}
+                onRemove={removeViewBookmark}
+              />
+            </>
+          )}
+
           <div className="w-px h-6 bg-slate-200 mx-1" />
           <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
             <button
@@ -618,10 +742,12 @@ export default function GuildVenuePage() {
                 floor={activeFloor}
                 selectedItemIds={selectedItemIds}
                 onSelectItems={setSelectedItemIds}
+                onItemChange={updateItem}
               />
             ) : (
               <VenueCanvas
                 ref={svgRef}
+                scrollRef={scrollerRef}
                 floor={activeFloor}
                 selectedItemIds={selectedItemIds}
                 zoom={zoom}
@@ -642,6 +768,9 @@ export default function GuildVenuePage() {
             layerCount={activeFloor.items.length}
             collapsed={inspectorCollapsed}
             storeyHeightCm={activeFloor.floorHeight}
+            placedItems={placedItems}
+            placedItemsTotalCost={placedItemsTotalCost}
+            onOpenItems={() => router.push('/items')}
             emptyStateActions={
               <>
                 <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
@@ -783,6 +912,7 @@ function FloatingPanel({
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-slate-500">{t('currentVenue')}</p>
           <h2 className="text-sm font-semibold text-slate-900 mt-1 truncate">{layoutName} · {floorName}</h2>
+          <p className="text-[11px] text-slate-400 mt-1">{t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}</p>
         </div>
         <button
           type="button"
@@ -900,6 +1030,8 @@ function FloatingPanel({
           const Icon = TOOL_ICON[item.type]
           const active = selectedItemIds.includes(item.id)
           const isMarker = isVenueMarkerType(item.type)
+          // 设备/区域 don't participate in area accounting — no m² figure, no share.
+          const countsArea = item.type === 'area' || item.type === 'corridor'
           const areaSqMeters = venueAreaSquareMeters(item)
           const share = item.type === 'area' && totalAreaSqMeters > 0
             ? (areaSqMeters / totalAreaSqMeters) * 100
@@ -928,7 +1060,8 @@ function FloatingPanel({
                     t(`types.${item.type}`)
                   ) : (
                     <>
-                      {formatVenueMeasurement(item.width)}×{formatVenueMeasurement(item.height)} · {formatVenueArea(areaSqMeters)}
+                      {formatVenueMeasurement(item.width)}×{formatVenueMeasurement(item.height)}
+                      {countsArea && ` · ${formatVenueArea(areaSqMeters)}`}
                       {share !== null && ` · ${share.toFixed(1)}%`}
                     </>
                   )}
@@ -938,6 +1071,153 @@ function FloatingPanel({
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// Single-button view-bookmark control. Empty → an add button; with saved views
+// → a dropdown to switch / overwrite / remove, plus add until the cap is hit.
+function ViewBookmarks({
+  bookmarks,
+  max,
+  onAdd,
+  onRecall,
+  onOverwrite,
+  onRemove,
+}: {
+  bookmarks: VenueViewBookmark[]
+  max: number
+  onAdd: () => void
+  onRecall: (index: number) => void
+  onOverwrite: (index: number) => void
+  onRemove: (index: number) => void
+}) {
+  const t = useTranslations('venue')
+  const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const [active, setActive] = useState(0)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handle = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  const count = bookmarks.length
+  const safeActive = active < count ? active : 0
+
+  const goTo = (index: number) => {
+    setActive(index)
+    onRecall(index)
+  }
+
+  // One-click cycle to the next saved view.
+  const cycle = () => goTo(count === 0 ? 0 : (safeActive + 1) % count)
+
+  const openMenu = () => {
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
+    setOpen((value) => !value)
+  }
+
+  // Empty: a single add button.
+  if (count === 0) {
+    return (
+      <div ref={ref} className="flex-shrink-0">
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={onAdd}
+          title={t('viewSaveCurrent')}
+          aria-label={t('viewSaveCurrent')}
+          className="h-9 shrink-0 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-400 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+        >
+          <Bookmark className="w-4 h-4 flex-shrink-0" />
+          <Plus className="w-3 h-3 flex-shrink-0" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div ref={ref} className="flex-shrink-0 inline-flex rounded-lg border border-indigo-200 overflow-hidden">
+      {/* Main: one-click switch to the next saved view. */}
+      <button
+        type="button"
+        onClick={cycle}
+        title={t('viewSwitchNext')}
+        aria-label={t('viewSwitchNext')}
+        className="h-9 inline-flex items-center gap-1.5 bg-indigo-50 px-2.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
+      >
+        <Bookmark className="w-4 h-4 flex-shrink-0" />
+        <span>{safeActive + 1}</span>
+      </button>
+      {/* Chevron: open the manage menu (switch to a specific view / overwrite / remove / add). */}
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={openMenu}
+        title={t('viewBookmarks')}
+        aria-label={t('viewBookmarks')}
+        className="h-9 inline-flex items-center justify-center border-l border-indigo-200 bg-indigo-50 px-1.5 text-indigo-700 hover:bg-indigo-100 transition-colors"
+      >
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && menuPos && count > 0 && (
+        <div
+          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+          className="z-50 min-w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          {bookmarks.map((_, index) => (
+            <div key={index} className="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-50">
+              <button
+                type="button"
+                onClick={() => {
+                  goTo(index)
+                  setOpen(false)
+                }}
+                className={`flex-1 text-left text-xs font-medium ${index === safeActive ? 'text-indigo-700' : 'text-slate-700'}`}
+              >
+                {t('viewBookmarkN', { n: index + 1 })}
+              </button>
+              <button
+                type="button"
+                onClick={() => onOverwrite(index)}
+                title={t('viewOverwrite')}
+                className="px-1.5 py-0.5 text-[10px] font-medium text-slate-400 hover:text-indigo-600"
+              >
+                {t('viewOverwriteShort')}
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                title={t('viewRemove')}
+                className="text-slate-400 hover:text-red-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {count < max && (
+            <>
+              <div className="my-1 h-px bg-slate-100" />
+              <button
+                type="button"
+                onClick={() => onAdd()}
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-indigo-600 hover:bg-slate-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {t('viewSaveCurrent')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
