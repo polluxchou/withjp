@@ -95,8 +95,7 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
           {t('noSelectionBody')}
         </div>
         {emptyStateActions && (
-          <div className="px-5 pb-5 space-y-2">
-            <p className="text-xs font-medium text-slate-500">{t('canvasActions')}</p>
+          <div className="px-5 pb-5">
             {emptyStateActions}
           </div>
         )}
