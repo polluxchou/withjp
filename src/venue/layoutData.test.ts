@@ -10,6 +10,7 @@ import {
   parseStoredVenueLayout,
   redoHistory,
   undoHistory,
+  updateVenueFloor,
   updateVenueItem,
   DEFAULT_VENUE_LAYOUT,
   type VenueItem,
@@ -52,6 +53,20 @@ test('updateVenueItem changes only the targeted item', () => {
   assert.equal(changed?.name, '新设备架')
   assert.equal(changed?.x, 240)
   assert.deepEqual(untouched, second)
+})
+
+test('updateVenueFloor changes canvas dimensions and keeps them usable', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const floorId = layout.floors[0].id
+
+  const resized = updateVenueFloor(layout, floorId, { width: 1800, height: 1100 })
+  const clamped = updateVenueFloor(layout, floorId, { width: -20, height: Number.NaN })
+
+  assert.equal(resized.floors[0].width, 1800)
+  assert.equal(resized.floors[0].height, 1100)
+  assert.equal(resized.floors[1].width, layout.floors[1].width)
+  assert.equal(clamped.floors[0].width, 100)
+  assert.equal(clamped.floors[0].height, 100)
 })
 
 test('deleteVenueItem removes the item and clears selection when necessary', () => {

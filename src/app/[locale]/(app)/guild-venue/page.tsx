@@ -40,6 +40,8 @@ import {
   undoHistory,
   updateVenueFloor,
   updateVenueItem,
+  metersToCentimeters,
+  type VenueFloor,
   writeStoredVenueLayout,
   type VenueItem,
   type VenueItemType,
@@ -110,6 +112,16 @@ export default function GuildVenuePage() {
   function updateBackgroundImage(backgroundImage: string) {
     if (!activeFloor) return
     commit(updateVenueFloor(layout, activeFloor.id, { backgroundImage: backgroundImage.trim() || undefined }))
+  }
+
+  function updateFloorDefaults(patch: Pick<Partial<VenueFloor>, 'width' | 'height'>) {
+    if (!activeFloor) return
+    const next = updateVenueFloor(layout, activeFloor.id, patch)
+    commit({
+      ...next,
+      width: activeFloor.id === layout.floors[0]?.id ? patch.width ?? next.width : next.width,
+      height: activeFloor.id === layout.floors[0]?.id ? patch.height ?? next.height : next.height,
+    })
   }
 
   function undo() {
@@ -256,6 +268,9 @@ export default function GuildVenuePage() {
               items={activeFloor.items}
               selectedItemId={selectedItemId}
               onSelect={setSelectedItemId}
+              floorWidth={activeFloor.width}
+              floorHeight={activeFloor.height}
+              onFloorDefaultsChange={updateFloorDefaults}
               backgroundImage={activeFloor.backgroundImage ?? ''}
               onBackgroundChange={updateBackgroundImage}
             />
@@ -318,16 +333,22 @@ function FloatingPanel({
   floorName,
   items,
   selectedItemId,
+  floorWidth,
+  floorHeight,
   backgroundImage,
   onSelect,
+  onFloorDefaultsChange,
   onBackgroundChange,
 }: {
   layoutName: string
   floorName: string
   items: VenueItem[]
   selectedItemId: string | null
+  floorWidth: number
+  floorHeight: number
   backgroundImage: string
   onSelect: (id: string) => void
+  onFloorDefaultsChange: (patch: Pick<Partial<VenueFloor>, 'width' | 'height'>) => void
   onBackgroundChange: (value: string) => void
 }) {
   const t = useTranslations('venue')
@@ -371,6 +392,43 @@ function FloatingPanel({
         </button>
       </div>
       <div className="p-3 border-b border-slate-100">
+        <p className="text-xs font-medium text-slate-500 mb-1.5">{t('canvasDefaults')}</p>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <label className="block">
+            <span className="block text-[11px] text-slate-400 mb-1">{t('canvasWidth')}</span>
+            <input
+              type="number"
+              min="1"
+              step="0.1"
+              value={centimetersToMeters(floorWidth)}
+              onChange={(event) => {
+                const value = Number(event.target.value)
+                if (Number.isFinite(value) && value > 0) {
+                  onFloorDefaultsChange({ width: metersToCentimeters(value) })
+                }
+              }}
+              aria-label={t('canvasWidth')}
+              className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </label>
+          <label className="block">
+            <span className="block text-[11px] text-slate-400 mb-1">{t('canvasHeight')}</span>
+            <input
+              type="number"
+              min="1"
+              step="0.1"
+              value={centimetersToMeters(floorHeight)}
+              onChange={(event) => {
+                const value = Number(event.target.value)
+                if (Number.isFinite(value) && value > 0) {
+                  onFloorDefaultsChange({ height: metersToCentimeters(value) })
+                }
+              }}
+              aria-label={t('canvasHeight')}
+              className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </label>
+        </div>
         <label className="block">
           <span className="block text-xs font-medium text-slate-500 mb-1.5">{t('backgroundImage')}</span>
           <input
