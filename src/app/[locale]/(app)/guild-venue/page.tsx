@@ -476,7 +476,7 @@ function FloatingPanel({
           </div>
         )}
       </div>
-      <div className="max-h-72 overflow-auto p-2">
+      <div className="max-h-[calc(100dvh-22rem)] min-h-80 overflow-auto p-2">
         {items.map((item) => {
           const Icon = TOOL_ICON[item.type]
           const active = item.id === selectedItemId
