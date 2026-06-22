@@ -28,7 +28,9 @@ const SAMPLE: VenueLayout = {
 
 test('layoutToRows flattens floors/items with sort_order + z_index + floor_id', () => {
   const { venue, floors, items } = layoutToRows(SAMPLE)
-  assert.deepEqual(venue, { id: 'guild-main', name: '主场地', width: 1200, height: 800 })
+  // view_bookmarks is included in the venue row payload even when empty so the
+  // PUT round-trip drops bookmarks consistently. Match that shape.
+  assert.deepEqual(venue, { id: 'guild-main', name: '主场地', width: 1200, height: 800, view_bookmarks: [] })
   assert.equal(floors.length, 2)
   assert.deepEqual(
     floors.map((f) => [f.id, f.venue_id, f.sort_order, f.background_image]),

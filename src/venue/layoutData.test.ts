@@ -6,21 +6,74 @@ import {
   calculateVenueCanvasFit,
   centimetersToMeters,
   createHistory,
+  default3DForType,
   deleteVenueItem,
   formatVenueMeasurement,
   metersToCentimeters,
   moveVenueItemLayer,
   moveVenueItems,
   parseStoredVenueLayout,
+  sanitizeViewBookmarks,
   pushHistory,
   redoHistory,
   snapVenueItemToAlignment,
+  totalVenueAreaSquareMeters,
   undoHistory,
   updateVenueFloor,
   updateVenueItem,
+  venueAreaSquareMeters,
+  DEFAULT_FLOOR_HEIGHT,
   DEFAULT_VENUE_LAYOUT,
+  loadVenueLayout,
+  writeStoredVenueLayout,
+  VENUE_STORAGE_KEY,
+  VENUE_LEGACY_STORAGE_KEY,
+  VENUE_BACKUP_STORAGE_KEY,
   type VenueItem,
+  type VenueLayout,
 } from './layoutData.ts'
+
+function makeStorage(initial: Record<string, string> = {}) {
+  const data = new Map<string, string>(Object.entries(initial))
+  return {
+    data,
+    getItem: (key: string) => (data.has(key) ? data.get(key)! : null),
+    setItem: (key: string, value: string) => { data.set(key, value) },
+  }
+}
+
+function makeItem(overrides: Partial<VenueItem>): VenueItem {
+  return {
+    id: 'item',
+    type: 'area',
+    name: '区域',
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+    rotation: 0,
+    status: 'planned',
+    note: '',
+    height3d: 0,
+    elevation: 0,
+    ...overrides,
+  }
+}
+
+test('venueAreaSquareMeters converts width/height (cm) to square meters', () => {
+  assert.equal(venueAreaSquareMeters({ width: 500, height: 850 }), 42.5)
+})
+
+test('totalVenueAreaSquareMeters sums only area-type items', () => {
+  const items: VenueItem[] = [
+    makeItem({ id: 'a', type: 'area', width: 500, height: 800 }),     // 40 m²
+    makeItem({ id: 'b', type: 'area', width: 1000, height: 1000 }),   // 100 m²
+    makeItem({ id: 'c', type: 'equipment', width: 200, height: 200 }), // excluded
+    makeItem({ id: 'd', type: 'renovation', width: 300, height: 300 }), // excluded
+    makeItem({ id: 'e', type: 'corridor', width: 400, height: 400 }),  // excluded
+  ]
+  assert.equal(totalVenueAreaSquareMeters(items), 140)
+})
 
 test('centimetersToMeters and metersToCentimeters convert layout units for the inspector', () => {
   assert.equal(centimetersToMeters(160), 1.6)
@@ -146,19 +199,19 @@ test('moveVenueItemLayer changes item drawing order within a floor', () => {
   const forward = moveVenueItemLayer(layout, floorId, itemIds[1], 'forward')
   assert.deepEqual(
     forward.floors[0].items.map((item) => item.id),
-    [itemIds[0], itemIds[2], itemIds[1], itemIds[3]],
+    [itemIds[0], itemIds[2], itemIds[1], ...itemIds.slice(3)],
   )
 
   const front = moveVenueItemLayer(layout, floorId, itemIds[1], 'front')
   assert.deepEqual(
     front.floors[0].items.map((item) => item.id),
-    [itemIds[0], itemIds[2], itemIds[3], itemIds[1]],
+    [itemIds[0], ...itemIds.slice(2), itemIds[1]],
   )
 
   const back = moveVenueItemLayer(layout, floorId, itemIds[2], 'back')
   assert.deepEqual(
     back.floors[0].items.map((item) => item.id),
-    [itemIds[2], itemIds[0], itemIds[1], itemIds[3]],
+    [itemIds[2], itemIds[0], itemIds[1], ...itemIds.slice(3)],
   )
 })
 
@@ -253,8 +306,8 @@ test('parseStoredVenueLayout falls back to default layout for invalid JSON', () 
 test('parseStoredVenueLayout accepts a valid stored layout', () => {
   const customItem: VenueItem = {
     id: 'custom-1',
-    type: 'exit',
-    name: '临时出口',
+    type: 'corridor',
+    name: '临时通道',
     x: 10,
     y: 20,
     width: 90,
@@ -262,6 +315,8 @@ test('parseStoredVenueLayout accepts a valid stored layout', () => {
     rotation: 0,
     status: 'maintenance',
     note: '测试',
+    height3d: 0,
+    elevation: 0,
   }
   const stored = {
     ...DEFAULT_VENUE_LAYOUT,
@@ -273,4 +328,178 @@ test('parseStoredVenueLayout accepts a valid stored layout', () => {
 
   assert.equal(parsed.name, '自定义场地')
   assert.deepEqual(parsed.floors[0].items, [customItem])
+})
+
+test('parseStoredVenueLayout drops items of removed types but keeps the rest', () => {
+  const keep = makeItem({ id: 'keep-1', type: 'area', name: '空间', width: 500, height: 400 })
+  const stored = {
+    ...DEFAULT_VENUE_LAYOUT,
+    name: '迁移场地',
+    floors: [{
+      ...DEFAULT_VENUE_LAYOUT.floors[0],
+      items: [keep, { ...keep, id: 'old-1', type: 'workstation' } as unknown as VenueItem],
+    }],
+  }
+
+  const parsed = parseStoredVenueLayout(JSON.stringify(stored))
+
+  assert.equal(parsed.name, '迁移场地')
+  assert.deepEqual(parsed.floors[0].items.map((item) => item.id), ['keep-1'])
+})
+
+test('default3DForType returns per-type extrusion and elevation defaults', () => {
+  assert.deepEqual(default3DForType('equipment'),  { height3d: 100, elevation: 0  })
+  assert.deepEqual(default3DForType('renovation'), { height3d: 280, elevation: 0  })
+  assert.deepEqual(default3DForType('area'),       { height3d: 280, elevation: 0  })
+  assert.deepEqual(default3DForType('corridor'),   { height3d: 0,   elevation: 0  })
+  assert.deepEqual(default3DForType('door_inward'),{ height3d: 200, elevation: 0  })
+  assert.deepEqual(default3DForType('fire'),       { height3d: 60,  elevation: 0  })
+  assert.deepEqual(default3DForType('power'),      { height3d: 15,  elevation: 30 })
+  assert.deepEqual(default3DForType('network'),    { height3d: 10,  elevation: 30 })
+})
+
+test('addVenueItem stamps the per-type 3D defaults on the new item', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const floorId = layout.floors[0].id
+
+  const afterEquipment = addVenueItem(layout, floorId, 'equipment')
+  const equipment = afterEquipment.floors[0].items.at(-1)
+  assert.equal(equipment?.height3d, 100)
+  assert.equal(equipment?.elevation, 0)
+
+  const afterPower = addVenueItem(layout, floorId, 'power')
+  const power = afterPower.floors[0].items.at(-1)
+  assert.equal(power?.height3d, 15)
+  assert.equal(power?.elevation, 30)
+})
+
+test('DEFAULT_VENUE_LAYOUT seeds every floor with floorHeight and every item with 3D fields', () => {
+  for (const floor of DEFAULT_VENUE_LAYOUT.floors) {
+    assert.equal(floor.floorHeight, DEFAULT_FLOOR_HEIGHT)
+    for (const item of floor.items) {
+      assert.equal(typeof item.height3d, 'number')
+      assert.equal(typeof item.elevation, 'number')
+      assert.ok(item.height3d >= 0)
+      assert.ok(item.elevation >= 0)
+    }
+  }
+})
+
+test('updateVenueItem persists a height3d patch and leaves siblings untouched', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const floorId = layout.floors[0].id
+  const target = layout.floors[0].items[0]
+  const sibling = layout.floors[0].items[1]
+
+  const next = updateVenueItem(layout, floorId, target.id, { height3d: 175, elevation: 12 })
+
+  const changed = next.floors[0].items.find((item) => item.id === target.id)
+  const untouched = next.floors[0].items.find((item) => item.id === sibling.id)
+  assert.equal(changed?.height3d, 175)
+  assert.equal(changed?.elevation, 12)
+  assert.deepEqual(untouched, sibling)
+})
+
+test('updateVenueItem clamps negative 3D values to zero (normalize)', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const floorId = layout.floors[0].id
+  const target = layout.floors[0].items[0]
+
+  const next = updateVenueItem(layout, floorId, target.id, { height3d: -50, elevation: Number.NaN })
+
+  const changed = next.floors[0].items.find((item) => item.id === target.id)
+  assert.equal(changed?.height3d, 0)
+  assert.equal(changed?.elevation, 0)
+})
+
+test('updateVenueFloor clamps floorHeight to a sane minimum and rejects NaN', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const floorId = layout.floors[0].id
+
+  const resized = updateVenueFloor(layout, floorId, { floorHeight: 320 })
+  const clamped = updateVenueFloor(layout, floorId, { floorHeight: 40 })
+  const naned = updateVenueFloor(layout, floorId, { floorHeight: Number.NaN })
+
+  assert.equal(resized.floors[0].floorHeight, 320)
+  assert.equal(clamped.floors[0].floorHeight, 100)
+  assert.equal(naned.floors[0].floorHeight, DEFAULT_FLOOR_HEIGHT)
+})
+
+test('parseStoredVenueLayout backfills 3D fields and floorHeight on a legacy layout', () => {
+  // Mimic an on-disk layout written before the 3D fields existed: no height3d,
+  // no elevation on items; no floorHeight on the floor.
+  const legacy = {
+    venueId: 'guild-main',
+    name: '旧场地',
+    width: 1200,
+    height: 800,
+    floors: [
+      {
+        id: 'floor-1',
+        name: '1F',
+        width: 1200,
+        height: 800,
+        items: [
+          { id: 'legacy-eq', type: 'equipment', name: '设备', x: 0, y: 0, width: 100, height: 60, rotation: 0, status: 'planned', note: '' },
+          { id: 'legacy-power', type: 'power', name: '电源', x: 200, y: 200, width: 32, height: 32, rotation: 0, status: 'planned', note: '' },
+        ],
+      },
+    ],
+  }
+
+  const parsed: VenueLayout = parseStoredVenueLayout(JSON.stringify(legacy))
+
+  assert.equal(parsed.floors[0].floorHeight, DEFAULT_FLOOR_HEIGHT)
+  const eq = parsed.floors[0].items.find((item) => item.id === 'legacy-eq')
+  const power = parsed.floors[0].items.find((item) => item.id === 'legacy-power')
+  assert.equal(eq?.height3d, 100)
+  assert.equal(eq?.elevation, 0)
+  assert.equal(power?.height3d, 15)
+  assert.equal(power?.elevation, 30)
+})
+
+test('loadVenueLayout migrates from the legacy key without overwriting it', () => {
+  const legacy = { ...DEFAULT_VENUE_LAYOUT, name: '旧场地' }
+  const storage = makeStorage({ [VENUE_LEGACY_STORAGE_KEY]: JSON.stringify(legacy) })
+
+  const result = loadVenueLayout(storage)
+
+  assert.equal(result.layout.name, '旧场地')
+  assert.equal(result.persistable, true)
+  assert.equal(result.migratedFromLegacy, true)
+  // Legacy key is left intact as a recovery backup.
+  assert.ok(storage.data.has(VENUE_LEGACY_STORAGE_KEY))
+})
+
+test('loadVenueLayout marks present-but-invalid data as non-persistable', () => {
+  const storage = makeStorage({ [VENUE_STORAGE_KEY]: '{bad-json' })
+
+  const result = loadVenueLayout(storage)
+
+  assert.equal(result.layout, DEFAULT_VENUE_LAYOUT)
+  assert.equal(result.persistable, false)
+})
+
+test('writeStoredVenueLayout snapshots the previous value to the backup key', () => {
+  const first = { ...DEFAULT_VENUE_LAYOUT, name: '第一版' }
+  const second = { ...DEFAULT_VENUE_LAYOUT, name: '第二版' }
+  const storage = makeStorage()
+
+  writeStoredVenueLayout(storage, first)
+  writeStoredVenueLayout(storage, second)
+
+  assert.equal(JSON.parse(storage.getItem(VENUE_STORAGE_KEY)!).name, '第二版')
+  assert.equal(JSON.parse(storage.getItem(VENUE_BACKUP_STORAGE_KEY)!).name, '第一版')
+})
+
+test('sanitizeViewBookmarks keeps valid entries, caps at 3, and drops empties', () => {
+  assert.equal(sanitizeViewBookmarks(undefined), undefined)
+  assert.equal(sanitizeViewBookmarks([]), undefined)
+  assert.equal(sanitizeViewBookmarks([{ zoom: 1 }]), undefined) // missing left/top
+  assert.deepEqual(
+    sanitizeViewBookmarks([{ zoom: 1.2, left: 10, top: 20 }, { zoom: 'x', left: 0, top: 0 }]),
+    [{ zoom: 1.2, left: 10, top: 20 }],
+  )
+  const five = Array.from({ length: 5 }, (_, i) => ({ zoom: 1, left: i, top: i }))
+  assert.equal(sanitizeViewBookmarks(five)?.length, 3)
 })
