@@ -20,6 +20,7 @@ create table venue_floors (
   name             text         not null,
   width            integer      not null,
   height           integer      not null,
+  floor_height     integer      not null default 280,
   background_image text,
   sort_order       integer      not null default 0,
   created_at       timestamptz  not null default now(),
@@ -38,6 +39,8 @@ create table venue_items (
   rotation    numeric      not null default 0,
   status      text         not null default 'planned',
   note        text         not null default '',
+  height3d    integer      not null default 0,
+  elevation   integer      not null default 0,
   z_index     integer      not null default 0,
   created_at  timestamptz  not null default now(),
   updated_at  timestamptz  not null default now(),
@@ -59,14 +62,14 @@ create trigger venue_items_updated_at  before update on venue_items  for each ro
 -- 预置单一共享场地，镜像 DEFAULT_VENUE_LAYOUT。
 insert into venues (id, name, width, height) values ('guild-main', '主场地', 1200, 800);
 
-insert into venue_floors (id, venue_id, name, width, height, sort_order) values
-  ('floor-1', 'guild-main', '1F', 1200, 800, 0),
-  ('floor-2', 'guild-main', '2F', 1200, 800, 1);
+insert into venue_floors (id, venue_id, name, width, height, floor_height, sort_order) values
+  ('floor-1', 'guild-main', '1F', 1200, 800, 280, 0),
+  ('floor-2', 'guild-main', '2F', 1200, 800, 280, 1);
 
-insert into venue_items (id, floor_id, type, name, x, y, width, height, rotation, status, note, z_index) values
-  ('eq-1',       'floor-1', 'equipment',   '直播设备架',     120,  80, 160,  80, 0, 'completed',   '靠墙放置，保留走线空间。',     0),
-  ('area-1',     'floor-1', 'renovation',  '直播间 A 装修区', 360, 120, 260, 180, 3, 'in_progress', '吸音墙和灯光轨道施工中。',     1),
-  ('corridor-1', 'floor-1', 'corridor',    '主通道',         120, 560, 620,  72, 0, 'planned',     '保持通道净宽，不堆放设备。',   2),
-  ('door-1',     'floor-1', 'door_inward', '主入口',         640, 600,  32,  32, 0, 'completed',   '内开门，注意开门半径。',       3),
-  ('fire-1',     'floor-1', 'fire',        '灭火器',         980, 280,  32,  32, 0, 'completed',   '消防点位需保持可见。',         4),
-  ('power-1',    'floor-1', 'power',       '设备区电源',     200, 200,  32,  32, 0, 'planned',     '',                             5);
+insert into venue_items (id, floor_id, type, name, x, y, width, height, rotation, status, note, height3d, elevation, z_index) values
+  ('eq-1',       'floor-1', 'equipment',   '直播设备架',     120,  80, 160,  80, 0, 'completed',   '靠墙放置，保留走线空间。',   100,  0, 0),
+  ('area-1',     'floor-1', 'renovation',  '直播间 A 装修区', 360, 120, 260, 180, 3, 'in_progress', '吸音墙和灯光轨道施工中。',   280,  0, 1),
+  ('corridor-1', 'floor-1', 'corridor',    '主通道',         120, 560, 620,  72, 0, 'planned',     '保持通道净宽，不堆放设备。',   0,  0, 2),
+  ('door-1',     'floor-1', 'door_inward', '主入口',         640, 600,  32,  32, 0, 'completed',   '内开门，注意开门半径。',     200,  0, 3),
+  ('fire-1',     'floor-1', 'fire',        '灭火器',         980, 280,  32,  32, 0, 'completed',   '消防点位需保持可见。',        60,  0, 4),
+  ('power-1',    'floor-1', 'power',       '设备区电源',     200, 200,  32,  32, 0, 'planned',     '',                            15, 30, 5);
