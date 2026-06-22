@@ -12,6 +12,7 @@ import type { VenueLayout } from '@/venue/layoutData'
 
 export default function ItemsPage() {
   const t = useTranslations('items')
+  const tCommon = useTranslations('common')
   const [items, setItems] = useState<Item[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [layout, setLayout] = useState<VenueLayout | null>(null)
@@ -139,8 +140,8 @@ export default function ItemsPage() {
                   <td className="px-3 py-2">{t(`status.${it.status}`)}</td>
                   <td className="px-3 py-2">{it.responsible_person ?? '—'}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <button className="text-indigo-600 hover:underline mr-3" onClick={() => openEdit(it)}>编辑</button>
-                    <button className="text-red-500 hover:underline" onClick={() => remove(it)}>删除</button>
+                    <button className="text-indigo-600 hover:underline mr-3" onClick={() => openEdit(it)}>{tCommon('edit')}</button>
+                    <button className="text-red-500 hover:underline" onClick={() => remove(it)}>{tCommon('delete')}</button>
                   </td>
                 </tr>
               )
