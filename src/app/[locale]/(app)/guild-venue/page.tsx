@@ -33,6 +33,7 @@ import {
   centimetersToMeters,
   createHistory,
   deleteVenueItem,
+  moveVenueItemLayer,
   parseStoredVenueLayout,
   pushHistory,
   redoHistory,
@@ -41,6 +42,7 @@ import {
   updateVenueItem,
   metersToCentimeters,
   type VenueFloor,
+  type VenueLayerMove,
   writeStoredVenueLayout,
   type VenueItem,
   type VenueItemType,
@@ -84,6 +86,9 @@ export default function GuildVenuePage() {
     [layout.floors, selectedFloorId],
   )
   const selectedItem = activeFloor?.items.find((item) => item.id === selectedItemId) ?? null
+  const selectedLayerIndex = activeFloor && selectedItemId
+    ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
+    : -1
 
   useEffect(() => {
     if (!hydrated) return
@@ -118,6 +123,11 @@ export default function GuildVenuePage() {
     if (!activeFloor || !selectedItemId) return
     const result = deleteVenueItem(layout, activeFloor.id, selectedItemId, selectedItemId)
     commit(result.layout, result.selectedItemId)
+  }
+
+  function moveSelectedItemLayer(move: VenueLayerMove) {
+    if (!activeFloor || !selectedItemId) return
+    commit(moveVenueItemLayer(layout, activeFloor.id, selectedItemId, move), selectedItemId)
   }
 
   function updateBackgroundImage(backgroundImage: string) {
@@ -289,7 +299,10 @@ export default function GuildVenuePage() {
 
           <VenueInspector
             item={selectedItem}
+            layerIndex={selectedLayerIndex}
+            layerCount={activeFloor.items.length}
             onChange={(patch) => selectedItem && updateItem(selectedItem.id, patch)}
+            onMoveLayer={moveSelectedItemLayer}
             onDelete={removeSelectedItem}
           />
         </div>

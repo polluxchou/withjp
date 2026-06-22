@@ -1138,6 +1138,11 @@
     "fieldRotation": "旋转",
     "fieldNote": "备注",
     "fieldId": "对象 ID",
+    "layerOrder": "图层顺序",
+    "layerBack": "置底",
+    "layerBackward": "下移一层",
+    "layerForward": "上移一层",
+    "layerFront": "置顶",
     "geometry": "位置 / 尺寸",
     "geometryUnit": "单位：米",
     "addTypes": {

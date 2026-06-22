@@ -1,6 +1,6 @@
 'use client'
 
-import { Trash2 } from 'lucide-react'
+import { BringToFront, MoveDown, MoveUp, SendToBack, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { ChangeEvent, ReactNode } from 'react'
 import {
@@ -8,6 +8,7 @@ import {
   VENUE_ITEM_TYPE_OPTIONS,
   centimetersToMeters,
   metersToCentimeters,
+  type VenueLayerMove,
   type VenueItem,
   type VenueItemStatus,
   type VenueItemType,
@@ -15,14 +16,17 @@ import {
 
 type Props = {
   item: VenueItem | null
+  layerIndex: number
+  layerCount: number
   onChange: (patch: Partial<VenueItem>) => void
+  onMoveLayer: (move: VenueLayerMove) => void
   onDelete: () => void
 }
 
 const INPUT_CLASS = 'w-full min-h-9 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500'
 const DISABLED_CLASS = 'w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400'
 
-export default function VenueInspector({ item, onChange, onDelete }: Props) {
+export default function VenueInspector({ item, layerIndex, layerCount, onChange, onMoveLayer, onDelete }: Props) {
   const t = useTranslations('venue')
 
   if (!item) {
@@ -47,6 +51,8 @@ export default function VenueInspector({ item, onChange, onDelete }: Props) {
   const rotationChange = (event: ChangeEvent<HTMLInputElement>) => {
     onChange({ rotation: Number(event.target.value) || 0 })
   }
+  const isBack = layerIndex <= 0
+  const isFront = layerIndex >= layerCount - 1
 
   return (
     <aside className="bg-white border-l border-slate-200 min-h-0 overflow-auto">
@@ -101,6 +107,36 @@ export default function VenueInspector({ item, onChange, onDelete }: Props) {
         </div>
 
         <div>
+          <p className="text-xs font-medium text-slate-500 mb-2">{t('layerOrder')}</p>
+          <div className="grid grid-cols-4 gap-2">
+            <LayerButton
+              icon={SendToBack}
+              label={t('layerBack')}
+              onClick={() => onMoveLayer('back')}
+              disabled={isBack}
+            />
+            <LayerButton
+              icon={MoveDown}
+              label={t('layerBackward')}
+              onClick={() => onMoveLayer('backward')}
+              disabled={isBack}
+            />
+            <LayerButton
+              icon={MoveUp}
+              label={t('layerForward')}
+              onClick={() => onMoveLayer('forward')}
+              disabled={isFront}
+            />
+            <LayerButton
+              icon={BringToFront}
+              label={t('layerFront')}
+              onClick={() => onMoveLayer('front')}
+              disabled={isFront}
+            />
+          </div>
+        </div>
+
+        <div>
           <div className="flex items-center justify-between gap-2 mb-2">
             <p className="text-xs font-medium text-slate-500">{t('geometry')}</p>
             <p className="text-[11px] text-slate-400">{t('geometryUnit')}</p>
@@ -137,6 +173,31 @@ export default function VenueInspector({ item, onChange, onDelete }: Props) {
         </Field>
       </div>
     </aside>
+  )
+}
+
+function LayerButton({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: typeof Trash2
+  label: string
+  onClick: () => void
+  disabled: boolean
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="h-9 rounded-lg border border-slate-200 bg-white text-slate-500 inline-flex items-center justify-center hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-colors"
+    >
+      <Icon className="w-4 h-4" />
+    </button>
   )
 }
 
