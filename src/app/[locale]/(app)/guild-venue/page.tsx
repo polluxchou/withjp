@@ -526,7 +526,7 @@ function ToolbarButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`h-9 inline-flex items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+      className={`h-9 shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold leading-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
         primary
           ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
           : active
@@ -534,8 +534,8 @@ function ToolbarButton({
             : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700'
       }`}
     >
-      <Icon className="w-4 h-4" />
-      <span className="hidden xl:inline">{label}</span>
+      <Icon className="w-4 h-4 shrink-0" />
+      <span className="hidden whitespace-nowrap xl:inline">{label}</span>
     </button>
   )
 }
