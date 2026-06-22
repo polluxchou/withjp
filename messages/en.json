@@ -1105,6 +1105,7 @@
     "subtitle": "Canvas-first 2D planning for live equipment, renovation zones, corridors, and safety points.",
     "save": "Save",
     "saved": "Saved",
+    "autoSaved": "Auto-saved",
     "saveFailed": "Save failed",
     "floorSelect": "Select floor",
     "undo": "Undo",

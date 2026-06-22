@@ -16,7 +16,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Redo2,
-  Save,
   ShieldCheck,
   Undo2,
   Users,
@@ -68,6 +67,7 @@ export default function GuildVenuePage() {
   const [zoom, setZoom] = useState(1)
   const [showGrid, setShowGrid] = useState(true)
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [hydrated, setHydrated] = useState(false)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   useEffect(() => {
@@ -75,6 +75,7 @@ export default function GuildVenuePage() {
     setHistory(createHistory(stored))
     setSelectedFloorId(stored.floors[0]?.id ?? DEFAULT_VENUE_LAYOUT.floors[0].id)
     setSelectedItemId(stored.floors[0]?.items[0]?.id ?? null)
+    setHydrated(true)
   }, [])
 
   const layout = history.present
@@ -83,6 +84,16 @@ export default function GuildVenuePage() {
     [layout.floors, selectedFloorId],
   )
   const selectedItem = activeFloor?.items.find((item) => item.id === selectedItemId) ?? null
+
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      writeStoredVenueLayout(window.localStorage, layout)
+      setSaveState('saved')
+    } catch {
+      setSaveState('error')
+    }
+  }, [hydrated, layout])
 
   function commit(nextLayout: typeof layout, nextSelectedItemId = selectedItemId) {
     setHistory((current) => pushHistory(current, nextLayout))
@@ -117,10 +128,11 @@ export default function GuildVenuePage() {
   function updateFloorDefaults(patch: Pick<Partial<VenueFloor>, 'width' | 'height'>) {
     if (!activeFloor) return
     const next = updateVenueFloor(layout, activeFloor.id, patch)
+    const nextFloor = next.floors.find((floor) => floor.id === activeFloor.id) ?? activeFloor
     commit({
       ...next,
-      width: activeFloor.id === layout.floors[0]?.id ? patch.width ?? next.width : next.width,
-      height: activeFloor.id === layout.floors[0]?.id ? patch.height ?? next.height : next.height,
+      width: activeFloor.id === layout.floors[0]?.id ? nextFloor.width : next.width,
+      height: activeFloor.id === layout.floors[0]?.id ? nextFloor.height : next.height,
     })
   }
 
@@ -173,15 +185,6 @@ export default function GuildVenuePage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   })
 
-  function save() {
-    try {
-      writeStoredVenueLayout(window.localStorage, layout)
-      setSaveState('saved')
-    } catch {
-      setSaveState('error')
-    }
-  }
-
   function exportJson() {
     downloadFile(`${layout.venueId}.json`, JSON.stringify(layout, null, 2), 'application/json')
   }
@@ -206,7 +209,6 @@ export default function GuildVenuePage() {
         actions={
           <div className="flex items-center gap-2">
             <StatusPill state={saveState} />
-            <ToolbarButton icon={Save} label={t('save')} onClick={save} primary />
           </div>
         }
       />
@@ -510,7 +512,7 @@ function StatusPill({ state }: { state: SaveState }) {
     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
       state === 'saved' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
     }`}>
-      {state === 'saved' ? t('saved') : t('saveFailed')}
+      {state === 'saved' ? t('autoSaved') : t('saveFailed')}
     </span>
   )
 }

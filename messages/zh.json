@@ -1105,6 +1105,7 @@
     "subtitle": "画布优先的 2D 场地规划，用于直播设备、装修区域、通道和安全点位管理。",
     "save": "保存",
     "saved": "已保存",
+    "autoSaved": "已自动保存",
     "saveFailed": "保存失败",
     "floorSelect": "选择楼层",
     "undo": "撤销",

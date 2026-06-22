@@ -8,6 +8,7 @@ import {
   deleteVenueItem,
   metersToCentimeters,
   parseStoredVenueLayout,
+  pushHistory,
   redoHistory,
   undoHistory,
   updateVenueFloor,
@@ -99,6 +100,23 @@ test('undoHistory and redoHistory preserve previous and next layouts', () => {
   assert.equal(undone.future.length, 1)
   assert.equal(redone.present.floors[0].items[0].x, 333)
   assert.equal(redone.past.length, 1)
+})
+
+test('pushHistory keeps only the latest 20 undo steps', () => {
+  let history = createHistory(DEFAULT_VENUE_LAYOUT)
+  const floorId = DEFAULT_VENUE_LAYOUT.floors[0].id
+  const itemId = DEFAULT_VENUE_LAYOUT.floors[0].items[0].id
+
+  for (let index = 1; index <= 25; index += 1) {
+    history = pushHistory(
+      history,
+      updateVenueItem(history.present, floorId, itemId, { x: index }),
+    )
+  }
+
+  assert.equal(history.past.length, 20)
+  assert.equal(history.past[0].floors[0].items[0].x, 5)
+  assert.equal(history.present.floors[0].items[0].x, 25)
 })
 
 test('parseStoredVenueLayout falls back to default layout for invalid JSON', () => {

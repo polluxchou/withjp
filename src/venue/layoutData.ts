@@ -47,6 +47,7 @@ export type VenueHistory = {
 }
 
 export const VENUE_STORAGE_KEY = 'guild-venue:layout:v1'
+export const MAX_VENUE_HISTORY_STEPS = 20
 
 export function centimetersToMeters(value: number): number {
   return Math.round((value / 100) * 100) / 100
@@ -186,13 +187,17 @@ export function createHistory(
   past: VenueLayout[] = [],
   future: VenueLayout[] = [],
 ): VenueHistory {
-  return { past, present, future }
+  return {
+    past: past.slice(-MAX_VENUE_HISTORY_STEPS),
+    present,
+    future: future.slice(0, MAX_VENUE_HISTORY_STEPS),
+  }
 }
 
 export function pushHistory(history: VenueHistory, nextPresent: VenueLayout): VenueHistory {
   if (history.present === nextPresent) return history
   return {
-    past: [...history.past, history.present],
+    past: [...history.past, history.present].slice(-MAX_VENUE_HISTORY_STEPS),
     present: nextPresent,
     future: [],
   }
@@ -204,7 +209,7 @@ export function undoHistory(history: VenueHistory): VenueHistory {
   return {
     past: history.past.slice(0, -1),
     present: previous,
-    future: [history.present, ...history.future],
+    future: [history.present, ...history.future].slice(0, MAX_VENUE_HISTORY_STEPS),
   }
 }
 
@@ -212,7 +217,7 @@ export function redoHistory(history: VenueHistory): VenueHistory {
   const next = history.future[0]
   if (!next) return history
   return {
-    past: [...history.past, history.present],
+    past: [...history.past, history.present].slice(-MAX_VENUE_HISTORY_STEPS),
     present: next,
     future: history.future.slice(1),
   }
