@@ -115,6 +115,9 @@ export default function GuildVenuePage() {
   // can be imported once. Cleared after the user imports or the offer lapses.
   const [localImportLayout, setLocalImportLayout] = useState<VenueLayout | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
+  // Suppress the one debounced save that the effect would otherwise fire right
+  // after the initial load applies the freshly fetched (or fallback) layout.
+  const skipNextSave = useRef(true)
 
   // Source of truth is the DB (GET /api/venue). localStorage is now only an
   // offline fallback (on fetch failure) and a one-time import source.
@@ -122,6 +125,9 @@ export default function GuildVenuePage() {
     let cancelled = false
 
     function applyLayout(layout: VenueLayout) {
+      // The next save effect run is the post-hydration echo of this loaded
+      // layout, not a user edit — skip it so we don't redundantly PUT.
+      skipNextSave.current = true
       setHistory(createHistory(layout))
       setSelectedFloorId(layout.floors[0]?.id ?? DEFAULT_VENUE_LAYOUT.floors[0].id)
       setSelectedItemIds(layout.floors[0]?.items[0]?.id ? [layout.floors[0].items[0].id] : [])
@@ -186,6 +192,7 @@ export default function GuildVenuePage() {
   // debounce a full PUT to the DB so rapid edits collapse into one request.
   useEffect(() => {
     if (!hydrated || !persistable) return
+    if (skipNextSave.current) { skipNextSave.current = false; return }
 
     try {
       writeStoredVenueLayout(window.localStorage, layout)
