@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl'
 import {
   Box,
   Building2,
+  ChevronDown,
+  ChevronRight,
   DoorOpen,
   Download,
   Flame,
@@ -373,6 +375,7 @@ function FloatingPanel({
 }) {
   const t = useTranslations('venue')
   const [collapsed, setCollapsed] = useState(false)
+  const [settingsCollapsed, setSettingsCollapsed] = useState(false)
 
   if (collapsed) {
     return (
@@ -411,53 +414,67 @@ function FloatingPanel({
           <PanelLeftClose className="w-4 h-4" />
         </button>
       </div>
-      <div className="p-3 border-b border-slate-100">
-        <p className="text-xs font-medium text-slate-500 mb-1.5">{t('canvasDefaults')}</p>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <label className="block">
-            <span className="block text-[11px] text-slate-400 mb-1">{t('canvasWidth')}</span>
-            <input
-              type="number"
-              min="1"
-              step="0.1"
-              value={centimetersToMeters(floorWidth)}
-              onChange={(event) => {
-                const value = Number(event.target.value)
-                if (Number.isFinite(value) && value > 0) {
-                  onFloorDefaultsChange({ width: metersToCentimeters(value) })
-                }
-              }}
-              aria-label={t('canvasWidth')}
-              className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </label>
-          <label className="block">
-            <span className="block text-[11px] text-slate-400 mb-1">{t('canvasHeight')}</span>
-            <input
-              type="number"
-              min="1"
-              step="0.1"
-              value={centimetersToMeters(floorHeight)}
-              onChange={(event) => {
-                const value = Number(event.target.value)
-                if (Number.isFinite(value) && value > 0) {
-                  onFloorDefaultsChange({ height: metersToCentimeters(value) })
-                }
-              }}
-              aria-label={t('canvasHeight')}
-              className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </label>
-        </div>
-        <label className="block">
-          <span className="block text-xs font-medium text-slate-500 mb-1.5">{t('backgroundImage')}</span>
-          <input
-            value={backgroundImage}
-            onChange={(event) => onBackgroundChange(event.target.value)}
-            placeholder={t('backgroundPlaceholder')}
-            className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </label>
+      <div className="border-b border-slate-100">
+        <button
+          type="button"
+          title={settingsCollapsed ? t('expandCanvasSettings') : t('collapseCanvasSettings')}
+          aria-label={settingsCollapsed ? t('expandCanvasSettings') : t('collapseCanvasSettings')}
+          onClick={() => setSettingsCollapsed((value) => !value)}
+          className="w-full h-11 px-3 inline-flex items-center justify-between text-left text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          <span className="text-xs font-semibold text-slate-500">{t('canvasSettings')}</span>
+          {settingsCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+        {!settingsCollapsed && (
+          <div className="px-3 pb-3">
+            <p className="text-xs font-medium text-slate-500 mb-1.5">{t('canvasDefaults')}</p>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <label className="block">
+                <span className="block text-[11px] text-slate-400 mb-1">{t('canvasWidth')}</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  value={centimetersToMeters(floorWidth)}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value) && value > 0) {
+                      onFloorDefaultsChange({ width: metersToCentimeters(value) })
+                    }
+                  }}
+                  aria-label={t('canvasWidth')}
+                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+              <label className="block">
+                <span className="block text-[11px] text-slate-400 mb-1">{t('canvasHeight')}</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.1"
+                  value={centimetersToMeters(floorHeight)}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value) && value > 0) {
+                      onFloorDefaultsChange({ height: metersToCentimeters(value) })
+                    }
+                  }}
+                  aria-label={t('canvasHeight')}
+                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </label>
+            </div>
+            <label className="block">
+              <span className="block text-xs font-medium text-slate-500 mb-1.5">{t('backgroundImage')}</span>
+              <input
+                value={backgroundImage}
+                onChange={(event) => onBackgroundChange(event.target.value)}
+                placeholder={t('backgroundPlaceholder')}
+                className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </label>
+          </div>
+        )}
       </div>
       <div className="max-h-72 overflow-auto p-2">
         {items.map((item) => {
