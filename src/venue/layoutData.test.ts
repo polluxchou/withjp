@@ -3,8 +3,10 @@ import test from 'node:test'
 
 import {
   addVenueItem,
+  centimetersToMeters,
   createHistory,
   deleteVenueItem,
+  metersToCentimeters,
   parseStoredVenueLayout,
   redoHistory,
   undoHistory,
@@ -12,6 +14,13 @@ import {
   DEFAULT_VENUE_LAYOUT,
   type VenueItem,
 } from './layoutData.ts'
+
+test('centimetersToMeters and metersToCentimeters convert layout units for the inspector', () => {
+  assert.equal(centimetersToMeters(160), 1.6)
+  assert.equal(centimetersToMeters(125), 1.25)
+  assert.equal(metersToCentimeters(1.6), 160)
+  assert.equal(metersToCentimeters(1.255), 126)
+})
 
 test('addVenueItem creates a unique item with default geometry and status', () => {
   const layout = DEFAULT_VENUE_LAYOUT

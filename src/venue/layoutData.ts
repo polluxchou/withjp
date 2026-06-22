@@ -48,6 +48,14 @@ export type VenueHistory = {
 
 export const VENUE_STORAGE_KEY = 'guild-venue:layout:v1'
 
+export function centimetersToMeters(value: number): number {
+  return Math.round((value / 100) * 100) / 100
+}
+
+export function metersToCentimeters(value: number): number {
+  return Math.round(Number(`${value}e2`))
+}
+
 export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] = [
   { value: 'equipment', label: '设备' },
   { value: 'renovation', label: '装修' },

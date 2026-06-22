@@ -6,6 +6,8 @@ import type { ChangeEvent, ReactNode } from 'react'
 import {
   VENUE_ITEM_STATUS_OPTIONS,
   VENUE_ITEM_TYPE_OPTIONS,
+  centimetersToMeters,
+  metersToCentimeters,
   type VenueItem,
   type VenueItemStatus,
   type VenueItemType,
@@ -37,10 +39,14 @@ export default function VenueInspector({ item, onChange, onDelete }: Props) {
     )
   }
 
-  const numberChange = (key: keyof Pick<VenueItem, 'x' | 'y' | 'width' | 'height' | 'rotation'>) =>
+  const metricChange = (key: keyof Pick<VenueItem, 'x' | 'y' | 'width' | 'height'>) =>
     (event: ChangeEvent<HTMLInputElement>) => {
-      onChange({ [key]: Number(event.target.value) || 0 } as Partial<VenueItem>)
+      onChange({ [key]: metersToCentimeters(Number(event.target.value) || 0) } as Partial<VenueItem>)
     }
+
+  const rotationChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onChange({ rotation: Number(event.target.value) || 0 })
+  }
 
   return (
     <aside className="bg-white border-l border-slate-200 min-h-0 overflow-auto">
@@ -95,20 +101,24 @@ export default function VenueInspector({ item, onChange, onDelete }: Props) {
         </div>
 
         <div>
-          <p className="text-xs font-medium text-slate-500 mb-2">{t('geometry')}</p>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-xs font-medium text-slate-500">{t('geometry')}</p>
+            <p className="text-[11px] text-slate-400">{t('geometryUnit')}</p>
+          </div>
           <div className="grid grid-cols-2 gap-2">
-            <NumberField label="X" value={item.x} onChange={numberChange('x')} />
-            <NumberField label="Y" value={item.y} onChange={numberChange('y')} />
-            <NumberField label="W" value={item.width} onChange={numberChange('width')} min={8} />
-            <NumberField label="H" value={item.height} onChange={numberChange('height')} min={8} />
+            <NumberField label="X (m)" value={centimetersToMeters(item.x)} onChange={metricChange('x')} />
+            <NumberField label="Y (m)" value={centimetersToMeters(item.y)} onChange={metricChange('y')} />
+            <NumberField label="W (m)" value={centimetersToMeters(item.width)} onChange={metricChange('width')} min={0.08} />
+            <NumberField label="H (m)" value={centimetersToMeters(item.height)} onChange={metricChange('height')} min={0.08} />
           </div>
         </div>
 
-        <Field label={t('fieldRotation')}>
+        <Field label={`${t('fieldRotation')} (deg)`}>
           <input
             type="number"
             value={item.rotation}
-            onChange={numberChange('rotation')}
+            step={1}
+            onChange={rotationChange}
             className={INPUT_CLASS}
           />
         </Field>
@@ -154,11 +164,12 @@ function NumberField({
     <label className="block">
       <span className="sr-only">{label}</span>
       <div className="flex items-center rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-indigo-500">
-        <span className="w-8 text-center text-xs font-semibold text-slate-400">{label}</span>
+        <span className="w-12 text-center text-[11px] font-semibold text-slate-400">{label}</span>
         <input
           type="number"
           value={value}
           min={min}
+          step={0.01}
           onChange={onChange}
           className="min-w-0 flex-1 h-9 bg-transparent pr-2 text-sm text-slate-900 focus:outline-none"
         />
