@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   addVenueItem,
+  calculateVenueCanvasFit,
   centimetersToMeters,
   createHistory,
   deleteVenueItem,
@@ -32,6 +33,36 @@ test('formatVenueMeasurement formats centimeters as concise meters', () => {
   assert.equal(formatVenueMeasurement(160), '1.6m')
   assert.equal(formatVenueMeasurement(125), '1.25m')
   assert.equal(formatVenueMeasurement(1200), '12m')
+})
+
+test('calculateVenueCanvasFit treats 100 percent as fitting the whole floor in the viewport', () => {
+  const fit = calculateVenueCanvasFit({
+    floorWidth: 4000,
+    floorHeight: 1800,
+    viewportWidth: 1320,
+    viewportHeight: 820,
+    zoom: 1,
+    padding: 40,
+  })
+
+  assert.equal(fit.scale, 0.32)
+  assert.equal(fit.width, 1280)
+  assert.equal(fit.height, 576)
+})
+
+test('calculateVenueCanvasFit scales from the fitted 100 percent size', () => {
+  const fit = calculateVenueCanvasFit({
+    floorWidth: 4000,
+    floorHeight: 1800,
+    viewportWidth: 1320,
+    viewportHeight: 820,
+    zoom: 1.7,
+    padding: 40,
+  })
+
+  assert.equal(fit.scale, 0.544)
+  assert.equal(fit.width, 2176)
+  assert.equal(fit.height, 979)
 })
 
 test('addVenueItem creates a unique item with default geometry and status', () => {

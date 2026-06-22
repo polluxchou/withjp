@@ -61,6 +61,21 @@ export type VenueAlignmentSnap = {
   guides: VenueAlignmentGuide[]
 }
 
+export type VenueCanvasFitInput = {
+  floorWidth: number
+  floorHeight: number
+  viewportWidth: number
+  viewportHeight: number
+  zoom: number
+  padding: number
+}
+
+export type VenueCanvasFit = {
+  scale: number
+  width: number
+  height: number
+}
+
 export const VENUE_STORAGE_KEY = 'guild-venue:layout:v1'
 export const MAX_VENUE_HISTORY_STEPS = 20
 
@@ -77,6 +92,31 @@ export function formatVenueMeasurement(value: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}m`
+}
+
+export function calculateVenueCanvasFit({
+  floorWidth,
+  floorHeight,
+  viewportWidth,
+  viewportHeight,
+  zoom,
+  padding,
+}: VenueCanvasFitInput): VenueCanvasFit {
+  const safeFloorWidth = Math.max(finiteNumber(floorWidth), 1)
+  const safeFloorHeight = Math.max(finiteNumber(floorHeight), 1)
+  const safeZoom = Math.max(finiteNumber(zoom), 0.01)
+  const availWidth = Math.max(finiteNumber(viewportWidth) - finiteNumber(padding), 1)
+  const availHeight = Math.max(finiteNumber(viewportHeight) - finiteNumber(padding), 1)
+  const baseFit = viewportWidth > 0 && viewportHeight > 0
+    ? Math.min(availWidth / safeFloorWidth, availHeight / safeFloorHeight)
+    : 1
+  const scale = baseFit * safeZoom
+
+  return {
+    scale,
+    width: Math.max(1, Math.round(safeFloorWidth * scale)),
+    height: Math.max(1, Math.round(safeFloorHeight * scale)),
+  }
 }
 
 export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] = [
