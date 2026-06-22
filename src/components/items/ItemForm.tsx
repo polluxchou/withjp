@@ -55,6 +55,7 @@ export default function ItemForm({
   onSaved: () => void
 }) {
   const t = useTranslations('items')
+  const tCommon = useTranslations('common')
   const [value, setValue] = useState<ItemFormValue>(() => toFormValue(item))
   const [floorId, setFloorId] = useState('')
   const [saving, setSaving] = useState(false)
@@ -206,8 +207,8 @@ export default function ItemForm({
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button className="h-9 rounded-lg border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50" onClick={onClose} disabled={saving}>取消</button>
-          <button className="h-9 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50" onClick={submit} disabled={saving}>保存</button>
+          <button className="h-9 rounded-lg border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50" onClick={onClose} disabled={saving}>{tCommon('cancel')}</button>
+          <button className="h-9 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50" onClick={submit} disabled={saving}>{tCommon('save')}</button>
         </div>
       </div>
     </div>
