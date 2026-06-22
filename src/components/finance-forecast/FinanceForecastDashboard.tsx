@@ -19,7 +19,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, ChevronRight, Lock } from 'lucide-react'
+import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, ChevronRight, Lock, Map as MapIcon } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { Link } from '@/i18n/navigation'
 import {
@@ -768,6 +768,8 @@ export default function FinanceForecastDashboard({
               </>
             )}
           </div>
+
+          <CostPlanningLinks />
 
           <section className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
             <div className={`flex items-center justify-between gap-4 px-5 py-3.5 ${inputOpen ? 'border-b border-slate-100' : ''}`}>
@@ -1569,6 +1571,8 @@ function AnnualOverview({
         />
       </div>
 
+      <CostPlanningLinks />
+
       <div className="space-y-3 mb-4">
         {years.map((year) => {
           const summary = summaryByYear[year]
@@ -1889,6 +1893,29 @@ function KpiCard({
         {value}
       </p>
       <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate" title={sub}>{sub}</p>
+    </div>
+  )
+}
+
+function CostPlanningLinks() {
+  const t = useTranslations('financeForecast')
+  return (
+    <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 flex items-center gap-3">
+        <span className="w-9 h-9 rounded-lg bg-white text-indigo-600 border border-indigo-100 inline-flex items-center justify-center flex-shrink-0">
+          <MapIcon className="w-4 h-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-slate-900">{t('venueEntryTitle')}</span>
+          <span className="block text-xs text-slate-500 truncate">{t('venueEntryBody')}</span>
+        </span>
+      </div>
+      <Link
+        href="/guild-venue"
+        className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-indigo-200 bg-white px-3 text-sm font-medium text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50 transition-colors flex-shrink-0"
+      >
+        {t('goToVenue')} <ArrowUpRight className="w-4 h-4" />
+      </Link>
     </div>
   )
 }
