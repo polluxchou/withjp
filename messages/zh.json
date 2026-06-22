@@ -1111,6 +1111,7 @@
     "undo": "撤销",
     "redo": "重做",
     "grid": "网格",
+    "dimensionRulers": "尺寸标尺",
     "zoomIn": "放大",
     "zoomOut": "缩小",
     "exportJson": "导出 JSON",

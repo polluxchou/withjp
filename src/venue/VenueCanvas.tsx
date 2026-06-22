@@ -5,6 +5,7 @@ import type { ForwardedRef, PointerEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   VENUE_ITEM_TYPE_OPTIONS,
+  formatVenueMeasurement,
   type VenueFloor,
   type VenueItem,
   type VenueItemType,
@@ -15,6 +16,7 @@ type Props = {
   selectedItemId: string | null
   zoom: number
   showGrid: boolean
+  showRulers: boolean
   onSelectItem: (itemId: string | null) => void
   onItemChange: (itemId: string, patch: Partial<VenueItem>) => void
 }
@@ -42,7 +44,7 @@ const TYPE_STYLE: Record<VenueItemType, { fill: string; stroke: string; dash?: s
 }
 
 function VenueCanvas(
-  { floor, selectedItemId, zoom, showGrid, onSelectItem, onItemChange }: Props,
+  { floor, selectedItemId, zoom, showGrid, showRulers, onSelectItem, onItemChange }: Props,
   ref: ForwardedRef<SVGSVGElement>,
 ) {
   const t = useTranslations('venue')
@@ -186,6 +188,7 @@ function VenueCanvas(
               item={item}
               label={itemTypeLabels[item.type]}
               selected={item.id === selectedItemId}
+              showRulers={showRulers}
               onPointerDown={(event) => startDrag(event, item)}
             />
           ))}
@@ -201,11 +204,13 @@ function VenueShape({
   item,
   label,
   selected,
+  showRulers,
   onPointerDown,
 }: {
   item: VenueItem
   label: string
   selected: boolean
+  showRulers: boolean
   onPointerDown: (event: PointerEvent<SVGGElement>) => void
 }) {
   const style = TYPE_STYLE[item.type]
@@ -229,6 +234,7 @@ function VenueShape({
         strokeWidth="2"
         strokeDasharray={style.dash}
       />
+      {showRulers && <DimensionRulers item={item} />}
       <text
         x={cx}
         y={cy - 5}
@@ -270,6 +276,51 @@ function VenueShape({
           <circle cx={item.x + item.width + 14} cy={item.y - 14} r="6" fill="#0f172a" pointerEvents="none" />
         </>
       )}
+    </g>
+  )
+}
+
+function DimensionRulers({ item }: { item: VenueItem }) {
+  const right = item.x + item.width
+  const bottom = item.y + item.height
+  const xLabel = item.x + item.width / 2
+  const yLabel = item.y + item.height / 2
+  const horizontalY = item.y - 14
+  const verticalX = right + 14
+
+  return (
+    <g pointerEvents="none" stroke="#64748b" fill="#334155" fontSize="12" fontWeight="700">
+      <line x1={item.x} y1={horizontalY} x2={right} y2={horizontalY} strokeWidth="1.5" />
+      <line x1={item.x} y1={horizontalY - 5} x2={item.x} y2={horizontalY + 5} strokeWidth="1.5" />
+      <line x1={right} y1={horizontalY - 5} x2={right} y2={horizontalY + 5} strokeWidth="1.5" />
+      <text
+        x={xLabel}
+        y={horizontalY - 7}
+        textAnchor="middle"
+        paintOrder="stroke"
+        stroke="#fff"
+        strokeWidth="4"
+        strokeLinejoin="round"
+      >
+        {formatVenueMeasurement(item.width)}
+      </text>
+
+      <line x1={verticalX} y1={item.y} x2={verticalX} y2={bottom} strokeWidth="1.5" />
+      <line x1={verticalX - 5} y1={item.y} x2={verticalX + 5} y2={item.y} strokeWidth="1.5" />
+      <line x1={verticalX - 5} y1={bottom} x2={verticalX + 5} y2={bottom} strokeWidth="1.5" />
+      <text
+        x={verticalX + 9}
+        y={yLabel}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        transform={`rotate(90 ${verticalX + 9} ${yLabel})`}
+        paintOrder="stroke"
+        stroke="#fff"
+        strokeWidth="4"
+        strokeLinejoin="round"
+      >
+        {formatVenueMeasurement(item.height)}
+      </text>
     </g>
   )
 }
