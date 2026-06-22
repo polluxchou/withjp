@@ -1115,6 +1115,8 @@
     "exportJson": "导出 JSON",
     "exportSvg": "导出图片",
     "currentVenue": "当前场地",
+    "collapseVenuePanel": "折叠当前场地",
+    "expandVenuePanel": "展开当前场地",
     "backgroundImage": "平面图底图",
     "backgroundPlaceholder": "图片 URL 或 base64",
     "canvasAria": "{floor} 场地布置画布",

@@ -13,6 +13,8 @@ import {
   Layers,
   Map,
   Monitor,
+  PanelLeftClose,
+  PanelLeftOpen,
   Redo2,
   Save,
   ShieldCheck,
@@ -329,12 +331,44 @@ function FloatingPanel({
   onBackgroundChange: (value: string) => void
 }) {
   const t = useTranslations('venue')
+  const [collapsed, setCollapsed] = useState(false)
+
+  if (collapsed) {
+    return (
+      <div className="absolute left-4 top-4 z-10">
+        <button
+          type="button"
+          title={t('expandVenuePanel')}
+          aria-label={t('expandVenuePanel')}
+          onClick={() => setCollapsed(false)}
+          className="h-11 max-w-56 rounded-xl border border-slate-200 bg-white/95 px-3 shadow-lg backdrop-blur inline-flex items-center gap-2 text-left text-slate-700 hover:border-indigo-200 hover:text-indigo-700 hover:bg-white transition-colors"
+        >
+          <PanelLeftOpen className="w-4 h-4 flex-shrink-0" />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-slate-500">{t('currentVenue')}</span>
+            <span className="block truncate text-sm font-semibold">{layoutName} · {floorName}</span>
+          </span>
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="absolute left-4 top-4 z-10 w-72 rounded-xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
-      <div className="p-4 border-b border-slate-100">
-        <p className="text-xs font-medium text-slate-500">{t('currentVenue')}</p>
-        <h2 className="text-sm font-semibold text-slate-900 mt-1">{layoutName} · {floorName}</h2>
+      <div className="p-4 border-b border-slate-100 flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-slate-500">{t('currentVenue')}</p>
+          <h2 className="text-sm font-semibold text-slate-900 mt-1 truncate">{layoutName} · {floorName}</h2>
+        </div>
+        <button
+          type="button"
+          title={t('collapseVenuePanel')}
+          aria-label={t('collapseVenuePanel')}
+          onClick={() => setCollapsed(true)}
+          className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
+        >
+          <PanelLeftClose className="w-4 h-4" />
+        </button>
       </div>
       <div className="p-3 border-b border-slate-100">
         <label className="block">
