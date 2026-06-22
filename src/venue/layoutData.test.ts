@@ -7,6 +7,7 @@ import {
   createHistory,
   deleteVenueItem,
   metersToCentimeters,
+  moveVenueItemLayer,
   parseStoredVenueLayout,
   pushHistory,
   redoHistory,
@@ -79,6 +80,43 @@ test('deleteVenueItem removes the item and clears selection when necessary', () 
 
   assert.equal(result.layout.floors[0].items.some((item) => item.id === selectedId), false)
   assert.equal(result.selectedItemId, null)
+})
+
+test('moveVenueItemLayer changes item drawing order within a floor', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const floorId = layout.floors[0].id
+  const itemIds = layout.floors[0].items.map((item) => item.id)
+
+  const forward = moveVenueItemLayer(layout, floorId, itemIds[1], 'forward')
+  assert.deepEqual(
+    forward.floors[0].items.map((item) => item.id),
+    [itemIds[0], itemIds[2], itemIds[1], itemIds[3]],
+  )
+
+  const front = moveVenueItemLayer(layout, floorId, itemIds[1], 'front')
+  assert.deepEqual(
+    front.floors[0].items.map((item) => item.id),
+    [itemIds[0], itemIds[2], itemIds[3], itemIds[1]],
+  )
+
+  const back = moveVenueItemLayer(layout, floorId, itemIds[2], 'back')
+  assert.deepEqual(
+    back.floors[0].items.map((item) => item.id),
+    [itemIds[2], itemIds[0], itemIds[1], itemIds[3]],
+  )
+})
+
+test('moveVenueItemLayer returns the same layout when the item cannot move', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const floorId = layout.floors[0].id
+  const firstId = layout.floors[0].items[0].id
+  const lastId = layout.floors[0].items.at(-1)?.id ?? ''
+
+  assert.equal(moveVenueItemLayer(layout, floorId, firstId, 'backward'), layout)
+  assert.equal(moveVenueItemLayer(layout, floorId, firstId, 'back'), layout)
+  assert.equal(moveVenueItemLayer(layout, floorId, lastId, 'forward'), layout)
+  assert.equal(moveVenueItemLayer(layout, floorId, lastId, 'front'), layout)
+  assert.equal(moveVenueItemLayer(layout, floorId, 'missing', 'front'), layout)
 })
 
 test('undoHistory and redoHistory preserve previous and next layouts', () => {

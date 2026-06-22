@@ -1138,6 +1138,11 @@
     "fieldRotation": "Rotation",
     "fieldNote": "Note",
     "fieldId": "Item ID",
+    "layerOrder": "Layer order",
+    "layerBack": "Send to back",
+    "layerBackward": "Move backward",
+    "layerForward": "Move forward",
+    "layerFront": "Bring to front",
     "geometry": "Position / Size",
     "geometryUnit": "Unit: meters",
     "addTypes": {

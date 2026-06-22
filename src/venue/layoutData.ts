@@ -46,6 +46,8 @@ export type VenueHistory = {
   future: VenueLayout[]
 }
 
+export type VenueLayerMove = 'back' | 'backward' | 'forward' | 'front'
+
 export const VENUE_STORAGE_KEY = 'guild-venue:layout:v1'
 export const MAX_VENUE_HISTORY_STEPS = 20
 
@@ -277,6 +279,30 @@ export function deleteVenueItem(
   }
 }
 
+export function moveVenueItemLayer(
+  layout: VenueLayout,
+  floorId: string,
+  itemId: string,
+  move: VenueLayerMove,
+): VenueLayout {
+  let changed = false
+  const next = updateFloor(layout, floorId, (floor) => {
+    const index = floor.items.findIndex((item) => item.id === itemId)
+    if (index < 0) return floor
+
+    const targetIndex = getLayerTargetIndex(index, floor.items.length, move)
+    if (targetIndex === index) return floor
+
+    const items = [...floor.items]
+    const [item] = items.splice(index, 1)
+    items.splice(targetIndex, 0, item)
+    changed = true
+    return { ...floor, items }
+  })
+
+  return changed ? next : layout
+}
+
 export function updateVenueFloor(
   layout: VenueLayout,
   floorId: string,
@@ -338,6 +364,13 @@ function normalizeVenueFloor(floor: VenueFloor): VenueFloor {
     width: Math.max(100, finiteNumber(floor.width)),
     height: Math.max(100, finiteNumber(floor.height)),
   }
+}
+
+function getLayerTargetIndex(index: number, length: number, move: VenueLayerMove): number {
+  if (move === 'back') return 0
+  if (move === 'backward') return Math.max(0, index - 1)
+  if (move === 'forward') return Math.min(length - 1, index + 1)
+  return length - 1
 }
 
 function finiteNumber(value: number): number {
