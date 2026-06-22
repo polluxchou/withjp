@@ -298,7 +298,13 @@ export async function deleteExpense(
   }
 
   const { error } = await db.from('expenses').delete().eq('id', id)
-  if (error) return err('db_error', error.message)
+  if (error) {
+    // 23503 = 外键冲突：该支出仍被物品（items）以 RESTRICT 引用。
+    if (error.code === '23503') {
+      return err('invalid_input', '该支出仍有关联物品，请先在物品管理中改挂或删除相关物品')
+    }
+    return err('db_error', error.message)
+  }
   return ok({ id })
 }
 
