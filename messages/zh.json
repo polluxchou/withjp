@@ -1230,12 +1230,12 @@
     "fieldElevation": "离地",
     "fieldStoreyHeight": "本层净高 {value}m",
     "addTypes": {
-      "equipment": "添加设备",
-      "renovation": "添加区域",
-      "area": "添加空间",
-      "corridor": "添加通道"
+      "equipment": "+ 设备",
+      "renovation": "+ 区域",
+      "area": "+ 空间",
+      "corridor": "+ 结构"
     },
-    "addMarker": "添加标识",
+    "addMarker": "+ 标识",
     "canvasActions": "画布操作",
     "viewBookmarks": "快速视图",
     "viewSwitchNext": "切换到下一个视图",
@@ -1248,7 +1248,7 @@
       "equipment": "设备",
       "renovation": "区域",
       "area": "空间",
-      "corridor": "通道",
+      "corridor": "结构",
       "door_inward": "内开门",
       "door_outward": "外开门",
       "door_sliding": "推拉门",

@@ -19,7 +19,6 @@ import {
   ListFilter,
   Map as MapIcon,
   MapPin,
-  Medal,
   Monitor,
   Network,
   PanelLeftClose,
@@ -126,6 +125,7 @@ export default function GuildVenuePage() {
   const [recallTick, setRecallTick] = useState(0)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const canvasAreaRef = useRef<HTMLDivElement | null>(null)
   const pendingScrollRef = useRef<{ left: number; top: number } | null>(null)
   // Suppress the one debounced save that the effect would otherwise fire right
   // after the initial load applies the freshly fetched (or fallback) layout.
@@ -195,6 +195,12 @@ export default function GuildVenuePage() {
     () => layout.floors.find((floor) => floor.id === selectedFloorId) ?? layout.floors[0],
     [layout.floors, selectedFloorId],
   )
+  // Floor with the type filter applied — used by the 3D view (the 2D canvas
+  // filters internally via its visibleTypes prop).
+  const visibleFloor = useMemo(() => {
+    const allowed = new Set(visibleTypes)
+    return { ...activeFloor, items: activeFloor.items.filter((item) => allowed.has(item.type)) }
+  }, [activeFloor, visibleTypes])
   const selectedItemId = selectedItemIds.at(-1) ?? null
   const selectedItem = activeFloor?.items.find((item) => item.id === selectedItemId) ?? null
   const selectedLayerIndex = activeFloor && selectedItemId
@@ -518,6 +524,34 @@ export default function GuildVenuePage() {
   // first, and a white backdrop is painted so transparent regions don't turn
   // black in the PNG.
   function exportPng() {
+    // In 3D, grab the WebGL canvas directly (preserveDrawingBuffer is enabled).
+    if (viewMode === '3d') {
+      const canvasEl = canvasAreaRef.current?.querySelector('canvas')
+      if (!canvasEl) {
+        setSaveState('error')
+        return
+      }
+      try {
+        canvasEl.toBlob((blob) => {
+          if (!blob) {
+            setSaveState('error')
+            return
+          }
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `${layout.venueId}-${activeFloor.name}-3d.png`
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          URL.revokeObjectURL(url)
+        }, 'image/png')
+      } catch {
+        setSaveState('error')
+      }
+      return
+    }
+
     const svg = svgRef.current
     if (!svg) {
       setSaveState('error')
@@ -722,7 +756,7 @@ export default function GuildVenuePage() {
         >
           <ToolRail activeFloor={activeFloor.name} />
 
-          <div className="relative min-h-0 bg-slate-100 overflow-hidden">
+          <div ref={canvasAreaRef} className="relative min-h-0 bg-slate-100 overflow-hidden">
             <FloatingPanel
               layoutName={layout.name}
               floorName={activeFloor.name}
@@ -739,7 +773,7 @@ export default function GuildVenuePage() {
             />
             {viewMode === '3d' ? (
               <Venue3DCanvas
-                floor={activeFloor}
+                floor={visibleFloor}
                 selectedItemIds={selectedItemIds}
                 onSelectItems={setSelectedItemIds}
                 onItemChange={updateItem}
@@ -1030,14 +1064,15 @@ function FloatingPanel({
           const Icon = TOOL_ICON[item.type]
           const active = selectedItemIds.includes(item.id)
           const isMarker = isVenueMarkerType(item.type)
-          // 设备/区域 don't participate in area accounting — no m² figure, no share.
-          const countsArea = item.type === 'area' || item.type === 'corridor'
+          // Only 空间 participates in area accounting — 设备/区域/结构 show just
+          // their dimensions (no m² figure, no share).
+          const countsArea = item.type === 'area'
           const areaSqMeters = venueAreaSquareMeters(item)
           const share = item.type === 'area' && totalAreaSqMeters > 0
             ? (areaSqMeters / totalAreaSqMeters) * 100
             : null
-          const rank = areaRank.get(item.id)
-          const rankColor = rank === 0 ? 'text-amber-500' : rank === 1 ? 'text-slate-400' : 'text-amber-700'
+          // Top-3 spaces by area get an emphasized (bold + darker) metric line.
+          const isTopArea = areaRank.get(item.id) !== undefined
           return (
             <button
               key={item.id}
@@ -1049,13 +1084,8 @@ function FloatingPanel({
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1 text-sm font-medium">
-                  {rank !== undefined && (
-                    <Medal className={`w-3.5 h-3.5 flex-shrink-0 ${rankColor}`} aria-label={t('areaRank', { rank: rank + 1 })} />
-                  )}
-                  <span className="truncate">{item.name}</span>
-                </span>
-                <span className="block text-[11px] text-slate-400 truncate">
+                <span className="block text-sm font-medium truncate">{item.name}</span>
+                <span className={`block text-[11px] truncate ${isTopArea ? 'font-semibold text-slate-600' : 'text-slate-400'}`}>
                   {isMarker ? (
                     t(`types.${item.type}`)
                   ) : (
