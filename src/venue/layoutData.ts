@@ -278,8 +278,7 @@ export function updateVenueFloor(
   patch: Partial<VenueFloor>,
 ): VenueLayout {
   return updateFloor(layout, floorId, (floor) => ({
-    ...floor,
-    ...patch,
+    ...normalizeVenueFloor({ ...floor, ...patch }),
     items: patch.items ?? floor.items,
   }))
 }
@@ -325,6 +324,14 @@ function normalizeVenueItem(item: VenueItem): VenueItem {
     width: Math.max(8, finiteNumber(item.width)),
     height: Math.max(8, finiteNumber(item.height)),
     rotation: finiteNumber(item.rotation),
+  }
+}
+
+function normalizeVenueFloor(floor: VenueFloor): VenueFloor {
+  return {
+    ...floor,
+    width: Math.max(100, finiteNumber(floor.width)),
+    height: Math.max(100, finiteNumber(floor.height)),
   }
 }
 
