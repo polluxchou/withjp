@@ -14,6 +14,7 @@ export interface VenueFloorRow {
   name: string
   width: number
   height: number
+  floor_height: number
   background_image: string | null
   sort_order: number
 }
@@ -30,6 +31,8 @@ export interface VenueItemRow {
   rotation: number
   status: VenueItemStatus
   note: string
+  height3d: number
+  elevation: number
   z_index: number
 }
 
@@ -51,6 +54,7 @@ export function layoutToRows(layout: VenueLayout): {
     name: floor.name,
     width: floor.width,
     height: floor.height,
+    floor_height: floor.floorHeight,
     background_image: floor.backgroundImage ?? null,
     sort_order: index,
   }))
@@ -67,6 +71,8 @@ export function layoutToRows(layout: VenueLayout): {
       rotation: item.rotation,
       status: item.status,
       note: item.note,
+      height3d: item.height3d,
+      elevation: item.elevation,
       z_index: index,
     })),
   )
@@ -92,21 +98,26 @@ export function rowsToLayout(
       name: floor.name,
       width: floor.width,
       height: floor.height,
+      floorHeight: floor.floor_height,
       ...(floor.background_image ? { backgroundImage: floor.background_image } : {}),
       items: sortedItems
         .filter((item) => item.floor_id === floor.id)
-        .map((item) => ({
-          id: item.id,
-          type: item.type,
-          name: item.name,
-          x: item.x,
-          y: item.y,
-          width: item.width,
-          height: item.height,
-          rotation: item.rotation,
-          status: item.status,
-          note: item.note,
-        })),
+        .map((item) => {
+          return {
+            id: item.id,
+            type: item.type,
+            name: item.name,
+            x: item.x,
+            y: item.y,
+            width: item.width,
+            height: item.height,
+            rotation: item.rotation,
+            status: item.status,
+            note: item.note,
+            height3d: item.height3d,
+            elevation: item.elevation,
+          }
+        }),
     })),
   }
 }

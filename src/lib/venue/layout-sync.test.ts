@@ -15,13 +15,14 @@ const SAMPLE: VenueLayout = {
       name: '1F',
       width: 1200,
       height: 800,
+      floorHeight: 280,
       backgroundImage: 'data:image/png;base64,xxx',
       items: [
-        { id: 'eq-1', type: 'equipment', name: '设备', x: 1, y: 2, width: 3, height: 4, rotation: 0, status: 'completed', note: 'n' },
-        { id: 'area-1', type: 'area', name: '空间', x: 5, y: 6, width: 7, height: 8, rotation: 3, status: 'planned', note: '' },
+        { id: 'eq-1', type: 'equipment', name: '设备', x: 1, y: 2, width: 3, height: 4, rotation: 0, status: 'completed', note: 'n', height3d: 100, elevation: 0 },
+        { id: 'area-1', type: 'area', name: '空间', x: 5, y: 6, width: 7, height: 8, rotation: 3, status: 'planned', note: '', height3d: 0, elevation: 0 },
       ],
     },
-    { id: 'floor-2', name: '2F', width: 1200, height: 800, items: [] },
+    { id: 'floor-2', name: '2F', width: 1200, height: 800, floorHeight: 280, items: [] },
   ],
 }
 
@@ -51,8 +52,9 @@ test('rowsToLayout reassembles nested layout ordered by sort_order / z_index', (
 test('rowsToLayout drops background_image when null', () => {
   const rebuilt = rowsToLayout(
     { id: 'v', name: 'n', width: 10, height: 10 },
-    [{ id: 'f1', venue_id: 'v', name: 'F', width: 10, height: 10, background_image: null, sort_order: 0 }],
+    [{ id: 'f1', venue_id: 'v', name: 'F', width: 10, height: 10, floor_height: 280, background_image: null, sort_order: 0 }],
     [],
   )
   assert.equal('backgroundImage' in rebuilt.floors[0], false)
+  assert.equal(rebuilt.floors[0].floorHeight, 280)
 })
