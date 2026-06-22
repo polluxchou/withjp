@@ -25,7 +25,7 @@ interface Props {
 const GRANULARITY_VALUES: DeviceCostGranularity[] = ['month', 'quarter', 'year']
 
 const SERIES_KEYS = [
-  { key: 'budgeted',       color: '#94a3b8' }, // slate-400
+  { key: 'budgeted',       color: '#a1a1aa' }, // zinc-400
   { key: 'ordered_unpaid', color: '#f59e0b' }, // amber-500
   { key: 'paid',           color: '#10b981' }, // emerald-500
 ] as const
@@ -53,13 +53,13 @@ export default function DeviceCostChart({ devices }: Props) {
   const hasData = data.length > 0
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
+    <div className="bg-white border border-zinc-200 rounded-xl p-4 mb-6">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">{t('chartTitle')}</h3>
-          <p className="text-xs text-slate-500 mt-0.5">{t('chartSubtitle')}</p>
+          <h3 className="text-sm font-semibold text-zinc-900">{t('chartTitle')}</h3>
+          <p className="text-xs text-zinc-500 mt-0.5">{t('chartSubtitle')}</p>
         </div>
-        <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
+        <div className="inline-flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50">
           {GRANULARITY_VALUES.map((value) => {
             const active = value === granularity
             return (
@@ -68,8 +68,8 @@ export default function DeviceCostChart({ devices }: Props) {
                 onClick={() => setGranularity(value)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                   active
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white text-zinc-900 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-700'
                 }`}
               >
                 {tExpenses(value)}
@@ -94,12 +94,12 @@ export default function DeviceCostChart({ devices }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
               <XAxis
                 dataKey="period"
-                tick={{ fontSize: 11, fill: '#64748b' }}
+                tick={{ fontSize: 11, fill: '#71717a' }}
                 tickLine={false}
                 axisLine={{ stroke: '#e2e8f0' }}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: '#64748b' }}
+                tick={{ fontSize: 11, fill: '#71717a' }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={fmtRmbShort}
@@ -132,7 +132,7 @@ export default function DeviceCostChart({ devices }: Props) {
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-72 flex items-center justify-center text-sm text-slate-400">
+        <div className="h-72 flex items-center justify-center text-sm text-zinc-400">
           {t('chartEmpty')}
         </div>
       )}

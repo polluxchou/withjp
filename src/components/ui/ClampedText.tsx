@@ -58,7 +58,7 @@ export default function ClampedText({
     <>
       <span
         ref={ref}
-        className={`${className ?? ''} ${overflowing ? 'cursor-pointer hover:text-indigo-600 transition-colors' : ''}`}
+        className={`${className ?? ''} ${overflowing ? 'cursor-pointer hover:text-primary transition-colors' : ''}`}
         style={clampStyle}
         onClick={overflowing ? handleClick : undefined}
         title={overflowing ? text : undefined}
@@ -68,7 +68,7 @@ export default function ClampedText({
       {/* Built-in modal only used when no custom handler is provided */}
       {overflowing && !onOverflowClick && (
         <Modal open={open} onClose={() => setOpen(false)} title={title ?? tCommon('details')}>
-          <div className="whitespace-pre-wrap break-words text-sm text-slate-700 max-h-[60vh] overflow-y-auto">
+          <div className="whitespace-pre-wrap break-words text-sm text-zinc-700 max-h-[60vh] overflow-y-auto">
             {text}
           </div>
         </Modal>

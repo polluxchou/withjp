@@ -5,6 +5,8 @@ import { routing, isLocale } from '@/i18n/routing'
 import { shouldBypassMiddlewareAsset } from '@/lib/middleware-assets'
 
 const PUBLIC_PATHS = ['/login', '/_next', '/api']
+// Matches the constant used by next-intl internally (next-intl/dist/esm/*/shared/constants.js)
+const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
 const intlMiddleware = createIntlMiddleware(routing)
 
 export async function middleware(request: NextRequest) {
@@ -30,12 +32,24 @@ export async function middleware(request: NextRequest) {
 
   const pathnameWithoutLocale = `/${pathname.split('/').slice(2).join('/')}`
 
+  // Inject the locale into request headers so the root layout can read it via
+  // next/headers and set <html lang="..."> correctly for SSR.
+  // intlMiddleware (called above for unknown/root paths) sets this header itself;
+  // for known-locale paths we handle auth separately and must set it manually.
+  // localeHeader holds ONLY the injected header — updateSession merges it with
+  // the live request headers per response, so Supabase token-refresh cookie
+  // mutations stay visible to server components.
+  const localeHeader = new Headers()
+  localeHeader.set(NEXT_INTL_LOCALE_HEADER, firstSegment)
+
   if (PUBLIC_PATHS.some((path) => pathnameWithoutLocale.startsWith(path)) || pathname.includes('.')) {
-    return NextResponse.next()
+    const headers = new Headers(request.headers)
+    headers.set(NEXT_INTL_LOCALE_HEADER, firstSegment)
+    return NextResponse.next({ request: { headers } })
   }
 
   const { updateSession } = await import('@/lib/supabase/middleware')
-  return await updateSession(request)
+  return await updateSession(request, localeHeader)
 }
 
 export const config = {

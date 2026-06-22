@@ -101,57 +101,57 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
     <div>
       {/* Week navigation */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+        <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <span className="text-sm font-semibold text-slate-700">{weekLabel}</span>
-        <button onClick={nextWeek} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+        <span className="text-sm font-semibold text-zinc-700">{weekLabel}</span>
+        <button onClick={nextWeek} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors">
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
 
       {/* Grid */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         {/* Header row */}
-        <div className="grid border-b border-slate-200" style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}>
-          <div className="px-3 py-2 text-xs font-medium text-slate-500 bg-slate-50 border-r border-slate-100">{t('table.member')}</div>
+        <div className="grid border-b border-zinc-200" style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}>
+          <div className="px-3 py-2 text-xs font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-100">{t('table.member')}</div>
           {weekDates.map((d, i) => {
             const ds = toDateStr(d)
             const isToday = ds === today
             return (
               <div
                 key={ds}
-                className={`px-2 py-2 text-center border-r border-slate-100 ${isToday ? 'bg-indigo-50' : 'bg-slate-50'}`}
+                className={`px-2 py-2 text-center border-r border-zinc-100 ${isToday ? 'bg-primary-soft' : 'bg-zinc-50'}`}
               >
-                <p className={`text-xs font-medium ${isToday ? 'text-indigo-600' : 'text-slate-600'}`}>{DAY_LABELS[i]}</p>
-                <p className={`text-xs ${isToday ? 'text-indigo-400' : 'text-slate-400'}`}>
+                <p className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-zinc-600'}`}>{DAY_LABELS[i]}</p>
+                <p className={`text-xs ${isToday ? 'text-violet-400' : 'text-zinc-400'}`}>
                   {d.getMonth() + 1}/{d.getDate()}
                 </p>
               </div>
             )
           })}
-          <div className="px-2 py-2 text-center text-xs font-medium text-slate-500 bg-slate-50 border-r border-slate-100">{t('table.totalHoursCol')}</div>
-          <div className="px-2 py-2 text-center text-xs font-medium text-slate-500 bg-slate-50">{t('table.labourCostCol')}</div>
+          <div className="px-2 py-2 text-center text-xs font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-100">{t('table.totalHoursCol')}</div>
+          <div className="px-2 py-2 text-center text-xs font-medium text-zinc-500 bg-zinc-50">{t('table.labourCostCol')}</div>
         </div>
 
         {/* User rows */}
         {sortedUsers.length === 0 ? (
-          <div className="py-12 text-center text-sm text-slate-400">{t('emptyWeek')}</div>
+          <div className="py-12 text-center text-sm text-zinc-400">{t('emptyWeek')}</div>
         ) : (
           sortedUsers.map((u) => (
             <div
               key={u.id}
-              className="grid border-b border-slate-100 last:border-b-0"
+              className="grid border-b border-zinc-100 last:border-b-0"
               style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}
             >
               {/* Name */}
-              <div className="flex items-center gap-2 px-3 py-2 border-r border-slate-100">
-                <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 flex-shrink-0">
+              <div className="flex items-center gap-2 px-3 py-2 border-r border-zinc-100">
+                <div className="w-6 h-6 rounded-full bg-primary-soft flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
                   {u.name.slice(0, 1).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-900 truncate">{u.name}</p>
-                  <p className="text-xs text-slate-400">{DEPARTMENT_LABELS[u.department as AgentRole]}</p>
+                  <p className="text-xs font-semibold text-zinc-900 truncate">{u.name}</p>
+                  <p className="text-xs text-zinc-400">{DEPARTMENT_LABELS[u.department as AgentRole]}</p>
                 </div>
               </div>
 
@@ -164,26 +164,26 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                   <div
                     key={ds}
                     onClick={() => dayTasks.length > 0 && setDetail({ user: u.name, date: ds, tasks: dayTasks })}
-                    className={`px-1 py-1.5 border-r border-slate-100 flex flex-col items-center justify-center gap-0.5 transition-colors
-                      ${isToday ? 'bg-indigo-50/50' : ''}
-                      ${dayTasks.length > 0 ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+                    className={`px-1 py-1.5 border-r border-zinc-100 flex flex-col items-center justify-center gap-0.5 transition-colors
+                      ${isToday ? 'bg-primary-soft/50' : ''}
+                      ${dayTasks.length > 0 ? 'cursor-pointer hover:bg-zinc-50' : ''}`}
                   >
                     {h > 0 ? (
                       <>
                         <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${utilisationColor(h)}`}>
                           {h}h
                         </span>
-                        <span className="text-xs text-slate-400">{t('summary.tasksItem', { count: dayTasks.length })}</span>
+                        <span className="text-xs text-zinc-400">{t('summary.tasksItem', { count: dayTasks.length })}</span>
                       </>
                     ) : (
-                      <span className="w-2 h-2 rounded-full bg-slate-100" />
+                      <span className="w-2 h-2 rounded-full bg-zinc-100" />
                     )}
                   </div>
                 )
               })}
 
               {/* Total hours */}
-              <div className="flex items-center justify-center border-r border-slate-100">
+              <div className="flex items-center justify-center border-r border-zinc-100">
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${utilisationColor(weekHours(u.id) / 5)}`}>
                   {weekHours(u.id)}h
                 </span>
@@ -191,7 +191,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
 
               {/* Weekly cost */}
               <div className="flex items-center justify-center">
-                <span className="text-xs text-slate-600">{fmtRmb(weekCost(u.id))}</span>
+                <span className="text-xs text-zinc-600">{fmtRmb(weekCost(u.id))}</span>
               </div>
             </div>
           ))
@@ -200,27 +200,27 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
         {/* Footer: daily totals */}
         {sortedUsers.length > 0 && (
           <div
-            className="grid bg-slate-50 border-t border-slate-200"
+            className="grid bg-zinc-50 border-t border-zinc-200"
             style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}
           >
-            <div className="px-3 py-2 text-xs font-medium text-slate-500 border-r border-slate-100">{t('table.dayTotal')}</div>
+            <div className="px-3 py-2 text-xs font-medium text-zinc-500 border-r border-zinc-100">{t('table.dayTotal')}</div>
             {weekStrs.map((ds) => {
               const totalH = sortedUsers.reduce((s, u) => s + hoursForUserDay(u.id, ds), 0)
               return (
-                <div key={ds} className="px-1 py-2 text-center border-r border-slate-100">
+                <div key={ds} className="px-1 py-2 text-center border-r border-zinc-100">
                   {totalH > 0 && (
-                    <span className="text-xs font-medium text-slate-600">{totalH}h</span>
+                    <span className="text-xs font-medium text-zinc-600">{totalH}h</span>
                   )}
                 </div>
               )
             })}
             <div className="px-2 py-2 text-center">
-              <span className="text-xs font-semibold text-slate-700">
+              <span className="text-xs font-semibold text-zinc-700">
                 {sortedUsers.reduce((s, u) => s + weekHours(u.id), 0)}h
               </span>
             </div>
             <div className="px-2 py-2 text-center">
-              <span className="text-xs font-semibold text-slate-700">
+              <span className="text-xs font-semibold text-zinc-700">
                 {fmtRmb(sortedUsers.reduce((s, u) => s + weekCost(u.id), 0))}
               </span>
             </div>
@@ -236,7 +236,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
             <button
               key={ds}
               onClick={() => setCreating(ds)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-zinc-300 text-zinc-400 hover:border-violet-400 hover:text-primary transition-colors"
             >
               {t('table.addToDay', { month: d.getMonth() + 1, day: d.getDate() })}
             </button>
@@ -253,13 +253,13 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
         {detail && (
           <div className="space-y-2">
             {detail.tasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
-                <span className="text-xs font-medium text-slate-600 flex-1">{task.title}</span>
-                <span className="text-xs text-slate-400">{task.effort_hours}h</span>
+              <div key={task.id} className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-lg">
+                <span className="text-xs font-medium text-zinc-600 flex-1">{task.title}</span>
+                <span className="text-xs text-zinc-400">{task.effort_hours}h</span>
                 <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                   task.status === 'done'  ? 'bg-green-100 text-green-700' :
                   task.status === 'doing' ? 'bg-blue-100 text-blue-700' :
-                                            'bg-slate-100 text-slate-600'
+                                            'bg-zinc-100 text-zinc-600'
                 }`}>{task.status === 'done' ? t('status.done') : task.status === 'doing' ? t('status.doing') : t('status.planned')}</span>
               </div>
             ))}

@@ -69,11 +69,11 @@ export default function PendingActionCard({ state, onApplied, onCancel }: Props)
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-zinc-500">
         {t('autoExpire', { expiry: formatExpiry(state.expiresAt) })}
       </div>
 
-      <pre className="text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-lg p-3 whitespace-pre-wrap font-sans leading-relaxed">
+      <pre className="text-sm text-zinc-800 bg-zinc-50 border border-zinc-200 rounded-lg p-3 whitespace-pre-wrap font-sans leading-relaxed">
         {state.preview}
       </pre>
 
