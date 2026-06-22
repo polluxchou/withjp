@@ -8,7 +8,6 @@ import {
   Box,
   Building2,
   ChevronDown,
-  ChevronRight,
   DoorClosed,
   DoorOpen,
   Download,
@@ -76,6 +75,10 @@ import {
 } from '@/venue/layoutData'
 
 type SaveState = 'idle' | 'saved' | 'error'
+type VenueSummary = { id: string; name: string }
+// Remembers the last-opened venue per browser so reloads return to it.
+const ACTIVE_VENUE_KEY = 'guild-venue:active-venue'
+const DEFAULT_VENUE_ID = 'guild-main'
 
 const TOOL_ICON: Record<VenueItemType, typeof Box> = {
   equipment:    Monitor,
@@ -121,6 +124,8 @@ export default function GuildVenuePage() {
   // When set, a local (browser) layout exists that predates the cloud seed and
   // can be imported once. Cleared after the user imports or the offer lapses.
   const [localImportLayout, setLocalImportLayout] = useState<VenueLayout | null>(null)
+  const [venues, setVenues] = useState<VenueSummary[]>([])
+  const [activeVenueId, setActiveVenueId] = useState<string>(DEFAULT_VENUE_ID)
   // Bumped on every recall so the apply-scroll effect runs even when zoom is unchanged.
   const [recallTick, setRecallTick] = useState(0)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -147,33 +152,50 @@ export default function GuildVenuePage() {
 
     async function load() {
       try {
-        const res = await fetch('/api/venue')
-        if (!res.ok) throw new Error(`status ${res.status}`)
-        const body = (await res.json()) as { data: VenueLayout | null; error: string | null }
+        const listRes = await fetch('/api/venue')
+        if (!listRes.ok) throw new Error(`status ${listRes.status}`)
+        const listBody = (await listRes.json()) as { data: VenueSummary[] | null }
+        const list = listBody.data ?? []
         if (cancelled) return
-        const cloud = body.data ?? DEFAULT_VENUE_LAYOUT
+        if (list.length === 0) throw new Error('no venues')
+        setVenues(list)
+
+        const stored = window.localStorage.getItem(ACTIVE_VENUE_KEY)
+        const activeId = stored && list.some((v) => v.id === stored)
+          ? stored
+          : list.some((v) => v.id === DEFAULT_VENUE_ID) ? DEFAULT_VENUE_ID : list[0].id
+        setActiveVenueId(activeId)
+
+        const layoutRes = await fetch(`/api/venue?id=${encodeURIComponent(activeId)}`)
+        if (!layoutRes.ok) throw new Error(`status ${layoutRes.status}`)
+        const layoutBody = (await layoutRes.json()) as { data: VenueLayout | null }
+        if (cancelled) return
+        const cloud = layoutBody.data ?? DEFAULT_VENUE_LAYOUT
         applyLayout(cloud)
         setPersistable(true)
 
-        // One-time import offer: when the cloud is still the untouched seed but
-        // this browser holds a non-default local layout, offer to import it.
-        try {
-          const raw = window.localStorage.getItem(VENUE_STORAGE_KEY)
-          if (raw) {
-            const local = parseStoredVenueLayout(raw)
-            const cloudIsSeed = layoutsEqual(cloud, DEFAULT_VENUE_LAYOUT)
-            if (cloudIsSeed && !layoutsEqual(local, cloud)) {
-              setLocalImportLayout(local)
+        // One-time import offer: only for the seeded shared venue, when the cloud
+        // is still the untouched seed but this browser holds a non-default layout.
+        if (activeId === DEFAULT_VENUE_ID) {
+          try {
+            const raw = window.localStorage.getItem(VENUE_STORAGE_KEY)
+            if (raw) {
+              const local = parseStoredVenueLayout(raw)
+              if (layoutsEqual(cloud, DEFAULT_VENUE_LAYOUT) && !layoutsEqual(local, cloud)) {
+                setLocalImportLayout(local)
+              }
             }
+          } catch {
+            // localStorage unreadable — skip the import offer silently.
           }
-        } catch {
-          // localStorage unreadable — skip the import offer silently.
         }
       } catch {
         if (cancelled) return
         // Offline / API failure: fall back to whatever this browser cached.
         const fallback = loadVenueLayout(window.localStorage)
         applyLayout(fallback.layout)
+        setVenues([{ id: fallback.layout.venueId, name: fallback.layout.name }])
+        setActiveVenueId(fallback.layout.venueId)
         setPersistable(fallback.persistable)
         setSaveState('error')
       } finally {
@@ -425,6 +447,55 @@ export default function GuildVenuePage() {
     commit(updateVenueFloor(layout, activeFloor.id, { backgroundImage: backgroundImage.trim() || undefined }))
   }
 
+  // Load a different venue's layout. skipNextSave avoids re-PUTing the freshly
+  // loaded layout as if it were a user edit.
+  function applyLoadedLayout(next: VenueLayout) {
+    skipNextSave.current = true
+    setHistory(createHistory(next))
+    setSelectedFloorId(next.floors[0]?.id ?? '')
+    setSelectedItemIds(next.floors[0]?.items[0]?.id ? [next.floors[0].items[0].id] : [])
+    setPersistable(true)
+  }
+
+  function selectFloor(floorId: string) {
+    const floor = layout.floors.find((candidate) => candidate.id === floorId)
+    setSelectedFloorId(floorId)
+    setSelectedItemIds(floor?.items[0]?.id ? [floor.items[0].id] : [])
+  }
+
+  async function switchVenue(id: string) {
+    if (id === activeVenueId) return
+    try {
+      const res = await fetch(`/api/venue?id=${encodeURIComponent(id)}`)
+      const body = (await res.json()) as { data: VenueLayout | null }
+      if (!res.ok || !body.data) throw new Error('load failed')
+      setActiveVenueId(id)
+      window.localStorage.setItem(ACTIVE_VENUE_KEY, id)
+      applyLoadedLayout(body.data)
+    } catch {
+      setSaveState('error')
+    }
+  }
+
+  async function createNewVenue() {
+    try {
+      const res = await fetch('/api/venue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: t('newVenueName') }),
+      })
+      const body = (await res.json()) as { data: VenueLayout | null }
+      if (!res.ok || !body.data) throw new Error('create failed')
+      const created = body.data
+      setVenues((prev) => [...prev, { id: created.venueId, name: created.name }])
+      setActiveVenueId(created.venueId)
+      window.localStorage.setItem(ACTIVE_VENUE_KEY, created.venueId)
+      applyLoadedLayout(created)
+    } catch {
+      setSaveState('error')
+    }
+  }
+
   function updateFloorDefaults(patch: Pick<Partial<VenueFloor>, 'width' | 'height' | 'floorHeight'>) {
     if (!activeFloor) return
     const next = updateVenueFloor(layout, activeFloor.id, patch)
@@ -660,24 +731,6 @@ export default function GuildVenuePage() {
 
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden flex-1 min-h-0 grid grid-rows-[auto_1fr]">
         <div className="min-h-14 border-b border-slate-200 px-3 py-2 flex items-center gap-2 overflow-x-auto">
-          <select
-            value={selectedFloorId}
-            onChange={(event) => {
-              const floorId = event.target.value
-              const floor = layout.floors.find((candidate) => candidate.id === floorId)
-              setSelectedFloorId(floorId)
-              setSelectedItemIds(floor?.items[0]?.id ? [floor.items[0].id] : [])
-            }}
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            aria-label={t('floorSelect')}
-          >
-            {layout.floors.map((floor) => (
-              <option key={floor.id} value={floor.id}>{layout.name} · {floor.name}</option>
-            ))}
-          </select>
-
-          <div className="w-px h-6 bg-slate-200 mx-1" />
-
           {VENUE_SHAPE_TYPE_OPTIONS.map((option) => (
             <ToolbarButton
               key={option.value}
@@ -760,16 +813,17 @@ export default function GuildVenuePage() {
             <FloatingPanel
               layoutName={layout.name}
               floorName={activeFloor.name}
+              venues={venues}
+              activeVenueId={activeVenueId}
+              floors={layout.floors}
+              selectedFloorId={selectedFloorId}
+              onSwitchVenue={switchVenue}
+              onSelectFloor={selectFloor}
+              onCreateVenue={createNewVenue}
               items={activeFloor.items}
               selectedItemIds={selectedItemIds}
               onSelect={(itemId) => setSelectedItemIds([itemId])}
               visibleTypes={visibleTypes}
-              floorWidth={activeFloor.width}
-              floorHeight={activeFloor.height}
-              storeyHeightCm={activeFloor.floorHeight}
-              onFloorDefaultsChange={updateFloorDefaults}
-              backgroundImage={activeFloor.backgroundImage ?? ''}
-              onBackgroundChange={updateBackgroundImage}
             />
             {viewMode === '3d' ? (
               <Venue3DCanvas
@@ -806,25 +860,81 @@ export default function GuildVenuePage() {
             placedItemsTotalCost={placedItemsTotalCost}
             onOpenItems={() => router.push('/items')}
             emptyStateActions={
-              <>
-                <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
-                <button
-                  type="button"
-                  onClick={exportJson}
-                  className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  {t('exportJson')}
-                </button>
-                <button
-                  type="button"
-                  onClick={exportPng}
-                  className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  {t('exportImage')}
-                </button>
-              </>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-500">{t('canvasSettings')}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="block text-[11px] text-slate-400 mb-1">{t('canvasWidth')}</span>
+                      <input
+                        type="number" min="1" step="0.1"
+                        value={centimetersToMeters(activeFloor.width)}
+                        onChange={(event) => {
+                          const value = Number(event.target.value)
+                          if (Number.isFinite(value) && value > 0) updateFloorDefaults({ width: metersToCentimeters(value) })
+                        }}
+                        aria-label={t('canvasWidth')}
+                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="block text-[11px] text-slate-400 mb-1">{t('canvasHeight')}</span>
+                      <input
+                        type="number" min="1" step="0.1"
+                        value={centimetersToMeters(activeFloor.height)}
+                        onChange={(event) => {
+                          const value = Number(event.target.value)
+                          if (Number.isFinite(value) && value > 0) updateFloorDefaults({ height: metersToCentimeters(value) })
+                        }}
+                        aria-label={t('canvasHeight')}
+                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </label>
+                    <label className="block col-span-2">
+                      <span className="block text-[11px] text-slate-400 mb-1">{t('floorStoreyHeight')}</span>
+                      <input
+                        type="number" min="1" step="0.1"
+                        value={centimetersToMeters(activeFloor.floorHeight)}
+                        onChange={(event) => {
+                          const value = Number(event.target.value)
+                          if (Number.isFinite(value) && value > 0) updateFloorDefaults({ floorHeight: metersToCentimeters(value) })
+                        }}
+                        aria-label={t('floorStoreyHeight')}
+                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </label>
+                  </div>
+                  <label className="block">
+                    <span className="block text-[11px] text-slate-400 mb-1">{t('backgroundImage')}</span>
+                    <input
+                      value={activeFloor.backgroundImage ?? ''}
+                      onChange={(event) => updateBackgroundImage(event.target.value)}
+                      placeholder={t('backgroundPlaceholder')}
+                      className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-500">{t('canvasActions')}</p>
+                  <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
+                  <button
+                    type="button"
+                    onClick={exportJson}
+                    className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    {t('exportJson')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportPng}
+                    className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    {t('exportImage')}
+                  </button>
+                </div>
+              </div>
             }
             onToggleCollapsed={() => setInspectorCollapsed((value) => !value)}
             onChange={(patch) => selectedItem && updateItem(selectedItem.id, patch)}
@@ -872,33 +982,44 @@ function ToolRail({ activeFloor }: { activeFloor: string }) {
 function FloatingPanel({
   layoutName,
   floorName,
+  venues,
+  activeVenueId,
+  floors,
+  selectedFloorId,
+  onSwitchVenue,
+  onSelectFloor,
+  onCreateVenue,
   items,
   selectedItemIds,
   visibleTypes,
-  floorWidth,
-  floorHeight,
-  storeyHeightCm,
-  backgroundImage,
   onSelect,
-  onFloorDefaultsChange,
-  onBackgroundChange,
 }: {
   layoutName: string
   floorName: string
+  venues: VenueSummary[]
+  activeVenueId: string
+  floors: VenueFloor[]
+  selectedFloorId: string
+  onSwitchVenue: (id: string) => void
+  onSelectFloor: (id: string) => void
+  onCreateVenue: () => void
   items: VenueItem[]
   selectedItemIds: string[]
   visibleTypes: VenueItemType[]
-  floorWidth: number
-  floorHeight: number
-  storeyHeightCm: number
-  backgroundImage: string
   onSelect: (id: string) => void
-  onFloorDefaultsChange: (patch: Pick<Partial<VenueFloor>, 'width' | 'height' | 'floorHeight'>) => void
-  onBackgroundChange: (value: string) => void
 }) {
   const t = useTranslations('venue')
   const [collapsed, setCollapsed] = useState(false)
-  const [settingsCollapsed, setSettingsCollapsed] = useState(false)
+  const [venueMenuOpen, setVenueMenuOpen] = useState(false)
+  const venueMenuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!venueMenuOpen) return
+    const handle = (event: MouseEvent) => {
+      if (venueMenuRef.current && !venueMenuRef.current.contains(event.target as Node)) setVenueMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [venueMenuOpen])
   const [listTab, setListTab] = useState<'shapes' | 'markers'>('shapes')
   const totalAreaSqMeters = totalVenueAreaSquareMeters(items)
   const visibleTypeSet = useMemo(() => new Set(visibleTypes), [visibleTypes])
@@ -945,7 +1066,60 @@ function FloatingPanel({
       <div className="p-4 border-b border-slate-100 flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-slate-500">{t('currentVenue')}</p>
-          <h2 className="text-sm font-semibold text-slate-900 mt-1 truncate">{layoutName} · {floorName}</h2>
+          <div ref={venueMenuRef} className="relative mt-1">
+            <button
+              type="button"
+              onClick={() => setVenueMenuOpen((open) => !open)}
+              title={t('switchVenue')}
+              className="flex w-full items-center gap-1 rounded-md -mx-1 px-1 text-left hover:bg-slate-100/70 transition-colors"
+            >
+              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{layoutName} · {floorName}</h2>
+              <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-slate-400 transition-transform ${venueMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {venueMenuOpen && (
+              <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                {venues.map((venue) => {
+                  const isActiveVenue = venue.id === activeVenueId
+                  return (
+                    <div key={venue.id}>
+                      <button
+                        type="button"
+                        onClick={() => { onSwitchVenue(venue.id); if (!isActiveVenue) setVenueMenuOpen(false) }}
+                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
+                          isActiveVenue ? 'font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
+                        <span className="truncate">{venue.name}</span>
+                      </button>
+                      {/* Floors of the active venue (the only one whose floors are loaded). */}
+                      {isActiveVenue && floors.map((floor) => (
+                        <button
+                          key={floor.id}
+                          type="button"
+                          onClick={() => { onSelectFloor(floor.id); setVenueMenuOpen(false) }}
+                          className={`flex w-full items-center gap-2 py-1.5 pl-9 pr-3 text-left text-xs ${
+                            floor.id === selectedFloorId ? 'bg-indigo-50 font-medium text-indigo-700' : 'text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="truncate">{floor.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })}
+                <div className="my-1 h-px bg-slate-100" />
+                <button
+                  type="button"
+                  onClick={() => { onCreateVenue(); setVenueMenuOpen(false) }}
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-indigo-600 hover:bg-slate-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {t('newVenue')}
+                </button>
+              </div>
+            )}
+          </div>
           <p className="text-[11px] text-slate-400 mt-1">{t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}</p>
         </div>
         <button
@@ -957,85 +1131,6 @@ function FloatingPanel({
         >
           <PanelLeftClose className="w-4 h-4" />
         </button>
-      </div>
-      <div className="border-b border-slate-100">
-        <button
-          type="button"
-          title={settingsCollapsed ? t('expandCanvasSettings') : t('collapseCanvasSettings')}
-          aria-label={settingsCollapsed ? t('expandCanvasSettings') : t('collapseCanvasSettings')}
-          onClick={() => setSettingsCollapsed((value) => !value)}
-          className="w-full h-11 px-3 inline-flex items-center justify-between text-left text-slate-600 hover:bg-slate-50 transition-colors"
-        >
-          <span className="text-xs font-semibold text-slate-500">{t('canvasSettings')}</span>
-          {settingsCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {!settingsCollapsed && (
-          <div className="px-3 pb-3">
-            <p className="text-xs font-medium text-slate-500 mb-1.5">{t('canvasDefaults')}</p>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <label className="block">
-                <span className="block text-[11px] text-slate-400 mb-1">{t('canvasWidth')}</span>
-                <input
-                  type="number"
-                  min="1"
-                  step="0.1"
-                  value={centimetersToMeters(floorWidth)}
-                  onChange={(event) => {
-                    const value = Number(event.target.value)
-                    if (Number.isFinite(value) && value > 0) {
-                      onFloorDefaultsChange({ width: metersToCentimeters(value) })
-                    }
-                  }}
-                  aria-label={t('canvasWidth')}
-                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </label>
-              <label className="block">
-                <span className="block text-[11px] text-slate-400 mb-1">{t('canvasHeight')}</span>
-                <input
-                  type="number"
-                  min="1"
-                  step="0.1"
-                  value={centimetersToMeters(floorHeight)}
-                  onChange={(event) => {
-                    const value = Number(event.target.value)
-                    if (Number.isFinite(value) && value > 0) {
-                      onFloorDefaultsChange({ height: metersToCentimeters(value) })
-                    }
-                  }}
-                  aria-label={t('canvasHeight')}
-                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </label>
-              <label className="block col-span-2">
-                <span className="block text-[11px] text-slate-400 mb-1">{t('floorStoreyHeight')}</span>
-                <input
-                  type="number"
-                  min="1"
-                  step="0.1"
-                  value={centimetersToMeters(storeyHeightCm)}
-                  onChange={(event) => {
-                    const value = Number(event.target.value)
-                    if (Number.isFinite(value) && value > 0) {
-                      onFloorDefaultsChange({ floorHeight: metersToCentimeters(value) })
-                    }
-                  }}
-                  aria-label={t('floorStoreyHeight')}
-                  className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </label>
-            </div>
-            <label className="block">
-              <span className="block text-xs font-medium text-slate-500 mb-1.5">{t('backgroundImage')}</span>
-              <input
-                value={backgroundImage}
-                onChange={(event) => onBackgroundChange(event.target.value)}
-                placeholder={t('backgroundPlaceholder')}
-                className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </label>
-          </div>
-        )}
       </div>
       <div className="flex gap-1 border-b border-slate-100 px-2 pt-2">
         {([

@@ -27,16 +27,51 @@ export function httpStatusForError(code: ServiceErrorCode): number {
   }
 }
 
-// 单一共享场地的 id（迁移 029 预置）。
+// 默认（迁移 029 预置）场地的 id；新建场地用随机 id。
 const SHARED_VENUE_ID = 'guild-main'
 
-export async function getVenueLayout(): Promise<ServiceResult<VenueLayout>> {
+export type VenueSummary = { id: string; name: string }
+
+// 列出所有场地（用于切换器）。
+export async function listVenues(): Promise<ServiceResult<VenueSummary[]>> {
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('venues')
+    .select('id, name')
+    .order('created_at', { ascending: true })
+  if (error) return err('db_error', error.message)
+  return ok((data ?? []) as VenueSummary[])
+}
+
+// 新建一个空场地（含一个默认楼层），返回其布局。
+export async function createVenue(name: string): Promise<ServiceResult<VenueLayout>> {
+  const trimmed = (name || '').trim()
+  if (!trimmed) return err('invalid_input', 'venue name required')
+
+  const db = createServerClient()
+  const venueId = `venue-${crypto.randomUUID().slice(0, 8)}`
+  const floorId = `${venueId}-1f`
+
+  const { error: venueErr } = await db.from('venues').insert({
+    id: venueId, name: trimmed, width: 1200, height: 800, view_bookmarks: [],
+  })
+  if (venueErr) return err('db_error', venueErr.message)
+
+  const { error: floorErr } = await db.from('venue_floors').insert({
+    id: floorId, venue_id: venueId, name: '1F', width: 1200, height: 800, floor_height: 280, sort_order: 0,
+  })
+  if (floorErr) return err('db_error', floorErr.message)
+
+  return getVenueLayout(venueId)
+}
+
+export async function getVenueLayout(venueId: string = SHARED_VENUE_ID): Promise<ServiceResult<VenueLayout>> {
   const db = createServerClient()
 
   const { data: venue, error: venueErr } = await db
     .from('venues')
     .select('id, name, width, height, view_bookmarks')
-    .eq('id', SHARED_VENUE_ID)
+    .eq('id', venueId)
     .single()
   if (venueErr) {
     if (venueErr.code === 'PGRST116') return err('not_found', 'venue not found')
@@ -46,7 +81,7 @@ export async function getVenueLayout(): Promise<ServiceResult<VenueLayout>> {
   const { data: floors, error: floorErr } = await db
     .from('venue_floors')
     .select('id, venue_id, name, width, height, floor_height, background_image, sort_order')
-    .eq('venue_id', SHARED_VENUE_ID)
+    .eq('venue_id', venueId)
   if (floorErr) return err('db_error', floorErr.message)
 
   const floorIds = (floors ?? []).map((f) => f.id)
@@ -69,7 +104,7 @@ export async function saveVenueLayout(layout: VenueLayout): Promise<ServiceResul
   }
 
   const db = createServerClient()
-  const { venue, floors, items } = layoutToRows({ ...layout, venueId: SHARED_VENUE_ID })
+  const { venue, floors, items } = layoutToRows(layout)
 
   // 1) upsert 场地
   {
@@ -111,11 +146,11 @@ export async function saveVenueLayout(layout: VenueLayout): Promise<ServiceResul
 
   // 5) 删除已移除的楼层（cascade 会带走其对象）
   {
-    let delFloors = db.from('venue_floors').delete().eq('venue_id', SHARED_VENUE_ID)
+    let delFloors = db.from('venue_floors').delete().eq('venue_id', layout.venueId)
     if (floorIds.length > 0) delFloors = delFloors.not('id', 'in', `(${floorIds.join(',')})`)
     const { error } = await delFloors
     if (error) return err('db_error', error.message)
   }
 
-  return getVenueLayout()
+  return getVenueLayout(layout.venueId)
 }
