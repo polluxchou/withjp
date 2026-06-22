@@ -1,10 +1,11 @@
 'use client'
 
-import { forwardRef, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import type { ForwardedRef, PointerEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   VENUE_ITEM_TYPE_OPTIONS,
+  calculateVenueCanvasFit,
   formatVenueMeasurement,
   snapVenueItemToAlignment,
   type VenueAlignmentGuide,
@@ -47,6 +48,10 @@ const TYPE_STYLE: Record<VenueItemType, { fill: string; stroke: string; dash?: s
   safety:      { fill: '#ccfbf1', stroke: '#0f766e' },
 }
 
+// Inner padding of the centering wrapper (p-4 = 16px each side) plus a little
+// breathing room, subtracted when fitting the floor to the viewport.
+const VIEWPORT_PADDING = 40
+
 function VenueCanvas(
   { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove }: Props,
   ref: ForwardedRef<SVGSVGElement>,
@@ -58,10 +63,22 @@ function VenueCanvas(
   const [dragPositions, setDragPositions] = useState<Record<string, { x: number; y: number }>>({})
   const [alignmentGuides, setAlignmentGuides] = useState<VenueAlignmentGuide[]>([])
   const [pan, setPan] = useState<PanState | null>(null)
+  const [viewport, setViewport] = useState({ width: 0, height: 0 })
   const itemTypeLabels = useMemo(
     () => Object.fromEntries(VENUE_ITEM_TYPE_OPTIONS.map((option) => [option.value, t(`types.${option.value}`)])),
     [t],
   ) as Record<VenueItemType, string>
+
+  // Track the visible canvas area so "100%" can mean "the whole floor fits".
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const update = () => setViewport({ width: el.clientWidth, height: el.clientHeight })
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   const items = useMemo(() => floor.items.map((item) => {
     const position = dragPositions[item.id]
@@ -176,71 +193,87 @@ function VenueCanvas(
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
-  const viewWidth = Math.max(320, floor.width / zoom)
-  const viewHeight = Math.max(240, floor.height / zoom)
-  const viewX = (floor.width - viewWidth) / 2
-  const viewY = (floor.height - viewHeight) / 2
+  // Linear screen scale: at zoom=1 the floor exactly fits the viewport ("100%"),
+  // and zoom multiplies from there. `scale` is on-screen px per floor unit, so any
+  // overlay that should stay a constant on-screen size is sized as `px / scale`.
+  const fit = calculateVenueCanvasFit({
+    floorWidth: floor.width,
+    floorHeight: floor.height,
+    viewportWidth: viewport.width,
+    viewportHeight: viewport.height,
+    zoom,
+    padding: VIEWPORT_PADDING,
+  })
+  const { scale } = fit
 
   return (
-    <div ref={scrollerRef} className="relative h-full min-h-[560px] overflow-auto bg-slate-200 p-4">
-      <div
-        className="mx-auto shadow-sm"
-        style={{
-          width: Math.max(760, Math.round(floor.width * zoom)),
-          height: Math.max(520, Math.round(floor.height * zoom)),
-        }}
-      >
-        <svg
-          ref={setRefs}
-          viewBox={`${viewX} ${viewY} ${viewWidth} ${viewHeight}`}
-          className="block w-full h-full bg-white border border-slate-300"
-          role="img"
-          aria-label={t('canvasAria', { floor: floor.name })}
-          onPointerMove={moveDrag}
-          onPointerUp={finishDrag}
-          onPointerCancel={finishDrag}
-          onPointerLeave={finishDrag}
-          onPointerDown={() => onSelectItems([])}
-        >
-          <defs>
-            <pattern id="venue-grid" width="24" height="24" patternUnits="userSpaceOnUse">
-              <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e2e8f0" strokeWidth="1" />
-            </pattern>
-            <pattern id="venue-grid-major" width="120" height="120" patternUnits="userSpaceOnUse">
-              <rect width="120" height="120" fill="url(#venue-grid)" />
-              <path d="M 120 0 L 0 0 0 120" fill="none" stroke="#cbd5e1" strokeWidth="1.5" />
-            </pattern>
-          </defs>
+    <div ref={scrollerRef} className="relative h-full min-h-[560px] overflow-auto bg-slate-200">
+      <div className="grid min-h-full min-w-full place-items-center p-4">
+        <div className="shadow-sm" style={{ width: fit.width, height: fit.height }}>
+          <svg
+            ref={setRefs}
+            viewBox={`0 0 ${floor.width} ${floor.height}`}
+            width={fit.width}
+            height={fit.height}
+            className="block bg-white border border-slate-300"
+            role="img"
+            aria-label={t('canvasAria', { floor: floor.name })}
+            onPointerMove={moveDrag}
+            onPointerUp={finishDrag}
+            onPointerCancel={finishDrag}
+            onPointerLeave={finishDrag}
+            onPointerDown={() => onSelectItems([])}
+          >
+            <defs>
+              <pattern id="venue-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+                <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e2e8f0" strokeWidth="1" />
+              </pattern>
+              <pattern id="venue-grid-major" width="120" height="120" patternUnits="userSpaceOnUse">
+                <rect width="120" height="120" fill="url(#venue-grid)" />
+                <path d="M 120 0 L 0 0 0 120" fill="none" stroke="#cbd5e1" strokeWidth="1.5" />
+              </pattern>
+            </defs>
 
-          <g onPointerDown={startPan} className={pan ? 'cursor-grabbing' : 'cursor-grab'}>
-            <rect x="0" y="0" width={floor.width} height={floor.height} fill="#fff" />
-            {showGrid && <rect x="0" y="0" width={floor.width} height={floor.height} fill="url(#venue-grid-major)" />}
-            {floor.backgroundImage && (
-              <image
-                href={floor.backgroundImage}
-                x="0"
-                y="0"
-                width={floor.width}
-                height={floor.height}
-                preserveAspectRatio="xMidYMid meet"
-                opacity="0.42"
+            <g onPointerDown={startPan} className={pan ? 'cursor-grabbing' : 'cursor-grab'}>
+              <rect x="0" y="0" width={floor.width} height={floor.height} fill="#fff" />
+              {showGrid && <rect x="0" y="0" width={floor.width} height={floor.height} fill="url(#venue-grid-major)" />}
+              {floor.backgroundImage && (
+                <image
+                  href={floor.backgroundImage}
+                  x="0"
+                  y="0"
+                  width={floor.width}
+                  height={floor.height}
+                  preserveAspectRatio="xMidYMid meet"
+                  opacity="0.42"
+                />
+              )}
+            </g>
+
+            {items.map((item) => (
+              <VenueShape
+                key={item.id}
+                item={item}
+                label={itemTypeLabels[item.type]}
+                selected={selectedItemIds.includes(item.id)}
+                showRulers={showRulers}
+                scale={scale}
+                onPointerDown={(event) => startDrag(event, item)}
               />
-            )}
-          </g>
-
-          {items.map((item) => (
-            <VenueShape
-              key={item.id}
-              item={item}
-              label={itemTypeLabels[item.type]}
-              selected={selectedItemIds.includes(item.id)}
-              showRulers={showRulers}
-              zoom={zoom}
-              onPointerDown={(event) => startDrag(event, item)}
-            />
-          ))}
-          <AlignmentGuides guides={alignmentGuides} />
-        </svg>
+            ))}
+            <AlignmentGuides guides={alignmentGuides} scale={scale} />
+            {/* Callouts for objects too small to hold a label render last so they sit on top. */}
+            {items.map((item) => (
+              <VenueCallout
+                key={`callout-${item.id}`}
+                item={item}
+                label={itemTypeLabels[item.type]}
+                scale={scale}
+                floorWidth={floor.width}
+              />
+            ))}
+          </svg>
+        </div>
       </div>
     </div>
   )
@@ -248,8 +281,11 @@ function VenueCanvas(
 
 export default forwardRef(VenueCanvas)
 
-function AlignmentGuides({ guides }: { guides: VenueAlignmentGuide[] }) {
+function AlignmentGuides({ guides, scale }: { guides: VenueAlignmentGuide[]; scale: number }) {
   if (guides.length === 0) return null
+  const overshoot = 24 / scale
+  const width = 2 / scale
+  const dash = `${8 / scale} ${6 / scale}`
 
   return (
     <g pointerEvents="none">
@@ -258,22 +294,22 @@ function AlignmentGuides({ guides }: { guides: VenueAlignmentGuide[] }) {
           ? <line
               key={`x-${guide.position}-${guide.start}-${guide.end}`}
               x1={guide.position}
-              y1={guide.start - 24}
+              y1={guide.start - overshoot}
               x2={guide.position}
-              y2={guide.end + 24}
+              y2={guide.end + overshoot}
               stroke="#db2777"
-              strokeWidth="2"
-              strokeDasharray="8 6"
+              strokeWidth={width}
+              strokeDasharray={dash}
             />
           : <line
               key={`y-${guide.position}-${guide.start}-${guide.end}`}
-              x1={guide.start - 24}
+              x1={guide.start - overshoot}
               y1={guide.position}
-              x2={guide.end + 24}
+              x2={guide.end + overshoot}
               y2={guide.position}
               stroke="#db2777"
-              strokeWidth="2"
-              strokeDasharray="8 6"
+              strokeWidth={width}
+              strokeDasharray={dash}
             />
       ))}
     </g>
@@ -290,44 +326,62 @@ function estTextUnits(text: string): number {
   return units
 }
 
+type LabelLayout = {
+  mode: 'inside' | 'callout'
+  cx: number
+  cy: number
+  nameFont: number
+  subFont: number
+  showSub: boolean
+  nameY: number
+  subY: number
+}
+
+// Decide how an object's label is drawn. Fonts are expressed in floor units but
+// targeted at a constant on-screen size (target px / scale), then clamped to the
+// box. If the name can't reach a readable on-screen size inside the box, the
+// caller draws an external leader-line callout instead.
+function computeLabelLayout(item: VenueItem, label: string, scale: number): LabelLayout {
+  const cx = item.x + item.width / 2
+  const cy = item.y + item.height / 2
+  const padU = 4 / scale
+  const innerW = Math.max(item.width - padU * 2, 1)
+  const innerH = Math.max(item.height - padU * 2, 1)
+  const hasLabel = label.length > 0
+
+  const nameByWidth = innerW / Math.max(estTextUnits(item.name), 1)
+  const nameByHeight = hasLabel ? innerH / 2.1 : innerH * 0.85
+  const nameFont = Math.min(14 / scale, nameByWidth, nameByHeight)
+
+  const mode: 'inside' | 'callout' = nameFont * scale >= 9 ? 'inside' : 'callout'
+
+  const subFont = Math.min(11 / scale, innerW / Math.max(estTextUnits(label), 1), nameFont * 0.82)
+  const showSub = hasLabel && innerH >= nameFont * 2 && subFont * scale >= 8
+  const nameY = showSub ? cy - subFont * 0.72 : cy
+  const subY = cy + nameFont * 0.72
+
+  return { mode, cx, cy, nameFont, subFont, showSub, nameY, subY }
+}
+
 function VenueShape({
   item,
   label,
   selected,
   showRulers,
-  zoom,
+  scale,
   onPointerDown,
 }: {
   item: VenueItem
   label: string
   selected: boolean
   showRulers: boolean
-  zoom: number
+  scale: number
   onPointerDown: (event: PointerEvent<SVGGElement>) => void
 }) {
   const style = TYPE_STYLE[item.type]
-  const cx = item.x + item.width / 2
-  const cy = item.y + item.height / 2
-
-  // The canvas scales user units by zoom² on screen (rendered px = floor*zoom,
-  // viewBox = floor/zoom). Counter that so labels stay a near-constant on-screen
-  // size, then clamp to the box so they never overflow small objects.
-  const z2 = Math.max(zoom * zoom, 1e-4)
-  const PAD = 6
-  const innerW = Math.max(item.width - PAD * 2, 4)
-  const innerH = Math.max(item.height - PAD * 2, 4)
-  const hasLabel = label.length > 0
-
-  const nameByWidth = innerW / Math.max(estTextUnits(item.name), 1)
-  const nameByHeight = hasLabel ? innerH / 2.1 : innerH * 0.85
-  const nameFont = Math.max(Math.min(14 / z2, nameByWidth, nameByHeight), 1)
-
-  const showLabel = hasLabel && innerH >= nameFont * 2
-  const subByWidth = innerW / Math.max(estTextUnits(label), 1)
-  const subFont = Math.max(Math.min(11 / z2, subByWidth, nameFont * 0.82), 1)
-
-  const nameY = showLabel ? cy - subFont * 0.72 : cy
-  const subY = cy + nameFont * 0.72
+  const layout = computeLabelLayout(item, label, scale)
+  const { cx, cy } = layout
+  const stroke = 2 / scale
 
   return (
     <g
@@ -340,95 +394,163 @@ function VenueShape({
         y={item.y}
         width={item.width}
         height={item.height}
-        rx="6"
+        rx={6 / scale}
         fill={style.fill}
         stroke={style.stroke}
-        strokeWidth="2"
-        strokeDasharray={style.dash}
+        strokeWidth={stroke}
+        strokeDasharray={style.dash ? `${10 / scale} ${7 / scale}` : undefined}
       />
-      {showRulers && <DimensionRulers item={item} />}
-      <text
-        x={cx}
-        y={nameY}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill="#0f172a"
-        fontSize={nameFont}
-        fontWeight="700"
-        pointerEvents="none"
-      >
-        {item.name}
-      </text>
-      {showLabel && <text
-        x={cx}
-        y={subY}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill="#475569"
-        fontSize={subFont}
-        pointerEvents="none"
-      >
-        {label}
-      </text>}
+      {showRulers && <DimensionRulers item={item} scale={scale} />}
+      {layout.mode === 'inside' && (
+        <>
+          <text
+            x={cx}
+            y={layout.nameY}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="#0f172a"
+            fontSize={layout.nameFont}
+            fontWeight="700"
+            pointerEvents="none"
+          >
+            {item.name}
+          </text>
+          {layout.showSub && (
+            <text
+              x={cx}
+              y={layout.subY}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#475569"
+              fontSize={layout.subFont}
+              pointerEvents="none"
+            >
+              {label}
+            </text>
+          )}
+        </>
+      )}
       {selected && (
         <>
           <rect
-            x={item.x - 5}
-            y={item.y - 5}
-            width={item.width + 10}
-            height={item.height + 10}
-            rx="8"
+            x={item.x - 5 / scale}
+            y={item.y - 5 / scale}
+            width={item.width + 10 / scale}
+            height={item.height + 10 / scale}
+            rx={8 / scale}
             fill="none"
             stroke="#0f172a"
-            strokeWidth="2"
-            strokeDasharray="8 5"
+            strokeWidth={stroke}
+            strokeDasharray={`${8 / scale} ${5 / scale}`}
             pointerEvents="none"
           />
-          <circle cx={item.x + item.width + 14} cy={cy} r="8" fill="#fff" stroke="#0f172a" strokeWidth="2" pointerEvents="none" />
-          <circle cx={item.x + item.width + 14} cy={item.y - 14} r="6" fill="#0f172a" pointerEvents="none" />
+          <circle cx={item.x + item.width + 14 / scale} cy={cy} r={8 / scale} fill="#fff" stroke="#0f172a" strokeWidth={stroke} pointerEvents="none" />
+          <circle cx={item.x + item.width + 14 / scale} cy={item.y - 14 / scale} r={6 / scale} fill="#0f172a" pointerEvents="none" />
         </>
       )}
     </g>
   )
 }
 
-function DimensionRulers({ item }: { item: VenueItem }) {
+// Leader-line label for objects too small to hold text inside. Drawn outside the
+// rotation transform so the callout text always reads horizontally, and anchored
+// at the object's center (rotation-invariant) so it tracks rotated boxes too.
+function VenueCallout({
+  item,
+  label,
+  scale,
+  floorWidth,
+}: {
+  item: VenueItem
+  label: string
+  scale: number
+  floorWidth: number
+}) {
+  const layout = computeLabelLayout(item, label, scale)
+  if (layout.mode !== 'callout') return null
+
+  const { cx, cy } = layout
+  // Name only — the colored box already conveys type, so a second "设备" line
+  // here only adds clutter in dense clusters.
+  const nameFont = 11.5 / scale
+  const halo = 3.5 / scale
+
+  // Steer the callout toward the side with more room and keep the leader
+  // horizontal so stacked objects' labels separate by their own spacing
+  // instead of converging diagonally onto neighbouring area names.
+  const toLeft = cx > floorWidth * 0.6
+  const dir = toLeft ? -1 : 1
+  const anchorX = toLeft ? item.x : item.x + item.width
+  const lineX = anchorX + dir * (16 / scale)
+  const textX = lineX + dir * (4 / scale)
+  const textAnchor = toLeft ? 'end' : 'start'
+
+  return (
+    <g pointerEvents="none">
+      <line x1={anchorX} y1={cy} x2={lineX} y2={cy} stroke="#94a3b8" strokeWidth={1.25 / scale} />
+      <circle cx={anchorX} cy={cy} r={2.5 / scale} fill="#64748b" />
+      <text
+        x={textX}
+        y={cy}
+        textAnchor={textAnchor}
+        dominantBaseline="middle"
+        fontSize={nameFont}
+        fontWeight="700"
+        fill="#0f172a"
+        paintOrder="stroke"
+        stroke="#fff"
+        strokeWidth={halo}
+        strokeLinejoin="round"
+      >
+        {item.name}
+      </text>
+    </g>
+  )
+}
+
+function DimensionRulers({ item, scale }: { item: VenueItem; scale: number }) {
   const right = item.x + item.width
   const bottom = item.y + item.height
   const xLabel = item.x + item.width / 2
   const yLabel = item.y + item.height / 2
-  const horizontalY = item.y - 14
-  const verticalX = right + 14
+  const offset = 14 / scale
+  const tick = 5 / scale
+  const lineW = 1.5 / scale
+  const halo = 3.5 / scale
+  const textGap = 7 / scale
+  const horizontalY = item.y - offset
+  const verticalX = right + offset
+  const vTextX = verticalX + textGap + 2 / scale
 
   return (
-    <g pointerEvents="none" stroke="#64748b" fill="#334155" fontSize="12" fontWeight="700">
-      <line x1={item.x} y1={horizontalY} x2={right} y2={horizontalY} strokeWidth="1.5" />
-      <line x1={item.x} y1={horizontalY - 5} x2={item.x} y2={horizontalY + 5} strokeWidth="1.5" />
-      <line x1={right} y1={horizontalY - 5} x2={right} y2={horizontalY + 5} strokeWidth="1.5" />
+    <g pointerEvents="none" stroke="#64748b" fill="#334155" fontSize={11 / scale} fontWeight="700">
+      <line x1={item.x} y1={horizontalY} x2={right} y2={horizontalY} strokeWidth={lineW} />
+      <line x1={item.x} y1={horizontalY - tick} x2={item.x} y2={horizontalY + tick} strokeWidth={lineW} />
+      <line x1={right} y1={horizontalY - tick} x2={right} y2={horizontalY + tick} strokeWidth={lineW} />
       <text
         x={xLabel}
-        y={horizontalY - 7}
+        y={horizontalY - textGap}
         textAnchor="middle"
         paintOrder="stroke"
         stroke="#fff"
-        strokeWidth="4"
+        strokeWidth={halo}
         strokeLinejoin="round"
       >
         {formatVenueMeasurement(item.width)}
       </text>
 
-      <line x1={verticalX} y1={item.y} x2={verticalX} y2={bottom} strokeWidth="1.5" />
-      <line x1={verticalX - 5} y1={item.y} x2={verticalX + 5} y2={item.y} strokeWidth="1.5" />
-      <line x1={verticalX - 5} y1={bottom} x2={verticalX + 5} y2={bottom} strokeWidth="1.5" />
+      <line x1={verticalX} y1={item.y} x2={verticalX} y2={bottom} strokeWidth={lineW} />
+      <line x1={verticalX - tick} y1={item.y} x2={verticalX + tick} y2={item.y} strokeWidth={lineW} />
+      <line x1={verticalX - tick} y1={bottom} x2={verticalX + tick} y2={bottom} strokeWidth={lineW} />
       <text
-        x={verticalX + 9}
+        x={vTextX}
         y={yLabel}
         textAnchor="middle"
         dominantBaseline="middle"
-        transform={`rotate(90 ${verticalX + 9} ${yLabel})`}
+        transform={`rotate(90 ${vTextX} ${yLabel})`}
         paintOrder="stroke"
         stroke="#fff"
-        strokeWidth="4"
+        strokeWidth={halo}
         strokeLinejoin="round"
       >
         {formatVenueMeasurement(item.height)}
