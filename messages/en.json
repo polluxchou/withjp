@@ -1115,6 +1115,8 @@
     "exportJson": "Export JSON",
     "exportSvg": "Export image",
     "currentVenue": "Current venue",
+    "collapseVenuePanel": "Collapse current venue",
+    "expandVenuePanel": "Expand current venue",
     "backgroundImage": "Floor plan image",
     "backgroundPlaceholder": "Image URL or base64",
     "canvasAria": "{floor} venue layout canvas",
