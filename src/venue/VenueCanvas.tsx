@@ -15,18 +15,20 @@ import {
 
 type Props = {
   floor: VenueFloor
-  selectedItemId: string | null
+  selectedItemIds: string[]
   zoom: number
   showGrid: boolean
   showRulers: boolean
-  onSelectItem: (itemId: string | null) => void
+  onSelectItems: (itemIds: string[]) => void
   onItemChange: (itemId: string, patch: Partial<VenueItem>) => void
+  onItemsMove: (itemIds: string[], delta: { x: number; y: number }) => void
 }
 
 type DragState = {
-  itemId: string
+  activeItemId: string
+  itemIds: string[]
   startPointer: { x: number; y: number }
-  startItem: { x: number; y: number }
+  startItems: { id: string; x: number; y: number }[]
 }
 
 type PanState = {
@@ -46,14 +48,14 @@ const TYPE_STYLE: Record<VenueItemType, { fill: string; stroke: string; dash?: s
 }
 
 function VenueCanvas(
-  { floor, selectedItemId, zoom, showGrid, showRulers, onSelectItem, onItemChange }: Props,
+  { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove }: Props,
   ref: ForwardedRef<SVGSVGElement>,
 ) {
   const t = useTranslations('venue')
   const localSvgRef = useRef<SVGSVGElement | null>(null)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
-  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null)
+  const [dragPositions, setDragPositions] = useState<Record<string, { x: number; y: number }>>({})
   const [alignmentGuides, setAlignmentGuides] = useState<VenueAlignmentGuide[]>([])
   const [pan, setPan] = useState<PanState | null>(null)
   const itemTypeLabels = useMemo(
@@ -62,9 +64,10 @@ function VenueCanvas(
   ) as Record<VenueItemType, string>
 
   const items = useMemo(() => floor.items.map((item) => {
-    if (drag?.itemId === item.id && dragPosition) return { ...item, ...dragPosition }
+    const position = dragPositions[item.id]
+    if (position) return { ...item, ...position }
     return item
-  }), [floor.items, drag?.itemId, dragPosition])
+  }), [floor.items, dragPositions])
 
   function setRefs(node: SVGSVGElement | null) {
     localSvgRef.current = node
@@ -86,14 +89,29 @@ function VenueCanvas(
 
   function startDrag(event: PointerEvent<SVGGElement>, item: VenueItem) {
     event.stopPropagation()
-    onSelectItem(item.id)
+    const modifier = event.metaKey || event.ctrlKey
+    if (modifier) {
+      onSelectItems(
+        selectedItemIds.includes(item.id)
+          ? selectedItemIds.filter((selectedId) => selectedId !== item.id)
+          : [...selectedItemIds, item.id],
+      )
+      return
+    }
+
+    const itemIds = selectedItemIds.includes(item.id) ? selectedItemIds : [item.id]
+    onSelectItems(itemIds)
     const startPointer = svgPoint(event)
+    const startItems = floor.items
+      .filter((candidate) => itemIds.includes(candidate.id))
+      .map((candidate) => ({ id: candidate.id, x: candidate.x, y: candidate.y }))
     setDrag({
-      itemId: item.id,
+      activeItemId: item.id,
+      itemIds,
       startPointer,
-      startItem: { x: item.x, y: item.y },
+      startItems,
     })
-    setDragPosition({ x: item.x, y: item.y })
+    setDragPositions(Object.fromEntries(startItems.map((candidate) => [candidate.id, { x: candidate.x, y: candidate.y }])))
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
@@ -107,25 +125,41 @@ function VenueCanvas(
     }
     if (!drag) return
     const pointer = svgPoint(event)
-    const x = Math.round(drag.startItem.x + pointer.x - drag.startPointer.x)
-    const y = Math.round(drag.startItem.y + pointer.y - drag.startPointer.y)
-    const item = floor.items.find((candidate) => candidate.id === drag.itemId)
-    if (!item) {
-      setDragPosition({ x, y })
+    const activeStart = drag.startItems.find((candidate) => candidate.id === drag.activeItemId)
+    const activeItem = floor.items.find((candidate) => candidate.id === drag.activeItemId)
+    if (!activeStart || !activeItem) {
       setAlignmentGuides([])
       return
     }
-    const snapped = snapVenueItemToAlignment(item, floor.items, { x, y })
-    setDragPosition({ x: snapped.x, y: snapped.y })
+    const x = Math.round(activeStart.x + pointer.x - drag.startPointer.x)
+    const y = Math.round(activeStart.y + pointer.y - drag.startPointer.y)
+    const snapTargets = floor.items.filter((candidate) => !drag.itemIds.includes(candidate.id) || candidate.id === drag.activeItemId)
+    const snapped = snapVenueItemToAlignment(activeItem, snapTargets, { x, y })
+    const delta = { x: snapped.x - activeStart.x, y: snapped.y - activeStart.y }
+    setDragPositions(Object.fromEntries(
+      drag.startItems.map((candidate) => [
+        candidate.id,
+        { x: candidate.x + delta.x, y: candidate.y + delta.y },
+      ]),
+    ))
     setAlignmentGuides(snapped.guides)
   }
 
   function finishDrag() {
-    if (drag && dragPosition) {
-      onItemChange(drag.itemId, dragPosition)
+    if (drag) {
+      const activeStart = drag.startItems.find((candidate) => candidate.id === drag.activeItemId)
+      const activePosition = activeStart ? dragPositions[drag.activeItemId] : null
+      if (activeStart && activePosition) {
+        const delta = { x: activePosition.x - activeStart.x, y: activePosition.y - activeStart.y }
+        if (drag.itemIds.length === 1) {
+          onItemChange(drag.activeItemId, activePosition)
+        } else {
+          onItemsMove(drag.itemIds, delta)
+        }
+      }
     }
     setDrag(null)
-    setDragPosition(null)
+    setDragPositions({})
     setAlignmentGuides([])
     setPan(null)
   }
@@ -134,7 +168,7 @@ function VenueCanvas(
     const scroller = scrollerRef.current
     if (!scroller) return
     event.stopPropagation()
-    onSelectItem(null)
+    onSelectItems([])
     setPan({
       startClient: { x: event.clientX, y: event.clientY },
       startScroll: { left: scroller.scrollLeft, top: scroller.scrollTop },
@@ -166,7 +200,7 @@ function VenueCanvas(
           onPointerUp={finishDrag}
           onPointerCancel={finishDrag}
           onPointerLeave={finishDrag}
-          onPointerDown={() => onSelectItem(null)}
+          onPointerDown={() => onSelectItems([])}
         >
           <defs>
             <pattern id="venue-grid" width="24" height="24" patternUnits="userSpaceOnUse">
@@ -199,7 +233,7 @@ function VenueCanvas(
               key={item.id}
               item={item}
               label={itemTypeLabels[item.type]}
-              selected={item.id === selectedItemId}
+              selected={selectedItemIds.includes(item.id)}
               showRulers={showRulers}
               zoom={zoom}
               onPointerDown={(event) => startDrag(event, item)}

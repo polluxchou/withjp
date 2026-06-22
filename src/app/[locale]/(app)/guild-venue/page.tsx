@@ -47,6 +47,7 @@ import {
   metersToCentimeters,
   type VenueFloor,
   type VenueLayerMove,
+  moveVenueItems,
   writeStoredVenueLayout,
   type VenueItem,
   type VenueItemType,
@@ -69,7 +70,10 @@ export default function GuildVenuePage() {
   const t = useTranslations('venue')
   const [history, setHistory] = useState(() => createHistory(DEFAULT_VENUE_LAYOUT))
   const [selectedFloorId, setSelectedFloorId] = useState(DEFAULT_VENUE_LAYOUT.floors[0].id)
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(DEFAULT_VENUE_LAYOUT.floors[0].items[0]?.id ?? null)
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => {
+    const firstId = DEFAULT_VENUE_LAYOUT.floors[0].items[0]?.id
+    return firstId ? [firstId] : []
+  })
   const [zoom, setZoom] = useState(1)
   const [showGrid, setShowGrid] = useState(true)
   const [showRulers, setShowRulers] = useState(true)
@@ -81,7 +85,7 @@ export default function GuildVenuePage() {
     const stored = parseStoredVenueLayout(window.localStorage.getItem(VENUE_STORAGE_KEY))
     setHistory(createHistory(stored))
     setSelectedFloorId(stored.floors[0]?.id ?? DEFAULT_VENUE_LAYOUT.floors[0].id)
-    setSelectedItemId(stored.floors[0]?.items[0]?.id ?? null)
+    setSelectedItemIds(stored.floors[0]?.items[0]?.id ? [stored.floors[0].items[0].id] : [])
     setHydrated(true)
   }, [])
 
@@ -90,6 +94,7 @@ export default function GuildVenuePage() {
     () => layout.floors.find((floor) => floor.id === selectedFloorId) ?? layout.floors[0],
     [layout.floors, selectedFloorId],
   )
+  const selectedItemId = selectedItemIds.at(-1) ?? null
   const selectedItem = activeFloor?.items.find((item) => item.id === selectedItemId) ?? null
   const selectedLayerIndex = activeFloor && selectedItemId
     ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
@@ -105,9 +110,9 @@ export default function GuildVenuePage() {
     }
   }, [hydrated, layout])
 
-  function commit(nextLayout: typeof layout, nextSelectedItemId = selectedItemId) {
+  function commit(nextLayout: typeof layout, nextSelectedItemIds = selectedItemIds) {
     setHistory((current) => pushHistory(current, nextLayout))
-    setSelectedItemId(nextSelectedItemId)
+    setSelectedItemIds(nextSelectedItemIds)
     setSaveState('idle')
   }
 
@@ -116,23 +121,28 @@ export default function GuildVenuePage() {
     const next = addVenueItem(layout, activeFloor.id, type)
     const nextFloor = next.floors.find((floor) => floor.id === activeFloor.id)
     const nextItem = nextFloor?.items.at(-1)
-    commit(next, nextItem?.id ?? selectedItemId)
+    commit(next, nextItem?.id ? [nextItem.id] : selectedItemIds)
   }
 
   function updateItem(itemId: string, patch: Partial<VenueItem>) {
     if (!activeFloor) return
-    commit(updateVenueItem(layout, activeFloor.id, itemId, patch), itemId)
+    commit(updateVenueItem(layout, activeFloor.id, itemId, patch))
+  }
+
+  function moveItems(itemIds: string[], delta: { x: number; y: number }) {
+    if (!activeFloor) return
+    commit(moveVenueItems(layout, activeFloor.id, itemIds, delta), itemIds)
   }
 
   function removeSelectedItem() {
     if (!activeFloor || !selectedItemId) return
     const result = deleteVenueItem(layout, activeFloor.id, selectedItemId, selectedItemId)
-    commit(result.layout, result.selectedItemId)
+    commit(result.layout, selectedItemIds.filter((itemId) => itemId !== selectedItemId))
   }
 
   function moveSelectedItemLayer(move: VenueLayerMove) {
     if (!activeFloor || !selectedItemId) return
-    commit(moveVenueItemLayer(layout, activeFloor.id, selectedItemId, move), selectedItemId)
+    commit(moveVenueItemLayer(layout, activeFloor.id, selectedItemId, move), selectedItemIds)
   }
 
   function updateBackgroundImage(backgroundImage: string) {
@@ -155,8 +165,10 @@ export default function GuildVenuePage() {
     setHistory((current) => {
       const next = undoHistory(current)
       const floor = next.present.floors.find((candidate) => candidate.id === selectedFloorId) ?? next.present.floors[0]
+      const existing = new Set(floor.items.map((item) => item.id))
+      const nextSelection = selectedItemIds.filter((itemId) => existing.has(itemId))
       setSelectedFloorId(floor.id)
-      setSelectedItemId(floor.items.some((item) => item.id === selectedItemId) ? selectedItemId : floor.items[0]?.id ?? null)
+      setSelectedItemIds(nextSelection.length > 0 ? nextSelection : (floor.items[0]?.id ? [floor.items[0].id] : []))
       setSaveState('idle')
       return next
     })
@@ -166,8 +178,10 @@ export default function GuildVenuePage() {
     setHistory((current) => {
       const next = redoHistory(current)
       const floor = next.present.floors.find((candidate) => candidate.id === selectedFloorId) ?? next.present.floors[0]
+      const existing = new Set(floor.items.map((item) => item.id))
+      const nextSelection = selectedItemIds.filter((itemId) => existing.has(itemId))
       setSelectedFloorId(floor.id)
-      setSelectedItemId(floor.items.some((item) => item.id === selectedItemId) ? selectedItemId : floor.items[0]?.id ?? null)
+      setSelectedItemIds(nextSelection.length > 0 ? nextSelection : (floor.items[0]?.id ? [floor.items[0].id] : []))
       setSaveState('idle')
       return next
     })
@@ -236,7 +250,7 @@ export default function GuildVenuePage() {
               const floorId = event.target.value
               const floor = layout.floors.find((candidate) => candidate.id === floorId)
               setSelectedFloorId(floorId)
-              setSelectedItemId(floor?.items[0]?.id ?? null)
+              setSelectedItemIds(floor?.items[0]?.id ? [floor.items[0].id] : [])
             }}
             className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             aria-label={t('floorSelect')}
@@ -284,8 +298,8 @@ export default function GuildVenuePage() {
               layoutName={layout.name}
               floorName={activeFloor.name}
               items={activeFloor.items}
-              selectedItemId={selectedItemId}
-              onSelect={setSelectedItemId}
+              selectedItemIds={selectedItemIds}
+              onSelect={(itemId) => setSelectedItemIds([itemId])}
               floorWidth={activeFloor.width}
               floorHeight={activeFloor.height}
               onFloorDefaultsChange={updateFloorDefaults}
@@ -295,12 +309,13 @@ export default function GuildVenuePage() {
             <VenueCanvas
               ref={svgRef}
               floor={activeFloor}
-              selectedItemId={selectedItemId}
+              selectedItemIds={selectedItemIds}
               zoom={zoom}
               showGrid={showGrid}
               showRulers={showRulers}
-              onSelectItem={setSelectedItemId}
+              onSelectItems={setSelectedItemIds}
               onItemChange={updateItem}
+              onItemsMove={moveItems}
             />
           </div>
 
@@ -354,7 +369,7 @@ function FloatingPanel({
   layoutName,
   floorName,
   items,
-  selectedItemId,
+  selectedItemIds,
   floorWidth,
   floorHeight,
   backgroundImage,
@@ -365,7 +380,7 @@ function FloatingPanel({
   layoutName: string
   floorName: string
   items: VenueItem[]
-  selectedItemId: string | null
+  selectedItemIds: string[]
   floorWidth: number
   floorHeight: number
   backgroundImage: string
@@ -479,7 +494,7 @@ function FloatingPanel({
       <div className="max-h-[calc(100dvh-22rem)] min-h-80 overflow-auto p-2">
         {items.map((item) => {
           const Icon = TOOL_ICON[item.type]
-          const active = item.id === selectedItemId
+          const active = selectedItemIds.includes(item.id)
           return (
             <button
               key={item.id}
