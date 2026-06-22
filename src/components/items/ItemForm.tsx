@@ -17,6 +17,7 @@ export interface ItemFormValue {
   serial_number: string
   notes: string
   status_note: string
+  photo_url: string | null
 }
 
 function toFormValue(item: Item | null): ItemFormValue {
@@ -31,6 +32,7 @@ function toFormValue(item: Item | null): ItemFormValue {
     serial_number: item?.serial_number ?? '',
     notes: item?.notes ?? '',
     status_note: '',
+    photo_url: item?.photo_url ?? null,
   }
 }
 
@@ -59,6 +61,7 @@ export default function ItemForm({
   const [value, setValue] = useState<ItemFormValue>(() => toFormValue(item))
   const [floorId, setFloorId] = useState('')
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -75,6 +78,23 @@ export default function ItemForm({
   const floors = layout?.floors ?? []
   const zones = floors.find((f) => f.id === floorId)?.items ?? []
 
+  async function uploadPhoto(file: File) {
+    setUploading(true)
+    setError(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/items/photo', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error ?? 'upload failed')
+      setValue((v) => ({ ...v, photo_url: json.data.url as string }))
+    } catch (e) {
+      setError(t('saveFailed', { message: e instanceof Error ? e.message : String(e) }))
+    } finally {
+      setUploading(false)
+    }
+  }
+
   async function submit() {
     setSaving(true)
     setError(null)
@@ -89,6 +109,7 @@ export default function ItemForm({
       serial_number: value.serial_number || null,
       notes: value.notes || null,
       status_note: value.status_note || null,
+      photo_url: value.photo_url || null,
     }
     try {
       const res = await fetch(item ? `/api/items/${item.id}` : '/api/items', {
@@ -173,6 +194,27 @@ export default function ItemForm({
 
           <Field label={t('fieldNotes')}>
             <textarea className={inputCls} rows={2} value={value.notes} onChange={(e) => setValue({ ...value, notes: e.target.value })} />
+          </Field>
+
+          <Field label={t('fieldPhoto')}>
+            <div className="flex items-center gap-3">
+              {value.photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={value.photo_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-slate-200" />
+              )}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="text-xs"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f) }}
+              />
+              {uploading && <span className="text-xs text-slate-400">{t('uploading')}</span>}
+              {value.photo_url && (
+                <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => setValue((v) => ({ ...v, photo_url: null }))}>
+                  {t('removePhoto')}
+                </button>
+              )}
+            </div>
           </Field>
 
           {item && (
