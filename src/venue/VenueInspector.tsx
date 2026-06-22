@@ -162,18 +162,15 @@ function NumberField({
 }) {
   return (
     <label className="block">
-      <span className="sr-only">{label}</span>
-      <div className="flex items-center rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-indigo-500">
-        <span className="w-12 text-center text-[11px] font-semibold text-slate-400">{label}</span>
-        <input
-          type="number"
-          value={value}
-          min={min}
-          step={0.01}
-          onChange={onChange}
-          className="min-w-0 flex-1 h-9 bg-transparent pr-2 text-sm text-slate-900 focus:outline-none"
-        />
-      </div>
+      <span className="block text-xs font-medium text-slate-500 mb-1.5">{label}</span>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        step={0.01}
+        onChange={onChange}
+        className={INPUT_CLASS}
+      />
     </label>
   )
 }
