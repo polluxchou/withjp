@@ -12,6 +12,7 @@ import {
   parseStoredVenueLayout,
   pushHistory,
   redoHistory,
+  snapVenueItemToAlignment,
   undoHistory,
   updateVenueFloor,
   updateVenueItem,
@@ -124,6 +125,39 @@ test('moveVenueItemLayer returns the same layout when the item cannot move', () 
   assert.equal(moveVenueItemLayer(layout, floorId, lastId, 'forward'), layout)
   assert.equal(moveVenueItemLayer(layout, floorId, lastId, 'front'), layout)
   assert.equal(moveVenueItemLayer(layout, floorId, 'missing', 'front'), layout)
+})
+
+test('snapVenueItemToAlignment aligns moving item edges and centers to nearby items', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const target = layout.floors[0].items[0]
+  const moving = layout.floors[0].items[1]
+
+  const snapped = snapVenueItemToAlignment(
+    moving,
+    layout.floors[0].items,
+    {
+      x: target.x + target.width - moving.width + 6,
+      y: target.y + target.height / 2 - moving.height / 2 - 5,
+    },
+    8,
+  )
+
+  assert.equal(snapped.x, target.x + target.width - moving.width)
+  assert.equal(snapped.y, target.y + target.height / 2 - moving.height / 2)
+  assert.equal(snapped.guides.length, 2)
+  assert.deepEqual(snapped.guides.map((guide) => guide.axis).sort(), ['x', 'y'])
+})
+
+test('snapVenueItemToAlignment leaves position unchanged outside the threshold', () => {
+  const layout = DEFAULT_VENUE_LAYOUT
+  const moving = layout.floors[0].items[1]
+  const position = { x: 700, y: 333 }
+
+  const snapped = snapVenueItemToAlignment(moving, layout.floors[0].items, position, 4)
+
+  assert.equal(snapped.x, position.x)
+  assert.equal(snapped.y, position.y)
+  assert.deepEqual(snapped.guides, [])
 })
 
 test('undoHistory and redoHistory preserve previous and next layouts', () => {

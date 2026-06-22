@@ -48,6 +48,19 @@ export type VenueHistory = {
 
 export type VenueLayerMove = 'back' | 'backward' | 'forward' | 'front'
 
+export type VenueAlignmentGuide = {
+  axis: 'x' | 'y'
+  position: number
+  start: number
+  end: number
+}
+
+export type VenueAlignmentSnap = {
+  x: number
+  y: number
+  guides: VenueAlignmentGuide[]
+}
+
 export const VENUE_STORAGE_KEY = 'guild-venue:layout:v1'
 export const MAX_VENUE_HISTORY_STEPS = 20
 
@@ -310,6 +323,64 @@ export function moveVenueItemLayer(
   return changed ? next : layout
 }
 
+export function snapVenueItemToAlignment(
+  movingItem: Pick<VenueItem, 'id' | 'width' | 'height'>,
+  items: VenueItem[],
+  position: { x: number; y: number },
+  threshold = 8,
+): VenueAlignmentSnap {
+  const otherItems = items.filter((item) => item.id !== movingItem.id)
+  const xSnap = findAxisSnap(
+    [
+      { kind: 'start' as const, position: position.x },
+      { kind: 'center' as const, position: position.x + movingItem.width / 2 },
+      { kind: 'end' as const, position: position.x + movingItem.width },
+    ],
+    otherItems.flatMap((item) => [
+      { item, position: item.x },
+      { item, position: item.x + item.width / 2 },
+      { item, position: item.x + item.width },
+    ]),
+    threshold,
+  )
+  const ySnap = findAxisSnap(
+    [
+      { kind: 'start' as const, position: position.y },
+      { kind: 'center' as const, position: position.y + movingItem.height / 2 },
+      { kind: 'end' as const, position: position.y + movingItem.height },
+    ],
+    otherItems.flatMap((item) => [
+      { item, position: item.y },
+      { item, position: item.y + item.height / 2 },
+      { item, position: item.y + item.height },
+    ]),
+    threshold,
+  )
+
+  const x = xSnap ? xForSnap(xSnap.position, xSnap.kind, movingItem.width) : position.x
+  const y = ySnap ? xForSnap(ySnap.position, ySnap.kind, movingItem.height) : position.y
+  const guides: VenueAlignmentGuide[] = []
+
+  if (xSnap) {
+    guides.push({
+      axis: 'x',
+      position: xSnap.position,
+      start: Math.min(y, xSnap.item.y),
+      end: Math.max(y + movingItem.height, xSnap.item.y + xSnap.item.height),
+    })
+  }
+  if (ySnap) {
+    guides.push({
+      axis: 'y',
+      position: ySnap.position,
+      start: Math.min(x, ySnap.item.x),
+      end: Math.max(x + movingItem.width, ySnap.item.x + ySnap.item.width),
+    })
+  }
+
+  return { x: Math.round(x), y: Math.round(y), guides }
+}
+
 export function updateVenueFloor(
   layout: VenueLayout,
   floorId: string,
@@ -378,6 +449,35 @@ function getLayerTargetIndex(index: number, length: number, move: VenueLayerMove
   if (move === 'backward') return Math.max(0, index - 1)
   if (move === 'forward') return Math.min(length - 1, index + 1)
   return length - 1
+}
+
+function findAxisSnap(
+  movingPositions: { kind: 'start' | 'center' | 'end'; position: number }[],
+  targetPositions: { item: VenueItem; position: number }[],
+  threshold: number,
+): ({ item: VenueItem; kind: 'start' | 'center' | 'end'; position: number; distance: number } | null) {
+  let closest: { item: VenueItem; kind: 'start' | 'center' | 'end'; position: number; distance: number } | null = null
+
+  for (const moving of movingPositions) {
+    for (const target of targetPositions) {
+      const distance = Math.abs(target.position - moving.position)
+      if (distance > threshold || (closest && distance >= closest.distance)) continue
+      closest = {
+        item: target.item,
+        kind: moving.kind,
+        position: target.position,
+        distance,
+      }
+    }
+  }
+
+  return closest
+}
+
+function xForSnap(position: number, kind: 'start' | 'center' | 'end', size: number): number {
+  if (kind === 'center') return position - size / 2
+  if (kind === 'end') return position - size
+  return position
 }
 
 function finiteNumber(value: number): number {
