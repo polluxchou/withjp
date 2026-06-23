@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import ItemForm from '@/components/items/ItemForm'
+import ItemDetail from '@/components/items/ItemDetail'
 import { ITEM_KINDS, ITEM_STATUSES, type Item, type ItemStatusLog } from '@/lib/items/types'
 import { EMPTY_ITEM_FILTERS, itemFiltersToParams, type ItemFilters } from '@/lib/items/filter-types'
 import type { Expense } from '@/lib/types'
@@ -21,6 +22,9 @@ export default function ItemsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Item | null>(null)
   const [editingLogs, setEditingLogs] = useState<ItemStatusLog[]>([])
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailItem, setDetailItem] = useState<Item | null>(null)
+  const [detailLogs, setDetailLogs] = useState<ItemStatusLog[]>([])
 
   // 成本与场地只拉一次（用于选择器与名称展示）
   useEffect(() => {
@@ -90,6 +94,17 @@ export default function ItemsPage() {
   }
   function openCreate() { setEditing(null); setEditingLogs([]); setFormOpen(true) }
 
+  // 点击编号/名称 → 只读详情（含状态时间线）
+  async function openDetail(item: Item) {
+    setDetailItem(item)
+    setDetailLogs([])
+    setDetailOpen(true)
+    const res = await fetch(`/api/items/${item.id}`)
+    const json = await res.json()
+    const full = json?.data as (Item & { status_logs: ItemStatusLog[] }) | undefined
+    setDetailLogs(full?.status_logs ?? [])
+  }
+
   async function remove(item: Item) {
     if (!window.confirm(t('deletePrompt'))) return
     const res = await fetch(`/api/items/${item.id}`, { method: 'DELETE' })
@@ -148,10 +163,14 @@ export default function ItemsPage() {
               const zone = it.placement_venue_item_id ? zoneById[it.placement_venue_item_id] : null
               return (
                 <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono text-xs">{it.item_code}</td>
-                  <td className="px-3 py-2">{it.name}</td>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    <button className="text-indigo-600 hover:underline" onClick={() => openDetail(it)}>{it.item_code}</button>
+                  </td>
+                  <td className="px-3 py-2">
+                    <button className="text-left text-slate-900 hover:text-indigo-600 hover:underline" onClick={() => openDetail(it)}>{it.name}</button>
+                  </td>
                   <td className="px-3 py-2">{t(`kind.${it.kind}`)}</td>
-                  <td className="px-3 py-2">{ex ? `${ex.item_name} · ¥${ex.total_price}` : '—'}</td>
+                  <td className="px-3 py-2">{ex ? `¥${Number(ex.total_price).toLocaleString('zh-CN')}` : '—'}</td>
                   <td className="px-3 py-2">{zone ? `${zone.floor} · ${zone.zone}` : '—'}</td>
                   <td className="px-3 py-2">{it.quantity}</td>
                   <td className="px-3 py-2">{t(`status.${it.status}`)}</td>
@@ -175,6 +194,16 @@ export default function ItemsPage() {
         layout={layout}
         onClose={() => setFormOpen(false)}
         onSaved={loadItems}
+      />
+
+      <ItemDetail
+        open={detailOpen}
+        item={detailItem}
+        statusLogs={detailLogs}
+        expenses={expenses}
+        layout={layout}
+        onClose={() => setDetailOpen(false)}
+        onEdit={() => { if (detailItem) { setDetailOpen(false); openEdit(detailItem) } }}
       />
     </div>
   )

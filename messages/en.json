@@ -1114,6 +1114,7 @@
   "items": {
     "title": "Item Management",
     "subtitle": "Team asset registry — each physical item links a cost and a placement",
+    "detailTitle": "Item details",
     "add": "Add item",
     "edit": "Edit item",
     "empty": "No items yet",
