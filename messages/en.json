@@ -1185,6 +1185,7 @@
     "switchVenue": "Switch venue",
     "newVenue": "New venue",
     "newVenueName": "New venue",
+    "renameVenue": "Rename venue",
     "collapseVenuePanel": "Collapse current venue",
     "expandVenuePanel": "Expand current venue",
     "collapseInspector": "Collapse inspector",
@@ -1281,6 +1282,9 @@
     },
     "tabShapes": "Spaces",
     "tabMarkers": "Markers",
+    "tabItems": "Items",
+    "floorItemsEmpty": "No items placed on this floor yet — register one in Item Management.",
+    "floorItemsTotal": "Floor total",
     "statuses": {
       "planned": "Planned",
       "in_progress": "In progress",

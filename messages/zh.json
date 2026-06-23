@@ -1185,6 +1185,7 @@
     "switchVenue": "切换场地",
     "newVenue": "新建场地",
     "newVenueName": "新场地",
+    "renameVenue": "重命名物业",
     "collapseVenuePanel": "折叠当前场地",
     "expandVenuePanel": "展开当前场地",
     "collapseInspector": "折叠属性面板",
@@ -1281,6 +1282,9 @@
     },
     "tabShapes": "空间",
     "tabMarkers": "标识",
+    "tabItems": "物品",
+    "floorItemsEmpty": "本层还没有放物品，去物品管理里登记吧。",
+    "floorItemsTotal": "本层合计",
     "statuses": {
       "planned": "规划中",
       "in_progress": "施工中",
