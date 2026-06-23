@@ -1253,7 +1253,8 @@
     "saveFailed": "Save failed: {message}",
     "fieldPhoto": "Photo",
     "uploading": "Uploading…",
-    "removePhoto": "Remove photo"
+    "removePhoto": "Remove photo",
+    "detailTitle": "物品詳細"
   },
   "venue": {
     "title": "Venue Layout",
@@ -1390,6 +1391,18 @@
     "placedItemsTitle": "Items here",
     "placedItemsEmpty": "No items in this zone",
     "placedItemsTotal": "Total cost",
-    "manageItems": "Manage items"
+    "manageItems": "Manage items",
+    "manageCollaborators": "共同編集者",
+    "collaboratorsTitle": "共同編集者を管理",
+    "collaboratorsDesc": "この会場を共同編集できるメンバーを選択します。未選択のメンバーは閲覧のみ可能です。",
+    "collaboratorsLoading": "読み込み中…",
+    "collaboratorsEmpty": "選択できるメンバーがいません",
+    "collaboratorsSearch": "名前またはメールで検索",
+    "collaboratorsCount": "{count} 名を選択",
+    "collaboratorsSave": "保存",
+    "collaboratorsCancel": "キャンセル",
+    "collaboratorsError": "保存に失敗しました。再試行してください",
+    "readOnly": "閲覧のみ",
+    "readOnlyHint": "この会場の編集権限がありません"
   }
 }

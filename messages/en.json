@@ -1132,8 +1132,16 @@
     "colStatus": "Status",
     "colResponsible": "Owner",
     "colSerial": "Serial",
-    "kind": { "physical": "Physical", "virtual": "Virtual" },
-    "status": { "in_use": "In use", "in_storage": "In storage", "under_repair": "Under repair", "disposed": "Disposed" },
+    "kind": {
+      "physical": "Physical",
+      "virtual": "Virtual"
+    },
+    "status": {
+      "in_use": "In use",
+      "in_storage": "In storage",
+      "under_repair": "Under repair",
+      "disposed": "Disposed"
+    },
     "fieldName": "Name *",
     "fieldKind": "Type *",
     "fieldExpense": "Linked cost (expense)",
@@ -1294,7 +1302,19 @@
     "placedItemsTitle": "Items here",
     "placedItemsEmpty": "No items in this zone",
     "placedItemsTotal": "Total cost",
-    "manageItems": "Manage items"
+    "manageItems": "Manage items",
+    "manageCollaborators": "Collaborators",
+    "collaboratorsTitle": "Manage collaborators",
+    "collaboratorsDesc": "Select members who can co-edit this venue. Unselected members can only view it.",
+    "collaboratorsLoading": "Loading…",
+    "collaboratorsEmpty": "No members available",
+    "collaboratorsSearch": "Search by name or email",
+    "collaboratorsCount": "{count} selected",
+    "collaboratorsSave": "Save",
+    "collaboratorsCancel": "Cancel",
+    "collaboratorsError": "Save failed, please retry",
+    "readOnly": "View only",
+    "readOnlyHint": "You don't have edit access to this venue"
   },
   "config": {
     "tabs": {
