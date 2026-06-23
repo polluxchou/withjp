@@ -480,6 +480,83 @@ export function deleteVenueItem(
   }
 }
 
+// ── Natural-language actions (scoped to the active floor) ─────
+// Parsed server-side from text, applied client-side through the reducers below
+// so every change is undoable + autosaved, and stays on the current canvas.
+// Lengths are in METERS (user-facing); applied via metersToCentimeters.
+export type VenueAction =
+  | { op: 'add'; itemType: VenueItemType; name?: string; widthM?: number; heightM?: number; summary: string }
+  | { op: 'update'; targetId: string; name?: string; itemType?: VenueItemType; status?: VenueItemStatus; widthM?: number; heightM?: number; rotationDeg?: number; note?: string; summary: string }
+  | { op: 'move'; targetId: string; xM?: number; yM?: number; dxM?: number; dyM?: number; summary: string }
+  | { op: 'delete'; targetId: string; summary: string }
+  | { op: 'floor'; widthM?: number; heightM?: number; storeyHeightM?: number; backgroundImage?: string; name?: string; summary: string }
+
+export function applyVenueAction(
+  layout: VenueLayout,
+  floorId: string,
+  action: VenueAction,
+  selectedItemId: string | null,
+): { layout: VenueLayout; selectedItemId: string | null; error?: string } {
+  const floor = layout.floors.find((candidate) => candidate.id === floorId)
+  if (!floor) return { layout, selectedItemId, error: 'floor_not_found' }
+  const hasTarget = (id: string) => floor.items.some((item) => item.id === id)
+
+  switch (action.op) {
+    case 'add': {
+      let next = addVenueItem(layout, floorId, action.itemType)
+      const created = next.floors.find((f) => f.id === floorId)?.items.at(-1)
+      if (created) {
+        const patch: Partial<VenueItem> = {}
+        if (action.name) patch.name = action.name
+        if (action.widthM) patch.width = metersToCentimeters(action.widthM)
+        if (action.heightM) patch.height = metersToCentimeters(action.heightM)
+        if (Object.keys(patch).length > 0) next = updateVenueItem(next, floorId, created.id, patch)
+      }
+      return { layout: next, selectedItemId: created?.id ?? selectedItemId }
+    }
+    case 'update': {
+      if (!hasTarget(action.targetId)) return { layout, selectedItemId, error: 'target_not_found' }
+      const patch: Partial<VenueItem> = {}
+      if (action.name !== undefined) patch.name = action.name
+      if (action.itemType) patch.type = action.itemType
+      if (action.status) patch.status = action.status
+      if (action.widthM) patch.width = metersToCentimeters(action.widthM)
+      if (action.heightM) patch.height = metersToCentimeters(action.heightM)
+      if (action.rotationDeg !== undefined) patch.rotation = action.rotationDeg
+      if (action.note !== undefined) patch.note = action.note
+      return { layout: updateVenueItem(layout, floorId, action.targetId, patch), selectedItemId: action.targetId }
+    }
+    case 'move': {
+      if (!hasTarget(action.targetId)) return { layout, selectedItemId, error: 'target_not_found' }
+      if (action.xM !== undefined || action.yM !== undefined) {
+        const patch: Partial<VenueItem> = {}
+        if (action.xM !== undefined) patch.x = metersToCentimeters(action.xM)
+        if (action.yM !== undefined) patch.y = metersToCentimeters(action.yM)
+        return { layout: updateVenueItem(layout, floorId, action.targetId, patch), selectedItemId: action.targetId }
+      }
+      const delta = {
+        x: action.dxM ? metersToCentimeters(action.dxM) : 0,
+        y: action.dyM ? metersToCentimeters(action.dyM) : 0,
+      }
+      return { layout: moveVenueItems(layout, floorId, [action.targetId], delta), selectedItemId: action.targetId }
+    }
+    case 'delete': {
+      if (!hasTarget(action.targetId)) return { layout, selectedItemId, error: 'target_not_found' }
+      const result = deleteVenueItem(layout, floorId, action.targetId, selectedItemId)
+      return { layout: result.layout, selectedItemId: result.selectedItemId }
+    }
+    case 'floor': {
+      const patch: Partial<VenueFloor> = {}
+      if (action.widthM) patch.width = metersToCentimeters(action.widthM)
+      if (action.heightM) patch.height = metersToCentimeters(action.heightM)
+      if (action.storeyHeightM) patch.floorHeight = metersToCentimeters(action.storeyHeightM)
+      if (action.backgroundImage !== undefined) patch.backgroundImage = action.backgroundImage || undefined
+      if (action.name) patch.name = action.name
+      return { layout: updateVenueFloor(layout, floorId, patch), selectedItemId }
+    }
+  }
+}
+
 export function moveVenueItemLayer(
   layout: VenueLayout,
   floorId: string,

@@ -7,7 +7,23 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import PendingActionCard, { type PendingActionState } from './PendingActionCard'
 import type { Expense } from '@/lib/types'
+import type { VenueAction } from '@/venue/layoutData'
 import { notifyIntentApplied } from '@/lib/intent/events'
+
+// ── Venue scope registry ──────────────────────────────────────
+// The venue editor registers a provider while mounted. When present, the command
+// bar scopes intents to the current canvas and applies the parsed action
+// client-side on confirm — it never touches other domains.
+export type VenueIntentProvider = {
+  getItems: () => { id: string; name: string; type: string }[]
+  apply: (action: VenueAction) => void
+}
+let venueProvider: VenueIntentProvider | null = null
+const VENUE_PROVIDER_EVENT = 'intent:venue-provider'
+export function registerVenueIntent(provider: VenueIntentProvider | null) {
+  venueProvider = provider
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(VENUE_PROVIDER_EVENT))
+}
 
 // ── Result types (mirror server's ExecuteResult) ───────────────
 
@@ -23,6 +39,7 @@ type ServerResult =
       sample?:     Expense[]
     }
   | { kind: 'clarification'; message: string; candidates?: Expense[] }
+  | { kind: 'venue_preview'; action: VenueAction }
   | { kind: 'error'; code?: 'parser_failed' | 'executor_failed' | 'bad_request' | 'unknown'; message: string }
 
 
@@ -43,6 +60,15 @@ export default function CommandBar() {
   const [text,   setText]   = useState('')
   const [busy,   setBusy]   = useState(false)
   const [result, setResult] = useState<ServerResult | null>(null)
+  const [venueScoped, setVenueScoped] = useState(false)
+
+  // Track whether a venue provider is registered (set by the venue page).
+  useEffect(() => {
+    const sync = () => setVenueScoped(venueProvider !== null)
+    sync()
+    window.addEventListener(VENUE_PROVIDER_EVENT, sync)
+    return () => window.removeEventListener(VENUE_PROVIDER_EVENT, sync)
+  }, [])
 
   // Keyboard shortcut: Cmd/Ctrl + K
   useEffect(() => {
@@ -88,10 +114,13 @@ export default function CommandBar() {
     if (!text.trim() || busy) return
     setBusy(true); setResult(null)
     try {
+      const scopedBody = venueProvider
+        ? { text: text.trim(), scope: 'venue', venueItems: venueProvider.getItems() }
+        : { text: text.trim() }
       const res = await fetch('/api/intent', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ text: text.trim() }),
+        body:    JSON.stringify(scopedBody),
       })
       const json = (await res.json()) as ServerResult
       setResult(json)
@@ -122,7 +151,7 @@ export default function CommandBar() {
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={t('placeholder')}
+              placeholder={venueScoped ? t('venuePlaceholder') : t('placeholder')}
               className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               disabled={busy}
             />
@@ -138,6 +167,7 @@ export default function CommandBar() {
                 inputText={text}
                 onApplied={applied}
                 onCancel={() => { reset() }}
+                onVenueApply={(action) => { venueProvider?.apply(action); applied() }}
               />
             </div>
           )}
@@ -150,19 +180,46 @@ export default function CommandBar() {
 // ── Result dispatcher ─────────────────────────────────────────
 
 function ResultView({
-  result, inputText, onApplied, onCancel,
+  result, inputText, onApplied, onCancel, onVenueApply,
 }: {
   result:    ServerResult
   inputText: string
   onApplied: () => void
   onCancel:  () => void
+  onVenueApply: (action: VenueAction) => void
 }) {
   if (result.kind === 'pending') {
     return <PendingActionCard state={result} onApplied={onApplied} onCancel={onCancel} />
   }
+  if (result.kind === 'venue_preview') {
+    return <VenuePreviewView action={result.action} onConfirm={() => onVenueApply(result.action)} onCancel={onCancel} />
+  }
   if (result.kind === 'query_result')   return <QueryResultView r={result} />
   if (result.kind === 'clarification')  return <ClarificationView r={result} />
   return <ErrorView code={result.code} message={result.message} inputText={inputText} />
+}
+
+// ── Venue action preview ──────────────────────────────────────
+
+function VenuePreviewView({
+  action, onConfirm, onCancel,
+}: {
+  action:   VenueAction
+  onConfirm: () => void
+  onCancel:  () => void
+}) {
+  const t = useTranslations('intent')
+  return (
+    <div className="space-y-3">
+      <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 text-sm text-zinc-800">
+        {action.summary}
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={onCancel}>{t('venueCancel')}</Button>
+        <Button variant="primary" onClick={onConfirm}>{t('venueConfirm')}</Button>
+      </div>
+    </div>
+  )
 }
 
 // ── Query result ──────────────────────────────────────────────
