@@ -78,6 +78,13 @@ export default function ItemsPage() {
 
   // 名称查表
   const expenseById = useMemo(() => Object.fromEntries(expenses.map((e) => [e.id, e])), [expenses])
+  const totalCost = useMemo(() =>
+    visibleItems.reduce((sum, it) => {
+      const ex = it.expense_id ? expenseById[it.expense_id] : null
+      const assetValue = it.item_value != null ? it.item_value : (ex ? Number(ex.total_price) : 0)
+      return sum + assetValue
+    }, 0),
+  [visibleItems, expenseById])
   const zoneById = useMemo(() => {
     const map: Record<string, { floor: string; zone: string }> = {}
     for (const f of layout?.floors ?? []) for (const z of f.items) map[z.id] = { floor: f.name, zone: z.name }
@@ -137,6 +144,18 @@ export default function ItemsPage() {
         <input className={filterCls + ' w-36'} placeholder={t('colResponsible')} value={filters.responsible_person} onChange={(e) => setFilters({ ...filters, responsible_person: e.target.value })} />
       </div>
 
+      {/* 统计 */}
+      <div className="mb-3 flex gap-4">
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 flex items-baseline gap-2">
+          <span className="text-xs text-slate-500">{t('statTotalItems')}</span>
+          <span className="text-sm font-semibold text-slate-900">{visibleItems.length}<span className="text-xs font-normal text-slate-500 ml-0.5">{t('statItemUnit')}</span></span>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 flex items-baseline gap-2">
+          <span className="text-xs text-slate-500">{t('statTotalCost')}</span>
+          <span className="text-sm font-semibold text-slate-900">¥{totalCost.toLocaleString('zh-CN')}</span>
+        </div>
+      </div>
+
       {/* 表格 */}
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
@@ -170,7 +189,16 @@ export default function ItemsPage() {
                     <button className="text-left text-slate-900 hover:text-indigo-600 hover:underline" onClick={() => openDetail(it)}>{it.name}</button>
                   </td>
                   <td className="px-3 py-2">{t(`kind.${it.kind}`)}</td>
-                  <td className="px-3 py-2">{ex ? `¥${Number(ex.total_price).toLocaleString('zh-CN')}` : '—'}</td>
+                  <td className="px-3 py-2">
+                    {ex ? (
+                      <span>
+                        ¥{(it.item_value != null ? it.item_value : Number(ex.total_price)).toLocaleString('zh-CN')}
+                        {it.item_value != null && it.item_value < Number(ex.total_price) && (
+                          <span className="ml-1 text-xs text-slate-400 line-through">¥{Number(ex.total_price).toLocaleString('zh-CN')}</span>
+                        )}
+                      </span>
+                    ) : '—'}
+                  </td>
                   <td className="px-3 py-2">{zone ? `${zone.floor} · ${zone.zone}` : '—'}</td>
                   <td className="px-3 py-2">{it.quantity}</td>
                   <td className="px-3 py-2">{t(`status.${it.status}`)}</td>

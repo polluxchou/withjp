@@ -12,6 +12,7 @@ export interface Item {
   expense_id: string | null
   placement_venue_item_id: string | null
   quantity: number
+  item_value: number | null
   status: ItemStatus
   responsible_person: string | null
   serial_number: string | null

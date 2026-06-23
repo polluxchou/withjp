@@ -30,21 +30,51 @@ export function httpStatusForError(code: ServiceErrorCode): number {
 // 默认（迁移 029 预置）场地的 id；新建场地用随机 id。
 const SHARED_VENUE_ID = 'guild-main'
 
-export type VenueSummary = { id: string; name: string }
+// canEdit: 可改画布; canManage: 可管理协作者(=创办人/管理员)。
+export type VenueSummary = { id: string; name: string; canEdit: boolean; canManage: boolean }
 
-// 列出所有场地（用于切换器）。
-export async function listVenues(): Promise<ServiceResult<VenueSummary[]>> {
+type DB = ReturnType<typeof createServerClient>
+
+async function isAdminUser(db: DB, userId: string): Promise<boolean> {
+  const { data } = await db.from('users').select('is_admin').eq('id', userId).maybeSingle()
+  return !!data?.is_admin
+}
+
+// Access rule: owner_id null = legacy/open (anyone). Otherwise edit requires
+// admin / owner / listed editor; manage (collaborators) requires admin / owner.
+export async function getVenueAccess(userId: string, venueId: string): Promise<{ canEdit: boolean; canManage: boolean }> {
+  const db = createServerClient()
+  const { data: venue } = await db.from('venues').select('owner_id').eq('id', venueId).maybeSingle()
+  const ownerId = (venue?.owner_id as string | null) ?? null
+  const admin = await isAdminUser(db, userId)
+  const canManage = admin || ownerId === userId
+  if (canManage || ownerId === null) return { canEdit: true, canManage }
+  const { data: editor } = await db.from('venue_editors').select('user_id').eq('venue_id', venueId).eq('user_id', userId).maybeSingle()
+  return { canEdit: !!editor, canManage }
+}
+
+// 列出所有场地（所有人可见/可切换），并标注当前用户的编辑/管理权限。
+export async function listVenues(userId: string): Promise<ServiceResult<VenueSummary[]>> {
   const db = createServerClient()
   const { data, error } = await db
     .from('venues')
-    .select('id, name')
+    .select('id, name, owner_id')
     .order('created_at', { ascending: true })
   if (error) return err('db_error', error.message)
-  return ok((data ?? []) as VenueSummary[])
+  const admin = await isAdminUser(db, userId)
+  const { data: editorRows } = await db.from('venue_editors').select('venue_id').eq('user_id', userId)
+  const editorSet = new Set((editorRows ?? []).map((r) => r.venue_id as string))
+  const venues: VenueSummary[] = (data ?? []).map((v) => {
+    const ownerId = (v.owner_id as string | null) ?? null
+    const canManage = admin || ownerId === userId
+    const canEdit = canManage || ownerId === null || editorSet.has(v.id as string)
+    return { id: v.id as string, name: v.name as string, canEdit, canManage }
+  })
+  return ok(venues)
 }
 
-// 新建一个空场地（含一个默认楼层），返回其布局。
-export async function createVenue(name: string): Promise<ServiceResult<VenueLayout>> {
+// 新建一个空场地（含一个默认楼层），创办人记为当前用户，返回其布局。
+export async function createVenue(name: string, ownerId: string): Promise<ServiceResult<VenueLayout>> {
   const trimmed = (name || '').trim()
   if (!trimmed) return err('invalid_input', 'venue name required')
 
@@ -53,7 +83,7 @@ export async function createVenue(name: string): Promise<ServiceResult<VenueLayo
   const floorId = `${venueId}-1f`
 
   const { error: venueErr } = await db.from('venues').insert({
-    id: venueId, name: trimmed, width: 1200, height: 800, view_bookmarks: [],
+    id: venueId, name: trimmed, width: 1200, height: 800, view_bookmarks: [], owner_id: ownerId,
   })
   if (venueErr) return err('db_error', venueErr.message)
 
@@ -98,10 +128,13 @@ export async function getVenueLayout(venueId: string = SHARED_VENUE_ID): Promise
   return ok(rowsToLayout(venue as VenueRow, (floors ?? []) as VenueFloorRow[], items))
 }
 
-export async function saveVenueLayout(layout: VenueLayout): Promise<ServiceResult<VenueLayout>> {
+export async function saveVenueLayout(layout: VenueLayout, userId: string): Promise<ServiceResult<VenueLayout>> {
   if (!layout || typeof layout.venueId !== 'string' || !Array.isArray(layout.floors)) {
     return err('invalid_input', 'invalid layout payload')
   }
+
+  const access = await getVenueAccess(userId, layout.venueId)
+  if (!access.canEdit) return err('forbidden', '你没有编辑该场地的权限')
 
   const db = createServerClient()
   const { venue, floors, items } = layoutToRows(layout)
@@ -153,4 +186,32 @@ export async function saveVenueLayout(layout: VenueLayout): Promise<ServiceResul
   }
 
   return getVenueLayout(layout.venueId)
+}
+
+// ── Collaborators ─────────────────────────────────────────────
+
+export async function getVenueEditors(venueId: string, actorId: string): Promise<ServiceResult<{ userIds: string[]; canManage: boolean }>> {
+  const db = createServerClient()
+  const access = await getVenueAccess(actorId, venueId)
+  const { data, error } = await db.from('venue_editors').select('user_id').eq('venue_id', venueId)
+  if (error) return err('db_error', error.message)
+  return ok({ userIds: (data ?? []).map((r) => r.user_id as string), canManage: access.canManage })
+}
+
+// Replace the editor set for a venue. Only the owner / an admin may do this.
+export async function setVenueEditors(venueId: string, userIds: string[], actorId: string): Promise<ServiceResult<{ userIds: string[] }>> {
+  const access = await getVenueAccess(actorId, venueId)
+  if (!access.canManage) return err('forbidden', '只有创办人或管理员可以管理协作者')
+
+  const db = createServerClient()
+  const { error: delErr } = await db.from('venue_editors').delete().eq('venue_id', venueId)
+  if (delErr) return err('db_error', delErr.message)
+
+  const unique = Array.from(new Set(userIds.filter((id) => typeof id === 'string' && id.length > 0)))
+  if (unique.length > 0) {
+    const rows = unique.map((user_id) => ({ venue_id: venueId, user_id }))
+    const { error } = await db.from('venue_editors').insert(rows)
+    if (error) return err('db_error', error.message)
+  }
+  return ok({ userIds: unique })
 }

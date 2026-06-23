@@ -164,7 +164,6 @@ export const VENUE_SHAPE_TYPE_OPTIONS: { value: VenueShapeType; label: string }[
   { value: 'equipment', label: '设备' },
   { value: 'renovation', label: '区域' },
   { value: 'area', label: '空间' },
-  { value: 'corridor', label: '结构' },
 ]
 
 export const VENUE_MARKER_TYPE_OPTIONS: { value: VenueMarkerType; label: string }[] = [
@@ -176,8 +175,10 @@ export const VENUE_MARKER_TYPE_OPTIONS: { value: VenueMarkerType; label: string 
   { value: 'network', label: '网络口' },
 ]
 
+// corridor renders as a shape (rectangle) but belongs to the "标识" tab in the panel.
 export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] = [
   ...VENUE_SHAPE_TYPE_OPTIONS,
+  { value: 'corridor', label: '结构' },
   ...VENUE_MARKER_TYPE_OPTIONS,
 ]
 

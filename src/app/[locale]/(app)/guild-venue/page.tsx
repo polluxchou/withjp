@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   Layers,
   ListFilter,
+  Lock,
   Map as MapIcon,
   MapPin,
   Monitor,
@@ -29,6 +30,7 @@ import {
   Redo2,
   Ruler,
   Undo2,
+  Users,
   Wrench,
   X,
   ZoomIn,
@@ -79,7 +81,9 @@ import {
 } from '@/venue/layoutData'
 
 type SaveState = 'idle' | 'saved' | 'error'
-type VenueSummary = { id: string; name: string }
+// canEdit: may modify the canvas; canManage: may manage collaborators (owner/admin).
+type VenueSummary = { id: string; name: string; canEdit: boolean; canManage: boolean }
+type UserOption = { id: string; name: string; email: string | null }
 // Remembers the last-opened venue per browser so reloads return to it.
 const ACTIVE_VENUE_KEY = 'guild-venue:active-venue'
 const DEFAULT_VENUE_ID = 'guild-main'
@@ -198,7 +202,8 @@ export default function GuildVenuePage() {
         // Offline / API failure: fall back to whatever this browser cached.
         const fallback = loadVenueLayout(window.localStorage)
         applyLayout(fallback.layout)
-        setVenues([{ id: fallback.layout.venueId, name: fallback.layout.name }])
+        // Offline copy is editable locally (writes just won't reach the DB).
+        setVenues([{ id: fallback.layout.venueId, name: fallback.layout.name, canEdit: true, canManage: false }])
         setActiveVenueId(fallback.layout.venueId)
         setPersistable(fallback.persistable)
         setSaveState('error')
@@ -229,6 +234,17 @@ export default function GuildVenuePage() {
   }, [activeFloor, visibleTypes])
   const selectedItemId = selectedItemIds.at(-1) ?? null
   const selectedItem = activeFloor?.items.find((item) => item.id === selectedItemId) ?? null
+
+  // Permissions for the active venue (from the venue list). Default to editable
+  // before the list loads / for the offline fallback; the DB still enforces 403.
+  const activeVenue = venues.find((venue) => venue.id === activeVenueId)
+  const canEdit = activeVenue?.canEdit ?? true
+  const canManage = activeVenue?.canManage ?? false
+  const canEditRef = useRef(canEdit)
+  canEditRef.current = canEdit
+  // Collaborator-management modal (owner / admin only).
+  const [collabOpen, setCollabOpen] = useState(false)
+
   const selectedLayerIndex = activeFloor && selectedItemId
     ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
     : -1
@@ -385,6 +401,8 @@ export default function GuildVenuePage() {
   // state, not document content — update history.present in place (no undo step)
   // and let the debounced save push them.
   function updateViewBookmarks(updater: (prev: VenueViewBookmark[]) => VenueViewBookmark[]) {
+    // Bookmarks persist via the layout PUT, so read-only viewers can't save them.
+    if (!canEditRef.current) return
     setHistory((current) => {
       const next = updater(current.present.viewBookmarks ?? [])
       return {
@@ -420,6 +438,8 @@ export default function GuildVenuePage() {
   }
 
   function commit(nextLayout: typeof layout, nextSelectedItemIds = selectedItemIds) {
+    // Read-only viewers can't change the document (the DB would 403 the save).
+    if (!canEditRef.current) return
     setHistory((current) => pushHistory(current, nextLayout))
     setSelectedItemIds(nextSelectedItemIds)
     setSaveState('idle')
@@ -554,7 +574,8 @@ export default function GuildVenuePage() {
       const body = (await res.json()) as { data: VenueLayout | null }
       if (!res.ok || !body.data) throw new Error('create failed')
       const created = body.data
-      setVenues((prev) => [...prev, { id: created.venueId, name: created.name }])
+      // The creator owns the new venue → full edit + manage rights.
+      setVenues((prev) => [...prev, { id: created.venueId, name: created.name, canEdit: true, canManage: true }])
       setActiveVenueId(created.venueId)
       window.localStorage.setItem(ACTIVE_VENUE_KEY, created.venueId)
       applyLoadedLayout(created)
@@ -778,6 +799,15 @@ export default function GuildVenuePage() {
         subtitle={t('subtitle')}
         actions={
           <div className="flex items-center gap-2">
+            {!canEdit && (
+              <span
+                title={t('readOnlyHint')}
+                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500"
+              >
+                <Lock className="w-3 h-3" />
+                {t('readOnly')}
+              </span>
+            )}
             <StatusPill state={saveState} />
           </div>
         }
@@ -798,20 +828,24 @@ export default function GuildVenuePage() {
 
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden flex-1 min-h-0 grid grid-rows-[auto_1fr]">
         <div className="min-h-14 border-b border-slate-200 px-3 py-2 flex items-center gap-2 overflow-x-auto">
-          {VENUE_SHAPE_TYPE_OPTIONS.map((option) => (
-            <ToolbarButton
-              key={option.value}
-              icon={TOOL_ICON[option.value]}
-              label={t(`addTypes.${option.value}`)}
-              onClick={() => addItem(option.value)}
-            />
-          ))}
-          <AddMarkerMenu onAdd={addItem} />
+          {canEdit && (
+            <>
+              {VENUE_SHAPE_TYPE_OPTIONS.map((option) => (
+                <ToolbarButton
+                  key={option.value}
+                  icon={TOOL_ICON[option.value]}
+                  label={t(`addTypes.${option.value}`)}
+                  onClick={() => addItem(option.value)}
+                />
+              ))}
+              <AddMarkerMenu onAdd={addItem} />
 
-          <div className="w-px h-6 bg-slate-200 mx-1" />
+              <div className="w-px h-6 bg-slate-200 mx-1" />
 
-          <ToolbarButton iconOnly icon={Undo2} label={t('undo')} onClick={undo} disabled={history.past.length === 0} />
-          <ToolbarButton iconOnly icon={Redo2} label={t('redo')} onClick={redo} disabled={history.future.length === 0} />
+              <ToolbarButton iconOnly icon={Undo2} label={t('undo')} onClick={undo} disabled={history.past.length === 0} />
+              <ToolbarButton iconOnly icon={Redo2} label={t('redo')} onClick={redo} disabled={history.future.length === 0} />
+            </>
+          )}
           <ToolbarButton iconOnly icon={Grid3X3} label={t('grid')} onClick={() => setShowGrid((value) => !value)} active={showGrid} />
           <ToolbarButton iconOnly icon={Ruler} label={t('dimensionRulers')} onClick={() => setShowRulers((value) => !value)} active={showRulers} />
 
@@ -821,7 +855,7 @@ export default function GuildVenuePage() {
           <span className="min-w-14 text-center text-xs font-semibold text-slate-500">{Math.round(zoom * 100)}%</span>
           <ToolbarButton iconOnly icon={ZoomIn} label={t('zoomIn')} onClick={() => setZoom((value) => Math.min(1.8, Number((value + 0.1).toFixed(2))))} />
 
-          {viewMode === '2d' && (
+          {viewMode === '2d' && canEdit && (
             <>
               <div className="w-px h-6 bg-slate-200 mx-1" />
               <ViewBookmarks
@@ -888,6 +922,8 @@ export default function GuildVenuePage() {
               onSelectFloor={selectFloor}
               onCreateVenue={createNewVenue}
               onRenameActiveVenue={renameActiveVenue}
+              canManage={canManage}
+              onManageCollaborators={() => setCollabOpen(true)}
               floorItems={floorItems}
               floorItemsTotalCost={floorItemsTotalCost}
               items={activeFloor.items}
@@ -931,6 +967,7 @@ export default function GuildVenuePage() {
             onOpenItems={() => router.push('/items')}
             emptyStateActions={
               <div className="space-y-4">
+                {canEdit && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-slate-500">{t('canvasSettings')}</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -984,6 +1021,7 @@ export default function GuildVenuePage() {
                     />
                   </label>
                 </div>
+                )}
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-slate-500">{t('canvasActions')}</p>
                   <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
@@ -1013,6 +1051,10 @@ export default function GuildVenuePage() {
           />
         </div>
       </div>
+
+      {collabOpen && canManage && (
+        <CollaboratorsModal venueId={activeVenueId} onClose={() => setCollabOpen(false)} />
+      )}
     </div>
   )
 }
@@ -1060,6 +1102,8 @@ function FloatingPanel({
   onSelectFloor,
   onCreateVenue,
   onRenameActiveVenue,
+  canManage,
+  onManageCollaborators,
   floorItems,
   floorItemsTotalCost,
   items,
@@ -1077,6 +1121,8 @@ function FloatingPanel({
   onSelectFloor: (id: string) => void
   onCreateVenue: () => void
   onRenameActiveVenue: (name: string) => void
+  canManage: boolean
+  onManageCollaborators: () => void
   floorItems: Array<{ id: string; item_code: string; name: string; quantity: number; cost: number; zoneName: string | null }>
   floorItemsTotalCost: number
   items: VenueItem[]
@@ -1113,11 +1159,13 @@ function FloatingPanel({
       .forEach((item, index) => map.set(item.id, index))
     return map
   }, [items])
-  const markerCount = items.filter((item) => isVenueMarkerType(item.type)).length
+  // corridor renders as a shape but is grouped under the "标识" tab
+  const isInMarkersTab = (type: VenueItemType) => isVenueMarkerType(type) || type === 'corridor'
+  const markerCount = items.filter((item) => isInMarkersTab(item.type)).length
   const shapeCount = items.length - markerCount
   const listItems = items
     .filter((item) => visibleTypeSet.has(item.type))
-    .filter((item) => (listTab === 'markers' ? isVenueMarkerType(item.type) : !isVenueMarkerType(item.type)))
+    .filter((item) => (listTab === 'markers' ? isInMarkersTab(item.type) : !isInMarkersTab(item.type)))
     .sort((a, b) => venueAreaSquareMeters(b) - venueAreaSquareMeters(a))
 
   if (collapsed) {
@@ -1254,15 +1302,28 @@ function FloatingPanel({
           </div>
           <p className="text-[11px] text-slate-400 mt-1">{t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}</p>
         </div>
-        <button
-          type="button"
-          title={t('collapseVenuePanel')}
-          aria-label={t('collapseVenuePanel')}
-          onClick={() => setCollapsed(true)}
-          className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
-        >
-          <PanelLeftClose className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {canManage && (
+            <button
+              type="button"
+              title={t('collaboratorsTitle')}
+              aria-label={t('collaboratorsTitle')}
+              onClick={onManageCollaborators}
+              className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
+            >
+              <Users className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            title={t('collapseVenuePanel')}
+            aria-label={t('collapseVenuePanel')}
+            onClick={() => setCollapsed(true)}
+            className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
+        </div>
       </div>
       <div className="flex gap-1 border-b border-slate-100 px-2 pt-2">
         {([
@@ -1754,6 +1815,160 @@ function StatusPill({ state }: { state: SaveState }) {
     }`}>
       {state === 'saved' ? t('autoSaved') : t('saveFailed')}
     </span>
+  )
+}
+
+// Owner / admin tool: pick which system users may co-edit this venue. The list
+// is every WithJP profile (by name + email); current editors come pre-checked.
+function CollaboratorsModal({ venueId, onClose }: { venueId: string; onClose: () => void }) {
+  const t = useTranslations('venue')
+  const [users, setUsers] = useState<UserOption[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const [usersRes, editorsRes] = await Promise.all([
+          fetch('/api/users'),
+          fetch(`/api/venue/collaborators?id=${encodeURIComponent(venueId)}`),
+        ])
+        const usersJson = (await usersRes.json()) as { data: UserOption[] | null }
+        const editorsJson = (await editorsRes.json()) as { data: { userIds: string[] } | null }
+        if (cancelled) return
+        if (usersJson.data) setUsers(usersJson.data)
+        if (editorsJson.data?.userIds) setSelected(new Set(editorsJson.data.userIds))
+      } catch {
+        if (!cancelled) setError(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [venueId])
+
+  const q = query.trim().toLowerCase()
+  const filtered = q
+    ? users.filter((u) => u.name.toLowerCase().includes(q) || (u.email ?? '').toLowerCase().includes(q))
+    : users
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function save() {
+    setSaving(true)
+    setError(false)
+    try {
+      const res = await fetch('/api/venue/collaborators', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId, userIds: Array.from(selected) }),
+      })
+      if (!res.ok) throw new Error(`status ${res.status}`)
+      onClose()
+    } catch {
+      setError(true)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-5">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-900">{t('collaboratorsTitle')}</h2>
+            <p className="mt-1 text-xs text-slate-500">{t('collaboratorsDesc')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('collaboratorsCancel')}
+            className="w-8 h-8 shrink-0 rounded-lg inline-flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-5 pt-4">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t('collaboratorsSearch')}
+            className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div className="min-h-40 flex-1 overflow-auto px-3 py-3">
+          {loading ? (
+            <p className="px-2 py-6 text-center text-sm text-slate-400">{t('collaboratorsLoading')}</p>
+          ) : filtered.length === 0 ? (
+            <p className="px-2 py-6 text-center text-sm text-slate-400">{t('collaboratorsEmpty')}</p>
+          ) : (
+            filtered.map((user) => (
+              <label
+                key={user.id}
+                className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(user.id)}
+                  onChange={() => toggle(user.id)}
+                  className="accent-indigo-600"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-slate-700">{user.name}</span>
+                  {user.email && <span className="block truncate text-xs text-slate-400">{user.email}</span>}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 p-4">
+          <span className="text-xs text-slate-400">
+            {error ? (
+              <span className="text-red-600">{t('collaboratorsError')}</span>
+            ) : (
+              t('collaboratorsCount', { count: selected.size })
+            )}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              {t('collaboratorsCancel')}
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || loading}
+              className="h-9 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
+              {t('collaboratorsSave')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
