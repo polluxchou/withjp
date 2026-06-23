@@ -76,6 +76,99 @@ function initialsOf(profile: UserProfile | null): string {
   return trimmed.slice(0, 2).toUpperCase()
 }
 
+// Collapsed (icon-only) sidebar can't show an inline expand tree, so a nav
+// group renders as a single icon that reveals a hover flyout with its children.
+// The flyout uses fixed positioning to escape the nav's overflow clipping.
+function CollapsedNavGroup({
+  item, label, childLabel, isActive,
+}: {
+  item: NavGroup
+  label: string
+  childLabel: (key: string) => string
+  isActive: (href: string) => boolean
+}) {
+  const [top, setTop] = useState<number | null>(null)
+  const GroupIcon = item.icon
+  const hasActiveChild = item.children.some((c) => isActive(c.href))
+  return (
+    <div
+      className="relative"
+      onMouseEnter={(e) => setTop(e.currentTarget.getBoundingClientRect().top)}
+      onMouseLeave={() => setTop(null)}
+    >
+      <button
+        type="button"
+        title={label}
+        aria-label={label}
+        className={`flex w-full items-center justify-center rounded-lg px-2 py-2.5 transition-colors ${
+          hasActiveChild ? 'bg-primary-soft text-primary' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+        }`}
+      >
+        <GroupIcon className="w-4 h-4 flex-shrink-0" />
+      </button>
+      {top !== null && (
+        <div className="fixed z-[60] min-w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg" style={{ top, left: 56 }}>
+          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</div>
+          {item.children.map((child) => {
+            const ChildIcon = child.icon
+            const active = isActive(child.href)
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                  active ? 'bg-primary-soft text-primary font-medium' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                }`}
+              >
+                <ChildIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="whitespace-nowrap">{childLabel(child.key)}</span>
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Collapsed (icon-only) leaf item: an icon link with a hover name tooltip.
+// Fixed positioning escapes the nav's overflow clipping (same as the group flyout).
+function CollapsedNavLeaf({
+  item, label, active,
+}: {
+  item: NavLeaf
+  label: string
+  active: boolean
+}) {
+  const [top, setTop] = useState<number | null>(null)
+  const Icon = item.icon
+  return (
+    <div
+      className="relative"
+      onMouseEnter={(e) => setTop(e.currentTarget.getBoundingClientRect().top)}
+      onMouseLeave={() => setTop(null)}
+    >
+      <Link
+        href={item.href}
+        aria-label={label}
+        className={`flex items-center justify-center rounded-lg px-2 py-2.5 transition-colors ${
+          active ? 'bg-primary-soft text-primary' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+        }`}
+      >
+        <Icon className="w-4 h-4 flex-shrink-0" />
+      </Link>
+      {top !== null && (
+        <div
+          className="fixed z-[60] rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white shadow-lg whitespace-nowrap pointer-events-none"
+          style={{ top: top + 8, left: 56 }}
+        >
+          {label}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Sidebar() {
   const path = usePathname()
   const t = useTranslations('nav')
@@ -177,16 +270,16 @@ export default function Sidebar() {
   // indent and rely on the flat icon list instead.
   const renderLeaf = (item: NavLeaf, indented = false) => {
     const active = isActive(item.href)
+    if (effectiveCollapsed) {
+      return <CollapsedNavLeaf key={item.href} item={item} label={t(item.key)} active={active} />
+    }
     const Icon = item.icon
     return (
       <Link
         key={item.href}
         href={item.href}
-        title={effectiveCollapsed ? t(item.key) : undefined}
-        className={`flex items-center rounded-lg text-sm transition-colors ${
-          effectiveCollapsed
-            ? 'justify-center px-2 py-2.5'
-            : `gap-3 py-2.5 ${indented ? 'pl-9 pr-3' : 'px-3'}`
+        className={`flex items-center rounded-lg text-sm transition-colors gap-3 py-2.5 ${
+          indented ? 'pl-9 pr-3' : 'px-3'
         } ${active ? 'bg-primary-soft text-primary font-semibold' : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
       >
         <Icon className="w-4 h-4 flex-shrink-0" />
@@ -287,10 +380,17 @@ export default function Sidebar() {
         {NAV.map((item) => {
           if (!isGroup(item)) return renderLeaf(item)
 
-          // Icon-only sidebar has no room for a toggle + indented tree, so we
-          // flatten the group's children into the regular icon list.
+          // Icon-only sidebar: render the group as one icon with a hover flyout.
           if (effectiveCollapsed) {
-            return item.children.map((child) => renderLeaf(child))
+            return (
+              <CollapsedNavGroup
+                key={item.key}
+                item={item}
+                label={t(item.key)}
+                childLabel={(k) => t(k)}
+                isActive={isActive}
+              />
+            )
           }
 
           const GroupIcon     = item.icon
