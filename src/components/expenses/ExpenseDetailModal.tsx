@@ -19,7 +19,7 @@ interface Props {
 }
 
 const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
-  budgeted:           'bg-slate-100 text-slate-600',
+  budgeted:           'bg-zinc-100 text-zinc-600',
   ordered_unpaid:     'bg-amber-100 text-amber-700',
   paid:               'bg-green-100 text-green-700',
   refunded:           'bg-red-100 text-red-600',
@@ -27,7 +27,7 @@ const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
 }
 
 const CATEGORY_COLOR: Record<ExpenseCategory, string> = {
-  tangible_asset:  'bg-indigo-100 text-indigo-700',
+  tangible_asset:  'bg-primary-soft text-primary',
   salary:          'bg-amber-100 text-amber-700',
   rent:            'bg-emerald-100 text-emerald-700',
   travel:          'bg-blue-100 text-blue-700',
@@ -60,9 +60,9 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
   const showLocation = categoryHasLocation(cat)
 
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="grid grid-cols-3 gap-4 py-2 border-b border-slate-100 last:border-b-0">
-      <div className="text-xs text-slate-500 font-medium pt-0.5">{label}</div>
-      <div className="col-span-2 text-sm text-slate-900 break-words">{children}</div>
+    <div className="grid grid-cols-3 gap-4 py-2 border-b border-zinc-100 last:border-b-0">
+      <div className="text-xs text-zinc-500 font-medium pt-0.5">{label}</div>
+      <div className="col-span-2 text-sm text-zinc-900 break-words">{children}</div>
     </div>
   )
 
@@ -96,7 +96,7 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
               <span className="text-amber-700">+{fmtRmb(crossBorderFee(expense))}</span>
             </Row>
             <Row label={t('effectiveCost')}>
-              <span className="font-semibold text-slate-900">{fmtRmb(effectiveCost(expense))}</span>
+              <span className="font-semibold text-zinc-900">{fmtRmb(effectiveCost(expense))}</span>
             </Row>
           </>
         )}
@@ -104,25 +104,25 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
         <Row label={t('date')}>{expense.expense_date}</Row>
 
         {showPeriod && (
-          <Row label={t('period')}>{expense.period || <span className="text-slate-400">—</span>}</Row>
+          <Row label={t('period')}>{expense.period || <span className="text-zinc-400">—</span>}</Row>
         )}
 
         <Row label={t('purpose')}>
-          {expense.purpose || <span className="text-slate-400">—</span>}
+          {expense.purpose || <span className="text-zinc-400">—</span>}
         </Row>
 
         {showLocation && (
           <Row label={t('location')}>
-            {expense.location || <span className="text-slate-400">—</span>}
+            {expense.location || <span className="text-zinc-400">—</span>}
           </Row>
         )}
 
         <Row label={cat === 'salary' ? tForm('assignedPerson') : t('user')}>
-          {expense.user_name || <span className="text-slate-400">—</span>}
+          {expense.user_name || <span className="text-zinc-400">—</span>}
         </Row>
 
         <Row label={t('buyer')}>
-          {expense.buyer_name || <span className="text-slate-400">—</span>}
+          {expense.buyer_name || <span className="text-zinc-400">—</span>}
         </Row>
 
         <Row label={t('paymentMethod')}>
@@ -130,7 +130,7 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
             ? t(`paymentMethods.${expense.payment_method}`)
             : expense.payment_method_legacy
               ? <span className="text-amber-600 text-xs">{expense.payment_method_legacy}</span>
-              : <span className="text-slate-400">—</span>}
+              : <span className="text-zinc-400">—</span>}
         </Row>
 
         <Row label={t('paymentStatus')}>
@@ -142,18 +142,18 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
         <Row label={t('notes')}>
           {expense.notes
             ? <span className="whitespace-pre-wrap">{expense.notes}</span>
-            : <span className="text-slate-400">—</span>}
+            : <span className="text-zinc-400">—</span>}
         </Row>
 
         <Row label={t('createdAt')}>
-          <span className="text-slate-500">{fmtDateTime(expense.created_at)}</span>
+          <span className="text-zinc-500">{fmtDateTime(expense.created_at)}</span>
         </Row>
       </div>
 
       <div className="flex justify-end pt-4">
         <button
           onClick={onClose}
-          className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+          className="px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
         >
           {tCommon('close')}
         </button>

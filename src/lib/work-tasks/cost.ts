@@ -205,7 +205,7 @@ export function buildUserWorkloads(
 
 /** Utilisation colour based on daily hours */
 export function utilisationColor(hours: number): string {
-  if (hours === 0)  return 'bg-slate-100 text-slate-400'
+  if (hours === 0)  return 'bg-zinc-100 text-zinc-400'
   if (hours <= 4)   return 'bg-green-100 text-green-700'
   if (hours <= 6)   return 'bg-yellow-100 text-yellow-700'
   if (hours === 8)  return 'bg-blue-100 text-blue-700'

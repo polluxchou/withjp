@@ -110,8 +110,8 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
   }
 
   const testColor: Record<TestStatus, string> = {
-    idle:    'bg-slate-100 text-slate-600 hover:bg-slate-200',
-    testing: 'bg-slate-100 text-slate-400',
+    idle:    'bg-zinc-100 text-zinc-600 hover:bg-zinc-200',
+    testing: 'bg-zinc-100 text-zinc-400',
     ok:      'bg-green-100 text-green-700',
     fail:    'bg-red-100 text-red-600',
   }
@@ -119,17 +119,17 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
   const modelOptions = PROVIDER_MODELS[provider] ?? []
 
   return (
-    <div className="mt-3 pt-3 border-t border-slate-100">
-      <p className="text-xs font-medium text-slate-500 mb-2">{t('modelConfig')}</p>
+    <div className="mt-3 pt-3 border-t border-zinc-100">
+      <p className="text-xs font-medium text-zinc-500 mb-2">{t('modelConfig')}</p>
 
       <div className="flex gap-2 items-end">
         {/* Provider */}
         <div className="flex-1">
-          <label className="text-xs text-slate-400 block mb-1">{t('provider')}</label>
+          <label className="text-xs text-zinc-400 block mb-1">{t('provider')}</label>
           <select
             value={provider}
             onChange={(e) => handleProviderChange(e.target.value as ModelProvider)}
-            className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            className="w-full text-xs border border-zinc-200 rounded-md px-2 py-1.5 bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
           >
             {PROVIDERS.map((p) => (
               <option key={p.value} value={p.value}>{p.label}</option>
@@ -139,11 +139,11 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
 
         {/* Model */}
         <div className="flex-1">
-          <label className="text-xs text-slate-400 block mb-1">{t('model')}</label>
+          <label className="text-xs text-zinc-400 block mb-1">{t('model')}</label>
           <select
             value={resolvedModel}
             onChange={(e) => handleModelChange(e.target.value)}
-            className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            className="w-full text-xs border border-zinc-200 rounded-md px-2 py-1.5 bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
           >
             {modelOptions.map((m) => (
               <option key={m} value={m}>{m}</option>
@@ -165,7 +165,7 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
         <button
           onClick={handleSave}
           disabled={saving}
-          className="text-xs px-3 py-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+          className="text-xs px-3 py-1.5 rounded-md bg-primary text-white hover:bg-primary-hover disabled:opacity-50 whitespace-nowrap"
         >
           {saving ? t('saving') : saved ? t('saved') : t('save')}
         </button>
