@@ -1184,6 +1184,7 @@
     "switchVenue": "切换场地",
     "newVenue": "新建场地",
     "newVenueName": "新场地",
+    "renameVenue": "重命名物业",
     "collapseVenuePanel": "折叠当前场地",
     "expandVenuePanel": "展开当前场地",
     "collapseInspector": "折叠属性面板",

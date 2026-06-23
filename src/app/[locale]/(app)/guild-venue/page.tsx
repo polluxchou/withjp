@@ -11,6 +11,7 @@ import {
   DoorClosed,
   DoorOpen,
   Download,
+  Edit2,
   Flame,
   Grid3X3,
   Image as ImageIcon,
@@ -503,6 +504,16 @@ export default function GuildVenuePage() {
     }
   }
 
+  // Rename the currently-active venue. Pushes the new name into history so the
+  // existing autosave effect catches it; also patches the in-memory venues
+  // summary so the dropdown reflects the change without re-fetching.
+  function renameActiveVenue(name: string) {
+    const trimmed = name.trim()
+    if (!trimmed || trimmed === layout.name) return
+    commit({ ...layout, name: trimmed })
+    setVenues((prev) => prev.map((v) => (v.id === activeVenueId ? { ...v, name: trimmed } : v)))
+  }
+
   async function createNewVenue() {
     try {
       const res = await fetch('/api/venue', {
@@ -846,6 +857,7 @@ export default function GuildVenuePage() {
               onSwitchVenue={switchVenue}
               onSelectFloor={selectFloor}
               onCreateVenue={createNewVenue}
+              onRenameActiveVenue={renameActiveVenue}
               items={activeFloor.items}
               selectedItemIds={selectedItemIds}
               onSelect={(itemId) => setSelectedItemIds([itemId])}
@@ -1015,6 +1027,7 @@ function FloatingPanel({
   onSwitchVenue,
   onSelectFloor,
   onCreateVenue,
+  onRenameActiveVenue,
   items,
   selectedItemIds,
   visibleTypes,
@@ -1029,6 +1042,7 @@ function FloatingPanel({
   onSwitchVenue: (id: string) => void
   onSelectFloor: (id: string) => void
   onCreateVenue: () => void
+  onRenameActiveVenue: (name: string) => void
   items: VenueItem[]
   selectedItemIds: string[]
   visibleTypes: VenueItemType[]
@@ -1037,6 +1051,9 @@ function FloatingPanel({
   const t = useTranslations('venue')
   const [collapsed, setCollapsed] = useState(false)
   const [venueMenuOpen, setVenueMenuOpen] = useState(false)
+  // When non-null, the active venue row in the dropdown is swapped for an
+  // inline input prefilled with this value — Enter saves, Escape / blur cancels.
+  const [renameDraft, setRenameDraft] = useState<string | null>(null)
   const venueMenuRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (!venueMenuOpen) return
@@ -1106,18 +1123,59 @@ function FloatingPanel({
               <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
                 {venues.map((venue) => {
                   const isActiveVenue = venue.id === activeVenueId
+                  const isEditing = isActiveVenue && renameDraft !== null
                   return (
                     <div key={venue.id}>
-                      <button
-                        type="button"
-                        onClick={() => { onSwitchVenue(venue.id); if (!isActiveVenue) setVenueMenuOpen(false) }}
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
-                          isActiveVenue ? 'font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
-                        <span className="truncate">{venue.name}</span>
-                      </button>
+                      {isEditing ? (
+                        // Inline rename: Enter commits, Escape / blur cancels.
+                        // We keep the row in place (no layout shift) and swap
+                        // only the label for an input.
+                        <div className="flex items-center gap-2 px-3 py-1.5">
+                          <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
+                          <input
+                            autoFocus
+                            value={renameDraft ?? ''}
+                            onChange={(e) => setRenameDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                onRenameActiveVenue(renameDraft ?? '')
+                                setRenameDraft(null)
+                              } else if (e.key === 'Escape') {
+                                setRenameDraft(null)
+                              }
+                            }}
+                            onBlur={() => setRenameDraft(null)}
+                            className="flex-1 min-w-0 rounded border border-indigo-300 bg-white px-1.5 py-0.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+                      ) : (
+                        <div className="group flex items-center gap-1 pr-1">
+                          <button
+                            type="button"
+                            onClick={() => { onSwitchVenue(venue.id); if (!isActiveVenue) setVenueMenuOpen(false) }}
+                            className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-1.5 text-left text-xs ${
+                              isActiveVenue ? 'font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
+                            <span className="truncate">{venue.name}</span>
+                          </button>
+                          {isActiveVenue && (
+                            <button
+                              type="button"
+                              onClick={() => setRenameDraft(venue.name)}
+                              title={t('renameVenue')}
+                              aria-label={t('renameVenue')}
+                              // Hover-visible edit affordance: invisible until the
+                              // row (or the icon itself) is hovered, so the menu
+                              // looks calm by default.
+                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 w-6 h-6 inline-flex items-center justify-center rounded text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-opacity"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {/* Floors of the active venue (the only one whose floors are loaded). */}
                       {isActiveVenue && floors.map((floor) => (
                         <button
