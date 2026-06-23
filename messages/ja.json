@@ -160,6 +160,9 @@
   },
   "intent": {
     "openButtonLabel": "テキストで操作",
+    "venuePlaceholder": "一言で会場を編集（現在のキャンバスのみ）。例：スペース「スタジオA」5×8m を追加 / 化粧室を90度回転 / ガレージ通路を削除",
+    "venueConfirm": "キャンバスに適用",
+    "venueCancel": "キャンセル",
     "openButtonTooltip": "自然言語で操作 (⌘K)",
     "modalTitle": "一言で操作する",
     "placeholder": "一文で操作してください（v1は支出管理のみ対応）。例：Q3の給与のうちMCはどのくらい / 5月10日の交通費 320元を追加",
