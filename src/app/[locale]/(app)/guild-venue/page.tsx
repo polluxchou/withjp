@@ -21,6 +21,7 @@ import {
   MapPin,
   Monitor,
   Network,
+  Package,
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
@@ -291,6 +292,35 @@ export default function GuildVenuePage() {
   const placedItemsTotalCost = useMemo(
     () => placedItems.reduce((sum, p) => sum + p.cost, 0),
     [placedItems],
+  )
+
+  // Floor-level rollup: every item whose placement_venue_item_id lands on any
+  // venue item in the active floor. Used by the FloatingPanel "物品" tab so
+  // the operator can see everything the floor owns without selecting a zone.
+  // Carries the zone name so a row can say "直播间 A → 摄像机". `null` zone
+  // means the item belongs to no zone yet (sits at floor level).
+  const floorItems = useMemo(() => {
+    if (!activeFloor) return [] as Array<{ id: string; item_code: string; name: string; quantity: number; cost: number; zoneName: string | null }>
+    const venueItemById = new Map(activeFloor.items.map((it) => [it.id, it]))
+    return items
+      .filter((it) => it.placement_venue_item_id && venueItemById.has(it.placement_venue_item_id))
+      .map((it) => {
+        const zone = venueItemById.get(it.placement_venue_item_id!) ?? null
+        const ex = it.expense_id ? expenseById[it.expense_id] : null
+        const cost = ex ? Number(ex.unit_price) * it.quantity : 0
+        return {
+          id: it.id,
+          item_code: it.item_code,
+          name: it.name,
+          quantity: it.quantity,
+          cost,
+          zoneName: zone?.name ?? null,
+        }
+      })
+  }, [items, expenseById, activeFloor])
+  const floorItemsTotalCost = useMemo(
+    () => floorItems.reduce((sum, p) => sum + p.cost, 0),
+    [floorItems],
   )
 
   // Persist on change: cache to localStorage immediately (offline copy), then
@@ -858,6 +888,8 @@ export default function GuildVenuePage() {
               onSelectFloor={selectFloor}
               onCreateVenue={createNewVenue}
               onRenameActiveVenue={renameActiveVenue}
+              floorItems={floorItems}
+              floorItemsTotalCost={floorItemsTotalCost}
               items={activeFloor.items}
               selectedItemIds={selectedItemIds}
               onSelect={(itemId) => setSelectedItemIds([itemId])}
@@ -1028,6 +1060,8 @@ function FloatingPanel({
   onSelectFloor,
   onCreateVenue,
   onRenameActiveVenue,
+  floorItems,
+  floorItemsTotalCost,
   items,
   selectedItemIds,
   visibleTypes,
@@ -1043,6 +1077,8 @@ function FloatingPanel({
   onSelectFloor: (id: string) => void
   onCreateVenue: () => void
   onRenameActiveVenue: (name: string) => void
+  floorItems: Array<{ id: string; item_code: string; name: string; quantity: number; cost: number; zoneName: string | null }>
+  floorItemsTotalCost: number
   items: VenueItem[]
   selectedItemIds: string[]
   visibleTypes: VenueItemType[]
@@ -1063,7 +1099,7 @@ function FloatingPanel({
     document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
   }, [venueMenuOpen])
-  const [listTab, setListTab] = useState<'shapes' | 'markers'>('shapes')
+  const [listTab, setListTab] = useState<'shapes' | 'markers' | 'items'>('shapes')
   const totalAreaSqMeters = totalVenueAreaSquareMeters(items)
   const visibleTypeSet = useMemo(() => new Set(visibleTypes), [visibleTypes])
   // Rank the three largest 'area' spaces (by area share) — computed over all
@@ -1152,13 +1188,25 @@ function FloatingPanel({
                         <div className="group flex items-center gap-1 pr-1">
                           <button
                             type="button"
-                            onClick={() => { onSwitchVenue(venue.id); if (!isActiveVenue) setVenueMenuOpen(false) }}
+                            // Keep the dropdown open after a venue switch so the
+                            // user can drill down into the freshly-loaded floors
+                            // without re-opening the menu. The menu closes only
+                            // when a floor is picked.
+                            onClick={() => onSwitchVenue(venue.id)}
                             className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-1.5 text-left text-xs ${
                               isActiveVenue ? 'font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50'
                             }`}
                           >
                             <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
-                            <span className="truncate">{venue.name}</span>
+                            <span className="truncate flex-1">{venue.name}</span>
+                            {/* Chevron telegraphs "click to drill down" — points
+                                down when this venue's floors are showing below,
+                                right when collapsed. */}
+                            <ChevronDown
+                              className={`w-3 h-3 flex-shrink-0 text-slate-400 transition-transform ${
+                                isActiveVenue ? '' : '-rotate-90'
+                              }`}
+                            />
                           </button>
                           {isActiveVenue && (
                             <button
@@ -1220,6 +1268,7 @@ function FloatingPanel({
         {([
           ['shapes', t('tabShapes'), shapeCount],
           ['markers', t('tabMarkers'), markerCount],
+          ['items', t('tabItems'), floorItems.length],
         ] as const).map(([key, tabLabel, count]) => (
           <button
             key={key}
@@ -1236,49 +1285,93 @@ function FloatingPanel({
         ))}
       </div>
       <div className="max-h-[calc(100dvh-24rem)] min-h-72 overflow-auto p-2">
-        {listItems.length === 0 && (
-          <p className="px-3 py-6 text-center text-xs text-slate-400">{t('filterEmpty')}</p>
-        )}
-        {listItems.map((item) => {
-          const Icon = TOOL_ICON[item.type]
-          const active = selectedItemIds.includes(item.id)
-          const isMarker = isVenueMarkerType(item.type)
-          // Only 空间 participates in area accounting — 设备/区域/结构 show just
-          // their dimensions (no m² figure, no share).
-          const countsArea = item.type === 'area'
-          const areaSqMeters = venueAreaSquareMeters(item)
-          const share = item.type === 'area' && totalAreaSqMeters > 0
-            ? (areaSqMeters / totalAreaSqMeters) * 100
-            : null
-          // Top-3 spaces by area get an emphasized (bold + darker) metric line.
-          const isTopArea = areaRank.get(item.id) !== undefined
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSelect(item.id)}
-              className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium truncate">{item.name}</span>
-                <span className={`block text-[11px] truncate ${isTopArea ? 'font-semibold text-slate-600' : 'text-slate-400'}`}>
-                  {isMarker ? (
-                    t(`types.${item.type}`)
-                  ) : (
-                    <>
-                      {formatVenueMeasurement(item.width)}×{formatVenueMeasurement(item.height)}
-                      {countsArea && ` · ${formatVenueArea(areaSqMeters)}`}
-                      {share !== null && ` · ${share.toFixed(1)}%`}
-                    </>
-                  )}
+        {listTab === 'items' ? (
+          // Floor-level item rollup. Pulls from the items module rather than
+          // the canvas — clicking a row opens that item's edit page so the
+          // operator can update status / move it. Total cost lands at the
+          // bottom as a sticky-feeling summary row.
+          <>
+            {floorItems.length === 0 && (
+              <p className="px-3 py-6 text-center text-xs text-slate-400">{t('floorItemsEmpty')}</p>
+            )}
+            {floorItems.length > 0 && floorItems.map((it) => (
+              <a
+                key={it.id}
+                href={`/items/${it.id}`}
+                className="w-full flex items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors text-slate-600 hover:bg-slate-50"
+              >
+                <Package className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium truncate">{it.name}</span>
+                  <span className="block text-[11px] text-slate-400 truncate">
+                    {it.item_code}
+                    {it.quantity > 1 && ` · ×${it.quantity}`}
+                    {it.zoneName && ` · ${it.zoneName}`}
+                  </span>
                 </span>
-              </span>
-            </button>
-          )
-        })}
+                {it.cost > 0 && (
+                  <span className="text-[11px] font-medium text-slate-500 tabular-nums whitespace-nowrap mt-0.5">
+                    ¥{Math.round(it.cost).toLocaleString('zh-CN')}
+                  </span>
+                )}
+              </a>
+            ))}
+            {floorItems.length > 0 && (
+              <div className="mt-2 flex items-center justify-between border-t border-slate-100 px-3 py-2 text-xs">
+                <span className="text-slate-500">{t('floorItemsTotal')}</span>
+                <span className="font-semibold text-slate-700 tabular-nums">
+                  ¥{Math.round(floorItemsTotalCost).toLocaleString('zh-CN')}
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {listItems.length === 0 && (
+              <p className="px-3 py-6 text-center text-xs text-slate-400">{t('filterEmpty')}</p>
+            )}
+            {listItems.map((item) => {
+              const Icon = TOOL_ICON[item.type]
+              const active = selectedItemIds.includes(item.id)
+              const isMarker = isVenueMarkerType(item.type)
+              // Only 空间 participates in area accounting — 设备/区域/结构 show just
+              // their dimensions (no m² figure, no share).
+              const countsArea = item.type === 'area'
+              const areaSqMeters = venueAreaSquareMeters(item)
+              const share = item.type === 'area' && totalAreaSqMeters > 0
+                ? (areaSqMeters / totalAreaSqMeters) * 100
+                : null
+              // Top-3 spaces by area get an emphasized (bold + darker) metric line.
+              const isTopArea = areaRank.get(item.id) !== undefined
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelect(item.id)}
+                  className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                    active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium truncate">{item.name}</span>
+                    <span className={`block text-[11px] truncate ${isTopArea ? 'font-semibold text-slate-600' : 'text-slate-400'}`}>
+                      {isMarker ? (
+                        t(`types.${item.type}`)
+                      ) : (
+                        <>
+                          {formatVenueMeasurement(item.width)}×{formatVenueMeasurement(item.height)}
+                          {countsArea && ` · ${formatVenueArea(areaSqMeters)}`}
+                          {share !== null && ` · ${share.toFixed(1)}%`}
+                        </>
+                      )}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </>
+        )}
       </div>
     </div>
   )

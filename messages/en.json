@@ -1281,6 +1281,9 @@
     },
     "tabShapes": "Spaces",
     "tabMarkers": "Markers",
+    "tabItems": "Items",
+    "floorItemsEmpty": "No items placed on this floor yet — register one in Item Management.",
+    "floorItemsTotal": "Floor total",
     "statuses": {
       "planned": "Planned",
       "in_progress": "In progress",
