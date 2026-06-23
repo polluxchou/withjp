@@ -160,6 +160,9 @@
   },
   "intent": {
     "openButtonLabel": "用文字操作",
+    "venuePlaceholder": "用一句话改场地（仅当前画布）。例：新增 空间「主直播间」5×8 米 / 把化妆间旋转90度 / 删除车库通道",
+    "venueConfirm": "应用到画布",
+    "venueCancel": "取消",
     "openButtonTooltip": "自然语言操作 (⌘K)",
     "modalTitle": "用一句话操作",
     "placeholder": "用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元",
@@ -1157,7 +1160,7 @@
   },
   "venue": {
     "title": "场地布置",
-    "subtitle": "画布优先的 2D 场地规划，用于直播设备、装修区域、通道和安全点位管理。",
+    "subtitle": "针对大阪直播业务的场地规划，用于直播设备、工作区域、网络水电及安全点位管理。",
     "loading": "加载场地中…",
     "loadFailed": "场地加载失败，请刷新重试",
     "importLocalPrompt": "检测到本浏览器存有旧的场地布局，是否导入到云端？",

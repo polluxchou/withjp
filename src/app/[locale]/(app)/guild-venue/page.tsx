@@ -36,6 +36,7 @@ import Header from '@/components/layout/Header'
 import VenueCanvas from '@/venue/VenueCanvas'
 import Venue3DCanvas from '@/venue/Venue3DCanvas'
 import VenueInspector, { type PlacedItemSummary } from '@/venue/VenueInspector'
+import { registerVenueIntent } from '@/components/intent/CommandBar'
 import { useRouter } from '@/i18n/navigation'
 import type { Item } from '@/lib/items/types'
 import type { Expense } from '@/lib/types'
@@ -43,6 +44,7 @@ import {
   DEFAULT_VENUE_LAYOUT,
   loadVenueLayout,
   parseStoredVenueLayout,
+  applyVenueAction,
   addVenueItem,
   centimetersToMeters,
   createHistory,
@@ -228,6 +230,30 @@ export default function GuildVenuePage() {
   const selectedLayerIndex = activeFloor && selectedItemId
     ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
     : -1
+
+  // Expose the current canvas to the global command bar ("用文字操作") so it can
+  // scope NL instructions to this floor and apply the parsed action via commit.
+  const layoutRef = useRef(layout)
+  layoutRef.current = layout
+  const activeFloorIdRef = useRef(activeFloor?.id ?? '')
+  activeFloorIdRef.current = activeFloor?.id ?? ''
+  const selectedIdRef = useRef(selectedItemId)
+  selectedIdRef.current = selectedItemId
+  useEffect(() => {
+    registerVenueIntent({
+      getItems: () => {
+        const floor = layoutRef.current.floors.find((f) => f.id === activeFloorIdRef.current)
+        return (floor?.items ?? []).map((item) => ({ id: item.id, name: item.name, type: item.type }))
+      },
+      apply: (action) => {
+        const result = applyVenueAction(layoutRef.current, activeFloorIdRef.current, action, selectedIdRef.current)
+        if (result.error) { setSaveState('error'); return }
+        commit(result.layout, result.selectedItemId ? [result.selectedItemId] : [])
+      },
+    })
+    return () => registerVenueIntent(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Cross-feature read: surface the items placed in the selected zone + their
   // summed cost. Failure to load is non-fatal (the canvas still works).
@@ -1479,7 +1505,15 @@ function TypeFilter({
       </button>
       {open && menuPos && (
         <div
-          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+          style={{
+            position: 'fixed',
+            top: menuPos.top,
+            left: menuPos.left,
+            // Cap height to the remaining viewport so the 10-type list never
+            // clips off-screen when the trigger sits low on the canvas.
+            maxHeight: `calc(100vh - ${menuPos.top + 16}px)`,
+            overflowY: 'auto',
+          }}
           className="z-50 min-w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
         >
           <button
