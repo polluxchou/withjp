@@ -25,11 +25,28 @@ export default function ItemsPage() {
   // 成本与场地只拉一次（用于选择器与名称展示）
   useEffect(() => {
     ;(async () => {
-      const [exRes, venueRes] = await Promise.all([fetch('/api/expenses'), fetch('/api/venue')])
-      const exJson = await exRes.json()
-      const venueJson = await venueRes.json()
+      const exJson = await (await fetch('/api/expenses')).json()
       if (exJson?.data) setExpenses(exJson.data as Expense[])
-      if (venueJson?.data) setLayout(venueJson.data as VenueLayout)
+
+      // 场地 API 为多场地：GET /api/venue → [{id,name}]；GET /api/venue?id= → 完整布局。
+      // 拉全部场地的布局并合并楼层，供放置位置选择（楼层/区域 id 全局唯一，跨场地无冲突）。
+      const listJson = await (await fetch('/api/venue')).json()
+      const venues = (listJson?.data ?? []) as { id: string; name: string }[]
+      const layouts = (
+        await Promise.all(
+          venues.map((v) =>
+            fetch(`/api/venue?id=${encodeURIComponent(v.id)}`)
+              .then((r) => r.json())
+              .then((j) => (j?.data ?? null) as VenueLayout | null)
+              .catch(() => null),
+          ),
+        )
+      ).filter((l): l is VenueLayout => !!l)
+      const multi = layouts.length > 1
+      const mergedFloors = layouts.flatMap((lay) =>
+        lay.floors.map((f) => ({ ...f, name: multi ? `${lay.name} · ${f.name}` : f.name })),
+      )
+      setLayout({ venueId: 'all', name: 'all', width: 0, height: 0, floors: mergedFloors })
     })()
   }, [])
 
