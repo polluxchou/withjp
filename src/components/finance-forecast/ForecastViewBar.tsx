@@ -91,20 +91,20 @@ export default function ForecastViewBar({
         aria-haspopup="menu"
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
           open
-            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+            ? 'bg-primary text-white border-primary shadow-sm'
+            : 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-300 hover:text-primary'
         } ${busy && !open ? 'opacity-60 cursor-not-allowed' : ''}`}
       >
-        <Layers className={`w-3.5 h-3.5 ${open ? 'text-indigo-100' : 'text-slate-400'}`} />
+        <Layers className={`w-3.5 h-3.5 ${open ? 'text-violet-100' : 'text-zinc-400'}`} />
         <span className="hidden sm:inline text-[10px] font-medium uppercase tracking-wider opacity-80">{t('viewBarLabel')}</span>
         <span className="truncate max-w-[12rem]">{triggerLabel}</span>
         {triggerOwnerHint && (
-          <span className={`text-[10px] font-medium ${open ? 'text-indigo-100' : 'text-slate-400'}`}>
+          <span className={`text-[10px] font-medium ${open ? 'text-violet-100' : 'text-zinc-400'}`}>
             · {triggerOwnerHint}
           </span>
         )}
         {activeView?.is_public && (
-          <Globe className={`w-3 h-3 ${open ? 'text-indigo-100' : 'text-emerald-500'}`} />
+          <Globe className={`w-3 h-3 ${open ? 'text-violet-100' : 'text-emerald-500'}`} />
         )}
         <ChevronDown
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
@@ -115,11 +115,11 @@ export default function ForecastViewBar({
         <div
           ref={popoverRef}
           role="menu"
-          className="absolute top-full left-0 mt-2 w-[min(640px,calc(100vw-2rem))] bg-white border border-slate-200 rounded-xl shadow-xl z-40 p-4 space-y-3"
+          className="absolute top-full left-0 mt-2 w-[min(640px,calc(100vw-2rem))] bg-white border border-zinc-200 rounded-xl shadow-xl z-40 p-4 space-y-3"
         >
           <div className="flex flex-wrap items-center gap-2">
             {views.length === 0 && !creating && (
-              <span className="text-sm text-slate-400">{t('viewNoViews')}</span>
+              <span className="text-sm text-zinc-400">{t('viewNoViews')}</span>
             )}
 
             {views.map((view) => (
@@ -144,12 +144,12 @@ export default function ForecastViewBar({
                 title={canCreate ? t('viewCreateNew') : t('viewMaxHint', { max: MAX_VIEWS_PER_USER })}
                 className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                   canCreate && !busy
-                    ? 'bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400'
-                    : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                    ? 'bg-white text-primary border-violet-200 hover:border-violet-400'
+                    : 'bg-zinc-50 text-zinc-400 border-zinc-200 cursor-not-allowed'
                 }`}
               >
                 <Plus className="w-3.5 h-3.5" /> {t('viewCreateNew')}
-                <span className="ml-1 text-[10px] text-slate-400 tabular-nums">{ownedCount}/{MAX_VIEWS_PER_USER}</span>
+                <span className="ml-1 text-[10px] text-zinc-400 tabular-nums">{ownedCount}/{MAX_VIEWS_PER_USER}</span>
               </button>
             )}
           </div>
@@ -165,7 +165,7 @@ export default function ForecastViewBar({
           )}
 
           {activeView && !creating && (
-            <div className="pt-3 border-t border-slate-100">
+            <div className="pt-3 border-t border-zinc-100">
               {editingId === activeView.id ? (
                 <EditForm
                   view={activeView}
@@ -191,10 +191,10 @@ export default function ForecastViewBar({
           )}
 
           {onOpenLifecycle && !creating && editingId === null && (
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+            <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-700">{t('viewLifecycleTitle')}</p>
-                <p className="text-[11px] text-slate-400">{t('viewLifecycleSub')}</p>
+                <p className="text-xs font-semibold text-zinc-700">{t('viewLifecycleTitle')}</p>
+                <p className="text-[11px] text-zinc-400">{t('viewLifecycleSub')}</p>
               </div>
               <Button variant="secondary" size="sm" onClick={() => { onOpenLifecycle(); setOpen(false) }}>
                 <Repeat className="w-3.5 h-3.5" /> {t('viewEditTemplate')}
@@ -242,16 +242,16 @@ function ViewChip({
       disabled={disabled}
       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
         active
-          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-          : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+          ? 'bg-primary text-white border-primary shadow-sm'
+          : 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-300 hover:text-primary'
       } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
       <span className="truncate max-w-[14rem]">{view.name}</span>
-      <span className={`text-[10px] font-medium ${active ? 'text-indigo-100' : 'text-slate-400'}`}>
+      <span className={`text-[10px] font-medium ${active ? 'text-violet-100' : 'text-zinc-400'}`}>
         · {ownerLabel}
       </span>
       {view.is_public && (
-        <Globe className={`w-3 h-3 ${active ? 'text-indigo-100' : 'text-emerald-500'}`} />
+        <Globe className={`w-3 h-3 ${active ? 'text-violet-100' : 'text-emerald-500'}`} />
       )}
     </button>
   )
@@ -285,8 +285,8 @@ function MetadataDisplay({
     <div className="flex items-start gap-4 flex-wrap">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-sm font-bold text-slate-900 truncate">{view.name}</h3>
-          <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+          <h3 className="text-sm font-bold text-zinc-900 truncate">{view.name}</h3>
+          <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
             {t('viewOwnerBadge', { owner: ownerLabel })}
           </span>
           {view.is_public ? (
@@ -294,13 +294,13 @@ function MetadataDisplay({
               <Globe className="w-3 h-3" /> {t('viewPublic')}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
               <Lock className="w-3 h-3" /> {t('viewPrivate')}
             </span>
           )}
         </div>
         {view.note && (
-          <p className="text-xs text-slate-500 mt-1 whitespace-pre-wrap break-words">{view.note}</p>
+          <p className="text-xs text-zinc-500 mt-1 whitespace-pre-wrap break-words">{view.note}</p>
         )}
       </div>
 
@@ -310,7 +310,7 @@ function MetadataDisplay({
             type="button"
             onClick={onTogglePublic}
             title={view.is_public ? t('viewRemovePublicAdmin') : t('viewMakePublicAdmin')}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-600 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
           >
             {view.is_public ? <Lock className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
             {view.is_public ? t('viewRemovePublicAdmin') : t('viewMakePublic')}
@@ -373,28 +373,28 @@ function EditForm({
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
         <label className="block">
-          <span className="block text-xs font-medium text-slate-700 mb-1">{t('viewEditNameLabel')}</span>
+          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('viewEditNameLabel')}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
-            className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
         </label>
         <label className="block">
-          <span className="block text-xs font-medium text-slate-700 mb-1">{t('viewEditNoteLabel')}</span>
+          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('viewEditNoteLabel')}</span>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t('viewEditNotePlaceholder')}
-            className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
         </label>
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         {canTogglePublic ? (
-          <label className="inline-flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+          <label className="inline-flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
             <input
               type="checkbox"
               checked={isPublic}
@@ -404,7 +404,7 @@ function EditForm({
             {t('viewPublicToggle')}
           </label>
         ) : (
-          <span className="text-xs text-slate-400">{t('viewPublicReadonly')}</span>
+          <span className="text-xs text-zinc-400">{t('viewPublicReadonly')}</span>
         )}
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel}>
@@ -444,26 +444,26 @@ function CreateForm({
   }
 
   return (
-    <div className="pt-3 border-t border-slate-100 space-y-3">
+    <div className="pt-3 border-t border-zinc-100 space-y-3">
       <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
         <label className="block">
-          <span className="block text-xs font-medium text-slate-700 mb-1">{t('viewCreateNameLabel')}</span>
+          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('viewCreateNameLabel')}</span>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
             placeholder={t('viewCreateNamePlaceholder')}
-            className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
         </label>
         <label className="block">
-          <span className="block text-xs font-medium text-slate-700 mb-1">{t('viewCreateNoteLabel')}</span>
+          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('viewCreateNoteLabel')}</span>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t('viewCreateNotePlaceholder')}
-            className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
         </label>
       </div>
@@ -501,10 +501,10 @@ function DeleteConfirm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-5">
-        <h3 className="text-base font-bold text-slate-900 mb-2">{t('viewDeleteTitle')}</h3>
-        <p className="text-sm text-slate-600 mb-1">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
+      <div className="bg-white rounded-xl border border-zinc-200 shadow-xl max-w-md w-full p-5">
+        <h3 className="text-base font-bold text-zinc-900 mb-2">{t('viewDeleteTitle')}</h3>
+        <p className="text-sm text-zinc-600 mb-1">
           {t('viewDeleteDesc', { name: view.name })}
         </p>
         <p className="text-xs text-red-600 mb-4">{t('viewDeleteWarning')}</p>

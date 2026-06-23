@@ -20,3 +20,6 @@ out/
 *.bak
 npm-debug.log*
 .vercel
+
+# superpowers brainstorm sessions
+.superpowers/

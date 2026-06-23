@@ -10,10 +10,12 @@
     "test:i18n": "node scripts/check-i18n.mjs",
     "test:no-bare-han": "node scripts/check-no-bare-han.mjs",
     "test:copy": "npm run test:i18n && npm run test:no-bare-han",
-    "test": "node --test --experimental-strip-types src/lib/supabase/errors.test.ts src/lib/creators/platforms.test.ts src/lib/users/user-code.test.ts src/lib/devices/costs.test.ts src/lib/views/session.test.ts src/lib/activity/activity-events.test.ts src/lib/expenses/category-filter.test.ts src/lib/expenses/costs.test.ts src/lib/intent/events.test.ts src/lib/finance-forecast/calculations.test.ts src/lib/finance-forecast/save-queue.test.ts src/lib/finance-forecast/year.test.ts src/lib/finance-forecast/views.test.ts src/lib/finance-forecast/lifecycle-apply.test.ts src/lib/middleware-assets.test.ts src/lib/middleware-matcher.test.ts src/lib/milestones/next-timeline.test.ts src/lib/discussions/subject.test.ts src/lib/discussions/permissions.test.ts"
+    "test": "node --test --experimental-strip-types src/lib/supabase/errors.test.ts src/lib/creators/platforms.test.ts src/lib/users/user-code.test.ts src/lib/devices/costs.test.ts src/lib/views/session.test.ts src/lib/activity/activity-events.test.ts src/lib/expenses/category-filter.test.ts src/lib/expenses/costs.test.ts src/lib/intent/events.test.ts src/lib/finance-forecast/calculations.test.ts src/lib/finance-forecast/save-queue.test.ts src/lib/finance-forecast/year.test.ts src/lib/finance-forecast/views.test.ts src/lib/finance-forecast/lifecycle-apply.test.ts src/lib/middleware-assets.test.ts src/lib/middleware-matcher.test.ts src/lib/milestones/next-timeline.test.ts src/lib/discussions/subject.test.ts src/lib/discussions/permissions.test.ts src/lib/currency/server-boundary.test.ts src/lib/notifications/service.test.ts src/venue/layoutData.test.ts src/lib/venue/layout-sync.test.ts src/lib/items/validation.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.45.0",
     "date-fns": "^3.6.0",
@@ -25,6 +27,7 @@
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.8.1",
+    "three": "^0.169.0",
     "undici": "^8.2.0",
     "zod": "^4.4.3"
   },
@@ -32,6 +35,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/three": "^0.184.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",

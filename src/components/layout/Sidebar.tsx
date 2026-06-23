@@ -17,16 +17,28 @@ import {
   CalendarRange,
   Receipt,
   TrendingUp,
+  Wallet,
+  Package,
+  Map as MapIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Menu,
   X,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
+import NotificationBell from '@/components/notifications/NotificationBell'
 import type { UserProfile } from '@/lib/types'
 
-const NAV = [
+type NavLeaf  = { href: string; key: string; icon: LucideIcon }
+type NavGroup = { key: string; icon: LucideIcon; children: NavLeaf[] }
+type NavItem  = NavLeaf | NavGroup
+
+const isGroup = (item: NavItem): item is NavGroup => 'children' in item
+
+const NAV: NavItem[] = [
   { href: '/',          key: 'dashboard', icon: LayoutDashboard },
   { href: '/creators',  key: 'creators',  icon: Users },
   { href: '/pipeline',  key: 'pipeline',  icon: GitBranch },
@@ -35,14 +47,23 @@ const NAV = [
   { href: '/workspace', key: 'workspace', icon: MessageSquare },
   { href: '/team',      key: 'team',      icon: Bot },
   { href: '/knowledge', key: 'knowledge', icon: BookOpen },
-  { href: '/expenses',  key: 'expenses',  icon: Receipt },
-  { href: '/finance-forecast', key: 'financeForecast', icon: TrendingUp },
+  {
+    key: 'costManagement',
+    icon: Wallet,
+    children: [
+      { href: '/expenses',         key: 'expenses',        icon: Receipt },
+      { href: '/items',            key: 'items',           icon: Package },
+      { href: '/guild-venue',      key: 'venue',           icon: MapIcon },
+      { href: '/finance-forecast', key: 'financeForecast', icon: TrendingUp },
+    ],
+  },
   { href: '/config',    key: 'config',    icon: Settings },
 ]
 
 const COLLAPSED_W = '60px'
 const EXPANDED_W  = '240px'
 const LS_KEY      = 'sidebar:collapsed'
+const LS_GROUPS   = 'sidebar:groups'
 
 // Quick "initials" derivation for the avatar bubble. Falls back to the
 // first character of email / user_code / generic placeholder.
@@ -53,6 +74,99 @@ function initialsOf(profile: UserProfile | null): string {
   const trimmed = source.trim()
   if (/^[一-鿿]/.test(trimmed)) return trimmed.slice(0, 1)
   return trimmed.slice(0, 2).toUpperCase()
+}
+
+// Collapsed (icon-only) sidebar can't show an inline expand tree, so a nav
+// group renders as a single icon that reveals a hover flyout with its children.
+// The flyout uses fixed positioning to escape the nav's overflow clipping.
+function CollapsedNavGroup({
+  item, label, childLabel, isActive,
+}: {
+  item: NavGroup
+  label: string
+  childLabel: (key: string) => string
+  isActive: (href: string) => boolean
+}) {
+  const [top, setTop] = useState<number | null>(null)
+  const GroupIcon = item.icon
+  const hasActiveChild = item.children.some((c) => isActive(c.href))
+  return (
+    <div
+      className="relative"
+      onMouseEnter={(e) => setTop(e.currentTarget.getBoundingClientRect().top)}
+      onMouseLeave={() => setTop(null)}
+    >
+      <button
+        type="button"
+        title={label}
+        aria-label={label}
+        className={`flex w-full items-center justify-center rounded-lg px-2 py-2.5 transition-colors ${
+          hasActiveChild ? 'bg-primary-soft text-primary' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+        }`}
+      >
+        <GroupIcon className="w-4 h-4 flex-shrink-0" />
+      </button>
+      {top !== null && (
+        <div className="fixed z-[60] min-w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg" style={{ top, left: 56 }}>
+          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</div>
+          {item.children.map((child) => {
+            const ChildIcon = child.icon
+            const active = isActive(child.href)
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                  active ? 'bg-primary-soft text-primary font-medium' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                }`}
+              >
+                <ChildIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="whitespace-nowrap">{childLabel(child.key)}</span>
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Collapsed (icon-only) leaf item: an icon link with a hover name tooltip.
+// Fixed positioning escapes the nav's overflow clipping (same as the group flyout).
+function CollapsedNavLeaf({
+  item, label, active,
+}: {
+  item: NavLeaf
+  label: string
+  active: boolean
+}) {
+  const [top, setTop] = useState<number | null>(null)
+  const Icon = item.icon
+  return (
+    <div
+      className="relative"
+      onMouseEnter={(e) => setTop(e.currentTarget.getBoundingClientRect().top)}
+      onMouseLeave={() => setTop(null)}
+    >
+      <Link
+        href={item.href}
+        aria-label={label}
+        className={`flex items-center justify-center rounded-lg px-2 py-2.5 transition-colors ${
+          active ? 'bg-primary-soft text-primary' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+        }`}
+      >
+        <Icon className="w-4 h-4 flex-shrink-0" />
+      </Link>
+      {top !== null && (
+        <div
+          className="fixed z-[60] rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white shadow-lg whitespace-nowrap pointer-events-none"
+          style={{ top: top + 8, left: 56 }}
+        >
+          {label}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function Sidebar() {
@@ -67,6 +181,9 @@ export default function Sidebar() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  // Explicit open/closed state per nav group. A group not present here falls
+  // back to "auto" — open whenever one of its children is the active route.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   // Fetch the logged-in user's profile once on mount; refresh when the
   // ProfileEditor modal closes (so a rename reflects immediately).
@@ -86,8 +203,23 @@ export default function Sidebar() {
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(LS_KEY) : null
     setCollapsed(stored === '1')
+    try {
+      const rawGroups = typeof window !== 'undefined' ? localStorage.getItem(LS_GROUPS) : null
+      if (rawGroups) setOpenGroups(JSON.parse(rawGroups) as Record<string, boolean>)
+    } catch {
+      // ignore malformed persisted state
+    }
     setHydrated(true)
   }, [])
+
+  // Persist explicit group toggles
+  const toggleGroup = (key: string, open: boolean) => {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [key]: open }
+      try { localStorage.setItem(LS_GROUPS, JSON.stringify(next)) } catch { /* best-effort */ }
+      return next
+    })
+  }
 
   // Track whether we're in mobile-drawer mode (<lg breakpoint).
   // Below 1024 CSS px the sidebar lives off-canvas and ignores the
@@ -131,6 +263,31 @@ export default function Sidebar() {
   const effectiveWidth     = effectiveCollapsed ? COLLAPSED_W : EXPANDED_W
   const showLabel          = !effectiveCollapsed
 
+  const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href))
+
+  // Render a single navigable item. `indented` nudges it right so children of
+  // a group read as a sub-level; when the sidebar is icon-only we skip the
+  // indent and rely on the flat icon list instead.
+  const renderLeaf = (item: NavLeaf, indented = false) => {
+    const active = isActive(item.href)
+    if (effectiveCollapsed) {
+      return <CollapsedNavLeaf key={item.href} item={item} label={t(item.key)} active={active} />
+    }
+    const Icon = item.icon
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={`flex items-center rounded-lg text-sm transition-colors gap-3 py-2.5 ${
+          indented ? 'pl-9 pr-3' : 'px-3'
+        } ${active ? 'bg-primary-soft text-primary font-semibold' : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
+      >
+        <Icon className="w-4 h-4 flex-shrink-0" />
+        {showLabel && <span className="truncate">{t(item.key)}</span>}
+      </Link>
+    )
+  }
+
   return (
     <>
       {/* Mobile hamburger — only visible on small screens.
@@ -139,7 +296,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center justify-center"
+        className="lg:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-zinc-200 text-zinc-700 shadow-sm flex items-center justify-center"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         aria-label={tSidebar('openMenu')}
       >
@@ -156,7 +313,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-screen bg-slate-900 flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
+        className={`fixed top-0 left-0 h-screen sidebar-frosted border-r border-zinc-200 flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0'
         }`}
         style={{
@@ -171,20 +328,20 @@ export default function Sidebar() {
         }}
       >
       {/* Logo + collapse toggle */}
-      <div className={`flex items-center border-b border-slate-800 ${effectiveCollapsed ? 'justify-center px-2 py-5' : 'gap-2.5 px-5 py-5'}`}>
-        <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0">
+      <div className={`flex items-center border-b border-zinc-200 ${effectiveCollapsed ? 'justify-center px-2 py-5' : 'gap-2.5 px-5 py-5'}`}>
+        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
           <Zap className="w-4 h-4 text-white" />
         </div>
         {showLabel && (
           <div className="min-w-0 flex-1">
-            <div className="text-white font-semibold text-sm leading-tight truncate">{t('appName')}</div>
-            <div className="text-slate-400 text-xs truncate">{t('appSubtitle')}</div>
+            <div className="text-zinc-900 font-semibold text-sm leading-tight truncate">{t('appName')}</div>
+            <div className="text-zinc-500 text-xs truncate">{t('appSubtitle')}</div>
           </div>
         )}
         {showLabel && !isMobile && (
           <button
             onClick={() => setCollapsed(true)}
-            className="w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex-shrink-0"
             title={tSidebar('collapse')}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -197,7 +354,7 @@ export default function Sidebar() {
       {effectiveCollapsed && (
         <button
           onClick={() => setCollapsed(false)}
-          className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center justify-center shadow-md"
+          className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex items-center justify-center shadow-md"
           title={tSidebar('expand')}
         >
           <ChevronRight className="w-3.5 h-3.5" />
@@ -209,7 +366,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center"
+          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
           aria-label={tSidebar('closeMenu')}
         >
           <X className="w-5 h-5" />
@@ -220,20 +377,47 @@ export default function Sidebar() {
           size so the bottom items (profile / logout) are always anchored at
           the visible bottom instead of being pushed off-screen. */}
       <nav className={`flex-1 min-h-0 py-4 space-y-0.5 overflow-y-auto scrollbar-thin ${effectiveCollapsed ? 'px-2' : 'px-3'}`}>
-        {NAV.map(({ href, key, icon: Icon }) => {
-          const active = href === '/' ? path === '/' : path.startsWith(href)
+        {NAV.map((item) => {
+          if (!isGroup(item)) return renderLeaf(item)
+
+          // Icon-only sidebar: render the group as one icon with a hover flyout.
+          if (effectiveCollapsed) {
+            return (
+              <CollapsedNavGroup
+                key={item.key}
+                item={item}
+                label={t(item.key)}
+                childLabel={(k) => t(k)}
+                isActive={isActive}
+              />
+            )
+          }
+
+          const GroupIcon     = item.icon
+          const hasActiveChild = item.children.some((c) => isActive(c.href))
+          const open = openGroups[item.key] ?? hasActiveChild
           return (
-            <Link
-              key={href}
-              href={href}
-              title={effectiveCollapsed ? t(key) : undefined}
-              className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
-                effectiveCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-              } ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-            >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {showLabel && <span className="truncate">{t(key)}</span>}
-            </Link>
+            <div key={item.key}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(item.key, !open)}
+                aria-expanded={open}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                  hasActiveChild
+                    ? 'bg-primary-soft text-primary font-semibold'
+                    : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+              >
+                <GroupIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate flex-1 text-left">{t(item.key)}</span>
+                <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+              </button>
+              {open && (
+                <div className="mt-0.5 space-y-0.5">
+                  {item.children.map((child) => renderLeaf(child, true))}
+                </div>
+              )}
+            </div>
           )
         })}
       </nav>
@@ -243,28 +427,33 @@ export default function Sidebar() {
         <LanguageSwitcher collapsed={effectiveCollapsed} />
       </div>
 
+      {/* Notifications */}
+      <div className={effectiveCollapsed ? 'px-2 pb-2' : 'px-3 pb-2'}>
+        <NotificationBell collapsed={effectiveCollapsed} />
+      </div>
+
       {/* Profile Button — shows the logged-in user's nickname + role */}
       <div className={effectiveCollapsed ? 'px-2 pb-2' : 'px-3 pb-2'}>
         <button
           onClick={() => setProfileOpen(true)}
           title={effectiveCollapsed ? (profile?.name ?? t('profile')) : undefined}
-          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800 w-full ${
+          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 w-full ${
             effectiveCollapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-2 py-2'
           }`}
         >
           {profile ? (
-            <span className="w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
+            <span className="w-7 h-7 rounded-full bg-primary text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
               {initialsOf(profile)}
             </span>
           ) : (
-            <UserCircle className="w-7 h-7 flex-shrink-0 text-slate-500" />
+            <UserCircle className="w-7 h-7 flex-shrink-0 text-zinc-400" />
           )}
           {showLabel && (
             <span className="min-w-0 flex-1 text-left">
-              <span className="block text-sm font-medium text-white truncate">
+              <span className="block text-sm font-medium text-zinc-900 truncate">
                 {profile?.name ?? t('profile')}
               </span>
-              <span className="block text-[10px] text-slate-400 truncate">
+              <span className="block text-[10px] text-zinc-500 truncate">
                 {profile
                   ? [profile.user_code, profile.role ? tRoles(profile.role) : null]
                       .filter(Boolean).join(' · ')
@@ -281,8 +470,8 @@ export default function Sidebar() {
       {/* Footer — hidden on mobile to save vertical room for the profile
           button above. */}
       {showLabel && !isMobile && (
-        <div className="px-5 py-4 border-t border-slate-800">
-          <div className="text-xs text-slate-600">v0.1.1</div>
+        <div className="px-5 py-4 border-t border-zinc-200">
+          <div className="text-xs text-zinc-400">v0.1.1</div>
         </div>
       )}
 

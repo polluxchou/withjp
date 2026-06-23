@@ -5,7 +5,7 @@
 // loads any required side data (e.g. the underlying saved view) and
 // passes a canonical shape in via `opts`.
 
-import type { Thread } from './types.ts'
+import type { Message, Thread } from './types.ts'
 
 export interface Actor {
   id:       string
@@ -98,4 +98,23 @@ export function canResolveThread(
 ): boolean {
   if (actor.is_admin) return true
   return thread.createdByUserId === actor.id
+}
+
+// Delete-message gate: only the user who sent the message. Intentionally
+// NOT including admin in v1 — admins can still soft-delete via the
+// Supabase Dashboard if needed; surfacing admin moderation through the
+// UI requires its own audit / abuse-prevention design.
+//
+// Agent and external messages are never user-deletable here. They have
+// no human author whose intent we can pin "I want this gone" to.
+//
+// Soft-deleted messages are filtered out at read time, so calling delete
+// on an already-deleted message is a no-op — the gate still returns the
+// same result; the service layer treats repeat deletes as idempotent.
+export function canDeleteMessage(
+  actor: Actor,
+  message: Pick<Message, 'senderType' | 'senderUserId'>,
+): boolean {
+  if (message.senderType !== 'user') return false
+  return message.senderUserId === actor.id
 }

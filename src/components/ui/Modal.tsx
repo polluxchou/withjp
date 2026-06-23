@@ -36,16 +36,16 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
-        className={`relative bg-white shadow-xl w-full ${width} max-h-[95vh] sm:max-h-[90vh] flex flex-col rounded-t-xl sm:rounded-xl`}
+        className={`relative bg-white shadow-xl w-full ${width} max-h-[95vh] sm:max-h-[90vh] flex flex-col rounded-t-card sm:rounded-card`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-zinc-100">
+          <h2 className="text-base font-semibold text-zinc-900">{title}</h2>
           <button
             type="button"
             aria-label={tCommon('close')}
             onClick={onClose}
-            className="-mr-1 w-9 h-9 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="-mr-1 w-9 h-9 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

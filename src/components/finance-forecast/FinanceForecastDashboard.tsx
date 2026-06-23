@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
+import { useCurrency } from '@/lib/currency'
 import {
   Area,
   Bar,
@@ -18,7 +19,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, ChevronRight, Lock } from 'lucide-react'
+import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, ChevronRight, Lock, Map as MapIcon } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { Link } from '@/i18n/navigation'
 import {
@@ -44,12 +45,12 @@ import {
 import { planLifecycleApplication } from '@/lib/finance-forecast/lifecycle-apply'
 
 const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
-  key:     '#6366f1',
+  key:     '#8b5cf6',
   mature:  '#10b981',
   growing: '#3b82f6',
   newbie:  '#f59e0b',
   test:    '#ec4899',
-  other:   '#64748b',
+  other:   '#71717a',
 }
 
 const CHART_TAB_KEYS = ['breakdown', 'cumulative', 'stacked', 'lines', 'indexed'] as const
@@ -101,6 +102,18 @@ export default function FinanceForecastDashboard({
   const [lifecycleEditorOpen, setLifecycleEditorOpen] = useState(false)
   const [addFromTemplateOpen, setAddFromTemplateOpen] = useState(false)
   const [lifecycleSet, setLifecycleSet] = useState<LifecycleTemplateSet | null>(null)
+
+  // ── Currency formatting ──────────────────────────────────────────────────
+  // Forecast amounts are stored in USD. The shared CurrencyContext uses CNY
+  // as its base unit, so we convert USD → CNY (× 7) before calling fmt().
+  const { fmt: fmtCurrency } = useCurrency()
+  const USD_TO_CNY = 7
+  const fmtForecast = useCallback(
+    (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true }),
+    [fmtCurrency],
+  )
+  // Alias kept for chart axis/tooltip call sites that pass fmtForecastCompact by name.
+  const fmtForecastCompact = fmtForecast
 
   const activeView = views.find((v) => v.id === activeViewId) ?? null
   const canEditActive = activeView ? (isAdmin || activeView.owner_id === currentUserId) : false
@@ -364,7 +377,7 @@ export default function FinanceForecastDashboard({
   const selectedCumulativeProfit = cumulativeData[safeSelectedMonth]?.cum_profit ?? 0
   const selectedCumulativeProfitColor = selectedCumulativeProfit >= 0 ? 'text-emerald-700' : 'text-red-600'
   const monthMarginColor = !selected || selected.margin_pct === null
-    ? 'text-slate-400'
+    ? 'text-zinc-400'
     : selected.margin_pct >= 0 ? 'text-emerald-700' : 'text-red-600'
 
   useEffect(() => {
@@ -600,11 +613,11 @@ export default function FinanceForecastDashboard({
         <>
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             {viewMenu}
-            <span className="text-sm text-slate-400">{t('noViewHint')}</span>
+            <span className="text-sm text-zinc-400">{t('noViewHint')}</span>
           </div>
-          <div className="bg-white border border-dashed border-slate-300 rounded-xl p-10 text-center">
-            <p className="text-sm text-slate-500 mb-2">{t('noViewEmpty')}</p>
-            <p className="text-xs text-slate-400">{t('noViewGuide')}</p>
+          <div className="bg-white border border-dashed border-zinc-300 rounded-xl p-10 text-center">
+            <p className="text-sm text-zinc-500 mb-2">{t('noViewEmpty')}</p>
+            <p className="text-xs text-zinc-400">{t('noViewGuide')}</p>
           </div>
         </>
       ) : (<>
@@ -655,21 +668,21 @@ export default function FinanceForecastDashboard({
               <>
                 <KpiCard
                   label={t('kpiYearForecast', { year: selectedYear })}
-                  value={formatUsd(summary.yearly_forecast_usd)}
+                  value={fmtForecast(summary.yearly_forecast_usd)}
                   sub={inputOpen ? t('kpiCollapseHint') : t('kpiExpandHint')}
                   onClick={() => setInputOpen((o) => !o)}
                   active={inputOpen}
                 />
                 <KpiCard
                   label={t('kpiYearBudget', { year: selectedYear })}
-                  value={formatUsd(summary.yearly_budget_usd)}
+                  value={fmtForecast(summary.yearly_budget_usd)}
                   sub={t('kpiYearBudgetSub')}
                   linkTo="/expenses"
                   linkLabel={t('goToExpenses')}
                 />
                 <KpiCard
                   label={t('kpiYearProfit', { year: selectedYear })}
-                  value={formatUsd(summary.yearly_profit_usd)}
+                  value={fmtForecast(summary.yearly_profit_usd)}
                   sub={summary.yearly_profit_usd >= 0 ? t('kpiProfitSurplus') : t('kpiProfitLoss')}
                   valueClassName={yearlyProfitColor}
                 />
@@ -683,7 +696,7 @@ export default function FinanceForecastDashboard({
                   label={t('kpiBreakeven')}
                   value={breakevenMonth ? (monthLabels[parseInt(breakevenMonth.slice(5), 10) - 1] ?? breakevenMonth.slice(5)) : '—'}
                   sub={breakevenMonth ? t('kpiBreakevenPositive') : t('kpiBreakevenNegative')}
-                  valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-slate-400'}
+                  valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-zinc-400'}
                 />
                 <KpiCard
                   label={t('kpiMonthMargin')}
@@ -696,27 +709,27 @@ export default function FinanceForecastDashboard({
               <>
                 <KpiCard
                   label={t('kpiMonthForecast')}
-                  value={selected ? formatUsd(selected.forecast_revenue_usd) : '—'}
+                  value={selected ? fmtForecast(selected.forecast_revenue_usd) : '—'}
                   sub={inputOpen ? t('kpiCollapseHint') : t('kpiExpandHint')}
                   onClick={() => setInputOpen((o) => !o)}
                   active={inputOpen}
                 />
                 <KpiCard
                   label={t('kpiMonthBudget')}
-                  value={selected ? formatUsd(selected.budget_cost_usd) : '—'}
+                  value={selected ? fmtForecast(selected.budget_cost_usd) : '—'}
                   sub={t('kpiYearBudgetSub')}
                   linkTo="/expenses"
                   linkLabel={t('goToExpenses')}
                 />
                 <KpiCard
                   label={t('kpiMonthProfit')}
-                  value={selected ? formatUsd(selected.profit_usd) : '—'}
+                  value={selected ? fmtForecast(selected.profit_usd) : '—'}
                   sub={selected && selected.profit_usd >= 0 ? t('kpiMonthProfitSurplus') : t('kpiMonthProfitLoss')}
                   valueClassName={selectedProfitColor}
                 />
                 <KpiCard
                   label={t('kpiMonthCumProfit')}
-                  value={formatUsd(monthCumProfit)}
+                  value={fmtForecast(monthCumProfit)}
                   sub={selected ? t('kpiMonthCumProfitSub', { month: selected.month }) : ''}
                   valueClassName={monthCumProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}
                 />
@@ -740,10 +753,10 @@ export default function FinanceForecastDashboard({
                   }
                   valueClassName={
                     monthsUntilBreakeven === null
-                      ? 'text-slate-400'
+                      ? 'text-zinc-400'
                       : monthsUntilBreakeven <= 0
                         ? 'text-emerald-700'
-                        : 'text-slate-900'
+                        : 'text-zinc-900'
                   }
                 />
                 <KpiCard
@@ -756,22 +769,24 @@ export default function FinanceForecastDashboard({
             )}
           </div>
 
-          <section className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
-            <div className={`flex items-center justify-between gap-4 px-5 py-3.5 ${inputOpen ? 'border-b border-slate-100' : ''}`}>
+          <CostPlanningLinks />
+
+          <section className="bg-white border border-zinc-200 rounded-xl overflow-hidden mb-4">
+            <div className={`flex items-center justify-between gap-4 px-5 py-3.5 ${inputOpen ? 'border-b border-zinc-100' : ''}`}>
               <div className="flex items-center gap-2 min-w-0">
                 <h2 className="flex items-baseline gap-1.5 shrink-0">
-                  <span className="text-xl font-bold text-slate-900 tabular-nums tracking-tight">
+                  <span className="text-xl font-bold text-zinc-900 tabular-nums tracking-tight">
                     {selected?.month.slice(0, 4) ?? selectedYear}
                   </span>
                   {!showYearView && (
                     <>
-                      <span className="text-xl font-bold text-slate-300">·</span>
-                      <span className="text-xl font-bold text-indigo-600 tabular-nums tracking-tight">
+                      <span className="text-xl font-bold text-zinc-300">·</span>
+                      <span className="text-xl font-bold text-primary tabular-nums tracking-tight">
                         {selectedMonthLabel}
                       </span>
                     </>
                   )}
-                  <span className="text-sm font-medium text-slate-500 ml-1.5">{t('revenueTitle')}</span>
+                  <span className="text-sm font-medium text-zinc-500 ml-1.5">{t('revenueTitle')}</span>
                 </h2>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -788,7 +803,7 @@ export default function FinanceForecastDashboard({
                   type="button"
                   onClick={() => setInputOpen((o) => !o)}
                   aria-label={inputOpen ? t('ariaCollapse') : t('ariaExpand')}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
                 >
                   <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${inputOpen ? '' : '-rotate-90'}`} />
                 </button>
@@ -812,8 +827,8 @@ export default function FinanceForecastDashboard({
                               onClick={() => { setShowYearView(false); setSelectedMonth(index) }}
                               className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                                 active
-                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                                  ? 'bg-primary text-white border-primary shadow-sm'
+                                  : 'bg-white text-zinc-600 border-zinc-200 hover:border-violet-300 hover:text-primary'
                               }`}
                             >
                               {label}
@@ -826,8 +841,8 @@ export default function FinanceForecastDashboard({
                         onClick={() => setShowYearView((v) => !v)}
                         className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
                           showYearView
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                            ? 'bg-primary text-white border-primary shadow-sm'
+                            : 'bg-white text-zinc-600 border-zinc-200 hover:border-violet-300 hover:text-primary'
                         }`}
                       >
                         {t('allYear')}
@@ -840,21 +855,21 @@ export default function FinanceForecastDashboard({
                           type="button"
                           onClick={copyPreviousMonth}
                           disabled={safeSelectedMonth === 0}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-600 hover:border-violet-300 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Copy className="w-3 h-3" /> {t('copyPrevMonth')}
                         </button>
                         <button
                           type="button"
                           onClick={applyForward}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-600 hover:border-violet-300 hover:text-primary transition-colors"
                         >
                           <Copy className="w-3 h-3" /> {t('applyForward')}
                         </button>
                         <button
                           type="button"
                           onClick={clearMonth}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
                         >
                           <RotateCcw className="w-3 h-3" /> {t('clearMonth')}
                         </button>
@@ -873,11 +888,11 @@ export default function FinanceForecastDashboard({
                     </Field>
                     <Field label={t('budgetSyncLabel')}>
                       <input
-                        value={formatUsd(selectedRaw.budget_cost_usd)}
+                        value={fmtForecast(selectedRaw.budget_cost_usd)}
                         readOnly
-                        className="w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                        className="w-full min-h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500"
                       />
-                      <div className="text-xs text-indigo-600 font-medium mt-1">{t('budgetSyncNote')}</div>
+                      <div className="text-xs text-primary font-medium mt-1">{t('budgetSyncNote')}</div>
                     </Field>
                     <Field label={t('noteLabel')}>
                       <input
@@ -885,8 +900,8 @@ export default function FinanceForecastDashboard({
                         onChange={(event) => updateSelectedMonth({ note: event.target.value })}
                         readOnly={!canEditActive}
                         className={!canEditActive
-                          ? 'w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500'
-                          : 'w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'}
+                          ? 'w-full min-h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500'
+                          : 'w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'}
                       />
                     </Field>
                   </div>}
@@ -899,33 +914,33 @@ export default function FinanceForecastDashboard({
                     <div className="overflow-x-auto">
                   <table className="w-full text-sm min-w-[1120px]">
                     <thead>
-                      <tr className="border-y border-slate-100 bg-slate-50">
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colAccount')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colType')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colLiveDays')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colAvgHours')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colRevPerMin')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colShareRatio')}</th>
-                        <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('colMonthRevenue')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('colStatus')}</th>
+                      <tr className="border-y border-zinc-100 bg-zinc-50">
+                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colAccount')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colType')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colLiveDays')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colAvgHours')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colRevPerMin')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colShareRatio')}</th>
+                        <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('colMonthRevenue')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colStatus')}</th>
                         <th />
                       </tr>
                     </thead>
                     <tbody>
                       {(!selectedRaw || selectedRaw.rows.length === 0) ? (
                         <tr>
-                          <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
+                          <td colSpan={9} className="px-4 py-10 text-center text-sm text-zinc-400">
                             {t('emptyMonth')}
                           </td>
                         </tr>
                       ) : calculatedRows.map((row, index) => (
-                        <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <tr key={row.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
                           <td className="px-4 py-3">
                             <input
                               value={row.account_name}
                               onChange={(event) => updateRow(index, { account_name: event.target.value })}
                               readOnly={!canEditActive}
-                              className={!canEditActive ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed` : INPUT_CLASS}
+                              className={!canEditActive ? `${INPUT_CLASS} bg-zinc-50 text-zinc-500 cursor-not-allowed` : INPUT_CLASS}
                             />
                           </td>
                           <td className="px-4 py-3">
@@ -933,7 +948,7 @@ export default function FinanceForecastDashboard({
                               value={row.account_type}
                               onChange={(event) => updateRow(index, { account_type: event.target.value as ForecastAccountType })}
                               disabled={!canEditActive}
-                              className={!canEditActive ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed` : INPUT_CLASS}
+                              className={!canEditActive ? `${INPUT_CLASS} bg-zinc-50 text-zinc-500 cursor-not-allowed` : INPUT_CLASS}
                             >
                               {FORECAST_ACCOUNT_TYPES.map((type) => (
                                 <option key={type} value={type}>{accountTypeLabels[type]}</option>
@@ -952,7 +967,7 @@ export default function FinanceForecastDashboard({
                           <td className="px-4 py-3">
                             <NumberInput disabled={!canEditActive} value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} step={0.1} max={100} />
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-slate-900 whitespace-nowrap tabular-nums bg-slate-50/70 border-l border-slate-100">{formatUsd(row.monthly_revenue_usd)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-zinc-900 whitespace-nowrap tabular-nums bg-zinc-50/70 border-l border-zinc-100">{fmtForecast(row.monthly_revenue_usd)}</td>
                           <td className="px-4 py-3">
                             <StatusBadge revenue={row.monthly_revenue_usd} />
                           </td>
@@ -972,7 +987,7 @@ export default function FinanceForecastDashboard({
                   </table>
                 </div>
 
-                    <div className="m-5 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800">
+                    <div className="m-5 rounded-xl border border-dashed border-violet-200 bg-primary-soft/60 px-4 py-3 text-sm text-violet-800">
                       {t('formula')}
                     </div>
                   </>
@@ -982,11 +997,11 @@ export default function FinanceForecastDashboard({
           </section>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <div className="bg-white border border-zinc-200 rounded-xl p-5">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-900">{t('chartTitle', { year: selectedYear })}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h2 className="text-sm font-semibold text-zinc-900">{t('chartTitle', { year: selectedYear })}</h2>
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     {chartMode === 'breakdown'
                       ? t('chartDescBreakdown')
                       : chartMode === 'cumulative'
@@ -994,14 +1009,14 @@ export default function FinanceForecastDashboard({
                       : t('chartDescOther')}
                   </p>
                 </div>
-                <div className="flex gap-1 bg-slate-100 rounded-lg p-0.5">
+                <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
                   {CHART_TAB_KEYS.map((key) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => setChartMode(key)}
                       className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        chartMode === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        chartMode === key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
                       }`}
                     >
                       {chartTabLabels[key]}
@@ -1014,12 +1029,12 @@ export default function FinanceForecastDashboard({
                 {chartMode === 'breakdown' ? (
                   <ComposedChart data={breakdownData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      tick={{ fontSize: 11, fill: '#a1a1aa' }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={formatUsdCompact}
+                      tickFormatter={fmtForecastCompact}
                       width={56}
                     />
                     <Tooltip
@@ -1035,20 +1050,20 @@ export default function FinanceForecastDashboard({
                         const profitColor = profit >= 0 ? '#10b981' : '#e11d48'
                         const profitWord  = profit >= 0 ? t('tooltipProfit') : t('tooltipLoss')
                         return (
-                          <div className="bg-white border border-slate-200 rounded-lg shadow-md p-2.5 text-xs min-w-[180px]">
-                            <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
+                          <div className="bg-white border border-zinc-200 rounded-lg shadow-md p-2.5 text-xs min-w-[180px]">
+                            <p className="font-semibold text-zinc-700 mb-1.5">{label}</p>
                             <p className="flex items-center justify-between gap-3">
-                              <span className="text-slate-500">{t('tooltipRevenue')}</span>
-                              <span className="font-medium text-slate-900 tabular-nums">{formatUsd(revenue)}</span>
+                              <span className="text-zinc-500">{t('tooltipRevenue')}</span>
+                              <span className="font-medium text-zinc-900 tabular-nums">{fmtForecast(revenue)}</span>
                             </p>
                             <p className="flex items-center justify-between gap-3">
-                              <span className="text-slate-500">{t('tooltipCost')}</span>
-                              <span className="font-medium text-slate-900 tabular-nums">{formatUsd(cost)}</span>
+                              <span className="text-zinc-500">{t('tooltipCost')}</span>
+                              <span className="font-medium text-zinc-900 tabular-nums">{fmtForecast(cost)}</span>
                             </p>
-                            <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-slate-100">
-                              <span className="text-slate-500">{profitWord}</span>
+                            <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-zinc-100">
+                              <span className="text-zinc-500">{profitWord}</span>
                               <span className="font-bold tabular-nums" style={{ color: profitColor }}>
-                                {formatUsd(profit)}
+                                {fmtForecast(profit)}
                               </span>
                             </p>
                           </div>
@@ -1058,23 +1073,23 @@ export default function FinanceForecastDashboard({
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
                     <Bar dataKey="revenue" name={t('legendRevenue')} fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                    <Bar dataKey="cost"    name={t('legendCost')}    fill="#94a3b8" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="cost"    name={t('legendCost')}    fill="#a1a1aa" radius={[4, 4, 0, 0]} maxBarSize={32} />
                     <Line
                       type="monotone"
                       dataKey="profit"
                       name={t('legendProfitLine')}
-                      stroke="#6366f1"
+                      stroke="#8b5cf6"
                       strokeWidth={2.5}
-                      dot={{ fill: '#6366f1', r: 3 }}
+                      dot={{ fill: '#8b5cf6', r: 3 }}
                       activeDot={{ r: 5 }}
                     />
                   </ComposedChart>
                 ) : chartMode === 'stacked' ? (
                   <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={formatUsdCompact} width={56} />
-                    <Tooltip formatter={(value) => formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
+                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
                       <Area
@@ -1094,9 +1109,9 @@ export default function FinanceForecastDashboard({
                 ) : chartMode === 'cumulative' ? (
                   <ComposedChart data={cumulativeData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={formatUsdCompact} width={56} />
-                    <Tooltip formatter={(value) => formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
+                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
                     {breakevenIndex >= 0 && (
@@ -1111,8 +1126,8 @@ export default function FinanceForecastDashboard({
                       type="monotone"
                       dataKey="cum_profit"
                       name={t('legendCumProfit')}
-                      stroke="#6366f1"
-                      fill="#6366f1"
+                      stroke="#8b5cf6"
+                      fill="#8b5cf6"
                       fillOpacity={0.18}
                       strokeWidth={2}
                     />
@@ -1122,15 +1137,15 @@ export default function FinanceForecastDashboard({
                 ) : (
                   <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      tick={{ fontSize: 11, fill: '#a1a1aa' }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={chartMode === 'indexed' ? (v) => `${Number(v).toFixed(0)}` : formatUsdCompact}
+                      tickFormatter={chartMode === 'indexed' ? (v) => `${Number(v).toFixed(0)}` : fmtForecastCompact}
                       width={56}
                     />
-                    <Tooltip formatter={(value) => chartMode === 'indexed' ? Number(value).toFixed(0) : formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <Tooltip formatter={(value) => chartMode === 'indexed' ? Number(value).toFixed(0) : fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
                       <Line
@@ -1154,30 +1169,30 @@ export default function FinanceForecastDashboard({
               </ResponsiveContainer>
             </div>
 
-            <aside className="bg-white border border-slate-200 rounded-xl p-5">
+            <aside className="bg-white border border-zinc-200 rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-sm font-semibold text-slate-900">{t('typeContribTitle', { year: selectedYear })}</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">{t('typeContribSub')}</p>
+                  <h2 className="text-sm font-semibold text-zinc-900">{t('typeContribTitle', { year: selectedYear })}</h2>
+                  <p className="text-xs text-zinc-500 mt-0.5">{t('typeContribSub')}</p>
                 </div>
               </div>
               <div className="space-y-1">
                 {FORECAST_ACCOUNT_TYPES.map((type) => (
-                  <div key={type} className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 border-b border-slate-50 last:border-0">
+                  <div key={type} className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 border-b border-zinc-50 last:border-0">
                     <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: ACCOUNT_TYPE_COLORS[type] }} />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-700">{accountTypeLabels[type]}</div>
-                      <div className="text-xs text-slate-400">{accountTypeNotes[type]}</div>
+                      <div className="text-xs font-semibold text-zinc-700">{accountTypeLabels[type]}</div>
+                      <div className="text-xs text-zinc-400">{accountTypeNotes[type]}</div>
                     </div>
-                    <div className="text-xs font-semibold text-slate-900">{formatUsd(summary.by_account_type[type] || 0)}</div>
+                    <div className="text-xs font-semibold text-zinc-900">{fmtForecast(summary.by_account_type[type] || 0)}</div>
                   </div>
                 ))}
               </div>
 
               <div className="mt-5 space-y-3">
-                <SideStat label={t('sideMonthForecast')} value={formatUsd(selected?.forecast_revenue_usd ?? 0)} />
-                <SideStat label={t('sideMonthBudget')}   value={formatUsd(selected?.budget_cost_usd ?? 0)} />
-                <SideStat label={t('sideMonthProfit')}   value={formatUsd(selected?.profit_usd ?? 0)} valueClassName={selectedProfitColor} />
+                <SideStat label={t('sideMonthForecast')} value={fmtForecast(selected?.forecast_revenue_usd ?? 0)} />
+                <SideStat label={t('sideMonthBudget')}   value={fmtForecast(selected?.budget_cost_usd ?? 0)} />
+                <SideStat label={t('sideMonthProfit')}   value={fmtForecast(selected?.profit_usd ?? 0)} valueClassName={selectedProfitColor} />
               </div>
             </aside>
           </div>
@@ -1251,10 +1266,10 @@ function AddFromTemplateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-lg p-5">
-        <h2 className="text-base font-bold text-slate-900 mb-1">{t('templateModalTitle')}</h2>
-        <p className="text-xs text-slate-500 mb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
+      <div className="bg-white rounded-xl border border-zinc-200 shadow-xl w-full max-w-lg p-5">
+        <h2 className="text-base font-bold text-zinc-900 mb-1">{t('templateModalTitle')}</h2>
+        <p className="text-xs text-zinc-500 mb-4">
           {t('templateModalDesc', {
             startLabel,
             startYear: horizonYears[0],
@@ -1263,22 +1278,22 @@ function AddFromTemplateModal({
         </p>
 
         <label className="block mb-3">
-          <span className="block text-xs font-medium text-slate-700 mb-1">{t('templateAccountLabel')}</span>
+          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('templateAccountLabel')}</span>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('templateAccountPlaceholder')}
-            className="w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
         </label>
 
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-slate-700">{t('templateStageLabel')}</span>
+          <span className="text-xs font-medium text-zinc-700">{t('templateStageLabel')}</span>
           <button
             type="button"
             onClick={onOpenEditor}
-            className="text-[11px] text-indigo-600 hover:text-indigo-700"
+            className="text-[11px] text-primary hover:text-primary-hover"
           >
             {t('templateEditLink')}
           </button>
@@ -1291,12 +1306,12 @@ function AddFromTemplateModal({
               onClick={() => setStage(s)}
               className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors text-left ${
                 s === stage
-                  ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                  : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300'
+                  ? 'bg-primary-soft border-violet-300 text-primary'
+                  : 'bg-white border-zinc-200 text-zinc-700 hover:border-violet-300'
               }`}
             >
               <span>{t('templateStageFrom', { stage: stageLabels[s] })}</span>
-              <span className="text-[10px] font-normal text-slate-400 tabular-nums">{describeTemplate(s)}</span>
+              <span className="text-[10px] font-normal text-zinc-400 tabular-nums">{describeTemplate(s)}</span>
             </button>
           ))}
         </div>
@@ -1352,7 +1367,7 @@ function ViewModeToolbar({
     : saveStatus === 'saved'  ? savedLabel
     : saveStatus === 'error'  ? errorLabel
     : ''
-  const statusClass = loading ? 'text-slate-500' : saveStatusClass(saveStatus)
+  const statusClass = loading ? 'text-zinc-500' : saveStatusClass(saveStatus)
 
   return (
     <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -1434,8 +1449,8 @@ function ViewScopeSelector({
         aria-haspopup="menu"
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
           open
-            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+            ? 'bg-primary text-white border-primary shadow-sm'
+            : 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-300 hover:text-primary'
         }`}
       >
         <span className="text-[10px] font-medium uppercase tracking-wider opacity-80">{t('viewLabel')}</span>
@@ -1447,7 +1462,7 @@ function ViewScopeSelector({
         <div
           ref={popoverRef}
           role="menu"
-          className="absolute top-full left-0 mt-2 min-w-[180px] bg-white border border-slate-200 rounded-xl shadow-xl z-40 p-1"
+          className="absolute top-full left-0 mt-2 min-w-[180px] bg-white border border-zinc-200 rounded-xl shadow-xl z-40 p-1"
         >
           <ScopeOption
             label={t('annualView')}
@@ -1455,7 +1470,7 @@ function ViewScopeSelector({
             active={viewMode === 'annual'}
             onClick={pickAnnual}
           />
-          <div className="my-1 border-t border-slate-100" />
+          <div className="my-1 border-t border-zinc-100" />
           {years.map((year) => (
             <ScopeOption
               key={year}
@@ -1490,12 +1505,12 @@ function ScopeOption({
       onClick={onClick}
       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-between gap-3 ${
         active
-          ? 'bg-indigo-50 text-indigo-700'
-          : 'text-slate-700 hover:bg-slate-50'
+          ? 'bg-primary-soft text-primary'
+          : 'text-zinc-700 hover:bg-zinc-50'
       }`}
     >
       <span className="tabular-nums">{label}</span>
-      <span className={`text-[10px] font-normal ${active ? 'text-indigo-500' : 'text-slate-400'}`}>{sub}</span>
+      <span className={`text-[10px] font-normal ${active ? 'text-violet-500' : 'text-zinc-400'}`}>{sub}</span>
     </button>
   )
 }
@@ -1520,6 +1535,10 @@ function AnnualOverview({
   monthLabels:   string[]
 }) {
   const t = useTranslations('financeForecast')
+  const { fmt: fmtCurrency } = useCurrency()
+  const USD_TO_CNY = 7
+  const fmtForecast        = (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true })
+  const fmtForecastCompact = fmtForecast
   const aggregateProfitColor = aggregate.profit >= 0 ? 'text-emerald-700' : 'text-red-600'
   const aggregateMarginColor = aggregate.margin >= 0 ? 'text-emerald-700' : 'text-red-600'
 
@@ -1528,19 +1547,19 @@ function AnnualOverview({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
         <KpiCard
           label={t('annualForecastTotal')}
-          value={formatUsd(aggregate.forecast)}
+          value={fmtForecast(aggregate.forecast)}
           sub={`${years[0]}–${years[years.length - 1]}`}
         />
         <KpiCard
           label={t('annualBudgetTotal')}
-          value={formatUsd(aggregate.budget)}
+          value={fmtForecast(aggregate.budget)}
           sub={t('annualBudgetSub')}
           linkTo="/expenses"
           linkLabel={t('goToExpenses')}
         />
         <KpiCard
           label={t('annualProfitTotal')}
-          value={formatUsd(aggregate.profit)}
+          value={fmtForecast(aggregate.profit)}
           sub={aggregate.profit >= 0 ? t('annualProfitSurplus') : t('annualProfitLoss')}
           valueClassName={aggregateProfitColor}
         />
@@ -1551,6 +1570,8 @@ function AnnualOverview({
           valueClassName={aggregateMarginColor}
         />
       </div>
+
+      <CostPlanningLinks />
 
       <div className="space-y-3 mb-4">
         {years.map((year) => {
@@ -1583,30 +1604,30 @@ function AnnualOverview({
               key={year}
               type="button"
               onClick={() => onDrillDown(year)}
-              className="w-full text-left bg-white border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-sm transition-all group"
+              className="w-full text-left bg-white border border-zinc-200 rounded-xl p-5 hover:border-violet-300 hover:shadow-sm transition-all group"
             >
               <div className="flex items-baseline justify-between mb-4">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold tabular-nums text-slate-900">{year}</span>
+                  <span className="text-2xl font-bold tabular-nums text-zinc-900">{year}</span>
                   {isCurrent && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary-soft text-primary">
                       {t('currentYearBadge')}
                     </span>
                   )}
-                  <span className="text-xs text-slate-400 ml-1">
+                  <span className="text-xs text-zinc-400 ml-1">
                     {t('configuredMonths', { count: configuredMonths })}
                   </span>
                 </div>
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
                   {t('editMonthly')} <ChevronRight className="w-3.5 h-3.5" />
                 </span>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-x-4 gap-y-3">
-                <YearStat label={t('annualForecastRevenue')} value={formatUsd(summary.yearly_forecast_usd)} />
-                <YearStat label={t('annualActualRevenue')}   value={summary.yearly_actual_usd > 0 ? formatUsd(summary.yearly_actual_usd) : '—'} />
-                <YearStat label={t('annualBudgetCost')}      value={formatUsd(summary.yearly_budget_usd)} />
-                <YearStat label={t('annualForecastProfit')}  value={formatUsd(summary.yearly_profit_usd)} valueClassName={profitColor} />
+                <YearStat label={t('annualForecastRevenue')} value={fmtForecast(summary.yearly_forecast_usd)} />
+                <YearStat label={t('annualActualRevenue')}   value={summary.yearly_actual_usd > 0 ? fmtForecast(summary.yearly_actual_usd) : '—'} />
+                <YearStat label={t('annualBudgetCost')}      value={fmtForecast(summary.yearly_budget_usd)} />
+                <YearStat label={t('annualForecastProfit')}  value={fmtForecast(summary.yearly_profit_usd)} valueClassName={profitColor} />
                 <YearStat
                   label={t('annualMarginBreakeven')}
                   value={`${Math.round(margin)}%${breakevenLabel}`}
@@ -1618,17 +1639,17 @@ function AnnualOverview({
         })}
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
-        <h2 className="text-sm font-semibold text-slate-900 mb-1">{t('annualChartTitle')}</h2>
-        <p className="text-xs text-slate-500 mb-4">{t('annualChartSub')}</p>
+      <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-4">
+        <h2 className="text-sm font-semibold text-zinc-900 mb-1">{t('annualChartTitle')}</h2>
+        <p className="text-xs text-zinc-500 mb-4">{t('annualChartSub')}</p>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={formatUsdCompact} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={56} />
-            <Tooltip formatter={(value) => formatUsd(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#71717a' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={fmtForecastCompact} tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} width={56} />
+            <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="forecast" name={t('chartForecast')} fill="#6366f1" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="forecast" name={t('chartForecast')} fill="#8b5cf6" radius={[4, 4, 0, 0]} />
             <Bar dataKey="actual"   name={t('chartActual')}   fill="#10b981" radius={[4, 4, 0, 0]} />
             <Bar dataKey="budget"   name={t('chartBudget')}   fill="#f59e0b" radius={[4, 4, 0, 0]} />
             <Bar dataKey="profit"   name={t('chartProfit')}   fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -1642,7 +1663,7 @@ function AnnualOverview({
 function YearStat({
   label,
   value,
-  valueClassName = 'text-slate-900',
+  valueClassName = 'text-zinc-900',
 }: {
   label: string
   value: string
@@ -1650,7 +1671,7 @@ function YearStat({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate" title={label}>
+      <p className="text-[10px] sm:text-xs text-zinc-500 font-medium uppercase tracking-wide truncate" title={label}>
         {label}
       </p>
       <p className={`text-base sm:text-lg font-bold tabular-nums truncate mt-0.5 ${valueClassName}`} title={value}>
@@ -1670,6 +1691,9 @@ function YearSummaryTable({
   monthLabels: string[]
 }) {
   const t = useTranslations('financeForecast')
+  const { fmt: fmtCurrency } = useCurrency()
+  const USD_TO_CNY = 7
+  const fmtForecast = (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true })
   const configured = months
     .map((m, index) => ({ ...m, index }))
     .filter((m) => m.rows.length > 0)
@@ -1681,7 +1705,7 @@ function YearSummaryTable({
 
   if (configured.length === 0) {
     return (
-      <div className="px-5 pb-8 pt-2 text-center text-sm text-slate-400">
+      <div className="px-5 pb-8 pt-2 text-center text-sm text-zinc-400">
         {t('yearTableEmpty')}
       </div>
     )
@@ -1691,13 +1715,13 @@ function YearSummaryTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-y border-slate-100 bg-slate-50">
-            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('yearColMonth')}</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-slate-500">{t('yearColAccounts')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('yearColForecast')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('yearColActual')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('yearColBudget')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-slate-500">{t('yearColProfit')}</th>
+          <tr className="border-y border-zinc-100 bg-zinc-50">
+            <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColMonth')}</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColAccounts')}</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColForecast')}</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColActual')}</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColBudget')}</th>
+            <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColProfit')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1708,52 +1732,52 @@ function YearSummaryTable({
             return (
               <tr
                 key={m.month}
-                className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
+                className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors cursor-pointer"
                 onClick={() => onSelectMonth(m.index)}
                 title={t('yearClickHint')}
               >
-                <td className="px-4 py-3 font-semibold text-slate-900 tabular-nums">
+                <td className="px-4 py-3 font-semibold text-zinc-900 tabular-nums">
                   {monthLabel}
                   {m.note && (
-                    <span className="ml-2 text-xs font-normal text-slate-400">{m.note}</span>
+                    <span className="ml-2 text-xs font-normal text-zinc-400">{m.note}</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-slate-500">
+                <td className="px-4 py-3 text-zinc-500">
                   {m.rows.map((r) => r.account_name).join('、')}
                 </td>
-                <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">
-                  {formatUsd(m.forecast_revenue_usd)}
+                <td className="px-4 py-3 text-right font-semibold text-zinc-900 tabular-nums">
+                  {fmtForecast(m.forecast_revenue_usd)}
                 </td>
-                <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
-                  {m.actual_revenue_usd > 0 ? formatUsd(m.actual_revenue_usd) : '—'}
+                <td className="px-4 py-3 text-right text-zinc-500 tabular-nums">
+                  {m.actual_revenue_usd > 0 ? fmtForecast(m.actual_revenue_usd) : '—'}
                 </td>
-                <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
-                  {formatUsd(m.budget_cost_usd)}
+                <td className="px-4 py-3 text-right text-zinc-500 tabular-nums">
+                  {fmtForecast(m.budget_cost_usd)}
                 </td>
                 <td className={`px-4 py-3 text-right font-semibold tabular-nums ${profitColor}`}>
-                  {formatUsd(m.profit_usd)}
+                  {fmtForecast(m.profit_usd)}
                 </td>
               </tr>
             )
           })}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-slate-200 bg-slate-50">
-            <td className="px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wide">
+          <tr className="border-t-2 border-zinc-200 bg-zinc-50">
+            <td className="px-4 py-3 text-xs font-bold text-zinc-700 uppercase tracking-wide">
               {t('yearTotal')}
             </td>
-            <td className="px-4 py-3 text-xs text-slate-400">{t('yearTotalMonths', { count: configured.length })}</td>
-            <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums text-base">
-              {formatUsd(totalForecast)}
+            <td className="px-4 py-3 text-xs text-zinc-400">{t('yearTotalMonths', { count: configured.length })}</td>
+            <td className="px-4 py-3 text-right font-bold text-zinc-900 tabular-nums text-base">
+              {fmtForecast(totalForecast)}
             </td>
-            <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
-              {totalActual > 0 ? formatUsd(totalActual) : '—'}
+            <td className="px-4 py-3 text-right font-bold text-zinc-700 tabular-nums">
+              {totalActual > 0 ? fmtForecast(totalActual) : '—'}
             </td>
-            <td className="px-4 py-3 text-right font-bold text-slate-700 tabular-nums">
-              {formatUsd(totalBudget)}
+            <td className="px-4 py-3 text-right font-bold text-zinc-700 tabular-nums">
+              {fmtForecast(totalBudget)}
             </td>
             <td className={`px-4 py-3 text-right font-bold tabular-nums text-base ${totalProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-              {formatUsd(totalProfit)}
+              {fmtForecast(totalProfit)}
             </td>
           </tr>
         </tfoot>
@@ -1801,7 +1825,7 @@ function hasForecastInputs(months: ForecastMonthInput[]): boolean {
 function saveStatusClass(status: SaveStatus): string {
   if (status === 'saved') return 'text-emerald-600'
   if (status === 'error') return 'text-red-500'
-  if (status === 'saving') return 'text-slate-500'
+  if (status === 'saving') return 'text-zinc-500'
   return 'text-transparent'
 }
 
@@ -1809,7 +1833,7 @@ function KpiCard({
   label,
   value,
   sub,
-  valueClassName = 'text-slate-900',
+  valueClassName = 'text-zinc-900',
   onClick,
   active,
   linkTo,
@@ -1835,8 +1859,8 @@ function KpiCard({
         interactive ? 'cursor-pointer hover:shadow-sm' : ''
       } ${
         active
-          ? 'border-indigo-400 ring-2 ring-indigo-50 shadow-sm'
-          : interactive ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200'
+          ? 'border-violet-400 ring-2 ring-violet-50 shadow-sm'
+          : interactive ? 'border-zinc-200 hover:border-violet-200' : 'border-zinc-200'
       }`}
     >
       {linkTo && (
@@ -1845,19 +1869,19 @@ function KpiCard({
           title={linkLabel}
           aria-label={linkLabel}
           onClick={(e) => e.stopPropagation()}
-          className="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+          className="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-primary hover:bg-primary-soft transition-colors"
         >
           <ArrowUpRight className="w-4 h-4" />
         </Link>
       )}
       {interactive && !linkTo && (
         <ChevronDown
-          className={`absolute top-3 right-3 w-4 h-4 transition-transform duration-200 ${active ? 'text-indigo-500 rotate-0' : 'text-slate-400 -rotate-90'}`}
+          className={`absolute top-3 right-3 w-4 h-4 transition-transform duration-200 ${active ? 'text-violet-500 rotate-0' : 'text-zinc-400 -rotate-90'}`}
         />
       )}
 
       <p
-        className={`text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide truncate ${interactive || linkTo ? 'pr-6' : ''}`}
+        className={`text-[10px] sm:text-xs text-zinc-500 font-medium uppercase tracking-wide truncate ${interactive || linkTo ? 'pr-6' : ''}`}
         title={label}
       >
         {label}
@@ -1868,7 +1892,30 @@ function KpiCard({
       >
         {value}
       </p>
-      <p className="text-[10px] sm:text-xs text-slate-400 mt-1 truncate" title={sub}>{sub}</p>
+      <p className="text-[10px] sm:text-xs text-zinc-400 mt-1 truncate" title={sub}>{sub}</p>
+    </div>
+  )
+}
+
+function CostPlanningLinks() {
+  const t = useTranslations('financeForecast')
+  return (
+    <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 flex items-center gap-3">
+        <span className="w-9 h-9 rounded-lg bg-white text-indigo-600 border border-indigo-100 inline-flex items-center justify-center flex-shrink-0">
+          <MapIcon className="w-4 h-4" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-slate-900">{t('venueEntryTitle')}</span>
+          <span className="block text-xs text-slate-500 truncate">{t('venueEntryBody')}</span>
+        </span>
+      </div>
+      <Link
+        href="/guild-venue"
+        className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-indigo-200 bg-white px-3 text-sm font-medium text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50 transition-colors flex-shrink-0"
+      >
+        {t('goToVenue')} <ArrowUpRight className="w-4 h-4" />
+      </Link>
     </div>
   )
 }
@@ -1876,16 +1923,16 @@ function KpiCard({
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="block text-xs font-medium text-slate-700 mb-1">{label}</span>
+      <span className="block text-xs font-medium text-zinc-700 mb-1">{label}</span>
       {children}
     </label>
   )
 }
 
-function SideStat({ label, value, valueClassName = 'text-slate-900' }: { label: string; value: string; valueClassName?: string }) {
+function SideStat({ label, value, valueClassName = 'text-zinc-900' }: { label: string; value: string; valueClassName?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-slate-200 pb-3">
-      <span className="text-xs text-slate-500">{label}</span>
+    <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-zinc-200 pb-3">
+      <span className="text-xs text-zinc-500">{label}</span>
       <strong className={`text-lg ${valueClassName}`}>{value}</strong>
     </div>
   )
@@ -1954,7 +2001,7 @@ function NumberInput({
       onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
       readOnly={disabled}
       className={disabled
-        ? `${INPUT_CLASS} bg-slate-50 text-slate-500 cursor-not-allowed`
+        ? `${INPUT_CLASS} bg-zinc-50 text-zinc-500 cursor-not-allowed`
         : INPUT_CLASS}
     />
   )
@@ -1990,7 +2037,7 @@ function AddAccountMenu({
       <button
         type="button"
         onClick={() => { onAddTemplate(); setOpen(false) }}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition-colors"
       >
         <Plus className="w-3.5 h-3.5" /> {t('addFromTemplate')}
       </button>
@@ -1999,7 +2046,7 @@ function AddAccountMenu({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex items-center px-1.5 py-1.5 rounded-r-lg bg-indigo-600 text-white border-l border-indigo-500 hover:bg-indigo-700 transition-colors"
+        className="inline-flex items-center px-1.5 py-1.5 rounded-r-lg bg-primary text-white border-l border-violet-500 hover:bg-primary-hover transition-colors"
       >
         <ChevronDown className="w-3.5 h-3.5" />
       </button>
@@ -2007,23 +2054,23 @@ function AddAccountMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1 z-20 min-w-[10rem] bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden"
+          className="absolute right-0 top-full mt-1 z-20 min-w-[10rem] bg-white border border-zinc-200 rounded-lg shadow-lg overflow-hidden"
         >
           <button
             type="button"
             role="menuitem"
             onClick={() => { onAddTemplate(); setOpen(false) }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 text-left"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 text-left"
           >
-            <Plus className="w-3.5 h-3.5 text-indigo-600" /> {t('addFromTemplate')}
+            <Plus className="w-3.5 h-3.5 text-primary" /> {t('addFromTemplate')}
           </button>
           <button
             type="button"
             role="menuitem"
             onClick={() => { onAddBlank(); setOpen(false) }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 text-left border-t border-slate-100"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 text-left border-t border-zinc-100"
           >
-            <Plus className="w-3.5 h-3.5 text-slate-400" /> {t('addBlank')}
+            <Plus className="w-3.5 h-3.5 text-zinc-400" /> {t('addBlank')}
           </button>
         </div>
       )}
@@ -2037,7 +2084,7 @@ function StatusBadge({ revenue }: { revenue: number }) {
     return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{t('statusPriority')}</span>
   }
   if (revenue >= 3500) {
-    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{t('statusStable')}</span>
+    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-primary-soft text-primary">{t('statusStable')}</span>
   }
   return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">{t('statusWatch')}</span>
 }
@@ -2097,17 +2144,5 @@ function buildChartData(months: ReturnType<typeof summarizeForecast>['months'], 
   })
 }
 
-function formatUsd(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style:                 'currency',
-    currency:              'USD',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
 
-function formatUsdCompact(value: number): string {
-  if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(0)}K`
-  return `$${Number(value).toFixed(0)}`
-}
-
-const INPUT_CLASS = 'w-full min-h-9 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
+const INPUT_CLASS = 'w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'

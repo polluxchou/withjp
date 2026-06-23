@@ -14,7 +14,7 @@ export default function CurrencySwitcher() {
 
   return (
     <div
-      className="flex gap-0.5 bg-slate-100 rounded-lg p-0.5"
+      className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5"
       title={t('switchHint')}
     >
       {CURRENCIES.map((c) => (
@@ -22,7 +22,7 @@ export default function CurrencySwitcher() {
           key={c}
           onClick={() => setCurrency(c)}
           className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-            currency === c ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            currency === c ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
           }`}
         >
           <span className="font-semibold">{CURRENCY_SYMBOLS[c]}</span>{' '}

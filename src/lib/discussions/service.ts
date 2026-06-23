@@ -8,6 +8,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import type { ActorProfile } from '@/lib/auth/actor'
 import {
+  canDeleteMessage,
   canReadThread,
   canResolveThread,
   type Actor,
@@ -22,6 +23,7 @@ import type {
 } from './types.ts'
 
 export {
+  canDeleteMessage,
   canReadThread,
   canResolveThread,
 }
@@ -481,6 +483,51 @@ export async function resolveThread(
     .single()
   if (error) return err('db_error', error.message)
   return ok(normalizeThread(data as unknown as ThreadRow))
+}
+
+// Soft-delete a message. Only the original sender (user-type) can do
+// this in v1 — see canDeleteMessage for the rationale. Already-deleted
+// messages are returned as-is so the call is idempotent.
+//
+// Permitted even on resolved threads: a user should always be able to
+// take back something they themselves posted, regardless of whether the
+// discussion has been closed.
+export async function deleteMessage(
+  actor: ActorProfile,
+  threadId: string,
+  messageId: string,
+): Promise<ServiceResult<Message>> {
+  // Verify the actor can see the thread at all (RLS-style first gate).
+  const access = await getThread(actor, threadId)
+  if (access.error) return access as ServiceResult<Message>
+
+  const db = createServerClient()
+  const { data: row, error: loadErr } = await db
+    .from('discussion_messages')
+    .select(MESSAGE_COLUMNS)
+    .eq('id', messageId)
+    .eq('thread_id', threadId)
+    .maybeSingle()
+  if (loadErr) return err('db_error', loadErr.message)
+  if (!row) return err('not_found', 'Message not found')
+
+  const message = normalizeMessage(row as unknown as MessageRow)
+
+  if (!canDeleteMessage(toActor(actor), message)) {
+    return err('forbidden', 'Only the original sender can delete this message')
+  }
+
+  // Idempotent: already deleted → return the existing record.
+  if (message.deletedAt) return ok(message)
+
+  const { data, error } = await db
+    .from('discussion_messages')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', messageId)
+    .select(MESSAGE_COLUMNS)
+    .single()
+  if (error) return err('db_error', error.message)
+  return ok(normalizeMessage(data as unknown as MessageRow))
 }
 
 // ── Batch counts for badge rendering ────────────────────────────

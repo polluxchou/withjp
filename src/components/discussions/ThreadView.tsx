@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, CheckCircle2, Loader2, Plus, Send, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2, Plus, Send, Trash2, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import type { Message, Thread } from '@/lib/discussions/types'
@@ -89,6 +89,24 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
     }
   }, [draft, posting, thread.id, tThread])
 
+  const deleteMessageAction = useCallback(async (messageId: string) => {
+    if (!confirm(tThread('deleteConfirm'))) return
+    setError(null)
+    try {
+      const res = await fetch(`/api/discussions/threads/${thread.id}/messages/${messageId}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json() as { data: unknown; error: string | null }
+      if (!res.ok || json.error) {
+        setError(json.error ?? tThread('deleteFailed'))
+        return
+      }
+      setMessages(prev => prev.filter(m => m.id !== messageId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : tThread('deleteFailed'))
+    }
+  }, [thread.id, tThread])
+
   const resolve = useCallback(async () => {
     if (resolving || thread.status === 'resolved') return
     setResolving(true)
@@ -116,28 +134,28 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
         <div className="flex items-center gap-2 min-w-0">
           {onBack && (
             <button
               type="button"
               onClick={onBack}
               aria-label={tPanel('back')}
-              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              className="w-8 h-8 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-slate-500">{thread.topicCode}</span>
+              <span className="text-xs font-mono text-zinc-500">{thread.topicCode}</span>
               {isResolved && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                <span className="inline-flex items-center gap-1 text-[11px] text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">
                   <CheckCircle2 className="w-3 h-3" /> {tThread('resolved')}
                 </span>
               )}
             </div>
-            <h2 className="text-sm font-semibold text-slate-900 truncate">{thread.title}</h2>
+            <h2 className="text-sm font-semibold text-zinc-900 truncate">{thread.title}</h2>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -147,7 +165,7 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
               onClick={onStartNew}
               aria-label={tThread('startAnother')}
               title={tThread('startAnother')}
-              className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              className="w-8 h-8 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -157,7 +175,7 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
               type="button"
               onClick={resolve}
               disabled={resolving}
-              className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              className="text-xs px-2 py-1 rounded-md border border-zinc-200 text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
             >
               {resolving ? '…' : tThread('resolveAction')}
             </button>
@@ -166,7 +184,7 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
             type="button"
             onClick={onClose}
             aria-label={tPanel('close')}
-            className="w-8 h-8 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            className="w-8 h-8 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100"
           >
             <X className="w-4 h-4" />
           </button>
@@ -175,7 +193,7 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
 
       {/* Subject summary */}
       {label && (
-        <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-100 bg-slate-50">
+        <div className="px-4 py-2 text-xs text-zinc-500 border-b border-zinc-100 bg-zinc-50">
           {tPanel('subjectLine', { label })}
         </div>
       )}
@@ -183,11 +201,11 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
       {/* Message stream */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-slate-400 text-xs">
+          <div className="flex items-center justify-center py-8 text-zinc-400 text-xs">
             <Loader2 className="w-4 h-4 animate-spin mr-2" /> {tThread('loading')}
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center text-xs text-slate-400 py-8">{tThread('emptyMessages')}</div>
+          <div className="text-center text-xs text-zinc-400 py-8">{tThread('emptyMessages')}</div>
         ) : (
           messages.map(msg => {
             const isMine = me?.id === msg.senderUserId
@@ -196,19 +214,33 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
               msg.senderType === 'external' ? tThread('senderExternal') :
               isMine                        ? tThread('senderYou')    :
                                               tThread('senderOther')
+            const canDelete = isMine && msg.senderType === 'user'
             return (
-              <div key={msg.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
-                <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-0.5">
+              <div key={msg.id} className={`flex flex-col group ${isMine ? 'items-end' : 'items-start'}`}>
+                <div className="flex items-center gap-2 text-[11px] text-zinc-400 mb-0.5">
                   <span>{senderLabel}</span>
                   <span>·</span>
                   <span>{fmtDateTime(msg.createdAt)}</span>
                 </div>
-                <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap break-words ${
-                  isMine
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-900'
-                }`}>
-                  {msg.body}
+                <div className={`flex items-center gap-1.5 max-w-[85%] ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`px-3 py-2 rounded-lg text-sm whitespace-pre-wrap break-words ${
+                    isMine
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-zinc-100 text-zinc-900'
+                  }`}>
+                    {msg.body}
+                  </div>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => void deleteMessageAction(msg.id)}
+                      aria-label={tThread('deleteMessage')}
+                      title={tThread('deleteMessage')}
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-zinc-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -223,13 +255,13 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
 
       {/* Composer or resolved-notice */}
       {isResolved ? (
-        <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-500 bg-slate-50">
+        <div className="px-4 py-3 border-t border-zinc-100 text-xs text-zinc-500 bg-zinc-50">
           {thread.resolvedAt
             ? tThread('resolvedNoticeAt', { time: fmtDateTime(thread.resolvedAt) })
             : tThread('resolvedNotice')}
         </div>
       ) : (
-        <div className="px-3 py-2 border-t border-slate-100">
+        <div className="px-3 py-2 border-t border-zinc-100">
           <div className="flex items-end gap-2">
             <textarea
               value={draft}
@@ -242,7 +274,7 @@ export default function ThreadView({ thread: initialThread, onClose, onBack, onS
               }}
               rows={2}
               placeholder={tThread('draftPlaceholder')}
-              className="flex-1 resize-none rounded-md border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              className="flex-1 resize-none rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
             <button
               type="button"
