@@ -160,6 +160,9 @@
   },
   "intent": {
     "openButtonLabel": "Type to act",
+    "venuePlaceholder": "Edit the venue in one line (current canvas only). e.g. Add space \"Studio A\" 5×8m / rotate the makeup room 90° / delete the garage aisle",
+    "venueConfirm": "Apply to canvas",
+    "venueCancel": "Cancel",
     "openButtonTooltip": "Natural-language action (⌘K)",
     "modalTitle": "Type a sentence to act",
     "placeholder": "Type a sentence (v1: expense management only). e.g. How much of Q3 salary went to MC / Add a travel expense: taxi May 10, ¥320",
@@ -1157,7 +1160,7 @@
   },
   "venue": {
     "title": "Venue Layout",
-    "subtitle": "Canvas-first 2D planning for live equipment, renovation zones, corridors, and safety points.",
+    "subtitle": "Venue planning for the Osaka livestream operation — live equipment, work areas, utilities & networking, and safety points.",
     "loading": "Loading venue…",
     "loadFailed": "Failed to load venue. Please refresh.",
     "importLocalPrompt": "Found an older venue layout in this browser. Import it to the cloud?",

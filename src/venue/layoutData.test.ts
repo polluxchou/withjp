@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   addVenueItem,
+  applyVenueAction,
   calculateVenueCanvasFit,
   centimetersToMeters,
   createHistory,
@@ -502,4 +503,37 @@ test('sanitizeViewBookmarks keeps valid entries, caps at 3, and drops empties', 
   )
   const five = Array.from({ length: 5 }, (_, i) => ({ zoom: 1, left: i, top: i }))
   assert.equal(sanitizeViewBookmarks(five)?.length, 3)
+})
+
+test('applyVenueAction add/update/delete/floor mutate only the target on the active floor', () => {
+  const floorId = DEFAULT_VENUE_LAYOUT.floors[0].id
+  const beforeCount = DEFAULT_VENUE_LAYOUT.floors[0].items.length
+
+  // add: new area with name + size (meters → cm)
+  const added = applyVenueAction(DEFAULT_VENUE_LAYOUT, floorId, { op: 'add', itemType: 'area', name: '主直播间', widthM: 5, heightM: 8, summary: '' }, null)
+  const newItem = added.layout.floors[0].items.at(-1)!
+  assert.equal(added.layout.floors[0].items.length, beforeCount + 1)
+  assert.equal(newItem.type, 'area')
+  assert.equal(newItem.name, '主直播间')
+  assert.equal(newItem.width, 500)
+  assert.equal(newItem.height, 800)
+  assert.equal(added.selectedItemId, newItem.id)
+
+  // update: rotate the added item, leave others untouched
+  const updated = applyVenueAction(added.layout, floorId, { op: 'update', targetId: newItem.id, rotationDeg: 90, summary: '' }, newItem.id)
+  assert.equal(updated.layout.floors[0].items.find((i) => i.id === newItem.id)?.rotation, 90)
+
+  // unknown target → error, layout unchanged
+  const bad = applyVenueAction(updated.layout, floorId, { op: 'delete', targetId: 'nope', summary: '' }, null)
+  assert.equal(bad.error, 'target_not_found')
+  assert.equal(bad.layout, updated.layout)
+
+  // delete the added item
+  const deleted = applyVenueAction(updated.layout, floorId, { op: 'delete', targetId: newItem.id, summary: '' }, newItem.id)
+  assert.equal(deleted.layout.floors[0].items.some((i) => i.id === newItem.id), false)
+
+  // floor: resize canvas (meters → cm)
+  const resized = applyVenueAction(DEFAULT_VENUE_LAYOUT, floorId, { op: 'floor', widthM: 22, storeyHeightM: 3, summary: '' }, null)
+  assert.equal(resized.layout.floors[0].width, 2200)
+  assert.equal(resized.layout.floors[0].floorHeight, 300)
 })
