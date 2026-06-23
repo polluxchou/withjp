@@ -37,7 +37,11 @@ export default function ItemDetail({
     [t('colCode'), item.item_code],
     [t('colName'), item.name],
     [t('colKind'), t(`kind.${item.kind}`)],
-    [t('colCost'), ex ? `${ex.item_name} · ¥${Number(ex.total_price).toLocaleString('zh-CN')}` : '—'],
+    [t('colCost'), ex
+      ? item.item_value != null && item.item_value < Number(ex.total_price)
+        ? `¥${item.item_value.toLocaleString('zh-CN')} （开支 ¥${Number(ex.total_price).toLocaleString('zh-CN')} · ${ex.item_name}）`
+        : `${ex.item_name} · ¥${Number(ex.total_price).toLocaleString('zh-CN')}`
+      : '—'],
     [t('colPlacement'), place ?? '—'],
     [t('colQuantity'), String(item.quantity)],
     [t('colStatus'), t(`status.${item.status}`)],

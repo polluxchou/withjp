@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ITEM_KINDS, ITEM_STATUSES, type Item, type ItemKind, type ItemStatus, type ItemStatusLog } from '@/lib/items/types'
+import { EXPENSE_USER_OPTIONS } from '@/lib/expenses/costs'
 import type { Expense } from '@/lib/types'
 import type { VenueLayout } from '@/venue/layoutData'
 
@@ -12,6 +13,7 @@ export interface ItemFormValue {
   expense_id: string | null
   placement_venue_item_id: string | null
   quantity: number
+  item_value: number | null
   status: ItemStatus
   responsible_person: string
   serial_number: string
@@ -27,6 +29,7 @@ function toFormValue(item: Item | null): ItemFormValue {
     expense_id: item?.expense_id ?? null,
     placement_venue_item_id: item?.placement_venue_item_id ?? null,
     quantity: item?.quantity ?? 1,
+    item_value: item?.item_value ?? null,
     status: item?.status ?? 'in_use',
     responsible_person: item?.responsible_person ?? '',
     serial_number: item?.serial_number ?? '',
@@ -64,19 +67,31 @@ export default function ItemForm({
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Reset form fields when the dialog opens or the item changes.
+  // `layout` is NOT a dependency — it loads asynchronously and must not reset
+  // user input mid-session when the API response arrives.
   useEffect(() => {
-    if (open) {
-      setValue(toFormValue(item))
-      setFloorId(floorIdOfZone(layout, item?.placement_venue_item_id ?? null))
-      setError(null)
-    }
-  }, [open, item, layout])
+    if (!open) return
+    setValue(toFormValue(item))
+    setFloorId('')
+    setError(null)
+  }, [open, item])
+
+  // Lazily resolve the floor once layout is available.
+  // The !floorId guard ensures the user's own floor choice is never overwritten.
+  useEffect(() => {
+    if (!open || floorId || !layout) return
+    const resolved = floorIdOfZone(layout, item?.placement_venue_item_id ?? null)
+    if (resolved) setFloorId(resolved)
+  }, [open, item, layout, floorId])
 
   if (!open) return null
 
   const isPhysical = value.kind === 'physical'
   const floors = layout?.floors ?? []
-  const zones = floors.find((f) => f.id === floorId)?.items ?? []
+  const zones = (floors.find((f) => f.id === floorId)?.items ?? []).filter((it) => it.type === 'area')
+  const selectedExpense = value.expense_id ? expenses.find((e) => e.id === value.expense_id) : null
+  const expensePrice = selectedExpense ? Number(selectedExpense.total_price) : null
 
   async function uploadPhoto(file: File) {
     setUploading(true)
@@ -104,6 +119,7 @@ export default function ItemForm({
       expense_id: value.expense_id || null,
       placement_venue_item_id: isPhysical ? (value.placement_venue_item_id || null) : null,
       quantity: value.quantity,
+      item_value: value.item_value,
       status: value.status,
       responsible_person: value.responsible_person || null,
       serial_number: value.serial_number || null,
@@ -145,13 +161,34 @@ export default function ItemForm({
           </Field>
 
           <Field label={isPhysical ? t('fieldExpenseRequired') : t('fieldExpense')}>
-            <select className={inputCls} value={value.expense_id ?? ''} onChange={(e) => setValue({ ...value, expense_id: e.target.value || null })}>
+            <select className={inputCls} value={value.expense_id ?? ''} onChange={(e) => setValue({ ...value, expense_id: e.target.value || null, item_value: null })}>
               <option value="">{t('selectExpense')}</option>
               {expenses.map((ex) => (
                 <option key={ex.id} value={ex.id}>{ex.item_name} · ¥{ex.total_price} · {ex.expense_date}</option>
               ))}
             </select>
           </Field>
+
+          {selectedExpense && (
+            <Field label={t('fieldItemValue')}>
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  min={0.01}
+                  max={expensePrice ?? undefined}
+                  step={0.01}
+                  className={inputCls}
+                  placeholder={expensePrice != null ? `¥${expensePrice.toLocaleString('zh-CN')}（默认）` : ''}
+                  value={value.item_value ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value === '' ? null : Math.min(Number(e.target.value), expensePrice ?? Infinity)
+                    setValue({ ...value, item_value: v })
+                  }}
+                />
+                <p className="text-xs text-slate-400">{t('fieldItemValueHint')}</p>
+              </div>
+            </Field>
+          )}
 
           {isPhysical ? (
             <div className="grid grid-cols-2 gap-3">
@@ -185,7 +222,10 @@ export default function ItemForm({
 
           <div className="grid grid-cols-2 gap-3">
             <Field label={t('fieldResponsible')}>
-              <input className={inputCls} value={value.responsible_person} onChange={(e) => setValue({ ...value, responsible_person: e.target.value })} />
+              <select className={inputCls} value={value.responsible_person} onChange={(e) => setValue({ ...value, responsible_person: e.target.value })}>
+                <option value=""></option>
+                {EXPENSE_USER_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
             </Field>
             <Field label={t('fieldSerial')}>
               <input className={inputCls} value={value.serial_number} onChange={(e) => setValue({ ...value, serial_number: e.target.value })} />

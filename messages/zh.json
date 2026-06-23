@@ -1132,8 +1132,16 @@
     "colStatus": "状态",
     "colResponsible": "负责人",
     "colSerial": "序列号",
-    "kind": { "physical": "实物", "virtual": "虚拟商品" },
-    "status": { "in_use": "使用中", "in_storage": "入库", "under_repair": "维修中", "disposed": "已报废" },
+    "kind": {
+      "physical": "实物",
+      "virtual": "虚拟商品"
+    },
+    "status": {
+      "in_use": "使用中",
+      "in_storage": "入库",
+      "under_repair": "维修中",
+      "disposed": "已报废"
+    },
     "fieldName": "名称 *",
     "fieldKind": "类型 *",
     "fieldExpense": "关联成本（支出）",
@@ -1294,7 +1302,19 @@
     "placedItemsTitle": "该区域物品",
     "placedItemsEmpty": "该区域暂无物品",
     "placedItemsTotal": "总成本",
-    "manageItems": "去物品管理"
+    "manageItems": "去物品管理",
+    "manageCollaborators": "协作者",
+    "collaboratorsTitle": "管理协作者",
+    "collaboratorsDesc": "勾选可共同编辑该场地的成员，未勾选的成员仅可查看。",
+    "collaboratorsLoading": "加载中…",
+    "collaboratorsEmpty": "暂无可选成员",
+    "collaboratorsSearch": "搜索姓名或邮箱",
+    "collaboratorsCount": "已选 {count} 人",
+    "collaboratorsSave": "保存",
+    "collaboratorsCancel": "取消",
+    "collaboratorsError": "保存失败，请重试",
+    "readOnly": "只读",
+    "readOnlyHint": "你没有该场地的编辑权限"
   },
   "config": {
     "tabs": {

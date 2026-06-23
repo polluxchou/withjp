@@ -36,6 +36,7 @@ export interface CreateItemInput {
   expense_id?: string | null
   placement_venue_item_id?: string | null
   quantity?: number | string
+  item_value?: number | null
   status?: ItemStatus
   responsible_person?: string | null
   serial_number?: string | null
@@ -48,7 +49,7 @@ export interface UpdateItemInput extends Partial<CreateItemInput> {
 }
 
 const ITEM_COLS =
-  'id, item_code, name, kind, expense_id, placement_venue_item_id, quantity, status, responsible_person, serial_number, photo_url, notes, created_by_user_id, created_at, updated_at'
+  'id, item_code, name, kind, expense_id, placement_venue_item_id, quantity, item_value, status, responsible_person, serial_number, photo_url, notes, created_by_user_id, created_at, updated_at'
 
 // ── list ─────────────────────────────────────────────
 export async function listItems(filters: ListItemsFilters): Promise<ServiceResult<Item[]>> {
@@ -84,6 +85,19 @@ export async function getItem(id: string): Promise<ServiceResult<ItemWithLogs>> 
   return ok({ ...(item as Item), status_logs: (logs ?? []) as ItemStatusLog[] })
 }
 
+async function validateItemValue(
+  db: ReturnType<typeof createServerClient>,
+  item_value: number | null | undefined,
+  expense_id: string | null,
+): Promise<string | null> {
+  if (item_value == null || !expense_id) return null
+  const { data: expense } = await db.from('expenses').select('total_price').eq('id', expense_id).single()
+  if (expense && item_value > Number(expense.total_price)) {
+    return `物品价值（¥${item_value}）不能高于关联开支金额（¥${Number(expense.total_price).toLocaleString('zh-CN')}）`
+  }
+  return null
+}
+
 // ── create ───────────────────────────────────────────
 export async function createItem(input: CreateItemInput, actorId?: string): Promise<ServiceResult<Item>> {
   const kind = input.kind
@@ -91,6 +105,7 @@ export async function createItem(input: CreateItemInput, actorId?: string): Prom
   const expense_id = input.expense_id || null
   const placement = kind === 'virtual' ? null : (input.placement_venue_item_id || null)
   const quantity = Number(input.quantity) || 1
+  const item_value = input.item_value != null ? Number(input.item_value) : null
 
   const validationError = validateItem({
     name: input.name ?? '',
@@ -103,6 +118,9 @@ export async function createItem(input: CreateItemInput, actorId?: string): Prom
   if (validationError) return err('invalid_input', validationError)
 
   const db = createServerClient()
+  const valueError = await validateItemValue(db, item_value, expense_id)
+  if (valueError) return err('invalid_input', valueError)
+
   const { data, error } = await db
     .from('items')
     .insert({
@@ -111,6 +129,7 @@ export async function createItem(input: CreateItemInput, actorId?: string): Prom
       expense_id,
       placement_venue_item_id: placement,
       quantity,
+      item_value,
       status,
       responsible_person: input.responsible_person ?? null,
       serial_number: input.serial_number ?? null,
@@ -157,9 +176,15 @@ export async function updateItem(id: string, patch: UpdateItemInput, actorId?: s
   if (kind === 'virtual') placement = null
   const quantity = patch.quantity !== undefined ? (Number(patch.quantity) || 1) : current.quantity
   const name = patch.name !== undefined ? patch.name : current.name
+  const item_value = patch.item_value !== undefined
+    ? (patch.item_value != null ? Number(patch.item_value) : null)
+    : current.item_value
 
   const validationError = validateItem({ name, kind, expense_id, placement_venue_item_id: placement, quantity, status })
   if (validationError) return err('invalid_input', validationError)
+
+  const valueError = await validateItemValue(db, item_value, expense_id)
+  if (valueError) return err('invalid_input', valueError)
 
   const updates: Record<string, unknown> = {
     name: name.trim(),
@@ -167,6 +192,7 @@ export async function updateItem(id: string, patch: UpdateItemInput, actorId?: s
     expense_id,
     placement_venue_item_id: placement,
     quantity,
+    item_value,
     status,
   }
   if (patch.responsible_person !== undefined) updates.responsible_person = patch.responsible_person

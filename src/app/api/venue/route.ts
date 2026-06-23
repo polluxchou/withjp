@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   if (user instanceof NextResponse) return user
 
   const id = req.nextUrl.searchParams.get('id')
-  const result = id ? await getVenueLayout(id) : await listVenues()
+  const result = id ? await getVenueLayout(id) : await listVenues(user.id)
   if (result.error) {
     return NextResponse.json(
       { data: null, error: result.error.message },
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const result = await createVenue(body.name ?? '')
+  const result = await createVenue(body.name ?? '', user.id)
   if (result.error) {
     return NextResponse.json(
       { data: null, error: result.error.message },
@@ -54,7 +54,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const result = await saveVenueLayout(body)
+  const result = await saveVenueLayout(body, user.id)
   if (result.error) {
     return NextResponse.json(
       { data: null, error: result.error.message },
