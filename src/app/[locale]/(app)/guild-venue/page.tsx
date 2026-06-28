@@ -1661,7 +1661,8 @@ function AddMarkerMenu({ onAdd }: { onAdd: (type: VenueItemType) => void }) {
           style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
           className="z-50 min-w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
         >
-          {VENUE_MARKER_TYPE_OPTIONS.map((option) => {
+          {/* corridor(结构)归在标识菜单里——它是 shape 但分组在标识 tab，此处提供其唯一的添加入口 */}
+          {([...VENUE_MARKER_TYPE_OPTIONS, { value: 'corridor' }] as { value: VenueItemType }[]).map((option) => {
             const Icon = TOOL_ICON[option.value]
             return (
               <button
