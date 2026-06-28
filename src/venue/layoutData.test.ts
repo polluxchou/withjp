@@ -14,6 +14,7 @@ import {
   moveVenueItemLayer,
   moveVenueItems,
   parseStoredVenueLayout,
+  resolveVenueItemName,
   sanitizeViewBookmarks,
   pushHistory,
   redoHistory,
@@ -536,4 +537,15 @@ test('applyVenueAction add/update/delete/floor mutate only the target on the act
   const resized = applyVenueAction(DEFAULT_VENUE_LAYOUT, floorId, { op: 'floor', widthM: 22, storeyHeightM: 3, summary: '' }, null)
   assert.equal(resized.layout.floors[0].width, 2200)
   assert.equal(resized.layout.floors[0].floorHeight, 300)
+})
+
+test('resolveVenueItemName: zh 用原名', () => {
+  assert.equal(resolveVenueItemName('设备架', 'a', 'zh', { a: { ja: '設備', en: 'Rack' } }), '设备架')
+})
+test('resolveVenueItemName: ja 用译名,缺失回退原名', () => {
+  assert.equal(resolveVenueItemName('设备架', 'a', 'ja', { a: { ja: '設備', en: 'Rack' } }), '設備')
+  assert.equal(resolveVenueItemName('设备架', 'b', 'ja', {}), '设备架')
+})
+test('resolveVenueItemName: en 译名为空时回退原名', () => {
+  assert.equal(resolveVenueItemName('设备架', 'a', 'en', { a: { ja: '設備', en: '' } }), '设备架')
 })
