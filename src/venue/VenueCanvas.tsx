@@ -303,6 +303,56 @@ function VenueCanvas(
         heightDashed,
       })
     }
+
+    // Merge overlapping ruler labels into "xxx | yyy".
+    // Threshold: half a font-height in world units — texts closer than this will visually collide.
+    const labelThreshold = (11 / scale) * 1.2
+    const axisById = new Map(axis.map((it) => [it.id, it]))
+
+    // Height rulers: text sits at y-midpoint of item; merge when midpoints too close on same side.
+    const heightEntries = Array.from(plan.entries()).filter(([, p]) => p.showHeight)
+    for (let i = 0; i < heightEntries.length; i++) {
+      const [idA, pA] = heightEntries[i]
+      const itA = axisById.get(idA)
+      if (!itA) continue
+      const yMidA = itA.y + itA.height / 2
+      for (let j = i + 1; j < heightEntries.length; j++) {
+        const [idB, pB] = heightEntries[j]
+        if (pA.heightSide !== pB.heightSide) continue
+        const itB = axisById.get(idB)
+        if (!itB) continue
+        if (Math.abs((itB.y + itB.height / 2) - yMidA) < labelThreshold) {
+          const merged = `${formatVenueMeasurement(itA.height)} | ${formatVenueMeasurement(itB.height)}`
+          plan.set(idA, { ...pA, heightLabel: merged })
+          plan.set(idB, { ...pB, showHeight: false })
+          break
+        }
+      }
+    }
+
+    // Width rulers: text sits at x-midpoint of item; merge when midpoints too close on same side.
+    const widthEntries = Array.from(plan.entries()).filter(([, p]) => p.showWidth)
+    for (let i = 0; i < widthEntries.length; i++) {
+      const [idA, pA] = widthEntries[i]
+      const itA = axisById.get(idA)
+      if (!itA) continue
+      const xMidA = itA.x + itA.width / 2
+      const yA = pA.widthSide === 'bottom' ? itA.y + itA.height : itA.y
+      for (let j = i + 1; j < widthEntries.length; j++) {
+        const [idB, pB] = widthEntries[j]
+        if (pA.widthSide !== pB.widthSide) continue
+        const itB = axisById.get(idB)
+        if (!itB) continue
+        const yB = pB.widthSide === 'bottom' ? itB.y + itB.height : itB.y
+        if (Math.abs((itB.x + itB.width / 2) - xMidA) < labelThreshold && Math.abs(yB - yA) < labelThreshold) {
+          const merged = `${formatVenueMeasurement(itA.width)} | ${formatVenueMeasurement(itB.width)}`
+          plan.set(idA, { ...pA, widthLabel: merged })
+          plan.set(idB, { ...pB, showWidth: false })
+          break
+        }
+      }
+    }
+
     return plan
   }, [items, scale])
 
@@ -873,9 +923,11 @@ type RulerPlan = {
   showWidth: boolean
   widthSide: 'top' | 'bottom'
   widthDashed: boolean
+  widthLabel?: string
   showHeight: boolean
   heightSide: 'right' | 'left'
   heightDashed: boolean
+  heightLabel?: string
 }
 
 function DimensionRulers({
@@ -924,7 +976,7 @@ function DimensionRulers({
             strokeWidth={halo}
             strokeLinejoin="round"
           >
-            {formatVenueMeasurement(item.width)}
+            {plan.widthLabel ?? formatVenueMeasurement(item.width)}
           </text>
         </>
       )}
@@ -945,7 +997,7 @@ function DimensionRulers({
             strokeWidth={halo}
             strokeLinejoin="round"
           >
-            {formatVenueMeasurement(item.height)}
+            {plan.heightLabel ?? formatVenueMeasurement(item.height)}
           </text>
         </>
       )}
