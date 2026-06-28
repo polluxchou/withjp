@@ -212,6 +212,7 @@ export const VENUE_MARKER_TYPE_OPTIONS: { value: VenueMarkerType; label: string 
 export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] = [
   ...VENUE_SHAPE_TYPE_OPTIONS,
   { value: 'corridor', label: '结构' },
+  { value: 'window', label: '窗户' },
   ...VENUE_MARKER_TYPE_OPTIONS,
 ]
 
