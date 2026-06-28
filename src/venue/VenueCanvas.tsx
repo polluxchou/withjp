@@ -32,6 +32,8 @@ type Props = {
   fitWidthReserve?: number
   // Item types to render; when omitted all types show.
   visibleTypes?: VenueItemType[]
+  // Resolves the display name per item (locale译名); falls back to item.name.
+  itemName?: (item: VenueItem) => string
   // Lets the page read/write the scroll container (for view bookmarks).
   scrollRef?: { current: HTMLDivElement | null }
 }
@@ -74,7 +76,7 @@ const SELECTION_SCRIM_OPACITY = 0.18
 const SELECTION_ACCENT = '#f4511e'
 
 function VenueCanvas(
-  { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove, fitWidthReserve = 0, visibleTypes, scrollRef }: Props,
+  { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove, fitWidthReserve = 0, visibleTypes, itemName, scrollRef }: Props,
   ref: ForwardedRef<SVGSVGElement>,
 ) {
   const t = useTranslations('venue')
@@ -387,6 +389,7 @@ function VenueCanvas(
                 key={item.id}
                 item={item}
                 label={itemTypeLabels[item.type]}
+                itemName={itemName}
                 selected={false}
                 showRulers={showRulers}
                 ruler={rulerPlan.get(item.id) ?? defaultRulerPlan}
@@ -399,6 +402,7 @@ function VenueCanvas(
                 key={`callout-${item.id}`}
                 item={item}
                 label={itemTypeLabels[item.type]}
+                itemName={itemName}
                 scale={scale}
                 floorWidth={floor.width}
               />
@@ -429,6 +433,7 @@ function VenueCanvas(
                 key={item.id}
                 item={item}
                 label={itemTypeLabels[item.type]}
+                itemName={itemName}
                 selected
                 showRulers={showRulers}
                 ruler={rulerPlan.get(item.id) ?? defaultRulerPlan}
@@ -442,6 +447,7 @@ function VenueCanvas(
                 key={`callout-${item.id}`}
                 item={item}
                 label={itemTypeLabels[item.type]}
+                itemName={itemName}
                 scale={scale}
                 floorWidth={floor.width}
               />
@@ -516,7 +522,7 @@ type LabelLayout = {
 // targeted at a constant on-screen size (target px / scale), then clamped to the
 // box. If the name can't reach a readable on-screen size inside the box, the
 // caller draws an external leader-line callout instead.
-function computeLabelLayout(item: VenueItem, label: string, scale: number): LabelLayout {
+function computeLabelLayout(item: VenueItem, label: string, scale: number, displayName: string): LabelLayout {
   const cx = item.x + item.width / 2
   const cy = item.y + item.height / 2
   const padU = 4 / scale
@@ -524,7 +530,7 @@ function computeLabelLayout(item: VenueItem, label: string, scale: number): Labe
   const innerH = Math.max(item.height - padU * 2, 1)
   const hasLabel = label.length > 0
 
-  const nameByWidth = innerW / Math.max(estTextUnits(item.name), 1)
+  const nameByWidth = innerW / Math.max(estTextUnits(displayName), 1)
   const nameByHeight = hasLabel ? innerH / 2.1 : innerH * 0.85
   const nameFont = Math.min(14 / scale, nameByWidth, nameByHeight)
 
@@ -541,6 +547,7 @@ function computeLabelLayout(item: VenueItem, label: string, scale: number): Labe
 function VenueShape({
   item,
   label,
+  itemName,
   selected,
   showRulers,
   ruler,
@@ -550,6 +557,7 @@ function VenueShape({
 }: {
   item: VenueItem
   label: string
+  itemName?: (item: VenueItem) => string
   selected: boolean
   showRulers: boolean
   ruler: RulerPlan
@@ -557,8 +565,9 @@ function VenueShape({
   metricsText?: string
   onPointerDown: (event: PointerEvent<SVGGElement>) => void
 }) {
+  const displayName = itemName ? itemName(item) : item.name
   const style = TYPE_STYLE[item.type]
-  const layout = computeLabelLayout(item, label, scale)
+  const layout = computeLabelLayout(item, label, scale, displayName)
   const { cx, cy } = layout
   const stroke = 2 / scale
   // Box border + selection dashes at 2/3 the handle stroke for a lighter outline.
@@ -594,7 +603,7 @@ function VenueShape({
             fontWeight="700"
             pointerEvents="none"
           >
-            {item.name}
+            {displayName}
           </text>
           {layout.showSub && (
             <text
@@ -807,15 +816,18 @@ function DoorSymbol({
 function VenueCallout({
   item,
   label,
+  itemName,
   scale,
   floorWidth,
 }: {
   item: VenueItem
   label: string
+  itemName?: (item: VenueItem) => string
   scale: number
   floorWidth: number
 }) {
-  const layout = computeLabelLayout(item, label, scale)
+  const displayName = itemName ? itemName(item) : item.name
+  const layout = computeLabelLayout(item, label, scale, displayName)
   if (layout.mode !== 'callout') return null
 
   const { cx, cy } = layout
@@ -851,7 +863,7 @@ function VenueCallout({
         strokeWidth={halo}
         strokeLinejoin="round"
       >
-        {item.name}
+        {displayName}
       </text>
     </g>
   )
