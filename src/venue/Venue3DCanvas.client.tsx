@@ -1,7 +1,8 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, type ThreeEvent } from '@react-three/fiber'
+import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
+import { PerspectiveCamera } from 'three'
 import { Edges, Html, Line, OrbitControls, TransformControls, useTexture } from '@react-three/drei'
 import { DoubleSide, type Group } from 'three'
 import { useTranslations } from 'next-intl'
@@ -62,9 +63,24 @@ type Props = {
   onItemChange: (itemId: string, patch: Partial<VenueItem>) => void
   // Resolves the display name per item (locale译名); falls back to item.name.
   itemName?: (item: VenueItem) => string
+  zoom?: number
 }
 
-export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, onItemChange, itemName }: Props) {
+const BASE_FOV = 35
+
+function CameraFovSync({ zoom }: { zoom: number }) {
+  const { camera, invalidate } = useThree()
+  useEffect(() => {
+    if (camera instanceof PerspectiveCamera) {
+      camera.fov = BASE_FOV / zoom
+      camera.updateProjectionMatrix()
+      invalidate()
+    }
+  }, [zoom, camera, invalidate])
+  return null
+}
+
+export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, onItemChange, itemName, zoom = 1 }: Props) {
   const t = useTranslations('venue')
   const [transformMode, setTransformMode] = useState<TransformMode>('select')
 
@@ -114,6 +130,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         frameloop="demand"
         onPointerMissed={handlePointerMissed}
       >
+        <CameraFovSync zoom={zoom} />
         <color attach="background" args={['#f8fafc']} />
         <ambientLight intensity={0.65} />
         <directionalLight position={[floor.width, floor.height * 2, floor.height]} intensity={0.45} />
