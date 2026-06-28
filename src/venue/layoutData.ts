@@ -152,7 +152,7 @@ export function totalVenueAreaSquareMeters(items: VenueItem[]): number {
 export function usableVenueAreaSquareMeters(items: VenueItem[]): number {
   const gross = totalVenueAreaSquareMeters(items)
   const occupied = items.reduce((sum, item) => {
-    if (item.type !== 'renovation') return sum
+    if (item.type !== 'corridor') return sum
     if (item.placement !== 'ground') return sum
     return sum + venueAreaSquareMeters(item)
   }, 0)
