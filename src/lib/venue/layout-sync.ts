@@ -2,7 +2,7 @@
 // fails at runtime. Type-only imports stay aliased; they're stripped before exec
 // and never reach the resolver.
 import { sanitizeViewBookmarks } from '../../venue/layoutData.ts'
-import type { VenueItemType, VenueItemStatus, VenueLayout, VenueViewBookmark } from '@/venue/layoutData'
+import type { VenueItemType, VenueItemStatus, VenueItemPlacement, VenueLayout, VenueViewBookmark } from '@/venue/layoutData'
 
 // 数据库行形态（text 主键，直接沿用画布的字符串 id）。
 export interface VenueRow {
@@ -38,6 +38,7 @@ export interface VenueItemRow {
   note: string
   height3d: number
   elevation: number
+  placement: VenueItemPlacement
   z_index: number
 }
 
@@ -79,6 +80,7 @@ export function layoutToRows(layout: VenueLayout): {
       note: item.note,
       height3d: item.height3d,
       elevation: item.elevation,
+      placement: item.placement,
       z_index: index,
     })),
   )
@@ -125,6 +127,7 @@ export function rowsToLayout(
             note: item.note,
             height3d: item.height3d,
             elevation: item.elevation,
+            placement: item.placement,
           }
         }),
     })),
