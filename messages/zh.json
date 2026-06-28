@@ -1115,6 +1115,7 @@
     "lifecycleSave": "保存"
   },
   "items": {
+    "fieldItemValuePlaceholder": "¥{price}（默认）",
     "title": "物品管理",
     "subtitle": "团队资产台账：每个实物关联成本与放置位置",
     "detailTitle": "物品详情",

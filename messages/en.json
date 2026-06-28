@@ -1115,6 +1115,7 @@
     "lifecycleSave": "Save"
   },
   "items": {
+    "fieldItemValuePlaceholder": "¥{price} (default)",
     "title": "Item Management",
     "subtitle": "Team asset registry — each physical item links a cost and a placement",
     "detailTitle": "Item details",
