@@ -171,7 +171,7 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
           </Field>
         </div>
 
-        {!isVenueMarkerType(item.type) && item.type !== 'area' && (
+        {!isVenueMarkerType(item.type) && item.type !== 'area' && item.type !== 'window' && (
           <Field label={t('fieldPlacement')}>
             <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
               {(['ground', 'aerial'] as VenueItemPlacement[]).map((p) => (
@@ -263,6 +263,14 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
               onChange={metricChange('elevation')}
               min={0}
             />
+            {item.type === 'window' && (
+              <NumberField
+                label={`${t('fieldThickness')} (cm)`}
+                value={item.thickness}
+                onChange={(event) => onChange({ thickness: Math.max(0, Math.round(Number(event.target.value) || 0)) })}
+                min={0}
+              />
+            )}
           </div>
           {typeof storeyHeightCm === 'number' && storeyHeightCm > 0 && (
             <p className="mt-2 text-[11px] text-slate-400">
