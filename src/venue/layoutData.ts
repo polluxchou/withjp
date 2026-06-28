@@ -30,6 +30,8 @@ export type VenueItem = {
   // 墙厚方向进深(cm),仅窗户用于 3D 玻璃构件厚度;其它类型为 0。
   thickness: number
   placement: VenueItemPlacement
+  // IDs of area items whose shared wall with this item should be removed in 3D.
+  mergedWith?: string[]
 }
 
 export type VenueFloor = {
@@ -531,6 +533,40 @@ export function updateVenueItem(
     items: floor.items.map((item) =>
       item.id === itemId ? normalizeVenueItem({ ...item, ...patch }) : item
     ),
+  }))
+}
+
+// Link two area items so their shared wall is removed in 3D.
+export function mergeVenueAreas(
+  layout: VenueLayout,
+  floorId: string,
+  idA: string,
+  idB: string,
+): VenueLayout {
+  return updateFloor(layout, floorId, (floor) => ({
+    ...floor,
+    items: floor.items.map((item) => {
+      if (item.id === idA) return { ...item, mergedWith: Array.from(new Set([...(item.mergedWith ?? []), idB])) }
+      if (item.id === idB) return { ...item, mergedWith: Array.from(new Set([...(item.mergedWith ?? []), idA])) }
+      return item
+    }),
+  }))
+}
+
+// Remove the merge link between two area items.
+export function unmergeVenueAreas(
+  layout: VenueLayout,
+  floorId: string,
+  idA: string,
+  idB: string,
+): VenueLayout {
+  return updateFloor(layout, floorId, (floor) => ({
+    ...floor,
+    items: floor.items.map((item) => {
+      if (item.id === idA) return { ...item, mergedWith: (item.mergedWith ?? []).filter((id) => id !== idB) }
+      if (item.id === idB) return { ...item, mergedWith: (item.mergedWith ?? []).filter((id) => id !== idA) }
+      return item
+    }),
   }))
 }
 
