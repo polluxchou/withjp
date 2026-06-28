@@ -1445,7 +1445,7 @@ function FloatingPanel({
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium truncate">{item.name}</span>
+                    <span className="block text-sm font-medium truncate">{resolveVenueItemName(item.name, item.id, locale, nameTranslations)}</span>
                     <span className={`block text-[11px] truncate ${isTopArea ? 'font-semibold text-slate-600' : 'text-slate-400'}`}>
                       {isMarker ? (
                         t(`types.${item.type}`)
