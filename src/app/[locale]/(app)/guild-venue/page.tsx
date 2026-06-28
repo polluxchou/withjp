@@ -1304,7 +1304,7 @@ function FloatingPanel({
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
             {t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}
-            {usableAreaSqMeters < totalAreaSqMeters && (
+            {totalAreaSqMeters > 0 && (
               <span className="ml-1 text-slate-500">· {t('usableSpaceArea')} {formatVenueArea(usableAreaSqMeters)}</span>
             )}
           </p>
