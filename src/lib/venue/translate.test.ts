@@ -22,6 +22,18 @@ test('parseTranslateResponse: 解析合法 JSON 数组', () => {
   ])
 })
 
+test('parseTranslateResponse: 解包对象里的数组(DeepSeek json_object 模式)', () => {
+  const raw = '{"result":[{"ja":"設備ラック","en":"Equipment rack"},{"ja":"会議室","en":"Meeting room"}]}'
+  assert.deepEqual(parseTranslateResponse(raw, 2), [
+    { ja: '設備ラック', en: 'Equipment rack' },
+    { ja: '会議室', en: 'Meeting room' },
+  ])
+})
+
+test('parseTranslateResponse: 对象里无数组返回 null', () => {
+  assert.equal(parseTranslateResponse('{"foo":"bar"}', 1), null)
+})
+
 test('parseTranslateResponse: 数量不匹配返回 null', () => {
   assert.equal(parseTranslateResponse('[{"ja":"x","en":"y"}]', 2), null)
 })
