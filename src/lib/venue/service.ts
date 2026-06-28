@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
+import { pendingTranslations, translateNames, type NameTranslations, type TranslatableRow } from '@/lib/venue/translate'
 import { layoutToRows, rowsToLayout } from '@/lib/venue/layout-sync'
 import type { VenueRow, VenueFloorRow, VenueItemRow } from '@/lib/venue/layout-sync'
 import type { VenueLayout } from '@/venue/layoutData'
@@ -214,4 +215,49 @@ export async function setVenueEditors(venueId: string, userIds: string[], actorI
     if (error) return err('db_error', error.message)
   }
   return ok({ userIds: unique })
+}
+
+// 翻译某场地下所有陈旧的组件名称,写回译名列,并返回该场地的完整译名映射。
+// 幂等:可在加载后与每次保存后重复调用。Gemini 失败时跳过写库,返回已有译名。
+export async function translateVenueItemNames(
+  venueId: string = SHARED_VENUE_ID,
+): Promise<ServiceResult<NameTranslations>> {
+  const db = createServerClient()
+
+  const { data: floors, error: floorErr } = await db
+    .from('venue_floors').select('id').eq('venue_id', venueId)
+  if (floorErr) return err('db_error', floorErr.message)
+  const floorIds = (floors ?? []).map((f) => f.id)
+  if (floorIds.length === 0) return ok({})
+
+  const { data: rows, error: rowErr } = await db
+    .from('venue_items')
+    .select('id, name, name_ja, name_en, name_i18n_source')
+    .in('floor_id', floorIds)
+  if (rowErr) return err('db_error', rowErr.message)
+  const allRows = (rows ?? []) as TranslatableRow[]
+
+  const pending = pendingTranslations(allRows)
+  if (pending.length > 0) {
+    const results = await translateNames(pending.map((r) => r.name))
+    if (results) {
+      await Promise.all(
+        pending.map((row, i) =>
+          db.from('venue_items')
+            .update({ name_ja: results[i].ja, name_en: results[i].en, name_i18n_source: row.name })
+            .eq('id', row.id),
+        ),
+      )
+      pending.forEach((row, i) => {
+        row.name_ja = results[i].ja
+        row.name_en = results[i].en
+      })
+    }
+  }
+
+  const map: NameTranslations = {}
+  for (const r of allRows) {
+    if (r.name_ja || r.name_en) map[r.id] = { ja: r.name_ja, en: r.name_en }
+  }
+  return ok(map)
 }

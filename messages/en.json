@@ -1190,6 +1190,7 @@
     "exportImage": "Export image",
     "currentVenue": "Current venue",
     "totalSpaceArea": "Total space area",
+    "usableSpaceArea": "Usable area",
     "switchVenue": "Switch venue",
     "newVenue": "New venue",
     "newVenueName": "New venue",
@@ -1238,6 +1239,7 @@
     "fieldName": "Name",
     "fieldType": "Type",
     "fieldStatus": "Status",
+    "fieldPlacement": "Placement",
     "fieldRotation": "Rotation",
     "fieldNote": "Note",
     "fieldId": "Item ID",
@@ -1298,6 +1300,10 @@
       "in_progress": "In progress",
       "completed": "Completed",
       "maintenance": "Needs maintenance"
+    },
+    "placements": {
+      "ground": "Ground",
+      "aerial": "Aerial"
     },
     "placedItemsTitle": "Items here",
     "placedItemsEmpty": "No items in this zone",

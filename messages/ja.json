@@ -1279,6 +1279,7 @@
     "exportImage": "Export image",
     "currentVenue": "Current venue",
     "totalSpaceArea": "Total space area",
+    "usableSpaceArea": "利用可能面積",
     "switchVenue": "Switch venue",
     "newVenue": "New venue",
     "newVenueName": "New venue",
@@ -1327,6 +1328,7 @@
     "fieldName": "Name",
     "fieldType": "Type",
     "fieldStatus": "Status",
+    "fieldPlacement": "配置",
     "fieldRotation": "Rotation",
     "fieldNote": "Note",
     "fieldId": "Item ID",
@@ -1387,6 +1389,10 @@
       "in_progress": "In progress",
       "completed": "Completed",
       "maintenance": "Needs maintenance"
+    },
+    "placements": {
+      "ground": "地面",
+      "aerial": "空中"
     },
     "placedItemsTitle": "Items here",
     "placedItemsEmpty": "No items in this zone",
