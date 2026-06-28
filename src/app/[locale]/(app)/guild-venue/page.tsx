@@ -571,6 +571,7 @@ export default function GuildVenuePage() {
       setActiveVenueId(id)
       window.localStorage.setItem(ACTIVE_VENUE_KEY, id)
       applyLoadedLayout(body.data)
+      void refreshTranslations(id)
     } catch {
       setSaveState('error')
     }
