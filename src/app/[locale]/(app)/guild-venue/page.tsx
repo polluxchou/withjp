@@ -922,7 +922,7 @@ export default function GuildVenuePage() {
 
               <ToolbarButton iconOnly icon={Undo2} label={t('undo')} onClick={undo} disabled={history.past.length === 0} />
               <ToolbarButton iconOnly icon={Redo2} label={t('redo')} onClick={redo} disabled={history.future.length === 0} />
-              {canMergeAreas && viewMode === '3d' && (
+              {canMergeAreas && (
                 areasAlreadyMerged
                   ? <ToolbarButton iconOnly icon={Unlink2} label={t('unmergeAreas')} onClick={unmergeSelectedAreas} />
                   : <ToolbarButton iconOnly icon={Link2} label={t('mergeAreas')} onClick={mergeSelectedAreas} />
