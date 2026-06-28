@@ -640,36 +640,57 @@ export function moveVenueItemLayer(
 }
 
 export function snapVenueItemToAlignment(
-  movingItem: Pick<VenueItem, 'id' | 'width' | 'height'>,
+  movingItem: Pick<VenueItem, 'id' | 'width' | 'height' | 'type'>,
   items: VenueItem[],
   position: { x: number; y: number },
   threshold = 8,
 ): VenueAlignmentSnap {
   const otherItems = items.filter((item) => item.id !== movingItem.id)
-  // Only snap edge-to-edge (adjacency): right→left and left→right.
-  // Center alignment and same-side edge alignment are intentionally excluded.
-  const xSnap = findAxisSnap(
-    [
-      { kind: 'start' as const, position: position.x },
-      { kind: 'end' as const, position: position.x + movingItem.width },
-    ],
-    otherItems.flatMap((item) => [
-      { item, position: item.x },
-      { item, position: item.x + item.width },
-    ]),
-    threshold,
-  )
-  const ySnap = findAxisSnap(
-    [
-      { kind: 'start' as const, position: position.y },
-      { kind: 'end' as const, position: position.y + movingItem.height },
-    ],
-    otherItems.flatMap((item) => [
-      { item, position: item.y },
-      { item, position: item.y + item.height },
-    ]),
-    threshold,
-  )
+  // area items snap edge-to-edge only (spatial adjacency).
+  // All other types use the full 3-point alignment (start/center/end).
+  const isArea = movingItem.type === 'area'
+  const xMoving = isArea
+    ? [
+        { kind: 'start' as const, position: position.x },
+        { kind: 'end' as const, position: position.x + movingItem.width },
+      ]
+    : [
+        { kind: 'start' as const, position: position.x },
+        { kind: 'center' as const, position: position.x + movingItem.width / 2 },
+        { kind: 'end' as const, position: position.x + movingItem.width },
+      ]
+  const xTargets = isArea
+    ? otherItems.flatMap((item) => [
+        { item, position: item.x },
+        { item, position: item.x + item.width },
+      ])
+    : otherItems.flatMap((item) => [
+        { item, position: item.x },
+        { item, position: item.x + item.width / 2 },
+        { item, position: item.x + item.width },
+      ])
+  const yMoving = isArea
+    ? [
+        { kind: 'start' as const, position: position.y },
+        { kind: 'end' as const, position: position.y + movingItem.height },
+      ]
+    : [
+        { kind: 'start' as const, position: position.y },
+        { kind: 'center' as const, position: position.y + movingItem.height / 2 },
+        { kind: 'end' as const, position: position.y + movingItem.height },
+      ]
+  const yTargets = isArea
+    ? otherItems.flatMap((item) => [
+        { item, position: item.y },
+        { item, position: item.y + item.height },
+      ])
+    : otherItems.flatMap((item) => [
+        { item, position: item.y },
+        { item, position: item.y + item.height / 2 },
+        { item, position: item.y + item.height },
+      ])
+  const xSnap = findAxisSnap(xMoving, xTargets, threshold)
+  const ySnap = findAxisSnap(yMoving, yTargets, threshold)
 
   const x = xSnap ? xForSnap(xSnap.position, xSnap.kind, movingItem.width) : position.x
   const y = ySnap ? xForSnap(ySnap.position, ySnap.kind, movingItem.height) : position.y
