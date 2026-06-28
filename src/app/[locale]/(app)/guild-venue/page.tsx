@@ -953,6 +953,8 @@ export default function GuildVenuePage() {
               selectedItemIds={selectedItemIds}
               onSelect={(itemId) => setSelectedItemIds([itemId])}
               visibleTypes={visibleTypes}
+              locale={locale}
+              nameTranslations={nameTranslations}
             />
             {viewMode === '3d' ? (
               <Venue3DCanvas
@@ -1135,6 +1137,8 @@ function FloatingPanel({
   selectedItemIds,
   visibleTypes,
   onSelect,
+  locale,
+  nameTranslations,
 }: {
   layoutName: string
   floorName: string
@@ -1154,6 +1158,8 @@ function FloatingPanel({
   selectedItemIds: string[]
   visibleTypes: VenueItemType[]
   onSelect: (id: string) => void
+  locale: string
+  nameTranslations: VenueNameTranslations
 }) {
   const t = useTranslations('venue')
   const [collapsed, setCollapsed] = useState(false)
