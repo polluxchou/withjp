@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import {
   ArrowLeftRight,
   Bookmark,
@@ -72,6 +72,8 @@ import {
   type VenueFloor,
   type VenueLayerMove,
   moveVenueItems,
+  resolveVenueItemName,
+  type VenueNameTranslations,
   writeStoredVenueLayout,
   VENUE_STORAGE_KEY,
   MAX_VENUE_VIEW_BOOKMARKS,
@@ -108,6 +110,8 @@ const ALL_VENUE_TYPES = VENUE_ITEM_TYPE_OPTIONS.map((option) => option.value)
 
 export default function GuildVenuePage() {
   const t = useTranslations('venue')
+  const locale = useLocale()
+  const [nameTranslations, setNameTranslations] = useState<VenueNameTranslations>({})
   const [history, setHistory] = useState(() => createHistory(DEFAULT_VENUE_LAYOUT))
   const [selectedFloorId, setSelectedFloorId] = useState(DEFAULT_VENUE_LAYOUT.floors[0].id)
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => {
@@ -145,6 +149,21 @@ export default function GuildVenuePage() {
   // after the initial load applies the freshly fetched (or fallback) layout.
   const skipNextSave = useRef(true)
 
+  const refreshTranslations = useCallback(async (venueId: string) => {
+    try {
+      const res = await fetch('/api/venue/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venueId }),
+      })
+      if (!res.ok) return
+      const body = (await res.json()) as { data: VenueNameTranslations | null }
+      if (body.data) setNameTranslations(body.data)
+    } catch {
+      // 翻译是增强项,失败时画布静默显示中文。
+    }
+  }, [])
+
   // Source of truth is the DB (GET /api/venue). localStorage is now only an
   // offline fallback (on fetch failure) and a one-time import source.
   useEffect(() => {
@@ -181,6 +200,7 @@ export default function GuildVenuePage() {
         if (cancelled) return
         const cloud = layoutBody.data ?? DEFAULT_VENUE_LAYOUT
         applyLayout(cloud)
+        void refreshTranslations(activeId)
         setPersistable(true)
 
         // One-time import offer: only for the seeded shared venue, when the cloud
@@ -219,7 +239,7 @@ export default function GuildVenuePage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshTranslations])
 
   const layout = history.present
   const viewBookmarks = layout.viewBookmarks ?? []
@@ -363,6 +383,7 @@ export default function GuildVenuePage() {
           })
           if (cancelled) return
           setSaveState(res.ok ? 'saved' : 'error')
+          if (res.ok) void refreshTranslations(layout.venueId)
         } catch {
           if (cancelled) return
           setSaveState('error')
@@ -374,7 +395,7 @@ export default function GuildVenuePage() {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [hydrated, persistable, layout])
+  }, [hydrated, persistable, layout, refreshTranslations])
 
   // After a bookmark recall sets the zoom (and the canvas resizes), restore the
   // saved scroll offset on the next frame.
@@ -938,6 +959,7 @@ export default function GuildVenuePage() {
                 selectedItemIds={selectedItemIds}
                 onSelectItems={setSelectedItemIds}
                 onItemChange={updateItem}
+                itemName={(item) => resolveVenueItemName(item.name, item.id, locale, nameTranslations)}
               />
             ) : (
               <VenueCanvas
@@ -953,6 +975,7 @@ export default function GuildVenuePage() {
                 onSelectItems={setSelectedItemIds}
                 onItemChange={updateItem}
                 onItemsMove={moveItems}
+                itemName={(item) => resolveVenueItemName(item.name, item.id, locale, nameTranslations)}
               />
             )}
           </div>
