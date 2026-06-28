@@ -126,6 +126,35 @@ function VenueCanvas(
       })
   }, [floor.items, dragPositions, visibleTypes])
 
+  // Shared-edge cover lines: for each merged area pair, compute the overlapping
+  // segment so we can draw a fill-coloured line on top to hide the border there.
+  const mergedEdgeCovers = useMemo(() => {
+    const areaFill = TYPE_STYLE.area.fill
+    const areas = items.filter((it) => it.type === 'area' && it.rotation === 0)
+    const covers: { x1: number; y1: number; x2: number; y2: number }[] = []
+    for (let i = 0; i < areas.length; i++) {
+      for (let j = i + 1; j < areas.length; j++) {
+        const a = areas[i], b = areas[j]
+        if (!(a.mergedWith ?? []).includes(b.id)) continue
+        // East–West adjacency (vertical shared edge)
+        if (Math.abs((a.x + a.width) - b.x) <= 1 || Math.abs(a.x - (b.x + b.width)) <= 1) {
+          const edgeX = Math.abs((a.x + a.width) - b.x) <= 1 ? a.x + a.width : a.x
+          const lo = Math.max(a.y, b.y)
+          const hi = Math.min(a.y + a.height, b.y + b.height)
+          if (hi > lo) covers.push({ x1: edgeX, y1: lo, x2: edgeX, y2: hi })
+        }
+        // North–South adjacency (horizontal shared edge)
+        if (Math.abs((a.y + a.height) - b.y) <= 1 || Math.abs(a.y - (b.y + b.height)) <= 1) {
+          const edgeY = Math.abs((a.y + a.height) - b.y) <= 1 ? a.y + a.height : a.y
+          const lo = Math.max(a.x, b.x)
+          const hi = Math.min(a.x + a.width, b.x + b.width)
+          if (hi > lo) covers.push({ x1: lo, y1: edgeY, x2: hi, y2: edgeY })
+        }
+      }
+    }
+    return { covers, fill: areaFill }
+  }, [items])
+
   function setRefs(node: SVGSVGElement | null) {
     localSvgRef.current = node
     if (typeof ref === 'function') ref(node)
@@ -540,6 +569,15 @@ function VenueCanvas(
                 itemName={itemName}
                 scale={scale}
                 floorWidth={floor.width}
+              />
+            ))}
+            {mergedEdgeCovers.covers.map((c, i) => (
+              <line
+                key={i}
+                x1={c.x1} y1={c.y1} x2={c.x2} y2={c.y2}
+                stroke={mergedEdgeCovers.fill}
+                strokeWidth={(4 / 3) / scale * 2}
+                pointerEvents="none"
               />
             ))}
             <AlignmentGuides guides={alignmentGuides} scale={scale} />
