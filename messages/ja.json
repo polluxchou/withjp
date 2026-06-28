@@ -1274,6 +1274,7 @@
     "redo": "Redo",
     "grid": "Grid",
     "dimensionRulers": "Dimension rulers",
+    "snapEnabled": "エッジスナップ",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "exportJson": "Export JSON",
