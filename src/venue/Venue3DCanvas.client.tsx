@@ -832,29 +832,46 @@ function EdgeLabelOverlay({
 
   const labels = useMemo(() => {
     if (W === 0 || H === 0) return []
-    const MARGIN = 20
-    const cx = W / 2
-    const cy = H / 2
+
+    // Collect valid projected points.
+    const pts: Array<{ item: VenueItem; x: number; y: number }> = []
+    for (const item of items) {
+      const p = projected[item.id]
+      if (!p) continue
+      pts.push({ item, x: p.x, y: p.y })
+    }
+    if (pts.length === 0) return []
+
+    // Bounding box of all projected points.
+    let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity
+    for (const { x, y } of pts) {
+      if (x < bx0) bx0 = x; if (x > bx1) bx1 = x
+      if (y < by0) by0 = y; if (y > by1) by1 = y
+    }
+    // Label zone: expand bounding box by PAD, clamp to viewport.
+    const PAD = 56
+    const zx0 = Math.max(4,  bx0 - PAD)
+    const zy0 = Math.max(4,  by0 - PAD)
+    const zx1 = Math.min(W - 4, bx1 + PAD)
+    const zy1 = Math.min(H - 4, by1 + PAD)
+    const zcx = (zx0 + zx1) / 2
+    const zcy = (zy0 + zy1) / 2
 
     type Slot = { item: VenueItem; from: { x: number; y: number }; t: number }
     const edges: Record<'top' | 'bottom' | 'left' | 'right', Slot[]> = {
       top: [], bottom: [], left: [], right: [],
     }
 
-    for (const item of items) {
-      const from = projected[item.id]
-      if (!from) continue
-      // Clamp projected point — items behind/off-screen still get a label from edge.
-      const fx = Math.max(0, Math.min(W, from.x))
-      const fy = Math.max(0, Math.min(H, from.y))
-      const dx = (fx - cx) / W
-      const dy = (fy - cy) / H
+    for (const { item, x, y } of pts) {
+      // Assign to nearest zone edge based on angle from zone centre.
+      const dx = (x - zcx) / (zx1 - zx0 + 1)
+      const dy = (y - zcy) / (zy1 - zy0 + 1)
       if (Math.abs(dx) >= Math.abs(dy)) {
-        if (dx >= 0) edges.right.push({ item, from: { x: fx, y: fy }, t: fy / H })
-        else         edges.left.push ({ item, from: { x: fx, y: fy }, t: fy / H })
+        if (dx >= 0) edges.right.push({ item, from: { x, y }, t: y })
+        else         edges.left.push ({ item, from: { x, y }, t: y })
       } else {
-        if (dy >= 0) edges.bottom.push({ item, from: { x: fx, y: fy }, t: fx / W })
-        else         edges.top.push   ({ item, from: { x: fx, y: fy }, t: fx / W })
+        if (dy >= 0) edges.bottom.push({ item, from: { x, y }, t: x })
+        else         edges.top.push   ({ item, from: { x, y }, t: x })
       }
     }
 
@@ -868,12 +885,11 @@ function EdgeLabelOverlay({
       for (let i = 0; i < n; i++) {
         const { item, from } = slots[i]
         const frac = (i + 0.5) / n
-        const rangeStart = MARGIN * 3
         let to: { x: number; y: number }
-        if (edge === 'top')    to = { x: rangeStart + frac * (W - rangeStart * 2), y: MARGIN }
-        else if (edge === 'bottom') to = { x: rangeStart + frac * (W - rangeStart * 2), y: H - MARGIN }
-        else if (edge === 'left')   to = { x: MARGIN, y: rangeStart + frac * (H - rangeStart * 2) }
-        else                        to = { x: W - MARGIN, y: rangeStart + frac * (H - rangeStart * 2) }
+        if (edge === 'top')         to = { x: zx0 + frac * (zx1 - zx0), y: zy0 }
+        else if (edge === 'bottom') to = { x: zx0 + frac * (zx1 - zx0), y: zy1 }
+        else if (edge === 'left')   to = { x: zx0, y: zy0 + frac * (zy1 - zy0) }
+        else                        to = { x: zx1, y: zy0 + frac * (zy1 - zy0) }
         result.push({ id: item.id, name: itemName(item), from, to, selected: selectedIds.has(item.id) })
       }
     }
