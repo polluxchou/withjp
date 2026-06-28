@@ -646,15 +646,15 @@ export function snapVenueItemToAlignment(
   threshold = 8,
 ): VenueAlignmentSnap {
   const otherItems = items.filter((item) => item.id !== movingItem.id)
+  // Only snap edge-to-edge (adjacency): right→left and left→right.
+  // Center alignment and same-side edge alignment are intentionally excluded.
   const xSnap = findAxisSnap(
     [
       { kind: 'start' as const, position: position.x },
-      { kind: 'center' as const, position: position.x + movingItem.width / 2 },
       { kind: 'end' as const, position: position.x + movingItem.width },
     ],
     otherItems.flatMap((item) => [
       { item, position: item.x },
-      { item, position: item.x + item.width / 2 },
       { item, position: item.x + item.width },
     ]),
     threshold,
@@ -662,12 +662,10 @@ export function snapVenueItemToAlignment(
   const ySnap = findAxisSnap(
     [
       { kind: 'start' as const, position: position.y },
-      { kind: 'center' as const, position: position.y + movingItem.height / 2 },
       { kind: 'end' as const, position: position.y + movingItem.height },
     ],
     otherItems.flatMap((item) => [
       { item, position: item.y },
-      { item, position: item.y + item.height / 2 },
       { item, position: item.y + item.height },
     ]),
     threshold,
