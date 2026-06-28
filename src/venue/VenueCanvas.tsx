@@ -36,6 +36,8 @@ type Props = {
   itemName?: (item: VenueItem) => string
   // Lets the page read/write the scroll container (for view bookmarks).
   scrollRef?: { current: HTMLDivElement | null }
+  // When true (default), dragging snaps item edges/centers to neighbors.
+  snapEnabled?: boolean
 }
 
 type DragState = {
@@ -76,7 +78,7 @@ const SELECTION_SCRIM_OPACITY = 0.18
 const SELECTION_ACCENT = '#f4511e'
 
 function VenueCanvas(
-  { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove, fitWidthReserve = 0, visibleTypes, itemName, scrollRef }: Props,
+  { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove, fitWidthReserve = 0, visibleTypes, itemName, scrollRef, snapEnabled = true }: Props,
   ref: ForwardedRef<SVGSVGElement>,
 ) {
   const t = useTranslations('venue')
@@ -86,6 +88,7 @@ function VenueCanvas(
   const [dragPositions, setDragPositions] = useState<Record<string, { x: number; y: number }>>({})
   const [alignmentGuides, setAlignmentGuides] = useState<VenueAlignmentGuide[]>([])
   const [pan, setPan] = useState<PanState | null>(null)
+  const [marquee, setMarquee] = useState<{ start: { x: number; y: number }; current: { x: number; y: number } } | null>(null)
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
   const itemTypeLabels = useMemo(
     () => Object.fromEntries(VENUE_ITEM_TYPE_OPTIONS.map((option) => [option.value, t(`types.${option.value}`)])),
@@ -174,6 +177,10 @@ function VenueCanvas(
       scroller.scrollTop = pan.startScroll.top - (event.clientY - pan.startClient.y)
       return
     }
+    if (marquee) {
+      setMarquee((m) => m ? { ...m, current: svgPoint(event) } : null)
+      return
+    }
     if (!drag) return
     const pointer = svgPoint(event)
     const activeStart = drag.startItems.find((candidate) => candidate.id === drag.activeItemId)
@@ -185,7 +192,9 @@ function VenueCanvas(
     const x = Math.round(activeStart.x + pointer.x - drag.startPointer.x)
     const y = Math.round(activeStart.y + pointer.y - drag.startPointer.y)
     const snapTargets = floor.items.filter((candidate) => !drag.itemIds.includes(candidate.id) || candidate.id === drag.activeItemId)
-    const snapped = snapVenueItemToAlignment(activeItem, snapTargets, { x, y })
+    const snapped = snapEnabled
+      ? snapVenueItemToAlignment(activeItem, snapTargets, { x, y })
+      : { x, y, guides: [] }
     const delta = { x: snapped.x - activeStart.x, y: snapped.y - activeStart.y }
     setDragPositions(Object.fromEntries(
       drag.startItems.map((candidate) => [
@@ -209,6 +218,19 @@ function VenueCanvas(
         }
       }
     }
+    if (marquee) {
+      const rx = Math.min(marquee.start.x, marquee.current.x)
+      const ry = Math.min(marquee.start.y, marquee.current.y)
+      const rw = Math.abs(marquee.current.x - marquee.start.x)
+      const rh = Math.abs(marquee.current.y - marquee.start.y)
+      if (rw > 2 || rh > 2) {
+        const hit = floor.items
+          .filter((item) => item.x < rx + rw && item.x + item.width > rx && item.y < ry + rh && item.y + item.height > ry)
+          .map((item) => item.id)
+        onSelectItems(hit)
+      }
+      setMarquee(null)
+    }
     setDrag(null)
     setDragPositions({})
     setAlignmentGuides([])
@@ -216,14 +238,21 @@ function VenueCanvas(
   }
 
   function startPan(event: PointerEvent<SVGGElement>) {
-    const scroller = scrollerRef.current
-    if (!scroller) return
     event.stopPropagation()
-    onSelectItems([])
-    setPan({
-      startClient: { x: event.clientX, y: event.clientY },
-      startScroll: { left: scroller.scrollLeft, top: scroller.scrollTop },
-    })
+    if (event.button === 1) {
+      // Middle-click → pan
+      const scroller = scrollerRef.current
+      if (!scroller) return
+      onSelectItems([])
+      setPan({
+        startClient: { x: event.clientX, y: event.clientY },
+        startScroll: { left: scroller.scrollLeft, top: scroller.scrollTop },
+      })
+    } else {
+      // Left-click → marquee selection
+      const pt = svgPoint(event)
+      setMarquee({ start: pt, current: pt })
+    }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
@@ -408,7 +437,7 @@ function VenueCanvas(
               </pattern>
             </defs>
 
-            <g onPointerDown={startPan} className={pan ? 'cursor-grabbing' : 'cursor-grab'}>
+            <g onPointerDown={startPan} className={pan ? 'cursor-grabbing' : marquee ? 'cursor-crosshair' : 'cursor-crosshair'}>
               <rect x="0" y="0" width={floor.width} height={floor.height} fill="#fff" />
               {showGrid && <rect x="0" y="0" width={floor.width} height={floor.height} fill="url(#venue-grid-major)" />}
               {floor.backgroundImage && (
@@ -503,6 +532,22 @@ function VenueCanvas(
               />
             ))}
             <AlignmentGuides guides={alignmentGuides} scale={scale} />
+            {marquee && (() => {
+              const rx = Math.min(marquee.start.x, marquee.current.x)
+              const ry = Math.min(marquee.start.y, marquee.current.y)
+              const rw = Math.abs(marquee.current.x - marquee.start.x)
+              const rh = Math.abs(marquee.current.y - marquee.start.y)
+              return (
+                <rect
+                  x={rx} y={ry} width={rw} height={rh}
+                  fill="rgba(99,102,241,0.08)"
+                  stroke="#6366f1"
+                  strokeWidth={1.5 / scale}
+                  strokeDasharray={`${6 / scale} ${4 / scale}`}
+                  pointerEvents="none"
+                />
+              )
+            })()}
           </svg>
         </div>
       </div>

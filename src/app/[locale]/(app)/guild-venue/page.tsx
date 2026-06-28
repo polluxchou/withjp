@@ -15,6 +15,7 @@ import {
   Flame,
   Grid3X3,
   Image as ImageIcon,
+  Magnet,
   Layers,
   ListFilter,
   Lock,
@@ -121,6 +122,7 @@ export default function GuildVenuePage() {
   const [zoom, setZoom] = useState(1.2)
   const [showGrid, setShowGrid] = useState(true)
   const [showRulers, setShowRulers] = useState(true)
+  const [snapEnabled, setSnapEnabled] = useState(true)
   // 2D is the canonical edit surface; 3D is a read-only preview for now (S3).
   // Selection state is shared so clicking a box in 3D updates the inspector.
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d')
@@ -879,6 +881,7 @@ export default function GuildVenuePage() {
           )}
           <ToolbarButton iconOnly icon={Grid3X3} label={t('grid')} onClick={() => setShowGrid((value) => !value)} active={showGrid} />
           <ToolbarButton iconOnly icon={Ruler} label={t('dimensionRulers')} onClick={() => setShowRulers((value) => !value)} active={showRulers} />
+          {viewMode === '2d' && <ToolbarButton iconOnly icon={Magnet} label={t('snapEnabled')} onClick={() => setSnapEnabled((value) => !value)} active={snapEnabled} />}
 
           <div className="w-px h-6 bg-slate-200 mx-1" />
 
@@ -988,6 +991,7 @@ export default function GuildVenuePage() {
                 onItemChange={updateItem}
                 onItemsMove={moveItems}
                 itemName={(item) => resolveVenueItemName(item.name, item.id, locale, nameTranslations)}
+                snapEnabled={snapEnabled}
               />
             )}
           </div>
