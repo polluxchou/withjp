@@ -1,9 +1,9 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
-import { PerspectiveCamera } from 'three'
-import { Edges, Html, Line, OrbitControls, TransformControls, useTexture } from '@react-three/drei'
+import { CSSProperties, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { PerspectiveCamera, Vector3 } from 'three'
+import { Edges, Line, OrbitControls, TransformControls, useTexture } from '@react-three/drei'
 import { DoubleSide, type Group } from 'three'
 import { useTranslations } from 'next-intl'
 import { MousePointer2, Move, RotateCcw, MoveVertical } from 'lucide-react'
@@ -121,8 +121,58 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
   const selectedItem = selectedId ? floor.items.find((item) => item.id === selectedId) ?? null : null
   const showGizmo = transformMode !== 'select' && !!selectedItem
 
+  // World positions (top-centre of each item) fed into SceneProjector.
+  const labelEntries = useMemo(() => floor.items.map((item) => {
+    const placement = doorPlacements.get(item.id)
+    let world: [number, number, number]
+    if (placement) {
+      const aRad = (placement.areaRotationDeg * Math.PI) / 180
+      const cos = Math.cos(aRad); const sin = Math.sin(aRad)
+      const lx = placement.panelLocal[0]; const lz = placement.panelLocal[2]
+      world = [
+        placement.areaCenterX + lx * cos - lz * sin,
+        placement.height3d,
+        placement.areaCenterZ + lx * sin + lz * cos,
+      ]
+    } else {
+      world = [
+        item.x + item.width / 2,
+        item.elevation + Math.max(item.height3d, 1),
+        item.y + item.height / 2,
+      ]
+    }
+    return { id: item.id, world }
+  }), [floor.items, doorPlacements])
+
+  // Projected screen positions updated by SceneProjector each frame.
+  const projectedRef = useRef<Record<string, { x: number; y: number }>>({})
+  const [projected, setProjected] = useState<Record<string, { x: number; y: number }>>({})
+  const onProjected = useCallback((pos: Record<string, { x: number; y: number }>) => {
+    projectedRef.current = pos
+    setProjected(pos)
+  }, [])
+
+  // Canvas container size (for edge layout math).
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver((es) => {
+      const r = es[0].contentRect
+      setCanvasSize({ width: r.width, height: r.height })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const resolvedItemName = useCallback(
+    (item: VenueItem) => (itemName ? itemName(item) : item.name),
+    [itemName],
+  )
+
   return (
-    <div className="relative h-full min-h-[560px] w-full bg-slate-50">
+    <div ref={containerRef} className="relative h-full min-h-[560px] w-full bg-slate-50">
       <Canvas
         shadows={false}
         camera={cameraInit}
@@ -131,6 +181,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         onPointerMissed={handlePointerMissed}
       >
         <CameraFovSync zoom={zoom} />
+        <SceneProjector entries={labelEntries} onUpdate={onProjected} />
         <color attach="background" args={['#f8fafc']} />
         <ambientLight intensity={0.65} />
         <directionalLight position={[floor.width, floor.height * 2, floor.height]} intensity={0.45} />
@@ -140,9 +191,6 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         </Suspense>
 
         {floor.items.map((item) => {
-          // Placed doors render their own realistic panel and skip the generic
-          // box; they also opt out of the TransformControls ref because their
-          // 3D position is derived from the host wall, not the door's own (x,y).
           if (isDoorType(item.type)) {
             const placement = doorPlacements.get(item.id)
             if (placement) {
@@ -169,13 +217,6 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
           )
         })}
 
-        <ItemLabels
-          items={floor.items}
-          doorPlacements={doorPlacements}
-          selectedIds={selectedSet}
-          itemName={itemName}
-        />
-
         {showGizmo && selectedItem && (
           <ItemTransformGizmo
             key={`${selectedItem.id}:${transformMode}`}
@@ -196,6 +237,14 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
           maxPolarAngle={Math.PI / 2 - 0.05}
         />
       </Canvas>
+
+      <EdgeLabelOverlay
+        items={floor.items}
+        projected={projected}
+        canvasSize={canvasSize}
+        selectedIds={selectedSet}
+        itemName={resolvedItemName}
+      />
 
       <TransformToolbar
         mode={transformMode}
@@ -739,97 +788,142 @@ function degToRad(deg: number): number {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Item labels — dashed leader + floating name chip.
+// SceneProjector — runs inside Canvas, projects world positions → screen pixels each frame.
+function SceneProjector({
+  entries,
+  onUpdate,
+}: {
+  entries: Array<{ id: string; world: [number, number, number] }>
+  onUpdate: (pos: Record<string, { x: number; y: number }>) => void
+}) {
+  const { camera, size } = useThree()
+  const vec = useMemo(() => new Vector3(), [])
+  useFrame(() => {
+    const result: Record<string, { x: number; y: number }> = {}
+    for (const { id, world } of entries) {
+      vec.set(...world)
+      vec.project(camera)
+      if (vec.z > 1) continue  // behind camera
+      result[id] = {
+        x: (vec.x * 0.5 + 0.5) * size.width,
+        y: (vec.y * -0.5 + 0.5) * size.height,
+      }
+    }
+    onUpdate(result)
+  })
+  return null
+}
 
-function ItemLabels({
+// EdgeLabelOverlay — SVG overlay outside Canvas with edge-distributed label chips.
+function EdgeLabelOverlay({
   items,
-  doorPlacements,
+  projected,
+  canvasSize,
   selectedIds,
   itemName,
 }: {
   items: VenueItem[]
-  doorPlacements: Map<string, DoorPlacement>
+  projected: Record<string, { x: number; y: number }>
+  canvasSize: { width: number; height: number }
   selectedIds: Set<string>
-  itemName?: (item: VenueItem) => string
+  itemName: (item: VenueItem) => string
 }) {
-  return (
-    <>
-      {items.map((item) => {
-        const placement = doorPlacements.get(item.id)
-        let anchor: [number, number, number]
-        if (placement) {
-          // Door panel sits in area-local coords; rotate around Y into world.
-          const aRad = degToRad(placement.areaRotationDeg)
-          const cos = Math.cos(aRad)
-          const sin = Math.sin(aRad)
-          const lx = placement.panelLocal[0]
-          const lz = placement.panelLocal[2]
-          const wx = placement.areaCenterX + lx * cos - lz * sin
-          const wz = placement.areaCenterZ + lx * sin + lz * cos
-          anchor = [wx, placement.height3d, wz]
-        } else {
-          const yExtent = Math.max(item.height3d, 1)
-          anchor = [
-            item.x + item.width / 2,
-            item.elevation + yExtent,
-            item.y + item.height / 2,
-          ]
-        }
-        const labelPos: [number, number, number] = [
-          anchor[0],
-          anchor[1] + LABEL_LEADER_HEIGHT,
-          anchor[2],
-        ]
-        return (
-          <ItemLabel
-            key={`lbl-${item.id}`}
-            name={itemName ? itemName(item) : item.name}
-            anchor={anchor}
-            labelPos={labelPos}
-            selected={selectedIds.has(item.id)}
-          />
-        )
-      })}
-    </>
-  )
-}
+  const { width: W, height: H } = canvasSize
 
-function ItemLabel({
-  name, anchor, labelPos, selected,
-}: {
-  name: string
-  anchor: [number, number, number]
-  labelPos: [number, number, number]
-  selected: boolean
-}) {
-  const lineColor = selected ? SELECTION_ACCENT : '#94a3b8'
+  const labels = useMemo(() => {
+    if (W === 0 || H === 0) return []
+    const MARGIN = 20
+    const cx = W / 2
+    const cy = H / 2
+
+    type Slot = { item: VenueItem; from: { x: number; y: number }; t: number }
+    const edges: Record<'top' | 'bottom' | 'left' | 'right', Slot[]> = {
+      top: [], bottom: [], left: [], right: [],
+    }
+
+    for (const item of items) {
+      const from = projected[item.id]
+      if (!from) continue
+      // Clamp projected point — items behind/off-screen still get a label from edge.
+      const fx = Math.max(0, Math.min(W, from.x))
+      const fy = Math.max(0, Math.min(H, from.y))
+      const dx = (fx - cx) / W
+      const dy = (fy - cy) / H
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        if (dx >= 0) edges.right.push({ item, from: { x: fx, y: fy }, t: fy / H })
+        else         edges.left.push ({ item, from: { x: fx, y: fy }, t: fy / H })
+      } else {
+        if (dy >= 0) edges.bottom.push({ item, from: { x: fx, y: fy }, t: fx / W })
+        else         edges.top.push   ({ item, from: { x: fx, y: fy }, t: fx / W })
+      }
+    }
+
+    type LabelEntry = { id: string; name: string; from: { x: number; y: number }; to: { x: number; y: number }; selected: boolean }
+    const result: LabelEntry[] = []
+
+    function distribute(slots: Slot[], edge: 'top' | 'bottom' | 'left' | 'right') {
+      slots.sort((a, b) => a.t - b.t)
+      const n = slots.length
+      if (n === 0) return
+      for (let i = 0; i < n; i++) {
+        const { item, from } = slots[i]
+        const frac = (i + 0.5) / n
+        const rangeStart = MARGIN * 3
+        let to: { x: number; y: number }
+        if (edge === 'top')    to = { x: rangeStart + frac * (W - rangeStart * 2), y: MARGIN }
+        else if (edge === 'bottom') to = { x: rangeStart + frac * (W - rangeStart * 2), y: H - MARGIN }
+        else if (edge === 'left')   to = { x: MARGIN, y: rangeStart + frac * (H - rangeStart * 2) }
+        else                        to = { x: W - MARGIN, y: rangeStart + frac * (H - rangeStart * 2) }
+        result.push({ id: item.id, name: itemName(item), from, to, selected: selectedIds.has(item.id) })
+      }
+    }
+
+    distribute(edges.top, 'top')
+    distribute(edges.bottom, 'bottom')
+    distribute(edges.left, 'left')
+    distribute(edges.right, 'right')
+    return result
+  }, [items, projected, W, H, itemName, selectedIds])
+
+  if (W === 0) return null
+
   return (
     <>
-      <Line
-        points={[anchor, labelPos]}
-        color={lineColor}
-        lineWidth={1}
-        dashed
-        dashSize={4}
-        gapSize={3}
-      />
-      <Html
-        position={labelPos}
-        center
-        // Disable wrapper pointer events so labels never block clicks on the
-        // 3D meshes underneath them.
-        style={{ pointerEvents: 'none', userSelect: 'none' }}
+      <svg
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' } as CSSProperties}
+        viewBox={`0 0 ${W} ${H}`}
       >
+        {labels.map((lbl) => (
+          <line
+            key={`line-${lbl.id}`}
+            x1={lbl.from.x} y1={lbl.from.y}
+            x2={lbl.to.x}   y2={lbl.to.y}
+            stroke={lbl.selected ? '#f4511e' : '#94a3b8'}
+            strokeWidth={1}
+            strokeDasharray="5 3"
+          />
+        ))}
+      </svg>
+      {labels.map((lbl) => (
         <div
+          key={`chip-${lbl.id}`}
+          style={{
+            position: 'absolute',
+            left: lbl.to.x,
+            top: lbl.to.y,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          } as CSSProperties}
           className={`px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap shadow-sm border ${
-            selected
+            lbl.selected
               ? 'bg-[#f4511e] text-white border-[#f4511e]'
               : 'bg-white/95 text-slate-700 border-slate-200'
           }`}
         >
-          {name}
+          {lbl.name}
         </div>
-      </Html>
+      ))}
     </>
   )
 }
