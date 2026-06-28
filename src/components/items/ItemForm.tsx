@@ -178,7 +178,7 @@ export default function ItemForm({
                   max={expensePrice ?? undefined}
                   step={0.01}
                   className={inputCls}
-                  placeholder={expensePrice != null ? `¥${expensePrice.toLocaleString('zh-CN')}（默认）` : ''}
+                  placeholder={expensePrice != null ? t('fieldItemValuePlaceholder', { price: expensePrice.toLocaleString('zh-CN') }) : ''}
                   value={value.item_value ?? ''}
                   onChange={(e) => {
                     const v = e.target.value === '' ? null : Math.min(Number(e.target.value), expensePrice ?? Infinity)
