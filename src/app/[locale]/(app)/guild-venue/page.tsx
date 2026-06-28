@@ -17,6 +17,8 @@ import {
   Grid3X3,
   Image as ImageIcon,
   Magnet,
+  Link2,
+  Unlink2,
   Layers,
   ListFilter,
   Lock,
@@ -70,6 +72,8 @@ import {
   undoHistory,
   updateVenueFloor,
   updateVenueItem,
+  mergeVenueAreas,
+  unmergeVenueAreas,
   metersToCentimeters,
   type VenueFloor,
   type VenueLayerMove,
@@ -494,6 +498,40 @@ export default function GuildVenuePage() {
     commit(moveVenueItems(layout, activeFloor.id, itemIds, delta), itemIds)
   }
 
+  // Whether ALL pairs among the selected area items are already merged.
+  const selectedAreaItems = useMemo(
+    () => selectedItemIds.length >= 2
+      ? selectedItemIds.map((id) => activeFloor?.items.find((it) => it.id === id)).filter((it) => it?.type === 'area')
+      : [],
+    [selectedItemIds, activeFloor],
+  )
+  const canMergeAreas = selectedAreaItems.length >= 2
+  const areasAlreadyMerged = canMergeAreas && selectedAreaItems.every((a) =>
+    selectedAreaItems.every((b) => a === b || (a?.mergedWith ?? []).includes(b!.id))
+  )
+
+  function mergeSelectedAreas() {
+    if (!activeFloor || selectedAreaItems.length < 2) return
+    let next = layout
+    for (let i = 0; i < selectedAreaItems.length; i++) {
+      for (let j = i + 1; j < selectedAreaItems.length; j++) {
+        next = mergeVenueAreas(next, activeFloor.id, selectedAreaItems[i]!.id, selectedAreaItems[j]!.id)
+      }
+    }
+    commit(next)
+  }
+
+  function unmergeSelectedAreas() {
+    if (!activeFloor || selectedAreaItems.length < 2) return
+    let next = layout
+    for (let i = 0; i < selectedAreaItems.length; i++) {
+      for (let j = i + 1; j < selectedAreaItems.length; j++) {
+        next = unmergeVenueAreas(next, activeFloor.id, selectedAreaItems[i]!.id, selectedAreaItems[j]!.id)
+      }
+    }
+    commit(next)
+  }
+
   function removeSelectedItem() {
     if (!activeFloor || !selectedItemId) return
     const result = deleteVenueItem(layout, activeFloor.id, selectedItemId, selectedItemId)
@@ -884,6 +922,11 @@ export default function GuildVenuePage() {
 
               <ToolbarButton iconOnly icon={Undo2} label={t('undo')} onClick={undo} disabled={history.past.length === 0} />
               <ToolbarButton iconOnly icon={Redo2} label={t('redo')} onClick={redo} disabled={history.future.length === 0} />
+              {canMergeAreas && viewMode === '3d' && (
+                areasAlreadyMerged
+                  ? <ToolbarButton iconOnly icon={Unlink2} label={t('unmergeAreas')} onClick={unmergeSelectedAreas} />
+                  : <ToolbarButton iconOnly icon={Link2} label={t('mergeAreas')} onClick={mergeSelectedAreas} />
+              )}
             </>
           )}
           <ToolbarButton iconOnly icon={Grid3X3} label={t('grid')} onClick={() => setShowGrid((value) => !value)} active={showGrid} />

@@ -1186,6 +1186,8 @@
     "grid": "Grid",
     "dimensionRulers": "Dimension rulers",
     "snapEnabled": "Edge snapping",
+    "mergeAreas": "Merge spaces",
+    "unmergeAreas": "Unmerge spaces",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "exportJson": "Export JSON",

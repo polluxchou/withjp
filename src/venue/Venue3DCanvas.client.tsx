@@ -291,6 +291,10 @@ function computeAreaAdjacencies(items: VenueItem[]): Map<string, AreaSharedWalls
       const a = areas[i]
       const b = areas[j]
 
+      // Only suppress the shared wall if both items have explicitly merged with each other.
+      const merged = a.mergedWith?.includes(b.id) && b.mergedWith?.includes(a.id)
+      if (!merged) continue
+
       // A's East wall meets B's West wall
       if (Math.abs((a.x + a.width) - b.x) <= t) {
         const lo = Math.max(a.y, b.y)
