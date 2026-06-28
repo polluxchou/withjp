@@ -40,6 +40,7 @@ export interface VenueItemRow {
   elevation: number
   thickness: number
   placement: VenueItemPlacement
+  merged_with: string[]
   z_index: number
 }
 
@@ -83,6 +84,7 @@ export function layoutToRows(layout: VenueLayout): {
       elevation: item.elevation,
       thickness: item.thickness,
       placement: item.placement,
+      merged_with: item.mergedWith ?? [],
       z_index: index,
     })),
   )
@@ -131,6 +133,7 @@ export function rowsToLayout(
             elevation: item.elevation,
             thickness: item.thickness,
             placement: item.placement,
+            ...(item.merged_with?.length ? { mergedWith: item.merged_with } : {}),
           }
         }),
     })),
