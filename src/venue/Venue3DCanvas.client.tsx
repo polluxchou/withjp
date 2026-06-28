@@ -60,9 +60,11 @@ type Props = {
   selectedItemIds: string[]
   onSelectItems: (ids: string[]) => void
   onItemChange: (itemId: string, patch: Partial<VenueItem>) => void
+  // Resolves the display name per item (locale译名); falls back to item.name.
+  itemName?: (item: VenueItem) => string
 }
 
-export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, onItemChange }: Props) {
+export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, onItemChange, itemName }: Props) {
   const t = useTranslations('venue')
   const [transformMode, setTransformMode] = useState<TransformMode>('select')
 
@@ -154,6 +156,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
           items={floor.items}
           doorPlacements={doorPlacements}
           selectedIds={selectedSet}
+          itemName={itemName}
         />
 
         {showGizmo && selectedItem && (
@@ -725,10 +728,12 @@ function ItemLabels({
   items,
   doorPlacements,
   selectedIds,
+  itemName,
 }: {
   items: VenueItem[]
   doorPlacements: Map<string, DoorPlacement>
   selectedIds: Set<string>
+  itemName?: (item: VenueItem) => string
 }) {
   return (
     <>
@@ -761,7 +766,7 @@ function ItemLabels({
         return (
           <ItemLabel
             key={`lbl-${item.id}`}
-            name={item.name}
+            name={itemName ? itemName(item) : item.name}
             anchor={anchor}
             labelPos={labelPos}
             selected={selectedIds.has(item.id)}
