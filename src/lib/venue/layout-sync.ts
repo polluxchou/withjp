@@ -38,6 +38,7 @@ export interface VenueItemRow {
   note: string
   height3d: number
   elevation: number
+  thickness: number
   placement: VenueItemPlacement
   z_index: number
 }
@@ -80,6 +81,7 @@ export function layoutToRows(layout: VenueLayout): {
       note: item.note,
       height3d: item.height3d,
       elevation: item.elevation,
+      thickness: item.thickness,
       placement: item.placement,
       z_index: index,
     })),
@@ -127,6 +129,7 @@ export function rowsToLayout(
             note: item.note,
             height3d: item.height3d,
             elevation: item.elevation,
+            thickness: item.thickness,
             placement: item.placement,
           }
         }),

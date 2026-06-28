@@ -58,6 +58,7 @@ function makeItem(overrides: Partial<VenueItem>): VenueItem {
     note: '',
     height3d: 0,
     elevation: 0,
+    thickness: 0,
     placement: 'ground',
     ...overrides,
   }
@@ -320,6 +321,7 @@ test('parseStoredVenueLayout accepts a valid stored layout', () => {
     note: '测试',
     height3d: 0,
     elevation: 0,
+    thickness: 0,
     placement: 'ground',
   }
   const stored = {
@@ -550,4 +552,20 @@ test('resolveVenueItemName: ja 用译名,缺失回退原名', () => {
 })
 test('resolveVenueItemName: en 译名为空时回退原名', () => {
   assert.equal(resolveVenueItemName('设备架', 'a', 'en', { a: { ja: '設備', en: '' } }), '设备架')
+})
+
+test('addVenueItem(window): 带窗户默认 离地/高度/厚度', () => {
+  const layout = addVenueItem(DEFAULT_VENUE_LAYOUT, DEFAULT_VENUE_LAYOUT.floors[0].id, 'window')
+  const added = layout.floors[0].items[layout.floors[0].items.length - 1]
+  assert.equal(added.type, 'window')
+  assert.equal(added.placement, 'aerial')
+  assert.equal(added.elevation, 90)
+  assert.equal(added.height3d, 120)
+  assert.equal(added.thickness, 8)
+})
+
+test('每个 item 都带 thickness(默认 0)', () => {
+  const eq = addVenueItem(DEFAULT_VENUE_LAYOUT, DEFAULT_VENUE_LAYOUT.floors[0].id, 'equipment')
+  const added = eq.floors[0].items[eq.floors[0].items.length - 1]
+  assert.equal(added.thickness, 0)
 })
