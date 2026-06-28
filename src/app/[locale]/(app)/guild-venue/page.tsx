@@ -971,6 +971,7 @@ export default function GuildVenuePage() {
                 onSelectItems={setSelectedItemIds}
                 onItemChange={updateItem}
                 itemName={(item) => resolveVenueItemName(item.name, item.id, locale, nameTranslations)}
+                zoom={zoom}
               />
             ) : (
               <VenueCanvas
