@@ -1204,6 +1204,7 @@
     }
   },
   "items": {
+    "fieldItemValuePlaceholder": "¥{price}（デフォルト）",
     "title": "Item Management",
     "subtitle": "Team asset registry — each physical item links a cost and a placement",
     "add": "Add item",
