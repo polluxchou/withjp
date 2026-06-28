@@ -120,7 +120,7 @@ export async function getVenueLayout(venueId: string = SHARED_VENUE_ID): Promise
   if (floorIds.length > 0) {
     const { data: itemRows, error: itemErr } = await db
       .from('venue_items')
-      .select('id, floor_id, type, name, x, y, width, height, rotation, status, note, z_index, height3d, elevation, placement, thickness')
+      .select('id, floor_id, type, name, x, y, width, height, rotation, status, note, z_index, height3d, elevation, placement, thickness, merged_with')
       .in('floor_id', floorIds)
     if (itemErr) return err('db_error', itemErr.message)
     items = (itemRows ?? []) as VenueItemRow[]
