@@ -427,7 +427,7 @@ function VenueCanvas(
             onPointerMove={moveDrag}
             onPointerUp={finishDrag}
             onPointerCancel={finishDrag}
-            onPointerLeave={finishDrag}
+            onPointerLeave={() => { setDrag(null); setDragPositions({}); setAlignmentGuides([]); setPan(null) }}
             onPointerDown={() => onSelectItems([])}
           >
             <defs>
