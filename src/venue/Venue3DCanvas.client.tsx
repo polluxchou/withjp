@@ -152,6 +152,9 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
     setProjected(pos)
   }, [])
 
+  // Normalised horizontal camera direction (XZ plane) for face-on detection.
+  const [cameraDir, setCameraDir] = useState<{ x: number; z: number }>({ x: 0, z: -1 })
+
   // Canvas container size (for edge layout math).
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
@@ -181,7 +184,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         onPointerMissed={handlePointerMissed}
       >
         <CameraFovSync zoom={zoom} />
-        <SceneProjector entries={labelEntries} onUpdate={onProjected} />
+        <SceneProjector entries={labelEntries} onUpdate={onProjected} onCameraDir={setCameraDir} />
         <color attach="background" args={['#f8fafc']} />
         <ambientLight intensity={0.65} />
         <directionalLight position={[floor.width, floor.height * 2, floor.height]} intensity={0.45} />
@@ -244,6 +247,9 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         canvasSize={canvasSize}
         selectedIds={selectedSet}
         itemName={resolvedItemName}
+        cameraDir={cameraDir}
+        floorWidth={floor.width}
+        floorHeight={floor.height}
       />
 
       <TransformToolbar
@@ -789,30 +795,41 @@ function degToRad(deg: number): number {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SceneProjector — runs inside Canvas, projects world positions → screen pixels each frame.
+// Also emits the camera's normalised horizontal direction (XZ plane) for face detection.
 function SceneProjector({
   entries,
   onUpdate,
+  onCameraDir,
 }: {
   entries: Array<{ id: string; world: [number, number, number] }>
   onUpdate: (pos: Record<string, { x: number; y: number }>) => void
+  onCameraDir: (dir: { x: number; z: number }) => void
 }) {
   const { camera, size } = useThree()
   const vec = useMemo(() => new Vector3(), [])
+  const dirVec = useMemo(() => new Vector3(), [])
   useFrame(() => {
     const result: Record<string, { x: number; y: number }> = {}
     for (const { id, world } of entries) {
       vec.set(...world)
       vec.project(camera)
-      if (vec.z > 1) continue  // behind camera
+      if (vec.z > 1) continue
       result[id] = {
         x: (vec.x * 0.5 + 0.5) * size.width,
         y: (vec.y * -0.5 + 0.5) * size.height,
       }
     }
     onUpdate(result)
+    // Emit normalised horizontal camera direction for face-on detection.
+    camera.getWorldDirection(dirVec)
+    const hLen = Math.sqrt(dirVec.x * dirVec.x + dirVec.z * dirVec.z)
+    if (hLen > 0.01) onCameraDir({ x: dirVec.x / hLen, z: dirVec.z / hLen })
   })
   return null
 }
+
+// FACE_ON_THRESHOLD: if |sin(angle from cardinal)| < this, camera is ~face-on to that wall.
+const FACE_ON_THRESHOLD = 0.35  // ≈ 20°
 
 // EdgeLabelOverlay — SVG overlay outside Canvas with edge-distributed label chips.
 function EdgeLabelOverlay({
@@ -821,21 +838,42 @@ function EdgeLabelOverlay({
   canvasSize,
   selectedIds,
   itemName,
+  cameraDir,
+  floorWidth,
+  floorHeight,
 }: {
   items: VenueItem[]
   projected: Record<string, { x: number; y: number }>
   canvasSize: { width: number; height: number }
   selectedIds: Set<string>
   itemName: (item: VenueItem) => string
+  cameraDir: { x: number; z: number }
+  floorWidth: number
+  floorHeight: number
 }) {
   const { width: W, height: H } = canvasSize
 
   const labels = useMemo(() => {
     if (W === 0 || H === 0) return []
 
+    // Face-on detection: filter to near-side items when camera nearly perpendicular to a wall.
+    // Camera dir (dx, dz) is normalised. Near side = items whose centre is "in front of" the
+    // floor's midpoint relative to camera direction.
+    const fcx = floorWidth / 2
+    const fcz = floorHeight / 2
+    const isFaceOn = Math.abs(cameraDir.x) < FACE_ON_THRESHOLD || Math.abs(cameraDir.z) < FACE_ON_THRESHOLD
+    const visibleItems = isFaceOn
+      ? items.filter((item) => {
+          const ix = item.x + item.width / 2
+          const iz = item.y + item.height / 2  // item.y maps to world Z
+          // dot > 0 → item is on the near side (between camera and center)
+          return (ix - fcx) * (-cameraDir.x) + (iz - fcz) * (-cameraDir.z) >= 0
+        })
+      : items
+
     // Collect valid projected points.
     const pts: Array<{ item: VenueItem; x: number; y: number }> = []
-    for (const item of items) {
+    for (const item of visibleItems) {
       const p = projected[item.id]
       if (!p) continue
       pts.push({ item, x: p.x, y: p.y })
@@ -899,7 +937,7 @@ function EdgeLabelOverlay({
     distribute(edges.left, 'left')
     distribute(edges.right, 'right')
     return result
-  }, [items, projected, W, H, itemName, selectedIds])
+  }, [items, projected, W, H, itemName, selectedIds, cameraDir, floorWidth, floorHeight])
 
   if (W === 0) return null
 
