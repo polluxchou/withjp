@@ -18,8 +18,8 @@ const SAMPLE: VenueLayout = {
       floorHeight: 280,
       backgroundImage: 'data:image/png;base64,xxx',
       items: [
-        { id: 'eq-1', type: 'equipment', name: '设备', x: 1, y: 2, width: 3, height: 4, rotation: 0, status: 'completed', note: 'n', height3d: 100, elevation: 0 },
-        { id: 'area-1', type: 'area', name: '空间', x: 5, y: 6, width: 7, height: 8, rotation: 3, status: 'planned', note: '', height3d: 0, elevation: 0 },
+        { id: 'eq-1', type: 'equipment', name: '设备', x: 1, y: 2, width: 3, height: 4, rotation: 0, status: 'completed', note: 'n', height3d: 100, elevation: 0, placement: 'ground' },
+        { id: 'area-1', type: 'area', name: '空间', x: 5, y: 6, width: 7, height: 8, rotation: 3, status: 'planned', note: '', height3d: 0, elevation: 0, placement: 'ground' },
       ],
     },
     { id: 'floor-2', name: '2F', width: 1200, height: 800, floorHeight: 280, items: [] },

@@ -7,9 +7,11 @@ import {
   VENUE_ITEM_STATUS_OPTIONS,
   VENUE_ITEM_TYPE_OPTIONS,
   centimetersToMeters,
+  isVenueMarkerType,
   metersToCentimeters,
   type VenueLayerMove,
   type VenueItem,
+  type VenueItemPlacement,
   type VenueItemStatus,
   type VenueItemType,
 } from './layoutData'
@@ -168,6 +170,27 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
             </select>
           </Field>
         </div>
+
+        {!isVenueMarkerType(item.type) && item.type !== 'area' && (
+          <Field label={t('fieldPlacement')}>
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
+              {(['ground', 'aerial'] as VenueItemPlacement[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onChange({ placement: p })}
+                  className={`flex-1 py-2 text-center transition-colors ${
+                    item.placement === p
+                      ? 'bg-indigo-600 text-white font-medium'
+                      : 'bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {t(`placements.${p}`)}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
 
         <div>
           <p className="text-xs font-medium text-slate-500 mb-2">{t('layerOrder')}</p>

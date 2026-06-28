@@ -253,6 +253,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '靠墙放置，保留走线空间。',
           height3d: 100,
           elevation: 0,
+          placement: 'ground',
         },
         {
           id: 'area-1',
@@ -267,6 +268,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '吸音墙和灯光轨道施工中。',
           height3d: 280,
           elevation: 0,
+          placement: 'ground',
         },
         {
           id: 'corridor-1',
@@ -281,6 +283,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '保持通道净宽，不堆放设备。',
           height3d: 0,
           elevation: 0,
+          placement: 'ground',
         },
         {
           id: 'door-1',
@@ -295,6 +298,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '内开门，注意开门半径。',
           height3d: 200,
           elevation: 0,
+          placement: 'ground',
         },
         {
           id: 'fire-1',
@@ -309,6 +313,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '消防点位需保持可见。',
           height3d: 60,
           elevation: 0,
+          placement: 'ground',
         },
         {
           id: 'power-1',
@@ -323,6 +328,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '',
           height3d: 15,
           elevation: 30,
+          placement: 'ground',
         },
       ],
     },
@@ -376,6 +382,25 @@ const DEFAULT_3D: Record<VenueItemType, { height3d: number; elevation: number }>
 
 export function default3DForType(type: VenueItemType): { height3d: number; elevation: number } {
   return DEFAULT_3D[type]
+}
+
+// Default placement for each item type. Shapes rest on the floor by default;
+// markers that are commonly wall/ceiling mounted default to aerial.
+const DEFAULT_PLACEMENT: Record<VenueItemType, VenueItemPlacement> = {
+  equipment:    'ground',
+  renovation:   'ground',
+  area:         'ground',
+  corridor:     'ground',
+  door_inward:  'ground',
+  door_outward: 'ground',
+  door_sliding: 'ground',
+  fire:         'ground',
+  power:        'ground',
+  network:      'ground',
+}
+
+export function defaultPlacementForType(type: VenueItemType): VenueItemPlacement {
+  return DEFAULT_PLACEMENT[type]
 }
 
 const DEFAULT_NAME: Record<VenueItemType, string> = {
@@ -457,6 +482,7 @@ export function addVenueItem(
     note: '',
     height3d: z.height3d,
     elevation: z.elevation,
+    placement: DEFAULT_PLACEMENT[type],
   }
 
   return updateFloor(layout, floorId, (floor) => ({
@@ -783,6 +809,9 @@ function backfillItem3D(item: VenueItem): VenueItem {
     ...item,
     height3d: Number.isFinite(item.height3d) ? Math.max(0, item.height3d as number) : z.height3d,
     elevation: Number.isFinite(item.elevation) ? Math.max(0, item.elevation as number) : z.elevation,
+    placement: item.placement === 'ground' || item.placement === 'aerial'
+      ? item.placement
+      : DEFAULT_PLACEMENT[item.type],
   }
 }
 

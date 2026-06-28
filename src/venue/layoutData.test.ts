@@ -58,6 +58,7 @@ function makeItem(overrides: Partial<VenueItem>): VenueItem {
     note: '',
     height3d: 0,
     elevation: 0,
+    placement: 'ground',
     ...overrides,
   }
 }
@@ -319,6 +320,7 @@ test('parseStoredVenueLayout accepts a valid stored layout', () => {
     note: '测试',
     height3d: 0,
     elevation: 0,
+    placement: 'ground',
   }
   const stored = {
     ...DEFAULT_VENUE_LAYOUT,

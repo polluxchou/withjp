@@ -1190,6 +1190,7 @@
     "exportImage": "导出图片",
     "currentVenue": "当前场地",
     "totalSpaceArea": "空间总面积",
+    "usableSpaceArea": "可用面积",
     "switchVenue": "切换场地",
     "newVenue": "新建场地",
     "newVenueName": "新场地",
@@ -1238,6 +1239,7 @@
     "fieldName": "名称",
     "fieldType": "类型",
     "fieldStatus": "状态",
+    "fieldPlacement": "位置",
     "fieldRotation": "旋转",
     "fieldNote": "备注",
     "fieldId": "对象 ID",
@@ -1298,6 +1300,10 @@
       "in_progress": "施工中",
       "completed": "已完成",
       "maintenance": "待维修"
+    },
+    "placements": {
+      "ground": "地面",
+      "aerial": "空中"
     },
     "placedItemsTitle": "该区域物品",
     "placedItemsEmpty": "该区域暂无物品",

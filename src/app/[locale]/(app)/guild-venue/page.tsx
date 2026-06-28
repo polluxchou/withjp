@@ -57,6 +57,7 @@ import {
   formatVenueMeasurement,
   moveVenueItemLayer,
   totalVenueAreaSquareMeters,
+  usableVenueAreaSquareMeters,
   venueAreaSquareMeters,
   isVenueMarkerType,
   VENUE_ITEM_TYPE_OPTIONS,
@@ -1147,6 +1148,7 @@ function FloatingPanel({
   }, [venueMenuOpen])
   const [listTab, setListTab] = useState<'shapes' | 'markers' | 'items'>('shapes')
   const totalAreaSqMeters = totalVenueAreaSquareMeters(items)
+  const usableAreaSqMeters = usableVenueAreaSquareMeters(items)
   const visibleTypeSet = useMemo(() => new Set(visibleTypes), [visibleTypes])
   // Rank the three largest 'area' spaces (by area share) — computed over all
   // items so the badge stays stable regardless of the active type filter.
@@ -1300,7 +1302,12 @@ function FloatingPanel({
               </div>
             )}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">{t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}</p>
+          <p className="text-[11px] text-slate-400 mt-1">
+            {t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}
+            {usableAreaSqMeters < totalAreaSqMeters && (
+              <span className="ml-1 text-slate-500">· {t('usableSpaceArea')} {formatVenueArea(usableAreaSqMeters)}</span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-1">
           {canManage && (
