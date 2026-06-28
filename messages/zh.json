@@ -1255,12 +1255,14 @@
     "elevation3dUnit": "单位：米",
     "fieldHeight3d": "高度",
     "fieldElevation": "离地",
+    "fieldThickness": "厚度",
     "fieldStoreyHeight": "本层净高 {value}m",
     "addTypes": {
       "equipment": "+ 设备",
       "renovation": "+ 区域",
       "area": "+ 空间",
-      "corridor": "+ 结构"
+      "corridor": "+ 结构",
+      "window": "+ 窗户"
     },
     "addMarker": "+ 标识",
     "canvasActions": "画布操作",
@@ -1281,7 +1283,8 @@
       "door_sliding": "推拉门",
       "fire": "消防",
       "power": "电源位",
-      "network": "网络口"
+      "network": "网络口",
+      "window": "窗户"
     },
     "markerShort": {
       "door_inward": "内",

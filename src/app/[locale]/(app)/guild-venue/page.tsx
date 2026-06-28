@@ -871,6 +871,11 @@ export default function GuildVenuePage() {
                 label={t('addTypes.corridor')}
                 onClick={() => addItem('corridor')}
               />
+              <ToolbarButton
+                icon={TOOL_ICON.window}
+                label={t('addTypes.window')}
+                onClick={() => addItem('window')}
+              />
               <AddMarkerMenu onAdd={addItem} />
 
               <div className="w-px h-6 bg-slate-200 mx-1" />
