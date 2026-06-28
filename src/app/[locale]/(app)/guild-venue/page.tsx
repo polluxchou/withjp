@@ -194,13 +194,15 @@ export default function GuildVenuePage() {
           : list.some((v) => v.id === DEFAULT_VENUE_ID) ? DEFAULT_VENUE_ID : list[0].id
         setActiveVenueId(activeId)
 
-        const layoutRes = await fetch(`/api/venue?id=${encodeURIComponent(activeId)}`)
+        const [layoutRes, translations] = await Promise.all([
+          fetch(`/api/venue?id=${encodeURIComponent(activeId)}`),
+          refreshTranslations(activeId),
+        ])
         if (!layoutRes.ok) throw new Error(`status ${layoutRes.status}`)
         const layoutBody = (await layoutRes.json()) as { data: VenueLayout | null }
         if (cancelled) return
         const cloud = layoutBody.data ?? DEFAULT_VENUE_LAYOUT
         applyLayout(cloud)
-        void refreshTranslations(activeId)
         setPersistable(true)
 
         // One-time import offer: only for the seeded shared venue, when the cloud
@@ -861,6 +863,12 @@ export default function GuildVenuePage() {
                   onClick={() => addItem(option.value)}
                 />
               ))}
+              {/* corridor(结构)是 shape，作为顶层添加按钮与设备/区域/空间并列 */}
+              <ToolbarButton
+                icon={TOOL_ICON.corridor}
+                label={t('addTypes.corridor')}
+                onClick={() => addItem('corridor')}
+              />
               <AddMarkerMenu onAdd={addItem} />
 
               <div className="w-px h-6 bg-slate-200 mx-1" />
@@ -1661,8 +1669,7 @@ function AddMarkerMenu({ onAdd }: { onAdd: (type: VenueItemType) => void }) {
           style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
           className="z-50 min-w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
         >
-          {/* corridor(结构)归在标识菜单里——它是 shape 但分组在标识 tab，此处提供其唯一的添加入口 */}
-          {([...VENUE_MARKER_TYPE_OPTIONS, { value: 'corridor' }] as { value: VenueItemType }[]).map((option) => {
+          {VENUE_MARKER_TYPE_OPTIONS.map((option) => {
             const Icon = TOOL_ICON[option.value]
             return (
               <button
