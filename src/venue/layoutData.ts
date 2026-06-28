@@ -1,5 +1,5 @@
 // Shapes occupy area and are drawn as resizable rectangles.
-export type VenueShapeType = 'equipment' | 'renovation' | 'area' | 'corridor'
+export type VenueShapeType = 'equipment' | 'renovation' | 'area' | 'corridor' | 'window'
 // Markers are point symbols that do not occupy area (doors, fire points, etc.).
 export type VenueMarkerType = 'door_inward' | 'door_outward' | 'door_sliding' | 'fire' | 'power' | 'network'
 export type VenueItemType = VenueShapeType | VenueMarkerType
@@ -27,6 +27,8 @@ export type VenueItem = {
   // Distance from the floor to the bottom of the item, in cm. Lets sockets
   // and network ports "float" at desk height in 3D.
   elevation: number
+  // 墙厚方向进深(cm),仅窗户用于 3D 玻璃构件厚度;其它类型为 0。
+  thickness: number
   placement: VenueItemPlacement
 }
 
@@ -210,6 +212,7 @@ export const VENUE_MARKER_TYPE_OPTIONS: { value: VenueMarkerType; label: string 
 export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] = [
   ...VENUE_SHAPE_TYPE_OPTIONS,
   { value: 'corridor', label: '结构' },
+  { value: 'window', label: '窗户' },
   ...VENUE_MARKER_TYPE_OPTIONS,
 ]
 
@@ -252,6 +255,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '靠墙放置，保留走线空间。',
           height3d: 100,
           elevation: 0,
+          thickness: 0,
           placement: 'ground',
         },
         {
@@ -267,6 +271,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '吸音墙和灯光轨道施工中。',
           height3d: 280,
           elevation: 0,
+          thickness: 0,
           placement: 'ground',
         },
         {
@@ -282,6 +287,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '保持通道净宽，不堆放设备。',
           height3d: 0,
           elevation: 0,
+          thickness: 0,
           placement: 'ground',
         },
         {
@@ -297,6 +303,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '内开门，注意开门半径。',
           height3d: 200,
           elevation: 0,
+          thickness: 0,
           placement: 'ground',
         },
         {
@@ -312,6 +319,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '消防点位需保持可见。',
           height3d: 60,
           elevation: 0,
+          thickness: 0,
           placement: 'ground',
         },
         {
@@ -327,6 +335,7 @@ export const DEFAULT_VENUE_LAYOUT: VenueLayout = {
           note: '',
           height3d: 15,
           elevation: 30,
+          thickness: 0,
           placement: 'ground',
         },
       ],
@@ -353,6 +362,7 @@ const DEFAULT_SIZE: Record<VenueItemType, { width: number; height: number }> = {
   renovation:   { width: 240, height: 160 },
   area:         { width: 220, height: 140 },
   corridor:     { width: 320, height: 64 },
+  window:       { width: 120, height: 24 },
   door_inward:  DOOR_SIZE,
   door_outward: DOOR_SIZE,
   door_sliding: DOOR_SIZE,
@@ -371,6 +381,8 @@ const DEFAULT_3D: Record<VenueItemType, { height3d: number; elevation: number }>
   // new rooms read as enclosed spaces. Existing 0-height area items keep flat.
   area:         { height3d: 280, elevation: 0  },
   corridor:     { height3d: 0,   elevation: 0  },
+  // 窗户:离地 90cm(标准窗台),玻璃高 120cm。
+  window:       { height3d: 120, elevation: 90 },
   door_inward:  { height3d: 200, elevation: 0  },
   door_outward: { height3d: 200, elevation: 0  },
   door_sliding: { height3d: 200, elevation: 0  },
@@ -383,6 +395,21 @@ export function default3DForType(type: VenueItemType): { height3d: number; eleva
   return DEFAULT_3D[type]
 }
 
+// 墙厚方向进深默认值(cm)。仅窗户用于 3D 玻璃构件厚度;其它类型为 0。
+const DEFAULT_THICKNESS: Record<VenueItemType, number> = {
+  equipment:    0,
+  renovation:   0,
+  area:         0,
+  corridor:     0,
+  window:       8,
+  door_inward:  0,
+  door_outward: 0,
+  door_sliding: 0,
+  fire:         0,
+  power:        0,
+  network:      0,
+}
+
 // Default placement for each item type. Shapes rest on the floor by default;
 // markers that are commonly wall/ceiling mounted default to aerial.
 const DEFAULT_PLACEMENT: Record<VenueItemType, VenueItemPlacement> = {
@@ -390,6 +417,7 @@ const DEFAULT_PLACEMENT: Record<VenueItemType, VenueItemPlacement> = {
   renovation:   'ground',
   area:         'ground',
   corridor:     'ground',
+  window:       'aerial',
   door_inward:  'ground',
   door_outward: 'ground',
   door_sliding: 'ground',
@@ -407,6 +435,7 @@ const DEFAULT_NAME: Record<VenueItemType, string> = {
   renovation:   '新增区域',
   area:         '新增空间',
   corridor:     '新增结构',
+  window:       '新增窗户',
   door_inward:  '内开门',
   door_outward: '外开门',
   door_sliding: '推拉门',
@@ -481,6 +510,7 @@ export function addVenueItem(
     note: '',
     height3d: z.height3d,
     elevation: z.elevation,
+    thickness: DEFAULT_THICKNESS[type],
     placement: DEFAULT_PLACEMENT[type],
   }
 
@@ -827,6 +857,7 @@ function backfillItem3D(item: VenueItem): VenueItem {
     ...item,
     height3d: Number.isFinite(item.height3d) ? Math.max(0, item.height3d as number) : z.height3d,
     elevation: Number.isFinite(item.elevation) ? Math.max(0, item.elevation as number) : z.elevation,
+    thickness: Number.isFinite(item.thickness) ? Math.max(0, item.thickness as number) : DEFAULT_THICKNESS[item.type],
     placement: item.placement === 'ground' || item.placement === 'aerial'
       ? item.placement
       : DEFAULT_PLACEMENT[item.type],
@@ -881,6 +912,7 @@ function normalizeVenueItem(item: VenueItem): VenueItem {
     rotation: finiteNumber(item.rotation),
     height3d: Math.max(0, finiteNumber(item.height3d)),
     elevation: Math.max(0, finiteNumber(item.elevation)),
+    thickness: Math.max(0, finiteNumber(item.thickness)),
   }
 }
 

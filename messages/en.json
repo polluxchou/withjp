@@ -1256,12 +1256,14 @@
     "elevation3dUnit": "Unit: meters",
     "fieldHeight3d": "Height",
     "fieldElevation": "Elevation",
+    "fieldThickness": "Thickness",
     "fieldStoreyHeight": "Storey net height {value}m",
     "addTypes": {
       "equipment": "+ Equipment",
       "renovation": "+ Zone",
       "area": "+ Space",
-      "corridor": "+ Structure"
+      "corridor": "+ Structure",
+      "window": "+ Window"
     },
     "addMarker": "+ Marker",
     "canvasActions": "Canvas actions",
@@ -1282,7 +1284,8 @@
       "door_sliding": "Sliding door",
       "fire": "Fire",
       "power": "Power outlet",
-      "network": "Network port"
+      "network": "Network port",
+      "window": "Window"
     },
     "markerShort": {
       "door_inward": "I",
