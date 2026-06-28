@@ -57,6 +57,7 @@ const TYPE_STYLE: Record<VenueItemType, { fill: string; stroke: string; dash?: s
   renovation:   { fill: '#dcfce7', stroke: '#16a34a' },
   area:         { fill: '#ede9fe', stroke: '#7c3aed' },
   corridor:     { fill: '#fef3c7', stroke: '#d97706', dash: '10 7' },
+  window:       { fill: '#cffafe', stroke: '#0891b2' },
   door_inward:  { fill: '#dbeafe', stroke: '#2563eb' },
   door_outward: { fill: '#e0e7ff', stroke: '#4f46e5' },
   door_sliding: { fill: '#cffafe', stroke: '#0891b2' },

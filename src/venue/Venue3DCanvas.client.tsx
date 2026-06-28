@@ -16,6 +16,7 @@ const TYPE_STYLE_3D: Record<VenueItemType, { fill: string; stroke: string }> = {
   renovation:   { fill: '#dcfce7', stroke: '#16a34a' },
   area:         { fill: '#ede9fe', stroke: '#7c3aed' },
   corridor:     { fill: '#fef3c7', stroke: '#d97706' },
+  window:       { fill: '#cffafe', stroke: '#0891b2' },
   door_inward:  { fill: '#dbeafe', stroke: '#2563eb' },
   door_outward: { fill: '#e0e7ff', stroke: '#4f46e5' },
   door_sliding: { fill: '#cffafe', stroke: '#0891b2' },
@@ -42,7 +43,7 @@ type TransformMode = 'select' | 'translate' | 'rotate' | 'scale'
 type DoorType = Extract<VenueMarkerType, 'door_inward' | 'door_outward' | 'door_sliding'>
 type WallSide = 'N' | 'S' | 'W' | 'E'
 
-type WallPort = { offset: number; width: number; doorId: string }
+type WallPort = { offset: number; width: number; sourceId: string; band?: { bottom: number; top: number }; thickness?: number }
 type AreaPorts = { N: WallPort[]; S: WallPort[]; W: WallPort[]; E: WallPort[] }
 type DoorPlacement = {
   areaCenterX: number
@@ -208,6 +209,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
               )
             }
           }
+          if (item.type === 'window') return null
           return (
             <VenueItem3DMesh
               key={item.id}
@@ -340,7 +342,7 @@ function computeDoorAttachments(items: VenueItem[]): {
       const clamped = Math.max(-half + margin, Math.min(half - margin, areaBest.offset))
 
       const ports = areaPorts.get(area.id)
-      if (ports) ports[areaBest.side].push({ offset: clamped, width: DOOR_OPENING_WIDTH, doorId: door.id })
+      if (ports) ports[areaBest.side].push({ offset: clamped, width: DOOR_OPENING_WIDTH, sourceId: door.id })
 
       if (best === null || areaBest.distance < best.distance) {
         best = {
@@ -368,6 +370,52 @@ function computeDoorAttachments(items: VenueItem[]): {
       doorType: door.type as DoorType,
       height3d: Math.max(door.height3d, 1),
     })
+  }
+
+  const windows = items.filter((it) => it.type === 'window')
+  for (const win of windows) {
+    const wx = win.x + win.width / 2
+    const wy = win.y + win.height / 2
+    for (const area of areas) {
+      const cx = area.x + area.width / 2
+      const cy = area.y + area.height / 2
+      const aw = area.width / 2
+      const ad = area.height / 2
+      const theta = (area.rotation * Math.PI) / 180
+      const rx = wx - cx
+      const ry = wy - cy
+      const cos = Math.cos(theta)
+      const sin = Math.sin(theta)
+      const lx = rx * cos + ry * sin
+      const lz = -rx * sin + ry * cos
+      const candidates: { side: WallSide; distance: number; offset: number; openW: number }[] = []
+      if (Math.abs(lx) <= aw + win.width / 2) {
+        candidates.push({ side: 'N', distance: Math.abs(lz + ad), offset: lx, openW: win.width })
+        candidates.push({ side: 'S', distance: Math.abs(lz - ad), offset: lx, openW: win.width })
+      }
+      if (Math.abs(lz) <= ad + win.height / 2) {
+        candidates.push({ side: 'W', distance: Math.abs(lx + aw), offset: lz, openW: win.height })
+        candidates.push({ side: 'E', distance: Math.abs(lx - aw), offset: lz, openW: win.height })
+      }
+      let areaBest: { side: WallSide; distance: number; offset: number; openW: number } | null = null
+      for (const c of candidates) {
+        if (c.distance > DOOR_ATTACH_THRESHOLD) continue
+        if (areaBest === null || c.distance < areaBest.distance) areaBest = c
+      }
+      if (areaBest === null) continue
+      const wallLen = areaBest.side === 'N' || areaBest.side === 'S' ? area.width : area.height
+      const half = wallLen / 2
+      const margin = areaBest.openW / 2 + AREA_WALL_THICKNESS
+      const clamped = Math.max(-half + margin, Math.min(half - margin, areaBest.offset))
+      const ports = areaPorts.get(area.id)
+      if (ports) ports[areaBest.side].push({
+        offset: clamped,
+        width: areaBest.openW,
+        sourceId: win.id,
+        band: { bottom: win.elevation, top: win.elevation + Math.max(win.height3d, 1) },
+        thickness: win.thickness,
+      })
+    }
   }
 
   return { areaPorts, doorPlacements }
@@ -675,6 +723,42 @@ function AreaWalls({
     )
   }
 
+  const GLASS_COLOR = '#bae6fd'
+  function bandBlocks(side: WallSide, port: WallPort): JSX.Element[] {
+    if (!port.band) return []
+    const b = Math.max(0, Math.min(port.band.bottom, height))
+    const tp = Math.max(b, Math.min(port.band.top, height))
+    const w = port.width
+    const off = port.offset
+    const sillH = b
+    const lintelH = height - tp
+    const glassH = tp - b
+    const glassDepth = Math.max(1, port.thickness ?? 0)
+    const isNS = side === 'N' || side === 'S'
+    const zN = -depth / 2 + t / 2
+    const zS = depth / 2 - t / 2
+    const xW = -width / 2 + t / 2
+    const xE = width / 2 - t / 2
+    const out: JSX.Element[] = []
+    const push = (key: string, cy: number, h: number, glass: boolean) => {
+      if (h <= 0) return
+      const args: [number, number, number] = isNS ? [w, h, glass ? glassDepth : t] : [glass ? glassDepth : t, h, w]
+      const pos: [number, number, number] = isNS ? [off, cy, side === 'N' ? zN : zS] : [side === 'W' ? xW : xE, cy, off]
+      out.push(
+        <mesh key={key} position={pos}>
+          <boxGeometry args={args} />
+          {glass
+            ? <meshStandardMaterial color={GLASS_COLOR} transparent opacity={0.45} />
+            : wallMaterial(key)}
+        </mesh>,
+      )
+    }
+    push(`${side}-sill-${port.sourceId}`, sillH / 2, sillH, false)
+    push(`${side}-lintel-${port.sourceId}`, tp + lintelH / 2, lintelH, false)
+    push(`${side}-glass-${port.sourceId}`, b + glassH / 2, glassH, true)
+    return out
+  }
+
   return (
     <>
       {nSegments.map((s, i) => (
@@ -701,6 +785,9 @@ function AreaWalls({
           {wallMaterial(`E${i}`)}
         </mesh>
       ))}
+      {(['N', 'S', 'W', 'E'] as WallSide[]).flatMap((side) =>
+        (ports?.[side] ?? []).filter((p) => p.band).flatMap((p) => bandBlocks(side, p)),
+      )}
     </>
   )
 }

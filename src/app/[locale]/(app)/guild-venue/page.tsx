@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import {
+  AppWindow,
   ArrowLeftRight,
   Bookmark,
   Box,
@@ -97,6 +98,7 @@ const TOOL_ICON: Record<VenueItemType, typeof Box> = {
   renovation:   Wrench,
   area:         Building2,
   corridor:     MapIcon,
+  window:       AppWindow,
   door_inward:  DoorOpen,
   door_outward: DoorClosed,
   door_sliding: ArrowLeftRight,
@@ -870,6 +872,11 @@ export default function GuildVenuePage() {
                 icon={TOOL_ICON.corridor}
                 label={t('addTypes.corridor')}
                 onClick={() => addItem('corridor')}
+              />
+              <ToolbarButton
+                icon={TOOL_ICON.window}
+                label={t('addTypes.window')}
+                onClick={() => addItem('window')}
               />
               <AddMarkerMenu onAdd={addItem} />
 
