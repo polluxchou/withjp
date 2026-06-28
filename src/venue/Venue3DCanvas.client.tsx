@@ -45,6 +45,9 @@ type WallSide = 'N' | 'S' | 'W' | 'E'
 
 type WallPort = { offset: number; width: number; sourceId: string; band?: { bottom: number; top: number }; thickness?: number }
 type AreaPorts = { N: WallPort[]; S: WallPort[]; W: WallPort[]; E: WallPort[] }
+// Segments of a wall that are covered by an adjacent area (no wall rendered there).
+type SharedCut = { start: number; end: number }
+type AreaSharedWalls = { N: SharedCut[]; S: SharedCut[]; W: SharedCut[]; E: SharedCut[] }
 type DoorPlacement = {
   areaCenterX: number
   areaCenterZ: number
@@ -115,6 +118,10 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
   // info (used to render the realistic door panel + skip the default box).
   const { areaPorts, doorPlacements } = useMemo(
     () => computeDoorAttachments(floor.items),
+    [floor.items],
+  )
+  const areaSharedWalls = useMemo(
+    () => computeAreaAdjacencies(floor.items),
     [floor.items],
   )
 
@@ -215,6 +222,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
               key={item.id}
               item={item}
               ports={item.type === 'area' ? areaPorts.get(item.id) : undefined}
+              sharedWalls={item.type === 'area' ? areaSharedWalls.get(item.id) : undefined}
               selected={selectedSet.has(item.id)}
               onSelect={onSelectItems}
               registerRef={registerItemRef}
@@ -266,6 +274,75 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
       />
     </div>
   )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Adjacent-area shared-wall computation
+
+function computeAreaAdjacencies(items: VenueItem[]): Map<string, AreaSharedWalls> {
+  const areas = items.filter((it) => it.type === 'area' && it.rotation === 0)
+  const result = new Map<string, AreaSharedWalls>()
+  for (const a of areas) result.set(a.id, { N: [], S: [], W: [], E: [] })
+
+  const t = AREA_WALL_THICKNESS
+
+  for (let i = 0; i < areas.length; i++) {
+    for (let j = i + 1; j < areas.length; j++) {
+      const a = areas[i]
+      const b = areas[j]
+
+      // A's East wall meets B's West wall
+      if (Math.abs((a.x + a.width) - b.x) <= t) {
+        const lo = Math.max(a.y, b.y)
+        const hi = Math.min(a.y + a.height, b.y + b.height)
+        if (hi > lo) {
+          // Convert world overlap to local wall axis (Z, centered on each area)
+          const aCz = a.y + a.height / 2
+          const bCz = b.y + b.height / 2
+          result.get(a.id)!.E.push({ start: lo - aCz, end: hi - aCz })
+          result.get(b.id)!.W.push({ start: lo - bCz, end: hi - bCz })
+        }
+      }
+
+      // A's West wall meets B's East wall
+      if (Math.abs(a.x - (b.x + b.width)) <= t) {
+        const lo = Math.max(a.y, b.y)
+        const hi = Math.min(a.y + a.height, b.y + b.height)
+        if (hi > lo) {
+          const aCz = a.y + a.height / 2
+          const bCz = b.y + b.height / 2
+          result.get(a.id)!.W.push({ start: lo - aCz, end: hi - aCz })
+          result.get(b.id)!.E.push({ start: lo - bCz, end: hi - bCz })
+        }
+      }
+
+      // A's South wall meets B's North wall
+      if (Math.abs((a.y + a.height) - b.y) <= t) {
+        const lo = Math.max(a.x, b.x)
+        const hi = Math.min(a.x + a.width, b.x + b.width)
+        if (hi > lo) {
+          const aCx = a.x + a.width / 2
+          const bCx = b.x + b.width / 2
+          result.get(a.id)!.S.push({ start: lo - aCx, end: hi - aCx })
+          result.get(b.id)!.N.push({ start: lo - bCx, end: hi - bCx })
+        }
+      }
+
+      // A's North wall meets B's South wall
+      if (Math.abs(a.y - (b.y + b.height)) <= t) {
+        const lo = Math.max(a.x, b.x)
+        const hi = Math.min(a.x + a.width, b.x + b.width)
+        if (hi > lo) {
+          const aCx = a.x + a.width / 2
+          const bCx = b.x + b.width / 2
+          result.get(a.id)!.N.push({ start: lo - aCx, end: hi - aCx })
+          result.get(b.id)!.S.push({ start: lo - bCx, end: hi - bCx })
+        }
+      }
+    }
+  }
+
+  return result
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -609,12 +686,14 @@ function FloorTextured({ w, d, src }: { w: number; d: number; src: string }) {
 function VenueItem3DMesh({
   item,
   ports,
+  sharedWalls,
   selected,
   onSelect,
   registerRef,
 }: {
   item: VenueItem
   ports?: AreaPorts
+  sharedWalls?: AreaSharedWalls
   selected: boolean
   onSelect: (ids: string[]) => void
   registerRef: (id: string, group: Group | null) => void
@@ -667,6 +746,7 @@ function VenueItem3DMesh({
           opacity={opacity}
           transparent={transparent}
           ports={ports}
+          sharedWalls={sharedWalls}
         />
       ) : (
         <mesh position={[0, yExtent / 2, 0]} castShadow={false} receiveShadow={false}>
@@ -686,7 +766,7 @@ function VenueItem3DMesh({
 }
 
 function AreaWalls({
-  width, depth, height, fill, edgeColor, selected, opacity, transparent, ports,
+  width, depth, height, fill, edgeColor, selected, opacity, transparent, ports, sharedWalls,
 }: {
   width: number
   depth: number
@@ -697,16 +777,17 @@ function AreaWalls({
   opacity: number
   transparent: boolean
   ports?: AreaPorts
+  sharedWalls?: AreaSharedWalls
 }) {
   const t = AREA_WALL_THICKNESS
   // For each wall, the renderable range along the wall axis:
   //   N/S walls run the full width    (-width/2 .. +width/2)
   //   W/E walls slot between N/S      (-depth/2 + t .. +depth/2 - t)
-  // Doors cut openings; everything else stays solid wall.
-  const nSegments = segmentWall(width, ports?.N ?? [])
-  const sSegments = segmentWall(width, ports?.S ?? [])
-  const wSegments = segmentWall(depth, ports?.W ?? [], { padStart: t, padEnd: t })
-  const eSegments = segmentWall(depth, ports?.E ?? [], { padStart: t, padEnd: t })
+  // Doors cut openings; shared-wall segments are also cut (no wall between adjacent areas).
+  const nSegments = segmentWall(width, ports?.N ?? [], sharedWalls?.N ?? [])
+  const sSegments = segmentWall(width, ports?.S ?? [], sharedWalls?.S ?? [])
+  const wSegments = segmentWall(depth, ports?.W ?? [], sharedWalls?.W ?? [], { padStart: t, padEnd: t })
+  const eSegments = segmentWall(depth, ports?.E ?? [], sharedWalls?.E ?? [], { padStart: t, padEnd: t })
 
   function wallMaterial(key: string) {
     return (
@@ -795,6 +876,7 @@ function AreaWalls({
 function segmentWall(
   length: number,
   ports: WallPort[],
+  shared: SharedCut[],
   pad: { padStart?: number; padEnd?: number } = {},
 ): { start: number; end: number }[] {
   const padStart = pad.padStart ?? 0
@@ -803,8 +885,10 @@ function segmentWall(
   const high = length / 2 - padEnd
   if (high <= low) return []
 
-  const cuts = [...ports]
-    .map((p) => ({ start: p.offset - p.width / 2, end: p.offset + p.width / 2 }))
+  const cuts = [
+    ...ports.map((p) => ({ start: p.offset - p.width / 2, end: p.offset + p.width / 2 })),
+    ...shared,
+  ]
     .filter((c) => c.end > low && c.start < high)
     .sort((a, b) => a.start - b.start)
 
