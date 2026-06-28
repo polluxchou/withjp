@@ -90,6 +90,8 @@ function VenueCanvas(
   const [alignmentGuides, setAlignmentGuides] = useState<VenueAlignmentGuide[]>([])
   const [pan, setPan] = useState<PanState | null>(null)
   const [marquee, setMarquee] = useState<{ start: { x: number; y: number }; current: { x: number; y: number } } | null>(null)
+  const marqueeRef = useRef(marquee)
+  marqueeRef.current = marquee
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
   const itemTypeLabels = useMemo(
     () => Object.fromEntries(VENUE_ITEM_TYPE_OPTIONS.map((option) => [option.value, t(`types.${option.value}`)])),
@@ -178,8 +180,10 @@ function VenueCanvas(
       scroller.scrollTop = pan.startScroll.top - (event.clientY - pan.startClient.y)
       return
     }
-    if (marquee) {
-      setMarquee((m) => m ? { ...m, current: svgPoint(event) } : null)
+    if (marqueeRef.current) {
+      const next = { ...marqueeRef.current, current: svgPoint(event) }
+      marqueeRef.current = next
+      setMarquee(next)
       return
     }
     if (!drag) return
@@ -219,20 +223,21 @@ function VenueCanvas(
         }
       }
     }
-    if (marquee) {
-      const rx = Math.min(marquee.start.x, marquee.current.x)
-      const ry = Math.min(marquee.start.y, marquee.current.y)
-      const rw = Math.abs(marquee.current.x - marquee.start.x)
-      const rh = Math.abs(marquee.current.y - marquee.start.y)
+    const m = marqueeRef.current
+    if (m) {
+      const rx = Math.min(m.start.x, m.current.x)
+      const ry = Math.min(m.start.y, m.current.y)
+      const rw = Math.abs(m.current.x - m.start.x)
+      const rh = Math.abs(m.current.y - m.start.y)
       if (rw > 2 || rh > 2) {
         const hit = floor.items
           .filter((item) => item.x < rx + rw && item.x + item.width > rx && item.y < ry + rh && item.y + item.height > ry)
           .map((item) => item.id)
         onSelectItems(hit)
       } else {
-        // Treat tiny drag as a click — deselect all
         onSelectItems([])
       }
+      marqueeRef.current = null
       setMarquee(null)
     }
     setDrag(null)
@@ -255,7 +260,9 @@ function VenueCanvas(
     } else {
       // Left-click → marquee selection
       const pt = svgPoint(event)
-      setMarquee({ start: pt, current: pt })
+      const m = { start: pt, current: pt }
+      marqueeRef.current = m
+      setMarquee(m)
     }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
