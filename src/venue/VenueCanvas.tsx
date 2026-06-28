@@ -228,6 +228,9 @@ function VenueCanvas(
           .filter((item) => item.x < rx + rw && item.x + item.width > rx && item.y < ry + rh && item.y + item.height > ry)
           .map((item) => item.id)
         onSelectItems(hit)
+      } else {
+        // Treat tiny drag as a click — deselect all
+        onSelectItems([])
       }
       setMarquee(null)
     }
