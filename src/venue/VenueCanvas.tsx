@@ -58,8 +58,8 @@ const TYPE_STYLE: Record<VenueItemType, { fill: string; stroke: string; dash?: s
   area:         { fill: '#ede9fe', stroke: '#7c3aed' },
   corridor:     { fill: '#fef3c7', stroke: '#d97706', dash: '10 7' },
   window:       { fill: '#cffafe', stroke: '#0891b2' },
-  truss:        { fill: '#fef3c7', stroke: '#d97706' }, // placeholder — refined by 2D task
-  light:        { fill: '#fef3c7', stroke: '#d97706' }, // placeholder — refined by 2D task
+  truss:        { fill: '#e2e8f0', stroke: '#334155' },
+  light:        { fill: '#fef9c3', stroke: '#ca8a04' },
   door_inward:  { fill: '#dbeafe', stroke: '#2563eb' },
   door_outward: { fill: '#e0e7ff', stroke: '#4f46e5' },
   door_sliding: { fill: '#cffafe', stroke: '#0891b2' },

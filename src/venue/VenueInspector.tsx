@@ -171,7 +171,7 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
           </Field>
         </div>
 
-        {!isVenueMarkerType(item.type) && item.type !== 'area' && item.type !== 'window' && (
+        {!isVenueMarkerType(item.type) && item.type !== 'area' && item.type !== 'window' && item.type !== 'truss' && item.type !== 'light' && (
           <Field label={t('fieldPlacement')}>
             <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
               {(['ground', 'aerial'] as VenueItemPlacement[]).map((p) => (
