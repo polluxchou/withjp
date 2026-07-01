@@ -27,6 +27,17 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-07-01',
+    items: [
+      {
+        kind: 'improve',
+        scope: '场地布置',
+        title: '灯拆成 4 种形态:落地格栅灯 / 支架格栅灯 / 八角格栅灯 / 桁架射灯',
+        details: '原来的「灯」拆成 4 种独立组件，各有真实 3D 外观：直接落地的四角格栅灯、带支架的四角/八角格栅灯、以及吸附桁架吊在天花的射灯。都在工具栏「+ 设施」下拉里选择。（原有的旧「灯」数据已随本次升级清除。）',
+      },
+    ],
+  },
+  {
     date: '2026-06-28',
     items: [
       {
