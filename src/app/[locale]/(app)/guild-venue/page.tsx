@@ -1248,6 +1248,10 @@ function FloatingPanel({
     return () => document.removeEventListener('mousedown', handle)
   }, [venueMenuOpen])
   const [listTab, setListTab] = useState<'shapes' | 'markers' | 'items'>('shapes')
+  const activeListItemRef = useRef<HTMLButtonElement | null>(null)
+  useEffect(() => {
+    activeListItemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selectedItemIds])
   const totalAreaSqMeters = totalVenueAreaSquareMeters(items)
   const usableAreaSqMeters = usableVenueAreaSquareMeters(items)
   const visibleTypeSet = useMemo(() => new Set(visibleTypes), [visibleTypes])
@@ -1515,6 +1519,7 @@ function FloatingPanel({
               return (
                 <button
                   key={item.id}
+                  ref={active ? activeListItemRef : null}
                   type="button"
                   onClick={() => onSelect(item.id)}
                   className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
