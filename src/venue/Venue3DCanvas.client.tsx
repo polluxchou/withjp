@@ -8,7 +8,7 @@ import { DoubleSide, type Group } from 'three'
 import { useTranslations } from 'next-intl'
 import { MousePointer2, Move, RotateCcw, MoveVertical } from 'lucide-react'
 import type { VenueFloor, VenueItem, VenueItemType, VenueMarkerType } from './layoutData'
-import { lightTrussAttachments } from '@/venue/layoutData'
+import { lightTrussAttachments, isLightType } from '@/venue/layoutData'
 
 // Kept visually in sync with VenueCanvas TYPE_STYLE — same palette so 2D and 3D
 // read as the same surface.
@@ -19,7 +19,10 @@ const TYPE_STYLE_3D: Record<VenueItemType, { fill: string; stroke: string }> = {
   corridor:     { fill: '#fef3c7', stroke: '#d97706' },
   window:       { fill: '#cffafe', stroke: '#0891b2' },
   truss:        { fill: '#334155', stroke: '#1e293b' },
-  light:        { fill: '#1f2937', stroke: '#eab308' },
+  light_grille4:       { fill: '#1f2937', stroke: '#eab308' },
+  light_grille8_stand: { fill: '#1f2937', stroke: '#d97706' },
+  light_spot:          { fill: '#1f2937', stroke: '#ea580c' },
+  light_grille4_stand: { fill: '#1f2937', stroke: '#65a30d' },
   door_inward:  { fill: '#dbeafe', stroke: '#2563eb' },
   door_outward: { fill: '#e0e7ff', stroke: '#4f46e5' },
   door_sliding: { fill: '#cffafe', stroke: '#0891b2' },
@@ -239,7 +242,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
             }
           }
           if (item.type === 'window') return null
-          if (item.type === 'light') {
+          if (isLightType(item.type)) {
             return (
               <Light3D
                 key={item.id}
@@ -959,7 +962,7 @@ function Light3D({ item, trussElevation, selected, onSelect }: {
   selected: boolean
   onSelect: (ids: string[]) => void
 }) {
-  const style = TYPE_STYLE_3D.light
+  const style = TYPE_STYLE_3D[item.type]
   const r = Math.max(1, Math.min(item.width, item.height) / 2)
   const coneH = Math.max(1, item.height3d)
   const cx = item.x + item.width / 2

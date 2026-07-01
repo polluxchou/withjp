@@ -1357,7 +1357,10 @@
       "corridor": "+ Structure",
       "window": "+ Window",
       "truss": "+ トラス",
-      "light": "+ ライト"
+      "light_grille4": "+ グリッドライト",
+      "light_grille8_stand": "+ 八角グリッド",
+      "light_spot": "+ スポットライト",
+      "light_grille4_stand": "+ グリッド(スタンド)"
     },
     "addMarker": "+ Marker",
     "canvasActions": "Canvas actions",
@@ -1381,7 +1384,10 @@
       "network": "Network port",
       "window": "Window",
       "truss": "トラス",
-      "light": "ライト"
+      "light_grille4": "グリッドライト",
+      "light_grille8_stand": "八角グリッド",
+      "light_spot": "スポットライト",
+      "light_grille4_stand": "グリッド(スタンド)"
     },
     "markerShort": {
       "door_inward": "I",
