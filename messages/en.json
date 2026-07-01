@@ -1332,7 +1332,8 @@
     "collaboratorsCancel": "Cancel",
     "collaboratorsError": "Save failed, please retry",
     "readOnly": "View only",
-    "readOnlyHint": "You don't have edit access to this venue"
+    "readOnlyHint": "You don't have edit access to this venue",
+    "addFacility": "+ Fixtures"
   },
   "config": {
     "tabs": {
