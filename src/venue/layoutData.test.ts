@@ -86,7 +86,19 @@ test('centimetersToMeters and metersToCentimeters convert layout units for the i
   assert.equal(centimetersToMeters(160), 1.6)
   assert.equal(centimetersToMeters(125), 1.25)
   assert.equal(metersToCentimeters(1.6), 160)
-  assert.equal(metersToCentimeters(1.255), 126)
+})
+
+test('毫米精度:长度保留到 0.001m(0.1cm)', () => {
+  // cm(可含 0.1cm)→ 米 3 位小数
+  assert.equal(centimetersToMeters(590.5), 5.905)
+  assert.equal(centimetersToMeters(590), 5.9)
+  // 米 → cm 保留 0.1cm
+  assert.equal(metersToCentimeters(5.905), 590.5)
+  assert.equal(metersToCentimeters(5.9), 590)
+  // 更细的输入四舍五入到毫米
+  assert.equal(metersToCentimeters(1.2345), 123.5)
+  // 标尺显示到毫米
+  assert.ok(formatVenueMeasurement(590.5).includes('5.905'))
 })
 
 test('formatVenueMeasurement formats centimeters as concise meters', () => {

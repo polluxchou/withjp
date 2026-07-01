@@ -229,10 +229,10 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
             <p className="text-[11px] text-slate-400">{t('geometryUnit')}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <NumberField label="X (m)" value={centimetersToMeters(item.x)} onChange={metricChange('x')} />
-            <NumberField label="Y (m)" value={centimetersToMeters(item.y)} onChange={metricChange('y')} />
-            <NumberField label="W (m)" value={centimetersToMeters(item.width)} onChange={metricChange('width')} min={0.08} />
-            <NumberField label="H (m)" value={centimetersToMeters(item.height)} onChange={metricChange('height')} min={0.08} />
+            <NumberField label="X (m)" value={centimetersToMeters(item.x)} onChange={metricChange('x')} step={0.001} />
+            <NumberField label="Y (m)" value={centimetersToMeters(item.y)} onChange={metricChange('y')} step={0.001} />
+            <NumberField label="W (m)" value={centimetersToMeters(item.width)} onChange={metricChange('width')} min={0.08} step={0.001} />
+            <NumberField label="H (m)" value={centimetersToMeters(item.height)} onChange={metricChange('height')} min={0.08} step={0.001} />
           </div>
         </div>
 
@@ -366,11 +366,13 @@ function NumberField({
   label,
   value,
   min,
+  step = 0.01,
   onChange,
 }: {
   label: string
   value: number
   min?: number
+  step?: number
   onChange: (event: ChangeEvent<HTMLInputElement>) => void
 }) {
   return (
@@ -380,7 +382,7 @@ function NumberField({
         type="number"
         value={value}
         min={min}
-        step={0.01}
+        step={step}
         onChange={onChange}
         className={INPUT_CLASS}
       />
