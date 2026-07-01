@@ -118,6 +118,9 @@ const TOOL_ICON: Record<VenueItemType, typeof Box> = {
 const INSPECTOR_WIDTH = 320
 const INSPECTOR_COLLAPSED_WIDTH = 44
 const ALL_VENUE_TYPES = VENUE_ITEM_TYPE_OPTIONS.map((option) => option.value)
+// 「+ 标识」下拉:门/消防/电源/网络口。「+ 设施」下拉:窗户/桁架/灯。
+const MARKER_MENU_TYPES: VenueItemType[] = VENUE_MARKER_TYPE_OPTIONS.map((option) => option.value)
+const FACILITY_MENU_TYPES: VenueItemType[] = ['window', 'truss', 'light']
 
 export default function GuildVenuePage() {
   const t = useTranslations('venue')
@@ -915,14 +918,8 @@ export default function GuildVenuePage() {
                 label={t('addTypes.corridor')}
                 onClick={() => addItem('corridor')}
               />
-              <ToolbarButton
-                icon={TOOL_ICON.window}
-                label={t('addTypes.window')}
-                onClick={() => addItem('window')}
-              />
-              <ToolbarButton icon={TOOL_ICON.truss} label={t('addTypes.truss')} onClick={() => addItem('truss')} />
-              <ToolbarButton icon={TOOL_ICON.light} label={t('addTypes.light')} onClick={() => addItem('light')} />
-              <AddMarkerMenu onAdd={addItem} />
+              <AddMenu label={t('addMarker')} icon={MapPin} types={MARKER_MENU_TYPES} onAdd={addItem} />
+              <AddMenu label={t('addFacility')} icon={Package} types={FACILITY_MENU_TYPES} onAdd={addItem} />
 
               <div className="w-px h-6 bg-slate-200 mx-1" />
 
@@ -1691,7 +1688,19 @@ function ViewBookmarks({
   )
 }
 
-function AddMarkerMenu({ onAdd }: { onAdd: (type: VenueItemType) => void }) {
+// 通用「添加」下拉菜单:传入按钮图标/文案 + 一组类型,点选即添加。
+// 复用给「+ 标识」(门/消防/电源/网络口)与「+ 设施」(窗户/桁架/灯)。
+function AddMenu({
+  label,
+  icon: TriggerIcon,
+  types,
+  onAdd,
+}: {
+  label: string
+  icon: typeof MapPin
+  types: VenueItemType[]
+  onAdd: (type: VenueItemType) => void
+}) {
   const t = useTranslations('venue')
   const [open, setOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
@@ -1721,8 +1730,8 @@ function AddMarkerMenu({ onAdd }: { onAdd: (type: VenueItemType) => void }) {
         onClick={toggleOpen}
         className="h-9 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
       >
-        <MapPin className="w-4 h-4 flex-shrink-0" />
-        <span className="whitespace-nowrap">{t('addMarker')}</span>
+        <TriggerIcon className="w-4 h-4 flex-shrink-0" />
+        <span className="whitespace-nowrap">{label}</span>
         <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && menuPos && (
@@ -1730,20 +1739,20 @@ function AddMarkerMenu({ onAdd }: { onAdd: (type: VenueItemType) => void }) {
           style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
           className="z-50 min-w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
         >
-          {VENUE_MARKER_TYPE_OPTIONS.map((option) => {
-            const Icon = TOOL_ICON[option.value]
+          {types.map((type) => {
+            const Icon = TOOL_ICON[type]
             return (
               <button
-                key={option.value}
+                key={type}
                 type="button"
                 onClick={() => {
-                  onAdd(option.value)
+                  onAdd(type)
                   setOpen(false)
                 }}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50"
               >
                 <Icon className="w-3.5 h-3.5 text-slate-400" />
-                <span>{t(`types.${option.value}`)}</span>
+                <span>{t(`types.${type}`)}</span>
               </button>
             )
           })}
