@@ -69,6 +69,17 @@ alter table venue_items add constraint venue_items_type_valid check (type in
 - `TOOL_ICON.truss`(如 lucide `Minus`/`GitCommitHorizontal` 之类横梁感图标)、`TOOL_ICON.light`(`Lightbulb`)。
 - `messages/{zh,en,ja}.json`:`addTypes.truss/light`、`types.truss/light`。
 
+### 7. 天花板视角(3D 仰视预设)— `src/venue/Venue3DCanvas.client.tsx`
+
+俯瞰(默认斜俯视)不方便看吊顶。新增一个 **「看天花板」预设**:一键把镜头切到**从室内往上看**(即照片那种仰视角度),直接看清桁架 + 吊灯布局。
+
+- **交互**:3D 视图容器上叠一个小按钮「看天花板 / 俯瞰」(HTML overlay,绝对定位,或接入现有 3D 工具栏)。点击在「仰视天花板」与「默认俯视」之间切换/复位。
+- **实现**:复用现有 `OrbitControls`(已 `makeDefault`)。用一个 `ceilingNonce` state,按钮点击 `+1`;`<Canvas>` 内一个小组件(`useThree` 拿到 `camera` 与 controls)监听 nonce 变化,把镜头设为仰视位姿:
+  - 相机位置 ≈ 地面中心略高处 `[floor.width/2, 40, floor.height/2 + ε]`;
+  - `controls.target` ≈ 天花板中心 `[floor.width/2, ceilingHeight, floor.height/2]`(ceilingHeight 取 `floor.floorHeight` 或场内最高 truss elevation);
+  - 设置后 `controls.update()`;之后用户仍可自由 orbit。
+- **不改**默认初始视角与其它 3D 行为;只是多一个预设入口。放到本 spec 里因为它正是为看桁架/吊灯而加。
+
 ## 测试
 
 单测(`node --test`,纯函数):
@@ -80,7 +91,7 @@ alter table venue_items add constraint venue_items_type_valid check (type in
 ## 涉及文件
 - 新增:`supabase/migrations/038_venue_item_truss_light.sql`
 - 改:`src/venue/layoutData.ts`(两类型 + 各默认表 + 类型选项)
-- 改:`src/venue/Venue3DCanvas.client.tsx`(truss beam + light softbox/杆 + 灯→桁架匹配 + 渲染循环跳过默认盒)
+- 改:`src/venue/Venue3DCanvas.client.tsx`(truss beam + light softbox/杆 + 灯→桁架匹配 + 渲染循环跳过默认盒 + 「看天花板」仰视预设)
 - 改:`src/venue/VenueCanvas.tsx`(2D truss/light 配色 + 符号)
 - 改:`src/venue/VenueInspector.tsx`(排除 truss/light 的地面/空中开关)
 - 改:`src/app/[locale]/(app)/guild-venue/page.tsx`(+桁架/+灯 按钮 + 图标)
