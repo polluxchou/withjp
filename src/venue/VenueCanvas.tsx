@@ -586,6 +586,27 @@ function VenueCanvas(
               />
             ))}
             <AlignmentGuides guides={alignmentGuides} scale={scale} />
+            {selectedItems.length === 2 && !isVenueMarkerType(selectedItems[0].type) && !isVenueMarkerType(selectedItems[1].type) && (() => {
+              const pad = 10 / scale
+              const x0 = Math.min(selectedItems[0].x, selectedItems[1].x) - pad
+              const y0 = Math.min(selectedItems[0].y, selectedItems[1].y) - pad
+              const x1 = Math.max(selectedItems[0].x + selectedItems[0].width,  selectedItems[1].x + selectedItems[1].width)  + pad
+              const y1 = Math.max(selectedItems[0].y + selectedItems[0].height, selectedItems[1].y + selectedItems[1].height) + pad
+              return (
+                <rect
+                  x={x0} y={y0} width={x1 - x0} height={y1 - y0}
+                  fill="none"
+                  stroke={SELECTION_ACCENT}
+                  strokeWidth={1.5 / scale}
+                  strokeDasharray={`${8 / scale} ${5 / scale}`}
+                  pointerEvents="none"
+                  data-venue-selection="true"
+                />
+              )
+            })()}
+            {showRulers && selectedItems.length === 2 && !isVenueMarkerType(selectedItems[0].type) && !isVenueMarkerType(selectedItems[1].type) && (
+              <PairDistanceRulers a={selectedItems[0]} b={selectedItems[1]} scale={scale} />
+            )}
             {marquee && (() => {
               const rx = Math.min(marquee.start.x, marquee.current.x)
               const ry = Math.min(marquee.start.y, marquee.current.y)
@@ -1027,6 +1048,80 @@ type RulerPlan = {
   heightSide: 'right' | 'left'
   heightDashed: boolean
   heightLabel?: string
+}
+
+// Two-item distance rulers: shown when exactly 2 shapes are selected + rulers on.
+// Draws a horizontal span (dx) and vertical span (dy) between the two bounding boxes,
+// using the same stroke/text style as DimensionRulers.
+function PairDistanceRulers({ a, b, scale }: { a: VenueItem; b: VenueItem; scale: number }) {
+  // Bounding-box edges
+  const aL = a.x, aR = a.x + a.width, aT = a.y, aB = a.y + a.height
+  const bL = b.x, bR = b.x + b.width, bT = b.y, bB = b.y + b.height
+
+  // Gap between boxes on each axis (0 when overlapping)
+  const gapX = Math.max(0, Math.max(aL, bL) - Math.min(aR, bR))
+  const gapY = Math.max(0, Math.max(aT, bT) - Math.min(aB, bB))
+
+  if (gapX === 0 && gapY === 0) return null
+
+  const offset   = 20 / scale
+  const tick     = 5  / scale
+  const lineW    = 1.5 / scale
+  const halo     = 3.5 / scale
+  const textGap  = 7  / scale
+  const dash     = `${6 / scale} ${4 / scale}`
+  const color    = '#7c3aed'   // violet — distinct from per-item rulers
+
+  // ── Horizontal distance (X axis gap) ────────────────────────────────────────
+  // Span from right edge of left box to left edge of right box.
+  const leftBox  = aR <= bL ? { r: aR, t: aT, b: aB } : { r: bR, t: bT, b: bB }
+  const rightBox = aR <= bL ? { l: bL, t: bT, b: bB } : { l: aL, t: aT, b: aB }
+  // Place the ruler below the lower of the two boxes' bottoms
+  const hRulerY  = Math.max(aB, bB) + offset
+  const hMidX    = (leftBox.r + rightBox.l) / 2
+
+  // ── Vertical distance (Y axis gap) ──────────────────────────────────────────
+  const topBox    = aB <= bT ? { b: aB, l: aL, r: aR } : { b: bB, l: bL, r: bR }
+  const bottomBox = aB <= bT ? { t: bT, l: bL, r: bR } : { t: aT, l: aL, r: aR }
+  // Place the ruler to the right of the rightmost box
+  const vRulerX   = Math.max(aR, bR) + offset
+  const vMidY     = (topBox.b + bottomBox.t) / 2
+
+  return (
+    <g pointerEvents="none" stroke={color} fill={color} fontSize={11 / scale} fontWeight="700">
+      {gapX > 0 && (
+        <>
+          <line x1={leftBox.r} y1={hRulerY} x2={rightBox.l} y2={hRulerY} strokeWidth={lineW} strokeDasharray={dash} />
+          <line x1={leftBox.r}  y1={hRulerY - tick} x2={leftBox.r}  y2={hRulerY + tick} strokeWidth={lineW} />
+          <line x1={rightBox.l} y1={hRulerY - tick} x2={rightBox.l} y2={hRulerY + tick} strokeWidth={lineW} />
+          {/* leader lines from box bottom edges down to ruler */}
+          <line x1={leftBox.r}  y1={leftBox.b}  x2={leftBox.r}  y2={hRulerY} strokeWidth={lineW * 0.6} strokeDasharray={dash} opacity={0.4} />
+          <line x1={rightBox.l} y1={rightBox.b} x2={rightBox.l} y2={hRulerY} strokeWidth={lineW * 0.6} strokeDasharray={dash} opacity={0.4} />
+          <text x={hMidX} y={hRulerY - textGap} textAnchor="middle" dominantBaseline="auto"
+            paintOrder="stroke" stroke="#fff" strokeWidth={halo} strokeLinejoin="round">
+            {formatVenueMeasurement(gapX)}
+          </text>
+        </>
+      )}
+      {gapY > 0 && (
+        <>
+          <line x1={vRulerX} y1={topBox.b} x2={vRulerX} y2={bottomBox.t} strokeWidth={lineW} strokeDasharray={dash} />
+          <line x1={vRulerX - tick} y1={topBox.b}    x2={vRulerX + tick} y2={topBox.b}    strokeWidth={lineW} />
+          <line x1={vRulerX - tick} y1={bottomBox.t} x2={vRulerX + tick} y2={bottomBox.t} strokeWidth={lineW} />
+          {/* leader lines from box edges right to ruler */}
+          <line x1={Math.max(topBox.r, bottomBox.r)}    y1={topBox.b}    x2={vRulerX} y2={topBox.b}    strokeWidth={lineW * 0.6} strokeDasharray={dash} opacity={0.4} />
+          <line x1={Math.max(topBox.r, bottomBox.r)}    y1={bottomBox.t} x2={vRulerX} y2={bottomBox.t} strokeWidth={lineW * 0.6} strokeDasharray={dash} opacity={0.4} />
+          <text
+            x={vRulerX + textGap + 2 / scale} y={vMidY}
+            textAnchor="middle" dominantBaseline="middle"
+            transform={`rotate(90 ${vRulerX + textGap + 2 / scale} ${vMidY})`}
+            paintOrder="stroke" stroke="#fff" strokeWidth={halo} strokeLinejoin="round">
+            {formatVenueMeasurement(gapY)}
+          </text>
+        </>
+      )}
+    </g>
+  )
 }
 
 function DimensionRulers({
