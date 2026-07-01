@@ -1004,7 +1004,20 @@ function Light3D({ item, trussElevation, selected, onSelect }: {
   } else if (item.type === 'light_grille4_stand') {
     body = <>{stand}{grillePanel(false, elev + h3 / 2)}</>
   } else if (item.type === 'light_grille8_stand') {
-    body = <>{stand}{grillePanel(true, elev + h3 / 2)}</>
+    // 八角格栅灯:吊在最近桁架下(竖直吊臂),不落地
+    const panelTopY = elev + h3
+    const rodH = trussElevation !== undefined ? trussElevation - panelTopY : 0
+    body = (
+      <>
+        {grillePanel(true, elev + h3 / 2)}
+        {rodH > 0 && (
+          <mesh position={[0, panelTopY + rodH / 2, 0]}>
+            <boxGeometry args={[4, rodH, 4]} />
+            <meshStandardMaterial color="#334155" />
+          </mesh>
+        )}
+      </>
+    )
   } else {
     const spotTopY = elev + h3
     const rodH = trussElevation !== undefined ? trussElevation - spotTopY : 0
