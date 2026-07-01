@@ -106,6 +106,20 @@ function CeilingView({ nonce, floor }: { nonce: number; floor: VenueFloor }) {
   return null
 }
 
+// 只在挂载时把 orbit 中心设为楼层中心一次;之后交给用户自由平移,不再作为
+// 受控 prop 每帧重置(否则右键/双指平移会被不断拉回、中心永远动不了)。
+function InitOrbitTarget({ target }: { target: [number, number, number] }) {
+  const controls = useThree((s) => s.controls) as { target: Vector3; update: () => void } | null
+  const done = useRef(false)
+  useEffect(() => {
+    if (done.current || !controls) return
+    controls.target.set(target[0], target[1], target[2])
+    controls.update()
+    done.current = true
+  }, [controls, target])
+  return null
+}
+
 export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, onItemChange, itemName, zoom = 1 }: Props) {
   const t = useTranslations('venue')
   const [transformMode, setTransformMode] = useState<TransformMode>('select')
@@ -216,6 +230,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         onPointerMissed={handlePointerMissed}
       >
         <CameraFovSync zoom={zoom} />
+        <InitOrbitTarget target={orbitTarget} />
         <CeilingView nonce={ceilingNonce} floor={floor} />
         <SceneProjector entries={labelEntries} onUpdate={onProjected} onCameraDir={setCameraDir} />
         <color attach="background" args={['#f8fafc']} />
@@ -278,7 +293,6 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
 
         <OrbitControls
           makeDefault
-          target={orbitTarget}
           enableDamping={false}
           minDistance={50}
           maxDistance={cameraDistance * 3}
