@@ -609,7 +609,7 @@ function VenueCanvas(
             {showRulers && selectedItems.length === 2 && !isVenueMarkerType(selectedItems[0].type) && !isVenueMarkerType(selectedItems[1].type) && (
               <PairDistanceRulers a={selectedItems[0]} b={selectedItems[1]} scale={scale} />
             )}
-            {showRulers && <TotalBoundsRulers items={items} scale={scale} />}
+            {showRulers && <TotalBoundsRulers items={floor.items} scale={scale} />}
             {marquee && (() => {
               const rx = Math.min(marquee.start.x, marquee.current.x)
               const ry = Math.min(marquee.start.y, marquee.current.y)
