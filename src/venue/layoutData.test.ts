@@ -28,10 +28,12 @@ import {
   DEFAULT_VENUE_LAYOUT,
   loadVenueLayout,
   writeStoredVenueLayout,
+  lightTrussAttachments,
   VENUE_STORAGE_KEY,
   VENUE_LEGACY_STORAGE_KEY,
   VENUE_BACKUP_STORAGE_KEY,
   type VenueItem,
+  type VenueItemType,
   type VenueLayout,
 } from './layoutData.ts'
 
@@ -568,4 +570,31 @@ test('每个 item 都带 thickness(默认 0)', () => {
   const eq = addVenueItem(DEFAULT_VENUE_LAYOUT, DEFAULT_VENUE_LAYOUT.floors[0].id, 'equipment')
   const added = eq.floors[0].items[eq.floors[0].items.length - 1]
   assert.equal(added.thickness, 0)
+})
+
+test('addVenueItem(truss): 贴天花横梁默认', () => {
+  const l = addVenueItem(DEFAULT_VENUE_LAYOUT, DEFAULT_VENUE_LAYOUT.floors[0].id, 'truss')
+  const it = l.floors[0].items.at(-1)!
+  assert.equal(it.type, 'truss'); assert.equal(it.placement, 'aerial')
+  assert.equal(it.elevation, 260); assert.equal(it.height3d, 15)
+})
+test('addVenueItem(light): 吊灯默认', () => {
+  const l = addVenueItem(DEFAULT_VENUE_LAYOUT, DEFAULT_VENUE_LAYOUT.floors[0].id, 'light')
+  const it = l.floors[0].items.at(-1)!
+  assert.equal(it.type, 'light'); assert.equal(it.placement, 'aerial')
+  assert.equal(it.elevation, 220); assert.equal(it.height3d, 40)
+})
+test('lightTrussAttachments: 灯吸附阈值内最近桁架的 elevation', () => {
+  const mk = (o: Partial<VenueItem> & { id: string; type: VenueItemType }): VenueItem => ({
+    x: 0, y: 0, width: 40, height: 40, rotation: 0, status: 'planned', note: '',
+    name: '', height3d: 0, elevation: 0, thickness: 0, placement: 'aerial', ...o,
+  })
+  const items = [
+    mk({ id: 't1', type: 'truss', x: 0, y: 0, width: 300, height: 20, elevation: 260 }),
+    mk({ id: 'L1', type: 'light', x: 100, y: 5, width: 40, height: 40, elevation: 220 }),
+    mk({ id: 'L2', type: 'light', x: 100, y: 400, width: 40, height: 40, elevation: 220 }),
+  ]
+  const m = lightTrussAttachments(items)
+  assert.equal(m.get('L1'), 260)
+  assert.equal(m.get('L2'), undefined)
 })

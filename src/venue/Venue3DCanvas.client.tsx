@@ -8,6 +8,7 @@ import { DoubleSide, type Group } from 'three'
 import { useTranslations } from 'next-intl'
 import { MousePointer2, Move, RotateCcw, MoveVertical } from 'lucide-react'
 import type { VenueFloor, VenueItem, VenueItemType, VenueMarkerType } from './layoutData'
+import { lightTrussAttachments } from '@/venue/layoutData'
 
 // Kept visually in sync with VenueCanvas TYPE_STYLE — same palette so 2D and 3D
 // read as the same surface.
@@ -17,6 +18,8 @@ const TYPE_STYLE_3D: Record<VenueItemType, { fill: string; stroke: string }> = {
   area:         { fill: '#ede9fe', stroke: '#7c3aed' },
   corridor:     { fill: '#fef3c7', stroke: '#d97706' },
   window:       { fill: '#cffafe', stroke: '#0891b2' },
+  truss:        { fill: '#334155', stroke: '#1e293b' },
+  light:        { fill: '#1f2937', stroke: '#eab308' },
   door_inward:  { fill: '#dbeafe', stroke: '#2563eb' },
   door_outward: { fill: '#e0e7ff', stroke: '#4f46e5' },
   door_sliding: { fill: '#cffafe', stroke: '#0891b2' },
@@ -84,9 +87,26 @@ function CameraFovSync({ zoom }: { zoom: number }) {
   return null
 }
 
+function CeilingView({ nonce, floor }: { nonce: number; floor: VenueFloor }) {
+  const camera = useThree((s) => s.camera)
+  const controls = useThree((s) => s.controls) as { target: Vector3; update: () => void } | null
+  useEffect(() => {
+    if (nonce === 0 || !controls) return
+    const cx = floor.width / 2
+    const cz = floor.height / 2
+    const ceil = Math.max(floor.floorHeight, 200)
+    camera.position.set(cx, 40, cz + 1)
+    controls.target.set(cx, ceil, cz)
+    camera.lookAt(cx, ceil, cz)
+    controls.update()
+  }, [nonce, controls, camera, floor.width, floor.height, floor.floorHeight])
+  return null
+}
+
 export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, onItemChange, itemName, zoom = 1 }: Props) {
   const t = useTranslations('venue')
   const [transformMode, setTransformMode] = useState<TransformMode>('select')
+  const [ceilingNonce, setCeilingNonce] = useState(0)
 
   const itemRefs = useRef(new Map<string, Group>())
   const registerItemRef = useCallback((id: string, group: Group | null) => {
@@ -124,6 +144,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
     () => computeAreaAdjacencies(floor.items),
     [floor.items],
   )
+  const lightAttach = useMemo(() => lightTrussAttachments(floor.items), [floor.items])
 
   const selectedId = selectedItemIds.length === 1 ? selectedItemIds[0] : null
   const selectedItem = selectedId ? floor.items.find((item) => item.id === selectedId) ?? null : null
@@ -192,6 +213,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         onPointerMissed={handlePointerMissed}
       >
         <CameraFovSync zoom={zoom} />
+        <CeilingView nonce={ceilingNonce} floor={floor} />
         <SceneProjector entries={labelEntries} onUpdate={onProjected} onCameraDir={setCameraDir} />
         <color attach="background" args={['#f8fafc']} />
         <ambientLight intensity={0.65} />
@@ -217,6 +239,17 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
             }
           }
           if (item.type === 'window') return null
+          if (item.type === 'light') {
+            return (
+              <Light3D
+                key={item.id}
+                item={item}
+                trussElevation={lightAttach.get(item.id)}
+                selected={selectedSet.has(item.id)}
+                onSelect={onSelectItems}
+              />
+            )
+          }
           return (
             <VenueItem3DMesh
               key={item.id}
@@ -250,6 +283,14 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
           maxPolarAngle={Math.PI / 2 - 0.05}
         />
       </Canvas>
+
+      <button
+        type="button"
+        onClick={() => setCeilingNonce((n) => n + 1)}
+        className="absolute top-3 right-3 z-10 rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 text-sm text-slate-600 shadow hover:text-indigo-700"
+      >
+        {t('ceilingView')}
+      </button>
 
       <EdgeLabelOverlay
         items={floor.items}
@@ -907,6 +948,48 @@ function segmentWall(
   if (cursor < high) segments.push({ start: cursor, end: high })
   // Drop sub-1cm slivers that would render as flicker artefacts.
   return segments.filter((s) => s.end - s.start > 1)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Light3D — softbox cone + vertical rod up to its attached truss.
+
+function Light3D({ item, trussElevation, selected, onSelect }: {
+  item: VenueItem
+  trussElevation: number | undefined
+  selected: boolean
+  onSelect: (ids: string[]) => void
+}) {
+  const style = TYPE_STYLE_3D.light
+  const r = Math.max(1, Math.min(item.width, item.height) / 2)
+  const coneH = Math.max(1, item.height3d)
+  const cx = item.x + item.width / 2
+  const cz = item.y + item.height / 2
+  const softboxCenterY = item.elevation + coneH / 2
+  const softboxTopY = item.elevation + coneH
+  const rodH = trussElevation !== undefined ? trussElevation - softboxTopY : 0
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation()
+    onSelect(event.nativeEvent.shiftKey && selected ? [] : [item.id])
+  }
+  return (
+    <group position={[cx, 0, cz]} onClick={handleClick}>
+      <mesh position={[0, softboxCenterY, 0]}>
+        <coneGeometry args={[r, coneH, 8]} />
+        <meshStandardMaterial
+          color={style.fill}
+          emissive={selected ? SELECTION_ACCENT : '#000000'}
+          emissiveIntensity={selected ? 0.25 : 0}
+        />
+        <Edges threshold={15} color={selected ? SELECTION_ACCENT : style.stroke} scale={1.001} />
+      </mesh>
+      {rodH > 0 && (
+        <mesh position={[0, softboxTopY + rodH / 2, 0]}>
+          <boxGeometry args={[4, rodH, 4]} />
+          <meshStandardMaterial color="#334155" />
+        </mesh>
+      )}
+    </group>
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

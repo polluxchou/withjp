@@ -1169,6 +1169,7 @@
     "removePhoto": "移除照片"
   },
   "venue": {
+    "ceilingView": "看天花板",
     "title": "场地布置",
     "subtitle": "针对大阪直播业务的场地规划，用于直播设备、工作区域、网络水电及安全点位管理。",
     "loading": "加载场地中…",
@@ -1265,7 +1266,9 @@
       "renovation": "+ 区域",
       "area": "+ 空间",
       "corridor": "+ 结构",
-      "window": "+ 窗户"
+      "window": "+ 窗户",
+      "truss": "+ 桁架",
+      "light": "+ 灯"
     },
     "addMarker": "+ 标识",
     "canvasActions": "画布操作",
@@ -1287,7 +1290,9 @@
       "fire": "消防",
       "power": "电源位",
       "network": "网络口",
-      "window": "窗户"
+      "window": "窗户",
+      "truss": "桁架",
+      "light": "吊灯"
     },
     "markerShort": {
       "door_inward": "内",
