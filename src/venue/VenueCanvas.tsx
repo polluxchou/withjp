@@ -560,7 +560,9 @@ function VenueCanvas(
                 itemName={itemName}
                 selected
                 showRulers={showRulers}
-                ruler={rulerPlan.get(item.id) ?? defaultRulerPlan}
+                ruler={selectedItems.length === 1
+                  ? { ...(rulerPlan.get(item.id) ?? defaultRulerPlan), showWidth: true, showHeight: true }
+                  : rulerPlan.get(item.id) ?? defaultRulerPlan}
                 scale={scale}
                 metricsText={selectionMetrics(item)}
                 onPointerDown={(event) => startDrag(event, item)}
