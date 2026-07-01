@@ -134,7 +134,7 @@ export function metersToCentimeters(value: number): number {
 export function formatVenueMeasurement(value: number): string {
   return `${centimetersToMeters(value).toLocaleString('zh-CN', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 3,
   })}m`
 }
 
