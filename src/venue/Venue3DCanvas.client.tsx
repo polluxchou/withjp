@@ -283,14 +283,14 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
           minDistance={50}
           maxDistance={cameraDistance * 3}
           minPolarAngle={0}
-          maxPolarAngle={Math.PI / 2 - 0.05}
+          maxPolarAngle={Math.PI - 0.05}
         />
       </Canvas>
 
       <button
         type="button"
         onClick={() => setCeilingNonce((n) => n + 1)}
-        className="absolute top-3 right-3 z-10 rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 text-sm text-slate-600 shadow hover:text-indigo-700"
+        className="absolute top-3 right-3 z-20 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 shadow ring-1 ring-indigo-100 hover:bg-indigo-50"
       >
         {t('ceilingView')}
       </button>
