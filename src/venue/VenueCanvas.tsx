@@ -538,7 +538,7 @@ function VenueCanvas(
                 width={floor.width}
                 height={floor.height}
                 fill={SELECTION_SCRIM_FILL}
-                opacity={SELECTION_SCRIM_OPACITY}
+                opacity={selectedItems.length === 2 ? SELECTION_SCRIM_OPACITY * 2.5 : SELECTION_SCRIM_OPACITY}
                 pointerEvents="none"
               />
             )}
