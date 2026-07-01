@@ -346,16 +346,19 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         floorHeight={floor.height}
       />
 
-      <TransformToolbar
-        mode={transformMode}
-        onChange={setTransformMode}
-        labels={{
-          select:    t('transformSelect'),
-          translate: t('transformTranslate'),
-          rotate:    t('transformRotate'),
-          scale:     t('transformScale'),
-        }}
-      />
+      {/* 变换工具条(旋转/高度等)仅在选中单个组件时出现;未选或多选时隐藏。*/}
+      {selectedItem && (
+        <TransformToolbar
+          mode={transformMode}
+          onChange={setTransformMode}
+          labels={{
+            select:    t('transformSelect'),
+            translate: t('transformTranslate'),
+            rotate:    t('transformRotate'),
+            scale:     t('transformScale'),
+          }}
+        />
+      )}
     </div>
   )
 }
