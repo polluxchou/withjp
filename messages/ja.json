@@ -1258,6 +1258,7 @@
     "detailTitle": "物品詳細"
   },
   "venue": {
+    "ceilingView": "天井ビュー",
     "title": "Venue Layout",
     "subtitle": "Canvas-first 2D planning for live equipment, renovation zones, corridors, and safety points.",
     "loading": "Loading venue…",

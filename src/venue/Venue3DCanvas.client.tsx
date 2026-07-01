@@ -87,9 +87,26 @@ function CameraFovSync({ zoom }: { zoom: number }) {
   return null
 }
 
+function CeilingView({ nonce, floor }: { nonce: number; floor: VenueFloor }) {
+  const camera = useThree((s) => s.camera)
+  const controls = useThree((s) => s.controls) as { target: Vector3; update: () => void } | null
+  useEffect(() => {
+    if (nonce === 0 || !controls) return
+    const cx = floor.width / 2
+    const cz = floor.height / 2
+    const ceil = Math.max(floor.floorHeight, 200)
+    camera.position.set(cx, 40, cz + 1)
+    controls.target.set(cx, ceil, cz)
+    camera.lookAt(cx, ceil, cz)
+    controls.update()
+  }, [nonce, controls, camera, floor.width, floor.height, floor.floorHeight])
+  return null
+}
+
 export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, onItemChange, itemName, zoom = 1 }: Props) {
   const t = useTranslations('venue')
   const [transformMode, setTransformMode] = useState<TransformMode>('select')
+  const [ceilingNonce, setCeilingNonce] = useState(0)
 
   const itemRefs = useRef(new Map<string, Group>())
   const registerItemRef = useCallback((id: string, group: Group | null) => {
@@ -196,6 +213,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         onPointerMissed={handlePointerMissed}
       >
         <CameraFovSync zoom={zoom} />
+        <CeilingView nonce={ceilingNonce} floor={floor} />
         <SceneProjector entries={labelEntries} onUpdate={onProjected} onCameraDir={setCameraDir} />
         <color attach="background" args={['#f8fafc']} />
         <ambientLight intensity={0.65} />
@@ -265,6 +283,14 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
           maxPolarAngle={Math.PI / 2 - 0.05}
         />
       </Canvas>
+
+      <button
+        type="button"
+        onClick={() => setCeilingNonce((n) => n + 1)}
+        className="absolute top-3 right-3 z-10 rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 text-sm text-slate-600 shadow hover:text-indigo-700"
+      >
+        {t('ceilingView')}
+      </button>
 
       <EdgeLabelOverlay
         items={floor.items}
