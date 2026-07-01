@@ -99,6 +99,8 @@ type VenueSummary = { id: string; name: string; canEdit: boolean; canManage: boo
 type UserOption = { id: string; name: string; email: string | null }
 // Remembers the last-opened venue per browser so reloads return to it.
 const ACTIVE_VENUE_KEY = 'guild-venue:active-venue'
+// 画布类型筛选(哪些组件类型显示)持久化,切换语言(整页导航)后不丢失。
+const VISIBLE_TYPES_KEY = 'guild-venue:visible-types'
 const DEFAULT_VENUE_ID = 'guild-main'
 
 const TOOL_ICON: Record<VenueItemType, typeof Box> = {
@@ -146,6 +148,33 @@ export default function GuildVenuePage() {
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d')
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
   const [visibleTypes, setVisibleTypes] = useState<VenueItemType[]>(ALL_VENUE_TYPES)
+  // 挂载时从 localStorage 恢复筛选(与当前有效类型取交集,过滤已废弃类型);
+  // 用 effect 恢复以避免 SSR/hydration 不一致。切换语言=整页导航后筛选得以保留。
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(VISIBLE_TYPES_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return
+      const valid = ALL_VENUE_TYPES.filter((t) => parsed.includes(t))
+      if (valid.length > 0) setVisibleTypes(valid)
+    } catch {
+      // localStorage 不可读/脏数据 → 用默认全部,静默跳过。
+    }
+  }, [])
+  // 筛选变更后写回。跳过挂载后的首次运行,避免用默认值覆盖刚恢复的筛选。
+  const skipFirstFilterSave = useRef(true)
+  useEffect(() => {
+    if (skipFirstFilterSave.current) {
+      skipFirstFilterSave.current = false
+      return
+    }
+    try {
+      window.localStorage.setItem(VISIBLE_TYPES_KEY, JSON.stringify(visibleTypes))
+    } catch {
+      // 忽略写入失败。
+    }
+  }, [visibleTypes])
   const [clipboard, setClipboard] = useState<VenueItem[]>([])
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [hydrated, setHydrated] = useState(false)
