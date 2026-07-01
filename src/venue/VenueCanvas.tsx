@@ -1221,7 +1221,7 @@ function TotalBoundsRulers({ items, scale }: { items: VenueItem[]; scale: number
   const totalW = maxX - minX
   const totalH = maxY - minY
 
-  const offset  = 32 / scale   // further out than per-item rulers (14/scale)
+  const offset  = 80 / scale   // further out than per-item rulers (14/scale)
   const tick    = 6  / scale
   const lineW   = 1.5 / scale
   const halo    = 3.5 / scale
