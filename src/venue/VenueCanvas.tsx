@@ -609,6 +609,7 @@ function VenueCanvas(
             {showRulers && selectedItems.length === 2 && !isVenueMarkerType(selectedItems[0].type) && !isVenueMarkerType(selectedItems[1].type) && (
               <PairDistanceRulers a={selectedItems[0]} b={selectedItems[1]} scale={scale} />
             )}
+            {showRulers && <TotalBoundsRulers items={items} scale={scale} />}
             {marquee && (() => {
               const rx = Math.min(marquee.start.x, marquee.current.x)
               const ry = Math.min(marquee.start.y, marquee.current.y)
@@ -1197,6 +1198,69 @@ function DimensionRulers({
           </text>
         </>
       )}
+    </g>
+  )
+}
+
+// Outer bounding-box ruler: shows total width and total height of all shapes on
+// the floor. Rendered when rulers are on, outside individual item rulers.
+function TotalBoundsRulers({ items, scale }: { items: VenueItem[]; scale: number }) {
+  const shapes = items.filter((it) => !isVenueMarkerType(it.type))
+  if (shapes.length < 2) return null
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const it of shapes) {
+    minX = Math.min(minX, it.x)
+    minY = Math.min(minY, it.y)
+    maxX = Math.max(maxX, it.x + it.width)
+    maxY = Math.max(maxY, it.y + it.height)
+  }
+  if (!isFinite(minX)) return null
+
+  const totalW = maxX - minX
+  const totalH = maxY - minY
+
+  const offset  = 32 / scale   // further out than per-item rulers (14/scale)
+  const tick    = 6  / scale
+  const lineW   = 1.5 / scale
+  const halo    = 3.5 / scale
+  const textGap = 8  / scale
+  const dash    = `${8 / scale} ${5 / scale}`
+  const color   = '#0ea5e9'     // sky-blue — distinct from per-item (slate) and pair (violet)
+
+  const hRulerY = minY - offset
+  const vRulerX = maxX + offset
+
+  return (
+    <g pointerEvents="none" stroke={color} fill={color} fontSize={12 / scale} fontWeight="700">
+      {/* total width — above all items */}
+      <line x1={minX} y1={hRulerY} x2={maxX} y2={hRulerY} strokeWidth={lineW} strokeDasharray={dash} />
+      <line x1={minX} y1={hRulerY - tick} x2={minX} y2={hRulerY + tick} strokeWidth={lineW} />
+      <line x1={maxX} y1={hRulerY - tick} x2={maxX} y2={hRulerY + tick} strokeWidth={lineW} />
+      <line x1={minX} y1={minY} x2={minX} y2={hRulerY} strokeWidth={lineW * 0.5} strokeDasharray={dash} opacity={0.35} />
+      <line x1={maxX} y1={minY} x2={maxX} y2={hRulerY} strokeWidth={lineW * 0.5} strokeDasharray={dash} opacity={0.35} />
+      <text
+        x={(minX + maxX) / 2} y={hRulerY - textGap}
+        textAnchor="middle" dominantBaseline="auto"
+        paintOrder="stroke" stroke="#fff" strokeWidth={halo} strokeLinejoin="round"
+      >
+        {formatVenueMeasurement(totalW)}
+      </text>
+
+      {/* total height — right of all items */}
+      <line x1={vRulerX} y1={minY} x2={vRulerX} y2={maxY} strokeWidth={lineW} strokeDasharray={dash} />
+      <line x1={vRulerX - tick} y1={minY} x2={vRulerX + tick} y2={minY} strokeWidth={lineW} />
+      <line x1={vRulerX - tick} y1={maxY} x2={vRulerX + tick} y2={maxY} strokeWidth={lineW} />
+      <line x1={maxX} y1={minY} x2={vRulerX} y2={minY} strokeWidth={lineW * 0.5} strokeDasharray={dash} opacity={0.35} />
+      <line x1={maxX} y1={maxY} x2={vRulerX} y2={maxY} strokeWidth={lineW * 0.5} strokeDasharray={dash} opacity={0.35} />
+      <text
+        x={vRulerX + textGap + 2 / scale} y={(minY + maxY) / 2}
+        textAnchor="middle" dominantBaseline="middle"
+        transform={`rotate(90 ${vRulerX + textGap + 2 / scale} ${(minY + maxY) / 2})`}
+        paintOrder="stroke" stroke="#fff" strokeWidth={halo} strokeLinejoin="round"
+      >
+        {formatVenueMeasurement(totalH)}
+      </text>
     </g>
   )
 }
