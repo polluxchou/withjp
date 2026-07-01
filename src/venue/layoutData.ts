@@ -1,5 +1,5 @@
 // Shapes occupy area and are drawn as resizable rectangles.
-export type VenueShapeType = 'equipment' | 'renovation' | 'area' | 'corridor' | 'window' | 'truss' | 'light'
+export type VenueShapeType = 'equipment' | 'renovation' | 'area' | 'corridor' | 'window' | 'truss' | 'light_grille4' | 'light_grille8_stand' | 'light_spot' | 'light_grille4_stand'
 // Markers are point symbols that do not occupy area (doors, fire points, etc.).
 export type VenueMarkerType = 'door_inward' | 'door_outward' | 'door_sliding' | 'fire' | 'power' | 'network'
 export type VenueItemType = VenueShapeType | VenueMarkerType
@@ -216,7 +216,10 @@ export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] 
   { value: 'corridor', label: '结构' },
   { value: 'window', label: '窗户' },
   { value: 'truss', label: '桁架' },
-  { value: 'light', label: '吊灯' },
+  { value: 'light_grille4', label: '格栅灯' },
+  { value: 'light_grille8_stand', label: '八角格栅灯' },
+  { value: 'light_spot', label: '射灯' },
+  { value: 'light_grille4_stand', label: '格栅灯·支架' },
   ...VENUE_MARKER_TYPE_OPTIONS,
 ]
 
@@ -224,6 +227,12 @@ const VENUE_MARKER_TYPE_SET = new Set<string>(VENUE_MARKER_TYPE_OPTIONS.map((opt
 
 export function isVenueMarkerType(type: VenueItemType): boolean {
   return VENUE_MARKER_TYPE_SET.has(type)
+}
+
+const LIGHT_TYPE_SET = new Set<string>(['light_grille4', 'light_grille8_stand', 'light_spot', 'light_grille4_stand'])
+
+export function isLightType(type: VenueItemType): boolean {
+  return LIGHT_TYPE_SET.has(type)
 }
 
 export const VENUE_ITEM_STATUS_OPTIONS: { value: VenueItemStatus; label: string }[] = [
@@ -368,7 +377,10 @@ const DEFAULT_SIZE: Record<VenueItemType, { width: number; height: number }> = {
   corridor:     { width: 320, height: 64 },
   window:       { width: 120, height: 24 },
   truss:        { width: 300, height: 20 },
-  light:        { width: 70,  height: 70 },
+  light_grille4:       { width: 60, height: 60 },
+  light_grille8_stand: { width: 70, height: 70 },
+  light_spot:          { width: 30, height: 30 },
+  light_grille4_stand: { width: 60, height: 60 },
   door_inward:  DOOR_SIZE,
   door_outward: DOOR_SIZE,
   door_sliding: DOOR_SIZE,
@@ -390,7 +402,10 @@ const DEFAULT_3D: Record<VenueItemType, { height3d: number; elevation: number }>
   // 窗户:离地 90cm(标准窗台),玻璃高 120cm。
   window:       { height3d: 120, elevation: 90 },
   truss:        { height3d: 15,  elevation: 260 },
-  light:        { height3d: 40,  elevation: 220 },
+  light_grille4:       { height3d: 8,  elevation: 0   },
+  light_grille8_stand: { height3d: 10, elevation: 150 },
+  light_spot:          { height3d: 25, elevation: 240 },
+  light_grille4_stand: { height3d: 8,  elevation: 150 },
   door_inward:  { height3d: 200, elevation: 0  },
   door_outward: { height3d: 200, elevation: 0  },
   door_sliding: { height3d: 200, elevation: 0  },
@@ -411,7 +426,10 @@ const DEFAULT_THICKNESS: Record<VenueItemType, number> = {
   corridor:     0,
   window:       8,
   truss:        0,
-  light:        0,
+  light_grille4:       0,
+  light_grille8_stand: 0,
+  light_spot:          0,
+  light_grille4_stand: 0,
   door_inward:  0,
   door_outward: 0,
   door_sliding: 0,
@@ -429,7 +447,10 @@ const DEFAULT_PLACEMENT: Record<VenueItemType, VenueItemPlacement> = {
   corridor:     'ground',
   window:       'aerial',
   truss:        'aerial',
-  light:        'aerial',
+  light_grille4:       'ground',
+  light_grille8_stand: 'ground',
+  light_spot:          'aerial',
+  light_grille4_stand: 'ground',
   door_inward:  'ground',
   door_outward: 'ground',
   door_sliding: 'ground',
@@ -449,7 +470,10 @@ const DEFAULT_NAME: Record<VenueItemType, string> = {
   corridor:     '新增结构',
   window:       '新增窗户',
   truss:        '新增桁架',
-  light:        '新增吊灯',
+  light_grille4:       '格栅灯',
+  light_grille8_stand: '八角格栅灯',
+  light_spot:          '射灯',
+  light_grille4_stand: '格栅灯(支架)',
   door_inward:  '内开门',
   door_outward: '外开门',
   door_sliding: '推拉门',
@@ -1057,7 +1081,7 @@ export function lightTrussAttachments(items: VenueItem[]): Map<string, number> {
   const trusses = items.filter((it) => it.type === 'truss')
   const out = new Map<string, number>()
   for (const light of items) {
-    if (light.type !== 'light') continue
+    if (light.type !== 'light_spot') continue
     const lx = light.x + light.width / 2
     const ly = light.y + light.height / 2
     let best: { dist: number; elevation: number } | null = null
