@@ -1227,7 +1227,7 @@ function TotalBoundsRulers({ items, scale }: { items: VenueItem[]; scale: number
   const halo    = 3.5 / scale
   const textGap = 8  / scale
   const dash    = `${8 / scale} ${5 / scale}`
-  const color   = '#0ea5e9'     // sky-blue — distinct from per-item (slate) and pair (violet)
+  const color   = '#ef4444'     // red
 
   const hRulerY = minY - offset
   const vRulerX = maxX + offset
