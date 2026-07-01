@@ -954,7 +954,7 @@ function segmentWall(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Light3D — softbox cone + vertical rod up to its attached truss.
+// Light3D — per-type geometry: grille panels, stands, and a hanging spotlight.
 
 function Light3D({ item, trussElevation, selected, onSelect }: {
   item: VenueItem
@@ -962,35 +962,76 @@ function Light3D({ item, trussElevation, selected, onSelect }: {
   selected: boolean
   onSelect: (ids: string[]) => void
 }) {
-  const style = TYPE_STYLE_3D[item.type]
-  const r = Math.max(1, Math.min(item.width, item.height) / 2)
-  const coneH = Math.max(1, item.height3d)
-  const cx = item.x + item.width / 2
-  const cz = item.y + item.height / 2
-  const softboxCenterY = item.elevation + coneH / 2
-  const softboxTopY = item.elevation + coneH
-  const rodH = trussElevation !== undefined ? trussElevation - softboxTopY : 0
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation()
     onSelect(event.nativeEvent.shiftKey && selected ? [] : [item.id])
   }
+  const style = TYPE_STYLE_3D[item.type]
+  const cx = item.x + item.width / 2
+  const cz = item.y + item.height / 2
+  const r = Math.max(1, Math.min(item.width, item.height) / 2)
+  const h3 = Math.max(1, item.height3d)
+  const elev = item.elevation
+  const edge = selected ? SELECTION_ACCENT : style.stroke
+  const emissive = selected ? SELECTION_ACCENT : '#000000'
+  const emi = selected ? 0.25 : 0
+
+  const grillePanel = (octagon: boolean, panelY: number) => (
+    <mesh position={[0, panelY, 0]}>
+      {octagon
+        ? <cylinderGeometry args={[r, r, h3, 8]} />
+        : <boxGeometry args={[item.width, h3, item.height]} />}
+      <meshStandardMaterial color={style.fill} emissive={emissive} emissiveIntensity={emi} />
+      <Edges threshold={15} color={edge} scale={1.001} />
+    </mesh>
+  )
+  const stand = (
+    <>
+      <mesh position={[0, elev / 2, 0]}>
+        <boxGeometry args={[6, elev, 6]} />
+        <meshStandardMaterial color="#334155" />
+      </mesh>
+      <mesh position={[0, 2, 0]}>
+        <boxGeometry args={[24, 4, 24]} />
+        <meshStandardMaterial color="#334155" />
+      </mesh>
+    </>
+  )
+
+  let body
+  if (item.type === 'light_grille4') {
+    body = grillePanel(false, h3 / 2)
+  } else if (item.type === 'light_grille4_stand') {
+    body = <>{stand}{grillePanel(false, elev + h3 / 2)}</>
+  } else if (item.type === 'light_grille8_stand') {
+    body = <>{stand}{grillePanel(true, elev + h3 / 2)}</>
+  } else {
+    const spotTopY = elev + h3
+    const rodH = trussElevation !== undefined ? trussElevation - spotTopY : 0
+    body = (
+      <>
+        <mesh position={[0, elev + h3 / 2, 0]}>
+          <cylinderGeometry args={[6, 6, h3, 16]} />
+          <meshStandardMaterial color={style.fill} emissive={emissive} emissiveIntensity={emi} />
+          <Edges threshold={15} color={edge} scale={1.001} />
+        </mesh>
+        <mesh position={[0, elev - 5, 0]}>
+          <coneGeometry args={[8, 10, 16]} />
+          <meshStandardMaterial color={style.fill} emissive={emissive} emissiveIntensity={emi} />
+        </mesh>
+        {rodH > 0 && (
+          <mesh position={[0, spotTopY + rodH / 2, 0]}>
+            <boxGeometry args={[4, rodH, 4]} />
+            <meshStandardMaterial color="#334155" />
+          </mesh>
+        )}
+      </>
+    )
+  }
+
   return (
     <group position={[cx, 0, cz]} onClick={handleClick}>
-      <mesh position={[0, softboxCenterY, 0]}>
-        <coneGeometry args={[r, coneH, 8]} />
-        <meshStandardMaterial
-          color={style.fill}
-          emissive={selected ? SELECTION_ACCENT : '#000000'}
-          emissiveIntensity={selected ? 0.25 : 0}
-        />
-        <Edges threshold={15} color={selected ? SELECTION_ACCENT : style.stroke} scale={1.001} />
-      </mesh>
-      {rodH > 0 && (
-        <mesh position={[0, softboxTopY + rodH / 2, 0]}>
-          <boxGeometry args={[4, rodH, 4]} />
-          <meshStandardMaterial color="#334155" />
-        </mesh>
-      )}
+      {body}
     </group>
   )
 }
