@@ -449,8 +449,8 @@
       "dayTotal": "Day total",
       "rowTotal": "Total",
       "weekN": "Week {n}",
-      "addToWeek": "+ Add to week {n}",
-      "addToDay": "+ Add {month}/{day}",
+      "addToWeek": "Add to week {n}",
+      "addToDay": "Add {month}/{day}",
       "ymLabel": "{month}/{year}"
     },
     "weekdays": [
@@ -1262,18 +1262,18 @@
     "fieldThickness": "Thickness",
     "fieldStoreyHeight": "Storey net height {value}m",
     "addTypes": {
-      "equipment": "+ Equipment",
-      "renovation": "+ Zone",
-      "area": "+ Space",
-      "corridor": "+ Structure",
-      "window": "+ Window",
-      "truss": "+ Truss",
-      "light_grille4": "+ Grille light",
-      "light_grille8_stand": "+ Octagon grille",
-      "light_spot": "+ Spotlight",
-      "light_grille4_stand": "+ Grille light (stand)"
+      "equipment": "Equipment",
+      "renovation": "Zone",
+      "area": "Space",
+      "corridor": "Structure",
+      "window": "Window",
+      "truss": "Truss",
+      "light_grille4": "Grille light",
+      "light_grille8_stand": "Octagon grille",
+      "light_spot": "Spotlight",
+      "light_grille4_stand": "Grille light (stand)"
     },
-    "addMarker": "+ Marker",
+    "addMarker": "Marker",
     "canvasActions": "Canvas actions",
     "viewBookmarks": "Saved views",
     "viewSwitchNext": "Switch to next view",
@@ -1339,7 +1339,7 @@
     "collaboratorsError": "Save failed, please retry",
     "readOnly": "View only",
     "readOnlyHint": "You don't have edit access to this venue",
-    "addFacility": "+ Fixtures"
+    "addFacility": "Fixtures"
   },
   "config": {
     "tabs": {
