@@ -366,11 +366,13 @@ function NumberField({
   label,
   value,
   min,
+  step = 0.01,
   onChange,
 }: {
   label: string
   value: number
   min?: number
+  step?: number
   onChange: (event: ChangeEvent<HTMLInputElement>) => void
 }) {
   return (
@@ -380,7 +382,7 @@ function NumberField({
         type="number"
         value={value}
         min={min}
-        step={0.01}
+        step={step}
         onChange={onChange}
         className={INPUT_CLASS}
       />
