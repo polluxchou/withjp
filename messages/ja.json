@@ -449,8 +449,8 @@
       "dayTotal": "日合計",
       "rowTotal": "合計",
       "weekN": "第{n}週",
-      "addToWeek": "+ 第{n}週に追加",
-      "addToDay": "+ {month}/{day} に追加",
+      "addToWeek": "第{n}週に追加",
+      "addToDay": "{month}/{day} に追加",
       "ymLabel": "{year}年{month}月"
     },
     "weekdays": [
@@ -1351,18 +1351,18 @@
     "fieldThickness": "厚さ",
     "fieldStoreyHeight": "Storey net height {value}m",
     "addTypes": {
-      "equipment": "+ Equipment",
-      "renovation": "+ Zone",
-      "area": "+ Space",
-      "corridor": "+ Structure",
-      "window": "+ Window",
-      "truss": "+ トラス",
-      "light_grille4": "+ グリッドライト",
-      "light_grille8_stand": "+ 八角グリッド",
-      "light_spot": "+ スポットライト",
-      "light_grille4_stand": "+ グリッド(スタンド)"
+      "equipment": "Equipment",
+      "renovation": "Zone",
+      "area": "Space",
+      "corridor": "Structure",
+      "window": "Window",
+      "truss": "トラス",
+      "light_grille4": "グリッドライト",
+      "light_grille8_stand": "八角グリッド",
+      "light_spot": "スポットライト",
+      "light_grille4_stand": "グリッド(スタンド)"
     },
-    "addMarker": "+ Marker",
+    "addMarker": "Marker",
     "canvasActions": "Canvas actions",
     "viewBookmarks": "Saved views",
     "viewSwitchNext": "Switch to next view",
@@ -1428,6 +1428,6 @@
     "collaboratorsError": "保存に失敗しました。再試行してください",
     "readOnly": "閲覧のみ",
     "readOnlyHint": "この会場の編集権限がありません",
-    "addFacility": "+ 設備"
+    "addFacility": "設備"
   }
 }
