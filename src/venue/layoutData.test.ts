@@ -584,7 +584,7 @@ test('addVenueItem: 4 种灯默认值', () => {
   const g4 = addVenueItem(DEFAULT_VENUE_LAYOUT, fid, 'light_grille4').floors[0].items.at(-1)!
   assert.equal(g4.placement, 'ground'); assert.equal(g4.elevation, 0)
   const g8 = addVenueItem(DEFAULT_VENUE_LAYOUT, fid, 'light_grille8_stand').floors[0].items.at(-1)!
-  assert.equal(g8.placement, 'ground'); assert.equal(g8.elevation, 150)
+  assert.equal(g8.placement, 'aerial'); assert.equal(g8.elevation, 200)
   const sp = addVenueItem(DEFAULT_VENUE_LAYOUT, fid, 'light_spot').floors[0].items.at(-1)!
   assert.equal(sp.placement, 'aerial'); assert.equal(sp.elevation, 240)
   const g4s = addVenueItem(DEFAULT_VENUE_LAYOUT, fid, 'light_grille4_stand').floors[0].items.at(-1)!
@@ -594,7 +594,7 @@ test('isLightType: 4 种为 true,其它为 false', () => {
   for (const t of ['light_grille4','light_grille8_stand','light_spot','light_grille4_stand'] as VenueItemType[]) assert.equal(isLightType(t), true)
   for (const t of ['area','truss','window','equipment','door_inward'] as VenueItemType[]) assert.equal(isLightType(t), false)
 })
-test('lightTrussAttachments: 只有 light_spot 吸附桁架', () => {
+test('lightTrussAttachments: 射灯与八角格栅灯吸附桁架,落地格栅灯不吸附', () => {
   const mk = (o: Partial<VenueItem> & { id: string; type: VenueItemType }): VenueItem => ({
     x: 0, y: 0, width: 40, height: 40, rotation: 0, status: 'planned', note: '',
     name: '', height3d: 0, elevation: 0, thickness: 0, placement: 'aerial', ...o,
@@ -602,8 +602,9 @@ test('lightTrussAttachments: 只有 light_spot 吸附桁架', () => {
   const items = [
     mk({ id: 't1', type: 'truss', x: 0, y: 0, width: 300, height: 20, elevation: 260 }),
     mk({ id: 'S', type: 'light_spot', x: 100, y: 5, elevation: 240 }),
+    mk({ id: 'O', type: 'light_grille8_stand', x: 100, y: 5, elevation: 200 }),
     mk({ id: 'G', type: 'light_grille4', x: 100, y: 5, elevation: 0 }),
   ]
   const m = lightTrussAttachments(items)
-  assert.equal(m.get('S'), 260); assert.equal(m.get('G'), undefined)
+  assert.equal(m.get('S'), 260); assert.equal(m.get('O'), 260); assert.equal(m.get('G'), undefined)
 })
