@@ -587,7 +587,7 @@ function VenueCanvas(
             ))}
             <AlignmentGuides guides={alignmentGuides} scale={scale} />
             {selectedItems.length === 2 && !isVenueMarkerType(selectedItems[0].type) && !isVenueMarkerType(selectedItems[1].type) && (() => {
-              const pad = 10 / scale
+              const pad = 16 / scale
               const x0 = Math.min(selectedItems[0].x, selectedItems[1].x) - pad
               const y0 = Math.min(selectedItems[0].y, selectedItems[1].y) - pad
               const x1 = Math.max(selectedItems[0].x + selectedItems[0].width,  selectedItems[1].x + selectedItems[1].width)  + pad
@@ -595,10 +595,10 @@ function VenueCanvas(
               return (
                 <rect
                   x={x0} y={y0} width={x1 - x0} height={y1 - y0}
-                  fill="none"
+                  fill="rgba(244,81,30,0.06)"
                   stroke={SELECTION_ACCENT}
-                  strokeWidth={1.5 / scale}
-                  strokeDasharray={`${8 / scale} ${5 / scale}`}
+                  strokeWidth={2 / scale}
+                  strokeDasharray={`${10 / scale} ${6 / scale}`}
                   pointerEvents="none"
                   data-venue-selection="true"
                 />
