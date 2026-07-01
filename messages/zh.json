@@ -1268,7 +1268,10 @@
       "corridor": "+ 结构",
       "window": "+ 窗户",
       "truss": "+ 桁架",
-      "light": "+ 灯"
+      "light_grille4": "+ 格栅灯",
+      "light_grille8_stand": "+ 八角格栅灯",
+      "light_spot": "+ 射灯",
+      "light_grille4_stand": "+ 格栅灯(支架)"
     },
     "addMarker": "+ 标识",
     "canvasActions": "画布操作",
@@ -1292,7 +1295,10 @@
       "network": "网络口",
       "window": "窗户",
       "truss": "桁架",
-      "light": "吊灯"
+      "light_grille4": "格栅灯",
+      "light_grille8_stand": "八角格栅灯",
+      "light_spot": "射灯",
+      "light_grille4_stand": "格栅灯(支架)"
     },
     "markerShort": {
       "door_inward": "内",

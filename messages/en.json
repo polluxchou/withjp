@@ -1268,7 +1268,10 @@
       "corridor": "+ Structure",
       "window": "+ Window",
       "truss": "+ Truss",
-      "light": "+ Light"
+      "light_grille4": "+ Grille light",
+      "light_grille8_stand": "+ Octagon grille",
+      "light_spot": "+ Spotlight",
+      "light_grille4_stand": "+ Grille light (stand)"
     },
     "addMarker": "+ Marker",
     "canvasActions": "Canvas actions",
@@ -1292,7 +1295,10 @@
       "network": "Network port",
       "window": "Window",
       "truss": "Truss",
-      "light": "Light"
+      "light_grille4": "Grille light",
+      "light_grille8_stand": "Octagon grille",
+      "light_spot": "Spotlight",
+      "light_grille4_stand": "Grille light (stand)"
     },
     "markerShort": {
       "door_inward": "I",

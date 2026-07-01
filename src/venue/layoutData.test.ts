@@ -29,6 +29,7 @@ import {
   loadVenueLayout,
   writeStoredVenueLayout,
   lightTrussAttachments,
+  isLightType,
   VENUE_STORAGE_KEY,
   VENUE_LEGACY_STORAGE_KEY,
   VENUE_BACKUP_STORAGE_KEY,
@@ -578,23 +579,31 @@ test('addVenueItem(truss): 贴天花横梁默认', () => {
   assert.equal(it.type, 'truss'); assert.equal(it.placement, 'aerial')
   assert.equal(it.elevation, 260); assert.equal(it.height3d, 15)
 })
-test('addVenueItem(light): 吊灯默认', () => {
-  const l = addVenueItem(DEFAULT_VENUE_LAYOUT, DEFAULT_VENUE_LAYOUT.floors[0].id, 'light')
-  const it = l.floors[0].items.at(-1)!
-  assert.equal(it.type, 'light'); assert.equal(it.placement, 'aerial')
-  assert.equal(it.elevation, 220); assert.equal(it.height3d, 40)
+test('addVenueItem: 4 种灯默认值', () => {
+  const fid = DEFAULT_VENUE_LAYOUT.floors[0].id
+  const g4 = addVenueItem(DEFAULT_VENUE_LAYOUT, fid, 'light_grille4').floors[0].items.at(-1)!
+  assert.equal(g4.placement, 'ground'); assert.equal(g4.elevation, 0)
+  const g8 = addVenueItem(DEFAULT_VENUE_LAYOUT, fid, 'light_grille8_stand').floors[0].items.at(-1)!
+  assert.equal(g8.placement, 'ground'); assert.equal(g8.elevation, 150)
+  const sp = addVenueItem(DEFAULT_VENUE_LAYOUT, fid, 'light_spot').floors[0].items.at(-1)!
+  assert.equal(sp.placement, 'aerial'); assert.equal(sp.elevation, 240)
+  const g4s = addVenueItem(DEFAULT_VENUE_LAYOUT, fid, 'light_grille4_stand').floors[0].items.at(-1)!
+  assert.equal(g4s.placement, 'ground'); assert.equal(g4s.elevation, 150)
 })
-test('lightTrussAttachments: 灯吸附阈值内最近桁架的 elevation', () => {
+test('isLightType: 4 种为 true,其它为 false', () => {
+  for (const t of ['light_grille4','light_grille8_stand','light_spot','light_grille4_stand'] as VenueItemType[]) assert.equal(isLightType(t), true)
+  for (const t of ['area','truss','window','equipment','door_inward'] as VenueItemType[]) assert.equal(isLightType(t), false)
+})
+test('lightTrussAttachments: 只有 light_spot 吸附桁架', () => {
   const mk = (o: Partial<VenueItem> & { id: string; type: VenueItemType }): VenueItem => ({
     x: 0, y: 0, width: 40, height: 40, rotation: 0, status: 'planned', note: '',
     name: '', height3d: 0, elevation: 0, thickness: 0, placement: 'aerial', ...o,
   })
   const items = [
     mk({ id: 't1', type: 'truss', x: 0, y: 0, width: 300, height: 20, elevation: 260 }),
-    mk({ id: 'L1', type: 'light', x: 100, y: 5, width: 40, height: 40, elevation: 220 }),
-    mk({ id: 'L2', type: 'light', x: 100, y: 400, width: 40, height: 40, elevation: 220 }),
+    mk({ id: 'S', type: 'light_spot', x: 100, y: 5, elevation: 240 }),
+    mk({ id: 'G', type: 'light_grille4', x: 100, y: 5, elevation: 0 }),
   ]
   const m = lightTrussAttachments(items)
-  assert.equal(m.get('L1'), 260)
-  assert.equal(m.get('L2'), undefined)
+  assert.equal(m.get('S'), 260); assert.equal(m.get('G'), undefined)
 })
