@@ -1332,7 +1332,8 @@
     "collaboratorsCancel": "取消",
     "collaboratorsError": "保存失败，请重试",
     "readOnly": "只读",
-    "readOnlyHint": "你没有该场地的编辑权限"
+    "readOnlyHint": "你没有该场地的编辑权限",
+    "addFacility": "+ 设施"
   },
   "config": {
     "tabs": {
