@@ -1169,6 +1169,7 @@
     "removePhoto": "Remove photo"
   },
   "venue": {
+    "ceilingView": "Ceiling view",
     "title": "Venue Layout",
     "subtitle": "Venue planning for the Osaka livestream operation — live equipment, work areas, utilities & networking, and safety points.",
     "loading": "Loading venue…",
