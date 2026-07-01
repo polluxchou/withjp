@@ -1,5 +1,5 @@
 // Shapes occupy area and are drawn as resizable rectangles.
-export type VenueShapeType = 'equipment' | 'renovation' | 'area' | 'corridor' | 'window'
+export type VenueShapeType = 'equipment' | 'renovation' | 'area' | 'corridor' | 'window' | 'truss' | 'light'
 // Markers are point symbols that do not occupy area (doors, fire points, etc.).
 export type VenueMarkerType = 'door_inward' | 'door_outward' | 'door_sliding' | 'fire' | 'power' | 'network'
 export type VenueItemType = VenueShapeType | VenueMarkerType
@@ -215,6 +215,8 @@ export const VENUE_ITEM_TYPE_OPTIONS: { value: VenueItemType; label: string }[] 
   ...VENUE_SHAPE_TYPE_OPTIONS,
   { value: 'corridor', label: '结构' },
   { value: 'window', label: '窗户' },
+  { value: 'truss', label: '桁架' },
+  { value: 'light', label: '吊灯' },
   ...VENUE_MARKER_TYPE_OPTIONS,
 ]
 
@@ -365,6 +367,8 @@ const DEFAULT_SIZE: Record<VenueItemType, { width: number; height: number }> = {
   area:         { width: 220, height: 140 },
   corridor:     { width: 320, height: 64 },
   window:       { width: 120, height: 24 },
+  truss:        { width: 300, height: 20 },
+  light:        { width: 70,  height: 70 },
   door_inward:  DOOR_SIZE,
   door_outward: DOOR_SIZE,
   door_sliding: DOOR_SIZE,
@@ -385,6 +389,8 @@ const DEFAULT_3D: Record<VenueItemType, { height3d: number; elevation: number }>
   corridor:     { height3d: 0,   elevation: 0  },
   // 窗户:离地 90cm(标准窗台),玻璃高 120cm。
   window:       { height3d: 120, elevation: 90 },
+  truss:        { height3d: 15,  elevation: 260 },
+  light:        { height3d: 40,  elevation: 220 },
   door_inward:  { height3d: 200, elevation: 0  },
   door_outward: { height3d: 200, elevation: 0  },
   door_sliding: { height3d: 200, elevation: 0  },
@@ -404,6 +410,8 @@ const DEFAULT_THICKNESS: Record<VenueItemType, number> = {
   area:         0,
   corridor:     0,
   window:       8,
+  truss:        0,
+  light:        0,
   door_inward:  0,
   door_outward: 0,
   door_sliding: 0,
@@ -420,6 +428,8 @@ const DEFAULT_PLACEMENT: Record<VenueItemType, VenueItemPlacement> = {
   area:         'ground',
   corridor:     'ground',
   window:       'aerial',
+  truss:        'aerial',
+  light:        'aerial',
   door_inward:  'ground',
   door_outward: 'ground',
   door_sliding: 'ground',
@@ -438,6 +448,8 @@ const DEFAULT_NAME: Record<VenueItemType, string> = {
   area:         '新增空间',
   corridor:     '新增结构',
   window:       '新增窗户',
+  truss:        '新增桁架',
+  light:        '新增吊灯',
   door_inward:  '内开门',
   door_outward: '外开门',
   door_sliding: '推拉门',
@@ -1036,4 +1048,27 @@ function isVenueItemType(value: unknown): value is VenueItemType {
 
 function isVenueItemStatus(value: unknown): value is VenueItemStatus {
   return typeof value === 'string' && VENUE_ITEM_STATUS_OPTIONS.some((option) => option.value === value)
+}
+
+export const LIGHT_ATTACH_THRESHOLD = 120 // cm
+
+// 每盏灯 → 阈值内最近桁架的 elevation(吊臂顶端高度)。无命中的灯不在 Map 里。
+export function lightTrussAttachments(items: VenueItem[]): Map<string, number> {
+  const trusses = items.filter((it) => it.type === 'truss')
+  const out = new Map<string, number>()
+  for (const light of items) {
+    if (light.type !== 'light') continue
+    const lx = light.x + light.width / 2
+    const ly = light.y + light.height / 2
+    let best: { dist: number; elevation: number } | null = null
+    for (const tr of trusses) {
+      const cx = Math.max(tr.x, Math.min(lx, tr.x + tr.width))
+      const cy = Math.max(tr.y, Math.min(ly, tr.y + tr.height))
+      const dist = Math.hypot(lx - cx, ly - cy)
+      if (dist > LIGHT_ATTACH_THRESHOLD) continue
+      if (best === null || dist < best.dist) best = { dist, elevation: tr.elevation }
+    }
+    if (best) out.set(light.id, best.elevation)
+  }
+  return out
 }
