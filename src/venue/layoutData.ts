@@ -124,11 +124,13 @@ export const MAX_VENUE_HISTORY_STEPS = 20
 export const DEFAULT_FLOOR_HEIGHT = 280
 
 export function centimetersToMeters(value: number): number {
-  return Math.round((value / 100) * 100) / 100
+  // 毫米精度:保留到 0.001m。
+  return Math.round((value / 100) * 1000) / 1000
 }
 
 export function metersToCentimeters(value: number): number {
-  return Math.round(Number(`${value}e2`))
+  // 毫米精度:保留到 0.1cm(1mm)。5.905m → 590.5cm。
+  return Math.round(value * 1000) / 10
 }
 
 export function formatVenueMeasurement(value: number): string {
