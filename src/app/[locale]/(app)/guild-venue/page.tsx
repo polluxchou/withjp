@@ -18,10 +18,12 @@ import {
   Grid3X3,
   Image as ImageIcon,
   Magnet,
+  LampCeiling,
+  LampFloor,
   Link2,
   Unlink2,
   Layers,
-  Lightbulb,
+  Octagon,
   ListFilter,
   Lock,
   Map as MapIcon,
@@ -106,7 +108,10 @@ const TOOL_ICON: Record<VenueItemType, typeof Box> = {
   corridor:     MapIcon,
   window:       AppWindow,
   truss:        GitCommitHorizontal,
-  light:        Lightbulb,
+  light_grille4:       Grid3X3,
+  light_grille4_stand: LampFloor,
+  light_grille8_stand: Octagon,
+  light_spot:          LampCeiling,
   door_inward:  DoorOpen,
   door_outward: DoorClosed,
   door_sliding: ArrowLeftRight,
@@ -120,7 +125,7 @@ const INSPECTOR_COLLAPSED_WIDTH = 44
 const ALL_VENUE_TYPES = VENUE_ITEM_TYPE_OPTIONS.map((option) => option.value)
 // 「+ 标识」下拉:门/消防/电源/网络口。「+ 设施」下拉:窗户/桁架/灯。
 const MARKER_MENU_TYPES: VenueItemType[] = VENUE_MARKER_TYPE_OPTIONS.map((option) => option.value)
-const FACILITY_MENU_TYPES: VenueItemType[] = ['window', 'truss', 'light']
+const FACILITY_MENU_TYPES: VenueItemType[] = ['window', 'truss', 'light_grille4', 'light_grille4_stand', 'light_grille8_stand', 'light_spot']
 
 export default function GuildVenuePage() {
   const t = useTranslations('venue')
