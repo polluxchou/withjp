@@ -463,6 +463,7 @@ function VenueCanvas(
             viewBox={`0 0 ${floor.width} ${floor.height}`}
             width={fit.width}
             height={fit.height}
+            overflow="visible"
             className="block bg-white border border-slate-300"
             role="img"
             aria-label={t('canvasAria', { floor: floor.name })}
