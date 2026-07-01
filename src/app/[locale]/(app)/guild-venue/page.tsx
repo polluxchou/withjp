@@ -945,7 +945,7 @@ export default function GuildVenuePage() {
 
           <ToolbarButton iconOnly icon={ZoomOut} label={t('zoomOut')} onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(2))))} />
           <span className="min-w-14 text-center text-xs font-semibold text-slate-500">{Math.round(zoom * 100)}%</span>
-          <ToolbarButton iconOnly icon={ZoomIn} label={t('zoomIn')} onClick={() => setZoom((value) => Math.min(1.8, Number((value + 0.1).toFixed(2))))} />
+          <ToolbarButton iconOnly icon={ZoomIn} label={t('zoomIn')} onClick={() => setZoom((value) => Math.min(3.0, Number((value + 0.1).toFixed(2))))} />
 
           {viewMode === '2d' && canEdit && (
             <>
