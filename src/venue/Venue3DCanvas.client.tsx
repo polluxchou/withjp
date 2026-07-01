@@ -2,7 +2,7 @@
 
 import { CSSProperties, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
-import { PerspectiveCamera, Vector3 } from 'three'
+import { MOUSE, PerspectiveCamera, Vector3 } from 'three'
 import { Edges, Line, OrbitControls, TransformControls, useTexture } from '@react-three/drei'
 import { DoubleSide, type Group } from 'three'
 import { useTranslations } from 'next-intl'
@@ -124,6 +124,27 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
   const t = useTranslations('venue')
   const [transformMode, setTransformMode] = useState<TransformMode>('select')
   const [ceilingNonce, setCeilingNonce] = useState(0)
+  // 按住空格 → 左键临时变平移(视角不变),松开恢复旋转。输入框聚焦时不拦截。
+  const [spaceHeld, setSpaceHeld] = useState(false)
+  useEffect(() => {
+    const isTyping = (el: EventTarget | null) => {
+      const node = el as HTMLElement | null
+      const tag = node?.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || node?.isContentEditable === true
+    }
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || isTyping(e.target)) return
+      e.preventDefault()
+      setSpaceHeld(true)
+    }
+    const up = (e: KeyboardEvent) => { if (e.code === 'Space') setSpaceHeld(false) }
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
+  }, [])
 
   const itemRefs = useRef(new Map<string, Group>())
   const registerItemRef = useCallback((id: string, group: Group | null) => {
@@ -221,7 +242,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
   )
 
   return (
-    <div ref={containerRef} className="relative h-full min-h-[560px] w-full bg-slate-50">
+    <div ref={containerRef} className={`relative h-full min-h-[560px] w-full bg-slate-50${spaceHeld ? ' cursor-grab' : ''}`}>
       <Canvas
         shadows={false}
         camera={cameraInit}
@@ -298,6 +319,11 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
           maxDistance={cameraDistance * 3}
           minPolarAngle={0}
           maxPolarAngle={Math.PI - 0.05}
+          mouseButtons={{
+            LEFT: spaceHeld ? MOUSE.PAN : MOUSE.ROTATE,
+            MIDDLE: MOUSE.DOLLY,
+            RIGHT: MOUSE.PAN,
+          }}
         />
       </Canvas>
 
