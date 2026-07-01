@@ -14,12 +14,14 @@ import {
   Download,
   Edit2,
   Flame,
+  GitCommitHorizontal,
   Grid3X3,
   Image as ImageIcon,
   Magnet,
   Link2,
   Unlink2,
   Layers,
+  Lightbulb,
   ListFilter,
   Lock,
   Map as MapIcon,
@@ -103,8 +105,8 @@ const TOOL_ICON: Record<VenueItemType, typeof Box> = {
   area:         Building2,
   corridor:     MapIcon,
   window:       AppWindow,
-  truss:        Box, // placeholder — refined by button/UI task
-  light:        Box, // placeholder — refined by button/UI task
+  truss:        GitCommitHorizontal,
+  light:        Lightbulb,
   door_inward:  DoorOpen,
   door_outward: DoorClosed,
   door_sliding: ArrowLeftRight,
@@ -918,6 +920,8 @@ export default function GuildVenuePage() {
                 label={t('addTypes.window')}
                 onClick={() => addItem('window')}
               />
+              <ToolbarButton icon={TOOL_ICON.truss} label={t('addTypes.truss')} onClick={() => addItem('truss')} />
+              <ToolbarButton icon={TOOL_ICON.light} label={t('addTypes.light')} onClick={() => addItem('light')} />
               <AddMarkerMenu onAdd={addItem} />
 
               <div className="w-px h-6 bg-slate-200 mx-1" />
