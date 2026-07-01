@@ -1258,6 +1258,7 @@
     "detailTitle": "物品詳細"
   },
   "venue": {
+    "ceilingView": "天井ビュー",
     "title": "Venue Layout",
     "subtitle": "Canvas-first 2D planning for live equipment, renovation zones, corridors, and safety points.",
     "loading": "Loading venue…",
@@ -1354,7 +1355,9 @@
       "renovation": "+ Zone",
       "area": "+ Space",
       "corridor": "+ Structure",
-      "window": "+ Window"
+      "window": "+ Window",
+      "truss": "+ トラス",
+      "light": "+ ライト"
     },
     "addMarker": "+ Marker",
     "canvasActions": "Canvas actions",
@@ -1376,7 +1379,9 @@
       "fire": "Fire",
       "power": "Power outlet",
       "network": "Network port",
-      "window": "Window"
+      "window": "Window",
+      "truss": "トラス",
+      "light": "ライト"
     },
     "markerShort": {
       "door_inward": "I",
