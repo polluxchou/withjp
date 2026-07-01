@@ -17,6 +17,8 @@ const TYPE_STYLE_3D: Record<VenueItemType, { fill: string; stroke: string }> = {
   area:         { fill: '#ede9fe', stroke: '#7c3aed' },
   corridor:     { fill: '#fef3c7', stroke: '#d97706' },
   window:       { fill: '#cffafe', stroke: '#0891b2' },
+  truss:        { fill: '#fef3c7', stroke: '#d97706' }, // placeholder — refined by 3D task
+  light:        { fill: '#fef3c7', stroke: '#d97706' }, // placeholder — refined by 3D task
   door_inward:  { fill: '#dbeafe', stroke: '#2563eb' },
   door_outward: { fill: '#e0e7ff', stroke: '#4f46e5' },
   door_sliding: { fill: '#cffafe', stroke: '#0891b2' },

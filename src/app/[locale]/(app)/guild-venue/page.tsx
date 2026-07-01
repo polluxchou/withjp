@@ -103,6 +103,8 @@ const TOOL_ICON: Record<VenueItemType, typeof Box> = {
   area:         Building2,
   corridor:     MapIcon,
   window:       AppWindow,
+  truss:        Box, // placeholder — refined by button/UI task
+  light:        Box, // placeholder — refined by button/UI task
   door_inward:  DoorOpen,
   door_outward: DoorClosed,
   door_sliding: ArrowLeftRight,
