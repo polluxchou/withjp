@@ -1266,7 +1266,9 @@
       "renovation": "+ Zone",
       "area": "+ Space",
       "corridor": "+ Structure",
-      "window": "+ Window"
+      "window": "+ Window",
+      "truss": "+ Truss",
+      "light": "+ Light"
     },
     "addMarker": "+ Marker",
     "canvasActions": "Canvas actions",
@@ -1288,7 +1290,9 @@
       "fire": "Fire",
       "power": "Power outlet",
       "network": "Network port",
-      "window": "Window"
+      "window": "Window",
+      "truss": "Truss",
+      "light": "Light"
     },
     "markerShort": {
       "door_inward": "I",
