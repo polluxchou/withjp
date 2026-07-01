@@ -1273,7 +1273,7 @@ function FloatingPanel({
 
   if (collapsed) {
     return (
-      <div className="absolute left-4 top-4 z-10">
+      <div className="absolute left-4 top-4 z-20">
         <button
           type="button"
           title={t('expandVenuePanel')}
@@ -1292,7 +1292,7 @@ function FloatingPanel({
   }
 
   return (
-    <div className="absolute left-4 top-4 z-10 w-72 rounded-xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
+    <div className="absolute left-4 top-4 z-20 w-72 rounded-xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
       <div className="p-4 border-b border-slate-100 flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-slate-500">{t('currentVenue')}</p>
