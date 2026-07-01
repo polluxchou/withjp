@@ -403,7 +403,7 @@ const DEFAULT_3D: Record<VenueItemType, { height3d: number; elevation: number }>
   window:       { height3d: 120, elevation: 90 },
   truss:        { height3d: 15,  elevation: 260 },
   light_grille4:       { height3d: 8,  elevation: 0   },
-  light_grille8_stand: { height3d: 10, elevation: 150 },
+  light_grille8_stand: { height3d: 10, elevation: 200 },
   light_spot:          { height3d: 25, elevation: 240 },
   light_grille4_stand: { height3d: 8,  elevation: 150 },
   door_inward:  { height3d: 200, elevation: 0  },
@@ -448,7 +448,7 @@ const DEFAULT_PLACEMENT: Record<VenueItemType, VenueItemPlacement> = {
   window:       'aerial',
   truss:        'aerial',
   light_grille4:       'ground',
-  light_grille8_stand: 'ground',
+  light_grille8_stand: 'aerial',
   light_spot:          'aerial',
   light_grille4_stand: 'ground',
   door_inward:  'ground',
@@ -1081,7 +1081,7 @@ export function lightTrussAttachments(items: VenueItem[]): Map<string, number> {
   const trusses = items.filter((it) => it.type === 'truss')
   const out = new Map<string, number>()
   for (const light of items) {
-    if (light.type !== 'light_spot') continue
+    if (light.type !== 'light_spot' && light.type !== 'light_grille8_stand') continue
     const lx = light.x + light.width / 2
     const ly = light.y + light.height / 2
     let best: { dist: number; elevation: number } | null = null
