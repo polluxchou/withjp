@@ -27,6 +27,17 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-07-04',
+    items: [
+      {
+        kind: 'improve',
+        scope: '场地布置',
+        title: '外轮廓总尺寸只测量空间组件',
+        details: '打开标尺时，画布外围红色的总长/总宽标注现在只根据「空间」组件计算包围盒；设备、区域、结构、窗户、桁架、灯具、门/消防/电源/网络等其它组件不再撑大外轮廓。只要有空间组件就会显示外轮廓尺寸。',
+      },
+    ],
+  },
+  {
     date: '2026-07-01',
     items: [
       {
