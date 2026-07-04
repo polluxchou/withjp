@@ -1259,6 +1259,8 @@
   },
   "venue": {
     "ceilingView": "天井ビュー",
+    "hideLabels": "名称を隠す",
+    "showLabels": "名称を表示",
     "title": "Venue Layout",
     "subtitle": "Canvas-first 2D planning for live equipment, renovation zones, corridors, and safety points.",
     "loading": "Loading venue…",
