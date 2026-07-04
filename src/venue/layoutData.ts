@@ -231,6 +231,12 @@ export function isVenueMarkerType(type: VenueItemType): boolean {
   return VENUE_MARKER_TYPE_SET.has(type)
 }
 
+// 空间组件('area'/'空间')——唯一计入外轮廓总尺寸(长/宽)的类型;
+// 设备、区域、结构、灯具等其它组件不参与外轮廓测量。
+export function isVenueSpaceType(type: VenueItemType): boolean {
+  return type === 'area'
+}
+
 const LIGHT_TYPE_SET = new Set<string>(['light_grille4', 'light_grille8_stand', 'light_spot', 'light_grille4_stand'])
 
 export function isLightType(type: VenueItemType): boolean {
