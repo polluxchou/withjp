@@ -124,6 +124,8 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
   const t = useTranslations('venue')
   const [transformMode, setTransformMode] = useState<TransformMode>('select')
   const [ceilingNonce, setCeilingNonce] = useState(0)
+  // 组件名称标签的显隐开关(默认显示),供顶部工具条切换。
+  const [showLabels, setShowLabels] = useState(true)
   // 按住空格 → 左键临时变平移(视角不变),松开恢复旋转。输入框聚焦时不拦截。
   const [spaceHeld, setSpaceHeld] = useState(false)
   useEffect(() => {
@@ -327,24 +329,36 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         />
       </Canvas>
 
-      <button
-        type="button"
-        onClick={() => setCeilingNonce((n) => n + 1)}
-        className="absolute top-3 right-3 z-20 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 shadow ring-1 ring-indigo-100 hover:bg-indigo-50"
-      >
-        {t('ceilingView')}
-      </button>
+      <div className="absolute top-3 right-3 z-20 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setShowLabels((v) => !v)}
+          aria-pressed={!showLabels}
+          className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 shadow ring-1 ring-indigo-100 hover:bg-indigo-50"
+        >
+          {showLabels ? t('hideLabels') : t('showLabels')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setCeilingNonce((n) => n + 1)}
+          className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 shadow ring-1 ring-indigo-100 hover:bg-indigo-50"
+        >
+          {t('ceilingView')}
+        </button>
+      </div>
 
-      <EdgeLabelOverlay
-        items={floor.items}
-        projected={projected}
-        canvasSize={canvasSize}
-        selectedIds={selectedSet}
-        itemName={resolvedItemName}
-        cameraDir={cameraDir}
-        floorWidth={floor.width}
-        floorHeight={floor.height}
-      />
+      {showLabels && (
+        <EdgeLabelOverlay
+          items={floor.items}
+          projected={projected}
+          canvasSize={canvasSize}
+          selectedIds={selectedSet}
+          itemName={resolvedItemName}
+          cameraDir={cameraDir}
+          floorWidth={floor.width}
+          floorHeight={floor.height}
+        />
+      )}
 
       {/* 变换工具条(旋转/高度等)仅在选中单个组件时出现;未选或多选时隐藏。*/}
       {selectedItem && (
