@@ -30,6 +30,12 @@ export const CHANGELOG: DailyChangelog[] = [
     date: '2026-07-04',
     items: [
       {
+        kind: 'feat',
+        scope: '场地布置',
+        title: '3D 视图新增「隐藏名称」按钮',
+        details: '3D 视图右上角新增一个开关按钮，可一键隐藏/显示画面上所有组件的名称标签，方便截图或专注查看布局；再点一次恢复显示。',
+      },
+      {
         kind: 'fix',
         scope: '场地布置',
         title: '修复尺寸输入框清空重填时被自动改成 0.08 的问题',
