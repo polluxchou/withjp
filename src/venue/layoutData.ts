@@ -133,6 +133,22 @@ export function metersToCentimeters(value: number): number {
   return Math.round(value * 1000) / 10
 }
 
+// 数字输入框「提交」时解析草稿文本:空串 / 非数字回退到 fallback(上一次的值),
+// 避免清空重填时被 `Number('') || 0 = 0` 篡改、再被下游最小值(8cm=0.08m)夹紧。
+export function commitNumericInput(draft: string, fallback: number): number {
+  const parsed = Number(draft)
+  if (draft.trim() === '' || !Number.isFinite(parsed)) return fallback
+  return parsed
+}
+
+// 编辑过程中是否可以「实时」把草稿值写回:仅当它是有限且不小于最小值的数字。
+// 空串 / 中间态 / 小于最小值的草稿保持在本地,输入框才不会在打字途中跳到最小值。
+export function isLiveNumericDraft(draft: string, min?: number): boolean {
+  const parsed = Number(draft)
+  if (draft.trim() === '' || !Number.isFinite(parsed)) return false
+  return min === undefined || parsed >= min
+}
+
 export function formatVenueMeasurement(value: number): string {
   return `${centimetersToMeters(value).toLocaleString('zh-CN', {
     minimumFractionDigits: 0,
