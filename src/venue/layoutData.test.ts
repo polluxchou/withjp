@@ -6,6 +6,8 @@ import {
   applyVenueAction,
   calculateVenueCanvasFit,
   centimetersToMeters,
+  commitNumericInput,
+  isLiveNumericDraft,
   createHistory,
   default3DForType,
   deleteVenueItem,
@@ -88,6 +90,35 @@ test('isVenueSpaceType: 只有 area(空间) 计入外轮廓,其它组件不计�
   for (const type of ['equipment', 'renovation', 'corridor', 'window', 'truss', 'light_spot', 'door_inward', 'fire', 'power'] as VenueItemType[]) {
     assert.equal(isVenueSpaceType(type), false)
   }
+})
+
+test('commitNumericInput: 空串/非数字回退到 fallback(不被篡改为 0),有效数字原样返回', () => {
+  // 清空重填 / 中间态不应变成 0(再被下游夹到 0.08)
+  assert.equal(commitNumericInput('', 2.2), 2.2)
+  assert.equal(commitNumericInput('   ', 2.2), 2.2)
+  assert.equal(commitNumericInput('.', 2.2), 2.2)
+  assert.equal(commitNumericInput('abc', 2.2), 2.2)
+  // 有效数字(含 0 与小于最小值的值)原样返回,交由下游按需夹紧
+  assert.equal(commitNumericInput('5', 2.2), 5)
+  assert.equal(commitNumericInput('0.5', 2.2), 0.5)
+  assert.equal(commitNumericInput('0', 2.2), 0)
+  assert.equal(commitNumericInput('0.05', 2.2), 0.05)
+})
+
+test('isLiveNumericDraft: 打字途中只有「有限且不小于最小值」的草稿才实时写回', () => {
+  const min = 0.08 // W/H 最小值(8cm)
+  // 不实时写回:空串 / 中间态 / 小于最小值 —— 避免跳到 0.08
+  assert.equal(isLiveNumericDraft('', min), false)
+  assert.equal(isLiveNumericDraft('0.', min), false)
+  assert.equal(isLiveNumericDraft('0', min), false)
+  assert.equal(isLiveNumericDraft('0.05', min), false)
+  // 实时写回:达到/超过最小值的有效数字
+  assert.equal(isLiveNumericDraft('0.08', min), true)
+  assert.equal(isLiveNumericDraft('1.5', min), true)
+  // 无最小值(如 X/Y):0 也可实时写回,但空串/中间态仍不行
+  assert.equal(isLiveNumericDraft('0'), true)
+  assert.equal(isLiveNumericDraft('', undefined), false)
+  assert.equal(isLiveNumericDraft('-2'), true)
 })
 
 test('centimetersToMeters and metersToCentimeters convert layout units for the inspector', () => {

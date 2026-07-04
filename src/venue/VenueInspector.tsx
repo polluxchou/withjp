@@ -3,10 +3,13 @@
 import { BringToFront, MoveDown, MoveUp, PanelRightClose, PanelRightOpen, SendToBack, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { ChangeEvent, ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import {
   VENUE_ITEM_STATUS_OPTIONS,
   VENUE_ITEM_TYPE_OPTIONS,
   centimetersToMeters,
+  commitNumericInput,
+  isLiveNumericDraft,
   isVenueMarkerType,
   isLightType,
   metersToCentimeters,
@@ -107,8 +110,8 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
   }
 
   const metricChange = (key: keyof Pick<VenueItem, 'x' | 'y' | 'width' | 'height' | 'height3d' | 'elevation'>) =>
-    (event: ChangeEvent<HTMLInputElement>) => {
-      onChange({ [key]: metersToCentimeters(Number(event.target.value) || 0) } as Partial<VenueItem>)
+    (meters: number) => {
+      onChange({ [key]: metersToCentimeters(meters) } as Partial<VenueItem>)
     }
 
   const rotationChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -268,7 +271,7 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
               <NumberField
                 label={`${t('fieldThickness')} (cm)`}
                 value={item.thickness}
-                onChange={(event) => onChange({ thickness: Math.max(0, Math.round(Number(event.target.value) || 0)) })}
+                onChange={(cm) => onChange({ thickness: Math.max(0, Math.round(cm)) })}
                 min={0}
               />
             )}
@@ -373,17 +376,48 @@ function NumberField({
   value: number
   min?: number
   step?: number
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onChange: (value: number) => void
 }) {
+  // While the field is focused, the raw typed text is authoritative so that
+  // clearing it to retype (empty / leading "0" / partial like "0.") never gets
+  // coerced to 0 and clamped to the minimum mid-edit. When not focused the
+  // input mirrors the committed value from the store.
+  const [focused, setFocused] = useState(false)
+  const [draft, setDraft] = useState(() => String(value))
+  useEffect(() => {
+    if (!focused) setDraft(String(value))
+  }, [value, focused])
+
+  const handleInput = (event: ChangeEvent<HTMLInputElement>) => {
+    const next = event.target.value
+    setDraft(next)
+    // Live-propagate only a finite, in-range value; empty/partial/below-min
+    // drafts stay local, so the field can't snap to the clamped minimum while
+    // the user is still typing.
+    if (isLiveNumericDraft(next, min)) {
+      onChange(Number(next))
+    }
+  }
+
+  const commit = () => {
+    setFocused(false)
+    onChange(commitNumericInput(draft, value))
+  }
+
   return (
     <label className="block">
       <span className="block text-xs font-medium text-slate-500 mb-1.5">{label}</span>
       <input
         type="number"
-        value={value}
+        value={focused ? draft : String(value)}
         min={min}
         step={step}
-        onChange={onChange}
+        onFocus={() => setFocused(true)}
+        onChange={handleInput}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur()
+        }}
         className={INPUT_CLASS}
       />
     </label>
