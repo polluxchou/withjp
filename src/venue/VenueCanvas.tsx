@@ -9,6 +9,7 @@ import {
   formatVenueArea,
   formatVenueMeasurement,
   isVenueMarkerType,
+  isVenueSpaceType,
   snapVenueItemToAlignment,
   totalVenueAreaSquareMeters,
   venueAreaSquareMeters,
@@ -1203,11 +1204,12 @@ function DimensionRulers({
   )
 }
 
-// Outer bounding-box ruler: shows total width and total height of all shapes on
-// the floor. Rendered when rulers are on, outside individual item rulers.
+// Outer bounding-box ruler: shows total width and total height of the venue's
+// 空间组件('area') only — 设备/区域/结构/灯具/标识 等其它组件不计入外轮廓。
+// Rendered when rulers are on, outside individual item rulers.
 function TotalBoundsRulers({ items, scale }: { items: VenueItem[]; scale: number }) {
-  const shapes = items.filter((it) => !isVenueMarkerType(it.type))
-  if (shapes.length < 2) return null
+  const shapes = items.filter((it) => isVenueSpaceType(it.type))
+  if (shapes.length < 1) return null
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const it of shapes) {

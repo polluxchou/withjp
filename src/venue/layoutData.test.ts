@@ -30,6 +30,7 @@ import {
   writeStoredVenueLayout,
   lightTrussAttachments,
   isLightType,
+  isVenueSpaceType,
   VENUE_STORAGE_KEY,
   VENUE_LEGACY_STORAGE_KEY,
   VENUE_BACKUP_STORAGE_KEY,
@@ -80,6 +81,13 @@ test('totalVenueAreaSquareMeters sums only area-type items', () => {
     makeItem({ id: 'e', type: 'corridor', width: 400, height: 400 }),  // excluded
   ]
   assert.equal(totalVenueAreaSquareMeters(items), 140)
+})
+
+test('isVenueSpaceType: 只有 area(空间) 计入外轮廓,其它组件不计入', () => {
+  assert.equal(isVenueSpaceType('area'), true)
+  for (const type of ['equipment', 'renovation', 'corridor', 'window', 'truss', 'light_spot', 'door_inward', 'fire', 'power'] as VenueItemType[]) {
+    assert.equal(isVenueSpaceType(type), false)
+  }
 })
 
 test('centimetersToMeters and metersToCentimeters convert layout units for the inspector', () => {
