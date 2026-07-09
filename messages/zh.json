@@ -31,6 +31,8 @@
     "tasks": "任务",
     "workspace": "工作区",
     "team": "团队（AI代理）",
+    "teamAgents": "AI 代理",
+    "teamAssignments": "任务分配",
     "knowledge": "知识库",
     "costManagement": "成本管理",
     "expenses": "支出管理",
@@ -114,6 +116,23 @@
       "content": "内容策略",
       "growth": "增长与营销",
       "legal": "法务合规"
+    },
+    "assignments": {
+      "title": "任务分配",
+      "subtitle": "按 AI 代理查看任务分配与负载分布（只读）",
+      "totalLabel": "任务总数",
+      "agentsLabel": "代理数",
+      "activeLabel": "在岗代理",
+      "unknownAgent": "未知 / 已停用代理",
+      "noTasks": "暂无任务",
+      "noTasksAll": "还没有任何任务",
+      "noCreator": "无关联创作者",
+      "status": {
+        "pending": "待处理",
+        "running": "进行中",
+        "done": "已完成",
+        "failed": "失败"
+      }
     }
   },
   "agents": {

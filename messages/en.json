@@ -31,6 +31,8 @@
     "tasks": "Tasks",
     "workspace": "Workspace",
     "team": "Team (AI Agents)",
+    "teamAgents": "AI Agents",
+    "teamAssignments": "Task Assignment",
     "knowledge": "Knowledge",
     "costManagement": "Cost Management",
     "expenses": "Expense Management",
@@ -114,6 +116,23 @@
       "content": "Content Strategy",
       "growth": "Growth & Marketing",
       "legal": "Legal & Compliance"
+    },
+    "assignments": {
+      "title": "Task Assignment",
+      "subtitle": "Tasks grouped by AI agent — workload distribution at a glance (read-only)",
+      "totalLabel": "Total tasks",
+      "agentsLabel": "Agents",
+      "activeLabel": "Active agents",
+      "unknownAgent": "Unknown / inactive agent",
+      "noTasks": "No tasks",
+      "noTasksAll": "No tasks yet",
+      "noCreator": "No linked creator",
+      "status": {
+        "pending": "Pending",
+        "running": "Running",
+        "done": "Done",
+        "failed": "Failed"
+      }
     }
   },
   "agents": {

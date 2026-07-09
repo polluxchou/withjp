@@ -31,6 +31,8 @@
     "tasks": "タスク",
     "workspace": "ワークスペース",
     "team": "チーム（AIエージェント）",
+    "teamAgents": "AIエージェント",
+    "teamAssignments": "タスク割り当て",
     "knowledge": "ナレッジ",
     "expenses": "支出管理",
     "financeForecast": "財務予測",
@@ -114,6 +116,23 @@
       "content": "コンテンツ戦略",
       "growth": "グロース＆マーケティング",
       "legal": "法務コンプライアンス"
+    },
+    "assignments": {
+      "title": "タスク割り当て",
+      "subtitle": "AIエージェント別のタスクと負荷分布（読み取り専用）",
+      "totalLabel": "タスク総数",
+      "agentsLabel": "エージェント数",
+      "activeLabel": "稼働中エージェント",
+      "unknownAgent": "不明／停止中のエージェント",
+      "noTasks": "タスクなし",
+      "noTasksAll": "タスクがまだありません",
+      "noCreator": "関連ライバーなし",
+      "status": {
+        "pending": "処理待ち",
+        "running": "実行中",
+        "done": "完了",
+        "failed": "失敗"
+      }
     }
   },
   "agents": {
