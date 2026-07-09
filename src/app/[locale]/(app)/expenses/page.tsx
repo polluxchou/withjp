@@ -805,7 +805,7 @@ export default function ExpensesPage() {
               <thead>
                 <tr className="border-b border-zinc-100 bg-zinc-50">
                   <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('categoryColumn')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('name')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 w-[120px]">{t('name')}</th>
                   <th className="text-right px-4 py-3 text-xs font-medium">
                     <button type="button" onClick={() => toggleSort('amount')} className={sortableHeaderClass('amount')}>
                       {t('amount')} <SortIcon col="amount" />
@@ -838,7 +838,7 @@ export default function ExpensesPage() {
                         {t(`categories.${e.expense_category}`)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium text-zinc-900 max-w-[180px]">
+                    <td className="px-4 py-3 font-medium text-zinc-900 w-[120px] max-w-[120px]">
                       <ClampedText text={e.item_name} onOverflowClick={() => setViewing(e)} />
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-zinc-900 whitespace-nowrap">
