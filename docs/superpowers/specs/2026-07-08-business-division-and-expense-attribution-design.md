@@ -1,134 +1,160 @@
-# 公会业务分工 + 开支归属 — 设计
+# 公会业务分工 + 开支归属 — 设计（v2）
 
 - 日期：2026-07-08
-- 状态：设计已在对话中确认，待 spec 复核
+- 状态：模型经多轮对话确认，待 spec 复核
 - 作者：PMO（Claude）
+
+> v2 说明：本设计相比 v1 有**结构性变化**。v1 曾用"部门(6职能) → 岗位 → 配人"的扁平结构；经确认作废，改为下述"岗位枚举 + 公司→业务→任务→事项 WBS"双维度模型。
 
 ## 背景与目标
 
-公会（团播业务）需要两件事：
+公会（团播业务）要两件事：
 
-1. **业务分工**：把公会业务按"部门 → 岗位"两层拆分，明确每个岗位的**职责**，并把**具体的人**配到岗位上（哪些事归谁负责）。
-2. **开支归属**：把每一笔支出归到对应的业务（部门，可细到岗位），从而能看"每块业务花了多少钱"。
+1. **业务分工**：用一套 **公司 → 业务 → 任务 → 事项** 的层级把工作拆开，并明确每一层谁负责；岗位作为正交的角色维度。
+2. **开支归属**：把每笔支出归到对应的**业务**，看每条业务花了多少钱。
 
-经确认，本设计**分两步交付**：
+**分两期**：P1 = 业务分工（本 spec 主体）；P2 = 开支归属（末尾概述，另立 plan）。
 
-- **P1（本 spec 主体）业务分工**：岗位 + 职责 + 配人。
-- **P2（本 spec 末尾概述，另立 plan）开支归属**：支出增加业务字段 + 录入/列表/筛选/汇总。
+## 模型总览
 
-## 关键现状（复用，不重造）
+两个**正交维度**：
 
-- **部门维度已存在**：`AgentRole = 'bd' | 'ops' | 'finance' | 'content' | 'growth' | 'legal'`（商务/运营/财务/内容/增长/法务），贯穿 `UserProfile.role`、`Agent.role`、`WorkTask.department`、里程碑等。→ 部门直接复用，不新建。
-- **岗位这一层不存在**：现有系统只有"部门"，没有"岗位"。→ 岗位是本次**新增**的一层。
-- **人的来源已有实体**：内部员工 = `UserProfile`；主播 = `Creator`（创作者/主播，`creators` 表；且已带 `operator_user` 经纪人链接）。
-- **任务级分工已有**：`/tasks` 的「工作量」tab 是 `WorkTask`（带 department + 负责人 + 工时/薪资）。本设计不改它；"业务分工"是**岗位/职责/配人**这一组织层，与任务级正交。
+### 维度 A：岗位（角色，固定枚举 10 个）
+
+人所属的角色。
+
+| 岗位 | 说明 |
+|---|---|
+| 主播 | 团播成员（出镜） |
+| 主持人（MC） | 团播现场调度 |
+| 主播经纪人 | 招募、管理、汰换主播 |
+| 团播运营 | 团播现场运营、调度、策划 |
+| 化妆师 | 团播主播造型 |
+| 舞蹈培训师 | 舞蹈培训 |
+| 短视频剪辑 | 短视频剪辑 |
+| 摄影师 | 摄影 |
+| 公会长 | 公会负责人 |
+| 财税师 | 财务 / 税务 |
+
+### 维度 B：人
+
+内部员工（`UserProfile`）或主播（`Creator`）。每个人挂一个岗位。
+
+### 层级（WBS）+ 关联规则
+
+| 层级 | 来源 | 关联 |
+|---|---|---|
+| **公司** | 根（单例） | — |
+| **业务** | 固定枚举（4） | **唯一 1 个负责人（人）** |
+| **任务** | 初始 seed，可增删 | **多个岗位**（具体的人从岗位成员里出） |
+| **事项**（最小单位） | 用户自由增删 | **唯一 1 个负责人（人）** |
+
+要点：
+- "任务关联多人"最终通过"任务→多个岗位→岗位成员"实现，任务本身挂的是**岗位**，人员变动不必改任务。
+- 业务、事项的负责人是**具体的人**（员工/主播）。
 
 ## 决策记录（对话确认）
 
 | 决策 | 结论 |
 |---|---|
-| 业务维度用哪套 | 复用现有 6 部门（`AgentRole`） |
-| 岗位如何定位 | 作为部门下的**子层**（部门 → 岗位，两层） |
-| 分工做到多深 | 岗位 + 职责 + **配人** |
-| "配人"里的人 | 内部员工（`UserProfile`）与主播（`Creator`）**两类分开**，关联表都支持 |
-| 推进方式 | 分两步：先 P1 再 P2 |
-
-初始岗位（「运营」部门下，seed）：
-
-| 岗位 | 职责 |
-|---|---|
-| 主播（团播成员） | 团播内容产出、出镜 |
-| 主持人 | 团播现场调度 |
-| 主播经纪人 | 招募、管理、汰换主播 |
-| 团播运营 | 团播现场运营、调度、策划 |
+| 层级 | 公司 → 业务 → 任务 → 事项（4 层，无"部门"层） |
+| 业务 | 固定枚举，4 条；各 1 个唯一负责人 |
+| 任务 | 归属业务；关联**多个岗位**；初始 seed + 可增删 |
+| 事项 | 归属任务；唯一 1 负责人；用户自由增删 |
+| 岗位 | 固定枚举，10 个（正交维度） |
+| 人 | 员工（`UserProfile`）+ 主播（`Creator`）两类 |
+| 括号里的角色 | 是**岗位**，不是具体人 |
+| 与现有系统 | 全新表；AI 代理 `tasks`、真人 `work_tasks` 均不动，并存 |
+| 推进 | 先 P1（分工）再 P2（开支归属） |
 
 ---
 
 ## P1 设计：业务分工
 
-### 数据模型
+### 数据模型（新表，迁移下一个编号 041）
 
-两张新表，命名与迁移风格沿用现有 `supabase/migrations/*`（下一个编号 **041**）。所有新表按 `038_enable_rls_all_tables.sql` 的约定**启用 RLS**，策略与现有业务表一致（登录用户可读；写入按现有权限约定，管理操作限管理员/相应角色——具体策略在实现 plan 中对齐现有表）。
+命名避开现有 `tasks` / `work_tasks`。所有新表按 `038_enable_rls_all_tables.sql` 约定启用 RLS，策略与现有业务表一致（登录可读；写入/管理按现有 `canEdit`/`canManage` 判断来源对齐，实现 plan 中确定）。
 
-**表 1：`positions`（岗位）**
+统一"人引用"形态（多处复用）：`member_type ('user'|'creator') + user_id | creator_id`，CHECK 约束保证二选一。
 
-| 列 | 类型 | 说明 |
-|---|---|---|
-| `id` | uuid pk | |
-| `department` | text (AgentRole 枚举，check 约束 6 值) | 所属部门 |
-| `name` | text not null | 岗位名（如"主播"） |
-| `responsibility` | text | 职责描述 |
-| `sort_order` | int default 0 | 部门内排序 |
-| `created_at` / `updated_at` | timestamptz | |
+1. **`positions`（岗位）** — 固定枚举
+   - `id` uuid pk、`key` text unique（稳定标识，如 `streamer`/`mc`…）、`name` text、`description` text、`sort_order` int
+   - seed：上表 10 个
 
-**表 2：`position_members`（岗位配人）**
+2. **`position_members`（岗位配人）**
+   - `id`、`position_id` fk→positions(on delete cascade)、`member_type`、`user_id` fk、`creator_id` fk、`created_at`
+   - 唯一：(position_id, user_id) / (position_id, creator_id) 去重
+   - seed：无（由用户配）
 
-| 列 | 类型 | 说明 |
-|---|---|---|
-| `id` | uuid pk | |
-| `position_id` | uuid fk → positions(id) on delete cascade | |
-| `member_type` | text check in ('user','creator') | 员工 / 主播 |
-| `user_id` | uuid fk → user_profiles(id) nullable | member_type='user' 时填 |
-| `creator_id` | uuid fk → creators(id) nullable | member_type='creator' 时填 |
-| `created_at` | timestamptz | |
+3. **`businesses`（业务）** — 固定枚举
+   - `id`、`key` unique、`name`、`sort_order`
+   - `owner_member_type` / `owner_user_id` / `owner_creator_id`（唯一负责人，可空=未指定）
+   - seed：直播运营 / 主播运营 / 公司管理 / 线下运营（owner 留空待指定）
 
-约束：`member_type='user'` 时 `user_id` 非空且 `creator_id` 空；`='creator'` 反之（CHECK 约束保证二选一）。同一 (position_id, user_id) / (position_id, creator_id) 唯一，防重复配人。
+4. **`business_tasks`（任务）**
+   - `id`、`business_id` fk→businesses(on delete cascade)、`name`、`sort_order`、`created_at`、`updated_at`
+   - seed：见附录（11 条）
 
-关系：岗位 1—N 配人；一个岗位可挂多人，一人可跨多岗（无唯一人-岗约束，除上面的去重）。
+5. **`business_task_positions`（任务↔岗位，多对多）**
+   - `id`、`task_id` fk→business_tasks(cascade)、`position_id` fk→positions
+   - 唯一：(task_id, position_id)
+   - seed：见附录
 
-### 岗位来源与 P2 的关系
-
-`position_members` 只承载"谁在这个岗位"。它**不改**现有 `UserProfile`/`Creator` 表结构。主播已有的 `operator_user`（经纪人）关系保持不变，与本表并存（本表是"组织岗位配置"，`operator_user` 是"某主播的直属经纪人"，语义不同）。
+6. **`task_items`（事项，最小单位）**
+   - `id`、`task_id` fk→business_tasks(cascade)、`name`、`owner_member_type`/`owner_user_id`/`owner_creator_id`（唯一负责人，可空）、`sort_order`、`created_at`、`updated_at`
+   - seed：无（用户自建）
 
 ### 页面 / 交互
 
-在左侧「团队（AI 代理）」分组下**新增子菜单「业务分工」** → 路由 `/team/org`。（分组现有子项：AI 代理、任务分配；新增第 3 项。）
+左侧「团队（AI 代理）」分组下新增子菜单 **「业务分工」** → 路由 `/team/org`。（分组现有子项：AI 代理、任务分配；新增第 3 项。）
 
-页面结构（`/team/org`）：
+页面结构：
 
-- 按 **部门** 分组（6 个部门，空部门也显示，便于加岗位）。
-- 每个部门下列出其**岗位卡**：岗位名 + 职责 + 配的人（员工/主播头像或名字 + 类型标识）。
+- **WBS 树**：4 个业务 → 每个业务显示**负责人** → 展开为任务列表 → 每个任务显示其**岗位标签** → 展开为事项列表 → 每个事项显示**负责人**。
+- **岗位参考区**（侧栏或页尾）：10 个岗位 + 各自成员（员工/主播）。
 - **编辑能力**（canEdit / 管理员）：
-  - 新增 / 重命名 / 删除岗位；编辑职责；调整排序。
-  - 给岗位配人 / 移除配人：选人时分两个来源——内部员工（从 `user_profiles` 选）、主播（从 `creators` 选）。
-- 无编辑权限者：只读查看。
+  - 业务：指定/更换负责人（唯一）。
+  - 任务：增删、改名、增删其关联岗位。
+  - 事项：增删、改名、指定/更换负责人（唯一）。
+  - 岗位成员：给岗位加/移除人（员工从 `user_profiles`、主播从 `creators`）。
+- 无权限者只读。
 
 组件边界：
-- 服务端页面 `page.tsx`：拉 positions（含 members join）、user_profiles、creators，按部门归组，服务端渲染只读骨架。
-- 客户端岛 `OrgEditor`（或按岗位卡拆 `PositionCard` + `MemberPicker`）：承载增删改与配人弹窗，走 API 路由写库。
+- 服务端 `page.tsx`：拉 businesses（含 tasks→positions、items、owner join）、positions（含 members）、可选人的候选列表；服务端渲染只读树。
+- 客户端岛：`OrgTree`（展开/折叠）、`OwnerPicker`（选唯一负责人）、`TaskPositionEditor`（任务的岗位多选）、`PositionMemberEditor`（岗位配人）。走 API 写库。
 
-### API
+### API（沿用 `src/app/api/**` 风格）
 
-RESTful，沿用 `src/app/api/**` 现有风格：
+- 业务：`PATCH /api/businesses/[id]`（改 owner；业务为固定枚举，不开放增删）
+- 任务：`POST /api/businesses/[id]/tasks`、`PATCH /api/tasks/[id]`、`DELETE /api/tasks/[id]`
+- 任务↔岗位：`PUT /api/tasks/[id]/positions`（整体覆盖该任务的岗位集合）
+- 事项：`POST /api/tasks/[id]/items`、`PATCH /api/items/[id]`、`DELETE /api/items/[id]`
+- 岗位配人：`POST /api/positions/[id]/members`、`DELETE /api/positions/[id]/members/[memberId]`
+- 写操作校验权限 + 校验人引用二选一 + 校验枚举值
 
-- `POST /api/positions`（建岗位）、`PATCH /api/positions/[id]`（改名/职责/排序）、`DELETE /api/positions/[id]`。
-- `POST /api/positions/[id]/members`（配人：body 带 member_type + user_id|creator_id）、`DELETE /api/positions/[id]/members/[memberId]`（移除）。
-- 写操作校验权限；`department` 值校验在枚举内。
+（路由前缀最终名以避免与现有冲突为准，实现 plan 确定。）
 
 ### i18n
 
-三语（zh/en/ja）新增：
-- `nav.teamOrg`（「业务分工」/ "Org & Roles" / "業務分担"）。
-- `team.org.*`：页面标题/副标题、部门分组标题（复用 `team.role.*`）、岗位/职责/配人、新增/编辑/删除/添加成员、成员来源（员工/主播）、空态、确认删除等。
-- 通过 CI 的 `copy-checks`（key 三语对齐 + 无裸中文）。
+三语（zh/en/ja）新增 `nav.teamOrg` 与 `team.org.*`（标题/副标题、业务/任务/事项/岗位、负责人、添加/编辑/删除、成员来源员工/主播、空态、确认删除等）。岗位/业务/任务的**具体名称**作为**数据（seed 入库）**，不进 i18n（数据不做多语言，与现有创作者名/物品名一致的处理方式）。过 CI `copy-checks`。
 
 ### 安全 / 权限
 
-- 新表启用 RLS，策略与现有表一致。
-- 写接口做登录 + 权限校验（编辑限管理员或有权限角色，具体对齐现有 `canEdit`/`canManage` 判断来源）。
+- 新表启用 RLS，策略对齐现有表。
+- 写接口登录 + 权限校验。
 
 ### 测试
 
-- 纯函数：按部门归组、成员二选一校验（member_type ↔ user_id/creator_id）、去重逻辑 → `node --test` 单测。
-- 类型检查 `tsc --noEmit`；`npm run test:copy`。
-- 交互实测受登录拦截，行为靠单测 + 类型保证（沿用本项目既有约束）。
+- 纯函数单测（`node --test`）：WBS 归组（business→tasks→items、task→positions）、人引用二选一校验、去重、唯一负责人约束。
+- `tsc --noEmit`、`npm run test:copy`。
+- 交互实测受登录拦截，靠单测 + 类型保证（沿用项目既有约束）。
 
 ### 变更清单（P1）
 
-- `supabase/migrations/041_positions.sql`：两张表 + RLS + seed 运营 4 岗位。
-- `src/lib/types/index.ts`：`Position`、`PositionMember` 类型。
+- `supabase/migrations/041_org_structure.sql`：6 张表 + RLS + seed（10 岗位、4 业务、11 任务、任务↔岗位关联）。
+- `src/lib/types/index.ts`：`Position` / `PositionMember` / `Business` / `BusinessTask` / `TaskItem` 及人引用类型。
 - `src/lib/org/*`：归组/校验纯函数 + 单测。
-- `src/app/api/positions/**`：CRUD + 配人接口。
+- `src/app/api/**`：上述接口。
 - `src/app/[locale]/(app)/team/org/page.tsx` + `src/components/org/*`：页面与编辑组件。
 - `src/components/layout/Sidebar.tsx`：团队分组加「业务分工」子项。
 - `messages/{zh,en,ja}.json`：i18n。
@@ -136,25 +162,46 @@ RESTful，沿用 `src/app/api/**` 现有风格：
 
 ---
 
-## P2 概述：开支归属（另立 plan，本 spec 不展开实现）
+## P2 概述：开支归属（另立 plan）
 
-目标：把支出归到业务，看"每块业务花多少钱"。
-
-- **模型**：`expenses` 增加 `department`（AgentRole，业务归属，录入必选）+ `position_id`（可选，细到岗位，fk → positions）。迁移单独编号。
-- **录入**：支出表单加「业务/部门」下拉（+可选岗位）。
-- **列表**：支出列表加「业务」列 + 按业务筛选（沿用现有筛选/KPI 卡模式）。
-- **汇总**：按业务/部门的开支合计（支出页 KPI 或在 `/team/org` 每个部门/岗位旁显示开支合计，形成"分工 + 花费"闭环）。
-- 历史数据：`department` 允许为空（旧数据未归属），或提供批量归类；细节在 P2 plan 决定。
+- **模型**：`expenses` 增加 `business_id`（fk→businesses，业务归属，录入必选）；可选再加 `task_id`（细到任务）。迁移单独编号。
+- **录入**：支出表单加「业务」下拉（+可选任务）。
+- **列表**：支出列表加「业务」列 + 按业务筛选（沿用现有筛选/KPI 模式）。
+- **汇总**：各业务开支合计（支出页 KPI，或在 `/team/org` 每条业务旁显示开支合计，形成"分工 + 花费"闭环）。
+- 历史数据：`business_id` 允许空（旧数据未归属），或批量归类；P2 plan 定。
 
 ## 非目标（YAGNI）
 
-- 不改 `WorkTask`/工作量/薪资系统。
-- 不做岗位级的审批流 / 变更历史。
+- 不改 `WorkTask` / 工作量 / 薪资、AI 代理 `tasks`、里程碑。
 - 不动主播 `operator_user`（经纪人）既有关系。
-- P1 不含任何开支相关改动（留给 P2）。
+- 业务不开放增删（固定 4 条枚举）；如需扩展再议。
+- 事项**暂不含**状态 / 截止日 / 优先级（仅名称 + 唯一负责人）；如需再加。
+- P1 不含任何开支改动（留 P2）。
 
-## 待确认 / 已消解的歧义
+## 附录：Seed 明细
 
-- 岗位与部门为固定两层（不做多级树）。
-- 部门维度固定 6 值，不在本次扩展。
-- "配人"人来源限 `UserProfile` 与 `Creator` 两类，不引入自由文本实体。
+**业务 → 任务 → 关联岗位**
+
+- **直播运营**
+  - 团播执行 → 主播、主持人(MC)、摄影师
+  - 团播策划 → 舞蹈培训师、化妆师
+  - 社群管理 → 团播运营
+- **主播运营**
+  - 短视频运营 → 团播运营
+  - 主播招募 → 主播经纪人
+  - 主播培训 → 公会长、舞蹈培训师、主持人(MC)
+- **公司管理**
+  - 场地管理 → 公会长
+  - 薪资管理 → 公会长
+  - 税务管理 → 财税师
+- **线下运营**
+  - 商单合作 → 公会长
+
+业务负责人（唯一）与岗位成员（配人）初始为空，由用户在页面指定。「短视频剪辑」岗位目前无任务引用，仍保留在枚举中。
+
+## 待确认 / 已消解
+
+- 层级固定 4 层，无"部门"层。
+- 业务固定 4 条，不开放增删。
+- 人引用限 `UserProfile` / `Creator` 两类。
+- 事项字段最小化（名称 + 唯一负责人），状态/日期为非目标。
