@@ -9,6 +9,7 @@ import {
   CheckSquare,
   GitBranch,
   Bot,
+  ClipboardList,
   BookOpen,
   Settings,
   Zap,
@@ -32,7 +33,7 @@ import ProfileEditor from '@/components/profile/ProfileEditor'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import type { UserProfile } from '@/lib/types'
 
-type NavLeaf  = { href: string; key: string; icon: LucideIcon }
+type NavLeaf  = { href: string; key: string; icon: LucideIcon; exact?: boolean }
 type NavGroup = { key: string; icon: LucideIcon; children: NavLeaf[] }
 type NavItem  = NavLeaf | NavGroup
 
@@ -45,7 +46,14 @@ const NAV: NavItem[] = [
   { href: '/timeline',  key: 'timeline',  icon: CalendarRange },
   { href: '/tasks',     key: 'tasks',     icon: CheckSquare },
   { href: '/workspace', key: 'workspace', icon: MessageSquare },
-  { href: '/team',      key: 'team',      icon: Bot },
+  {
+    key: 'team',
+    icon: Bot,
+    children: [
+      { href: '/team',             key: 'teamAgents',      icon: Bot, exact: true },
+      { href: '/team/assignments', key: 'teamAssignments', icon: ClipboardList },
+    ],
+  },
   { href: '/knowledge', key: 'knowledge', icon: BookOpen },
   {
     key: 'costManagement',
@@ -85,11 +93,11 @@ function CollapsedNavGroup({
   item: NavGroup
   label: string
   childLabel: (key: string) => string
-  isActive: (href: string) => boolean
+  isActive: (href: string, exact?: boolean) => boolean
 }) {
   const [top, setTop] = useState<number | null>(null)
   const GroupIcon = item.icon
-  const hasActiveChild = item.children.some((c) => isActive(c.href))
+  const hasActiveChild = item.children.some((c) => isActive(c.href, c.exact))
   return (
     <div
       className="relative"
@@ -111,7 +119,7 @@ function CollapsedNavGroup({
           <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</div>
           {item.children.map((child) => {
             const ChildIcon = child.icon
-            const active = isActive(child.href)
+            const active = isActive(child.href, child.exact)
             return (
               <Link
                 key={child.href}
@@ -263,13 +271,16 @@ export default function Sidebar() {
   const effectiveWidth     = effectiveCollapsed ? COLLAPSED_W : EXPANDED_W
   const showLabel          = !effectiveCollapsed
 
-  const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href))
+  // `exact` matches the pathname exactly — needed when one nav href is a prefix
+  // of a sibling (e.g. /team vs /team/assignments) so both don't light up.
+  const isActive = (href: string, exact = false) =>
+    exact ? path === href : href === '/' ? path === '/' : path.startsWith(href)
 
   // Render a single navigable item. `indented` nudges it right so children of
   // a group read as a sub-level; when the sidebar is icon-only we skip the
   // indent and rely on the flat icon list instead.
   const renderLeaf = (item: NavLeaf, indented = false) => {
-    const active = isActive(item.href)
+    const active = isActive(item.href, item.exact)
     if (effectiveCollapsed) {
       return <CollapsedNavLeaf key={item.href} item={item} label={t(item.key)} active={active} />
     }
@@ -394,7 +405,7 @@ export default function Sidebar() {
           }
 
           const GroupIcon     = item.icon
-          const hasActiveChild = item.children.some((c) => isActive(c.href))
+          const hasActiveChild = item.children.some((c) => isActive(c.href, c.exact))
           const open = openGroups[item.key] ?? hasActiveChild
           return (
             <div key={item.key}>
