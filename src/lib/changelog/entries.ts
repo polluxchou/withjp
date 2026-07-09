@@ -27,6 +27,17 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-07-06',
+    items: [
+      {
+        kind: 'feat',
+        scope: '团队',
+        title: '「团队（AI 代理）」新增「任务分配」子菜单',
+        details: '左侧「团队（AI 代理）」菜单改为可展开分组，包含「AI 代理」（原代理列表页）和新增的「任务分配」。任务分配页按 AI 代理分组展示各自的任务及 待处理/进行中/已完成/失败 数量分布，一眼看清谁在忙、负载如何（只读总览）。',
+      },
+    ],
+  },
+  {
     date: '2026-07-04',
     items: [
       {
