@@ -33,6 +33,7 @@
     "team": "团队（AI代理）",
     "teamAgents": "AI 代理",
     "teamAssignments": "任务分配",
+    "teamOrg": "业务分工",
     "knowledge": "知识库",
     "costManagement": "成本管理",
     "expenses": "支出管理",
@@ -133,6 +134,29 @@
         "done": "已完成",
         "failed": "失败"
       }
+    },
+    "org": {
+      "title": "业务分工",
+      "subtitle": "公司 → 业务 → 任务 → 事项；岗位与配人",
+      "positionsTitle": "岗位与成员",
+      "owner": "负责人",
+      "noOwner": "未指定",
+      "positions": "岗位",
+      "items": "事项",
+      "addTask": "添加任务",
+      "addItem": "添加事项",
+      "addMember": "添加成员",
+      "editPositions": "编辑岗位",
+      "setOwner": "设置负责人",
+      "clearOwner": "清除负责人",
+      "rename": "重命名",
+      "delete": "删除",
+      "confirmDelete": "确认删除？",
+      "sourceUser": "员工",
+      "sourceCreator": "主播",
+      "namePlaceholder": "名称",
+      "empty": "暂无",
+      "readonlyHint": "只读（需管理员权限编辑）"
     }
   },
   "agents": {
