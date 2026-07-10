@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Badge from '@/components/ui/Badge'
-import type { OrgSnapshot } from '@/lib/types'
+import type { OrgSnapshot, PersonOption } from '@/lib/types'
 
 async function api(path: string, method: string, body?: unknown) {
   const res = await fetch(`/api/org${path}`, {
@@ -12,6 +12,15 @@ async function api(path: string, method: string, body?: unknown) {
     body: body ? JSON.stringify(body) : undefined,
   })
   return res.ok
+}
+
+function refOf(person: PersonOption | null) {
+  if (!person) return null
+  return {
+    member_type: person.member_type,
+    user_id: person.member_type === 'user' ? person.id : null,
+    creator_id: person.member_type === 'creator' ? person.id : null,
+  }
 }
 
 export default function OrgView({ initial }: { initial: OrgSnapshot }) {
@@ -24,6 +33,18 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
     const res = await fetch('/api/org', { cache: 'no-store' })
     const json = await res.json()
     if (json.data) setSnapshot(json.data as OrgSnapshot)
+  }
+
+  // 简易选人：0=清除，序号=选人；取消返回 undefined
+  const pickPerson = (): PersonOption | null | undefined => {
+    const lines = snapshot.people
+      .map((p, i) => `${i + 1}. [${p.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser')}] ${p.name}`)
+      .join('\n')
+    const raw = window.prompt(`${t('org.setOwner')}\n0. ${t('org.clearOwner')}\n${lines}`)
+    if (raw === null) return undefined
+    const n = Number(raw.trim())
+    if (n === 0) return null
+    return snapshot.people[n - 1] ?? undefined
   }
 
   const addTask = async (businessId: string) => {
@@ -44,6 +65,40 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
     if (!window.confirm(t('org.confirmDelete'))) return
     if (await api(`/items/${itemId}`, 'DELETE')) reload()
   }
+  const setBusinessOwner = async (businessId: string, person: PersonOption | null) => {
+    if (await api(`/businesses/${businessId}`, 'PATCH', { owner: refOf(person) })) reload()
+  }
+  const setItemOwner = async (itemId: string, person: PersonOption | null) => {
+    if (await api(`/items/${itemId}`, 'PATCH', { owner: refOf(person) })) reload()
+  }
+  const setTaskPositions = async (taskId: string, positionIds: string[]) => {
+    if (await api(`/tasks/${taskId}/positions`, 'PUT', { positionIds })) reload()
+  }
+  const editTaskPositions = (taskId: string, currentIds: string[]) => {
+    const lines = snapshot.positions.map((p, i) => `${i + 1}. ${p.name}`).join('\n')
+    const current = currentIds
+      .map((pid) => snapshot.positions.findIndex((p) => p.id === pid) + 1)
+      .filter((n) => n > 0)
+      .join(',')
+    const raw = window.prompt(`${t('org.editPositions')}\n${lines}`, current)
+    if (raw === null) return
+    const ids = raw
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => n >= 1 && n <= snapshot.positions.length)
+      .map((n) => snapshot.positions[n - 1].id)
+    setTaskPositions(taskId, ids)
+  }
+  const addMember = async (positionId: string) => {
+    const person = pickPerson()
+    if (!person) return // 取消或清除都不添加
+    const body = refOf(person)
+    if (body && (await api(`/positions/${positionId}/members`, 'POST', body))) reload()
+  }
+  const removeMember = async (positionId: string, memberId: string) => {
+    if (!window.confirm(t('org.confirmDelete'))) return
+    if (await api(`/positions/${positionId}/members/${memberId}`, 'DELETE')) reload()
+  }
 
   return (
     <div className="space-y-5">
@@ -54,9 +109,14 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
           <div key={b.id} className="bg-white border border-zinc-200 rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="font-semibold text-zinc-900">{b.name}</div>
-              <div className="text-xs text-zinc-500">
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={async () => { const p = pickPerson(); if (p !== undefined) setBusinessOwner(b.id, p) }}
+                className={`text-xs ${canEdit ? 'text-primary hover:underline' : 'text-zinc-500 cursor-default'}`}
+              >
                 {t('org.owner')}：{b.owner_name ?? t('org.noOwner')}
-              </div>
+              </button>
             </div>
 
             <div className="space-y-3">
@@ -66,6 +126,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                     <div className="font-medium text-sm text-zinc-800">{task.name}</div>
                     {canEdit && (
                       <div className="flex gap-2 text-xs">
+                        <button className="text-primary hover:underline" onClick={() => editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
                         <button className="text-zinc-400 hover:text-rose-600" onClick={() => deleteTask(task.id)}>{t('org.delete')}</button>
                       </div>
                     )}
@@ -80,7 +141,14 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                       <li key={it.id} className="flex items-center justify-between text-sm border border-zinc-100 rounded-md px-2.5 py-1.5">
                         <span className="text-zinc-700">{it.name}</span>
                         <span className="flex items-center gap-2">
-                          <span className="text-[11px] text-zinc-400">{it.owner_name ?? t('org.noOwner')}</span>
+                          <button
+                            type="button"
+                            disabled={!canEdit}
+                            onClick={async () => { const p = pickPerson(); if (p !== undefined) setItemOwner(it.id, p) }}
+                            className={`text-[11px] ${canEdit ? 'text-primary hover:underline' : 'text-zinc-400 cursor-default'}`}
+                          >
+                            {it.owner_name ?? t('org.noOwner')}
+                          </button>
                           {canEdit && <button className="text-[11px] text-zinc-400 hover:text-rose-600" onClick={() => deleteItem(it.id)}>{t('org.delete')}</button>}
                         </span>
                       </li>
@@ -107,13 +175,18 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
             <div key={p.id} className="border border-zinc-100 rounded-lg p-3">
               <div className="font-medium text-sm text-zinc-800">{p.name}</div>
               {p.description && <div className="text-[11px] text-zinc-400 mb-1">{p.description}</div>}
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {p.members.length === 0
-                  ? <span className="text-xs text-zinc-400">{t('org.empty')}</span>
-                  : p.members.map((m) => (
-                      <Badge key={m.id} label={m.display_name || (m.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser'))} color={m.member_type === 'creator' ? 'amber' : 'teal'} size="sm" />
-                    ))}
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                {p.members.length === 0 && <span className="text-xs text-zinc-400">{t('org.empty')}</span>}
+                {p.members.map((m) => (
+                  <span key={m.id} className="inline-flex items-center gap-1">
+                    <Badge label={m.display_name || (m.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser'))} color={m.member_type === 'creator' ? 'amber' : 'teal'} size="sm" />
+                    {canEdit && <button className="text-[10px] text-zinc-400 hover:text-rose-600" onClick={() => removeMember(p.id, m.id)}>×</button>}
+                  </span>
+                ))}
               </div>
+              {canEdit && (
+                <button className="mt-2 text-xs text-primary hover:underline" onClick={() => addMember(p.id)}>+ {t('org.addMember')}</button>
+              )}
             </div>
           ))}
         </div>
