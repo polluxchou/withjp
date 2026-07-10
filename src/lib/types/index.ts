@@ -489,3 +489,76 @@ export interface UserWorkload {
   tasks:        WorkTask[]
   daily_cost:   number   // computed from salary
 }
+
+// ── Org Structure (业务分工) ──────────────────────────────
+
+export type MemberType = 'user' | 'creator'
+
+// 统一"人引用"：二选一
+export interface PersonRef {
+  member_type: MemberType
+  user_id: string | null
+  creator_id: string | null
+}
+
+export interface Position {
+  id: string
+  key: string
+  name: string
+  description: string
+  sort_order: number
+}
+
+export interface PositionMember extends PersonRef {
+  id: string
+  position_id: string
+  // joined 展示名（service 拼装）
+  display_name?: string
+}
+
+export interface TaskItem {
+  id: string
+  task_id: string
+  name: string
+  sort_order: number
+  owner_member_type: MemberType | null
+  owner_user_id: string | null
+  owner_creator_id: string | null
+  owner_name?: string | null   // joined
+}
+
+export interface BusinessTask {
+  id: string
+  business_id: string
+  name: string
+  sort_order: number
+  position_ids: string[]       // 关联岗位（service 拼装）
+  items: TaskItem[]            // 事项（service 拼装）
+}
+
+export interface Business {
+  id: string
+  key: string
+  name: string
+  sort_order: number
+  owner_member_type: MemberType | null
+  owner_user_id: string | null
+  owner_creator_id: string | null
+  owner_name?: string | null   // joined
+  tasks: BusinessTask[]        // service 拼装
+}
+
+// 选人候选：员工 + 主播
+export interface PersonOption {
+  member_type: MemberType
+  id: string        // user_id 或 creator_id
+  name: string
+}
+
+// GET /api/org 的整包返回
+export interface OrgSnapshot {
+  businesses: Business[]
+  positions: (Position & { members: PositionMember[] })[]
+  people: PersonOption[]       // 候选人（选负责人/配岗位成员用）
+  canEdit: boolean
+}
