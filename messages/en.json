@@ -33,6 +33,7 @@
     "team": "Team (AI Agents)",
     "teamAgents": "AI Agents",
     "teamAssignments": "Task Assignment",
+    "teamOrg": "Org & Roles",
     "knowledge": "Knowledge",
     "costManagement": "Cost Management",
     "expenses": "Expense Management",
@@ -133,6 +134,29 @@
         "done": "Done",
         "failed": "Failed"
       }
+    },
+    "org": {
+      "title": "Org & Roles",
+      "subtitle": "Company → Business → Task → Item; positions & members",
+      "positionsTitle": "Positions & members",
+      "owner": "Owner",
+      "noOwner": "Unassigned",
+      "positions": "Positions",
+      "items": "Items",
+      "addTask": "Add task",
+      "addItem": "Add item",
+      "addMember": "Add member",
+      "editPositions": "Edit positions",
+      "setOwner": "Set owner",
+      "clearOwner": "Clear owner",
+      "rename": "Rename",
+      "delete": "Delete",
+      "confirmDelete": "Delete?",
+      "sourceUser": "Staff",
+      "sourceCreator": "Streamer",
+      "namePlaceholder": "Name",
+      "empty": "None",
+      "readonlyHint": "Read-only (admin required to edit)"
     }
   },
   "agents": {

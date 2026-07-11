@@ -10,6 +10,7 @@ import {
   GitBranch,
   Bot,
   ClipboardList,
+  Network,
   BookOpen,
   Settings,
   Zap,
@@ -52,6 +53,7 @@ const NAV: NavItem[] = [
     children: [
       { href: '/team',             key: 'teamAgents',      icon: Bot, exact: true },
       { href: '/team/assignments', key: 'teamAssignments', icon: ClipboardList },
+      { href: '/team/org', key: 'teamOrg', icon: Network },
     ],
   },
   { href: '/knowledge', key: 'knowledge', icon: BookOpen },
