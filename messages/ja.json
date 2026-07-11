@@ -33,6 +33,7 @@
     "team": "チーム（AIエージェント）",
     "teamAgents": "AIエージェント",
     "teamAssignments": "タスク割り当て",
+    "teamOrg": "業務分担",
     "knowledge": "ナレッジ",
     "expenses": "支出管理",
     "financeForecast": "財務予測",
@@ -133,6 +134,29 @@
         "done": "完了",
         "failed": "失敗"
       }
+    },
+    "org": {
+      "title": "業務分担",
+      "subtitle": "会社 → 業務 → タスク → 事項；ポジションとメンバー",
+      "positionsTitle": "ポジションとメンバー",
+      "owner": "担当者",
+      "noOwner": "未指定",
+      "positions": "ポジション",
+      "items": "事項",
+      "addTask": "タスク追加",
+      "addItem": "事項追加",
+      "addMember": "メンバー追加",
+      "editPositions": "ポジション編集",
+      "setOwner": "担当者を設定",
+      "clearOwner": "担当者をクリア",
+      "rename": "名称変更",
+      "delete": "削除",
+      "confirmDelete": "削除しますか？",
+      "sourceUser": "社員",
+      "sourceCreator": "ライバー",
+      "namePlaceholder": "名称",
+      "empty": "なし",
+      "readonlyHint": "読み取り専用（編集は管理者のみ）"
     }
   },
   "agents": {

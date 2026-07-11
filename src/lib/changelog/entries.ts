@@ -27,6 +27,17 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-07-08',
+    items: [
+      {
+        kind: 'feat',
+        scope: '团队',
+        title: '新增「业务分工」——公司 / 业务 / 任务 / 事项 与岗位配人',
+        details: '「团队（AI 代理）」下新增「业务分工」页：按 公司→业务→任务→事项 的层级展示分工，业务与事项各有唯一负责人、任务关联岗位；并可给岗位配上员工或主播。管理员可增删任务/事项、设置负责人、编辑任务岗位与岗位成员。',
+      },
+    ],
+  },
+  {
     date: '2026-07-06',
     items: [
       {
