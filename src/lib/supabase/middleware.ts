@@ -60,11 +60,15 @@ export async function updateSession(request: NextRequest, extraRequestHeaders?: 
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('auth timeout')), 3000)
     )
-    const { data: { user } } = await Promise.race([
-      supabase.auth.getUser(),
+    // getClaims() verifies the JWT locally via a cached JWKS when the project
+    // uses asymmetric signing keys — no per-navigation network round-trip to the
+    // Auth server — and safely falls back to a getUser() network check for
+    // legacy HS256 secrets. Same security guarantee, far lower latency.
+    const { data } = await Promise.race([
+      supabase.auth.getClaims(),
       timeout,
     ])
-    if (!user) {
+    if (!data?.claims?.sub) {
       const url = request.nextUrl.clone()
       url.pathname = localizedLoginPath(pathname)
       return NextResponse.redirect(url)
