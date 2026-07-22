@@ -11,8 +11,10 @@ import {
 } from '@/lib/work-tasks/cost'
 import { WORK_TASK_REPEAT_INTERVAL_LABELS } from '@/lib/types'
 import { EXPENSE_USER_OPTIONS } from '@/lib/expenses/costs'
+import { prefillFromItem } from '@/lib/work-tasks/org-link'
 import type {
   WorkTask, WorkTaskType, WorkTaskStatus, AgentRole, WorkTaskEffort, WorkTaskRepeatInterval,
+  OrgSnapshot, Business, BusinessTask, TaskItem, Position,
 } from '@/lib/types'
 
 interface Props {
@@ -40,6 +42,11 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [users,      setUsers]      = useState<UserOption[]>([])
 
+  const [org,            setOrg]            = useState<OrgSnapshot | null>(null)
+  const [selBusinessId,  setSelBusinessId]  = useState('')
+  const [selTaskId,      setSelTaskId]      = useState('')
+  const [ownerFromCreator, setOwnerFromCreator] = useState(false)
+
   const [form, setForm] = useState({
     task_type:            (source?.task_type            ?? 'adhoc')  as WorkTaskType,
     title:                source?.title                 ?? '',
@@ -56,6 +63,8 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
     completion_criteria:  source?.completion_criteria   ?? '',
     status:               (source?.status               ?? 'planned') as WorkTaskStatus,
     notes:                source?.notes                 ?? '',
+    business_task_item_id:   source?.business_task_item_id   ?? '',
+    business_task_item_name: source?.business_task_item_name ?? '',
   })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -69,11 +78,25 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
     Promise.all([
       fetch('/api/milestones').then((r) => r.json()),
       fetch('/api/users').then((r) => r.json()),
-    ]).then(([ms, us]) => {
+      fetch('/api/org').then((r) => r.json()),
+    ]).then(([ms, us, orgRes]) => {
       setMilestones(ms.data ?? [])
       setUsers(us.data ?? [])
+      const snap: OrgSnapshot | null = orgRes.data ?? null
+      setOrg(snap)
+      const existingItemId = source?.business_task_item_id
+      if (snap && existingItemId) {
+        for (const b of snap.businesses) {
+          for (const tk of b.tasks) {
+            if (tk.items.some((it) => it.id === existingItemId)) {
+              setSelBusinessId(b.id)
+              setSelTaskId(tk.id)
+            }
+          }
+        }
+      }
     })
-  }, [])
+  }, [source?.business_task_item_id])
 
   // Debounced title search
   useEffect(() => {
@@ -119,8 +142,35 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
     setShowSuggestions(false)
   }
 
+  const businesses: Business[] = org?.businesses ?? []
+  const posKeyById = new Map<string, string>((org?.positions ?? []).map((p: Position) => [p.id, p.key]))
+  const tasksOfBiz: BusinessTask[] = businesses.find((b) => b.id === selBusinessId)?.tasks ?? []
+  const itemsOfTask: TaskItem[] = tasksOfBiz.find((t) => t.id === selTaskId)?.items ?? []
+
+  function onPickItem(itemId: string) {
+    const task = tasksOfBiz.find((t) => t.id === selTaskId)
+    const item = task?.items.find((it) => it.id === itemId)
+    if (!task || !item) {
+      setOwnerFromCreator(false)
+      setForm((f) => ({ ...f, business_task_item_id: '', business_task_item_name: '' }))
+      return
+    }
+    const posKeys = task.position_ids.map((pid) => posKeyById.get(pid)).filter(Boolean) as string[]
+    const p = prefillFromItem(item, posKeys)
+    setOwnerFromCreator(p.ownerIsCreator)
+    setForm((f) => ({
+      ...f,
+      business_task_item_id:   p.business_task_item_id,
+      business_task_item_name: p.business_task_item_name,
+      title:                   f.title.trim() ? f.title : p.title,
+      owner_user_id:           p.owner_user_id ?? f.owner_user_id,
+      department:              (p.department ?? f.department) as AgentRole,
+    }))
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.business_task_item_id) { setError(t('errItem')); return }
     if (!form.title.trim())    { setError(t('errTitle')); return }
     if (!form.task_date)       { setError(t('errDate')); return }
     if (!form.owner_user_id)   { setError(t('errOwner')); return }
@@ -155,6 +205,37 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
     <form onSubmit={submit} className="space-y-4">
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>
+      )}
+
+      {/* Row 0: 业务 → 任务 → 事项(必填) */}
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className={LABEL}>{t('selectBusiness')}</label>
+          <select value={selBusinessId} className={INPUT}
+            onChange={(e) => { setSelBusinessId(e.target.value); setSelTaskId(''); setOwnerFromCreator(false); setForm((f) => ({ ...f, business_task_item_id: '', business_task_item_name: '' })) }}>
+            <option value="">{t('itemPlaceholder')}</option>
+            {businesses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={LABEL}>{t('selectTask')}</label>
+          <select value={selTaskId} className={INPUT} disabled={!selBusinessId}
+            onChange={(e) => { setSelTaskId(e.target.value); setOwnerFromCreator(false); setForm((f) => ({ ...f, business_task_item_id: '', business_task_item_name: '' })) }}>
+            <option value="">{t('selectTask')}</option>
+            {tasksOfBiz.map((tk) => <option key={tk.id} value={tk.id}>{tk.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={LABEL}>{t('itemField')}</label>
+          <select value={form.business_task_item_id} className={INPUT} disabled={!selTaskId}
+            onChange={(e) => onPickItem(e.target.value)}>
+            <option value="">{t('selectItem')}</option>
+            {itemsOfTask.map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
+          </select>
+        </div>
+      </div>
+      {ownerFromCreator && (
+        <div className="text-xs text-amber-600">{t('ownerFromCreatorHint')}</div>
       )}
 
       {/* Row 1: Type + Title with fuzzy suggestions */}
