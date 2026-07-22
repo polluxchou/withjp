@@ -21,7 +21,7 @@ export function departmentForPositions(positionKeys: string[]): AgentRole | null
     const d = POSITION_DEPARTMENT[k]
     if (d) depts.add(d)
   }
-  return depts.size === 1 ? [...depts][0] : null
+  return depts.size === 1 ? Array.from(depts)[0] : null
 }
 
 export interface ItemPrefill {
