@@ -27,6 +27,17 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-07-21',
+    items: [
+      {
+        kind: 'improve',
+        scope: '团队',
+        title: '「业务分工」选负责人改用统一弹窗',
+        details: '在「业务分工」页设置业务/事项负责人、给岗位添加成员时，原来会弹出浏览器自带的输入框让你敲编号，现在改成与全站一致的弹窗：候选人以列表形式展示，带「员工 / 主播」身份标识，点一下即可选中；设置负责人时顶部还有「清除负责人」选项。',
+      },
+    ],
+  },
+  {
     date: '2026-07-08',
     items: [
       {
