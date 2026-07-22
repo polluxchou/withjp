@@ -538,7 +538,15 @@
       "repeatInterval": "繰り返し周期",
       "noRepeat": "繰り返しなし",
       "completionCriteria": "完了判定基準",
-      "completionCriteriaPlaceholder": "このタスクの完了をどう判断するか説明してください。例：配信2時間完了かつ売上 ≥ 5,000円"
+      "completionCriteriaPlaceholder": "このタスクの完了をどう判断するか説明してください。例：配信2時間完了かつ売上 ≥ 5,000円",
+      "selectBusiness": "業務を選択",
+      "selectTask": "タスクを選択",
+      "selectItem": "項目を選択",
+      "itemField": "関連項目",
+      "itemPlaceholder": "先に項目を選択（必須）",
+      "errItem": "先に業務分担の項目を選択してください",
+      "ownerFromCreatorHint": "この項目の担当者は配信者です。稼働タスクの担当者を手動で指定してください",
+      "unlinkedBadge": "項目未関連"
     },
     "salary": {
       "title": "スタッフ給与管理",

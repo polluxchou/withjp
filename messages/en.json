@@ -538,7 +538,15 @@
       "repeatInterval": "Repeat interval",
       "noRepeat": "No repeat",
       "completionCriteria": "Completion criteria",
-      "completionCriteriaPlaceholder": "Describe how to verify this task is done, e.g. 2 h live + sales ≥ 5000 CNY"
+      "completionCriteriaPlaceholder": "Describe how to verify this task is done, e.g. 2 h live + sales ≥ 5000 CNY",
+      "selectBusiness": "Select business",
+      "selectTask": "Select task",
+      "selectItem": "Select item",
+      "itemField": "Linked item",
+      "itemPlaceholder": "Select an item first (required)",
+      "errItem": "Please select a business-division item first",
+      "ownerFromCreatorHint": "This item's owner is a streamer; please set the work-task owner manually",
+      "unlinkedBadge": "No linked item"
     },
     "salary": {
       "title": "Employee salary management",
