@@ -16,33 +16,48 @@ export default function CompetitorMonitoringView({ initial }: { initial: Competi
   const [pending, startTransition] = useTransition()
 
   const refresh = useCallback(async () => {
-    const res = await fetch('/api/competitors', { cache: 'no-store' })
-    const json = await res.json()
-    if (json.data) setBoard(json.data as CompetitorBoard)
-  }, [])
+    try {
+      const res = await fetch('/api/competitors', { cache: 'no-store' })
+      if (!res.ok) throw new Error('load failed')
+      const json = await res.json()
+      if (json.data) setBoard(json.data as CompetitorBoard)
+    } catch {
+      setError(t('actionFailed'))
+    }
+  }, [t])
 
   const add = useCallback(() => {
     const value = input.trim()
     if (!value) return
     setError(null)
     startTransition(async () => {
-      const res = await fetch('/api/competitors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: value }),
-      })
-      const json = await res.json()
-      if (json.error) { setError(t('addFailed')); return }
-      setInput('')
-      await refresh()
+      try {
+        const res = await fetch('/api/competitors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: value }),
+        })
+        const json = await res.json().catch(() => ({ error: 'parse' }))
+        if (!res.ok || json.error) { setError(t('addFailed')); return }
+        setInput('')
+        await refresh()
+      } catch {
+        setError(t('addFailed'))
+      }
     })
   }, [input, refresh, t])
 
   const remove = useCallback((id: string) => {
     if (!confirm(t('deleteConfirm'))) return
+    setError(null)
     startTransition(async () => {
-      await fetch(`/api/competitors/${id}`, { method: 'DELETE' })
-      await refresh()
+      try {
+        const res = await fetch(`/api/competitors/${id}`, { method: 'DELETE' })
+        if (!res.ok) { setError(t('actionFailed')); return }
+        await refresh()
+      } catch {
+        setError(t('actionFailed'))
+      }
     })
   }, [refresh, t])
 
@@ -115,6 +130,7 @@ function CompetitorRow({
             </div>
             {c.latest?.region && <div className="text-xs text-neutral-500">{t('region')}: {c.latest.region}</div>}
             {c.latest?.bio && <div className="mt-0.5 max-w-prose text-xs text-neutral-500">{c.latest.bio}</div>}
+            {c.latest && <div className="mt-0.5 text-[11px] text-neutral-400">{t('latestOn', { date: c.latest.captured_on })}</div>}
           </div>
         </button>
 
@@ -136,7 +152,8 @@ function CompetitorRow({
           {c.history.length === 0 ? (
             <p className="text-xs text-neutral-500">{t('noData')}</p>
           ) : (
-            <table className="w-full max-w-xl text-xs">
+            <table className="w-full max-w-xl text-xs" aria-label={t('history')}>
+              <caption className="mb-1 text-left text-xs font-medium text-neutral-500">{t('history')}</caption>
               <thead className="text-neutral-500">
                 <tr>
                   <th className="py-1 text-left font-normal">{t('colDate')}</th>

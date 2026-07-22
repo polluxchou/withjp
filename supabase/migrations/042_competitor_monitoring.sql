@@ -30,9 +30,7 @@ create table if not exists competitor_snapshots (
   captured_at   timestamptz not null default now(),
   constraint competitor_snapshots_daily_uk unique (competitor_id, captured_on)
 );
-
-create index if not exists idx_competitor_snapshots_competitor
-  on competitor_snapshots(competitor_id, captured_on);
+-- 无需额外索引：competitor_snapshots_daily_uk 唯一约束已为 (competitor_id, captured_on) 建索引。
 
 -- RLS：登录用户可读写（写权限在 service 层按 is_admin 再收紧），沿用 authenticated_only 约定。
 do $$

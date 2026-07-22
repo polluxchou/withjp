@@ -55,9 +55,12 @@ async function run() {
     if (!handle) { console.error('skip: row missing handle', r); continue }
     const profile_url = r.profile_url ?? `https://www.tiktok.com/@${handle}`
 
+    // 只带上明确提供的字段，避免把清单里已维护的 display_name 覆盖成 null。
+    const compRow: Record<string, unknown> = { platform, handle, profile_url }
+    if (r.display_name !== undefined) compRow.display_name = r.display_name
     const { data: comp, error: cErr } = await db
       .from('competitors')
-      .upsert({ platform, handle, profile_url, display_name: r.display_name ?? null }, { onConflict: 'platform,handle' })
+      .upsert(compRow, { onConflict: 'platform,handle' })
       .select('id')
       .single()
     if (cErr || !comp) { console.error('competitor upsert failed', handle, cErr?.message); continue }

@@ -1495,6 +1495,6 @@
     "colDate": "Date",
     "delete": "Delete",
     "deleteConfirm": "Delete this competitor and all its snapshots?",
-    "notePlaceholder": "Note"
+    "actionFailed": "Action failed"
   }
 }

@@ -54,18 +54,26 @@ export async function addCompetitor(
   if (forbidden) return { data: null, error: forbidden }
 
   const platform: CompetitorPlatform = input.platform ?? 'tiktok'
+  if (platform !== 'tiktok') return err('invalid_input', 'unsupported platform')
   const raw = (input.url ?? input.handle ?? '').trim()
   const handle = parseHandleFromUrl(raw)
   if (!handle) return err('invalid_input', 'valid url or @handle required')
   const profile_url = /^https?:\/\//i.test(raw) ? raw : `https://www.tiktok.com/@${handle}`
 
   const db = createServerClient()
+  // 加入清单 = 确保存在，不覆盖已维护的 note / profile_url：已存在则直接返回其 id。
+  const { data: existing, error: findErr } = await db
+    .from('competitors')
+    .select('id')
+    .eq('platform', platform)
+    .eq('handle', handle)
+    .maybeSingle()
+  if (findErr) return err('db_error', findErr.message)
+  if (existing) return ok({ id: (existing as { id: string }).id })
+
   const { data, error } = await db
     .from('competitors')
-    .upsert(
-      { platform, handle, profile_url, note: input.note ?? '' },
-      { onConflict: 'platform,handle' },
-    )
+    .insert({ platform, handle, profile_url, note: input.note ?? '' })
     .select('id')
     .single()
   if (error) return err('db_error', error.message)
@@ -99,28 +107,4 @@ export async function deleteCompetitor(userId: string, id: string): Promise<Serv
   const { error } = await db.from('competitors').delete().eq('id', id)
   if (error) return err('db_error', error.message)
   return ok({ id })
-}
-
-/** 快照 upsert —— 只给 service-role 脚本用（无 admin 检查，脚本本身持 service-role）。 */
-export interface SnapshotInput {
-  competitor_id: string
-  captured_on: string
-  followers?: number | null
-  likes?: number | null
-  videos?: number | null
-  following?: number | null
-  display_name?: string | null
-  bio?: string | null
-  region?: string | null
-  verified?: boolean | null
-  raw?: Record<string, unknown> | null
-}
-
-export async function upsertSnapshot(input: SnapshotInput): Promise<ServiceResult<{ competitor_id: string; captured_on: string }>> {
-  const db = createServerClient()
-  const { error } = await db
-    .from('competitor_snapshots')
-    .upsert(input, { onConflict: 'competitor_id,captured_on' })
-  if (error) return err('db_error', error.message)
-  return ok({ competitor_id: input.competitor_id, captured_on: input.captured_on })
 }

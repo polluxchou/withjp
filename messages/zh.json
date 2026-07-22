@@ -1495,6 +1495,6 @@
     "colDate": "日期",
     "delete": "删除",
     "deleteConfirm": "确定删除该竞品及其全部打点？",
-    "notePlaceholder": "备注"
+    "actionFailed": "操作失败"
   }
 }
