@@ -75,13 +75,10 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/milestones').then((r) => r.json()),
-      fetch('/api/users').then((r) => r.json()),
-      fetch('/api/org').then((r) => r.json()),
-    ]).then(([ms, us, orgRes]) => {
-      setMilestones(ms.data ?? [])
-      setUsers(us.data ?? [])
+    // 三个请求相互独立,任一失败都不应拖垮其它(否则会导致负责人/事项等选项加载不出)
+    fetch('/api/milestones').then((r) => r.json()).then((ms) => setMilestones(ms.data ?? [])).catch(() => {})
+    fetch('/api/users').then((r) => r.json()).then((us) => setUsers(us.data ?? [])).catch(() => {})
+    fetch('/api/org').then((r) => r.json()).then((orgRes) => {
       const snap: OrgSnapshot | null = orgRes.data ?? null
       setOrg(snap)
       const existingItemId = source?.business_task_item_id
@@ -95,7 +92,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
           }
         }
       }
-    })
+    }).catch(() => {})
   }, [source?.business_task_item_id])
 
   // Debounced title search
