@@ -26,6 +26,7 @@
   "nav": {
     "dashboard": "ダッシュボード",
     "creators": "ライバー",
+    "competitors": "競合モニタリング",
     "pipeline": "パイプライン",
     "timeline": "戦略タイムライン",
     "tasks": "タスク",
@@ -1245,6 +1246,27 @@
       "unpaidOnly": "未払いのみ",
       "crossBorderOnly": "国際のみ"
     }
+  },
+  "competitors": {
+    "title": "競合モニタリング",
+    "subtitle": "競合の TikTok プロフィール指標を時系列で記録",
+    "addPlaceholder": "TikTok のプロフィール URL か @handle を貼り付け",
+    "addButton": "競合を追加",
+    "addFailed": "追加に失敗しました",
+    "empty": "まだ競合がありません。TikTok プロフィール URL を貼り付けて開始",
+    "readOnly": "競合の追加・削除は管理者のみ可能です",
+    "colFollowers": "フォロワー",
+    "colLikes": "いいね",
+    "colVideos": "動画",
+    "region": "地域",
+    "verified": "認証済み",
+    "latestOn": "最終取得 {date}",
+    "noData": "取得データがありません",
+    "history": "履歴",
+    "colDate": "日付",
+    "delete": "削除",
+    "deleteConfirm": "この競合とすべての記録を削除しますか？",
+    "notePlaceholder": "メモ"
   },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",
