@@ -4,21 +4,17 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
+import {
+  applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
+  applySetBusinessOwner, applySetItemOwner,
+  applyAddMember, applyRemoveMember, applySetTaskPositions,
+} from '@/lib/org/tree'
 import type { OrgSnapshot, PersonOption } from '@/lib/types'
 
 interface PickerState {
   title: string
   allowClear: boolean
   onSelect: (person: PersonOption | null) => void
-}
-
-async function api(path: string, method: string, body?: unknown) {
-  const res = await fetch(`/api/org${path}`, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  return res.ok
 }
 
 function refOf(person: PersonOption | null) {
@@ -37,38 +33,56 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
   const posName = (id: string) => snapshot.positions.find((p) => p.id === id)?.name ?? id
   const [picker, setPicker] = useState<PickerState | null>(null)
 
-  const reload = async () => {
-    const res = await fetch('/api/org', { cache: 'no-store' })
-    const json = await res.json()
-    if (json.data) setSnapshot(json.data as OrgSnapshot)
+  // 写 /api/org/*：成功返回受影响行 { id }；失败（网络异常 / 非 2xx）弹出服务端
+  // 原因并返回 null —— 拒绝的写入不会被静默吞掉。调用方拿返回的 id 直接就地更新
+  // 本地快照，不再依赖一次可能失败的整表 GET /api/org，从而做到「改完即时可见」。
+  const api = async (path: string, method: string, body?: unknown): Promise<{ id: string } | null> => {
+    try {
+      const res = await fetch(`/api/org${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        window.alert(t('org.saveFailed') + (json?.error ? `: ${json.error}` : ` (${res.status})`))
+        return null
+      }
+      return (json?.data as { id: string }) ?? null
+    } catch (e) {
+      window.alert(t('org.saveFailed') + `: ${e instanceof Error ? e.message : String(e)}`)
+      return null
+    }
   }
 
   const addTask = async (businessId: string) => {
     const name = window.prompt(t('org.addTask'))
     if (!name?.trim()) return
-    if (await api(`/businesses/${businessId}/tasks`, 'POST', { name })) reload()
+    const res = await api(`/businesses/${businessId}/tasks`, 'POST', { name })
+    if (res) setSnapshot((s) => applyAddTask(s, businessId, res.id, name.trim()))
   }
   const deleteTask = async (taskId: string) => {
     if (!window.confirm(t('org.confirmDelete'))) return
-    if (await api(`/tasks/${taskId}`, 'DELETE')) reload()
+    if (await api(`/tasks/${taskId}`, 'DELETE')) setSnapshot((s) => applyDeleteTask(s, taskId))
   }
   const addItem = async (taskId: string) => {
     const name = window.prompt(t('org.addItem'))
     if (!name?.trim()) return
-    if (await api(`/tasks/${taskId}/items`, 'POST', { name })) reload()
+    const res = await api(`/tasks/${taskId}/items`, 'POST', { name })
+    if (res) setSnapshot((s) => applyAddItem(s, taskId, res.id, name.trim()))
   }
   const deleteItem = async (itemId: string) => {
     if (!window.confirm(t('org.confirmDelete'))) return
-    if (await api(`/items/${itemId}`, 'DELETE')) reload()
+    if (await api(`/items/${itemId}`, 'DELETE')) setSnapshot((s) => applyDeleteItem(s, itemId))
   }
   const setBusinessOwner = async (businessId: string, person: PersonOption | null) => {
-    if (await api(`/businesses/${businessId}`, 'PATCH', { owner: refOf(person) })) reload()
+    if (await api(`/businesses/${businessId}`, 'PATCH', { owner: refOf(person) })) setSnapshot((s) => applySetBusinessOwner(s, businessId, person))
   }
   const setItemOwner = async (itemId: string, person: PersonOption | null) => {
-    if (await api(`/items/${itemId}`, 'PATCH', { owner: refOf(person) })) reload()
+    if (await api(`/items/${itemId}`, 'PATCH', { owner: refOf(person) })) setSnapshot((s) => applySetItemOwner(s, itemId, person))
   }
   const setTaskPositions = async (taskId: string, positionIds: string[]) => {
-    if (await api(`/tasks/${taskId}/positions`, 'PUT', { positionIds })) reload()
+    if (await api(`/tasks/${taskId}/positions`, 'PUT', { positionIds })) setSnapshot((s) => applySetTaskPositions(s, taskId, positionIds))
   }
   const editTaskPositions = (taskId: string, currentIds: string[]) => {
     const lines = snapshot.positions.map((p, i) => `${i + 1}. ${p.name}`).join('\n')
@@ -87,11 +101,13 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
   }
   const addMember = async (positionId: string, person: PersonOption) => {
     const body = refOf(person)
-    if (body && (await api(`/positions/${positionId}/members`, 'POST', body))) reload()
+    if (!body) return
+    const res = await api(`/positions/${positionId}/members`, 'POST', body)
+    if (res) setSnapshot((s) => applyAddMember(s, positionId, res.id, person))
   }
   const removeMember = async (positionId: string, memberId: string) => {
     if (!window.confirm(t('org.confirmDelete'))) return
-    if (await api(`/positions/${positionId}/members/${memberId}`, 'DELETE')) reload()
+    if (await api(`/positions/${positionId}/members/${memberId}`, 'DELETE')) setSnapshot((s) => applyRemoveMember(s, positionId, memberId))
   }
 
   return (
