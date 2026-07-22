@@ -1,5 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import type { WorkTaskCreatePayload } from '@/lib/intent/schema'
+import { matchItemByName } from '@/lib/work-tasks/org-link'
+import { fetchTaskItemName } from '@/lib/work-tasks/item-snapshot'
 
 export type WorkTaskServiceError = { code: string; message: string }
 
@@ -37,6 +39,13 @@ export async function createWorkTaskFromIntent(
     if (id) executor_ids.push(id)
   }
 
+  let itemId = payload.business_task_item_id ?? null
+  if (!itemId) {
+    const { data: items } = await db.from('task_items').select('id, name')
+    itemId = matchItemByName((items ?? []) as { id: string; name: string }[], payload.title)
+  }
+  const itemName = itemId ? await fetchTaskItemName(db, itemId) : null
+
   const { data, error } = await db
     .from('work_tasks')
     .insert({
@@ -53,6 +62,8 @@ export async function createWorkTaskFromIntent(
       completion_criteria: payload.completion_criteria  ?? null,
       notes:               payload.notes                ?? null,
       status:              'planned',
+      business_task_item_id:   itemId,
+      business_task_item_name: itemName,
     })
     .select('id')
     .single()
