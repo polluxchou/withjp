@@ -22,6 +22,7 @@ import {
   Wallet,
   Package,
   Map as MapIcon,
+  Radar,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -43,6 +44,7 @@ const isGroup = (item: NavItem): item is NavGroup => 'children' in item
 const NAV: NavItem[] = [
   { href: '/',          key: 'dashboard', icon: LayoutDashboard },
   { href: '/creators',  key: 'creators',  icon: Users },
+  { href: '/competitors', key: 'competitors', icon: Radar },
   { href: '/pipeline',  key: 'pipeline',  icon: GitBranch },
   { href: '/timeline',  key: 'timeline',  icon: CalendarRange },
   { href: '/tasks',     key: 'tasks',     icon: CheckSquare },
