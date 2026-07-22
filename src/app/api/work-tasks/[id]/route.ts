@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile, canModify } from '@/lib/auth/actor'
+import { fetchTaskItemName } from '@/lib/work-tasks/item-snapshot'
 
 type Params = { params: { id: string } }
 
@@ -40,6 +41,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
   if ('title' in updates && !updates.title?.trim()) {
     return NextResponse.json({ data: null, error: 'title cannot be empty' }, { status: 400 })
+  }
+
+  if ('business_task_item_id' in updates) {
+    const itemId = updates.business_task_item_id ?? null
+    updates.business_task_item_id   = itemId
+    updates.business_task_item_name = itemId ? await fetchTaskItemName(db, itemId) : null
   }
 
   const { data, error } = await db
