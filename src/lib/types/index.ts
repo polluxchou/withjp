@@ -471,6 +471,8 @@ export interface WorkTask {
   completion_criteria:  string | null
   status:               WorkTaskStatus
   notes:                string | null
+  business_task_item_id:   string | null
+  business_task_item_name: string | null
   created_at:           string
   updated_at:           string
   // joined

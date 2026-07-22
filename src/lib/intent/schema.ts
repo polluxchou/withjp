@@ -173,6 +173,7 @@ export const WorkTaskCreatePayloadSchema = z.object({
   repeat_interval:     z.enum(['daily', 'weekly', 'biweekly', 'monthly']).nullable().optional(),
   completion_criteria: z.string().nullable().optional(),
   notes:               z.string().nullable().optional(),
+  business_task_item_id: z.string().uuid().nullable().optional(),
 }).strict()
 
 export const WorkTaskCreateIntentSchema = z.object({
