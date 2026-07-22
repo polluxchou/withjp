@@ -156,7 +156,8 @@
       "sourceCreator": "主播",
       "namePlaceholder": "名称",
       "empty": "暂无",
-      "readonlyHint": "只读（需管理员权限编辑）"
+      "readonlyHint": "只读（需管理员权限编辑）",
+      "saveFailed": "保存失败"
     }
   },
   "agents": {

@@ -156,7 +156,8 @@
       "sourceCreator": "ライバー",
       "namePlaceholder": "名称",
       "empty": "なし",
-      "readonlyHint": "読み取り専用（編集は管理者のみ）"
+      "readonlyHint": "読み取り専用（編集は管理者のみ）",
+      "saveFailed": "保存に失敗しました"
     }
   },
   "agents": {
