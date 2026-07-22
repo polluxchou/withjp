@@ -3,7 +3,14 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Badge from '@/components/ui/Badge'
+import Modal from '@/components/ui/Modal'
 import type { OrgSnapshot, PersonOption } from '@/lib/types'
+
+interface PickerState {
+  title: string
+  allowClear: boolean
+  onSelect: (person: PersonOption | null) => void
+}
 
 async function api(path: string, method: string, body?: unknown) {
   const res = await fetch(`/api/org${path}`, {
@@ -28,23 +35,12 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
   const [snapshot, setSnapshot] = useState<OrgSnapshot>(initial)
   const canEdit = snapshot.canEdit
   const posName = (id: string) => snapshot.positions.find((p) => p.id === id)?.name ?? id
+  const [picker, setPicker] = useState<PickerState | null>(null)
 
   const reload = async () => {
     const res = await fetch('/api/org', { cache: 'no-store' })
     const json = await res.json()
     if (json.data) setSnapshot(json.data as OrgSnapshot)
-  }
-
-  // 简易选人：0=清除，序号=选人；取消返回 undefined
-  const pickPerson = (): PersonOption | null | undefined => {
-    const lines = snapshot.people
-      .map((p, i) => `${i + 1}. [${p.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser')}] ${p.name}`)
-      .join('\n')
-    const raw = window.prompt(`${t('org.setOwner')}\n0. ${t('org.clearOwner')}\n${lines}`)
-    if (raw === null) return undefined
-    const n = Number(raw.trim())
-    if (n === 0) return null
-    return snapshot.people[n - 1] ?? undefined
   }
 
   const addTask = async (businessId: string) => {
@@ -89,9 +85,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
       .map((n) => snapshot.positions[n - 1].id)
     setTaskPositions(taskId, ids)
   }
-  const addMember = async (positionId: string) => {
-    const person = pickPerson()
-    if (!person) return // 取消或清除都不添加
+  const addMember = async (positionId: string, person: PersonOption) => {
     const body = refOf(person)
     if (body && (await api(`/positions/${positionId}/members`, 'POST', body))) reload()
   }
@@ -112,7 +106,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
               <button
                 type="button"
                 disabled={!canEdit}
-                onClick={async () => { const p = pickPerson(); if (p !== undefined) setBusinessOwner(b.id, p) }}
+                onClick={() => setPicker({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => setBusinessOwner(b.id, p) })}
                 className={`text-xs ${canEdit ? 'text-primary hover:underline' : 'text-zinc-500 cursor-default'}`}
               >
                 {t('org.owner')}：{b.owner_name ?? t('org.noOwner')}
@@ -144,7 +138,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                           <button
                             type="button"
                             disabled={!canEdit}
-                            onClick={async () => { const p = pickPerson(); if (p !== undefined) setItemOwner(it.id, p) }}
+                            onClick={() => setPicker({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => setItemOwner(it.id, p) })}
                             className={`text-[11px] ${canEdit ? 'text-primary hover:underline' : 'text-zinc-400 cursor-default'}`}
                           >
                             {it.owner_name ?? t('org.noOwner')}
@@ -185,12 +179,46 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                 ))}
               </div>
               {canEdit && (
-                <button className="mt-2 text-xs text-primary hover:underline" onClick={() => addMember(p.id)}>+ {t('org.addMember')}</button>
+                <button className="mt-2 text-xs text-primary hover:underline" onClick={() => setPicker({ title: t('org.addMember'), allowClear: false, onSelect: (person) => { if (person) addMember(p.id, person) } })}>+ {t('org.addMember')}</button>
               )}
             </div>
           ))}
         </div>
       </div>
+
+      {picker && (
+        <Modal open onClose={() => setPicker(null)} title={picker.title}>
+          <div className="space-y-1.5">
+            {picker.allowClear && (
+              <button
+                type="button"
+                onClick={() => { picker.onSelect(null); setPicker(null) }}
+                className="w-full text-left flex items-center px-3 py-2.5 rounded-lg border border-zinc-100 text-sm text-zinc-500 hover:bg-zinc-50 hover:border-zinc-200 transition-colors"
+              >
+                {t('org.clearOwner')}
+              </button>
+            )}
+            {snapshot.people.map((p) => (
+              <button
+                key={`${p.member_type}:${p.id}`}
+                type="button"
+                onClick={() => { picker.onSelect(p); setPicker(null) }}
+                className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border border-zinc-100 text-sm text-zinc-700 hover:bg-zinc-50 hover:border-zinc-200 transition-colors"
+              >
+                <Badge
+                  label={p.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser')}
+                  color={p.member_type === 'creator' ? 'amber' : 'teal'}
+                  size="sm"
+                />
+                <span className="font-medium text-zinc-800">{p.name}</span>
+              </button>
+            ))}
+            {snapshot.people.length === 0 && (
+              <p className="py-6 text-center text-sm text-zinc-400">{t('org.empty')}</p>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
