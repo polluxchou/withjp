@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const body = await req.json()
-  const { id: _id, created_at: _ca, updated_at: _ua, owner: _o, reviewer: _r, milestone: _m, ...updates } = body
+  const { id: _id, created_at: _ca, updated_at: _ua, owner: _o, reviewer: _r, milestone: _m, business_task_item_name: _btin, ...updates } = body
 
   if ('effort_hours' in updates && !VALID_EFFORTS.includes(Number(updates.effort_hours))) {
     return NextResponse.json({ data: null, error: 'effort_hours must be 2, 4, or 8' }, { status: 400 })
