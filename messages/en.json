@@ -156,7 +156,8 @@
       "sourceCreator": "Streamer",
       "namePlaceholder": "Name",
       "empty": "None",
-      "readonlyHint": "Read-only (admin required to edit)"
+      "readonlyHint": "Read-only (admin required to edit)",
+      "saveFailed": "Save failed"
     }
   },
   "agents": {
