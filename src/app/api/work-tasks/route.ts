@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
+import { fetchTaskItemName } from '@/lib/work-tasks/item-snapshot'
 import type { WorkTaskType, WorkTaskStatus, AgentRole, WorkTaskRepeatInterval } from '@/lib/types'
 
 const VALID_TYPES:     WorkTaskType[]           = ['fixed', 'adhoc']
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     task_type, title, description, department,
     milestone_id, owner_user_id, reviewer_user_id, executor_ids,
     task_date, due_date, effort_hours, repeat_interval,
-    completion_criteria, status, notes,
+    completion_criteria, status, notes, business_task_item_id,
   } = body
 
   if (!title?.trim())    return NextResponse.json({ data: null, error: 'title is required' }, { status: 400 })
@@ -75,6 +76,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: null, error: 'valid department is required' }, { status: 400 })
   if (!VALID_EFFORTS.includes(Number(effort_hours)))
     return NextResponse.json({ data: null, error: 'effort_hours must be 2, 4, or 8' }, { status: 400 })
+
+  const itemId = business_task_item_id ?? null
+  const itemName = itemId ? await fetchTaskItemName(db, itemId) : null
 
   const { data, error } = await db
     .from('work_tasks')
@@ -94,6 +98,8 @@ export async function POST(req: NextRequest) {
       completion_criteria: completion_criteria ?? null,
       status:              VALID_STATUSES.includes(status) ? status : 'planned',
       notes:               notes ?? null,
+      business_task_item_id:   itemId,
+      business_task_item_name: itemName,
     })
     .select(FULL_SELECT)
     .single()
