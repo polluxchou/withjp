@@ -26,6 +26,7 @@
   "nav": {
     "dashboard": "ダッシュボード",
     "creators": "ライバー",
+    "creatorsList": "ライバー一覧",
     "competitors": "競合モニタリング",
     "pipeline": "パイプライン",
     "timeline": "戦略タイムライン",
