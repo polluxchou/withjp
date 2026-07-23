@@ -26,6 +26,7 @@
   "nav": {
     "dashboard": "仪表盘",
     "creators": "创作者",
+    "competitors": "竞品监测",
     "pipeline": "流程管理",
     "timeline": "战略时间轴",
     "tasks": "任务",
@@ -1483,5 +1484,26 @@
       "unpaidOnly": "仅未付",
       "crossBorderOnly": "仅跨境"
     }
+  },
+  "competitors": {
+    "title": "竞品监测",
+    "subtitle": "记录竞品 TikTok 主页指标，形成增长趋势",
+    "addPlaceholder": "粘贴 TikTok 主页链接或 @handle",
+    "addButton": "添加竞品",
+    "addFailed": "添加失败",
+    "empty": "还没有竞品，粘贴一个 TikTok 主页链接开始",
+    "readOnly": "只有管理员可以增删竞品",
+    "colFollowers": "粉丝",
+    "colLikes": "获赞",
+    "colVideos": "作品",
+    "region": "地区",
+    "verified": "已认证",
+    "latestOn": "最近采集 {date}",
+    "noData": "暂无采集数据",
+    "history": "历史打点",
+    "colDate": "日期",
+    "delete": "删除",
+    "deleteConfirm": "确定删除该竞品及其全部打点？",
+    "actionFailed": "操作失败"
   }
 }
