@@ -27,6 +27,17 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-07-23',
+    items: [
+      {
+        kind: 'feat',
+        scope: '竞品监测',
+        title: '新增「竞品监测」——记录竞品 TikTok 主页指标与增长趋势',
+        details: '账号侧栏新增「竞品监测」页：把竞品 TikTok 主页的粉丝、获赞、作品数，连同昵称 / 简介 / 地区 / 认证等基础信息，按「一天一条」记录成时间序列；每行展开可看历史打点表与粉丝走势的 mini 折线图。数据由内部按需采集（读主页指标，非直播间实时数据）。管理员可增删竞品。',
+      },
+    ],
+  },
+  {
     date: '2026-07-21',
     items: [
       {
