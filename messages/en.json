@@ -26,6 +26,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "creators": "Creators",
+    "competitors": "Competitors",
     "pipeline": "Pipeline",
     "timeline": "Strategic Timeline",
     "tasks": "Tasks",
@@ -1483,5 +1484,26 @@
       "unpaidOnly": "Unpaid only",
       "crossBorderOnly": "Cross-border only"
     }
+  },
+  "competitors": {
+    "title": "Competitor Monitoring",
+    "subtitle": "Track competitors' TikTok profile metrics over time",
+    "addPlaceholder": "Paste a TikTok profile URL or @handle",
+    "addButton": "Add competitor",
+    "addFailed": "Failed to add",
+    "empty": "No competitors yet — paste a TikTok profile URL to start",
+    "readOnly": "Only admins can add or remove competitors",
+    "colFollowers": "Followers",
+    "colLikes": "Likes",
+    "colVideos": "Videos",
+    "region": "Region",
+    "verified": "Verified",
+    "latestOn": "Last captured {date}",
+    "noData": "No data captured yet",
+    "history": "History",
+    "colDate": "Date",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this competitor and all its snapshots?",
+    "actionFailed": "Action failed"
   }
 }
