@@ -42,7 +42,7 @@ export default function TasksPage() {
     setAiLoading(true)
     try {
       const url = filter === 'all' ? '/api/tasks' : `/api/tasks?status=${filter}`
-      const res  = await fetch(url)
+      const res  = await fetch(url, { cache: 'no-store' })
       const json = await res.json()
       setTasks(json.data ?? [])
     } catch (err) {
@@ -70,9 +70,9 @@ export default function TasksPage() {
       }
 
       const [wt, sal, usr] = await Promise.all([
-        fetch(url).then((r) => r.json()),
-        fetch('/api/user-salary?current=true').then((r) => r.json()),
-        fetch('/api/users').then((r) => r.json()),
+        fetch(url, { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/user-salary?current=true', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/users', { cache: 'no-store' }).then((r) => r.json()),
       ])
 
       setWorkTasks(wt.data ?? [])
