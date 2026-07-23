@@ -10,7 +10,6 @@ import {
   EFFORT_LABELS,
 } from '@/lib/work-tasks/cost'
 import { WORK_TASK_REPEAT_INTERVAL_LABELS } from '@/lib/types'
-import { EXPENSE_USER_OPTIONS } from '@/lib/expenses/costs'
 import { prefillFromItem } from '@/lib/work-tasks/org-link'
 import type {
   WorkTask, WorkTaskType, WorkTaskStatus, AgentRole, WorkTaskEffort, WorkTaskRepeatInterval,
@@ -339,14 +338,9 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
           <label className={LABEL}>{t('owner')}</label>
           <select value={form.owner_user_id} onChange={set('owner_user_id')} className={INPUT}>
             <option value="">{t('ownerSelect')}</option>
-            {EXPENSE_USER_OPTIONS.map((name) => {
-              const u = users.find((u) => u.name === name || u.user_code === name)
-              return u ? (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ) : (
-                <option key={name} value={name} disabled>{name}</option>
-              )
-            })}
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
           </select>
         </div>
         <div>
