@@ -26,6 +26,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "creators": "Creators",
+    "creatorsList": "Creator list",
     "competitors": "Competitors",
     "pipeline": "Pipeline",
     "timeline": "Strategic Timeline",
