@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink } from 'lucide-react'
+import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import ShotAlbum from './ShotAlbum'
 import { formatCount } from '@/lib/competitors/metrics'
@@ -20,7 +20,7 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, nested = false,
+  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, nested = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -28,11 +28,14 @@ export default function CompetitorCard({
   onDeleteId: (id: string) => void
   parentOptions: { id: string; label: string }[]
   onAssignParent: (id: string, parentId: string | null) => void
+  onUpdateHandle: (id: string, raw: string) => void
   nested?: boolean
 }) {
   const t = useTranslations('competitors')
   const [open, setOpen] = useState(false)
   const [relOpen, setRelOpen] = useState(false)
+  const [editingHandle, setEditingHandle] = useState(false)
+  const [handleInput, setHandleInput] = useState('')
   // pendingStreamer: user clicked "主播" but hasn't picked a parent yet
   const [pendingStreamer, setPendingStreamer] = useState(false)
   useEffect(() => { setPendingStreamer(false) }, [c.parent_id])
@@ -65,7 +68,36 @@ export default function CompetitorCard({
           <div className="flex items-center gap-1.5">
             <span className="truncate font-medium">{name}</span>
             {c.latest?.verified && <BadgeCheck size={15} className="shrink-0 text-sky-500" />}
-            <span className="text-xs text-zinc-500">@{c.handle}</span>
+            {editingHandle ? (
+              <span className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={handleInput}
+                  onChange={(e) => setHandleInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { onUpdateHandle(c.id, handleInput); setEditingHandle(false) }
+                    if (e.key === 'Escape') setEditingHandle(false)
+                  }}
+                  placeholder="@handle 或链接"
+                  className="w-40 rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700"
+                />
+                <button onClick={() => { onUpdateHandle(c.id, handleInput); setEditingHandle(false) }} className="text-sky-600 hover:text-sky-800"><Check size={13} /></button>
+                <button onClick={() => setEditingHandle(false)} className="text-zinc-400 hover:text-zinc-700"><X size={13} /></button>
+              </span>
+            ) : (
+              <span className="flex items-center gap-0.5">
+                <span className="text-xs text-zinc-500">@{c.handle}</span>
+                {canEdit && (
+                  <button
+                    onClick={() => { setHandleInput(c.handle); setEditingHandle(true) }}
+                    className="text-zinc-300 hover:text-zinc-500"
+                    aria-label="编辑 handle"
+                  >
+                    <Pencil size={11} />
+                  </button>
+                )}
+              </span>
+            )}
             <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[11px] text-sky-700">{c.region}</span>
           </div>
           <div className="mt-0.5 truncate text-xs text-zinc-500">{statLine}</div>
@@ -151,6 +183,7 @@ export default function CompetitorCard({
                   onDeleteId={onDeleteId}
                   parentOptions={parentOptions}
                   onAssignParent={onAssignParent}
+                  onUpdateHandle={onUpdateHandle}
                   nested
                 />
               ))}
