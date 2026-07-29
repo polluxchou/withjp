@@ -1286,6 +1286,8 @@
     "upload": "アップロード",
     "orPaste": "貼り付け",
     "related": "関連アカウント",
+    "independent": "独立",
+    "belongsTo": "所属アカウント",
     "uploadFailed": "アップロード失敗",
     "noShots": "スクショはまだありません",
     "undated": "日付なし",
