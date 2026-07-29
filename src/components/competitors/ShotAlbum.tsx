@@ -17,22 +17,22 @@ function Thumb({ shot, canEdit, onOpen, onDelete }: {
   const t = useTranslations('competitors')
   const label = [shot.shot_on, shot.tag].filter(Boolean).join(' · ')
   return (
-    <div className="relative h-[132px] w-[74px] shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+    <div className="relative h-[46vh] w-[26vh] min-h-[300px] min-w-[169px] shrink-0 overflow-hidden rounded-lg bg-zinc-100">
       <button type="button" onClick={onOpen} className="block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={shot.image_url} alt={shot.caption || shot.tag || ''} className="h-full w-full object-cover" loading="lazy" />
       </button>
       {label && (
-        <span className="pointer-events-none absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-[9px] text-white">{label}</span>
+        <span className="pointer-events-none absolute inset-x-2 bottom-2 truncate rounded bg-black/50 px-1.5 py-0.5 text-xs text-white">{label}</span>
       )}
       {canEdit && (
         <button
           type="button"
           onClick={onDelete}
           aria-label={t('delete')}
-          className="absolute right-1 top-1 rounded bg-black/50 p-0.5 text-white hover:bg-red-600"
+          className="absolute right-2 top-2 rounded bg-black/50 p-1 text-white hover:bg-red-600"
         >
-          <Trash2 size={12} />
+          <Trash2 size={16} />
         </button>
       )}
     </div>
@@ -65,7 +65,7 @@ export default function ShotAlbum({
     return <p className="text-xs text-zinc-500">{t('noShots')}</p>
   }
 
-  const folded = shots.slice(0, 6)
+  const folded = shots.slice(0, 4)
 
   const groups = new Map<string, CompetitorShot[]>()
   for (const s of shots) {
@@ -83,7 +83,7 @@ export default function ShotAlbum({
   return (
     <div className="min-w-0">
       {!open ? (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex flex-wrap gap-2">
           {folded.map((s) => (
             <Thumb key={s.id} shot={s} canEdit={canEdit} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
           ))}
@@ -105,7 +105,7 @@ export default function ShotAlbum({
         </div>
       )}
 
-      {shots.length > 6 && (
+      {shots.length > 4 && (
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
