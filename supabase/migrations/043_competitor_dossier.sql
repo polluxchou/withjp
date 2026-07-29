@@ -38,3 +38,8 @@ begin
     execute 'create policy "authenticated_only" on competitor_shots for all to authenticated using (auth.uid() is not null)';
   end if;
 end $$;
+
+-- D. Storage 桶（公开读），与 item-photos 同套路
+insert into storage.buckets (id, name, public)
+values ('competitor-shots', 'competitor-shots', true)
+on conflict (id) do nothing;

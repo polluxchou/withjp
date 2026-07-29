@@ -1276,6 +1276,7 @@
     "colDate": "日付",
     "delete": "削除",
     "deleteConfirm": "この競合とすべての記録を削除しますか？",
+    "deleteShotConfirm": "このスクショを削除しますか？",
     "actionFailed": "操作に失敗しました",
     "weeklyFollowers": "フォロワー · 直近4週",
     "weeklyDelta": "{pct}%/週",

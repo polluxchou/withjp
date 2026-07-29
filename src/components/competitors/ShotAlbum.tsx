@@ -3,24 +3,39 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { Trash2 } from 'lucide-react'
 import { weekStartOf } from '@/lib/competitors/weekly'
 import ShotUploader from './ShotUploader'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
-function Thumb({ shot, onOpen }: { shot: CompetitorShot; onOpen: () => void }) {
+function Thumb({ shot, canEdit, onOpen, onDelete }: {
+  shot: CompetitorShot
+  canEdit: boolean
+  onOpen: () => void
+  onDelete: () => void
+}) {
+  const t = useTranslations('competitors')
   const label = [shot.shot_on, shot.tag].filter(Boolean).join(' · ')
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="relative h-[132px] w-[74px] shrink-0 overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={shot.image_url} alt={shot.caption || shot.tag || ''} className="h-full w-full object-cover" loading="lazy" />
+    <div className="relative h-[132px] w-[74px] shrink-0 overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800">
+      <button type="button" onClick={onOpen} className="block h-full w-full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={shot.image_url} alt={shot.caption || shot.tag || ''} className="h-full w-full object-cover" loading="lazy" />
+      </button>
       {label && (
-        <span className="absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-[9px] text-white">{label}</span>
+        <span className="pointer-events-none absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-[9px] text-white">{label}</span>
       )}
-    </button>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label={t('delete')}
+          className="absolute right-1 top-1 rounded bg-black/50 p-0.5 text-white hover:bg-red-600"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -35,6 +50,16 @@ export default function ShotAlbum({
   const t = useTranslations('competitors')
   const [open, setOpen] = useState(false)
   const [lightbox, setLightbox] = useState<string | null>(null)
+
+  const removeShot = async (id: string) => {
+    if (!confirm(t('deleteShotConfirm'))) return
+    try {
+      const res = await fetch(`/api/competitors/shots/${id}`, { method: 'DELETE' })
+      if (res.ok) onChanged()
+    } catch {
+      // 忽略：失败时保留原状，用户可重试
+    }
+  }
 
   if (shots.length === 0 && !canEdit) {
     return <p className="text-xs text-neutral-500">{t('noShots')}</p>
@@ -59,7 +84,9 @@ export default function ShotAlbum({
     <div className="min-w-0">
       {!open ? (
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {folded.map((s) => <Thumb key={s.id} shot={s} onOpen={() => setLightbox(s.image_url)} />)}
+          {folded.map((s) => (
+            <Thumb key={s.id} shot={s} canEdit={canEdit} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
+          ))}
           {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} />}
         </div>
       ) : (
@@ -68,7 +95,9 @@ export default function ShotAlbum({
             <div key={wk}>
               <div className="mb-1 text-[11px] text-neutral-500">{wk === '—' ? t('undated') : wk}</div>
               <div className="flex flex-wrap gap-2">
-                {groups.get(wk)!.map((s) => <Thumb key={s.id} shot={s} onOpen={() => setLightbox(s.image_url)} />)}
+                {groups.get(wk)!.map((s) => (
+                  <Thumb key={s.id} shot={s} canEdit={canEdit} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
+                ))}
               </div>
             </div>
           ))}
