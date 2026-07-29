@@ -90,10 +90,10 @@ export default function CompetitorCard({
                 {canEdit && (
                   <button
                     onClick={() => { setHandleInput(c.handle); setEditingHandle(true) }}
-                    className="text-zinc-300 hover:text-zinc-500"
+                    className="text-zinc-400 hover:text-zinc-700"
                     aria-label="编辑 handle"
                   >
-                    <Pencil size={11} />
+                    <Pencil size={13} />
                   </button>
                 )}
               </span>
