@@ -20,11 +20,11 @@ export default function WeeklyFollowersCurve({ weekly }: { weekly: WeeklyPoint[]
   const points = buildSparklinePoints(values, W, H)
 
   return (
-    <div className="flex flex-col rounded-md bg-neutral-50 p-2.5 dark:bg-neutral-900">
-      <span className="text-[11px] text-neutral-500">{t('weeklyFollowers')}</span>
+    <div className="flex flex-col rounded-md bg-zinc-50 p-2.5">
+      <span className="text-[11px] text-zinc-500">{t('weeklyFollowers')}</span>
       <span className="text-base font-medium leading-tight tabular-nums">{formatCount(latest)}</span>
       {pct != null && (
-        <span className="text-[11px] text-sky-600 dark:text-sky-400">
+        <span className="text-[11px] text-sky-600">
           {t('weeklyDelta', { pct: `${pct > 0 ? '+' : ''}${pct.toFixed(1)}` })}
         </span>
       )}
@@ -39,7 +39,7 @@ export default function WeeklyFollowersCurve({ weekly }: { weekly: WeeklyPoint[]
           <polyline points={points} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
         </svg>
       ) : (
-        <span className="mt-1.5 text-[11px] text-neutral-400">{t('weeklyEmpty')}</span>
+        <span className="mt-1.5 text-[11px] text-zinc-400">{t('weeklyEmpty')}</span>
       )}
     </div>
   )
