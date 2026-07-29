@@ -4,6 +4,7 @@
 import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
+import { compressImage } from './compressImage'
 
 export default function ShotUploader({ competitorId, onDone }: { competitorId: string; onDone: () => void }) {
   const t = useTranslations('competitors')
@@ -15,8 +16,9 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
     setBusy(true)
     setError(null)
     try {
+      const compressed = await compressImage(file)
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', compressed)
       const up = await fetch('/api/competitors/upload', { method: 'POST', body: form })
       const upJson = await up.json().catch(() => ({ error: 'parse' }))
       if (!up.ok || upJson.error) { setError(t('uploadFailed')); return }
@@ -53,7 +55,7 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
       onPaste={onPaste}
       aria-label={t('upload')}
       title={t('orPaste')}
-      className="flex h-[132px] w-[74px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400 outline-none focus:border-sky-400 focus:text-sky-500"
+      className="flex h-[46vh] w-[26vh] min-h-[300px] min-w-[169px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400 outline-none focus:border-sky-400 focus:text-sky-500"
     >
       <button
         type="button"
