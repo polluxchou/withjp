@@ -1,7 +1,7 @@
 // src/components/competitors/CompetitorDossierView.tsx
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
+import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import CompetitorCard from './CompetitorCard'
@@ -11,8 +11,18 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   const t = useTranslations('competitors')
   const [board, setBoard] = useState<CompetitorBoard>(initial)
   const [input, setInput] = useState('')
+  const [parent, setParent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+
+  // 顶层竞品可作为父账号选项。
+  const parentOptions = useMemo(
+    () => board.competitors.map((c) => ({
+      id: c.id,
+      label: c.latest?.display_name ?? c.display_name ?? c.handle,
+    })),
+    [board.competitors],
+  )
 
   const refresh = useCallback(async () => {
     try {
@@ -29,22 +39,25 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     const value = input.trim()
     if (!value) return
     setError(null)
+    const body: { url: string; parent_id?: string } = { url: value }
+    if (parent) body.parent_id = parent
     startTransition(async () => {
       try {
         const res = await fetch('/api/competitors', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: value }),
+          body: JSON.stringify(body),
         })
         const json = await res.json().catch(() => ({ error: 'parse' }))
         if (!res.ok || json.error) { setError(t('addFailed')); return }
         setInput('')
+        setParent('')
         await refresh()
       } catch {
         setError(t('addFailed'))
       }
     })
-  }, [input, refresh, t])
+  }, [input, parent, refresh, t])
 
   const remove = useCallback((id: string) => {
     if (!confirm(t('deleteConfirm'))) return
@@ -52,6 +65,23 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     startTransition(async () => {
       try {
         const res = await fetch(`/api/competitors/${id}`, { method: 'DELETE' })
+        if (!res.ok) { setError(t('actionFailed')); return }
+        await refresh()
+      } catch {
+        setError(t('actionFailed'))
+      }
+    })
+  }, [refresh, t])
+
+  const assignParent = useCallback((id: string, parentId: string | null) => {
+    setError(null)
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/competitors/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parent_id: parentId }),
+        })
         if (!res.ok) { setError(t('actionFailed')); return }
         await refresh()
       } catch {
@@ -71,6 +101,17 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
             placeholder={t('addPlaceholder')}
             className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm"
           />
+          <select
+            value={parent}
+            onChange={(e) => setParent(e.target.value)}
+            aria-label={t('belongsTo')}
+            className="rounded-md border border-zinc-300 px-2 py-2 text-sm text-zinc-700"
+          >
+            <option value="">{t('independent')}</option>
+            {parentOptions.map((p) => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
           <button
             onClick={add}
             disabled={pending}
@@ -87,7 +128,15 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
       ) : (
         <div className="space-y-3">
           {board.competitors.map((c) => (
-            <CompetitorCard key={c.id} c={c} canEdit={board.canEdit} onChanged={refresh} onDeleteId={remove} />
+            <CompetitorCard
+              key={c.id}
+              c={c}
+              canEdit={board.canEdit}
+              onChanged={refresh}
+              onDeleteId={remove}
+              parentOptions={parentOptions}
+              onAssignParent={assignParent}
+            />
           ))}
         </div>
       )}

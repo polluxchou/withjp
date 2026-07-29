@@ -20,12 +20,14 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDeleteId, nested = false,
+  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, nested = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
   onChanged: () => void
   onDeleteId: (id: string) => void
+  parentOptions: { id: string; label: string }[]
+  onAssignParent: (id: string, parentId: string | null) => void
   nested?: boolean
 }) {
   const t = useTranslations('competitors')
@@ -63,6 +65,19 @@ export default function CompetitorCard({
           </div>
           <div className="mt-0.5 truncate text-xs text-zinc-500">{statLine}</div>
         </div>
+        {canEdit && c.related.length === 0 && (
+          <select
+            value={c.parent_id ?? ''}
+            onChange={(e) => onAssignParent(c.id, e.target.value || null)}
+            aria-label={t('belongsTo')}
+            className="max-w-[9rem] rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-600"
+          >
+            <option value="">{t('independent')}</option>
+            {parentOptions.filter((p) => p.id !== c.id).map((p) => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+        )}
         <a href={c.profile_url} target="_blank" rel="noreferrer" aria-label={t('openProfile')} className="text-zinc-400 hover:text-zinc-700">
           <ExternalLink size={16} />
         </a>
@@ -100,6 +115,8 @@ export default function CompetitorCard({
                   canEdit={canEdit}
                   onChanged={onChanged}
                   onDeleteId={onDeleteId}
+                  parentOptions={parentOptions}
+                  onAssignParent={onAssignParent}
                   nested
                 />
               ))}
