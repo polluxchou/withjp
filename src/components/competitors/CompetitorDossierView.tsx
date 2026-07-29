@@ -87,7 +87,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
       ) : (
         <div className="space-y-3">
           {board.competitors.map((c) => (
-            <CompetitorCard key={c.id} c={c} canEdit={board.canEdit} onChanged={refresh} onDelete={() => remove(c.id)} />
+            <CompetitorCard key={c.id} c={c} canEdit={board.canEdit} onChanged={refresh} onDeleteId={remove} />
           ))}
         </div>
       )}
