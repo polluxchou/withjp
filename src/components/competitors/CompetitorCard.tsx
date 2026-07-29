@@ -91,10 +91,17 @@ export default function CompetitorCard({
         )}
       </div>
 
-      <div className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1">
-        <WeeklyFollowersCurve weekly={c.weekly} />
-        <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} />
-      </div>
+      {nested ? (
+        <div className="space-y-2">
+          <WeeklyFollowersCurve weekly={c.weekly} compact />
+          <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} compact />
+        </div>
+      ) : (
+        <div className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1">
+          <WeeklyFollowersCurve weekly={c.weekly} />
+          <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} />
+        </div>
+      )}
 
       {c.related.length > 0 && (
         <div className="mt-3 border-t border-zinc-100 pt-3">
