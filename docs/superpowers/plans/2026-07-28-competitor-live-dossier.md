@@ -344,7 +344,7 @@ export function bucketFollowersByWeek(history: WeekBucketInput[]): WeeklyPoint[]
     byWeek.set(wk, arr)
   }
   const points: WeeklyPoint[] = []
-  for (const [week_start, rows] of byWeek) {
+  for (const [week_start, rows] of Array.from(byWeek.entries())) {
     rows.sort((a, b) => a.captured_on.localeCompare(b.captured_on))
     const last = rows[rows.length - 1]
     if (last.followers == null) continue
