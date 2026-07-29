@@ -92,6 +92,24 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     })
   }, [refresh, t])
 
+  const updateHandle = useCallback((id: string, raw: string) => {
+    setError(null)
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/competitors/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ handle: raw }),
+        })
+        const json = await res.json().catch(() => ({ error: 'parse' }))
+        if (!res.ok || json.error) { setError(t('actionFailed')); return }
+        await refresh()
+      } catch {
+        setError(t('actionFailed'))
+      }
+    })
+  }, [refresh, t])
+
   return (
     <div className="space-y-4">
       {board.canEdit && (
@@ -147,6 +165,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               onDeleteId={remove}
               parentOptions={parentOptions}
               onAssignParent={assignParent}
+              onUpdateHandle={updateHandle}
             />
           ))}
         </div>
