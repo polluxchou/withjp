@@ -1516,6 +1516,8 @@
     "orPaste": "或粘贴",
     "related": "关联主播",
     "independent": "团播主账号",
+    "roleStreamer": "主播",
+    "selectGroup": "选择团播主账号",
     "belongsTo": "归属主账号",
     "uploadFailed": "上传失败",
     "noShots": "还没有截图",
