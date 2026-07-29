@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
 import { compressImage } from './compressImage'
 
-export default function ShotUploader({ competitorId, onDone }: { competitorId: string; onDone: () => void }) {
+export default function ShotUploader({ competitorId, onDone, compact = false }: { competitorId: string; onDone: () => void; compact?: boolean }) {
   const t = useTranslations('competitors')
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -55,7 +55,7 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
       onPaste={onPaste}
       aria-label={t('upload')}
       title={t('orPaste')}
-      className="flex h-[46vh] w-[26vh] min-h-[300px] min-w-[169px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400 outline-none focus:border-sky-400 focus:text-sky-500"
+      className={`flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400 outline-none focus:border-sky-400 focus:text-sky-500 ${compact ? 'h-32 w-[72px]' : 'h-[46vh] w-[26vh] min-h-[300px] min-w-[169px]'}`}
     >
       <button
         type="button"
@@ -63,10 +63,10 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
         disabled={busy}
         className="flex flex-col items-center gap-1 text-[11px] disabled:opacity-50"
       >
-        <Upload size={18} />
+        <Upload size={compact ? 14 : 18} />
         {t('upload')}
       </button>
-      <span className="text-[9px] text-zinc-400">{t('orPaste')}</span>
+      {!compact && <span className="text-[9px] text-zinc-400">{t('orPaste')}</span>}
       <input
         ref={inputRef}
         type="file"
