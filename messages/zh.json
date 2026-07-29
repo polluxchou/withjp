@@ -1513,6 +1513,7 @@
     "viewAll": "查看全部 {count}",
     "collapse": "收起",
     "upload": "上传",
+    "orPaste": "或粘贴",
     "uploadFailed": "上传失败",
     "noShots": "还没有截图",
     "undated": "未标日期",

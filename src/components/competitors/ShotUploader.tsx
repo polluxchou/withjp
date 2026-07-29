@@ -35,8 +35,26 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
     }
   }
 
+  const onPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    if (busy) return
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (const it of Array.from(items)) {
+      if (it.type.startsWith('image/')) {
+        const file = it.getAsFile()
+        if (file) { e.preventDefault(); onPick(file); return }
+      }
+    }
+  }
+
   return (
-    <div className="flex h-[132px] w-[74px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400">
+    <div
+      tabIndex={0}
+      onPaste={onPaste}
+      aria-label={t('upload')}
+      title={t('orPaste')}
+      className="flex h-[132px] w-[74px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400 outline-none focus:border-sky-400 focus:text-sky-500"
+    >
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
@@ -46,6 +64,7 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
         <Upload size={18} />
         {t('upload')}
       </button>
+      <span className="text-[9px] text-zinc-400">{t('orPaste')}</span>
       <input
         ref={inputRef}
         type="file"
