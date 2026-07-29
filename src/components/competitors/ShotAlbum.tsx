@@ -17,7 +17,7 @@ function Thumb({ shot, canEdit, onOpen, onDelete }: {
   const t = useTranslations('competitors')
   const label = [shot.shot_on, shot.tag].filter(Boolean).join(' · ')
   return (
-    <div className="relative h-[132px] w-[74px] shrink-0 overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800">
+    <div className="relative h-[132px] w-[74px] shrink-0 overflow-hidden rounded-lg bg-zinc-100">
       <button type="button" onClick={onOpen} className="block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={shot.image_url} alt={shot.caption || shot.tag || ''} className="h-full w-full object-cover" loading="lazy" />
@@ -62,7 +62,7 @@ export default function ShotAlbum({
   }
 
   if (shots.length === 0 && !canEdit) {
-    return <p className="text-xs text-neutral-500">{t('noShots')}</p>
+    return <p className="text-xs text-zinc-500">{t('noShots')}</p>
   }
 
   const folded = shots.slice(0, 6)
@@ -93,7 +93,7 @@ export default function ShotAlbum({
         <div className="space-y-3">
           {weekKeys.map((wk) => (
             <div key={wk}>
-              <div className="mb-1 text-[11px] text-neutral-500">{wk === '—' ? t('undated') : wk}</div>
+              <div className="mb-1 text-[11px] text-zinc-500">{wk === '—' ? t('undated') : wk}</div>
               <div className="flex flex-wrap gap-2">
                 {groups.get(wk)!.map((s) => (
                   <Thumb key={s.id} shot={s} canEdit={canEdit} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
@@ -109,7 +109,7 @@ export default function ShotAlbum({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="mt-2 text-xs text-sky-600 hover:underline dark:text-sky-400"
+          className="mt-2 text-xs text-sky-600 hover:underline"
         >
           {open ? t('collapse') : t('viewAll', { count: shots.length })}
         </button>
