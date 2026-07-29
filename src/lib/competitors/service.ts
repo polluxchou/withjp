@@ -36,6 +36,7 @@ export interface CompetitorFields {
   online_note?: string
   latest_videos?: { url: string; title?: string }[]
   parent_id?: string | null // 归属主账号;null=独立主账号
+  handle?: string // 支持更新 handle（对方改 id 时使用），同时自动更新 profile_url
 }
 
 const FIELD_KEYS: (keyof CompetitorFields)[] = [
@@ -130,6 +131,14 @@ export async function updateCompetitor(
   fields: CompetitorFields,
 ): Promise<ServiceResult<{ id: string }>> {
   const patch = pickFields(fields)
+  if (fields.handle !== undefined) {
+    const raw = fields.handle.trim()
+    const h = parseHandleFromUrl(raw)
+    if (!h) return err('invalid_input', 'invalid handle or URL')
+    const profile_url = /^https?:\/\//i.test(raw) ? raw : `https://www.tiktok.com/@${h}`
+    patch.handle = h
+    patch.profile_url = profile_url
+  }
   if (Object.keys(patch).length === 0) return err('invalid_input', 'nothing to update')
   const db = createServerClient()
   if (fields.parent_id !== undefined && fields.parent_id !== null) {
