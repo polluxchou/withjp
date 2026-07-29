@@ -1505,6 +1505,7 @@
     "colDate": "日期",
     "delete": "删除",
     "deleteConfirm": "确定删除该竞品及其全部打点？",
+    "deleteShotConfirm": "确定删除这张截图？",
     "actionFailed": "操作失败",
     "weeklyFollowers": "粉丝 · 近4周",
     "weeklyDelta": "{pct}%/周",
