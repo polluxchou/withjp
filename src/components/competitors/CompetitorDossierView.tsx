@@ -69,12 +69,12 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') add() }}
             placeholder={t('addPlaceholder')}
-            className="flex-1 rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm"
           />
           <button
             onClick={add}
             disabled={pending}
-            className="inline-flex items-center gap-1 rounded-md bg-neutral-900 px-3 py-2 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
+            className="inline-flex items-center gap-1 rounded-md bg-zinc-900 px-3 py-2 text-sm text-white disabled:opacity-50"
           >
             <Plus size={16} /> {t('addButton')}
           </button>
@@ -83,7 +83,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {board.competitors.length === 0 ? (
-        <p className="text-sm text-neutral-500">{t('empty')}</p>
+        <p className="text-sm text-zinc-500">{t('empty')}</p>
       ) : (
         <div className="space-y-3">
           {board.competitors.map((c) => (
