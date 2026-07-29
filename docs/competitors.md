@@ -188,6 +188,14 @@ API：
 - 更新备注 / 昵称的 `PATCH` API 已具备，且已接入团级字段编辑 UI。
 - `captured_on` 按 UTC 取当天，对 UTC 以西时区可能与本地日期差一天。
 
+## 7bis. 关联主播下探（bio 提及）
+
+采集某竞品写快照时，采集脚本会用纯函数 `src/lib/competitors/mentions.ts` 的 `extractMentionedHandles` 从其 `bio` 中提取被 @ 到的其他 handle（排除自身、排除邮箱域名、去尾部标点、大小写去重、上限 20），把它们作为**该竞品的下一级关联主播**写入 `competitors`（`parent_id = 父竞品`，`note = 来自 @父 简介`，已存在则不动、不重挂）。
+
+- 只下探**一跳**：只加子账号条目（id / 主页链接），不递归读子账号的 bio，也不强抓其数据；日后采集子账号时各自再下探一跳。
+- 迁移 `044_competitor_parent.sql` 给 `competitors` 加自引用 `parent_id`（`on delete cascade`，随父删子）。
+- 首页只列 `parent_id` 为空的主竞品；子账号在父卡片里默认折叠的「关联主播 (N)」子区下钻查看（`CompetitorCard` 递归渲染），**不在首页平铺**。
+
 ## 8. 后续方向
 
 - 扩展多平台（快手 / 视频号），复用 `platform` 字段与同一分层。
