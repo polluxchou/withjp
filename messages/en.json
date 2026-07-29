@@ -1516,6 +1516,8 @@
     "orPaste": "or paste",
     "related": "Related",
     "independent": "Group main account",
+    "roleStreamer": "Streamer",
+    "selectGroup": "Select group account",
     "belongsTo": "Parent account",
     "uploadFailed": "Upload failed",
     "noShots": "No screenshots yet",
