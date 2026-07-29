@@ -8,6 +8,16 @@ export interface Competitor {
   display_name: string | null
   note: string
   created_at: string
+  // 043 团级档案字段
+  avatar_url: string | null
+  region: string
+  member_count: number | null
+  composition: string | null
+  launch_city: string | null
+  launched_on: string | null
+  mc_note: string | null
+  online_note: string | null
+  latest_videos: { url: string; title?: string }[] | null
 }
 
 export interface CompetitorSnapshot {
@@ -33,9 +43,28 @@ export interface HistoryPoint {
   videos: number | null
 }
 
+export interface CompetitorShot {
+  id: string
+  competitor_id: string
+  image_url: string
+  shot_on: string | null
+  tag: string | null
+  caption: string
+  sort_order: number
+  created_at: string
+}
+
+/** 按 ISO 周聚合的粉丝点（week_start = 周一 YYYY-MM-DD）。 */
+export interface WeeklyPoint {
+  week_start: string
+  followers: number
+}
+
 export interface CompetitorWithHistory extends Competitor {
   latest: CompetitorSnapshot | null
   history: HistoryPoint[]
+  shots: CompetitorShot[]
+  weekly: WeeklyPoint[]
 }
 
 export interface CompetitorBoard {
