@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
 import { updateCompetitor, deleteCompetitor, httpStatusForError } from '@/lib/competitors/service'
+import type { CompetitorFields } from '@/lib/competitors/service'
 
-// PATCH /api/competitors/[id] — body { note?, display_name? }
+// PATCH /api/competitors/[id] — body: 团级字段
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
-  let body: { note?: string; display_name?: string }
+  let body: CompetitorFields
   try {
     body = await req.json()
   } catch {
