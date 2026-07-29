@@ -1513,6 +1513,7 @@
     "viewAll": "View all {count}",
     "collapse": "Collapse",
     "upload": "Upload",
+    "orPaste": "or paste",
     "uploadFailed": "Upload failed",
     "noShots": "No screenshots yet",
     "undated": "Undated",

@@ -1284,6 +1284,7 @@
     "viewAll": "すべて表示 {count}",
     "collapse": "折りたたむ",
     "upload": "アップロード",
+    "orPaste": "貼り付け",
     "uploadFailed": "アップロード失敗",
     "noShots": "スクショはまだありません",
     "undated": "日付なし",
