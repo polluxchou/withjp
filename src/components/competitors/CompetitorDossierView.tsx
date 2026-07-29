@@ -11,7 +11,8 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   const t = useTranslations('competitors')
   const [board, setBoard] = useState<CompetitorBoard>(initial)
   const [input, setInput] = useState('')
-  const [parent, setParent] = useState('')
+  const [addType, setAddType] = useState<'group' | 'streamer'>('group')
+  const [addParentId, setAddParentId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -40,7 +41,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     if (!value) return
     setError(null)
     const body: { url: string; parent_id?: string } = { url: value }
-    if (parent) body.parent_id = parent
+    if (addType === 'streamer' && addParentId) body.parent_id = addParentId
     startTransition(async () => {
       try {
         const res = await fetch('/api/competitors', {
@@ -51,7 +52,8 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
         const json = await res.json().catch(() => ({ error: 'parse' }))
         if (!res.ok || json.error) { setError(t('addFailed')); return }
         setInput('')
-        setParent('')
+        setAddType('group')
+        setAddParentId('')
         await refresh()
       } catch {
         setError(t('addFailed'))
@@ -102,16 +104,25 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
             className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm"
           />
           <select
-            value={parent}
-            onChange={(e) => setParent(e.target.value)}
-            aria-label={t('belongsTo')}
+            value={addType}
+            onChange={(e) => { setAddType(e.target.value as 'group' | 'streamer'); setAddParentId('') }}
             className="rounded-md border border-zinc-300 px-2 py-2 text-sm text-zinc-700"
           >
-            <option value="">{t('independent')}</option>
-            {parentOptions.map((p) => (
-              <option key={p.id} value={p.id}>{p.label}</option>
-            ))}
+            <option value="group">{t('independent')}</option>
+            <option value="streamer">{t('roleStreamer')}</option>
           </select>
+          {addType === 'streamer' && (
+            <select
+              value={addParentId}
+              onChange={(e) => setAddParentId(e.target.value)}
+              className="rounded-md border border-zinc-300 px-2 py-2 text-sm text-zinc-700"
+            >
+              <option value="">{t('selectGroup')}</option>
+              {parentOptions.map((p) => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </select>
+          )}
           <button
             onClick={add}
             disabled={pending}
