@@ -1515,6 +1515,8 @@
     "upload": "Upload",
     "orPaste": "or paste",
     "related": "Related",
+    "independent": "Independent",
+    "belongsTo": "Parent account",
     "uploadFailed": "Upload failed",
     "noShots": "No screenshots yet",
     "undated": "Undated",
