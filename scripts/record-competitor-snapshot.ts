@@ -5,6 +5,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { parseCount } from '../src/lib/competitors/metrics.ts'
+import { extractMentionedHandles } from '../src/lib/competitors/mentions.ts'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -85,6 +86,24 @@ async function run() {
     if (sErr) { console.error('snapshot upsert failed', handle, sErr.message); continue }
 
     console.log(`✓ ${platform}/@${handle} ${captured_on} — followers=${snap.followers} likes=${snap.likes} videos=${snap.videos}`)
+
+    // 下探一步：bio 里 @ 到的关联主播作为该竞品的子账号加入（parent_id=父），首页不平铺；已存在则不动。
+    const mentioned = extractMentionedHandles(r.bio, handle)
+    if (mentioned.length) {
+      const parentId = (comp as { id: string }).id
+      const childRows = mentioned.map((h) => ({
+        platform,
+        handle: h,
+        profile_url: `https://www.tiktok.com/@${h}`,
+        parent_id: parentId,
+        note: `来自 @${handle} 简介`,
+      }))
+      const { error: rErr } = await db
+        .from('competitors')
+        .upsert(childRows, { onConflict: 'platform,handle', ignoreDuplicates: true })
+      if (rErr) console.error('  related upsert failed', handle, rErr.message)
+      else console.log(`  ↳ 关联主播 ${mentioned.map((h) => '@' + h).join(' ')} → 已挂到 @${handle} 下级`)
+    }
   }
 }
 
