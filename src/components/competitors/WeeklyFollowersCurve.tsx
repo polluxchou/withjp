@@ -20,7 +20,7 @@ export default function WeeklyFollowersCurve({ weekly }: { weekly: WeeklyPoint[]
   const points = buildSparklinePoints(values, W, H)
 
   return (
-    <div className="flex flex-col rounded-md bg-zinc-50 p-2.5">
+    <div className="flex flex-col self-start rounded-md bg-zinc-50 p-2.5">
       <span className="text-[11px] text-zinc-500">{t('weeklyFollowers')}</span>
       <span className="text-base font-medium leading-tight tabular-nums">{formatCount(latest)}</span>
       {pct != null && (
