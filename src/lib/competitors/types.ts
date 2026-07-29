@@ -8,6 +8,8 @@ export interface Competitor {
   display_name: string | null
   note: string
   created_at: string
+  // 044 父子层级:下探发现的关联主播 parent_id 指向父竞品;首页只列 parent_id 为 null 的主竞品
+  parent_id: string | null
   // 043 团级档案字段
   avatar_url: string | null
   region: string
@@ -65,6 +67,8 @@ export interface CompetitorWithHistory extends Competitor {
   history: HistoryPoint[]
   shots: CompetitorShot[]
   weekly: WeeklyPoint[]
+  /** 下探发现的关联主播（子账号），只在父卡片里下钻展示,不在首页平铺。 */
+  related: CompetitorWithHistory[]
 }
 
 export interface CompetitorBoard {

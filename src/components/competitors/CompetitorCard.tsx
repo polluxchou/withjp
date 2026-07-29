@@ -20,15 +20,17 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDelete,
+  c, canEdit, onChanged, onDeleteId, nested = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
   onChanged: () => void
-  onDelete: () => void
+  onDeleteId: (id: string) => void
+  nested?: boolean
 }) {
   const t = useTranslations('competitors')
   const [open, setOpen] = useState(false)
+  const [relOpen, setRelOpen] = useState(false)
   const name = c.latest?.display_name ?? c.display_name ?? c.handle
   const statLine = [
     `${t('colVideos')} ${formatCount(c.latest?.videos ?? null)}`,
@@ -37,8 +39,12 @@ export default function CompetitorCard({
     c.latest ? t('latestOn', { date: c.latest.captured_on }) : null,
   ].filter(Boolean).join(' · ')
 
+  const shell = nested
+    ? 'rounded-lg border border-zinc-100 bg-zinc-50 p-3'
+    : 'rounded-xl border border-zinc-200 bg-white p-4'
+
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4">
+    <div className={shell}>
       <div className="mb-3 flex items-center gap-3">
         {c.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -64,7 +70,7 @@ export default function CompetitorCard({
           {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
         </button>
         {canEdit && (
-          <button onClick={onDelete} aria-label={t('delete')} className="text-zinc-400 hover:text-red-600">
+          <button onClick={() => onDeleteId(c.id)} aria-label={t('delete')} className="text-zinc-400 hover:text-red-600">
             <Trash2 size={16} />
           </button>
         )}
@@ -74,6 +80,33 @@ export default function CompetitorCard({
         <WeeklyFollowersCurve weekly={c.weekly} />
         <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} />
       </div>
+
+      {c.related.length > 0 && (
+        <div className="mt-3 border-t border-zinc-100 pt-3">
+          <button
+            type="button"
+            onClick={() => setRelOpen((v) => !v)}
+            className="flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-900"
+          >
+            {relOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            {t('related')} ({c.related.length})
+          </button>
+          {relOpen && (
+            <div className="mt-2 space-y-2 border-l-2 border-zinc-100 pl-3">
+              {c.related.map((child) => (
+                <CompetitorCard
+                  key={child.id}
+                  c={child}
+                  canEdit={canEdit}
+                  onChanged={onChanged}
+                  onDeleteId={onDeleteId}
+                  nested
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {open && (
         <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3 text-xs">
