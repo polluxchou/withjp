@@ -1488,7 +1488,7 @@
   },
   "competitors": {
     "title": "Competitor Monitoring",
-    "subtitle": "Track competitors' TikTok profile metrics over time",
+    "subtitle": "JP TikTok group-live competitors: profile metrics, livestream shots, weekly follower trend",
     "addPlaceholder": "Paste a TikTok profile URL or @handle",
     "addButton": "Add competitor",
     "addFailed": "Failed to add",
@@ -1505,6 +1505,24 @@
     "colDate": "Date",
     "delete": "Delete",
     "deleteConfirm": "Delete this competitor and all its snapshots?",
-    "actionFailed": "Action failed"
+    "actionFailed": "Action failed",
+    "weeklyFollowers": "Followers · last 4 wks",
+    "weeklyDelta": "{pct}%/wk",
+    "weeklyEmpty": "No follower data",
+    "viewAll": "View all {count}",
+    "collapse": "Collapse",
+    "upload": "Upload",
+    "uploadFailed": "Upload failed",
+    "noShots": "No screenshots yet",
+    "undated": "Undated",
+    "bio": "Bio",
+    "fieldMembers": "Members",
+    "fieldComposition": "Type",
+    "fieldLaunch": "Started",
+    "fieldMc": "MC",
+    "fieldOnline": "Online",
+    "fieldLatestVideos": "Latest videos",
+    "openProfile": "Open profile",
+    "expandProfile": "Toggle dossier"
   }
 }

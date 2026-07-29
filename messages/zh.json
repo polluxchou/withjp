@@ -1488,7 +1488,7 @@
   },
   "competitors": {
     "title": "竞品监测",
-    "subtitle": "记录竞品 TikTok 主页指标，形成增长趋势",
+    "subtitle": "日区 TikTok 团播竞品：主页指标 + 直播间截图 + 按周粉丝趋势",
     "addPlaceholder": "粘贴 TikTok 主页链接或 @handle",
     "addButton": "添加竞品",
     "addFailed": "添加失败",
@@ -1505,6 +1505,24 @@
     "colDate": "日期",
     "delete": "删除",
     "deleteConfirm": "确定删除该竞品及其全部打点？",
-    "actionFailed": "操作失败"
+    "actionFailed": "操作失败",
+    "weeklyFollowers": "粉丝 · 近4周",
+    "weeklyDelta": "{pct}%/周",
+    "weeklyEmpty": "暂无粉丝数据",
+    "viewAll": "查看全部 {count}",
+    "collapse": "收起",
+    "upload": "上传",
+    "uploadFailed": "上传失败",
+    "noShots": "还没有截图",
+    "undated": "未标日期",
+    "bio": "简介",
+    "fieldMembers": "人数",
+    "fieldComposition": "构成",
+    "fieldLaunch": "开团",
+    "fieldMc": "MC",
+    "fieldOnline": "在线",
+    "fieldLatestVideos": "最新视频",
+    "openProfile": "打开主页",
+    "expandProfile": "展开档案"
   }
 }
