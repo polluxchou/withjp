@@ -8,31 +8,35 @@ import { weekStartOf } from '@/lib/competitors/weekly'
 import ShotUploader from './ShotUploader'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
-function Thumb({ shot, canEdit, onOpen, onDelete }: {
+function Thumb({ shot, canEdit, compact, onOpen, onDelete }: {
   shot: CompetitorShot
   canEdit: boolean
+  compact: boolean
   onOpen: () => void
   onDelete: () => void
 }) {
   const t = useTranslations('competitors')
   const label = [shot.shot_on, shot.tag].filter(Boolean).join(' · ')
+  const box = compact
+    ? 'h-32 w-[72px]'
+    : 'h-[46vh] w-[26vh] min-h-[300px] min-w-[169px]'
   return (
-    <div className="relative h-[46vh] w-[26vh] min-h-[300px] min-w-[169px] shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+    <div className={`relative ${box} shrink-0 overflow-hidden rounded-lg bg-zinc-100`}>
       <button type="button" onClick={onOpen} className="block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={shot.image_url} alt={shot.caption || shot.tag || ''} className="h-full w-full object-cover" loading="lazy" />
       </button>
       {label && (
-        <span className="pointer-events-none absolute inset-x-2 bottom-2 truncate rounded bg-black/50 px-1.5 py-0.5 text-xs text-white">{label}</span>
+        <span className={`pointer-events-none absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-white ${compact ? 'text-[9px]' : 'inset-x-2 bottom-2 px-1.5 text-xs'}`}>{label}</span>
       )}
       {canEdit && (
         <button
           type="button"
           onClick={onDelete}
           aria-label={t('delete')}
-          className="absolute right-2 top-2 rounded bg-black/50 p-1 text-white hover:bg-red-600"
+          className={`absolute rounded bg-black/50 text-white hover:bg-red-600 ${compact ? 'right-1 top-1 p-0.5' : 'right-2 top-2 p-1'}`}
         >
-          <Trash2 size={16} />
+          <Trash2 size={compact ? 12 : 16} />
         </button>
       )}
     </div>
@@ -40,12 +44,13 @@ function Thumb({ shot, canEdit, onOpen, onDelete }: {
 }
 
 export default function ShotAlbum({
-  competitorId, shots, canEdit, onChanged,
+  competitorId, shots, canEdit, onChanged, compact = false,
 }: {
   competitorId: string
   shots: CompetitorShot[]
   canEdit: boolean
   onChanged: () => void
+  compact?: boolean
 }) {
   const t = useTranslations('competitors')
   const [open, setOpen] = useState(false)
@@ -65,7 +70,8 @@ export default function ShotAlbum({
     return <p className="text-xs text-zinc-500">{t('noShots')}</p>
   }
 
-  const folded = shots.slice(0, 4)
+  const foldedCount = compact ? 8 : 4
+  const folded = shots.slice(0, foldedCount)
 
   const groups = new Map<string, CompetitorShot[]>()
   for (const s of shots) {
@@ -85,9 +91,9 @@ export default function ShotAlbum({
       {!open ? (
         <div className="flex flex-wrap gap-2">
           {folded.map((s) => (
-            <Thumb key={s.id} shot={s} canEdit={canEdit} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
+            <Thumb key={s.id} shot={s} canEdit={canEdit} compact={compact} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
           ))}
-          {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} />}
+          {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} compact={compact} />}
         </div>
       ) : (
         <div className="space-y-3">
@@ -96,16 +102,16 @@ export default function ShotAlbum({
               <div className="mb-1 text-[11px] text-zinc-500">{wk === '—' ? t('undated') : wk}</div>
               <div className="flex flex-wrap gap-2">
                 {groups.get(wk)!.map((s) => (
-                  <Thumb key={s.id} shot={s} canEdit={canEdit} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
+                  <Thumb key={s.id} shot={s} canEdit={canEdit} compact={compact} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
                 ))}
               </div>
             </div>
           ))}
-          {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} />}
+          {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} compact={compact} />}
         </div>
       )}
 
-      {shots.length > 4 && (
+      {shots.length > foldedCount && (
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
