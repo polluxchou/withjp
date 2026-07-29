@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import Header from '@/components/layout/Header'
-import CompetitorMonitoringView from '@/components/competitors/CompetitorMonitoringView'
+import CompetitorDossierView from '@/components/competitors/CompetitorDossierView'
 import { authGuard } from '@/lib/auth/guard'
 import { getCompetitorBoard } from '@/lib/competitors/service'
 import type { CompetitorBoard } from '@/lib/competitors/types'
@@ -25,7 +25,7 @@ export default async function CompetitorsPage({ params }: { params: { locale: st
     <div className="mx-auto max-w-5xl">
       <Header title={t('title')} subtitle={t('subtitle')} />
       <div className="mt-6">
-        <CompetitorMonitoringView initial={board} />
+        <CompetitorDossierView initial={board} />
       </div>
     </div>
   )
