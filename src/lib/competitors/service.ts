@@ -35,11 +35,12 @@ export interface CompetitorFields {
   mc_note?: string
   online_note?: string
   latest_videos?: { url: string; title?: string }[]
+  parent_id?: string | null // 归属主账号;null=独立主账号
 }
 
 const FIELD_KEYS: (keyof CompetitorFields)[] = [
   'note', 'display_name', 'avatar_url', 'region', 'member_count',
-  'composition', 'launch_city', 'launched_on', 'mc_note', 'online_note', 'latest_videos',
+  'composition', 'launch_city', 'launched_on', 'mc_note', 'online_note', 'latest_videos', 'parent_id',
 ]
 
 function pickFields(input: CompetitorFields): Record<string, unknown> {
@@ -48,6 +49,29 @@ function pickFields(input: CompetitorFields): Record<string, unknown> {
     if (input[k] !== undefined) patch[k] = input[k]
   }
   return patch
+}
+
+/** 校验父账号赋值:只允许两级层级(父必须是主账号),不能选自己,已有子账号者不能再变成子账号。 */
+async function assertValidParent(
+  db: ReturnType<typeof createServerClient>,
+  selfId: string | null,
+  parentId: string,
+): Promise<ServiceError | null> {
+  if (selfId && parentId === selfId) return { code: 'invalid_input', message: '不能把自己设为父账号' }
+  const { data: parent, error } = await db
+    .from('competitors').select('id, parent_id').eq('id', parentId).maybeSingle()
+  if (error) return { code: 'db_error', message: error.message }
+  if (!parent) return { code: 'invalid_input', message: '父账号不存在' }
+  if ((parent as { parent_id: string | null }).parent_id) {
+    return { code: 'invalid_input', message: '父账号必须是主账号(不能是子账号)' }
+  }
+  if (selfId) {
+    const { data: kids, error: kidErr } = await db
+      .from('competitors').select('id').eq('parent_id', selfId).limit(1)
+    if (kidErr) return { code: 'db_error', message: kidErr.message }
+    if (kids && kids.length) return { code: 'invalid_input', message: '该账号已有子账号,不能再成为子账号' }
+  }
+  return null
 }
 
 /** 加载看板：任意登录用户可读可写（canEdit 恒 true）。 */
@@ -87,6 +111,11 @@ export async function addCompetitor(
   if (findErr) return err('db_error', findErr.message)
   if (existing) return ok({ id: (existing as { id: string }).id })
 
+  if (input.parent_id) {
+    const bad = await assertValidParent(db, null, input.parent_id)
+    if (bad) return { data: null, error: bad }
+  }
+
   const { data, error } = await db
     .from('competitors')
     .insert({ platform, handle, profile_url, note: input.note ?? '', ...pickFields({ ...input, note: undefined }) })
@@ -103,6 +132,10 @@ export async function updateCompetitor(
   const patch = pickFields(fields)
   if (Object.keys(patch).length === 0) return err('invalid_input', 'nothing to update')
   const db = createServerClient()
+  if (fields.parent_id !== undefined && fields.parent_id !== null) {
+    const bad = await assertValidParent(db, id, fields.parent_id)
+    if (bad) return { data: null, error: bad }
+  }
   const { error } = await db.from('competitors').update(patch).eq('id', id)
   if (error) return err('db_error', error.message)
   return ok({ id })
