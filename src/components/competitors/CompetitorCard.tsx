@@ -1,7 +1,7 @@
 // src/components/competitors/CompetitorCard.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
@@ -33,6 +33,11 @@ export default function CompetitorCard({
   const t = useTranslations('competitors')
   const [open, setOpen] = useState(false)
   const [relOpen, setRelOpen] = useState(false)
+  // pendingStreamer: user clicked "主播" but hasn't picked a parent yet
+  const [pendingStreamer, setPendingStreamer] = useState(false)
+  useEffect(() => { setPendingStreamer(false) }, [c.parent_id])
+  const isStreamer = !!c.parent_id
+  const showAsStreamer = isStreamer || pendingStreamer
   const name = c.latest?.display_name ?? c.display_name ?? c.handle
   const statLine = [
     `${t('colVideos')} ${formatCount(c.latest?.videos ?? null)}`,
@@ -65,19 +70,41 @@ export default function CompetitorCard({
           </div>
           <div className="mt-0.5 truncate text-xs text-zinc-500">{statLine}</div>
         </div>
-        {canEdit && c.related.length === 0 && (
-          <select
-            value={c.parent_id ?? ''}
-            onChange={(e) => onAssignParent(c.id, e.target.value || null)}
-            aria-label={t('belongsTo')}
-            className="max-w-[9rem] rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-600"
-          >
-            <option value="">{t('independent')}</option>
-            {parentOptions.filter((p) => p.id !== c.id).map((p) => (
-              <option key={p.id} value={p.id}>{p.label}</option>
-            ))}
-          </select>
-        )}
+        {canEdit && c.related.length === 0 ? (
+          <div className="flex items-center gap-1">
+            <select
+              value={showAsStreamer ? 'streamer' : 'group'}
+              onChange={(e) => {
+                if (e.target.value === 'group') {
+                  setPendingStreamer(false)
+                  onAssignParent(c.id, null)
+                } else {
+                  setPendingStreamer(true)
+                }
+              }}
+              className="rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-600"
+            >
+              <option value="group">{t('independent')}</option>
+              <option value="streamer">{t('roleStreamer')}</option>
+            </select>
+            {showAsStreamer && (
+              <select
+                value={c.parent_id ?? ''}
+                onChange={(e) => { if (e.target.value) onAssignParent(c.id, e.target.value) }}
+                className="rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-600"
+              >
+                <option value="">{t('selectGroup')}</option>
+                {parentOptions.filter((p) => p.id !== c.id).map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        ) : c.related.length === 0 ? (
+          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-500">
+            {c.parent_id ? t('roleStreamer') : t('independent')}
+          </span>
+        ) : null}
         <a href={c.profile_url} target="_blank" rel="noreferrer" aria-label={t('openProfile')} className="text-zinc-400 hover:text-zinc-700">
           <ExternalLink size={16} />
         </a>
