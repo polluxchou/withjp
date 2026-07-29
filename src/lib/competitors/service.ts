@@ -1,7 +1,7 @@
+// src/lib/competitors/service.ts
 import { createServerClient } from '@/lib/supabase/server'
-import { getActorProfile } from '@/lib/auth/actor'
 import { assembleBoard, parseHandleFromUrl } from './assemble'
-import type { Competitor, CompetitorSnapshot, CompetitorBoard, CompetitorPlatform } from './types'
+import type { Competitor, CompetitorSnapshot, CompetitorShot, CompetitorBoard, CompetitorPlatform } from './types'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
 export interface ServiceError { code: ServiceErrorCode; message: string }
@@ -22,37 +22,58 @@ export function httpStatusForError(code: ServiceErrorCode): number {
   }
 }
 
-async function requireAdmin(userId: string): Promise<ServiceError | null> {
-  const actor = await getActorProfile(userId)
-  return actor?.is_admin ? null : { code: 'forbidden', message: 'admin only' }
+/** 团级可写字段（供 add/update 共用）。 */
+export interface CompetitorFields {
+  note?: string
+  display_name?: string
+  avatar_url?: string
+  region?: string
+  member_count?: number | null
+  composition?: string
+  launch_city?: string
+  launched_on?: string | null
+  mc_note?: string
+  online_note?: string
+  latest_videos?: { url: string; title?: string }[]
 }
 
-/** 加载看板：任意登录用户可读；canEdit 取决于 is_admin。 */
-export async function getCompetitorBoard(userId: string): Promise<ServiceResult<CompetitorBoard>> {
+const FIELD_KEYS: (keyof CompetitorFields)[] = [
+  'note', 'display_name', 'avatar_url', 'region', 'member_count',
+  'composition', 'launch_city', 'launched_on', 'mc_note', 'online_note', 'latest_videos',
+]
+
+function pickFields(input: CompetitorFields): Record<string, unknown> {
+  const patch: Record<string, unknown> = {}
+  for (const k of FIELD_KEYS) {
+    if (input[k] !== undefined) patch[k] = input[k]
+  }
+  return patch
+}
+
+/** 加载看板：任意登录用户可读可写（canEdit 恒 true）。 */
+export async function getCompetitorBoard(_userId: string): Promise<ServiceResult<CompetitorBoard>> {
   const db = createServerClient()
-  const [compRes, snapRes] = await Promise.all([
+  const [compRes, snapRes, shotRes] = await Promise.all([
     db.from('competitors').select('*').order('created_at', { ascending: true }),
     db.from('competitor_snapshots').select('*'),
+    db.from('competitor_shots').select('*'),
   ])
-  if (compRes.error || snapRes.error) {
-    return err('db_error', compRes.error?.message ?? snapRes.error?.message ?? 'load failed')
+  if (compRes.error || snapRes.error || shotRes.error) {
+    return err('db_error', compRes.error?.message ?? snapRes.error?.message ?? shotRes.error?.message ?? 'load failed')
   }
-  const actor = await getActorProfile(userId)
   return ok(assembleBoard(
     (compRes.data ?? []) as Competitor[],
     (snapRes.data ?? []) as CompetitorSnapshot[],
-    Boolean(actor?.is_admin),
+    (shotRes.data ?? []) as CompetitorShot[],
+    true,
   ))
 }
 
-/** 加入清单：入参 url 或 handle 二选一；解析出 handle 后按 (platform, handle) upsert。 */
+/** 加入清单：入参 url 或 handle 二选一；已存在则返回其 id（确保存在，不覆盖）。 */
 export async function addCompetitor(
-  userId: string,
-  input: { url?: string; handle?: string; platform?: CompetitorPlatform; note?: string },
+  _userId: string,
+  input: { url?: string; handle?: string; platform?: CompetitorPlatform } & CompetitorFields,
 ): Promise<ServiceResult<{ id: string }>> {
-  const forbidden = await requireAdmin(userId)
-  if (forbidden) return { data: null, error: forbidden }
-
   const platform: CompetitorPlatform = input.platform ?? 'tiktok'
   if (platform !== 'tiktok') return err('invalid_input', 'unsupported platform')
   const raw = (input.url ?? input.handle ?? '').trim()
@@ -61,50 +82,85 @@ export async function addCompetitor(
   const profile_url = /^https?:\/\//i.test(raw) ? raw : `https://www.tiktok.com/@${handle}`
 
   const db = createServerClient()
-  // 加入清单 = 确保存在，不覆盖已维护的 note / profile_url：已存在则直接返回其 id。
   const { data: existing, error: findErr } = await db
-    .from('competitors')
-    .select('id')
-    .eq('platform', platform)
-    .eq('handle', handle)
-    .maybeSingle()
+    .from('competitors').select('id').eq('platform', platform).eq('handle', handle).maybeSingle()
   if (findErr) return err('db_error', findErr.message)
   if (existing) return ok({ id: (existing as { id: string }).id })
 
   const { data, error } = await db
     .from('competitors')
-    .insert({ platform, handle, profile_url, note: input.note ?? '' })
-    .select('id')
-    .single()
+    .insert({ platform, handle, profile_url, note: input.note ?? '', ...pickFields({ ...input, note: undefined }) })
+    .select('id').single()
   if (error) return err('db_error', error.message)
   return ok({ id: (data as { id: string }).id })
 }
 
 export async function updateCompetitor(
-  userId: string,
+  _userId: string,
   id: string,
-  fields: { note?: string; display_name?: string },
+  fields: CompetitorFields,
 ): Promise<ServiceResult<{ id: string }>> {
-  const forbidden = await requireAdmin(userId)
-  if (forbidden) return { data: null, error: forbidden }
-
-  const patch: Record<string, unknown> = {}
-  if (fields.note !== undefined) patch.note = fields.note
-  if (fields.display_name !== undefined) patch.display_name = fields.display_name
+  const patch = pickFields(fields)
   if (Object.keys(patch).length === 0) return err('invalid_input', 'nothing to update')
-
   const db = createServerClient()
   const { error } = await db.from('competitors').update(patch).eq('id', id)
   if (error) return err('db_error', error.message)
   return ok({ id })
 }
 
-export async function deleteCompetitor(userId: string, id: string): Promise<ServiceResult<{ id: string }>> {
-  const forbidden = await requireAdmin(userId)
-  if (forbidden) return { data: null, error: forbidden }
-
+export async function deleteCompetitor(_userId: string, id: string): Promise<ServiceResult<{ id: string }>> {
   const db = createServerClient()
   const { error } = await db.from('competitors').delete().eq('id', id)
   if (error) return err('db_error', error.message)
   return ok({ id })
+}
+
+// ---- 截图 CRUD ----
+
+export interface ShotInput {
+  image_url: string
+  shot_on?: string | null
+  tag?: string | null
+  caption?: string
+  sort_order?: number
+}
+
+export async function addShot(competitorId: string, input: ShotInput): Promise<ServiceResult<CompetitorShot>> {
+  if (!input?.image_url) return err('invalid_input', 'image_url required')
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('competitor_shots')
+    .insert({
+      competitor_id: competitorId,
+      image_url: input.image_url,
+      shot_on: input.shot_on ?? null,
+      tag: input.tag ?? null,
+      caption: input.caption ?? '',
+      sort_order: input.sort_order ?? 0,
+    })
+    .select('*').single()
+  if (error) return err('db_error', error.message)
+  return ok(data as CompetitorShot)
+}
+
+export async function updateShot(
+  shotId: string,
+  fields: { shot_on?: string | null; tag?: string | null; caption?: string; sort_order?: number },
+): Promise<ServiceResult<{ id: string }>> {
+  const patch: Record<string, unknown> = {}
+  for (const k of ['shot_on', 'tag', 'caption', 'sort_order'] as const) {
+    if (fields[k] !== undefined) patch[k] = fields[k]
+  }
+  if (Object.keys(patch).length === 0) return err('invalid_input', 'nothing to update')
+  const db = createServerClient()
+  const { error } = await db.from('competitor_shots').update(patch).eq('id', shotId)
+  if (error) return err('db_error', error.message)
+  return ok({ id: shotId })
+}
+
+export async function deleteShot(shotId: string): Promise<ServiceResult<{ id: string }>> {
+  const db = createServerClient()
+  const { error } = await db.from('competitor_shots').delete().eq('id', shotId)
+  if (error) return err('db_error', error.message)
+  return ok({ id: shotId })
 }

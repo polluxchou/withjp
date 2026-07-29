@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
 import { getCompetitorBoard, addCompetitor, httpStatusForError } from '@/lib/competitors/service'
+import type { CompetitorFields } from '@/lib/competitors/service'
 
-// GET /api/competitors — 返回看板（含 canEdit）
+// GET /api/competitors — 看板（含 canEdit）
 export async function GET() {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
@@ -13,11 +14,11 @@ export async function GET() {
   return NextResponse.json({ data: result.data, error: null })
 }
 
-// POST /api/competitors — body { url? | handle?, note?, platform? }
+// POST /api/competitors — body { url? | handle?, platform?, ...团级字段 }
 export async function POST(req: NextRequest) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
-  let body: { url?: string; handle?: string; note?: string; platform?: 'tiktok' }
+  let body: { url?: string; handle?: string; platform?: 'tiktok' } & CompetitorFields
   try {
     body = await req.json()
   } catch {
