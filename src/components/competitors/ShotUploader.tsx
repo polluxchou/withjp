@@ -36,7 +36,7 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
   }
 
   return (
-    <div className="flex h-[132px] w-[74px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-neutral-300 text-neutral-400 dark:border-neutral-700">
+    <div className="flex h-[132px] w-[74px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400">
       <button
         type="button"
         onClick={() => inputRef.current?.click()}

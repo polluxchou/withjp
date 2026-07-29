@@ -13,8 +13,8 @@ function Field({ label, value }: { label: string; value: string | null }) {
   if (!value) return null
   return (
     <div className="flex gap-2">
-      <span className="w-16 shrink-0 text-neutral-500">{label}</span>
-      <span className="text-neutral-700 dark:text-neutral-300">{value}</span>
+      <span className="w-16 shrink-0 text-zinc-500">{label}</span>
+      <span className="text-zinc-700">{value}</span>
     </div>
   )
 }
@@ -38,13 +38,13 @@ export default function CompetitorCard({
   ].filter(Boolean).join(' · ')
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+    <div className="rounded-xl border border-zinc-200 bg-white p-4">
       <div className="mb-3 flex items-center gap-3">
         {c.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={c.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-xs font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-xs font-medium text-sky-700">
             {name.slice(0, 2).toUpperCase()}
           </div>
         )}
@@ -52,19 +52,19 @@ export default function CompetitorCard({
           <div className="flex items-center gap-1.5">
             <span className="truncate font-medium">{name}</span>
             {c.latest?.verified && <BadgeCheck size={15} className="shrink-0 text-sky-500" />}
-            <span className="text-xs text-neutral-500">@{c.handle}</span>
-            <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[11px] text-sky-700 dark:bg-sky-950 dark:text-sky-300">{c.region}</span>
+            <span className="text-xs text-zinc-500">@{c.handle}</span>
+            <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[11px] text-sky-700">{c.region}</span>
           </div>
-          <div className="mt-0.5 truncate text-xs text-neutral-500">{statLine}</div>
+          <div className="mt-0.5 truncate text-xs text-zinc-500">{statLine}</div>
         </div>
-        <a href={c.profile_url} target="_blank" rel="noreferrer" aria-label={t('openProfile')} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200">
+        <a href={c.profile_url} target="_blank" rel="noreferrer" aria-label={t('openProfile')} className="text-zinc-400 hover:text-zinc-700">
           <ExternalLink size={16} />
         </a>
-        <button onClick={() => setOpen((v) => !v)} aria-label={t('expandProfile')} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200">
+        <button onClick={() => setOpen((v) => !v)} aria-label={t('expandProfile')} className="text-zinc-400 hover:text-zinc-700">
           {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
         </button>
         {canEdit && (
-          <button onClick={onDelete} aria-label={t('delete')} className="text-neutral-400 hover:text-red-600">
+          <button onClick={onDelete} aria-label={t('delete')} className="text-zinc-400 hover:text-red-600">
             <Trash2 size={16} />
           </button>
         )}
@@ -76,7 +76,7 @@ export default function CompetitorCard({
       </div>
 
       {open && (
-        <div className="mt-3 space-y-2 border-t border-neutral-100 pt-3 text-xs dark:border-neutral-800">
+        <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3 text-xs">
           <Field label={t('fieldMembers')} value={c.member_count != null ? String(c.member_count) : null} />
           <Field label={t('fieldComposition')} value={c.composition} />
           <Field label={t('fieldLaunch')} value={[c.launch_city, c.launched_on].filter(Boolean).join(' · ') || null} />
@@ -85,8 +85,8 @@ export default function CompetitorCard({
           <Field label={t('region')} value={c.latest?.region ?? null} />
           <Field label={t('bio')} value={c.latest?.bio ?? null} />
           {c.latest_videos?.length ? (
-            <div className="flex flex-wrap gap-2 text-sky-600 dark:text-sky-400">
-              <span className="text-neutral-500">{t('fieldLatestVideos')}:</span>
+            <div className="flex flex-wrap gap-2 text-sky-600">
+              <span className="text-zinc-500">{t('fieldLatestVideos')}:</span>
               {c.latest_videos.map((v, i) => (
                 <a key={i} href={v.url} target="_blank" rel="noreferrer" className="hover:underline">#{i + 1}</a>
               ))}
@@ -95,8 +95,8 @@ export default function CompetitorCard({
 
           {c.history.length > 0 && (
             <table className="mt-2 w-full max-w-xl text-xs" aria-label={t('history')}>
-              <caption className="mb-1 text-left font-medium text-neutral-500">{t('history')}</caption>
-              <thead className="text-neutral-500">
+              <caption className="mb-1 text-left font-medium text-zinc-500">{t('history')}</caption>
+              <thead className="text-zinc-500">
                 <tr>
                   <th className="py-1 text-left font-normal">{t('colDate')}</th>
                   <th className="py-1 text-right font-normal">{t('colFollowers')}</th>
@@ -106,7 +106,7 @@ export default function CompetitorCard({
               </thead>
               <tbody>
                 {c.history.slice().reverse().map((h) => (
-                  <tr key={h.captured_on} className="border-t border-neutral-100 dark:border-neutral-800">
+                  <tr key={h.captured_on} className="border-t border-zinc-100">
                     <td className="py-1">{h.captured_on}</td>
                     <td className="py-1 text-right">{formatCount(h.followers)}</td>
                     <td className="py-1 text-right">{formatCount(h.likes)}</td>
