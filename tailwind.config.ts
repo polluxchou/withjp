@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // 支持 `/N` 透明度修饰符的 token 仅限：ink-* / primary / primary-hover / primary-ring
+      // （它们映射到 `rgb(var(--x) / <alpha-value>)`，Tailwind 用修饰符替换 <alpha-value>）。
+      // 其余 token（canvas/surface/line-*/primary-soft*/primary-border/success|warning|danger|info-*/muted-*）
+      // 映射到固定透明度的 var()（rgba(...) 或 hex），加 `/N` 修饰符 Tailwind 会静默不生成类——禁止这样用。
       colors: {
         canvas: 'var(--canvas)',
         surface: 'var(--surface)',
@@ -30,19 +34,19 @@ const config: Config = {
         warning: { text: 'var(--warning-text)', soft: 'var(--warning-soft)', dot: 'var(--warning-dot)' },
         danger:  { text: 'var(--danger-text)',  soft: 'var(--danger-soft)',  dot: 'var(--danger-dot)' },
         info:    { text: 'var(--info-text)',    soft: 'var(--info-soft)',    dot: 'var(--info-dot)' },
+        muted:   { text: 'var(--muted-text)',   soft: 'var(--muted-soft)',   dot: 'var(--muted-dot)' },
       },
       fontSize: {
         micro: ['11px', '14px'], xs: ['12px', '16px'], sm: ['13px', '18px'],
         md: ['14px', '20px'], lg: ['15px', '22px'], xl: ['20px', '26px'], '2xl': ['24px', '30px'],
       },
-      borderRadius: { card: '14px', field: '10px', chip: '7px', btn: '999px' },
+      borderRadius: { card: '14px', field: '10px', icon: '7px', btn: '999px' },
       boxShadow: {
         card: '0 1px 3px rgba(33,28,51,0.05), 0 8px 24px -12px rgba(124,58,237,0.08)',
         pop: '0 4px 12px rgba(33,28,51,0.08), 0 16px 40px -12px rgba(33,28,51,0.18)',
-        'card-hover': '0 1px 3px rgba(33,28,51,0.07), 0 4px 10px -6px rgba(33,28,51,0.10)',
       },
       backgroundImage: {
-        'primary-gradient': 'linear-gradient(135deg, #7c3aed 0%, #9333ea 60%, #a855f7 100%)',
+        'primary-gradient': 'var(--primary-gradient)',
       },
     },
   },

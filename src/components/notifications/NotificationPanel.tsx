@@ -88,7 +88,7 @@ export default function NotificationPanel({
                 type="button"
                 onClick={() => onSelect(notification)}
                 className={`flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-100 ${
-                  unread ? 'bg-primary-soft/80' : 'bg-white'
+                  unread ? 'bg-primary-soft' : 'bg-white'
                 }`}
               >
                 <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-white ring-1 ring-zinc-200">

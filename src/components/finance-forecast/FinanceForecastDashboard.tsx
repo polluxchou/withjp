@@ -987,7 +987,7 @@ export default function FinanceForecastDashboard({
                   </table>
                 </div>
 
-                    <div className="m-5 rounded-xl border border-dashed border-violet-200 bg-primary-soft/60 px-4 py-3 text-sm text-violet-800">
+                    <div className="m-5 rounded-xl border border-dashed border-violet-200 bg-primary-soft px-4 py-3 text-sm text-violet-800">
                       {t('formula')}
                     </div>
                   </>

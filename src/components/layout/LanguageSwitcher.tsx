@@ -52,7 +52,7 @@ export default function LanguageSwitcher({ collapsed = false }: Props) {
       </button>
 
       {isOpen && (
-        <div className={`absolute bottom-full mb-2 bg-white border border-zinc-200 rounded-lg shadow-card-hover overflow-hidden ${
+        <div className={`absolute bottom-full mb-2 bg-white border border-zinc-200 rounded-lg shadow-pop overflow-hidden ${
           collapsed ? 'left-full ml-2 w-32' : 'left-0 w-full'
         }`}>
           {languages.map((lang) => (
