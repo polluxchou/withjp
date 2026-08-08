@@ -1,9 +1,12 @@
 // src/lib/chart-theme.ts — 全站 recharts 唯一取色处（docs/design-system.md §1.5）
 export const CHART_SERIES = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8d87a1'] as const
 
-// 安全取模：负数 / 非整数索引不越界（Math.trunc 去小数，双重 % 消负号）。
+// 安全取模：负数 / 非整数索引不越界（Math.trunc 去小数，双重 % 消负号）；
+// 非有限数（NaN/±Infinity）直接回退首位，避免 Math.trunc 产出 NaN 污染取模。
 export const seriesColor = (i: number): string =>
-  CHART_SERIES[((Math.trunc(i) % CHART_SERIES.length) + CHART_SERIES.length) % CHART_SERIES.length]
+  Number.isFinite(i)
+    ? CHART_SERIES[((Math.trunc(i) % CHART_SERIES.length) + CHART_SERIES.length) % CHART_SERIES.length]
+    : CHART_SERIES[0]
 
 export const AXIS = { tick: { fill: '#8d87a1', fontSize: 11 }, axisLine: false, tickLine: false } as const
 export const GRID = { stroke: 'rgba(33,28,51,0.05)', strokeDasharray: '0', vertical: false } as const

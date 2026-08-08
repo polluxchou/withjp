@@ -52,6 +52,6 @@ const MAP: ToneMap = {
 // 具体枚举字面量。用 Object.hasOwn 而非 `in` / 直接索引，避免
 // 'toString' / '__proto__' 等原型链上的键被当成"已登记"而误判。
 export function toneOf(domain: Domain, status: string): Tone {
-  const domainMap = MAP[domain] as Record<string, Tone>
-  return Object.hasOwn(domainMap, status) ? domainMap[status] : 'neutral'
+  const domainMap = MAP[domain] as Record<string, Tone> | undefined
+  return domainMap && Object.hasOwn(domainMap, status) ? domainMap[status] : 'neutral'
 }
