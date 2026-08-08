@@ -50,8 +50,10 @@
 | warning | `#b45309` | `rgba(245,158,11,.11)` | `#f59e0b` | 待处理、待付款、临期、风险 |
 | danger | `#dc2626` | `rgba(239,68,68,.09)` | `#ef4444` | 失败、逾期、解约、负值 |
 | info | `#1d4ed8` | `rgba(59,130,246,.09)` | `#3b82f6` | 进行中、已联系、提示 |
-| neutral | `ink-700` | `rgba(33,28,51,.05)` | `#8d87a1` | 未开始、归档、默认 |
+| neutral | `muted-text #3d3654` | `muted-soft rgba(33,28,51,.05)` | `muted-dot #8d87a1` | 未开始、归档、默认 |
 | violet | `primary-hover` | `primary-soft` | `primary` | 品牌语义（规划中、专属标记） |
+
+> neutral tone 的实现 token 名为 **`muted-*`**（`bg-muted-soft` / `text-muted-text` / `bg-muted-dot`）。不用 `neutral-*` 命名：与 Tailwind 内置 neutral 灰阶同名会让门禁无法区分合法 token 与非法灰阶。
 
 **状态枚举 → tone 全站映射**（唯一登记处，新增枚举必须在此登记）：
 
@@ -97,7 +99,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 - **间距**：4px 基。卡内 padding 20（紧凑 16）；区块间距 16/20/24 三档；页面内容区 padding 28-32，`max-width 1220px`
 - **控件高度三档**：28（紧凑 chip/表内控件）/ 32（默认按钮、输入、FilterChip）/ 38（页头 CTA、搜索框）
-- **圆角**：card `14px` / field·chip `10px` / 图标 chip `7px` / 按钮·药丸·dot·头像 `full`。禁止 `rounded-lg/xl/2xl` 裸用，一律走 token
+- **圆角**：card `14px`（`rounded-card`）/ field·chip `10px`（`rounded-field`）/ 图标 chip `7px`（`rounded-icon`）/ 按钮·药丸·dot·头像 `full`（`rounded-btn`/`rounded-full`）。禁止 `rounded-lg/xl/2xl` 裸用，一律走 token 类名
 - **阴影两档**：`shadow-card` = `0 1px 3px rgba(33,28,51,.05), 0 8px 24px -12px rgba(124,58,237,.08)`；`shadow-pop`（弹层）= `0 4px 12px rgba(33,28,51,.08), 0 16px 40px -12px rgba(33,28,51,.18)`。禁止 Tailwind 原生 shadow-*
 - **氛围底**：`bg-atmosphere` 单点定义（三层径向渐变，见 spec §3）；页面不得自定义底色/字体族/负 margin 逃逸容器
 - **z-index 层级表**（唯一登记处）：内容 0 · 粘性头 10 · 下拉/popover 40 · 移动端抽屉 50 · Modal 60 · CommandBar 70 · Toast/通知 80

@@ -18,7 +18,9 @@
 
 **权威文档**：设计取值一律以 `docs/design-system.md` 为准；本计划中的具体数值若与其冲突，以 design-system.md 为准并回改本计划。
 
-**两个刻意的全站副作用（不是 bug）**：① Tailwind `fontSize.sm` 从 14px 收到 13px，旧页面正文统一微缩 1px（新排版阶梯的一部分）；② Button primary 变渐变药丸后全站按钮同步换皮。两者都在 Task 14 走查中确认无布局破坏。
+**三个刻意的全站副作用（不是 bug）**：① Tailwind `fontSize.sm` 从 14px 收到 13px，旧页面正文统一微缩 1px；② `fontSize.lg` 从 18px 收到 15px（约 15 处旧 KPI/标题在 PR2/PR3 迁移前会先变小），`xl/2xl` 行高微调；③ Button primary 变渐变药丸后全站按钮同步换皮。三者都在 Task 14 走查中确认无布局破坏。
+
+**Task 1 质量审查后的追加约定**：var() 直接映射的颜色 token（line/soft 系）不支持 `/N` 透明度修饰符（静默失效）——只有 ink-*/primary/primary-hover/primary-ring 支持；图标 chip 圆角 token 名为 `rounded-icon`（7px），`rounded-field`（10px）才是普通 chip；状态 Tag 的 neutral tone 使用 `muted` 色组（bg-muted-soft/text-muted-text/bg-muted-dot），不占用 Tailwind 内置 neutral 色阶名。
 
 ---
 
@@ -188,6 +190,10 @@ const PATTERNS = [
   { name: 'indigo', re: /\bindigo-\d{2,3}\b/g },
   { name: 'zinc', re: /\bzinc-\d{2,3}\b/g },
   { name: 'hex', re: /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g },
+  // 固定透明度 var() token 带 /N 修饰符会静默失效（Task 1 审查结论）
+  { name: 'alpha-on-fixed', re: /\b(?:bg|text|border|ring|divide|fill|stroke)-(?:canvas|surface|line(?:-soft|-strong)?|muted-(?:soft|text|dot)|(?:primary|success|warning|danger|info)-(?:soft|soft-hover|text|dot|border))\/\d+/g },
+  // 16px 不在排版阶梯上（design-system §2）
+  { name: 'text-base', re: /\btext-base\b/g },
 ]
 
 function* walk(dir) {
@@ -370,15 +376,15 @@ interface TagProps { label: string; tone?: Tone; variant?: 'soft' | 'dot'; size?
 const SOFT: Record<Tone, string> = {
   success: 'bg-success-soft text-success-text', warning: 'bg-warning-soft text-warning-text',
   danger: 'bg-danger-soft text-danger-text',    info: 'bg-info-soft text-info-text',
-  neutral: 'bg-line-soft text-ink-700',         violet: 'bg-primary-soft text-primary-hover',
+  neutral: 'bg-muted-soft text-muted-text',     violet: 'bg-primary-soft text-primary-hover',
 }
 const DOT: Record<Tone, string> = {
   success: 'bg-success-dot', warning: 'bg-warning-dot', danger: 'bg-danger-dot',
-  info: 'bg-info-dot', neutral: 'bg-ink-400', violet: 'bg-primary',
+  info: 'bg-info-dot', neutral: 'bg-muted-dot', violet: 'bg-primary',
 }
 const TEXT: Record<Tone, string> = {
   success: 'text-success-text', warning: 'text-warning-text', danger: 'text-danger-text',
-  info: 'text-info-text', neutral: 'text-ink-700', violet: 'text-primary-hover',
+  info: 'text-info-text', neutral: 'text-muted-text', violet: 'text-primary-hover',
 }
 
 export default function Tag({ label, tone = 'neutral', variant = 'soft', size = 'md' }: TagProps) {
@@ -436,7 +442,7 @@ export default function SectionCard({ icon, title, actions, footer, padding = 'd
       {(title || actions) && (
         <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-line-soft">
           <h2 className="flex items-center gap-2.5 text-lg font-semibold text-ink-900 tracking-tight min-w-0 truncate">
-            {icon && <span aria-hidden className="w-6 h-6 rounded-chip bg-primary-soft text-primary flex items-center justify-center [&>svg]:w-3.5 [&>svg]:h-3.5">{icon}</span>}
+            {icon && <span aria-hidden className="w-6 h-6 rounded-icon bg-primary-soft text-primary flex items-center justify-center [&>svg]:w-3.5 [&>svg]:h-3.5">{icon}</span>}
             {title}
           </h2>
           {actions && <div className="flex items-center gap-2 flex-none">{actions}</div>}
@@ -852,7 +858,7 @@ const CHIP: Record<string, string> = {
 - [ ] **Step 2: 图标渲染统一为 chip 形态**——所有 `<item.icon className="w-4 h-4..." />` 处改为：
 
 ```tsx
-<span aria-hidden className={`w-6 h-6 rounded-chip flex items-center justify-center flex-none ${CHIP[item.key] ?? 'bg-line-soft text-ink-700'}`}>
+<span aria-hidden className={`w-6 h-6 rounded-icon flex items-center justify-center flex-none ${CHIP[item.key] ?? 'bg-line-soft text-ink-700'}`}>
   <item.icon className="w-3.5 h-3.5" strokeWidth={1.5} />
 </span>
 ```
