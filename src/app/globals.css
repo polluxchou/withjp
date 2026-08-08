@@ -32,6 +32,12 @@
     --warning-text: #b45309; --warning-soft: rgba(245,158,11,.11); --warning-dot: #f59e0b;
     --danger-text:  #dc2626; --danger-soft:  rgba(239,68,68,.09);  --danger-dot:  #ef4444;
     --info-text:    #1d4ed8; --info-soft:    rgba(59,130,246,.09); --info-dot:    #3b82f6;
+    /* 语义色描边（CountChip 40% 透明描边用）：dot token 是固定 hex，不支持
+       /N 透明度修饰符（Task 1 审查结论），故单独登记 rgba 描边变量。 */
+    --success-border: rgba(16,185,129,.35);
+    --warning-border: rgba(245,158,11,.4);
+    --danger-border:  rgba(239,68,68,.35);
+    --info-border:    rgba(59,130,246,.35);
     /* muted：状态 Tag 的 neutral tone。不占用 neutral 名：Tailwind 内置 neutral-N 灰阶与
        token 同名会让门禁无法区分合法 token（neutral-soft）与非法灰阶（neutral-200） */
     --muted-text: #3d3654; --muted-soft: rgba(33, 28, 51, 0.05); --muted-dot: #8d87a1;
