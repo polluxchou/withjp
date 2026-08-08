@@ -1301,7 +1301,9 @@
     "fieldOnline": "オンライン",
     "fieldLatestVideos": "最新動画",
     "openProfile": "プロフィールを開く",
-    "expandProfile": "詳細を開閉"
+    "expandProfile": "詳細を開閉",
+    "handlePlaceholder": "@handle または URL",
+    "editHandle": "handle を編集"
   },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",
