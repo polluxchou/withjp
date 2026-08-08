@@ -15,7 +15,10 @@ test('seriesColor 越界循环取色', () => {
 })
 test('seriesColor 负数/非整数索引安全取模', () => {
   assert.equal(seriesColor(-1), CHART_SERIES[5])
-  assert.notEqual(seriesColor(1.5), undefined)
+  assert.equal(seriesColor(1.5), CHART_SERIES[1])
+})
+test('seriesColor 非有限数回退首位', () => {
+  assert.equal(seriesColor(NaN), CHART_SERIES[0])
 })
 test('轴/网格用 mauve 灰阶，不再是 slate/zinc', () => {
   assert.equal(AXIS.tick.fill, '#8d87a1') // style-tokens-ignore

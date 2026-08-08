@@ -52,3 +52,6 @@ test('未登记枚举回退 neutral（不抛错），且不因原型链键误判
   assert.equal(toneOf('creator', 'unknown-status'), 'neutral')
   assert.equal(toneOf('creator', 'toString'), 'neutral')
 })
+test('未登记 domain 安全回退 neutral（不抛 TypeError）', () => {
+  assert.equal(toneOf('nope' as never, 'x'), 'neutral')
+})
