@@ -22,10 +22,12 @@ test('task 域覆盖（TaskStatus: pending/running/done/failed）', () => {
   assert.equal(toneOf('task', 'done'), 'success')
   assert.equal(toneOf('task', 'failed'), 'danger')
 })
-test('expense 域覆盖（ExpensePaymentStatus 中设计系统已登记的三态）', () => {
+test('expense 域覆盖（ExpensePaymentStatus 五态完整登记）', () => {
   assert.equal(toneOf('expense', 'paid'), 'success')
   assert.equal(toneOf('expense', 'ordered_unpaid'), 'warning')
   assert.equal(toneOf('expense', 'budgeted'), 'info')
+  assert.equal(toneOf('expense', 'refunded'), 'info')
+  assert.equal(toneOf('expense', 'partially_refunded'), 'warning')
 })
 test('milestone 域覆盖（MilestoneStatus: planned/active/at_risk/completed/missed）', () => {
   assert.equal(toneOf('milestone', 'planned'), 'neutral')
@@ -40,8 +42,6 @@ test('item 域覆盖（ItemStatus: in_use/in_storage/under_repair/disposed）', 
   assert.equal(toneOf('item', 'under_repair'), 'warning')
   assert.equal(toneOf('item', 'disposed'), 'danger')
 })
-test('未登记枚举回退 neutral（不抛错），含 expense 域未在 design-system 登记的退款态', () => {
+test('未登记枚举回退 neutral（不抛错）', () => {
   assert.equal(toneOf('creator', 'unknown-status'), 'neutral')
-  assert.equal(toneOf('expense', 'refunded'), 'neutral')
-  assert.equal(toneOf('expense', 'partially_refunded'), 'neutral')
 })
