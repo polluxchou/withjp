@@ -5,9 +5,10 @@ export default function ProgressBar({ value, max, label, tone }: ProgressBarProp
     ? Math.min(100, Math.max(0, (value / max) * 100))
     : 0
   const resolved = tone ?? (pct > 90 ? 'warning' : 'default')
-  const safeMax = max > 0 ? max : 0
-  // 用 safeMax（而非原始 max）夹上界：max 非正/非有限时 safeMax 已归零，
-  // 避免 valuenow 落在 valuemin(0) 之外或与非有限 max 一起产出 NaN。
+  const safeMax = Number.isFinite(max) && max > 0 ? max : 0
+  // 用 safeMax（而非原始 max）夹上界：max 非正/非有限（含 Infinity）时
+  // safeMax 已归零，避免 valuenow 落在 valuemin(0) 之外、aria-valuemax
+  // 渲染成字符串 "Infinity"，或与非有限 max 一起产出 NaN。
   const safeValue = Number.isFinite(value) ? Math.min(Math.max(0, value), safeMax) : 0
   return (
     <div
