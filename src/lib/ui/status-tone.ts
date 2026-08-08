@@ -22,7 +22,7 @@ import type {
 import type { ItemStatus } from '@/lib/items/types'
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'violet'
-type Domain = 'creator' | 'task' | 'work_task' | 'expense' | 'milestone' | 'item'
+export type Domain = 'creator' | 'task' | 'work_task' | 'expense' | 'milestone' | 'item'
 
 interface ToneMap {
   creator: Record<CreatorStatus, Tone>
@@ -52,6 +52,10 @@ const MAP: ToneMap = {
 // 具体枚举字面量。用 Object.hasOwn 而非 `in` / 直接索引，避免
 // 'toString' / '__proto__' 等原型链上的键被当成"已登记"而误判。
 export function toneOf(domain: Domain, status: string): Tone {
-  const domainMap = MAP[domain] as Record<string, Tone> | undefined
+  // domain 轴同理会遇到原型链键（如 '__proto__' / 'toString'）：调用侧传入
+  // 的 domain 在运行时可能比类型更宽（外部数据、`as Domain` 强转等），
+  // 用 Object.hasOwn 而非 `in`/直接索引先判是否为 MAP 自身可枚举键，
+  // 避免把原型链上的方法名误判为"已登记域"。此 cast 是刻意为之，勿删。
+  const domainMap = Object.hasOwn(MAP, domain) ? (MAP[domain] as Record<string, Tone>) : undefined
   return domainMap && Object.hasOwn(domainMap, status) ? domainMap[status] : 'neutral'
 }

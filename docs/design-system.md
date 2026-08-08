@@ -94,7 +94,8 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 | `xl` | 20 | 弹窗标题、二级页头 |
 | `2xl` | 24 | 页面标题、KPI 数字 |
 
-- 页面标题 `2xl/700/-0.02em`；KPI 数字 `2xl/700/-0.03em/tabular`；区块标题 `lg/600/-0.01em`
+- **字距 token**（Tailwind letterSpacing 自定义）：`tracking-title` `-0.02em`（页面标题）/ `tracking-section` `-0.01em`（区块标题）/ `tracking-kpi` `-0.03em`（KPI 数字）
+- 页面标题 `2xl/700/-0.02em`（`tracking-title`）；KPI 数字 `2xl/700/-0.03em/tabular`（`tracking-kpi`）；区块标题 `lg/600/-0.01em`（`tracking-section`）
 - 数字规则：所有统计/金额加 `tabular-nums`；金额与编号用 mono；千分位逗号；负值用 danger text
 - 截断规则：所有弹性文字容器 `min-w-0` + `truncate`（ja 长词风险），多行用 ClampedText
 
@@ -122,7 +123,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 ## 6. 组件规范（长期契约）
 
-组件唯一存放地 `src/components/ui/`。**准入流程**：新 UI 需求先查本节与 ui/ 目录，没有再新建，且新建必须进本文件登记。同一文件内禁止混用共享组件与手写同类元素。
+组件唯一存放地 `src/components/ui/`。**准入流程**：新 UI 需求先查本节与 ui/ 目录，没有再新建，且新建必须进本文件登记。同一文件内禁止混用共享组件与手写同类元素。多组件同文件用 named export（如 `Stat.tsx` 含 `StatBand`、`Field.tsx` 含五件）；Props 接口命名 `XxxProps`；类型导入一律 `import type`。
 
 ### 6.1 选型决策表
 
@@ -140,16 +141,16 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 ### 6.2 组件契约（props 为稳定 API，破坏性变更需改本文件）
 
 - **Button** `variant: primary|secondary|ghost|danger` `size: sm|md|lg` `loading` `icon`；primary=渐变药丸（一屏至多一个），secondary=紫晕软药丸
-- **SectionCard** `icon` `title` `actions` `footer` `padding: default|none`；卡头图标从 §1.4 色板取色
+- **SectionCard** `icon` `title` `actions` `footer` `padding: default|none` `accent`；卡头图标从 §1.4 色板取色，`accent` 从 §1.4 六色取，默认 `violet`
 - **Tag** `tone`（§1.3 六 tone）`variant: soft|dot` `size: sm|md`；tone 取值必须走状态映射表
-- **Stat / StatBand** `label` `value` `delta` `note` `tone`；数字自动 tabular；负值自动 danger
+- **Stat / StatBand** `label` `value` `delta` `note` `tone`；数字自动 tabular；负值自动 danger；`delta.tone` 仅 `success|danger`；负值 `value` 由调用方显式传 `tone="danger"`（`value` 为 `ReactNode` 无法自动判负）
 - **Table/THead/Th/Tr/Td** `Th: align|width`；表头 xs/`ink-400`，行分隔 `line-soft`，hover `rgba(124,58,237,.02)`
 - **RecordRow** `status(tone)` `title` `meta: {icon?,text}[]` `amount` `tags` `who` `actions` `href`
 - **Field** `label` `hint` `error` `required`；**Input/Select/Textarea** 统一 10px 圆角、`line-strong` 边框、`primary-ring`、高度 32；**SearchInput** `kbdHint`
 - **FilterChip** `state: unset|set` `count` `onClear`；**Tabs** `items` `value` `onChange`；**SegmentedControl** 同
 - **Modal** `open` `onClose` `title` `width` `footer`；Escape/portal/移动端底部弹出/safe-area 为不可退化能力
 - **EmptyState** `icon` `title` `hint` `action`；**LoadingState** `variant: list|stats|plain`；**ErrorState** `title` `detail` `onRetry`
-- **ProgressBar** `value` `max` `tone`；超 90% 自动 warning
+- **ProgressBar** `value` `max` `label` `tone`；`tone` 仅 `default|warning`，>90% 自动 warning；`label` 必填
 - **可访问性底线**：所有交互组件可键盘到达；Modal/Drawer 焦点圈定；Tag dot 变体必带文字；色彩不作为唯一信息通道
 
 ### 6.3 页面模式（骨架级复用）
