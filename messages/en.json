@@ -1530,6 +1530,8 @@
     "fieldOnline": "Online",
     "fieldLatestVideos": "Latest videos",
     "openProfile": "Open profile",
-    "expandProfile": "Toggle dossier"
+    "expandProfile": "Toggle dossier",
+    "handlePlaceholder": "@handle or URL",
+    "editHandle": "Edit handle"
   }
 }
