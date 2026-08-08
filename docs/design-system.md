@@ -61,7 +61,7 @@
 |---|---|
 | 创作者生命周期 | 潜在客户 neutral · 已联系 info · 已互动 info · 已入驻 violet · 准备直播 warning · 直播中 success(dot) · 已变现 success · 已解约 danger |
 | 任务 | 待处理 warning · 进行中 info · 已完成 success · 失败 danger |
-| 支出 | 已付款 success · 待付款 warning · 预算 info |
+| 支出 | 预算 budgeted info · 待付款 ordered_unpaid warning · 已付款 paid success · 已退款 refunded info · 部分退款 partially_refunded warning |
 | 战略节点 | 计划中 neutral · 进行中 info · 有风险 warning · 已完成 success · 已逾期 danger |
 | 物品 | 使用中 success · 闲置 neutral · 维修 warning · 报废 danger |
 
