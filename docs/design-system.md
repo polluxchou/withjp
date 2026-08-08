@@ -14,7 +14,7 @@
 
 ## 1. 色彩
 
-全部以 CSS 变量定义于 `globals.css`，Tailwind 经 `rgb(var(--x) / <alpha-value>)` 映射。**禁止**在业务代码出现 `slate-*` / `indigo-*` / `zinc-*` / 裸 hex（`check-style-tokens.mjs` 门禁，白名单仅 chart-theme 与 globals）。
+全部以 CSS 变量定义于 `globals.css`，Tailwind 经 `rgb(var(--x) / <alpha-value>)` 映射。**禁止**在业务代码出现 `slate-*` / `indigo-*` / `zinc-*` / `gray-*` / `stone-*` / `neutral-*` 等数字阶灰、裸 hex、固定色 token 带 `/N` 透明度修饰符（如 `bg-canvas/50`，会静默失效）、以及 `text-base`（`check-style-tokens.mjs` 门禁，白名单仅 chart-theme 与 globals）。确有必要保留例外时，整行加注释含 `style-tokens-ignore` 即可豁免该行。
 
 ### 1.1 中性色（mauve 灰阶）
 
@@ -159,7 +159,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 ## 7. 治理
 
-1. `scripts/check-style-tokens.mjs`（挂 `test:copy`）：禁 slate/indigo/zinc/裸 hex；基线机制见 spec §4，终态零容忍
+1. `scripts/check-style-tokens.mjs`（挂 `test:copy` + CI `copy.yml`）：禁 slate/indigo/zinc/gray/stone/neutral 数字阶灰、裸 hex、固定透明度 token 带 `/N`、`text-base`；基线机制见 spec §4，终态零容忍；确有例外可整行加注释含 `style-tokens-ignore` 豁免
 2. 组件准入流程见 §6 开头；PR 中出现新的裸样式组合需在描述中说明原因
 3. 本文件与实现不一致 = bug：以先修正的一方为准并同 PR 同步另一方
 4. 图表新增系列色、状态新增枚举、z-index 新增层：先登记本文件，再写代码
