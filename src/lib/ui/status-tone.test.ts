@@ -29,6 +29,12 @@ test('expense 域覆盖（ExpensePaymentStatus 五态完整登记）', () => {
   assert.equal(toneOf('expense', 'refunded'), 'info')
   assert.equal(toneOf('expense', 'partially_refunded'), 'warning')
 })
+test('work_task 域覆盖（WorkTaskStatus: planned/doing/done/cancelled）', () => {
+  assert.equal(toneOf('work_task', 'planned'), 'neutral')
+  assert.equal(toneOf('work_task', 'doing'), 'info')
+  assert.equal(toneOf('work_task', 'done'), 'success')
+  assert.equal(toneOf('work_task', 'cancelled'), 'neutral')
+})
 test('milestone 域覆盖（MilestoneStatus: planned/active/at_risk/completed/missed）', () => {
   assert.equal(toneOf('milestone', 'planned'), 'neutral')
   assert.equal(toneOf('milestone', 'active'), 'info')
@@ -42,6 +48,7 @@ test('item 域覆盖（ItemStatus: in_use/in_storage/under_repair/disposed）', 
   assert.equal(toneOf('item', 'under_repair'), 'warning')
   assert.equal(toneOf('item', 'disposed'), 'danger')
 })
-test('未登记枚举回退 neutral（不抛错）', () => {
+test('未登记枚举回退 neutral（不抛错），且不因原型链键误判', () => {
   assert.equal(toneOf('creator', 'unknown-status'), 'neutral')
+  assert.equal(toneOf('creator', 'toString'), 'neutral')
 })

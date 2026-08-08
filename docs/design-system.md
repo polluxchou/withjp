@@ -64,6 +64,9 @@
 | 支出 | 预算 budgeted info · 待付款 ordered_unpaid warning · 已付款 paid success · 已退款 refunded info · 部分退款 partially_refunded warning |
 | 战略节点 | 计划中 neutral · 进行中 info · 有风险 warning · 已完成 success · 已逾期 danger |
 | 物品 | 使用中 success · 闲置 neutral · 维修 warning · 报废 danger |
+| 工时任务 | 计划中 planned neutral · 进行中 doing info · 已完成 done success · 已取消 cancelled neutral |
+
+> DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 与 ThreadStatus 在 PR2/PR3 迁移对应界面时登记。
 
 ### 1.4 彩色图标 chip 色板（仅限侧栏与区块卡头图标）
 
@@ -73,7 +76,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 - `CHART_SERIES`：`#7c3aed`（首位，=UI 主色）→ `#3b82f6` → `#10b981` → `#f59e0b` → `#ec4899` → `#8d87a1`；同一图内禁止重复取色
 - `AXIS`（刻度文字）`#8d87a1` · `GRID`（网格线）`rgba(33,28,51,.05)` · `TOOLTIP`（白底 + `line` 边框 + `shadow-pop`）
-- 面积填充：主色 14% → 0 垂直渐变；线宽 1.8-2px
+- 面积填充：`areaFill(id, color)` 工厂生成每系列独立渐变 id，主色 14%（`24` 后缀）→ 0（`00` 后缀）垂直渐变；线宽 1.8-2px
 
 ## 2. 字体与排版
 
