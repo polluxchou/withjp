@@ -41,6 +41,7 @@ const config: Config = {
         md: ['14px', '20px'], lg: ['15px', '22px'], xl: ['20px', '26px'], '2xl': ['24px', '30px'],
       },
       borderRadius: { card: '14px', field: '10px', icon: '7px', btn: '999px' },
+      letterSpacing: { kpi: '-0.03em', title: '-0.02em', section: '-0.01em' },
       boxShadow: {
         card: '0 1px 3px rgba(33,28,51,0.05), 0 8px 24px -12px rgba(124,58,237,0.08)',
         pop: '0 4px 12px rgba(33,28,51,0.08), 0 16px 40px -12px rgba(33,28,51,0.18)',

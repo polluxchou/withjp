@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert'
 import { toneOf } from './status-tone.ts'
+import type { Domain } from './status-tone.ts'
 
 // 枚举取自 src/lib/types/index.ts 的真实类型定义（CreatorStatus /
 // TaskStatus / ExpensePaymentStatus / MilestoneStatus）与
@@ -53,5 +54,8 @@ test('未登记枚举回退 neutral（不抛错），且不因原型链键误判
   assert.equal(toneOf('creator', 'toString'), 'neutral')
 })
 test('未登记 domain 安全回退 neutral（不抛 TypeError）', () => {
-  assert.equal(toneOf('nope' as never, 'x'), 'neutral')
+  assert.equal(toneOf('nope' as Domain, 'x'), 'neutral')
+})
+test('domain 轴原型链键不被误判为已登记域', () => {
+  assert.equal(toneOf('__proto__' as Domain, 'toString'), 'neutral')
 })

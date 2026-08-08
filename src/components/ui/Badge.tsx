@@ -1,3 +1,4 @@
+/** @deprecated 已被 ui/Tag 取代（design-system §6.1）；存量调用随 PR2-PR4 页面迁移逐步替换，届时删除本文件 */
 interface BadgeProps {
   label: string
   color?: 'slate' | 'blue' | 'green' | 'red' | 'amber' | 'purple' | 'indigo' | 'teal'
