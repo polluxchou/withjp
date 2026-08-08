@@ -143,7 +143,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **Button** `variant: primary|secondary|ghost|danger` `size: sm|md|lg` `loading` `icon`；primary=渐变药丸（一屏至多一个），secondary=紫晕软药丸
 - **SectionCard** `icon` `title` `actions` `footer` `padding: default|none` `accent`；卡头图标从 §1.4 色板取色，`accent` 从 §1.4 六色取，默认 `violet`
 - **Tag** `tone`（§1.3 六 tone）`variant: soft|dot` `size: sm|md`；tone 取值必须走状态映射表
-- **Stat / StatBand** `label` `value` `delta` `note` `tone`；数字自动 tabular；负值自动 danger；`delta.tone` 仅 `success|danger`；负值 `value` 由调用方显式传 `tone="danger"`（`value` 为 `ReactNode` 无法自动判负）
+- **Stat / StatBand** `label` `value` `delta` `note` `tone`；数字自动 tabular；`delta.tone` 仅 `success|danger`；负值 `value` 由调用方显式传 `tone="danger"`（`value` 为 `ReactNode` 无法自动判负）
 - **Table/THead/Th/Tr/Td** `Th: align|width`；表头 xs/`ink-400`，行分隔 `line-soft`，hover `rgba(124,58,237,.02)`
 - **RecordRow** `status(tone)` `title` `meta: {icon?,text}[]` `amount` `tags` `who` `actions` `href`
 - **Field** `label` `hint` `error` `required`；**Input/Select/Textarea** 统一 10px 圆角、`line-strong` 边框、`primary-ring`、高度 32；**SearchInput** `kbdHint`

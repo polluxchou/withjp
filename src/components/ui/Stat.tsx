@@ -11,7 +11,7 @@ interface StatProps {
 
 export function Stat({ label, value, delta, note, tone = 'default' }: StatProps) {
   return (
-    <div className="flex-1 min-w-[9rem] px-5 py-4 border-r border-line-soft last:border-r-0">
+    <div className="flex-1 min-w-fit px-5 py-4 border-r border-line-soft last:border-r-0">
       <div className="text-xs text-ink-500 mb-1.5 truncate">{label}</div>
       <div className={`text-2xl font-bold tracking-kpi tabular-nums truncate ${tone === 'danger' ? 'text-danger-text' : 'text-ink-900'}`}>{value}</div>
       {(delta || note) && (
@@ -31,9 +31,14 @@ export function Stat({ label, value, delta, note, tone = 'default' }: StatProps)
 // 不要挂在 Stat 内部（会被裁切），需要时挂载到 StatBand 外层或用 portal。
 //
 // 375px 下横向溢出已验证：用 tailwindcss CLI 以本文件同款 class 编译出
-// 独立静态页（8 个 min-w-[9rem] 的 Stat），375 视口下量得
-// scrollWidth 1152 > clientWidth 341，且截图可见横向滚动条与被裁切的
-// 卡片——StatBand 的 overflow-x-auto 按预期生效。
+// 独立静态页，375 视口下量得 scrollWidth > clientWidth，且截图可见横向
+// 滚动条与被裁切的卡片——StatBand 的 overflow-x-auto 按预期生效。
+//
+// 宽度取舍：min-w-[9rem]（统一 144px 格宽）会把长金额钉死在固定宽度内
+// 裁切——实测 ¥1,284,560 需要约 131px 可见区却只给 104px（padding 后），
+// 数字被截断违反"数字不可截断"的红线。改用 min-w-fit：放弃 106-172px
+// 的统一格宽观感，换取任意长值零裁切；短值格子会随内容自然收窄，
+// 视觉参差由 StatBand 的横向滚动兜底（见下方验证）。
 export function StatBand({ children }: { children: ReactNode }) {
   return <div className="flex bg-surface border border-line rounded-card shadow-card overflow-x-auto">{children}</div>
 }
