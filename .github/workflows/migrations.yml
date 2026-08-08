@@ -1,0 +1,28 @@
+name: migrations
+
+# Guards the migration naming contract (supabase/migrations/README.md):
+#   * every file is <YYYYMMDDHHMMSS>_<snake_case>.sql
+#   * no duplicate timestamp prefixes
+# Pure Node script, no install needed.
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/check-migrations.mjs'
+      - '.github/workflows/migrations.yml'
+  push:
+    branches: [main]
+
+jobs:
+  migration-naming:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Migration file naming
+        run: node scripts/check-migrations.mjs
