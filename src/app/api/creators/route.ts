@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   let query = db
     .from('creators')
-    .select('*, broadcast_account:broadcast_accounts(*), operator_user:users(id,name,email,user_code,role)')
+    .select('*, broadcast_account:broadcast_accounts(*), operator_user:users!creators_operator_user_id_fkey(id,name,email,user_code,role)')
     .order('created_at', { ascending: false })
 
   if (status) query = query.eq('status', status)
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       operator_user_id:      operator_user_id || null,
       created_by_user_id:    user.id,
     })
-    .select('*, broadcast_account:broadcast_accounts(*), operator_user:users(id,name,email,user_code,role)')
+    .select('*, broadcast_account:broadcast_accounts(*), operator_user:users!creators_operator_user_id_fkey(id,name,email,user_code,role)')
     .single()
 
   if (createErr) {
