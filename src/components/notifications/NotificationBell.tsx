@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
+import { nextPollDelay } from '@/lib/notifications/poll'
 import NotificationPanel, { type NotificationItem } from './NotificationPanel'
 
 interface NotificationBellProps {
@@ -23,9 +24,13 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const inFlightRef = useRef(false)
+  const failuresRef = useRef(0)
 
   const loadNotifications = useCallback(async () => {
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     try {
       const res = await fetch('/api/notifications', { cache: 'no-store' })
       const json = (await res.json()) as NotificationsResponse
@@ -33,16 +38,42 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
 
       setNotifications(json.data ?? [])
       setUnreadCount(json.unread_count ?? 0)
-      setLoadError(null)
+      setLoadFailed(false)
+      failuresRef.current = 0
     } catch {
-      setLoadError(t('loadFailed'))
+      setLoadFailed(true)
+      failuresRef.current += 1
+    } finally {
+      inFlightRef.current = false
     }
-  }, [t])
+  }, [])
 
+  // 自调度轮询:连续失败按 nextPollDelay 指数退避;页面隐藏时只空转不发请求,
+  // 回到前台立即刷新。scheduleNext 先 clearTimeout,保证任何时刻只有一条定时链。
   useEffect(() => {
-    loadNotifications()
-    const timer = window.setInterval(loadNotifications, 30_000)
-    return () => window.clearInterval(timer)
+    let cancelled = false
+    let timer: number | undefined
+
+    const scheduleNext = (delay: number) => {
+      if (cancelled) return
+      window.clearTimeout(timer)
+      timer = window.setTimeout(tick, delay)
+    }
+    const tick = async () => {
+      if (!document.hidden) await loadNotifications()
+      scheduleNext(nextPollDelay(failuresRef.current))
+    }
+    const onVisibilityChange = () => {
+      if (!document.hidden) scheduleNext(0)
+    }
+
+    void tick()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [loadNotifications])
 
   useEffect(() => {
@@ -62,7 +93,7 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
       setNotifications((items) => items.map((item) => ({ ...item, read_at: item.read_at ?? readAt })))
       setUnreadCount(0)
     } catch {
-      setLoadError(t('loadFailed'))
+      setLoadFailed(true)
     }
   }
 
@@ -84,7 +115,7 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
         router.push(notification.action_url)
       }
     } catch {
-      setLoadError(t('loadFailed'))
+      setLoadFailed(true)
     }
   }
 
@@ -116,7 +147,7 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
         <div className="absolute bottom-full left-0 z-[70] mb-2 lg:bottom-0 lg:left-full lg:mb-0 lg:ml-2">
           <NotificationPanel
             notifications={notifications}
-            loadError={loadError}
+            loadError={loadFailed ? t('loadFailed') : null}
             onMarkAllRead={markAllRead}
             onSelect={selectNotification}
           />
