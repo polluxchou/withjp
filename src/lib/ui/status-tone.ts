@@ -1,23 +1,45 @@
 // src/lib/ui/status-tone.ts — 状态枚举→Tag tone 唯一登记处（docs/design-system.md §1.3）
 //
-// key 取自真实枚举定义，而非臆造：
+// MAP 按域声明为 Record<真实枚举, Tone>（type-only import，
+// --experimental-strip-types 下无运行时代价），因此枚举改名/新增值会在
+// 这里直接编译报错，逼迫同步更新映射，而不是静默漏登记。
 //   creator   → CreatorStatus         (src/lib/types/index.ts)
 //   task      → TaskStatus            (src/lib/types/index.ts)
+//   work_task → WorkTaskStatus        (src/lib/types/index.ts)
 //   expense   → ExpensePaymentStatus  (src/lib/types/index.ts) —— 五态完整
 //               登记于 design-system.md §1.3「支出」行：已退款(refunded)
 //               视为资金回流的提示性状态 → info；部分退款
 //               (partially_refunded) 尚有未结部分 → warning。
 //   milestone → MilestoneStatus       (src/lib/types/index.ts)
 //   item      → ItemStatus            (src/lib/items/types.ts)
-export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'violet'
-type Domain = 'creator' | 'task' | 'expense' | 'milestone' | 'item'
+import type {
+  CreatorStatus,
+  TaskStatus,
+  WorkTaskStatus,
+  ExpensePaymentStatus,
+  MilestoneStatus,
+} from '@/lib/types'
+import type { ItemStatus } from '@/lib/items/types'
 
-const MAP: Record<Domain, Record<string, Tone>> = {
+export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'violet'
+type Domain = 'creator' | 'task' | 'work_task' | 'expense' | 'milestone' | 'item'
+
+interface ToneMap {
+  creator: Record<CreatorStatus, Tone>
+  task: Record<TaskStatus, Tone>
+  work_task: Record<WorkTaskStatus, Tone>
+  expense: Record<ExpensePaymentStatus, Tone>
+  milestone: Record<MilestoneStatus, Tone>
+  item: Record<ItemStatus, Tone>
+}
+
+const MAP: ToneMap = {
   creator: {
     prospect: 'neutral', contacted: 'info', engaged: 'info', onboarded: 'violet',
     live_ready: 'warning', live: 'success', monetized: 'success', terminated: 'danger',
   },
   task: { pending: 'warning', running: 'info', done: 'success', failed: 'danger' },
+  work_task: { planned: 'neutral', doing: 'info', done: 'success', cancelled: 'neutral' },
   expense: {
     budgeted: 'info', ordered_unpaid: 'warning', paid: 'success',
     refunded: 'info', partially_refunded: 'warning',
@@ -26,6 +48,10 @@ const MAP: Record<Domain, Record<string, Tone>> = {
   item: { in_use: 'success', in_storage: 'neutral', under_repair: 'warning', disposed: 'danger' },
 }
 
+// 调用侧保持宽松 string：外部数据（DB 行、URL 参数等）在编译期未必能收窄到
+// 具体枚举字面量。用 Object.hasOwn 而非 `in` / 直接索引，避免
+// 'toString' / '__proto__' 等原型链上的键被当成"已登记"而误判。
 export function toneOf(domain: Domain, status: string): Tone {
-  return MAP[domain]?.[status] ?? 'neutral'
+  const domainMap = MAP[domain] as Record<string, Tone>
+  return Object.hasOwn(domainMap, status) ? domainMap[status] : 'neutral'
 }
