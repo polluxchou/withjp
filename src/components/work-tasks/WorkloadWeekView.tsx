@@ -165,7 +165,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                     key={ds}
                     onClick={() => dayTasks.length > 0 && setDetail({ user: u.name, date: ds, tasks: dayTasks })}
                     className={`px-1 py-1.5 border-r border-zinc-100 flex flex-col items-center justify-center gap-0.5 transition-colors
-                      ${isToday ? 'bg-primary-soft/50' : ''}
+                      ${isToday ? 'bg-primary-soft' : ''}
                       ${dayTasks.length > 0 ? 'cursor-pointer hover:bg-zinc-50' : ''}`}
                   >
                     {h > 0 ? (

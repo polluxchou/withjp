@@ -32,6 +32,11 @@
     --warning-text: #b45309; --warning-soft: rgba(245,158,11,.11); --warning-dot: #f59e0b;
     --danger-text:  #dc2626; --danger-soft:  rgba(239,68,68,.09);  --danger-dot:  #ef4444;
     --info-text:    #1d4ed8; --info-soft:    rgba(59,130,246,.09); --info-dot:    #3b82f6;
+    /* muted：状态 Tag 的 neutral tone（不叫 neutral 是为了避免覆盖 Tailwind 内置 neutral 色阶） */
+    --muted-text: #3d3654; --muted-soft: rgba(33, 28, 51, 0.05); --muted-dot: #8d87a1;
+
+    /* 主 CTA 渐变（仅主按钮 / 进度条填充） */
+    --primary-gradient: linear-gradient(135deg, #7c3aed 0%, #9333ea 60%, #a855f7 100%);
   }
   body {
     @apply bg-canvas text-ink-900 antialiased;
@@ -87,6 +92,8 @@
     -webkit-backdrop-filter: blur(8px);
   }
 
+  /* iOS Safari 不支持 background-attachment: fixed，会按 scroll 渲染，长页面底部的
+     光晕层会滚出视口外不可见——此回退已接受。桌面端 fixed 以视口（而非内容）为锚。 */
   .bg-atmosphere {
     background-color: var(--canvas);
     background-image:

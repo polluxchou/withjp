@@ -479,7 +479,7 @@ export default function ExpensesPage() {
       <button
         type="button"
         onClick={() => openCommandBar()}
-        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-violet-200 bg-primary-soft/40 hover:bg-primary-soft text-left text-sm text-zinc-600 transition-colors"
+        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-violet-200 bg-primary-soft hover:bg-primary-soft-hover text-left text-sm text-zinc-600 transition-colors"
       >
         <Sparkles className="w-4 h-4 text-violet-500 flex-shrink-0" />
         <span>{t('kpi.nlHint')}</span>
@@ -535,7 +535,7 @@ export default function ExpensesPage() {
             aria-expanded={monthPickerOpen}
             className={`w-full bg-white border rounded-xl p-4 text-left transition-all ${
               activeKpi === 'monthFilter'
-                ? 'border-violet-400 ring-2 ring-violet-100 bg-primary-soft/40'
+                ? 'border-violet-400 ring-2 ring-violet-100 bg-primary-soft'
                 : 'border-zinc-200 hover:border-violet-200 hover:shadow-sm'
             }`}
           >
