@@ -44,6 +44,11 @@
 
     /* 主 CTA 渐变（仅主按钮 / 进度条填充） */
     --primary-gradient: linear-gradient(135deg, #7c3aed 0%, #9333ea 60%, #a855f7 100%);
+
+    /* Table/RecordRow 行 hover 底色（design-system §6.2）。单独登记而非
+       `bg-primary-soft/20`：primary-soft 是固定透明度 var()，`/N` 修饰符会被
+       Tailwind 静默丢弃且触发 alpha-on-fixed 门禁（Task 1 审查结论）。 */
+    --row-hover: rgba(124, 58, 237, 0.02);
   }
   body {
     @apply bg-canvas text-ink-900 antialiased;

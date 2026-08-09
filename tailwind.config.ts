@@ -36,6 +36,12 @@ const config: Config = {
         danger:  { text: 'var(--danger-text)',  soft: 'var(--danger-soft)',  dot: 'var(--danger-dot)', border: 'var(--danger-border)' },
         info:    { text: 'var(--info-text)',    soft: 'var(--info-soft)',    dot: 'var(--info-dot)', border: 'var(--info-border)' },
         muted:   { text: 'var(--muted-text)',   soft: 'var(--muted-soft)',   dot: 'var(--muted-dot)' },
+        'row-hover': 'var(--row-hover)',
+      },
+      fontFamily: {
+        // design-system §2：mono 仅用于编号/金额/代码。Tailwind 默认 mono 栈里是
+        // "SFMono-Regular"（而非 "SF Mono"），与设计稿登记的字族名不一致，故显式覆盖。
+        mono: ['"SF Mono"', 'ui-monospace', 'Menlo', 'monospace'],
       },
       fontSize: {
         micro: ['11px', '14px'], xs: ['12px', '16px'], sm: ['13px', '18px'],
