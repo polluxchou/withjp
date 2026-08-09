@@ -32,7 +32,7 @@ const PATTERNS = [
   // 覆盖 3/4/6/8 位裸 hex（含 #rgba / #rrggbbaa 写法）
   { name: 'hex', re: /#[0-9a-fA-F]{3,8}\b/g },
   // 固定透明度 var() token 带 /N 或 /[任意值] 修饰符会静默失效（Task 1 审查结论）
-  { name: 'alpha-on-fixed', re: /\b(?:bg|text|border|ring|divide|fill|stroke)-(?:canvas|surface|line(?:-soft|-strong)?|muted-(?:soft|text|dot)|(?:primary|success|warning|danger|info)-(?:soft|soft-hover|text|dot|border))\/(?:\d+|\[[^\]]+\])/g },
+  { name: 'alpha-on-fixed', re: /\b(?:bg|text|border|ring|divide|fill|stroke)-(?:canvas|surface|line(?:-soft|-strong)?|muted-(?:soft|text|dot)|(?:primary|success|warning|danger|info)-(?:soft|soft-hover|text|dot|border|strong))\/(?:\d+|\[[^\]]+\])/g },
   // 16px 不在排版阶梯上（design-system §2）
   { name: 'text-base', re: /\btext-base\b/g },
 ]

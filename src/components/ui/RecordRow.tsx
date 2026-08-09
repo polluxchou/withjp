@@ -34,6 +34,9 @@ interface RecordRowProps {
 }
 
 const ROW_CLASS = 'flex items-center gap-3.5 px-5 py-3 border-t border-line-soft first:border-t-0 transition-colors hover:bg-row-hover'
+// href 分支专用：py-3 不放在这层，改放到 Link 和 actions 容器身上（见下方
+// 用法），外层只留水平内边距 px-5 和行级视觉（分隔线/hover）。
+const ROW_CLASS_LINKED = 'flex items-center gap-3.5 px-5 border-t border-line-soft first:border-t-0 transition-colors hover:bg-row-hover'
 
 export default function RecordRow({ status, title, meta = [], amount, tags, who, actions, href }: RecordRowProps) {
   // 主内容（status dot + title/meta + amount + tags + who）——href 存在时
@@ -74,14 +77,19 @@ export default function RecordRow({ status, title, meta = [], amount, tags, who,
 
   if (href) {
     return (
-      <div className={ROW_CLASS}>
+      <div className={ROW_CLASS_LINKED}>
+        {/* self-stretch 撑满整行高度而不是跟着自己内容的行高走——py-3 从外层
+            div 挪到这里正是为此：外层不再自带高度，行高完全由 Link（和
+            actions 容器）自己的 padding 撑出来，self-stretch 才有意义。
+            这样链接的可点击区域覆盖整行，focus ring 也围住整行，而不是
+            只贴着文字那一小圈。 */}
         <Link
           href={href}
-          className="flex-1 min-w-0 flex items-center gap-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
+          className="self-stretch flex-1 min-w-0 flex items-center gap-3.5 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
         >
           {content}
         </Link>
-        {actions && <div className="flex-none">{actions}</div>}
+        {actions && <div className="flex-none py-3">{actions}</div>}
       </div>
     )
   }

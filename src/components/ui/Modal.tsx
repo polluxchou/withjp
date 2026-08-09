@@ -42,6 +42,16 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
   // 不出现在 Tab 序列里）；effect 的清理函数在 open 变 false 或组件卸载时
   // 运行，把焦点还给触发元素——覆盖 Escape、遮罩点击、父组件外部关闭等
   // 所有关闭路径，而不必在每个关闭入口分别处理。
+  //
+  // 依赖数组必须带上 mounted：这个组件的门面渲染是 `!open || !mounted` 才
+  // return null，也就是说父组件如果一上来就用 open=true 挂载（不是先
+  // open=false 再切 true），首次渲染时 mounted 还是 false，组件整体返回
+  // null——panelRef 根本没挂到真实 DOM 上。此时这个 effect 仍会因为 open
+  // 依赖首次出现而跑一次，但 `panelRef.current` 是 null，`.focus()` 静默
+  // 空跑。随后 mounted 变 true 触发第二次渲染，面板真正出现，但 open 这个
+  // 依赖值并没有变化（一直是 true），effect 不会重新执行，焦点从此再也
+  // 进不去面板。只依赖 open 抓不住"面板从无到有"这个时机，必须把 mounted
+  // 也列进依赖——mounted 从 false 变 true 本身就是一次有效的重新触发。
   useEffect(() => {
     if (!open) return
     previouslyFocused.current = document.activeElement as HTMLElement | null
@@ -49,7 +59,7 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
     return () => {
       previouslyFocused.current?.focus?.()
     }
-  }, [open])
+  }, [open, mounted])
 
   // Tab 循环：只在面板内部的可聚焦元素间打转，不允许 Tab 出面板边界回到
   // 页面背后的内容（原生浏览器行为默认会这样，需要手动拦截）。
@@ -62,7 +72,12 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
     }
     const first = focusables[0]
     const last = focusables[focusables.length - 1]
-    if (e.shiftKey && document.activeElement === first) {
+    // 打开瞬间焦点落在面板本身（tabIndex=-1，不是 first）——这时如果用户
+    // 直接按 Shift+Tab，activeElement 既不是 first 也不是 last，两个分支
+    // 都不命中，会被浏览器原生行为送到面板"之前"的可聚焦元素，直接逃出
+    // 面板。把 panelRef.current 并入 Shift+Tab 的命中条件，让"焦点还停在
+    // 面板本身"和"焦点在 first"视为同一种边界状态，一起回绕到 last。
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       e.preventDefault()
       last.focus()
     } else if (!e.shiftKey && document.activeElement === last) {
