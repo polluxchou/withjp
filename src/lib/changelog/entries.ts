@@ -27,6 +27,17 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-08-09',
+    items: [
+      {
+        kind: 'fix',
+        scope: '日文界面',
+        title: '日文界面补全 179 处英文文案（侧栏、備品管理、会場レイアウト等）',
+        details: '此前日文界面的侧栏「成本管理 / 物品管理 / 场地布置」三个导航项，以及「備品管理」「会場レイアウト」两个页面的几乎全部文案都显示为英文占位，现已全部译为日文；财务预测页的场地布置入口卡同步修复。中文与英文界面不受影响。',
+      },
+    ],
+  },
+  {
     date: '2026-07-23',
     items: [
       {
