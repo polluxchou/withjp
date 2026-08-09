@@ -148,8 +148,8 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **Stat / StatBand** `label` `value` `delta` `note` `tone`；数字自动 tabular；`delta.tone` 仅 `success|danger`；负值 `value` 由调用方显式传 `tone="danger"`（`value` 为 `ReactNode` 无法自动判负）
 - **Table/THead/Th/Tr/Td** `Th: align|width`；表头 xs/`ink-400`，行分隔 `line-soft`，hover `rgba(124,58,237,.02)`
 - **RecordRow** `status(tone)` `title` `meta: {icon?,text}[]` `amount` `tags` `who` `actions` `href`
-- **Field** `label` `hint` `error` `required`；**Input/Select/Textarea** 统一 10px 圆角、`line-strong` 边框、`primary-ring`、高度 32；`size: sm|md|lg = 28/32/38px`；`className` 仅可追加不与基础类冲突的样式，冲突覆盖不受支持；**SearchInput** `kbdHint`（≤2 字形，右侧 `pr-12` 固定预留）
-- **FilterChip** `label` `set?` `onClick` `onClear`；**CountChip** `label` `count` `tone` `active` `onClick`（独立导出，状态汇总药丸）；**Tabs** `items` `value` `onChange` `label?`；**SegmentedControl** 同
+- **Field** `label` `hint` `error` `required`；**Input/Select/Textarea** 统一 10px 圆角、`line-strong` 边框、`primary-ring`、高度 32；`size: sm|md|lg = 28/32/38px`（**Textarea 例外**：size 不改固定高度，只调 `min-h = 64/80/112px`）；`className` 仅可追加不与基础类冲突的样式，冲突覆盖不受支持；**SearchInput** `kbdHint`（≤2 字形，右侧 `pr-12` 固定预留）
+- **FilterChip** `label` `set?` `onClick` `onClear`；**CountChip** `label` `count` `tone` `active` `onClick`（独立导出，状态汇总药丸）；**Tabs** `items` `value` `onChange` `label?`（roving tabindex + 方向键 ArrowLeft/Right/Home/End 移动并激活焦点为不可退化能力）；**SegmentedControl** 同
 - **Modal** `open` `onClose` `title` `width` `footer`；Escape/portal/移动端底部弹出/safe-area 为不可退化能力
 - **EmptyState** `icon` `title` `hint` `action`；**LoadingState** `variant: list|stats|plain`；**ErrorState** `title` `detail` `onRetry`
 - **ProgressBar** `value` `max` `label` `tone`；`tone` 仅 `default|warning`，>90% 自动 warning；`label` 必填

@@ -41,12 +41,18 @@ interface FieldProps {
 
 export function Field({ label, hint, error, required, children }: FieldProps) {
   const id = useId()
+  // 尊重调用方已经显式传给控件的 id（例如控件本身要被表单库/E2E 测试按 id
+  // 定位）：有就用它，没有才用 Field 自己生成的 id。htmlFor 和注入的 id
+  // 必须用同一个值，否则调用方的 id 生效但 label 关联的还是 Field 生成的
+  // 那个，点 label 对不上焦点。
+  const providedId = isValidElement(children) ? (children.props as { id?: string }).id : undefined
+  const childId = providedId || id
   const descId = `${id}-desc`
   const hasDesc = Boolean(error || hint)
 
   // 不无条件注入 undefined 值：cloneElement 用 Object.assign 合并 props，
   // 显式的 undefined 会覆盖子元素自身可能已设置的同名 prop。只在真正需要时才带上该 key。
-  const injected: Record<string, unknown> = { id }
+  const injected: Record<string, unknown> = { id: childId }
   if (hasDesc) injected['aria-describedby'] = descId
   if (error) injected['aria-invalid'] = true
   if (required) injected.required = true
@@ -54,9 +60,13 @@ export function Field({ label, hint, error, required, children }: FieldProps) {
 
   return (
     <div className="min-w-0">
-      <label htmlFor={id} className="block text-xs font-medium text-ink-700 mb-1.5">
+      <label htmlFor={childId} className="block text-xs font-medium text-ink-700 mb-1.5">
         {label}
-        {required && <span className="text-danger-text ml-0.5">*</span>}
+        {required && (
+          <span aria-hidden="true" className="text-danger-text ml-0.5">
+            *
+          </span>
+        )}
       </label>
       {child}
       {hasDesc && (
