@@ -21,7 +21,9 @@
     "singleDay": "单日",
     "days": "{count}天",
     "emptyTitle": "还没有记录",
-    "emptyHint": "添加第一条吧"
+    "emptyHint": "添加第一条吧",
+    "errorTitle": "出错了",
+    "retry": "重试"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -751,6 +753,7 @@
     "totalExpense": "总支出",
     "includesFees": "含跨境手续费",
     "paid": "已付款",
+    "pendingPayment": "待付款",
     "budgetPending": "预算/待付款",
     "thisMonth": "本月支出",
     "lastMonth": "上月",
@@ -777,6 +780,9 @@
     "to": "至",
     "empty": "还没有支出记录",
     "addFirst": "添加第一条支出",
+    "listTitle": "支出明细",
+    "sortByLabel": "排序方式",
+    "toggleSortDir": "切换排序方向",
     "category": {
       "viewPie": "饼图",
       "viewSankey": "流向图",
@@ -792,6 +798,7 @@
     "paymentMethod": "支付方式",
     "paymentStatus": "状态",
     "deleteMessage": "确定要删除支出记录「{name}」吗？删了就找不回来了。",
+    "viewList": "列表",
     "categoryShare": "类别占比",
     "cumulativeTrend": "累计趋势",
     "monthlySummary": "月度汇总",
@@ -815,8 +822,6 @@
     "crossBorderFeeShort": "跨境",
     "crossBorderFeeTooltip": "非 with-new 且非租金支出的 4% 跨境转账成本",
     "effectiveCost": "实际成本（含跨境）",
-    "categoryColumn": "类别",
-    "discussionsColumn": "讨论",
     "categories": {
       "tangible_asset": "有形资产",
       "salary": "薪资成本",

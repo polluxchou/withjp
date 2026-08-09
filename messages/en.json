@@ -21,7 +21,9 @@
     "singleDay": "Single day",
     "days": "{count, plural, =1 {1 day} other {# days}}",
     "emptyTitle": "Nothing here yet",
-    "emptyHint": "Add the first one!"
+    "emptyHint": "Add the first one!",
+    "errorTitle": "Something went wrong",
+    "retry": "Retry"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -751,6 +753,7 @@
     "totalExpense": "Total expense",
     "includesFees": "Includes cross-border fees",
     "paid": "Paid",
+    "pendingPayment": "Pending",
     "budgetPending": "Budget / pending",
     "thisMonth": "This month",
     "lastMonth": "Last month",
@@ -777,6 +780,9 @@
     "to": "to",
     "empty": "No expenses yet",
     "addFirst": "Add your first expense",
+    "listTitle": "Expense records",
+    "sortByLabel": "Sort by",
+    "toggleSortDir": "Toggle sort direction",
     "category": {
       "viewPie": "Pie",
       "viewSankey": "Flow",
@@ -792,6 +798,7 @@
     "paymentMethod": "Payment method",
     "paymentStatus": "Status",
     "deleteMessage": "Delete \"{name}\"? This can't be undone.",
+    "viewList": "List",
     "categoryShare": "Category share",
     "cumulativeTrend": "Cumulative trend",
     "monthlySummary": "Monthly summary",
@@ -815,8 +822,6 @@
     "crossBorderFeeShort": "cross-border",
     "crossBorderFeeTooltip": "4% cross-border transfer cost for non-with-new, non-rent expenses",
     "effectiveCost": "Effective cost (incl. fee)",
-    "categoryColumn": "Category",
-    "discussionsColumn": "Discussion",
     "categories": {
       "tangible_asset": "Tangible assets",
       "salary": "Salary costs",

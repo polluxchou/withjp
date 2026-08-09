@@ -97,7 +97,7 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
         onClick={() => setOpen((value) => !value)}
         title={collapsed ? t('title') : undefined}
         aria-label={t('title')}
-        className={`relative flex w-full items-center rounded-lg text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 ${
+        className={`relative flex w-full items-center rounded-field text-sm font-medium text-ink-500 transition-colors hover:bg-line-soft hover:text-ink-900 ${
           collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
         }`}
       >
@@ -113,7 +113,7 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 z-[70] mb-2 lg:bottom-0 lg:left-full lg:mb-0 lg:ml-2">
+        <div className="absolute bottom-full left-0 z-40 mb-2 lg:bottom-0 lg:left-full lg:mb-0 lg:ml-2">
           <NotificationPanel
             notifications={notifications}
             loadError={loadError}

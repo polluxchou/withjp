@@ -110,7 +110,7 @@ export default function KnowledgePage() {
           <div className="col-span-1 space-y-2">
             {items.length === 0 && (
               <div className="bg-white border border-zinc-200 rounded-xl">
-                <EmptyState emoji="📚" title={t('noEntries')} />
+                <EmptyState title={t('noEntries')} />
               </div>
             )}
             {items.map((item) => {

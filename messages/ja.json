@@ -21,7 +21,9 @@
     "singleDay": "1日のみ",
     "days": "{count}日",
     "emptyTitle": "まだ記録がありません",
-    "emptyHint": "最初の1件を追加しましょう"
+    "emptyHint": "最初の1件を追加しましょう",
+    "errorTitle": "エラーが発生しました",
+    "retry": "再試行"
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -751,6 +753,7 @@
     "totalExpense": "総支出",
     "includesFees": "国際送金手数料含む",
     "paid": "支払済み",
+    "pendingPayment": "未払い",
     "budgetPending": "予算/支払待ち",
     "thisMonth": "今月の支出",
     "lastMonth": "先月",
@@ -777,6 +780,9 @@
     "to": "〜",
     "empty": "支出記録はまだありません",
     "addFirst": "最初の支出を追加",
+    "listTitle": "支出明細",
+    "sortByLabel": "並び替え",
+    "toggleSortDir": "並び順を切り替え",
     "category": {
       "viewPie": "円グラフ",
       "viewSankey": "サンキー図",
@@ -792,6 +798,7 @@
     "paymentMethod": "支払い方法",
     "paymentStatus": "ステータス",
     "deleteMessage": "支出記録「{name}」を削除しますか？この操作は取り消せません。",
+    "viewList": "リスト",
     "categoryShare": "カテゴリ別内訳",
     "cumulativeTrend": "累計トレンド",
     "monthlySummary": "月次サマリー",
@@ -815,8 +822,6 @@
     "crossBorderFeeShort": "国際",
     "crossBorderFeeTooltip": "with-new以外かつ家賃以外の支出に4%の国際送金コスト",
     "effectiveCost": "実質コスト（国際送金含む）",
-    "categoryColumn": "カテゴリ",
-    "discussionsColumn": "ディスカッション",
     "categories": {
       "tangible_asset": "有形資産",
       "salary": "給与コスト",

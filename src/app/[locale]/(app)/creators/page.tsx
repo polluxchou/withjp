@@ -104,7 +104,6 @@ export default function CreatorsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState
-            emoji="🎤"
             title={t('noCreatorsFound')}
             action={<button onClick={() => setShowForm(true)} className="mt-1 text-sm text-primary font-medium hover:underline">{t('addFirstCreator')}</button>}
           />

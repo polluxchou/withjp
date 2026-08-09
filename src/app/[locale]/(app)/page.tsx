@@ -161,7 +161,7 @@ export default async function DashboardPage() {
           </div>
           {recentTasks.length === 0 && (
             <div className="bg-white border border-zinc-200 rounded-xl">
-              <EmptyState emoji="📋" title={t('noTasksYet')} />
+              <EmptyState title={t('noTasksYet')} />
             </div>
           )}
           {recentTasks.map((task) => (
@@ -178,7 +178,7 @@ export default async function DashboardPage() {
         </div>
         <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
           {recentCreators.length === 0 ? (
-            <EmptyState emoji="🎤" title={t('noCreatorsYet')} />
+            <EmptyState title={t('noCreatorsYet')} />
           ) : (
             <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[560px]">
