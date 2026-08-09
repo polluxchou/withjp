@@ -14,6 +14,7 @@ import Button from '@/components/ui/Button'
 import ClampedText from '@/components/ui/ClampedText'
 import Tabs from '@/components/ui/Tabs'
 import { SearchInput } from '@/components/ui/Field'
+import { CountChip } from '@/components/ui/FilterChip'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
@@ -343,6 +344,12 @@ export default function ExpensesPage() {
   }, [monthPickerOpen])
 
   const summary = getExpenseSummary(visibleExpenses)
+  // Status-summary counts for the CountChip row — derived from the same
+  // filtered list the KPIs/table already use, so switching a chip filter
+  // shrinks/grows every other chip's count exactly like the existing KPI
+  // cards already do via toggleKpi.
+  const paidCount    = visibleExpenses.filter((e) => e.payment_status === 'paid').length
+  const pendingCount = visibleExpenses.filter((e) => e.payment_status === 'budgeted' || e.payment_status === 'ordered_unpaid').length
 
   // Range for the date slider — derived from the actual spend dates so the
   // track represents real data rather than a fixed 2-year window. Padded to
@@ -510,12 +517,39 @@ export default function ExpensesPage() {
       <button
         type="button"
         onClick={() => openCommandBar()}
-        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-violet-200 bg-primary-soft hover:bg-primary-soft-hover text-left text-sm text-zinc-600 transition-colors"
+        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-card border border-primary-border bg-primary-soft hover:bg-primary-soft-hover text-left text-sm text-primary-hover transition-colors"
       >
-        <Sparkles className="w-4 h-4 text-violet-500 flex-shrink-0" />
+        <Sparkles className="w-4 h-4 text-primary flex-shrink-0" strokeWidth={1.5} />
         <span>{t('kpi.nlHint')}</span>
-        <kbd className="ml-auto px-1.5 py-0.5 text-[10px] rounded bg-white text-zinc-500 border border-zinc-200">⌘K</kbd>
+        <kbd className="ml-auto px-1.5 py-0.5 text-micro rounded bg-surface text-ink-500 border border-line">⌘K</kbd>
       </button>
+
+      {/* Status summary — same underlying filter as the KPI cards below, just
+          a quick count-based entry point (toggleKpi is the single source of
+          truth for what "active" means). */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <CountChip
+          label={tCommon('all')}
+          count={visibleExpenses.length}
+          tone="neutral"
+          active={activeKpi === null}
+          onClick={() => toggleKpi('reset')}
+        />
+        <CountChip
+          label={t('paid')}
+          count={paidCount}
+          tone="success"
+          active={activeKpi === 'paid'}
+          onClick={() => toggleKpi('paid')}
+        />
+        <CountChip
+          label={t('pendingPayment')}
+          count={pendingCount}
+          tone="warning"
+          active={activeKpi === 'unpaid'}
+          onClick={() => toggleKpi('unpaid')}
+        />
+      </div>
 
       {/* KPI Cards — click to filter, click active card again to clear */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">

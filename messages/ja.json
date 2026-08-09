@@ -753,6 +753,7 @@
     "totalExpense": "総支出",
     "includesFees": "国際送金手数料含む",
     "paid": "支払済み",
+    "pendingPayment": "未払い",
     "budgetPending": "予算/支払待ち",
     "thisMonth": "今月の支出",
     "lastMonth": "先月",
