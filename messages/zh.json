@@ -794,6 +794,7 @@
     "paymentMethod": "支付方式",
     "paymentStatus": "状态",
     "deleteMessage": "确定要删除支出记录「{name}」吗？删了就找不回来了。",
+    "viewList": "列表",
     "categoryShare": "类别占比",
     "cumulativeTrend": "累计趋势",
     "monthlySummary": "月度汇总",

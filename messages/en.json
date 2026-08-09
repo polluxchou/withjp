@@ -794,6 +794,7 @@
     "paymentMethod": "Payment method",
     "paymentStatus": "Status",
     "deleteMessage": "Delete \"{name}\"? This can't be undone.",
+    "viewList": "List",
     "categoryShare": "Category share",
     "cumulativeTrend": "Cumulative trend",
     "monthlySummary": "Monthly summary",

@@ -31,7 +31,14 @@ import {
 import { useTranslations } from 'next-intl'
 import { useCurrency } from '@/lib/currency'
 
+// Primary view state used to live inside this component as its own pill
+// tablist ('category' | 'trend' | 'monthly'). It is now lifted to the page
+// header's <Tabs> (alongside a fourth 'list' value the page renders itself),
+// so the parent passes the active view down instead of us owning it.
+export type ExpenseChartView = 'category' | 'trend' | 'monthly'
+
 interface Props {
+  view: ExpenseChartView
   expenses: Expense[]
   categoryBreakdownExpenses?: Expense[]
   selectedCategory?: string
@@ -74,7 +81,6 @@ const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   cloud_services:  '#ec4899',
 }
 
-type Tab = 'category' | 'trend' | 'monthly'
 type MonthlyView = 'table' | 'chart'
 type MonthlyGran = 'day' | 'month'
 
@@ -162,6 +168,7 @@ function DayTooltip({ active, payload, label, fmt, dayCountAlert }: ChartTooltip
 }
 
 export default function ExpenseCategoryChart({
+  view,
   expenses,
   categoryBreakdownExpenses = expenses,
   selectedCategory = '',
@@ -169,7 +176,6 @@ export default function ExpenseCategoryChart({
   selectedPeriod,
   onPeriodSelect,
 }: Props) {
-  const [tab, setTab]                 = useState<Tab>('category')
   const [catView, setCatView]         = useState<'pie' | 'sankey'>('pie')
   const [granularity, setGranularity] = useState<CostGranularity>('month')
   const [monthlyView, setMonthlyView] = useState<MonthlyView>('table')
@@ -289,73 +295,55 @@ export default function ExpenseCategoryChart({
 
   if (categoryBreakdownExpenses.length === 0) return null
 
-  const TABS: { key: Tab; label: string }[] = [
-    { key: 'category', label: t('categoryShare') },
-    { key: 'trend',    label: t('cumulativeTrend') },
-    { key: 'monthly',  label: t('monthlySummary') },
-  ]
-
   return (
     <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-          {TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                tab === key
-                  ? 'bg-white text-zinc-900 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'category' && (
-          <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-            <button
-              onClick={() => setCatView('pie')}
-              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                catView === 'pie' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
-              }`}
-            >
-              {t('category.viewPie')}
-            </button>
-            <button
-              onClick={() => setCatView('sankey')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                catView === 'sankey' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
-              }`}
-            >
-              <Workflow className="w-3 h-3" />
-              {t('category.viewSankey')}
-            </button>
-          </div>
-        )}
-
-        {tab === 'trend' && (
-          <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-            {(['month', 'quarter', 'year'] as CostGranularity[]).map((g) => (
+      {/* Secondary control row — the primary category/trend/monthly switch now
+          lives in the page header's <Tabs> (see ExpenseChartView); this row
+          only surfaces the sub-toggle relevant to the currently active view. */}
+      {(view === 'category' || view === 'trend') && (
+        <div className="flex items-center justify-end mb-4">
+          {view === 'category' && (
+            <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
               <button
-                key={g}
-                onClick={() => setGranularity(g)}
+                onClick={() => setCatView('pie')}
                 className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  granularity === g ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                  catView === 'pie' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
                 }`}
               >
-                {t(g)}
+                {t('category.viewPie')}
               </button>
-            ))}
-          </div>
-        )}
-      </div>
+              <button
+                onClick={() => setCatView('sankey')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  catView === 'sankey' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                }`}
+              >
+                <Workflow className="w-3 h-3" />
+                {t('category.viewSankey')}
+              </button>
+            </div>
+          )}
 
-      {/* ── Tab 1: 类别占比 — Sankey 流向图 ── */}
-      {tab === 'category' && catView === 'sankey' && (
+          {view === 'trend' && (
+            <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
+              {(['month', 'quarter', 'year'] as CostGranularity[]).map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGranularity(g)}
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                    granularity === g ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                  }`}
+                >
+                  {t(g)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 类别占比 — Sankey 流向图 ── */}
+      {view === 'category' && catView === 'sankey' && (
         <ExpenseSankeyChart
           expenses={categoryBreakdownExpenses}
           selectedCategory={selectedCategory}
@@ -363,7 +351,7 @@ export default function ExpenseCategoryChart({
       )}
 
       {/* ── Tab 1: 类别占比 — 饼图 | 主成本分类 | 经办人分类 ── */}
-      {tab === 'category' && catView === 'pie' && (
+      {view === 'category' && catView === 'pie' && (
         <div className="grid gap-x-5 gap-y-4 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,260px)_minmax(160px,240px)]">
 
           {/* ① 饼图 */}
@@ -489,7 +477,7 @@ export default function ExpenseCategoryChart({
       )}
 
       {/* ── Tab 2: 累计趋势 ── */}
-      {tab === 'trend' && (
+      {view === 'trend' && (
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={timeSeries} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -508,7 +496,7 @@ export default function ExpenseCategoryChart({
       )}
 
       {/* ── Tab 3: 月度汇总 ── */}
-      {tab === 'monthly' && (
+      {view === 'monthly' && (
         <>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">

@@ -5,13 +5,15 @@ import { useSearchParams } from 'next/navigation'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import Header from '@/components/layout/Header'
 import ExpenseForm from '@/components/expenses/ExpenseForm'
-import ExpenseCategoryChart from '@/components/expenses/ExpenseCategoryChart'
+import ExpenseCategoryChart, { type ExpenseChartView } from '@/components/expenses/ExpenseCategoryChart'
 import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal'
 import SavedViewsBar from '@/components/expenses/SavedViewsBar'
 import Modal from '@/components/ui/Modal'
 import DateRangeSlider from '@/components/ui/DateRangeSlider'
 import Button from '@/components/ui/Button'
 import ClampedText from '@/components/ui/ClampedText'
+import Tabs from '@/components/ui/Tabs'
+import { SearchInput } from '@/components/ui/Field'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
@@ -80,6 +82,12 @@ const SORT_CHAIN: SortKey[] = ['date', 'period', 'amount']
 const EMPTY_FILTERS = SHARED_EMPTY_FILTERS
 const SERVER_FILTER_KEYS = SHARED_SERVER_FILTER_KEYS
 
+// Page-level view switch, rendered as the header's <Tabs>. 'list' renders the
+// RecordRow table here on the page; the other three used to be a pill
+// tablist owned by ExpenseCategoryChart and are now passed down as its
+// `view` prop (see ExpenseChartView).
+type PageView = 'list' | ExpenseChartView
+
 export default function ExpensesPage() {
   const currentUser = useCurrentUser()
   const [expenses,   setExpenses]   = useState<Expense[]>([])
@@ -97,6 +105,7 @@ export default function ExpensesPage() {
   const [sortDir,    setSortDir]    = useState<SortDir>('desc')
   const [refreshSeq, setRefreshSeq] = useState(0)
   const [searchInput, setSearchInput] = useState('')
+  const [viewTab, setViewTab] = useState<PageView>('list')
   const [panelSubject, setPanelSubject] = useState<SubjectInput | null>(null)
   const loadCtrl = useRef<AbortController | null>(null)
   const t = useTranslations('expenses')
@@ -465,10 +474,32 @@ export default function ExpensesPage() {
       <Header
         title={t('title')}
         subtitle={t('subtitle', { count: summary.itemCount })}
+        tabs={
+          <Tabs
+            items={[
+              { value: 'list',     label: t('viewList') },
+              { value: 'category', label: t('categoryShare') },
+              { value: 'trend',    label: t('cumulativeTrend') },
+              { value: 'monthly',  label: t('monthlySummary') },
+            ]}
+            value={viewTab}
+            onChange={(v) => setViewTab(v as PageView)}
+          />
+        }
+        search={
+          <div className="w-56">
+            <SearchInput
+              kbdHint="⌘K"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+            />
+          </div>
+        }
         actions={
           <>
             <CurrencySwitcher />
-            <Button onClick={() => setShowForm(true)}>
+            <Button size="lg" onClick={() => setShowForm(true)}>
               <Plus className="w-4 h-4" /> {t('addExpense')}
             </Button>
           </>
@@ -605,15 +636,19 @@ export default function ExpensesPage() {
         </button>
       </div>
 
-      {/* Charts */}
-      <ExpenseCategoryChart
-        expenses={visibleExpenses}
-        categoryBreakdownExpenses={expenses}
-        selectedCategory={filters.category}
-        onCategorySelect={selectChartCategory}
-        selectedPeriod={{ from: filters.date_from, to: filters.date_to }}
-        onPeriodSelect={selectChartPeriod}
-      />
+      {/* Charts — rendered for the category/trend/monthly tabs; the 'list' tab
+          renders the RecordRow table further down instead. */}
+      {viewTab !== 'list' && (
+        <ExpenseCategoryChart
+          view={viewTab}
+          expenses={visibleExpenses}
+          categoryBreakdownExpenses={expenses}
+          selectedCategory={filters.category}
+          onCategorySelect={selectChartCategory}
+          selectedPeriod={{ from: filters.date_from, to: filters.date_to }}
+          onPeriodSelect={selectChartPeriod}
+        />
+      )}
 
       {/* Saved filter views (localStorage) */}
       <div className="mb-3 flex items-center gap-3 flex-wrap">
@@ -701,7 +736,8 @@ export default function ExpensesPage() {
         />
       </div>
 
-      {/* Table */}
+      {/* Table — 'list' tab only; charts render above for the other three. */}
+      {viewTab === 'list' && (
       <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-sm text-zinc-400">{tCommon('loading')}</div>
@@ -923,6 +959,7 @@ export default function ExpensesPage() {
           </>
         )}
       </div>
+      )}
 
       {/* Add Modal */}
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t('addExpense')} width="max-w-2xl">
