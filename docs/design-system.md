@@ -81,6 +81,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - `CHART_SERIES`：`#7c3aed`（首位，=UI 主色）→ `#3b82f6` → `#10b981` → `#f59e0b` → `#ec4899` → `#8d87a1`；同一图内禁止重复取色
 - `AXIS`（刻度文字）`#8d87a1` · `GRID`（网格线）`rgba(33,28,51,.05)` · `TOOLTIP`（白底 + `line` 边框 + `shadow-pop`）
 - 面积填充：`areaFill(id, color)` 工厂生成每系列独立渐变 id，主色 14%（`24` 后缀）→ 0（`00` 后缀）垂直渐变；线宽 1.8-2px
+- 类目→色映射（业务枚举，非通用图表 API）唯一登记处：`src/components/expenses/category-color.ts` 的 `CATEGORY_INDEX`（`satisfies Record<ExpenseCategory, number>`，编译期强制覆盖全部枚举值）+ `categoryColor()`（`seriesColor(CATEGORY_INDEX[cat])`）。未登记类目（脏数据/历史遗留）不应静默回退到索引 0（会与 tangible_asset 撞色）——调用侧自行判断是否已登记（如 `Object.hasOwn(CATEGORY_INDEX, cat)`）并显式回退到 `CHART_SERIES` 末位（ExpenseSankeyChart 范例）
 
 ## 2. 字体与排版
 
