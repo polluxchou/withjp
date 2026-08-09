@@ -1,11 +1,15 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  // 扫描范围必须与门禁（check-style-tokens.mjs）一致 = src 全树（design-system §7.5）。
+  // src/venue 长期缺席：画布组件里的类名（含 slate-* 桌面灰、[writing-mode:vertical-rl]
+  // 等任意值）此前只在别处碰巧同名时才被顺带生成，一旦别处删掉就静默失效。
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/lib/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/venue/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {

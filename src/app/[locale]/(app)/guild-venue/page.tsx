@@ -854,7 +854,7 @@ export default function GuildVenuePage() {
             setSaveState('error')
             return
           }
-          ctx.fillStyle = '#ffffff'
+          ctx.fillStyle = '#ffffff' // style-tokens-ignore：canvas 2D 导出底色，非 UI 样式
           ctx.fillRect(0, 0, canvas.width, canvas.height)
           ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
           canvas.toBlob((blob) => {
@@ -1440,7 +1440,9 @@ function FloatingPanel({
       </div>
       {/* 列表范围切换（空间 / 标识 / 物品）走共享 Tabs（design-system §6.1）；
           计数并入 label 文本，Tabs 契约里 label 是纯字符串。 */}
-      <div className="px-3 pt-2">
+      {/* 不加左右内边距：Tabs 自带的 border-b 发丝线要一直画到面板两边，
+          留白会让它比面板窄一截、断在半空。 */}
+      <div className="pt-2">
         <Tabs
           label={t('listTabsLabel')}
           value={listTab}
@@ -1606,7 +1608,7 @@ function ViewBookmarks({
           onClick={onAdd}
           title={t('viewSaveCurrent')}
           aria-label={t('viewSaveCurrent')}
-          className="h-9 shrink-0 inline-flex items-center gap-1 rounded-field border border-dashed border-line-strong bg-surface px-2.5 text-xs font-semibold text-ink-400 hover:border-primary-border hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+          className="h-8 shrink-0 inline-flex items-center gap-1 rounded-field border border-dashed border-line-strong bg-surface px-2.5 text-xs font-semibold text-ink-400 hover:border-primary-border hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
         >
           <Bookmark className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
           <Plus className="w-3 h-3 flex-shrink-0" strokeWidth={1.5} />
@@ -1623,7 +1625,7 @@ function ViewBookmarks({
         onClick={cycle}
         title={t('viewSwitchNext')}
         aria-label={t('viewSwitchNext')}
-        className="h-9 inline-flex items-center gap-1.5 bg-primary-soft px-2.5 text-xs font-semibold text-primary-hover hover:bg-primary-soft-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
+        className="h-8 inline-flex items-center gap-1.5 bg-primary-soft px-2.5 text-xs font-semibold text-primary-hover hover:bg-primary-soft-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
       >
         <Bookmark className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
         <span className="tabular-nums">{safeActive + 1}</span>
@@ -1635,7 +1637,7 @@ function ViewBookmarks({
         onClick={openMenu}
         title={t('viewBookmarks')}
         aria-label={t('viewBookmarks')}
-        className="h-9 inline-flex items-center justify-center border-l border-primary-border bg-primary-soft px-1.5 text-primary-hover hover:bg-primary-soft-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
+        className="h-8 inline-flex items-center justify-center border-l border-primary-border bg-primary-soft px-1.5 text-primary-hover hover:bg-primary-soft-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
       >
         <ChevronDown strokeWidth={1.5} className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -1652,7 +1654,7 @@ function ViewBookmarks({
                   goTo(index)
                   setOpen(false)
                 }}
-                className={`flex-1 text-left text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${index === safeActive ? 'text-primary-hover' : 'text-ink-700'}`}
+                className={`flex-1 text-left text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${index === safeActive ? 'text-primary-hover' : 'text-ink-700'}`}
               >
                 {t('viewBookmarkN', { n: index + 1 })}
               </button>
@@ -1660,7 +1662,7 @@ function ViewBookmarks({
                 type="button"
                 onClick={() => onOverwrite(index)}
                 title={t('viewOverwrite')}
-                className="px-1.5 py-0.5 text-micro font-medium text-ink-400 hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
+                className="px-1.5 py-0.5 text-micro font-medium text-ink-400 hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
               >
                 {t('viewOverwriteShort')}
               </button>
@@ -1669,7 +1671,7 @@ function ViewBookmarks({
                 onClick={() => onRemove(index)}
                 title={t('viewRemove')}
                 aria-label={t('viewRemove')}
-                className="text-ink-400 hover:text-danger-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
+                className="text-ink-400 hover:text-danger-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
               >
                 <X className="w-3.5 h-3.5" strokeWidth={1.5} />
               </button>
@@ -1681,7 +1683,7 @@ function ViewBookmarks({
               <button
                 type="button"
                 onClick={() => onAdd()}
-                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
               >
                 <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
                 {t('viewSaveCurrent')}
@@ -1734,7 +1736,7 @@ function AddMenu({
         ref={buttonRef}
         type="button"
         onClick={toggleOpen}
-        className="h-9 inline-flex items-center gap-1.5 rounded-field border border-line-strong bg-surface px-3 text-sm font-medium text-ink-700 hover:border-primary-border hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+        className="h-8 inline-flex items-center gap-1.5 rounded-field border border-line-strong bg-surface px-3 text-sm font-medium text-ink-700 hover:border-primary-border hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
       >
         <TriggerIcon className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
         <span className="whitespace-nowrap">{label}</span>
@@ -1755,7 +1757,7 @@ function AddMenu({
                   onAdd(type)
                   setOpen(false)
                 }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-700 hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-700 hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
               >
                 <Icon className="w-3.5 h-3.5 text-ink-400" strokeWidth={1.5} />
                 <span>{t(`types.${type}`)}</span>
@@ -1822,7 +1824,7 @@ function TypeFilter({
         ref={buttonRef}
         type="button"
         onClick={toggleOpen}
-        className={`h-9 inline-flex items-center gap-1.5 rounded-field border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
+        className={`h-8 inline-flex items-center gap-1.5 rounded-field border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
           fullWidth ? 'w-full justify-between' : ''
         } ${
           allSelected
@@ -1911,8 +1913,10 @@ function ToolbarButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`h-9 shrink-0 inline-flex items-center justify-center rounded-field border text-xs font-semibold leading-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
-        iconOnly ? 'w-9' : 'gap-1.5 px-3'
+      // h-8 = §3 控件高度默认档 32px。iconOnly 的方形也取 32×32（正好落在
+      // §4 点击目标下限），整条工具栏因此与 SegmentedControl 同高。
+      className={`h-8 shrink-0 inline-flex items-center justify-center rounded-field border text-xs font-semibold leading-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
+        iconOnly ? 'w-8' : 'gap-1.5 px-3'
       } ${
         primary
           ? 'border-ink-900 bg-ink-900 text-white hover:bg-ink-700'
