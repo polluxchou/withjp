@@ -48,7 +48,7 @@ import Button from '@/components/ui/Button'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Tabs from '@/components/ui/Tabs'
 import Tag from '@/components/ui/Tag'
-import { Input } from '@/components/ui/Field'
+import { Field, Input } from '@/components/ui/Field'
 import VenueCanvas from '@/venue/VenueCanvas'
 import Venue3DCanvas from '@/venue/Venue3DCanvas'
 import VenueInspector, { type PlacedItemSummary } from '@/venue/VenueInspector'
@@ -1078,78 +1078,64 @@ export default function GuildVenuePage() {
               <div className="space-y-4">
                 {canEdit && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-slate-500">{t('canvasSettings')}</p>
+                  <p className="text-xs font-medium text-ink-700">{t('canvasSettings')}</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="block">
-                      <span className="block text-[11px] text-slate-400 mb-1">{t('canvasWidth')}</span>
-                      <input
+                    <Field label={t('canvasWidth')}>
+                      <Input
                         type="number" min="1" step="0.1"
                         value={centimetersToMeters(activeFloor.width)}
                         onChange={(event) => {
                           const value = Number(event.target.value)
                           if (Number.isFinite(value) && value > 0) updateFloorDefaults({ width: metersToCentimeters(value) })
                         }}
-                        aria-label={t('canvasWidth')}
-                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="tabular-nums"
                       />
-                    </label>
-                    <label className="block">
-                      <span className="block text-[11px] text-slate-400 mb-1">{t('canvasHeight')}</span>
-                      <input
+                    </Field>
+                    <Field label={t('canvasHeight')}>
+                      <Input
                         type="number" min="1" step="0.1"
                         value={centimetersToMeters(activeFloor.height)}
                         onChange={(event) => {
                           const value = Number(event.target.value)
                           if (Number.isFinite(value) && value > 0) updateFloorDefaults({ height: metersToCentimeters(value) })
                         }}
-                        aria-label={t('canvasHeight')}
-                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="tabular-nums"
                       />
-                    </label>
-                    <label className="block col-span-2">
-                      <span className="block text-[11px] text-slate-400 mb-1">{t('floorStoreyHeight')}</span>
-                      <input
-                        type="number" min="1" step="0.1"
-                        value={centimetersToMeters(activeFloor.floorHeight)}
-                        onChange={(event) => {
-                          const value = Number(event.target.value)
-                          if (Number.isFinite(value) && value > 0) updateFloorDefaults({ floorHeight: metersToCentimeters(value) })
-                        }}
-                        aria-label={t('floorStoreyHeight')}
-                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </label>
+                    </Field>
+                    <div className="col-span-2">
+                      <Field label={t('floorStoreyHeight')}>
+                        <Input
+                          type="number" min="1" step="0.1"
+                          value={centimetersToMeters(activeFloor.floorHeight)}
+                          onChange={(event) => {
+                            const value = Number(event.target.value)
+                            if (Number.isFinite(value) && value > 0) updateFloorDefaults({ floorHeight: metersToCentimeters(value) })
+                          }}
+                          className="tabular-nums"
+                        />
+                      </Field>
+                    </div>
                   </div>
-                  <label className="block">
-                    <span className="block text-[11px] text-slate-400 mb-1">{t('backgroundImage')}</span>
-                    <input
+                  <Field label={t('backgroundImage')}>
+                    <Input
                       value={activeFloor.backgroundImage ?? ''}
                       onChange={(event) => updateBackgroundImage(event.target.value)}
                       placeholder={t('backgroundPlaceholder')}
-                      className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                  </label>
+                  </Field>
                 </div>
                 )}
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-slate-500">{t('canvasActions')}</p>
+                  <p className="text-xs font-medium text-ink-700">{t('canvasActions')}</p>
                   <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
-                  <button
-                    type="button"
-                    onClick={exportJson}
-                    className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
+                  <Button variant="secondary" onClick={exportJson} className="w-full justify-center">
+                    <Download className="w-4 h-4" strokeWidth={1.5} />
                     {t('exportJson')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={exportPng}
-                    className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-                  >
-                    <ImageIcon className="w-4 h-4" />
+                  </Button>
+                  <Button variant="secondary" onClick={exportPng} className="w-full justify-center">
+                    <ImageIcon className="w-4 h-4" strokeWidth={1.5} />
                     {t('exportImage')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             }

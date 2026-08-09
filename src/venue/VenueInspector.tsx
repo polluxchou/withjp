@@ -4,6 +4,8 @@ import { BringToFront, MoveDown, MoveUp, PanelRightClose, PanelRightOpen, SendTo
 import { useTranslations } from 'next-intl'
 import type { ChangeEvent, ReactNode } from 'react'
 import { useEffect, useState } from 'react'
+import { Field, Input, Select, Textarea } from '@/components/ui/Field'
+import SegmentedControl from '@/components/ui/SegmentedControl'
 import {
   VENUE_ITEM_STATUS_OPTIONS,
   VENUE_ITEM_TYPE_OPTIONS,
@@ -50,25 +52,26 @@ type Props = {
   onDelete: () => void
 }
 
-const INPUT_CLASS = 'w-full min-h-9 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500'
-const DISABLED_CLASS = 'w-full min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400'
+// 面板内所有图标按钮共用的方形按钮外观（design-system §3 形状 / §4 focus）。
+const ICON_BUTTON_CLASS =
+  'w-9 h-9 inline-flex items-center justify-center rounded-field transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
 
 export default function VenueInspector({ item, layerIndex, layerCount, collapsed, storeyHeightCm, emptyStateActions, placedItems = [], placedItemsTotalCost = 0, onOpenItems, onToggleCollapsed, onChange, onMoveLayer, onDelete }: Props) {
   const t = useTranslations('venue')
 
   if (collapsed) {
     return (
-      <aside className="bg-white border-l border-slate-200 min-h-0 flex flex-col items-center gap-3 py-4">
+      <aside className="bg-surface border-l border-line min-h-0 flex flex-col items-center gap-3 py-4">
         <button
           type="button"
           onClick={onToggleCollapsed}
           title={t('expandInspector')}
           aria-label={t('expandInspector')}
-          className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
+          className={`${ICON_BUTTON_CLASS} text-ink-500 hover:bg-line-soft hover:text-primary-hover`}
         >
-          <PanelRightOpen className="w-4 h-4" />
+          <PanelRightOpen className="w-4 h-4" strokeWidth={1.5} />
         </button>
-        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide [writing-mode:vertical-rl]">
+        <span className="text-xs font-medium text-ink-400 uppercase tracking-wide [writing-mode:vertical-rl]">
           {t('inspectorTitle')}
         </span>
       </aside>
@@ -81,23 +84,23 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
       onClick={onToggleCollapsed}
       title={t('collapseInspector')}
       aria-label={t('collapseInspector')}
-      className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
+      className={`${ICON_BUTTON_CLASS} text-ink-400 hover:bg-line-soft hover:text-primary-hover`}
     >
-      <PanelRightClose className="w-4 h-4" />
+      <PanelRightClose className="w-4 h-4" strokeWidth={1.5} />
     </button>
   )
 
   if (!item) {
     return (
-      <aside className="bg-white border-l border-slate-200 min-h-0 overflow-auto">
-        <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-3">
+      <aside className="bg-surface border-l border-line min-h-0 overflow-auto">
+        <div className="p-5 border-b border-line-soft flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{t('inspectorTitle')}</p>
-            <h2 className="text-lg font-semibold text-slate-900 mt-1">{t('noSelectionTitle')}</h2>
+            <p className="text-xs font-medium text-ink-500 uppercase tracking-wide">{t('inspectorTitle')}</p>
+            <h2 className="text-lg font-semibold text-ink-900 tracking-section mt-1">{t('noSelectionTitle')}</h2>
           </div>
           {collapseButton}
         </div>
-        <div className="p-5 text-sm text-slate-500 leading-6">
+        <div className="p-5 text-sm text-ink-500 leading-6">
           {t('noSelectionBody')}
         </div>
         {emptyStateActions && (
@@ -121,21 +124,21 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
   const isFront = layerIndex >= layerCount - 1
 
   return (
-    <aside className="bg-white border-l border-slate-200 min-h-0 overflow-auto">
-      <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-3">
+    <aside className="bg-surface border-l border-line min-h-0 overflow-auto">
+      <div className="p-5 border-b border-line-soft flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{t('inspectorTitle')}</p>
-          <h2 className="text-lg font-semibold text-slate-900 mt-1 truncate">{item.name}</h2>
+          <p className="text-xs font-medium text-ink-500 uppercase tracking-wide">{t('inspectorTitle')}</p>
+          <h2 className="text-lg font-semibold text-ink-900 tracking-section mt-1 truncate">{item.name}</h2>
         </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={onDelete}
-            className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            className={`${ICON_BUTTON_CLASS} text-ink-400 hover:text-danger-text hover:bg-danger-soft`}
             title={t('deleteItem')}
             aria-label={t('deleteItem')}
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" strokeWidth={1.5} />
           </button>
           {collapseButton}
         </div>
@@ -143,61 +146,55 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
 
       <div className="p-5 space-y-4">
         <Field label={t('fieldName')}>
-          <input
+          <Input
             value={item.name}
             onChange={(event) => onChange({ name: event.target.value })}
-            className={INPUT_CLASS}
           />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('fieldType')}>
-            <select
+            <Select
               value={item.type}
               onChange={(event) => onChange({ type: event.target.value as VenueItemType })}
-              className={INPUT_CLASS}
             >
               {VENUE_ITEM_TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{t(`types.${option.value}`)}</option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label={t('fieldStatus')}>
-            <select
+            <Select
               value={item.status}
               onChange={(event) => onChange({ status: event.target.value as VenueItemStatus })}
-              className={INPUT_CLASS}
             >
               {VENUE_ITEM_STATUS_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{t(`statuses.${option.value}`)}</option>
               ))}
-            </select>
+            </Select>
           </Field>
         </div>
 
         {!isVenueMarkerType(item.type) && item.type !== 'area' && item.type !== 'window' && item.type !== 'truss' && !isLightType(item.type) && (
-          <Field label={t('fieldPlacement')}>
-            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
-              {(['ground', 'aerial'] as VenueItemPlacement[]).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => onChange({ placement: p })}
-                  className={`flex-1 py-2 text-center transition-colors ${
-                    item.placement === p
-                      ? 'bg-indigo-600 text-white font-medium'
-                      : 'bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {t(`placements.${p}`)}
-                </button>
-              ))}
-            </div>
-          </Field>
+          // 地面/空中是两选一的小范围互斥切换（§6.1）→ SegmentedControl。
+          // 不套 Field：Field 会 cloneElement 往子节点注入 id 与 htmlFor 配对，
+          // 而 SegmentedControl 的根是 role="group" 的 div，接不住 id。
+          <div>
+            <p className="text-xs font-medium text-ink-700 mb-1.5">{t('fieldPlacement')}</p>
+            <SegmentedControl
+              label={t('fieldPlacement')}
+              value={item.placement}
+              onChange={(next) => onChange({ placement: next as VenueItemPlacement })}
+              items={(['ground', 'aerial'] as VenueItemPlacement[]).map((p) => ({
+                value: p,
+                label: t(`placements.${p}`),
+              }))}
+            />
+          </div>
         )}
 
         <div>
-          <p className="text-xs font-medium text-slate-500 mb-2">{t('layerOrder')}</p>
+          <p className="text-xs font-medium text-ink-700 mb-2">{t('layerOrder')}</p>
           <div className="grid grid-cols-4 gap-2">
             <LayerButton
               icon={SendToBack}
@@ -228,8 +225,8 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
 
         <div>
           <div className="flex items-center justify-between gap-2 mb-2">
-            <p className="text-xs font-medium text-slate-500">{t('geometry')}</p>
-            <p className="text-[11px] text-slate-400">{t('geometryUnit')}</p>
+            <p className="text-xs font-medium text-ink-700">{t('geometry')}</p>
+            <p className="text-micro text-ink-400">{t('geometryUnit')}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <NumberField label="X (m)" value={centimetersToMeters(item.x)} onChange={metricChange('x')} step={0.001} />
@@ -240,19 +237,18 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
         </div>
 
         <Field label={`${t('fieldRotation')} (deg)`}>
-          <input
+          <Input
             type="number"
             value={item.rotation}
             step={1}
             onChange={rotationChange}
-            className={INPUT_CLASS}
           />
         </Field>
 
         <div>
           <div className="flex items-center justify-between gap-2 mb-2">
-            <p className="text-xs font-medium text-slate-500">{t('elevation3d')}</p>
-            <p className="text-[11px] text-slate-400">{t('elevation3dUnit')}</p>
+            <p className="text-xs font-medium text-ink-700">{t('elevation3d')}</p>
+            <p className="text-micro text-ink-400">{t('elevation3dUnit')}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <NumberField
@@ -277,50 +273,55 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
             )}
           </div>
           {typeof storeyHeightCm === 'number' && storeyHeightCm > 0 && (
-            <p className="mt-2 text-[11px] text-slate-400">
+            <p className="mt-2 text-micro text-ink-400 tabular-nums">
               {t('fieldStoreyHeight', { value: centimetersToMeters(storeyHeightCm) })}
             </p>
           )}
         </div>
 
         <Field label={t('fieldNote')}>
-          <textarea
+          <Textarea
             value={item.note}
             onChange={(event) => onChange({ note: event.target.value })}
-            rows={5}
-            className={`${INPUT_CLASS} resize-none`}
+            size="lg"
           />
         </Field>
 
+        {/* 对象 ID 保持 readOnly 而非 disabled：用户仍需要能选中复制它。
+            font-mono 是 §2 的编号规则，且不与 Input 基础类冲突。 */}
         <Field label={t('fieldId')}>
-          <input value={item.id} readOnly className={DISABLED_CLASS} />
+          <Input value={item.id} readOnly className="font-mono" />
         </Field>
 
         {item && (
-          <div className="mt-4 rounded-lg border border-slate-200 p-3">
+          <div className="mt-4 rounded-card border border-line p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-700">{t('placedItemsTitle')}</span>
+              <span className="text-xs font-semibold text-ink-700">{t('placedItemsTitle')}</span>
               {onOpenItems && (
-                <button type="button" onClick={onOpenItems} className="text-xs text-indigo-600 hover:underline">
+                <button
+                  type="button"
+                  onClick={onOpenItems}
+                  className="text-xs text-primary hover:text-primary-hover hover:underline transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 rounded-field"
+                >
                   {t('manageItems')}
                 </button>
               )}
             </div>
             {placedItems.length === 0 ? (
-              <div className="text-xs text-slate-400">{t('placedItemsEmpty')}</div>
+              <div className="text-xs text-ink-400">{t('placedItemsEmpty')}</div>
             ) : (
               <>
                 <ul className="space-y-1">
                   {placedItems.map((p) => (
-                    <li key={p.id} className="flex items-center justify-between text-xs text-slate-600">
-                      <span className="truncate">{p.name} <span className="text-slate-400">×{p.quantity}</span></span>
-                      <span className="shrink-0 tabular-nums">¥{p.cost.toLocaleString('zh-CN')}</span>
+                    <li key={p.id} className="flex items-center justify-between text-xs text-ink-700">
+                      <span className="truncate">{p.name} <span className="text-ink-400 tabular-nums">×{p.quantity}</span></span>
+                      <span className="shrink-0 font-mono tabular-nums">¥{p.cost.toLocaleString('zh-CN')}</span>
                     </li>
                   ))}
                 </ul>
-                <div className="mt-2 flex items-center justify-between border-t border-dashed border-slate-200 pt-2 text-xs font-semibold text-slate-800">
+                <div className="mt-2 flex items-center justify-between border-t border-dashed border-line-strong pt-2 text-xs font-semibold text-ink-900">
                   <span>{t('placedItemsTotal')}</span>
-                  <span className="tabular-nums">¥{placedItemsTotalCost.toLocaleString('zh-CN')}</span>
+                  <span className="font-mono tabular-nums">¥{placedItemsTotalCost.toLocaleString('zh-CN')}</span>
                 </div>
               </>
             )}
@@ -349,19 +350,10 @@ function LayerButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="h-9 rounded-lg border border-slate-200 bg-white text-slate-500 inline-flex items-center justify-center hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:text-slate-500 transition-colors"
+      className="h-9 rounded-field border border-line-strong bg-surface text-ink-500 inline-flex items-center justify-center hover:border-primary-border hover:text-primary-hover disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:border-line-strong disabled:hover:text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
     >
-      <Icon className="w-4 h-4" />
+      <Icon className="w-4 h-4" strokeWidth={1.5} />
     </button>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="block text-xs font-medium text-slate-500 mb-1.5">{label}</span>
-      {children}
-    </label>
   )
 }
 
@@ -405,9 +397,8 @@ function NumberField({
   }
 
   return (
-    <label className="block">
-      <span className="block text-xs font-medium text-slate-500 mb-1.5">{label}</span>
-      <input
+    <Field label={label}>
+      <Input
         type="number"
         value={focused ? draft : String(value)}
         min={min}
@@ -418,8 +409,8 @@ function NumberField({
         onKeyDown={(event) => {
           if (event.key === 'Enter') event.currentTarget.blur()
         }}
-        className={INPUT_CLASS}
+        className="tabular-nums"
       />
-    </label>
+    </Field>
   )
 }
