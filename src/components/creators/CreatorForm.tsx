@@ -311,7 +311,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
       </div>
 
       <Field label={t('notes')}>
-        <Textarea value={form.notes} onChange={set('notes')} rows={2} placeholder={t('notesPlaceholder')} />
+        <Textarea value={form.notes} onChange={set('notes')} placeholder={t('notesPlaceholder')} />
       </Field>
 
       <div className="flex justify-end gap-2 pt-2">
