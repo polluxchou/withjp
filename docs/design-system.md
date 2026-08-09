@@ -115,7 +115,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 ## 4. 动效与交互反馈
 
 - hover/active：`transition-colors 150ms ease`；抽屉/侧栏位移 `200ms ease-out`；无数据入场动画
-- focus：全站唯一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`；禁止自定义 focus 样式——例外：全出血容器（RecordRow 整行 Link、Modal 面板等没有外部留白可画 offset 的场景）与 chip 内部按钮（FilterChip）改用第二配方 `focus-visible:ring-2 ring-primary-ring ring-inset`，避免 offset 画到容器边界外和自身描边打架
+- focus：全站唯一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`；禁止自定义 focus 样式——例外：全出血容器（RecordRow 整行 Link 等没有外部留白可画 offset 的场景）与 chip 内部按钮（FilterChip）改用第二配方 `focus-visible:ring-2 ring-primary-ring ring-inset`，避免 offset 画到容器边界外和自身描边打架
 - 点击目标 ≥ 32×32px（移动端 ≥ 40）；行级操作（···）默认弱化、hover 显形；Button `size="sm"`（28px 高）是 §3 控件高度紧凑档在按钮上的登记例外，允许低于本条下限，仅用于表格内联操作等空间受限场景
 - `prefers-reduced-motion` 下关闭位移动画
 - iOS：`pointer:coarse` 下表单控件 16px 字号规则保留（globals.css 既有）
@@ -148,12 +148,12 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **SectionCard** `icon` `title` `actions` `footer` `padding: default|none` `accent`；卡头图标从 §1.4 色板取色，`accent` 从 §1.4 六色取，默认 `violet`
 - **Tag** `tone`（§1.3 六 tone）`variant: soft|dot` `size: sm|md`；tone 取值必须走状态映射表
 - **Stat / StatBand** `label` `value` `delta` `note` `tone`；数字自动 tabular；`delta.tone` 仅 `success|danger`；负值 `value` 由调用方显式传 `tone="danger"`（`value` 为 `ReactNode` 无法自动判负）
-- **Table/THead/TBody/Th/Tr/Td** `Th: align`（列宽用原生 `style`/`width` 属性，不单独开 prop）；`TBody` 必用（语义化 `<tbody>`，不可省略）；`Table` 可选 `label` → 映射 `aria-label`；表头 xs/`ink-400`，行分隔 `line-soft`，hover `rgba(124,58,237,.02)`（token `bg-row-hover`）；`Td` 支持 `numeric`（`tabular-nums font-medium text-ink-900`，常搭配 `align="right"`）；`Tr` 不提供 `onClick`（`<tr>` 无原生键盘可达性，hover 只作弱提示不暗示可点击）——行级点击交互用 `RecordRow` 或行内 Link/button 承载
-- **RecordRow** `status(tone)` `title` `meta: {icon?,text,mono?}[]`（`mono` 用于编号类 meta 项，走 `font-mono`）`amount` `tags` `who` `actions` `href`；`href` 存在时 `actions` 结构性地留在 Link 外面（同一行不允许交互元素嵌套）；≤375px 断点下 `meta` 与 `who` 隐藏（`hidden sm:flex` / `hidden sm:block`），仅保留 status/title/amount 三项，避免窄屏内容互相挤压截断
+- **Table/THead/TBody/Th/Tr/Td** `Th: align`（列宽用 `style={{width}}`，不单独开 prop）；`TBody` 必用（语义化 `<tbody>`，不可省略）；`Table` 可选 `label` → 映射 `aria-label`，可选 `minWidth`（数字，映射到 `<table style={{minWidth}}>`，超宽表格配合外层 `overflow-x-auto` 定横向滚动阈值）；表头 xs/`ink-400`，行分隔 `line-soft`，hover `rgba(124,58,237,.02)`（token `bg-row-hover`）；`Td` 支持 `numeric`（`tabular-nums font-medium text-ink-900`，常搭配 `align="right"`）；`Tr` 不提供 `onClick`（`<tr>` 无原生键盘可达性，hover 只作弱提示不暗示可点击）——行级点击交互用 `RecordRow` 或行内 Link/button 承载
+- **RecordRow** `status(tone)` `title` `meta: {icon?,text,mono?}[]`（`mono` 用于编号类 meta 项，走 `font-mono`）`amount` `tags` `who` `actions` `href`；`href` 存在时 `actions` 结构性地留在 Link 外面（同一行不允许交互元素嵌套），Link 本身 `self-stretch` 撑满整行高度（focus ring 围整行而非只围文字）；`sm`（640px）断点以下隐藏 `meta` 与 `who`（`hidden sm:flex` / `hidden sm:block`），仅保留 status/title/amount 三项，避免窄屏内容互相挤压截断
 - **Field** `label` `hint` `error` `required`；**Input/Select/Textarea** 统一 10px 圆角、`line-strong` 边框、`primary-ring`、高度 32；`size: sm|md|lg = 28/32/38px`（**Textarea 例外**：size 不改固定高度，只调 `min-h = 64/80/112px`）；`className` 仅可追加不与基础类冲突的样式，冲突覆盖不受支持；**SearchInput** `kbdHint`（≤2 字形，右侧 `pr-12` 固定预留）
 - **FilterChip** `label` `set?` `onClick` `onClear`；**CountChip** `label` `count` `tone` `active` `onClick`（独立导出，状态汇总药丸）；**Tabs** `items` `value` `onChange` `label?`（roving tabindex + 方向键 ArrowLeft/Right/Home/End 移动并激活焦点为不可退化能力）；**SegmentedControl** 同
 - **Modal** `open` `onClose` `title` `width` `footer`；Escape/portal/移动端底部弹出/safe-area/焦点圈定（打开时焦点入面板、Tab 在面板内循环、关闭后归还触发前的焦点）为不可退化能力
-- **EmptyState** `icon` `title` `hint` `action`；**LoadingState** `variant: list|stats|plain`；**ErrorState** `title` `detail` `onRetry`
+- **EmptyState** `icon` `title` `hint` `action`；**LoadingState** `variant: list|stats|plain` `rows`（仅 `list` 变体生效，骨架行数，默认 4）；**ErrorState** `title` `detail` `onRetry`
 - **ProgressBar** `value` `max` `label` `tone`；`tone` 仅 `default|warning`，>90% 自动 warning；`label` 必填
 - **可访问性底线**：所有交互组件可键盘到达；Modal/Drawer 焦点圈定；Tag dot 变体必带文字；色彩不作为唯一信息通道
 

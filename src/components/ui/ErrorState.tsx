@@ -23,7 +23,7 @@ export default function ErrorState({ title, detail, onRetry }: ErrorStateProps) 
           下面的重试按钮——按钮不是要播报的内容，混进 alert 容器里会让屏幕
           阅读器把按钮文字也当成播报的一部分。 */}
       {detail ? (
-        <div role="alert">
+        <div role="alert" className="space-y-1">
           <p className="text-sm font-medium text-ink-700">{message}</p>
           <p className="text-xs text-ink-400 max-w-72">{detail}</p>
         </div>

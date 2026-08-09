@@ -13,15 +13,19 @@ export default function LoadingState({ variant = 'plain', rows = 4 }: LoadingSta
   const t = useTranslations('common')
   if (variant === 'list') {
     return (
-      <div aria-busy="true" role="status" aria-label={t('loading')} className="animate-pulse">
+      <div role="status" aria-label={t('loading')} className="animate-pulse">
         {Array.from({ length: rows }).map((_, i) => (
           // py-3 对齐 RecordRow 的真实行高（px-5 py-3），骨架和加载完成后的
-          // 实际内容切换时高度一致，不会有布局跳动。
+          // 实际内容切换时高度一致，不会有布局跳动。标题/meta 色块高度和
+          // 间距直接照抄 RecordRow 真实结构（h-4 对应 text-md 标题、
+          // mt-0.5 h-3.5 对应 text-xs meta 行），而不是用 space-y 随便估一
+          // 个间距——实测过整行高度要对上真实 RecordRow，光对齐 py 不够，
+          // 内容色块自己的高度也得跟着改。
           <div key={i} className="flex items-center gap-3.5 px-5 py-3 border-t border-line-soft first:border-t-0">
             <span className="w-2 h-2 rounded-full bg-line-soft" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3 w-1/3 rounded-[4px] bg-line-soft" />
-              <div className="h-2.5 w-1/2 rounded-[4px] bg-line-soft" />
+            <div className="flex-1">
+              <div className="h-4 w-1/3 rounded-[4px] bg-line-soft" />
+              <div className="mt-0.5 h-3.5 w-1/2 rounded-[4px] bg-line-soft" />
             </div>
             <div className="h-3 w-16 rounded-[4px] bg-line-soft" />
           </div>
@@ -33,18 +37,18 @@ export default function LoadingState({ variant = 'plain', rows = 4 }: LoadingSta
     return (
       // overflow-x-auto：4 栏骨架在窄屏可能比视口宽，容器自己滚动而不是把
       // 页面撑宽出现整页横向滚动条。
-      <div aria-busy="true" role="status" aria-label={t('loading')} className="overflow-x-auto flex animate-pulse bg-surface border border-line rounded-card shadow-card">
+      <div role="status" aria-label={t('loading')} className="overflow-x-auto flex animate-pulse bg-surface border border-line rounded-card shadow-card">
         {Array.from({ length: 4 }).map((_, i) => (
-          // py-4 对齐 Stat.tsx 真实单元格（px-5 py-4），不是 py-3——stats 骨架
-          // 对齐的是 Stat 而不是 RecordRow，两者行高本就不同，之前误按 list
-          // 变体的 py-3 一起改会造成加载态到真实态的高度跳动。
+          // py-4 对齐 Stat.tsx 真实单元格（px-5 py-4）。value 色块 h-[30px]
+          // 对应 Stat 真实的 text-2xl（24px/30px 行高）——用行高而不是字号，
+          // 骨架块的视觉重量才和真实数字一致；label 色块 h-3 对应 text-xs。
           <div key={i} className="flex-1 px-5 py-4 border-r border-line-soft last:border-r-0 space-y-2.5">
-            <div className="h-2.5 w-14 rounded-[4px] bg-line-soft" />
-            <div className="h-6 w-24 rounded-[4px] bg-line-soft" />
+            <div className="h-3 w-14 rounded-[4px] bg-line-soft" />
+            <div className="h-[30px] w-24 rounded-[4px] bg-line-soft" />
           </div>
         ))}
       </div>
     )
   }
-  return <div aria-busy="true" role="status" className="py-12 text-center text-sm text-ink-400">{t('loading')}</div>
+  return <div role="status" className="py-12 text-center text-sm text-ink-400">{t('loading')}</div>
 }
