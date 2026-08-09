@@ -1192,6 +1192,10 @@
     "colStatus": "状态",
     "colResponsible": "负责人",
     "colSerial": "序列号",
+    "statTotalItems": "物品总数",
+    "statItemUnit": "件",
+    "statTotalCost": "总成本",
+    "costOriginalNote": "开支 {price} · {name}",
     "kind": {
       "physical": "实物",
       "virtual": "虚拟商品"
@@ -1206,6 +1210,8 @@
     "fieldKind": "类型 *",
     "fieldExpense": "关联成本（支出）",
     "fieldExpenseRequired": "关联成本（支出）*",
+    "fieldItemValue": "资产原值",
+    "fieldItemValueHint": "低于关联支出时可填入实际入账价值",
     "fieldPlacementFloor": "放置楼层 *",
     "fieldPlacementZone": "放置区域 *",
     "fieldQuantity": "数量",
