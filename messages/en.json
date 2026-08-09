@@ -364,7 +364,8 @@
     "timeline": "Timeline",
     "logRevenue": "Log revenue",
     "noNiche": "No niche",
-    "creatorNotFound": "Creator not found"
+    "creatorNotFound": "Creator not found",
+    "listTitle": "Creator list"
   },
   "creatorForm": {
     "nameRequired": "Name and platform are required",
@@ -417,12 +418,24 @@
     "noActivityYet": "No activity yet.",
     "viewOutput": "View output",
     "logRevenueCost": "Log revenue and cost",
-    "revenueField": "Revenue (¥) *",
-    "costField": "Cost (¥) *",
-    "periodField": "Period *",
+    "revenueField": "Revenue (¥)",
+    "costField": "Cost (¥)",
+    "periodField": "Period",
     "saveRecord": "Save record",
     "editCreator": "Edit creator",
-    "by": "by {actor}"
+    "by": "by {actor}",
+    "activityTypes": {
+      "created": "Created",
+      "updated": "Updated",
+      "status_changed": "Status changed",
+      "task_created": "Task created",
+      "task_completed": "Task completed",
+      "finance_logged": "Finance logged",
+      "note_added": "Note added",
+      "contact_updated": "Contact updated",
+      "profile_updated": "Profile updated",
+      "other": "Other"
+    }
   },
   "workspace": {
     "title": "Workspace",
