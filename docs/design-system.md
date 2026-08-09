@@ -76,6 +76,8 @@
 
 violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / green(`#059669` on 10%) / amber(`#d97706` on 12%) / mauve(`ink-700` on `rgba(33,28,51,.06)`)。每个一级菜单固定一色，新菜单从中取色，禁止新造颜色。
 
+> 部分 soft 底色直接复用已注册语义 token 的透明度档（如 blue/green 分别取 `info-soft`/`success-soft` 的 9%，mauve 取 `muted-soft` 的 5%），不是另起新的 rgba 值；本节百分比为速查参考，精确值以 `src/lib/ui/accent.ts`（唯一实现处）为准。
+
 ### 1.5 图表（`src/lib/chart-theme.ts`，唯一白名单）
 
 - `CHART_SERIES`：`#7c3aed`（首位，=UI 主色）→ `#3b82f6` → `#10b981` → `#f59e0b` → `#ec4899` → `#8d87a1`；同一图内禁止重复取色
@@ -102,7 +104,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **字距 token**（Tailwind letterSpacing 自定义）：`tracking-title` `-0.02em`（页面标题）/ `tracking-section` `-0.01em`（区块标题）/ `tracking-kpi` `-0.03em`（KPI 数字）
 - 页面标题 `2xl/700/-0.02em`（`tracking-title`）；KPI 数字 `2xl/700/-0.03em/tabular`（`tracking-kpi`）；区块标题 `lg/600/-0.01em`（`tracking-section`）
 - 数字规则：所有统计/金额加 `tabular-nums`；金额与编号用 mono；千分位逗号；负值用 danger text
-- 截断规则：所有弹性文字容器 `min-w-0` + `truncate`（ja 长词风险），多行用 ClampedText
+- 截断规则：所有弹性文字容器 `min-w-0` + `truncate`（ja 长词风险），多行截断用 `line-clamp-N`
 
 ## 3. 空间、形状与深度
 
@@ -173,3 +175,4 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 2. 组件准入流程见 §6 开头；PR 中出现新的裸样式组合需在描述中说明原因
 3. 本文件与实现不一致 = bug：以先修正的一方为准并同 PR 同步另一方
 4. 图表新增系列色、状态新增枚举、z-index 新增层：先登记本文件，再写代码
+5. Tailwind `content` 扫描范围必须与门禁（`check-style-tokens.mjs`）扫描范围保持一致——即 `src` 全树：色板/映射表放在任何 `src` 子目录都必须能被 Tailwind JIT 提取到，否则该目录下的类名组合会静默不生成样式（教训：`src/lib/ui/accent.ts` 曾因 `tailwind.config.ts` 的 `content` 未纳入 `src/lib` 而静默失效）

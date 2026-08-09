@@ -215,7 +215,7 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@withjp.live"
                     /* text-base = 16px keeps iOS Safari from auto-zooming on focus */
-                    className="w-full px-4 py-3 pr-11 bg-white border border-zinc-300 rounded-xl text-base text-zinc-900 placeholder-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition"
+                    className="w-full px-4 py-3 pr-11 bg-white border border-zinc-300 rounded-xl text-base text-zinc-900 placeholder-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition" /* style-tokens-ignore */
                   />
                   {emailValid && (
                     <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
@@ -252,7 +252,8 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-12 bg-white border border-zinc-300 rounded-xl text-base text-zinc-900 placeholder-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition"
+                    /* text-base = 16px keeps iOS Safari from auto-zooming on focus */
+                    className="w-full px-4 py-3 pr-12 bg-white border border-zinc-300 rounded-xl text-base text-zinc-900 placeholder-zinc-300 focus:outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition" /* style-tokens-ignore */
                   />
                   {/* Full-height tap target along the right edge */}
                   <button

@@ -145,7 +145,7 @@ for (const { rel, violations, allowed } of overBaseline) {
 }
 
 if (zombies.length) {
-  console.error('\n✗ 基线中存在僵尸条目（文件已不存在/已移动），请跑 `node scripts/check-style-tokens.mjs --update-baseline` 重新生成基线：')
+  console.error('\n✗ 基线中存在僵尸条目（文件已不存在/已移动），请跑 `node scripts/check-style-tokens.mjs --update-baseline` 重新生成基线（若是改名/合并导致新文件名下违规数看似上升，裸命令会被防洗白守卫拒绝，需改跑 `--update-baseline --allow-increase`）：')
   for (const rel of zombies) console.error(`  - ${rel}`)
 }
 
