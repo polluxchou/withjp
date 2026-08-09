@@ -54,6 +54,8 @@
 | violet | `primary-hover` | `primary-soft` | `primary` | 品牌语义（规划中、专属标记） |
 
 > neutral tone 的实现 token 名为 **`muted-*`**（`bg-muted-soft` / `text-muted-text` / `bg-muted-dot`）。不用 `neutral-*` 命名：与 Tailwind 内置 neutral 灰阶同名会让门禁无法区分合法 token 与非法灰阶。
+>
+> 每 tone 另有 `*-border` 描边 token（统一 `.35` 透明度），供 CountChip 等选中描边用。
 
 **状态枚举 → tone 全站映射**（唯一登记处，新增枚举必须在此登记）：
 
@@ -103,7 +105,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 - **间距**：4px 基。卡内 padding 20（紧凑 16）；区块间距 16/20/24 三档；页面内容区 padding 28-32，`max-width 1220px`
 - **控件高度三档**：28（紧凑 chip/表内控件）/ 32（默认按钮、输入、FilterChip）/ 38（页头 CTA、搜索框）
-- **圆角**：card `14px`（`rounded-card`）/ field·chip `10px`（`rounded-field`）/ 图标 chip `7px`（`rounded-icon`）/ 按钮·药丸·dot·头像 `full`（`rounded-btn`/`rounded-full`）。禁止 `rounded-lg/xl/2xl` 裸用，一律走 token 类名
+- **圆角**：card `14px`（`rounded-card`）/ field·chip `10px`（`rounded-field`）/ 图标 chip `7px`（`rounded-icon`）/ 按钮·药丸·dot·头像 `full`（`rounded-btn`/`rounded-full`）。禁止 `rounded-lg/xl/2xl` 裸用，一律走 token 类名。内嵌几何圆角（外层 radius − 内边距，如 SegmentedControl 按钮）允许任意值（`rounded-[8px]`），但必须加一行注释说明换算依据
 - **阴影两档**：`shadow-card` = `0 1px 3px rgba(33,28,51,.05), 0 8px 24px -12px rgba(124,58,237,.08)`；`shadow-pop`（弹层）= `0 4px 12px rgba(33,28,51,.08), 0 16px 40px -12px rgba(33,28,51,.18)`。禁止 Tailwind 原生 shadow-*
 - **氛围底**：`bg-atmosphere` 单点定义（三层径向渐变，见 spec §3）；页面不得自定义底色/字体族/负 margin 逃逸容器
 - **z-index 层级表**（唯一登记处）：内容 0 · 粘性头 10 · 下拉/popover 40 · 移动端抽屉 50 · Modal 60 · CommandBar 70 · Toast/通知 80
@@ -146,8 +148,8 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **Stat / StatBand** `label` `value` `delta` `note` `tone`；数字自动 tabular；`delta.tone` 仅 `success|danger`；负值 `value` 由调用方显式传 `tone="danger"`（`value` 为 `ReactNode` 无法自动判负）
 - **Table/THead/Th/Tr/Td** `Th: align|width`；表头 xs/`ink-400`，行分隔 `line-soft`，hover `rgba(124,58,237,.02)`
 - **RecordRow** `status(tone)` `title` `meta: {icon?,text}[]` `amount` `tags` `who` `actions` `href`
-- **Field** `label` `hint` `error` `required`；**Input/Select/Textarea** 统一 10px 圆角、`line-strong` 边框、`primary-ring`、高度 32；**SearchInput** `kbdHint`
-- **FilterChip** `state: unset|set` `count` `onClear`；**Tabs** `items` `value` `onChange`；**SegmentedControl** 同
+- **Field** `label` `hint` `error` `required`；**Input/Select/Textarea** 统一 10px 圆角、`line-strong` 边框、`primary-ring`、高度 32；`size: sm|md|lg = 28/32/38px`；`className` 仅可追加不与基础类冲突的样式，冲突覆盖不受支持；**SearchInput** `kbdHint`（≤2 字形，右侧 `pr-12` 固定预留）
+- **FilterChip** `label` `set?` `onClick` `onClear`；**CountChip** `label` `count` `tone` `active` `onClick`（独立导出，状态汇总药丸）；**Tabs** `items` `value` `onChange` `label?`；**SegmentedControl** 同
 - **Modal** `open` `onClose` `title` `width` `footer`；Escape/portal/移动端底部弹出/safe-area 为不可退化能力
 - **EmptyState** `icon` `title` `hint` `action`；**LoadingState** `variant: list|stats|plain`；**ErrorState** `title` `detail` `onRetry`
 - **ProgressBar** `value` `max` `label` `tone`；`tone` 仅 `default|warning`，>90% 自动 warning；`label` 必填
