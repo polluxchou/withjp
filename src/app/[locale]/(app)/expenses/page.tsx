@@ -40,6 +40,7 @@ import {
   SERVER_FILTER_KEYS as SHARED_SERVER_FILTER_KEYS,
   filtersToParams,
   paramsToFilters,
+  isEmptyFilters,
 } from '@/lib/expenses/filter-types'
 import {
   EXPENSE_CATEGORY_OPTIONS,
@@ -95,6 +96,10 @@ const SERVER_FILTER_KEYS = SHARED_SERVER_FILTER_KEYS
 // tablist owned by ExpenseCategoryChart and are now passed down as its
 // `view` prop (see ExpenseChartView).
 type PageView = 'list' | ExpenseChartView
+const PAGE_VIEWS: PageView[] = ['list', 'category', 'trend', 'monthly']
+function isPageView(v: string | null): v is PageView {
+  return !!v && (PAGE_VIEWS as string[]).includes(v)
+}
 
 export default function ExpensesPage() {
   const currentUser = useCurrentUser()
@@ -128,21 +133,28 @@ export default function ExpensesPage() {
   const urlHydrated  = useRef(false)
   const loadedOnce   = useRef(false)
 
-  // First mount: pick up filters from the URL so deep links / refresh
-  // restore the same view.
+  // First mount: pick up filters + the active chart tab from the URL so deep
+  // links / refresh restore the same view (e.g. a link straight into
+  // "累计趋势" instead of always landing on the list).
   useEffect(() => {
     setFilters(paramsToFilters(searchParams))
+    const tabParam = searchParams.get('tab')
+    if (isPageView(tabParam)) setViewTab(tabParam)
     urlHydrated.current = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Push filter changes back into the URL (replace, not push).
+  // Push filter + tab changes back into the URL (replace, not push). 'list'
+  // is the default landing tab, so it's omitted from the URL to keep the
+  // plain /expenses link clean.
   useEffect(() => {
     if (!urlHydrated.current) return
-    const qs   = filtersToParams(filters).toString()
+    const params = filtersToParams(filters)
+    if (viewTab !== 'list') params.set('tab', viewTab)
+    const qs   = params.toString()
     const next = qs ? `${pathname}?${qs}` : pathname
     router.replace(next, { scroll: false })
-  }, [filters, pathname, router])
+  }, [filters, viewTab, pathname, router])
 
   // Debounce search input → filters.q (300ms)
   useEffect(() => {
@@ -299,8 +311,12 @@ export default function ExpensesPage() {
   })()
 
   function toggleKpi(target: 'paid' | 'unpaid' | 'crossBorder' | 'reset') {
+    // 'reset' now defers to resetFilters() itself rather than duplicating its
+    // EMPTY_FILTERS assignment inline — resetFilters also clears the stale
+    // searchInput text, which the old inline `return EMPTY_FILTERS` here
+    // never did (filters.q would reset but the visible search box wouldn't).
+    if (target === 'reset') { resetFilters(); return }
     setFilters((f) => {
-      if (target === 'reset') return EMPTY_FILTERS
       // Always clear other KPI-driven flags first, then toggle the target.
       // Date range is NOT cleared here — the month picker owns that filter
       // and clears it via clearMonth() below.
@@ -397,6 +413,12 @@ export default function ExpensesPage() {
   // cards already do via toggleKpi.
   const paidCount    = visibleExpenses.filter((e) => e.payment_status === 'paid').length
   const pendingCount = visibleExpenses.filter((e) => e.payment_status === 'budgeted' || e.payment_status === 'ordered_unpaid').length
+  // "全部" chip is only the active one when NOTHING is filtered — activeKpi
+  // alone misses e.g. a category/user/buyer/period select or a typed search
+  // term (those don't drive activeKpi at all). Mirrors exactly what
+  // resetFilters() clears (Filters shape + searchInput), so "全部 active" and
+  // "reset would be a no-op" always agree.
+  const allActive = activeKpi === null && isEmptyFilters(filters) && searchInput === ''
 
   // Range for the date slider — derived from the actual spend dates so the
   // track represents real data rather than a fixed 2-year window. Padded to
@@ -544,8 +566,11 @@ export default function ExpensesPage() {
         }
         search={
           <div className="w-56">
+            {/* No kbdHint here — ⌘K is bound to the CommandBar (see the
+                natural-language trigger below), not to focusing this plain
+                search box. Claiming it here would be a second, false claim
+                on the same shortcut. */}
             <SearchInput
-              kbdHint="⌘K"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder={t('searchPlaceholder')}
@@ -581,7 +606,7 @@ export default function ExpensesPage() {
           label={tCommon('all')}
           count={visibleExpenses.length}
           tone="neutral"
-          active={activeKpi === null}
+          active={allActive}
           onClick={() => toggleKpi('reset')}
         />
         <CountChip
@@ -857,7 +882,9 @@ export default function ExpensesPage() {
                       <div className="flex items-center gap-1.5 flex-none">
                         <Tag size="sm" tone={toneOf('expense', e.payment_status)} label={t(`paymentStatuses.${e.payment_status}`)} />
                         {fee > 0 && (
-                          <Tag size="sm" variant="dot" tone="warning" label={`+${fmtRmb(fee)}`} />
+                          <span title={t('crossBorderFeeTooltip')}>
+                            <Tag size="sm" variant="dot" tone="warning" label={`+${fmtRmb(fee)} ${t('crossBorderFeeShort')}`} />
+                          </span>
                         )}
                       </div>
                     }
@@ -928,8 +955,19 @@ export default function ExpensesPage() {
         )}
       </Modal>
 
-      {/* Delete Confirmation */}
-      <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
+      {/* Delete Confirmation — danger-action pattern: buttons live in Modal's
+          footer prop, not inline in the body. */}
+      <Modal
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        title={tCommon('confirmDelete')}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleting(null)}>{tCommon('cancel')}</Button>
+            <Button variant="danger" loading={delLoading} onClick={confirmDelete}>{tCommon('delete')}</Button>
+          </>
+        }
+      >
         {deleting && (
           <div className="space-y-4">
             <p className="text-sm text-ink-700">
@@ -940,10 +978,6 @@ export default function ExpensesPage() {
                 {deleteErr}
               </div>
             )}
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDeleting(null)}>{tCommon('cancel')}</Button>
-              <Button variant="danger" loading={delLoading} onClick={confirmDelete}>{tCommon('delete')}</Button>
-            </div>
           </div>
         )}
       </Modal>

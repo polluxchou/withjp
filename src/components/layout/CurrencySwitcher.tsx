@@ -14,11 +14,13 @@ export default function CurrencySwitcher() {
   const { currency, setCurrency } = useCurrency()
 
   return (
-    <SegmentedControl
-      label={t('switchHint')}
-      items={CURRENCIES.map((c) => ({ value: c, label: `${CURRENCY_SYMBOLS[c]} ${CURRENCY_LABELS[c]}` }))}
-      value={currency}
-      onChange={(v) => setCurrency(v as Currency)}
-    />
+    <div title={t('switchHint')}>
+      <SegmentedControl
+        label={t('switchHint')}
+        items={CURRENCIES.map((c) => ({ value: c, label: `${CURRENCY_SYMBOLS[c]} ${CURRENCY_LABELS[c]}` }))}
+        value={currency}
+        onChange={(v) => setCurrency(v as Currency)}
+      />
+    </div>
   )
 }

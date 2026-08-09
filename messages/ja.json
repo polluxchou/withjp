@@ -822,8 +822,6 @@
     "crossBorderFeeShort": "国際",
     "crossBorderFeeTooltip": "with-new以外かつ家賃以外の支出に4%の国際送金コスト",
     "effectiveCost": "実質コスト（国際送金含む）",
-    "categoryColumn": "カテゴリ",
-    "discussionsColumn": "ディスカッション",
     "categories": {
       "tangible_asset": "有形資産",
       "salary": "給与コスト",
