@@ -31,6 +31,11 @@
     --success-text: #067647; --success-soft: rgba(16,185,129,.09); --success-dot: #10b981;
     --warning-text: #b45309; --warning-soft: rgba(245,158,11,.11); --warning-dot: #f59e0b;
     --danger-text:  #dc2626; --danger-soft:  rgba(239,68,68,.09);  --danger-dot:  #ef4444;
+    /* danger-dot(#ef4444) 白字对比度仅 3.77:1 不过 AA；危险实底按钮（Button
+       variant=danger）大面积填充改用更深的 danger-strong（4.83:1），dot 只
+       用于状态点/小面积场景，语义上与 danger-text 独立登记，不复用同一 token
+       名（后续两者若分道演进不至互相牵连）。 */
+    --danger-strong: #dc2626;
     --info-text:    #1d4ed8; --info-soft:    rgba(59,130,246,.09); --info-dot:    #3b82f6;
     /* 语义色描边（CountChip 35% 透明描边用）：dot token 是固定 hex，不支持
        /N 透明度修饰符（Task 1 审查结论），故单独登记 rgba 描边变量。 */

@@ -8,12 +8,13 @@ const ALIGN = { left: 'text-left', right: 'text-right', center: 'text-center' } 
 interface TableProps {
   children: ReactNode
   minWidth?: number
+  label?: string
 }
 
-export function Table({ children, minWidth }: TableProps) {
+export function Table({ children, minWidth, label }: TableProps) {
   return (
     <div className="overflow-x-auto scrollbar-thin">
-      <table className="w-full text-sm border-collapse" style={minWidth ? { minWidth } : undefined}>
+      <table aria-label={label} className="w-full text-sm border-collapse" style={minWidth ? { minWidth } : undefined}>
         {children}
       </table>
     </div>
@@ -32,13 +33,25 @@ export function THead({ children }: THeadProps) {
   )
 }
 
+interface TBodyProps {
+  children: ReactNode
+}
+
+export function TBody({ children }: TBodyProps) {
+  return <tbody>{children}</tbody>
+}
+
 interface ThProps extends ThHTMLAttributes<HTMLTableCellElement> {
   align?: 'left' | 'right' | 'center'
 }
 
-export function Th({ align = 'left', children, ...rest }: ThProps) {
+// className 走追加模式：先从 rest 解构出 className 单独处理，再拼进自己算
+// 出来的类名末尾——如果让 {...rest} 里的 className 和显式 className= 同时
+// 出现在同一个 JSX 标签上，后写的（我们自己算的那个）会整体覆盖前者，调用方
+// 传入的 className 会被无声吞掉。
+export function Th({ align = 'left', children, className, ...rest }: ThProps) {
   return (
-    <th {...rest} className={`px-3 py-2 text-xs font-medium text-ink-400 whitespace-nowrap ${ALIGN[align]}`}>
+    <th {...rest} className={`px-3 py-2 text-xs font-medium text-ink-400 whitespace-nowrap ${ALIGN[align]} ${className ?? ''}`}>
       {children}
     </th>
   )
@@ -67,11 +80,11 @@ interface TdProps extends TdHTMLAttributes<HTMLTableCellElement> {
   numeric?: boolean
 }
 
-export function Td({ align = 'left', numeric, children, ...rest }: TdProps) {
+export function Td({ align = 'left', numeric, children, className, ...rest }: TdProps) {
   return (
     <td
       {...rest}
-      className={`px-3 py-2.5 text-ink-700 ${ALIGN[align]} ${numeric ? 'tabular-nums font-medium text-ink-900' : ''}`}
+      className={`px-3 py-2.5 text-ink-700 ${ALIGN[align]} ${numeric ? 'tabular-nums font-medium text-ink-900' : ''} ${className ?? ''}`}
     >
       {children}
     </td>

@@ -66,7 +66,7 @@ export function FilterChip({ label, set, onClick, onClear }: FilterChipProps) {
           type="button"
           aria-label="clear"
           onClick={onClear}
-          className="self-stretch -m-1 py-1 pl-1 pr-2 rounded-full text-ink-400 hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
+          className="self-stretch -m-1 py-1 px-2.5 rounded-full text-ink-400 hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
         >
           <X className="w-[13px] h-[13px]" strokeWidth={1.5} />
         </button>

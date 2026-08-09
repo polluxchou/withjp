@@ -33,7 +33,7 @@ const config: Config = {
         },
         success: { text: 'var(--success-text)', soft: 'var(--success-soft)', dot: 'var(--success-dot)', border: 'var(--success-border)' },
         warning: { text: 'var(--warning-text)', soft: 'var(--warning-soft)', dot: 'var(--warning-dot)', border: 'var(--warning-border)' },
-        danger:  { text: 'var(--danger-text)',  soft: 'var(--danger-soft)',  dot: 'var(--danger-dot)', border: 'var(--danger-border)' },
+        danger:  { text: 'var(--danger-text)',  soft: 'var(--danger-soft)',  dot: 'var(--danger-dot)', border: 'var(--danger-border)', strong: 'var(--danger-strong)' },
         info:    { text: 'var(--info-text)',    soft: 'var(--info-soft)',    dot: 'var(--info-dot)', border: 'var(--info-border)' },
         muted:   { text: 'var(--muted-text)',   soft: 'var(--muted-soft)',   dot: 'var(--muted-dot)' },
         'row-hover': 'var(--row-hover)',
