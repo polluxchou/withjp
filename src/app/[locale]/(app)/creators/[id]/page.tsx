@@ -456,7 +456,7 @@ export default function CreatorDetailPage() {
             <div className="relative pl-6">
               <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-line" />
               {data.activity_logs.map((log) => {
-                const tone = ACTIVITY_TONE[log.activity_type] ?? 'neutral'
+                const tone = ACTIVITY_TONE[log.activity_type]
                 return (
                   <div key={log.id} className="relative mb-4">
                     <div className={`absolute -left-4 top-1 w-3 h-3 rounded-full border-2 border-surface ${ACTIVITY_DOT[tone]}`} />

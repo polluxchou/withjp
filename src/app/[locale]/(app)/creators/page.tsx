@@ -35,7 +35,7 @@ export default function CreatorsPage() {
     try {
       const url = filter === 'all' ? '/api/creators' : `/api/creators?status=${filter}`
       const res = await fetch(url)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) throw new Error(tCommon('loadFailed'))
       const json = await res.json()
       setLoadError(json.error ?? null)
       setCreators(json.data ?? [])
