@@ -136,7 +136,7 @@ export default function PipelinePage() {
               {/* Cards */}
               <div className="space-y-2 min-h-[120px]">
                 {byStatus[status].length === 0 ? (
-                  <div className="border-2 border-dashed border-line rounded-card h-20 flex items-center justify-center">
+                  <div className="border-2 border-dashed border-line-strong rounded-card h-20 flex items-center justify-center">
                     <Users className="w-4 h-4 text-ink-400" />
                   </div>
                 ) : (
@@ -162,8 +162,9 @@ export default function PipelinePage() {
                             <button
                               onClick={() => reactivate(creator)}
                               disabled={moving === creator.id}
-                              className="w-full flex items-center justify-center gap-1 text-xs text-ink-700 hover:text-primary-hover font-medium border border-line hover:border-primary-border rounded-field py-1.5 transition-colors disabled:opacity-50"
+                              className="w-full flex items-center justify-center gap-1 text-xs text-ink-700 hover:text-primary-hover font-medium border border-line hover:border-primary-border rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                               title={t('reactivate')}
+                              aria-label={t('reactivate')}
                             >
                               {moving === creator.id ? '...' : <RotateCcw className="w-3.5 h-3.5" />}
                             </button>
@@ -173,8 +174,9 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => rollback(creator, previous)}
                                   disabled={moving === creator.id}
-                                  className="flex-1 flex items-center justify-center text-xs text-ink-500 hover:text-ink-700 font-medium border border-line hover:border-line-strong rounded-field py-1.5 transition-colors disabled:opacity-50"
+                                  className="flex-1 flex items-center justify-center text-xs text-ink-500 hover:text-ink-700 font-medium border border-line hover:border-line-strong rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                                   title={t('moveBack', { status: tStatus(previous) })}
+                                  aria-label={t('moveBack', { status: tStatus(previous) })}
                                 >
                                   {moving === creator.id ? '...' : <ChevronLeft className="w-4 h-4" />}
                                 </button>
@@ -183,8 +185,9 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => advance(creator)}
                                   disabled={moving === creator.id}
-                                  className="flex-1 flex items-center justify-center text-xs text-primary hover:text-primary-hover font-medium border border-primary-soft hover:border-primary-border rounded-field py-1.5 transition-colors disabled:opacity-50"
+                                  className="flex-1 flex items-center justify-center text-xs text-primary hover:text-primary-hover font-medium border border-line hover:border-primary-border rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                                   title={t('moveForward', { status: tStatus(next) })}
+                                  aria-label={t('moveForward', { status: tStatus(next) })}
                                 >
                                   {moving === creator.id ? '...' : <ChevronRight className="w-4 h-4" />}
                                 </button>
@@ -193,8 +196,9 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => terminate(creator)}
                                   disabled={moving === creator.id}
-                                  className="flex items-center justify-center text-xs text-danger-text border border-line hover:border-danger-border rounded-field px-2 py-1.5 transition-colors disabled:opacity-50"
+                                  className="flex items-center justify-center text-xs text-danger-text border border-line hover:border-danger-border rounded-field px-2 py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                                   title={t('terminate')}
+                                  aria-label={t('terminate')}
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
                                 </button>
