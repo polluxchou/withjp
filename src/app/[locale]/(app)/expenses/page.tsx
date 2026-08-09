@@ -15,6 +15,7 @@ import ClampedText from '@/components/ui/ClampedText'
 import Tabs from '@/components/ui/Tabs'
 import { SearchInput } from '@/components/ui/Field'
 import { CountChip } from '@/components/ui/FilterChip'
+import { Stat, StatBand } from '@/components/ui/Stat'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
@@ -551,71 +552,43 @@ export default function ExpensesPage() {
         />
       </div>
 
-      {/* KPI Cards — click to filter, click active card again to clear */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
-        <button
-          type="button"
+      {/* KPI — click to filter, click active card again to clear (same
+          toggleKpi/activeKpi source of truth as the CountChip row above). */}
+      <StatBand>
+        <Stat
+          label={t('totalExpense')}
+          value={fmtRmb(summary.totalCost, { compact: true })}
+          note={activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}
           onClick={() => toggleKpi('reset')}
-          aria-pressed={activeKpi === null}
-          className="bg-white border border-zinc-200 rounded-xl p-4 text-left hover:border-zinc-300 hover:shadow-sm transition-all"
-        >
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('totalExpense')}</p>
-          <p className="text-lg sm:text-xl font-bold text-zinc-900">{fmtRmb(summary.totalCost, { compact: true })}</p>
-          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}</p>
-        </button>
-        <button
-          type="button"
+        />
+        <Stat
+          label={t('paid')}
+          value={fmtRmb(summary.paidCost, { compact: true })}
+          note={activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}
           onClick={() => toggleKpi('paid')}
-          aria-pressed={activeKpi === 'paid'}
-          className={`bg-white border rounded-xl p-4 text-left transition-all ${
-            activeKpi === 'paid'
-              ? 'border-green-400 ring-2 ring-green-100 bg-green-50/40'
-              : 'border-zinc-200 hover:border-green-200 hover:shadow-sm'
-          }`}
-        >
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('paid')}</p>
-          <p className="text-lg sm:text-xl font-bold text-green-700">{fmtRmb(summary.paidCost, { compact: true })}</p>
-          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}</p>
-        </button>
-        <button
-          type="button"
+        />
+        <Stat
+          label={t('budgetPending')}
+          value={fmtRmb(summary.budgetedUnpaidCost, { compact: true })}
+          note={activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}
           onClick={() => toggleKpi('unpaid')}
-          aria-pressed={activeKpi === 'unpaid'}
-          className={`bg-white border rounded-xl p-4 text-left transition-all ${
-            activeKpi === 'unpaid'
-              ? 'border-amber-400 ring-2 ring-amber-100 bg-amber-50/40'
-              : 'border-zinc-200 hover:border-amber-200 hover:shadow-sm'
-          }`}
-        >
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('budgetPending')}</p>
-          <p className="text-lg sm:text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost, { compact: true })}</p>
-          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}</p>
-        </button>
-        <div ref={monthPickerRef} className="relative">
-          <button
-            type="button"
+        />
+        {/* Month-filter KPI keeps its popover — wraps Stat instead of using
+            RecordRow-style composition since StatBand's flex children need
+            `relative` positioning for the dropdown to anchor correctly.
+            The border lives on this wrapper (not Stat's own `last:border-r-0`,
+            which would always fire since Stat is this div's only child). */}
+        <div ref={monthPickerRef} className="relative flex-1 min-w-fit border-r border-line-soft">
+          <Stat
+            label={activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
+            value={fmtRmb(summary.currentMonthCost, { compact: true })}
+            note={activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
             onClick={() => setMonthPickerOpen((v) => !v)}
-            aria-pressed={activeKpi === 'monthFilter'}
-            aria-haspopup="listbox"
-            aria-expanded={monthPickerOpen}
-            className={`w-full bg-white border rounded-xl p-4 text-left transition-all ${
-              activeKpi === 'monthFilter'
-                ? 'border-violet-400 ring-2 ring-violet-100 bg-primary-soft'
-                : 'border-zinc-200 hover:border-violet-200 hover:shadow-sm'
-            }`}
-          >
-            <p className="text-xs font-medium text-zinc-500 mb-1">
-              {activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
-            </p>
-            <p className="text-lg sm:text-xl font-bold text-primary">{fmtRmb(summary.currentMonthCost, { compact: true })}</p>
-            <p className="text-[10px] text-zinc-400 mt-0.5">
-              {activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
-            </p>
-          </button>
+          />
 
           {monthPickerOpen && (
-            <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-white border border-zinc-200 rounded-xl shadow-lg p-2">
-              <div className="text-[10px] font-medium text-zinc-400 px-2 py-1 uppercase tracking-wider">
+            <div className="absolute left-0 right-0 top-full mt-2 z-40 bg-surface border border-line rounded-card shadow-pop p-2">
+              <div className="text-micro font-medium text-ink-400 px-2 py-1 uppercase tracking-wider">
                 {t('kpi.selectMonth')}
               </div>
               <div className="max-h-64 overflow-y-auto">
@@ -626,14 +599,14 @@ export default function ExpensesPage() {
                       key={opt.ym}
                       type="button"
                       onClick={() => applyMonth(opt.ym)}
-                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors ${
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-field text-xs transition-colors ${
                         isActive
                           ? 'bg-primary text-white'
-                          : 'text-zinc-700 hover:bg-zinc-100'
+                          : 'text-ink-700 hover:bg-line-soft'
                       }`}
                     >
                       <span className="font-medium">{opt.label}</span>
-                      <span className={isActive ? 'text-violet-100' : 'text-zinc-400'}>
+                      <span className={isActive ? 'text-white/70' : 'text-ink-400'}>
                         {opt.ym}
                       </span>
                     </button>
@@ -644,7 +617,7 @@ export default function ExpensesPage() {
                 <button
                   type="button"
                   onClick={clearMonth}
-                  className="mt-1 w-full px-2 py-1.5 rounded-md text-xs text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  className="mt-1 w-full px-2 py-1.5 rounded-field text-xs text-ink-500 hover:text-danger-text hover:bg-danger-soft transition-colors"
                 >
                   {t('kpi.clearMonthFilter')}
                 </button>
@@ -652,23 +625,13 @@ export default function ExpensesPage() {
             </div>
           )}
         </div>
-        <button
-          type="button"
+        <Stat
+          label={t('crossBorderCost')}
+          value={fmtRmb(summary.crossBorderCost, { compact: true })}
+          note={activeKpi === 'crossBorder' ? t('kpi.filterActive') : t('kpi.crossBorderHint', { rate: CROSS_BORDER_FEE_RATE * 100 })}
           onClick={() => toggleKpi('crossBorder')}
-          aria-pressed={activeKpi === 'crossBorder'}
-          className={`bg-white border rounded-xl p-4 text-left transition-all ${
-            activeKpi === 'crossBorder'
-              ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/40'
-              : 'border-zinc-200 hover:border-rose-200 hover:shadow-sm'
-          }`}
-        >
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('crossBorderCost')}</p>
-          <p className="text-lg sm:text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost, { compact: true })}</p>
-          <p className="text-[10px] text-zinc-400 mt-0.5">
-            {activeKpi === 'crossBorder' ? t('kpi.filterActive') : t('kpi.crossBorderHint', { rate: CROSS_BORDER_FEE_RATE * 100 })}
-          </p>
-        </button>
-      </div>
+        />
+      </StatBand>
 
       {/* Charts — rendered for the category/trend/monthly tabs; the 'list' tab
           renders the RecordRow table further down instead. */}
