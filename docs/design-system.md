@@ -110,12 +110,12 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **圆角**：card `14px`（`rounded-card`）/ field·chip `10px`（`rounded-field`）/ 图标 chip `7px`（`rounded-icon`）/ 按钮·药丸·dot·头像 `full`（`rounded-btn`/`rounded-full`）。禁止 `rounded-lg/xl/2xl` 裸用，一律走 token 类名。内嵌几何圆角（外层 radius − 内边距，如 SegmentedControl 按钮）允许任意值（`rounded-[8px]`），但必须加一行注释说明换算依据
 - **阴影两档**：`shadow-card` = `0 1px 3px rgba(33,28,51,.05), 0 8px 24px -12px rgba(124,58,237,.08)`；`shadow-pop`（弹层）= `0 4px 12px rgba(33,28,51,.08), 0 16px 40px -12px rgba(33,28,51,.18)`。禁止 Tailwind 原生 shadow-*。例外：Button primary 的渐变复合阴影（`shadow-[0_2px_6px_rgba(124,58,237,.35),inset_0_1px_0_rgba(255,255,255,.2)]`）与 RecordRow 状态点 halo（`shadow-[0_0_0_3px_var(--*-soft)]`）是各自组件私有的任意值阴影，不登记为第三档通用 token，不受"仅两档"约束
 - **氛围底**：`bg-atmosphere` 单点定义（三层径向渐变，见 spec §3）；页面不得自定义底色/字体族/负 margin 逃逸容器
-- **z-index 层级表**（唯一登记处）：内容 0 · 粘性头 10 · 下拉/popover 40 · 移动端抽屉 50 · Modal 60 · CommandBar 70 · Toast/通知 80
+- **z-index 层级表**（唯一登记处）：内容 0 · 粘性头 10 · 下拉/popover 40 · 移动端抽屉 50 · Modal 60 · CommandBar 70 · Toast/通知 80。抽屉遮罩（Sidebar 移动端 backdrop）取值 40，属抽屉层（50）内部构成而非下拉/popover 语义——遮罩恒在抽屉体正下方一起出现/消失，不与真正的下拉/popover 同屏竞争，数值巧合不算冲突
 
 ## 4. 动效与交互反馈
 
 - hover/active：`transition-colors 150ms ease`；抽屉/侧栏位移 `200ms ease-out`；无数据入场动画
-- focus：全站唯一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`；禁止自定义 focus 样式——例外：全出血容器（RecordRow 整行 Link 等没有外部留白可画 offset 的场景）与 chip 内部按钮（FilterChip）改用第二配方 `focus-visible:ring-2 ring-primary-ring ring-inset`，避免 offset 画到容器边界外和自身描边打架
+- focus：全站唯一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`；禁止自定义 focus 样式——例外改用第二配方 `focus-visible:ring-2 ring-primary-ring ring-inset`：① 全出血容器（RecordRow 整行 Link 等没有外部留白可画 offset 的场景）② chip 内部按钮（FilterChip）③ 滚动容器内的项（Sidebar 导航项、Tabs）——offset 在 `overflow-y-auto`/`overflow-x-auto` 容器内会被裁切，改内嵌避免视觉截断
 - 点击目标 ≥ 32×32px（移动端 ≥ 40）；行级操作（···）默认弱化、hover 显形；Button `size="sm"`（28px 高）是 §3 控件高度紧凑档在按钮上的登记例外，允许低于本条下限，仅用于表格内联操作等空间受限场景
 - `prefers-reduced-motion` 下关闭位移动画
 - iOS：`pointer:coarse` 下表单控件 16px 字号规则保留（globals.css 既有）
@@ -127,7 +127,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 ## 6. 组件规范（长期契约）
 
-组件唯一存放地 `src/components/ui/`。**准入流程**：新 UI 需求先查本节与 ui/ 目录，没有再新建，且新建必须进本文件登记。同一文件内禁止混用共享组件与手写同类元素。多组件同文件用 named export（如 `Stat.tsx` 含 `StatBand`、`Field.tsx` 含五件）；Props 接口命名 `XxxProps`；类型导入一律 `import type`。
+组件唯一存放地 `src/components/ui/`。**准入流程**：新 UI 需求先查本节与 ui/ 目录，没有再新建，且新建必须进本文件登记。同一文件内禁止混用共享组件与手写同类元素。多组件同文件用 named export（如 `Stat.tsx` 含 `StatBand`、`Field.tsx` 含五件）；Props 接口命名 `XxxProps`；类型导入一律 `import type`。**登记例外**：`Header`（PageHeader）、`Sidebar` 等全站布局壳组件位于 `src/components/layout/`，不进 `ui/`——它们是页面骨架的固定部位而非可复用 UI 原语，但 props 契约同样进本节登记、破坏性变更同样需改本文件。
 
 ### 6.1 选型决策表
 
@@ -156,6 +156,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **EmptyState** `icon` `title` `hint` `action`；**LoadingState** `variant: list|stats|plain` `rows`（仅 `list` 变体生效，骨架行数，默认 4）；**ErrorState** `title` `detail` `onRetry`
 - **ProgressBar** `value` `max` `label` `tone`；`tone` 仅 `default|warning`，>90% 自动 warning；`label` 必填
 - **可访问性底线**：所有交互组件可键盘到达；Modal/Drawer 焦点圈定；Tag dot 变体必带文字；色彩不作为唯一信息通道
+- **Header（PageHeader）**`src/components/layout/Header.tsx`，登记例外见本节开头 `title` `subtitle` `actions` `tabs` `search`；标题 `text-xl sm:text-2xl font-bold tracking-title text-ink-900`；`tabs` 渲染在标题区下方，`search` 渲染在 `actions` 前（同一 flex 行）；三者均可选，页面按需组合（§6.3 列表页模式）
 
 ### 6.3 页面模式（骨架级复用）
 
