@@ -23,7 +23,8 @@
     "emptyTitle": "Nothing here yet",
     "emptyHint": "Add the first one!",
     "errorTitle": "Something went wrong",
-    "retry": "Retry"
+    "retry": "Retry",
+    "loadFailed": "Failed to load, please retry"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -342,10 +343,7 @@
     "searchCreators": "Search creators...",
     "noCreatorsFound": "No creators found. Adjust filters or add one.",
     "addFirstCreator": "Add creator",
-    "view": "View",
-    "creator": "Creator",
     "platform": "Platform",
-    "status": "Status",
     "niche": "Niche",
     "followers": "Followers",
     "location": "Location",

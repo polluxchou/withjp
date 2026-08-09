@@ -23,7 +23,8 @@
     "emptyTitle": "まだ記録がありません",
     "emptyHint": "最初の1件を追加しましょう",
     "errorTitle": "エラーが発生しました",
-    "retry": "再試行"
+    "retry": "再試行",
+    "loadFailed": "読み込みに失敗しました。再試行してください"
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -342,10 +343,7 @@
     "searchCreators": "ライバーを検索...",
     "noCreatorsFound": "ライバーが見つかりません。条件を変えるか、追加してみましょう。",
     "addFirstCreator": "ライバーを追加",
-    "view": "表示",
-    "creator": "ライバー",
     "platform": "プラットフォーム",
-    "status": "ステータス",
     "niche": "ジャンル",
     "followers": "フォロワー数",
     "location": "地域",
