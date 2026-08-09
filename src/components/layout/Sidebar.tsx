@@ -34,6 +34,8 @@ import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import type { UserProfile } from '@/lib/types'
+import { ACCENT_CHIP } from '@/lib/ui/accent'
+import type { Accent } from '@/lib/ui/accent'
 
 type NavLeaf  = { href: string; key: string; icon: LucideIcon; exact?: boolean }
 type NavGroup = { key: string; icon: LucideIcon; children: NavLeaf[] }
@@ -78,6 +80,16 @@ const NAV: NavItem[] = [
   { href: '/config',    key: 'config',    icon: Settings },
 ]
 
+// 每个一级菜单固定一色（design-system §1.4）；未登记的子项（如 creatorsList/
+// competitors）回退 mauve。
+const NAV_ACCENT: Record<string, Accent> = {
+  dashboard: 'mauve', creators: 'pink', pipeline: 'blue', timeline: 'violet',
+  tasks: 'green', workspace: 'blue', team: 'violet', knowledge: 'amber',
+  costManagement: 'green', expenses: 'violet', items: 'amber', venue: 'violet',
+  financeForecast: 'green', config: 'mauve',
+  teamAgents: 'violet', teamAssignments: 'blue', teamOrg: 'green',
+}
+
 const COLLAPSED_W = '60px'
 const EXPANDED_W  = '240px'
 const LS_KEY      = 'sidebar:collapsed'
@@ -108,6 +120,7 @@ function CollapsedNavGroup({
   const [top, setTop] = useState<number | null>(null)
   const GroupIcon = item.icon
   const hasActiveChild = item.children.some((c) => isActive(c.href, c.exact))
+  const accent = NAV_ACCENT[item.key] ?? 'mauve'
   return (
     <div
       className="relative"
@@ -118,27 +131,32 @@ function CollapsedNavGroup({
         type="button"
         title={label}
         aria-label={label}
-        className={`flex w-full items-center justify-center rounded-lg px-2 py-2.5 transition-colors ${
-          hasActiveChild ? 'bg-primary-soft text-primary' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+        className={`flex w-full items-center justify-center rounded-field px-2 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+          hasActiveChild ? 'bg-primary-soft text-primary font-semibold' : 'text-ink-500 hover:text-ink-900 hover:bg-line-soft'
         }`}
       >
-        <GroupIcon className="w-4 h-4 flex-shrink-0" />
+        <span aria-hidden className={`w-6 h-6 rounded-icon flex items-center justify-center flex-none ${ACCENT_CHIP[accent]}`}>
+          <GroupIcon className="w-[13px] h-[13px]" strokeWidth={1.5} />
+        </span>
       </button>
       {top !== null && (
-        <div className="fixed z-[60] min-w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg" style={{ top, left: 56 }}>
-          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{label}</div>
+        <div className="fixed z-[60] min-w-44 rounded-lg border border-line bg-white p-1 shadow-lg" style={{ top, left: 56 }}>
+          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-400">{label}</div>
           {item.children.map((child) => {
             const ChildIcon = child.icon
             const active = isActive(child.href, child.exact)
+            const childAccent = NAV_ACCENT[child.key] ?? 'mauve'
             return (
               <Link
                 key={child.href}
                 href={child.href}
-                className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                  active ? 'bg-primary-soft text-primary font-medium' : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                className={`flex items-center gap-2 rounded-field px-2 py-1.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+                  active ? 'bg-primary-soft text-primary font-semibold' : 'text-ink-700 hover:bg-line-soft hover:text-ink-900'
                 }`}
               >
-                <ChildIcon className="w-4 h-4 flex-shrink-0" />
+                <span aria-hidden className={`w-6 h-6 rounded-icon flex items-center justify-center flex-none ${ACCENT_CHIP[childAccent]}`}>
+                  <ChildIcon className="w-[13px] h-[13px]" strokeWidth={1.5} />
+                </span>
                 <span className="whitespace-nowrap">{childLabel(child.key)}</span>
               </Link>
             )
@@ -160,6 +178,7 @@ function CollapsedNavLeaf({
 }) {
   const [top, setTop] = useState<number | null>(null)
   const Icon = item.icon
+  const accent = NAV_ACCENT[item.key] ?? 'mauve'
   return (
     <div
       className="relative"
@@ -169,15 +188,17 @@ function CollapsedNavLeaf({
       <Link
         href={item.href}
         aria-label={label}
-        className={`flex items-center justify-center rounded-lg px-2 py-2.5 transition-colors ${
-          active ? 'bg-primary-soft text-primary' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+        className={`flex items-center justify-center rounded-field px-2 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+          active ? 'bg-primary-soft text-primary font-semibold' : 'text-ink-500 hover:text-ink-900 hover:bg-line-soft'
         }`}
       >
-        <Icon className="w-4 h-4 flex-shrink-0" />
+        <span aria-hidden className={`w-6 h-6 rounded-icon flex items-center justify-center flex-none ${ACCENT_CHIP[accent]}`}>
+          <Icon className="w-[13px] h-[13px]" strokeWidth={1.5} />
+        </span>
       </Link>
       {top !== null && (
         <div
-          className="fixed z-[60] rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white shadow-lg whitespace-nowrap pointer-events-none"
+          className="fixed z-[60] rounded-md bg-ink-900 px-2 py-1 text-xs font-medium text-white shadow-lg whitespace-nowrap pointer-events-none"
           style={{ top: top + 8, left: 56 }}
         >
           {label}
@@ -295,15 +316,18 @@ export default function Sidebar() {
       return <CollapsedNavLeaf key={item.href} item={item} label={t(item.key)} active={active} />
     }
     const Icon = item.icon
+    const accent = NAV_ACCENT[item.key] ?? 'mauve'
     return (
       <Link
         key={item.href}
         href={item.href}
-        className={`flex items-center rounded-lg text-sm transition-colors gap-3 py-2.5 ${
+        className={`flex items-center rounded-field text-sm transition-colors gap-3 py-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
           indented ? 'pl-9 pr-3' : 'px-3'
-        } ${active ? 'bg-primary-soft text-primary font-semibold' : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
+        } ${active ? 'bg-primary-soft text-primary font-semibold' : 'font-medium text-ink-500 hover:text-ink-900 hover:bg-line-soft'}`}
       >
-        <Icon className="w-4 h-4 flex-shrink-0" />
+        <span aria-hidden className={`w-6 h-6 rounded-icon flex items-center justify-center flex-none ${ACCENT_CHIP[accent]}`}>
+          <Icon className="w-[13px] h-[13px]" strokeWidth={1.5} />
+        </span>
         {showLabel && <span className="truncate">{t(item.key)}</span>}
       </Link>
     )
@@ -317,7 +341,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-zinc-200 text-zinc-700 shadow-sm flex items-center justify-center"
+        className="lg:hidden fixed right-3 z-30 w-10 h-10 rounded-lg bg-white border border-line text-ink-700 shadow-sm flex items-center justify-center"
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         aria-label={tSidebar('openMenu')}
       >
@@ -334,7 +358,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-screen sidebar-frosted border-r border-zinc-200 flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
+        className={`fixed top-0 left-0 h-screen bg-transparent border-r border-line flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0'
         }`}
         style={{
@@ -349,20 +373,20 @@ export default function Sidebar() {
         }}
       >
       {/* Logo + collapse toggle */}
-      <div className={`flex items-center border-b border-zinc-200 ${effectiveCollapsed ? 'justify-center px-2 py-5' : 'gap-2.5 px-5 py-5'}`}>
+      <div className={`flex items-center border-b border-line ${effectiveCollapsed ? 'justify-center px-2 py-5' : 'gap-2.5 px-5 py-5'}`}>
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
           <Zap className="w-4 h-4 text-white" />
         </div>
         {showLabel && (
           <div className="min-w-0 flex-1">
-            <div className="text-zinc-900 font-semibold text-sm leading-tight truncate">{t('appName')}</div>
-            <div className="text-zinc-500 text-xs truncate">{t('appSubtitle')}</div>
+            <div className="text-ink-900 font-semibold text-sm leading-tight truncate">{t('appName')}</div>
+            <div className="text-ink-500 text-xs truncate">{t('appSubtitle')}</div>
           </div>
         )}
         {showLabel && !isMobile && (
           <button
             onClick={() => setCollapsed(true)}
-            className="w-8 h-8 flex items-center justify-center rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-ink-500 hover:text-ink-900 hover:bg-line-soft transition-colors flex-shrink-0"
             title={tSidebar('collapse')}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -375,7 +399,7 @@ export default function Sidebar() {
       {effectiveCollapsed && (
         <button
           onClick={() => setCollapsed(false)}
-          className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-white border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex items-center justify-center shadow-md"
+          className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-white border border-line text-ink-500 hover:text-ink-900 hover:bg-line-soft transition-colors flex items-center justify-center shadow-md"
           title={tSidebar('expand')}
         >
           <ChevronRight className="w-3.5 h-3.5" />
@@ -387,7 +411,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
+          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg text-ink-500 hover:text-ink-900 hover:bg-line-soft flex items-center justify-center"
           aria-label={tSidebar('closeMenu')}
         >
           <X className="w-5 h-5" />
@@ -417,19 +441,22 @@ export default function Sidebar() {
           const GroupIcon     = item.icon
           const hasActiveChild = item.children.some((c) => isActive(c.href, c.exact))
           const open = openGroups[item.key] ?? hasActiveChild
+          const accent = NAV_ACCENT[item.key] ?? 'mauve'
           return (
             <div key={item.key}>
               <button
                 type="button"
                 onClick={() => toggleGroup(item.key, !open)}
                 aria-expanded={open}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-field px-3 py-2.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
                   hasActiveChild
                     ? 'bg-primary-soft text-primary font-semibold'
-                    : 'font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                    : 'font-medium text-ink-500 hover:text-ink-900 hover:bg-line-soft'
                 }`}
               >
-                <GroupIcon className="w-4 h-4 flex-shrink-0" />
+                <span aria-hidden className={`w-6 h-6 rounded-icon flex items-center justify-center flex-none ${ACCENT_CHIP[accent]}`}>
+                  <GroupIcon className="w-[13px] h-[13px]" strokeWidth={1.5} />
+                </span>
                 <span className="truncate flex-1 text-left">{t(item.key)}</span>
                 <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
               </button>
@@ -458,7 +485,7 @@ export default function Sidebar() {
         <button
           onClick={() => setProfileOpen(true)}
           title={effectiveCollapsed ? (profile?.name ?? t('profile')) : undefined}
-          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 w-full ${
+          className={`flex items-center rounded-lg text-sm font-medium transition-colors text-ink-500 hover:text-ink-900 hover:bg-line-soft w-full ${
             effectiveCollapsed ? 'justify-center px-2 py-2' : 'gap-2.5 px-2 py-2'
           }`}
         >
@@ -467,14 +494,14 @@ export default function Sidebar() {
               {initialsOf(profile)}
             </span>
           ) : (
-            <UserCircle className="w-7 h-7 flex-shrink-0 text-zinc-400" />
+            <UserCircle className="w-7 h-7 flex-shrink-0 text-ink-400" />
           )}
           {showLabel && (
             <span className="min-w-0 flex-1 text-left">
-              <span className="block text-sm font-medium text-zinc-900 truncate">
+              <span className="block text-sm font-medium text-ink-900 truncate">
                 {profile?.name ?? t('profile')}
               </span>
-              <span className="block text-[10px] text-zinc-500 truncate">
+              <span className="block text-[10px] text-ink-500 truncate">
                 {profile
                   ? [profile.user_code, profile.role ? tRoles(profile.role) : null]
                       .filter(Boolean).join(' · ')
@@ -491,8 +518,8 @@ export default function Sidebar() {
       {/* Footer — hidden on mobile to save vertical room for the profile
           button above. */}
       {showLabel && !isMobile && (
-        <div className="px-5 py-4 border-t border-zinc-200">
-          <div className="text-xs text-zinc-400">v0.1.1</div>
+        <div className="px-5 py-4 border-t border-line">
+          <div className="text-xs text-ink-400">v0.1.1</div>
         </div>
       )}
 
