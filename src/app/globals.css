@@ -5,9 +5,58 @@
 @layer base {
   :root {
     --sidebar-width: 240px;
+
+    /* ink（文字，RGB 三元组，供 alpha 修饰符） */
+    --ink-900: 33 28 51;
+    --ink-700: 61 54 84;
+    --ink-500: 111 104 132;
+    --ink-400: 141 135 161;
+
+    /* 发丝线（带固定透明度，直接用） */
+    --line-soft: rgba(33, 28, 51, 0.05);
+    --line: rgba(33, 28, 51, 0.07);
+    --line-strong: rgba(33, 28, 51, 0.09);
+
+    --surface: #ffffff;
+    --canvas: #faf9fc;
+
+    /* violet 档位 */
+    --primary: 124 58 237;
+    --primary-hover: 109 40 217;
+    --primary-soft: rgba(124, 58, 237, 0.10);
+    --primary-soft-hover: rgba(124, 58, 237, 0.14);
+    --primary-border: rgba(124, 58, 237, 0.35);
+
+    /* 语义色三件套 × 6 tone */
+    --success-text: #067647; --success-soft: rgba(16,185,129,.09); --success-dot: #10b981;
+    --warning-text: #b45309; --warning-soft: rgba(245,158,11,.11); --warning-dot: #f59e0b;
+    --danger-text:  #dc2626; --danger-soft:  rgba(239,68,68,.09);  --danger-dot:  #ef4444;
+    /* danger-dot(#ef4444) 白字对比度仅 3.77:1 不过 AA；危险实底按钮（Button
+       variant=danger）大面积填充改用更深的 danger-strong（4.83:1），dot 只
+       用于状态点/小面积场景，语义上与 danger-text 独立登记，不复用同一 token
+       名（后续两者若分道演进不至互相牵连）。 */
+    --danger-strong: #dc2626;
+    --info-text:    #1d4ed8; --info-soft:    rgba(59,130,246,.09); --info-dot:    #3b82f6;
+    /* 语义色描边（CountChip 35% 透明描边用）：dot token 是固定 hex，不支持
+       /N 透明度修饰符（Task 1 审查结论），故单独登记 rgba 描边变量。 */
+    --success-border: rgba(16,185,129,.35);
+    --warning-border: rgba(245,158,11,.35);
+    --danger-border:  rgba(239,68,68,.35);
+    --info-border:    rgba(59,130,246,.35);
+    /* muted：状态 Tag 的 neutral tone。不占用 neutral 名：Tailwind 内置 neutral-N 灰阶与
+       token 同名会让门禁无法区分合法 token（neutral-soft）与非法灰阶（neutral-200） */
+    --muted-text: #3d3654; --muted-soft: rgba(33, 28, 51, 0.05); --muted-dot: #8d87a1;
+
+    /* 主 CTA 渐变（仅主按钮 / 进度条填充） */
+    --primary-gradient: linear-gradient(135deg, #7c3aed 0%, #9333ea 60%, #a855f7 100%);
+
+    /* Table/RecordRow 行 hover 底色（design-system §6.2）。单独登记而非
+       `bg-primary-soft/20`：primary-soft 是固定透明度 var()，`/N` 修饰符会被
+       Tailwind 静默丢弃且触发 alpha-on-fixed 门禁（Task 1 审查结论）。 */
+    --row-hover: rgba(124, 58, 237, 0.02);
   }
   body {
-    @apply bg-canvas text-zinc-900 antialiased;
+    @apply bg-atmosphere text-ink-900 antialiased;
   }
 
   /* iOS Safari auto-zooms when an <input> / <select> / <textarea> with a
@@ -58,5 +107,17 @@
     background-color: rgba(255, 255, 255, 0.72);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* iOS Safari 不支持 background-attachment: fixed，会按 scroll 渲染，长页面底部的
+     光晕层会滚出视口外不可见——此回退已接受。桌面端 fixed 以视口（而非内容）为锚。 */
+  .bg-atmosphere {
+    background-color: var(--canvas);
+    background-image:
+      radial-gradient(ellipse 900px 480px at 8% -10%, rgba(139, 92, 246, 0.10), transparent 60%),
+      radial-gradient(ellipse 800px 420px at 100% 0%, rgba(236, 72, 153, 0.05), transparent 55%),
+      radial-gradient(ellipse 900px 500px at 90% 110%, rgba(139, 92, 246, 0.07), transparent 60%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
 }

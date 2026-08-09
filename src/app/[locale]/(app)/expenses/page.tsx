@@ -1,31 +1,46 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import Header from '@/components/layout/Header'
 import ExpenseForm from '@/components/expenses/ExpenseForm'
-import ExpenseCategoryChart from '@/components/expenses/ExpenseCategoryChart'
+import ExpenseCategoryChart, { type ExpenseChartView } from '@/components/expenses/ExpenseCategoryChart'
 import ExpenseDetailModal from '@/components/expenses/ExpenseDetailModal'
 import SavedViewsBar from '@/components/expenses/SavedViewsBar'
 import Modal from '@/components/ui/Modal'
 import DateRangeSlider from '@/components/ui/DateRangeSlider'
 import Button from '@/components/ui/Button'
-import ClampedText from '@/components/ui/ClampedText'
+import Tabs from '@/components/ui/Tabs'
+import { SearchInput, Select } from '@/components/ui/Field'
+import { CountChip } from '@/components/ui/FilterChip'
+import { Stat, StatBand } from '@/components/ui/Stat'
+import SectionCard from '@/components/ui/SectionCard'
+import RecordRow from '@/components/ui/RecordRow'
+import Tag from '@/components/ui/Tag'
+import LoadingState from '@/components/ui/LoadingState'
+import ErrorState from '@/components/ui/ErrorState'
+import { toneOf } from '@/lib/ui/status-tone'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
 import EmptyState from '@/components/ui/EmptyState'
-import { Plus, Search, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
+import {
+  Plus, RotateCcw, Copy, Pencil, Trash2, Eye, ArrowUp, ArrowDown, Sparkles,
+  Receipt, Calendar, Package, Wallet, Home, Plane, Paperclip, Cloud,
+  type LucideIcon,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
-import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
+import type { Expense, ExpenseCategory } from '@/lib/types'
 import {
   type Filters,
   EMPTY_FILTERS as SHARED_EMPTY_FILTERS,
   SERVER_FILTER_KEYS as SHARED_SERVER_FILTER_KEYS,
   filtersToParams,
   paramsToFilters,
+  isEmptyFilters,
 } from '@/lib/expenses/filter-types'
 import {
   EXPENSE_CATEGORY_OPTIONS,
@@ -49,21 +64,17 @@ import {
 import type { SubjectInput } from '@/lib/discussions/types'
 
 
-const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
-  budgeted:           'bg-zinc-100 text-zinc-600',
-  ordered_unpaid:     'bg-amber-100 text-amber-700',
-  paid:               'bg-green-100 text-green-700',
-  refunded:           'bg-red-100 text-red-600',
-  partially_refunded: 'bg-orange-100 text-orange-700',
-}
-
-const CATEGORY_COLOR: Record<ExpenseCategory, string> = {
-  tangible_asset:  'bg-primary-soft text-primary',
-  salary:          'bg-amber-100 text-amber-700',
-  rent:            'bg-emerald-100 text-emerald-700',
-  travel:          'bg-blue-100 text-blue-700',
-  office_supplies: 'bg-purple-100 text-purple-700',
-  cloud_services:  'bg-pink-100 text-pink-700',
+// Category → icon (meta row, RecordRow). Payment status no longer gets a
+// bespoke color map — it goes through the shared toneOf('expense', status)
+// registry (docs/design-system.md §1.3) instead, same as every other status
+// enum in the app.
+const CATEGORY_ICON: Record<ExpenseCategory, LucideIcon> = {
+  tangible_asset:  Package,
+  salary:          Wallet,
+  rent:            Home,
+  travel:          Plane,
+  office_supplies: Paperclip,
+  cloud_services:  Cloud,
 }
 
 type SortKey = 'date' | 'period' | 'amount'
@@ -79,6 +90,16 @@ const SORT_CHAIN: SortKey[] = ['date', 'period', 'amount']
 // unchanged.
 const EMPTY_FILTERS = SHARED_EMPTY_FILTERS
 const SERVER_FILTER_KEYS = SHARED_SERVER_FILTER_KEYS
+
+// Page-level view switch, rendered as the header's <Tabs>. 'list' renders the
+// RecordRow table here on the page; the other three used to be a pill
+// tablist owned by ExpenseCategoryChart and are now passed down as its
+// `view` prop (see ExpenseChartView).
+type PageView = 'list' | ExpenseChartView
+const PAGE_VIEWS: PageView[] = ['list', 'category', 'trend', 'monthly']
+function isPageView(v: string | null): v is PageView {
+  return !!v && (PAGE_VIEWS as string[]).includes(v)
+}
 
 export default function ExpensesPage() {
   const currentUser = useCurrentUser()
@@ -97,6 +118,7 @@ export default function ExpensesPage() {
   const [sortDir,    setSortDir]    = useState<SortDir>('desc')
   const [refreshSeq, setRefreshSeq] = useState(0)
   const [searchInput, setSearchInput] = useState('')
+  const [viewTab, setViewTab] = useState<PageView>('list')
   const [panelSubject, setPanelSubject] = useState<SubjectInput | null>(null)
   const loadCtrl = useRef<AbortController | null>(null)
   const t = useTranslations('expenses')
@@ -111,21 +133,28 @@ export default function ExpensesPage() {
   const urlHydrated  = useRef(false)
   const loadedOnce   = useRef(false)
 
-  // First mount: pick up filters from the URL so deep links / refresh
-  // restore the same view.
+  // First mount: pick up filters + the active chart tab from the URL so deep
+  // links / refresh restore the same view (e.g. a link straight into
+  // "累计趋势" instead of always landing on the list).
   useEffect(() => {
     setFilters(paramsToFilters(searchParams))
+    const tabParam = searchParams.get('tab')
+    if (isPageView(tabParam)) setViewTab(tabParam)
     urlHydrated.current = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Push filter changes back into the URL (replace, not push).
+  // Push filter + tab changes back into the URL (replace, not push). 'list'
+  // is the default landing tab, so it's omitted from the URL to keep the
+  // plain /expenses link clean.
   useEffect(() => {
     if (!urlHydrated.current) return
-    const qs   = filtersToParams(filters).toString()
+    const params = filtersToParams(filters)
+    if (viewTab !== 'list') params.set('tab', viewTab)
+    const qs   = params.toString()
     const next = qs ? `${pathname}?${qs}` : pathname
     router.replace(next, { scroll: false })
-  }, [filters, pathname, router])
+  }, [filters, viewTab, pathname, router])
 
   // Debounce search input → filters.q (300ms)
   useEffect(() => {
@@ -282,8 +311,12 @@ export default function ExpensesPage() {
   })()
 
   function toggleKpi(target: 'paid' | 'unpaid' | 'crossBorder' | 'reset') {
+    // 'reset' now defers to resetFilters() itself rather than duplicating its
+    // EMPTY_FILTERS assignment inline — resetFilters also clears the stale
+    // searchInput text, which the old inline `return EMPTY_FILTERS` here
+    // never did (filters.q would reset but the visible search box wouldn't).
+    if (target === 'reset') { resetFilters(); return }
     setFilters((f) => {
-      if (target === 'reset') return EMPTY_FILTERS
       // Always clear other KPI-driven flags first, then toggle the target.
       // Date range is NOT cleared here — the month picker owns that filter
       // and clears it via clearMonth() below.
@@ -314,26 +347,78 @@ export default function ExpensesPage() {
   }
 
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)
+  // monthPickerRef anchors the trigger (Stat wrapper) — used both for the
+  // outside-click check and to measure where to plant the portaled panel.
   const monthPickerRef = useRef<HTMLDivElement | null>(null)
+  // monthPanelRef is the portaled dropdown itself. It lives under
+  // document.body (see createPortal below), not under monthPickerRef, so the
+  // outside-click handler must treat "inside the panel" as a second,
+  // independent containment check — `monthPickerRef.contains()` alone would
+  // never be true for clicks on the panel and would close it on every click.
+  const monthPanelRef = useRef<HTMLDivElement | null>(null)
+  const [monthPanelPos, setMonthPanelPos] = useState<{ top: number; left: number; width: number } | null>(null)
 
-  // Close the picker on outside click / Escape
+  // StatBand is `overflow-x-auto`, and per spec a non-`visible` value on one
+  // overflow axis forces the other axis to compute as `auto` too — so an
+  // absolutely-positioned child (the old implementation) gets clipped by
+  // StatBand's own box the moment it overflows vertically. Clipped ≠ hidden:
+  // the panel was still painted (sort of) but pointer-events landed on
+  // whatever was underneath, so it was open-but-unclickable. Portaling to
+  // document.body (Modal's own escape hatch, see components/ui/Modal.tsx)
+  // and positioning via getBoundingClientRect() sidesteps the clipping
+  // ancestor entirely.
+  function toggleMonthPicker() {
+    if (monthPickerOpen) { setMonthPickerOpen(false); return }
+    const rect = monthPickerRef.current?.getBoundingClientRect()
+    if (rect) setMonthPanelPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+    setMonthPickerOpen(true)
+  }
+
+  // Close the picker on outside click / Escape; reposition on scroll/resize
+  // while open (position:fixed + a one-time rect snapshot would otherwise
+  // drift away from the trigger as soon as the page scrolls).
   useEffect(() => {
     if (!monthPickerOpen) return
     const onPointer = (e: PointerEvent) => {
-      if (!monthPickerRef.current?.contains(e.target as Node)) setMonthPickerOpen(false)
+      const target = e.target as Node
+      if (monthPickerRef.current?.contains(target)) return
+      if (monthPanelRef.current?.contains(target)) return
+      setMonthPickerOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMonthPickerOpen(false)
     }
+    const reposition = () => {
+      const rect = monthPickerRef.current?.getBoundingClientRect()
+      if (rect) setMonthPanelPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+    }
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)
+    // capture:true so this also fires for scrolls inside nested scroll
+    // containers, not just the window/document itself.
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
     return () => {
       document.removeEventListener('pointerdown', onPointer)
       document.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
     }
   }, [monthPickerOpen])
 
   const summary = getExpenseSummary(visibleExpenses)
+  // Status-summary counts for the CountChip row — derived from the same
+  // filtered list the KPIs/table already use, so switching a chip filter
+  // shrinks/grows every other chip's count exactly like the existing KPI
+  // cards already do via toggleKpi.
+  const paidCount    = visibleExpenses.filter((e) => e.payment_status === 'paid').length
+  const pendingCount = visibleExpenses.filter((e) => e.payment_status === 'budgeted' || e.payment_status === 'ordered_unpaid').length
+  // "全部" chip is only the active one when NOTHING is filtered — activeKpi
+  // alone misses e.g. a category/user/buyer/period select or a typed search
+  // term (those don't drive activeKpi at all). Mirrors exactly what
+  // resetFilters() clears (Filters shape + searchInput), so "全部 active" and
+  // "reset would be a no-op" always agree.
+  const allActive = activeKpi === null && isEmptyFilters(filters) && searchInput === ''
 
   // Range for the date slider — derived from the actual spend dates so the
   // track represents real data rather than a fixed 2-year window. Padded to
@@ -428,18 +513,6 @@ export default function ExpensesPage() {
     })
   }, [visibleExpenses, sortBy, sortDir])
 
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 text-zinc-300" />
-    return sortDir === 'asc'
-      ? <ArrowUp   className="w-3 h-3 text-primary" />
-      : <ArrowDown className="w-3 h-3 text-primary" />
-  }
-
-  function sortableHeaderClass(col: SortKey) {
-    const active = sortBy === col
-    return `inline-flex items-center gap-1 transition-colors ${active ? 'text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`
-  }
-
   async function confirmDelete() {
     if (!deleting) return
     setDelLoading(true)
@@ -457,7 +530,25 @@ export default function ExpensesPage() {
     }
   }
 
-  const INPUT = 'border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
+  // Shared three-state gate for all four view tabs (list/category/trend/
+  // monthly) — computed once, consumed at both render sites below (the
+  // chart slot above the filter row, and the list slot below it) so every
+  // tab shows the exact same loading/error/empty precedence and copy.
+  // `null` means "have data, render the real tab content instead". Loading
+  // keeps the row-skeleton (variant="list") specifically for the list tab —
+  // §6.3 wants "skeleton first", and RecordRow's real shape is known there —
+  // the three chart tabs fall back to the generic plain spinner since their
+  // layouts vary too much (pie vs. line vs. table) to skeleton meaningfully.
+  const threeState = loading ? (
+    <LoadingState variant={viewTab === 'list' ? 'list' : 'plain'} />
+  ) : loadError ? (
+    <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
+  ) : visibleExpenses.length === 0 ? (
+    <EmptyState
+      title={t('empty')}
+      action={<Button variant="secondary" size="sm" onClick={() => setShowForm(true)}>{t('addFirst')}</Button>}
+    />
+  ) : null
 
   return (
     <DiscussionProvider>
@@ -465,10 +556,35 @@ export default function ExpensesPage() {
       <Header
         title={t('title')}
         subtitle={t('subtitle', { count: summary.itemCount })}
+        tabs={
+          <Tabs
+            items={[
+              { value: 'list',     label: t('viewList') },
+              { value: 'category', label: t('categoryShare') },
+              { value: 'trend',    label: t('cumulativeTrend') },
+              { value: 'monthly',  label: t('monthlySummary') },
+            ]}
+            value={viewTab}
+            onChange={(v) => setViewTab(v as PageView)}
+          />
+        }
+        search={
+          <div className="w-56">
+            {/* No kbdHint here — ⌘K is bound to the CommandBar (see the
+                natural-language trigger below), not to focusing this plain
+                search box. Claiming it here would be a second, false claim
+                on the same shortcut. */}
+            <SearchInput
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder={t('searchPlaceholder')}
+            />
+          </div>
+        }
         actions={
           <>
             <CurrencySwitcher />
-            <Button onClick={() => setShowForm(true)}>
+            <Button size="lg" onClick={() => setShowForm(true)}>
               <Plus className="w-4 h-4" /> {t('addExpense')}
             </Button>
           </>
@@ -479,78 +595,98 @@ export default function ExpensesPage() {
       <button
         type="button"
         onClick={() => openCommandBar()}
-        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-violet-200 bg-primary-soft/40 hover:bg-primary-soft text-left text-sm text-zinc-600 transition-colors"
+        className="w-full mb-4 flex items-center gap-2 px-4 py-2.5 rounded-card border border-primary-border bg-primary-soft hover:bg-primary-soft-hover text-left text-sm text-primary-hover transition-colors"
       >
-        <Sparkles className="w-4 h-4 text-violet-500 flex-shrink-0" />
+        <Sparkles className="w-4 h-4 text-primary flex-shrink-0" strokeWidth={1.5} />
         <span>{t('kpi.nlHint')}</span>
-        <kbd className="ml-auto px-1.5 py-0.5 text-[10px] rounded bg-white text-zinc-500 border border-zinc-200">⌘K</kbd>
+        <kbd className="ml-auto px-1.5 py-0.5 text-micro rounded bg-surface text-ink-500 border border-line">⌘K</kbd>
       </button>
 
-      {/* KPI Cards — click to filter, click active card again to clear */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
-        <button
-          type="button"
+      {/* Status summary — same underlying filter as the KPI cards below, just
+          a quick count-based entry point (toggleKpi is the single source of
+          truth for what "active" means). */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <CountChip
+          label={tCommon('all')}
+          count={visibleExpenses.length}
+          tone="neutral"
+          active={allActive}
           onClick={() => toggleKpi('reset')}
-          aria-pressed={activeKpi === null}
-          className="bg-white border border-zinc-200 rounded-xl p-4 text-left hover:border-zinc-300 hover:shadow-sm transition-all"
-        >
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('totalExpense')}</p>
-          <p className="text-lg sm:text-xl font-bold text-zinc-900">{fmtRmb(summary.totalCost, { compact: true })}</p>
-          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}</p>
-        </button>
-        <button
-          type="button"
+        />
+        <CountChip
+          label={t('paid')}
+          count={paidCount}
+          tone="success"
+          active={activeKpi === 'paid'}
           onClick={() => toggleKpi('paid')}
-          aria-pressed={activeKpi === 'paid'}
-          className={`bg-white border rounded-xl p-4 text-left transition-all ${
-            activeKpi === 'paid'
-              ? 'border-green-400 ring-2 ring-green-100 bg-green-50/40'
-              : 'border-zinc-200 hover:border-green-200 hover:shadow-sm'
-          }`}
-        >
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('paid')}</p>
-          <p className="text-lg sm:text-xl font-bold text-green-700">{fmtRmb(summary.paidCost, { compact: true })}</p>
-          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}</p>
-        </button>
-        <button
-          type="button"
+        />
+        <CountChip
+          label={t('pendingPayment')}
+          count={pendingCount}
+          tone="warning"
+          active={activeKpi === 'unpaid'}
           onClick={() => toggleKpi('unpaid')}
-          aria-pressed={activeKpi === 'unpaid'}
-          className={`bg-white border rounded-xl p-4 text-left transition-all ${
-            activeKpi === 'unpaid'
-              ? 'border-amber-400 ring-2 ring-amber-100 bg-amber-50/40'
-              : 'border-zinc-200 hover:border-amber-200 hover:shadow-sm'
-          }`}
-        >
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('budgetPending')}</p>
-          <p className="text-lg sm:text-xl font-bold text-amber-700">{fmtRmb(summary.budgetedUnpaidCost, { compact: true })}</p>
-          <p className="text-[10px] text-zinc-400 mt-0.5">{activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}</p>
-        </button>
-        <div ref={monthPickerRef} className="relative">
-          <button
-            type="button"
-            onClick={() => setMonthPickerOpen((v) => !v)}
-            aria-pressed={activeKpi === 'monthFilter'}
-            aria-haspopup="listbox"
-            aria-expanded={monthPickerOpen}
-            className={`w-full bg-white border rounded-xl p-4 text-left transition-all ${
-              activeKpi === 'monthFilter'
-                ? 'border-violet-400 ring-2 ring-violet-100 bg-primary-soft/40'
-                : 'border-zinc-200 hover:border-violet-200 hover:shadow-sm'
-            }`}
-          >
-            <p className="text-xs font-medium text-zinc-500 mb-1">
-              {activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
-            </p>
-            <p className="text-lg sm:text-xl font-bold text-primary">{fmtRmb(summary.currentMonthCost, { compact: true })}</p>
-            <p className="text-[10px] text-zinc-400 mt-0.5">
-              {activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
-            </p>
-          </button>
+        />
+      </div>
 
-          {monthPickerOpen && (
-            <div className="absolute left-0 right-0 top-full mt-2 z-30 bg-white border border-zinc-200 rounded-xl shadow-lg p-2">
-              <div className="text-[10px] font-medium text-zinc-400 px-2 py-1 uppercase tracking-wider">
+      {/* KPI — click to filter, click active card again to clear (same
+          toggleKpi/activeKpi source of truth as the CountChip row above). */}
+      <StatBand>
+        <Stat
+          label={t('totalExpense')}
+          value={fmtRmb(summary.totalCost, { compact: true })}
+          note={activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}
+          onClick={() => toggleKpi('reset')}
+          // Same allActive gate as the "全部" CountChip (not activeKpi===null
+          // alone) — activeKpi misses category/user/buyer/period selects and
+          // the search box, so without this the card would still claim to be
+          // "selected" while a filter is silently narrowing the numbers.
+          pressed={allActive}
+        />
+        <Stat
+          label={t('paid')}
+          value={fmtRmb(summary.paidCost, { compact: true })}
+          note={activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}
+          onClick={() => toggleKpi('paid')}
+          pressed={activeKpi === 'paid'}
+        />
+        <Stat
+          label={t('budgetPending')}
+          value={fmtRmb(summary.budgetedUnpaidCost, { compact: true })}
+          note={activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}
+          onClick={() => toggleKpi('unpaid')}
+          pressed={activeKpi === 'unpaid'}
+        />
+        {/* Month-filter KPI keeps its popover — wraps Stat instead of using
+            RecordRow-style composition since StatBand's flex children need
+            `relative` positioning to anchor the trigger for rect
+            measurement (the panel itself is portaled out, see below).
+            The border lives on this wrapper rather than Stat's own
+            `last:border-r-0`: Stat is this div's ONLY child, so `last-child`
+            always matches here regardless of this wrapper's own position in
+            the StatBand row — Stat would silently drop its border even
+            though it's the 4th of 5 stats, not the actual last one. Moving
+            the border to the wrapper (which IS positioned correctly in the
+            row) sidesteps that mismatch. If this wrapper ever needs to
+            become the *actual* last Stat in the band, drop the hardcoded
+            border-r here and let Stat's own last:border-r-0 take over. */}
+        <div ref={monthPickerRef} className="relative flex-1 min-w-fit border-r border-line-soft">
+          <Stat
+            label={activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
+            value={fmtRmb(summary.currentMonthCost, { compact: true })}
+            note={activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
+            onClick={toggleMonthPicker}
+            pressed={activeKpi === 'monthFilter'}
+            ariaProps={{ 'aria-haspopup': 'listbox', 'aria-expanded': monthPickerOpen }}
+          />
+
+          {monthPickerOpen && monthPanelPos && createPortal(
+            <div
+              ref={monthPanelRef}
+              style={{ position: 'fixed', top: monthPanelPos.top, left: monthPanelPos.left, width: monthPanelPos.width }}
+              className="z-40 bg-surface border border-line rounded-card shadow-pop p-2"
+            >
+              <div className="text-micro font-medium text-ink-400 px-2 py-1 uppercase tracking-wider">
                 {t('kpi.selectMonth')}
               </div>
               <div className="max-h-64 overflow-y-auto">
@@ -561,14 +697,14 @@ export default function ExpensesPage() {
                       key={opt.ym}
                       type="button"
                       onClick={() => applyMonth(opt.ym)}
-                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors ${
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-field text-xs transition-colors ${
                         isActive
                           ? 'bg-primary text-white'
-                          : 'text-zinc-700 hover:bg-zinc-100'
+                          : 'text-ink-700 hover:bg-line-soft'
                       }`}
                     >
                       <span className="font-medium">{opt.label}</span>
-                      <span className={isActive ? 'text-violet-100' : 'text-zinc-400'}>
+                      <span className={isActive ? 'text-white/70' : 'text-ink-400'}>
                         {opt.ym}
                       </span>
                     </button>
@@ -579,41 +715,47 @@ export default function ExpensesPage() {
                 <button
                   type="button"
                   onClick={clearMonth}
-                  className="mt-1 w-full px-2 py-1.5 rounded-md text-xs text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  className="mt-1 w-full px-2 py-1.5 rounded-field text-xs text-ink-500 hover:text-danger-text hover:bg-danger-soft transition-colors"
                 >
                   {t('kpi.clearMonthFilter')}
                 </button>
               )}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
-        <button
-          type="button"
+        <Stat
+          label={t('crossBorderCost')}
+          value={fmtRmb(summary.crossBorderCost, { compact: true })}
+          note={activeKpi === 'crossBorder' ? t('kpi.filterActive') : t('kpi.crossBorderHint', { rate: CROSS_BORDER_FEE_RATE * 100 })}
           onClick={() => toggleKpi('crossBorder')}
-          aria-pressed={activeKpi === 'crossBorder'}
-          className={`bg-white border rounded-xl p-4 text-left transition-all ${
-            activeKpi === 'crossBorder'
-              ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/40'
-              : 'border-zinc-200 hover:border-rose-200 hover:shadow-sm'
-          }`}
-        >
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('crossBorderCost')}</p>
-          <p className="text-lg sm:text-xl font-bold text-rose-600">{fmtRmb(summary.crossBorderCost, { compact: true })}</p>
-          <p className="text-[10px] text-zinc-400 mt-0.5">
-            {activeKpi === 'crossBorder' ? t('kpi.filterActive') : t('kpi.crossBorderHint', { rate: CROSS_BORDER_FEE_RATE * 100 })}
-          </p>
-        </button>
-      </div>
+          pressed={activeKpi === 'crossBorder'}
+        />
+      </StatBand>
 
-      {/* Charts */}
-      <ExpenseCategoryChart
-        expenses={visibleExpenses}
-        categoryBreakdownExpenses={expenses}
-        selectedCategory={filters.category}
-        onCategorySelect={selectChartCategory}
-        selectedPeriod={{ from: filters.date_from, to: filters.date_to }}
-        onPeriodSelect={selectChartPeriod}
-      />
+      {/* Charts — rendered for the category/trend/monthly tabs; the 'list' tab
+          renders the RecordRow table further down instead. Both render sites
+          consult the shared `threeState` computed below the JSX return, so
+          loading/error/empty look and behave identically across all four
+          tabs instead of only being handled on 'list' (previously, landing
+          on a chart tab during the initial fetch — or after a fetch error —
+          rendered nothing at all, since ExpenseCategoryChart's own guard
+          just returns null on empty data). */}
+      {viewTab !== 'list' && (
+        threeState ? (
+          <div className="mb-6"><SectionCard>{threeState}</SectionCard></div>
+        ) : (
+          <ExpenseCategoryChart
+            view={viewTab}
+            expenses={visibleExpenses}
+            categoryBreakdownExpenses={expenses}
+            selectedCategory={filters.category}
+            onCategorySelect={selectChartCategory}
+            selectedPeriod={{ from: filters.date_from, to: filters.date_to }}
+            onPeriodSelect={selectChartPeriod}
+          />
+        )
+      )}
 
       {/* Saved filter views (localStorage) */}
       <div className="mb-3 flex items-center gap-3 flex-wrap">
@@ -626,72 +768,64 @@ export default function ExpensesPage() {
         />
       </div>
 
-      {/* Filters — stack vertically (2-col) on mobile, single row from sm: up */}
-      <div className="bg-white border border-zinc-200 rounded-xl p-3 sm:p-4 mb-3">
+      {/* Filters — stack vertically (2-col) on mobile, single row from sm: up.
+          The text search box lives in the page header (SearchInput, Step a) —
+          not duplicated here. */}
+      <div className="bg-surface border border-line rounded-card p-3 sm:p-4 mb-3">
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
-          {/* Search — full width on mobile */}
-          <div className="relative col-span-2 sm:col-span-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={t('searchPlaceholder')}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 sm:w-52"
-            />
-          </div>
-
           {/* Category */}
-          <select value={filters.category} onChange={setFilter('category')} className={`${INPUT} w-full sm:w-36`}>
+          <Select value={filters.category} onChange={setFilter('category')} className="w-full sm:w-36">
             <option value="">{t('allCategories')}</option>
             {EXPENSE_CATEGORY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{t(`categories.${o.value}`)}</option>
             ))}
-          </select>
+          </Select>
 
           {/* Status */}
-          <select value={filters.payment_status} onChange={setFilter('payment_status')} className={`${INPUT} w-full sm:w-36`}>
+          <Select value={filters.payment_status} onChange={setFilter('payment_status')} className="w-full sm:w-36">
             <option value="">{t('allStatuses')}</option>
             {EXPENSE_PAYMENT_STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{t(`paymentStatuses.${o.value}`)}</option>
             ))}
-          </select>
+          </Select>
 
           {/* User */}
-          <select value={filters.user_name} onChange={setFilter('user_name')} className={`${INPUT} w-full sm:w-28`}>
+          <Select value={filters.user_name} onChange={setFilter('user_name')} className="w-full sm:w-28">
             <option value="">{tCommon('all')} {t('user')}</option>
             {EXPENSE_USER_OPTIONS.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
-          </select>
+          </Select>
 
           {/* Buyer — full set: team members + company-account buyers */}
-          <select value={filters.buyer_name} onChange={setFilter('buyer_name')} className={`${INPUT} w-full sm:w-28`}>
+          <Select value={filters.buyer_name} onChange={setFilter('buyer_name')} className="w-full sm:w-28">
             <option value="">{tCommon('all')} {t('buyer')}</option>
             {EXPENSE_BUYER_OPTIONS.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
-          </select>
+          </Select>
 
           {/* Period (quarterly) */}
-          <select value={filters.period} onChange={setFilter('period')} className={`${INPUT} w-full sm:w-36`}>
+          <Select value={filters.period} onChange={setFilter('period')} className="w-full sm:w-36">
             <option value="">{t('allPeriods')}</option>
             {EXPENSE_PERIOD_OPTIONS.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
-          </select>
+          </Select>
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={resetFilters}
-            className="col-span-2 sm:col-span-1 sm:ml-auto flex items-center justify-center sm:justify-start gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors py-1"
+            className="col-span-2 sm:col-span-1 sm:ml-auto justify-center sm:justify-start"
           >
             <RotateCcw className="w-3.5 h-3.5" /> {tCommon('reset')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Date range timeline — full width */}
-      <div className="bg-white border border-zinc-200 rounded-xl px-6 pt-4 pb-4 mb-5">
+      <div className="bg-surface border border-line rounded-card px-6 pt-4 pb-4 mb-5">
         <DateRangeSlider
           from={filters.date_from}
           to={filters.date_to}
@@ -701,229 +835,101 @@ export default function ExpensesPage() {
         />
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-sm text-zinc-400">{tCommon('loading')}</div>
-        ) : loadError ? (
-          <div className="p-6">
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {loadError}
-            </div>
-          </div>
-        ) : visibleExpenses.length === 0 ? (
-          <EmptyState
-            emoji="🧾"
-            title={t('empty')}
-            action={<button type="button" onClick={() => setShowForm(true)} className="mt-1 text-sm text-primary font-medium hover:underline">{t('addFirst')}</button>}
-          />
-        ) : (
-          <>
-          {/* Mobile card list — md:hidden. Each expense is a tap-to-view card with
-              the most-used actions (edit / duplicate / delete) inline. Less-used
-              columns (purpose, buyer, payment method) are surfaced via the
-              detail modal opened by the card body. */}
-          <ul className="md:hidden divide-y divide-zinc-100">
-            {sortedExpenses.map((e) => (
-              <li key={e.id} className="px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => setViewing(e)}
-                  className="w-full text-left"
+      {/* List — 'list' tab only; charts render above for the other three.
+          A single RecordRow-based list replaces the old dual mobile-card /
+          desktop-table split: RecordRow already hides meta/who under the sm
+          breakpoint internally, so one render serves both. */}
+      {viewTab === 'list' && (
+        <SectionCard
+          padding="none"
+          icon={<Receipt />}
+          title={t('listTitle')}
+          accent="violet"
+          actions={
+            !threeState ? (
+              <div className="flex items-center gap-1.5">
+                <Select
+                  aria-label={t('sortByLabel')}
+                  size="sm"
+                  className="w-28"
+                  value={sortBy}
+                  onChange={(e) => toggleSort(e.target.value as SortKey)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${CATEGORY_COLOR[e.expense_category]}`}>
-                          {t(`categories.${e.expense_category}`)}
-                        </span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_COLOR[e.payment_status]}`}>
-                          {t(`paymentStatuses.${e.payment_status}`)}
-                        </span>
+                  <option value="date">{t('date')}</option>
+                  <option value="period">{t('period')}</option>
+                  <option value="amount">{t('amount')}</option>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('toggleSortDir')}
+                  onClick={() => toggleSort(sortBy)}
+                >
+                  {sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            ) : undefined
+          }
+        >
+          {threeState ?? (
+            <div>
+              {sortedExpenses.map((e) => {
+                const CategoryIcon = CATEGORY_ICON[e.expense_category]
+                const fee = crossBorderFee(e)
+                return (
+                  <RecordRow
+                    key={e.id}
+                    status={toneOf('expense', e.payment_status)}
+                    title={e.item_name}
+                    meta={[
+                      { text: `#${e.id.slice(0, 8)}`, mono: true },
+                      { icon: <Calendar />, text: e.period ? `${e.expense_date} · ${e.period}` : e.expense_date },
+                      { icon: <CategoryIcon />, text: t(`categories.${e.expense_category}`) },
+                    ]}
+                    amount={fmtRmb(Number(e.total_price))}
+                    tags={
+                      <div className="flex items-center gap-1.5 flex-none">
+                        <Tag size="sm" tone={toneOf('expense', e.payment_status)} label={t(`paymentStatuses.${e.payment_status}`)} />
+                        {fee > 0 && (
+                          <span title={t('crossBorderFeeTooltip')}>
+                            <Tag size="sm" variant="dot" tone="warning" label={`+${fmtRmb(fee)} ${t('crossBorderFeeShort')}`} />
+                          </span>
+                        )}
                       </div>
-                      <div className="text-sm font-medium text-zinc-900 truncate">{e.item_name}</div>
-                      <div className="text-xs text-zinc-500 mt-0.5">
-                        {e.expense_date}
-                        {e.period ? ` · ${e.period}` : ''}
-                        {e.user_name ? ` · ${e.user_name}` : ''}
-                      </div>
-                    </div>
-                    <div className="text-right whitespace-nowrap flex-shrink-0">
-                      <div
-                        className="text-sm font-semibold text-zinc-900"
-                        title={fmtRmb(Number(e.total_price))}
-                      >
-                        {fmtRmb(Number(e.total_price), { compact: true })}
-                      </div>
-                      {crossBorderFee(e) > 0 && (
-                        <div className="text-[10px] text-amber-600 mt-0.5">+{fmtRmb(crossBorderFee(e))} {t('crossBorderFeeShort')}</div>
-                      )}
-                    </div>
-                  </div>
-                </button>
-                <div className="mt-2 flex items-center justify-end gap-1">
-                  <DiscussionBadge
-                    subject={expenseRecordSubject(e)}
-                    onClick={() => setPanelSubject(expenseRecordSubject(e))}
-                    compact
-                  />
-                  {canEdit(currentUser, e.created_by_user_id) && (
-                    <button
-                      type="button"
-                      onClick={() => setEditing(e)}
-                      aria-label={tCommon('edit')}
-                      className="p-2 rounded-md text-zinc-500 hover:text-primary hover:bg-primary-soft"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setDuplicating(e)}
-                    aria-label={t('duplicateExpense')}
-                    className="p-2 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                  {canEdit(currentUser, e.created_by_user_id) && (
-                    <button
-                      type="button"
-                      onClick={() => { setDeleting(e); setDeleteErr(null) }}
-                      aria-label={tCommon('delete')}
-                      className="p-2 rounded-md text-zinc-500 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm min-w-[1100px]">
-              <thead>
-                <tr className="border-b border-zinc-100 bg-zinc-50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('categoryColumn')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 w-[120px]">{t('name')}</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium">
-                    <button type="button" onClick={() => toggleSort('amount')} className={sortableHeaderClass('amount')}>
-                      {t('amount')} <SortIcon col="amount" />
-                    </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium">
-                    <button type="button" onClick={() => toggleSort('date')} className={sortableHeaderClass('date')}>
-                      {t('date')} <SortIcon col="date" />
-                    </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium">
-                    <button type="button" onClick={() => toggleSort('period')} className={sortableHeaderClass('period')}>
-                      {t('period')} <SortIcon col="period" />
-                    </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('purpose')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('user')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('buyer')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('paymentMethod')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('paymentStatus')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('discussionsColumn')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedExpenses.map((e) => (
-                  <tr key={e.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${CATEGORY_COLOR[e.expense_category]}`}>
-                        {t(`categories.${e.expense_category}`)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-zinc-900 w-[120px] max-w-[120px]">
-                      <ClampedText text={e.item_name} onOverflowClick={() => setViewing(e)} />
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-zinc-900 whitespace-nowrap">
-                      <div title={fmtRmb(Number(e.total_price))}>
-                        {fmtRmb(Number(e.total_price), { compact: true })}
-                      </div>
-                      {crossBorderFee(e) > 0 && (
-                        <div
-                          className="text-[10px] text-amber-600 font-normal mt-0.5"
-                          title={t('crossBorderFeeTooltip')}
-                        >
-                          +{fmtRmb(crossBorderFee(e))} {t('crossBorderFeeShort')}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500 whitespace-nowrap">{e.expense_date}</td>
-                    <td className="px-4 py-3 text-zinc-500">{e.period || '—'}</td>
-                    <td className="px-4 py-3 text-zinc-500 max-w-[140px]">
-                      <ClampedText text={e.purpose} onOverflowClick={() => setViewing(e)} />
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500">{e.user_name || '—'}</td>
-                    <td className="px-4 py-3 text-zinc-500">{e.buyer_name || '—'}</td>
-                    <td className="px-4 py-3 text-zinc-500 whitespace-nowrap">
-                      {e.payment_method
-                        ? t(`paymentMethods.${e.payment_method}`)
-                        : e.payment_method_legacy
-                          ? <span className="text-amber-600 text-xs">{e.payment_method_legacy}</span>
-                          : '—'
-                      }
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[e.payment_status]}`}>
-                        {t(`paymentStatuses.${e.payment_status}`)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <DiscussionBadge
-                        subject={expenseRecordSubject(e)}
-                        onClick={() => setPanelSubject(expenseRecordSubject(e))}
-                        compact
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1">
+                    }
+                    who={e.buyer_name || '—'}
+                    actions={
+                      <div className="flex items-center gap-1">
+                        <DiscussionBadge
+                          subject={expenseRecordSubject(e)}
+                          onClick={() => setPanelSubject(expenseRecordSubject(e))}
+                          compact
+                        />
+                        <Button variant="ghost" size="sm" aria-label={tCommon('view')} title={tCommon('view')} onClick={() => setViewing(e)}>
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
                         {canEdit(currentUser, e.created_by_user_id) && (
-                          <button
-                            type="button"
-                            onClick={() => setEditing(e)}
-                            aria-label={tCommon('edit')}
-                            title={tCommon('edit')}
-                            className="p-2 rounded-md text-zinc-500 hover:text-primary hover:bg-primary-soft transition-colors"
-                          >
+                          <Button variant="ghost" size="sm" aria-label={tCommon('edit')} title={tCommon('edit')} onClick={() => setEditing(e)}>
                             <Pencil className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => setDuplicating(e)}
-                          aria-label={t('duplicateExpense')}
-                          title={t('copyRecordTitle')}
-                          className="p-2 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
-                        >
+                        <Button variant="ghost" size="sm" aria-label={t('duplicateExpense')} title={t('copyRecordTitle')} onClick={() => setDuplicating(e)}>
                           <Copy className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                         {canEdit(currentUser, e.created_by_user_id) && (
-                          <button
-                            type="button"
-                            onClick={() => { setDeleting(e); setDeleteErr(null) }}
-                            aria-label={tCommon('delete')}
-                            title={tCommon('delete')}
-                            className="p-2 rounded-md text-zinc-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          >
+                          <Button variant="ghost" size="sm" aria-label={tCommon('delete')} title={tCommon('delete')} onClick={() => { setDeleting(e); setDeleteErr(null) }}>
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          </>
-        )}
-      </div>
+                    }
+                  />
+                )
+              })}
+            </div>
+          )}
+        </SectionCard>
+      )}
 
       {/* Add Modal */}
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t('addExpense')} width="max-w-2xl">
@@ -958,22 +964,29 @@ export default function ExpensesPage() {
         )}
       </Modal>
 
-      {/* Delete Confirmation */}
-      <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
+      {/* Delete Confirmation — danger-action pattern: buttons live in Modal's
+          footer prop, not inline in the body. */}
+      <Modal
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        title={tCommon('confirmDelete')}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleting(null)}>{tCommon('cancel')}</Button>
+            <Button variant="danger" loading={delLoading} onClick={confirmDelete}>{tCommon('delete')}</Button>
+          </>
+        }
+      >
         {deleting && (
           <div className="space-y-4">
-            <p className="text-sm text-zinc-700">
+            <p className="text-sm text-ink-700">
               {t('deleteMessage', { name: deleting.item_name })}
             </p>
             {deleteErr && (
-              <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <div className="text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">
                 {deleteErr}
               </div>
             )}
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDeleting(null)}>{tCommon('cancel')}</Button>
-              <Button variant="danger" loading={delLoading} onClick={confirmDelete}>{tCommon('delete')}</Button>
-            </div>
           </div>
         )}
       </Modal>

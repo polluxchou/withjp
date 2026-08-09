@@ -1,9 +1,12 @@
 name: copy
 
-# Guards the i18n contract:
+# Guards the i18n + design-token contract:
 #   * messages/zh.json and messages/en.json must have identical key shape
 #   * No new JSX file may introduce bare Chinese (use useTranslations() instead)
-# Both checks are pure Node scripts and need no extra install beyond the
+#   * No new file may introduce slate/indigo/zinc/gray/stone/neutral/bare-hex
+#     styling (see docs/design-system.md); scripts/check-style-tokens.mjs
+#     enforces this against scripts/style-tokens-baseline.json
+# All checks are pure Node scripts and need no extra install beyond the
 # project's existing devDependencies.
 
 on:
@@ -12,9 +15,12 @@ on:
       - 'src/**/*.tsx'
       - 'src/**/*.jsx'
       - 'src/**/*.ts'
+      - 'src/**/*.css'
       - 'messages/**'
       - 'scripts/check-i18n.mjs'
       - 'scripts/check-no-bare-han.mjs'
+      - 'scripts/check-style-tokens.mjs'
+      - 'scripts/style-tokens-baseline.json'
       - 'docs/copy-glossary.md'
       - '.github/workflows/copy.yml'
   push:
@@ -38,3 +44,6 @@ jobs:
 
       - name: No bare Chinese in JSX
         run: npm run test:no-bare-han
+
+      - name: Style tokens
+        run: npm run test:style
