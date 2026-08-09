@@ -534,9 +534,13 @@ export default function ExpensesPage() {
   // monthly) — computed once, consumed at both render sites below (the
   // chart slot above the filter row, and the list slot below it) so every
   // tab shows the exact same loading/error/empty precedence and copy.
-  // `null` means "have data, render the real tab content instead".
+  // `null` means "have data, render the real tab content instead". Loading
+  // keeps the row-skeleton (variant="list") specifically for the list tab —
+  // §6.3 wants "skeleton first", and RecordRow's real shape is known there —
+  // the three chart tabs fall back to the generic plain spinner since their
+  // layouts vary too much (pie vs. line vs. table) to skeleton meaningfully.
   const threeState = loading ? (
-    <LoadingState variant="plain" />
+    <LoadingState variant={viewTab === 'list' ? 'list' : 'plain'} />
   ) : loadError ? (
     <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
   ) : visibleExpenses.length === 0 ? (
@@ -633,7 +637,11 @@ export default function ExpensesPage() {
           value={fmtRmb(summary.totalCost, { compact: true })}
           note={activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}
           onClick={() => toggleKpi('reset')}
-          pressed={activeKpi === null}
+          // Same allActive gate as the "全部" CountChip (not activeKpi===null
+          // alone) — activeKpi misses category/user/buyer/period selects and
+          // the search box, so without this the card would still claim to be
+          // "selected" while a filter is silently narrowing the numbers.
+          pressed={allActive}
         />
         <Stat
           label={t('paid')}
@@ -668,6 +676,7 @@ export default function ExpensesPage() {
             value={fmtRmb(summary.currentMonthCost, { compact: true })}
             note={activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
             onClick={toggleMonthPicker}
+            pressed={activeKpi === 'monthFilter'}
             ariaProps={{ 'aria-haspopup': 'listbox', 'aria-expanded': monthPickerOpen }}
           />
 

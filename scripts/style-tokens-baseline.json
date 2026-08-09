@@ -16,7 +16,7 @@
   "src/app/[locale]/(app)/timeline/[id]/page.tsx": 47,
   "src/app/[locale]/(app)/timeline/page.tsx": 78,
   "src/app/[locale]/(app)/workspace/page.tsx": 95,
-  "src/app/[locale]/login/page.tsx": 49,
+  "src/app/[locale]/login/page.tsx": 38,
   "src/components/agents/AgentModelEditor.tsx": 13,
   "src/components/competitors/CompetitorCard.tsx": 33,
   "src/components/competitors/CompetitorDossierView.tsx": 7,
