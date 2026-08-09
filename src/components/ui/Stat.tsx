@@ -7,11 +7,22 @@ interface StatProps {
   delta?: { text: string; tone?: 'success' | 'danger' }
   note?: string
   tone?: 'default' | 'danger'
+  // 可选：整卡可点击（列表页 KPI 常见"点击筛选，再点一次清除"交互）。传入时
+  // 根节点渲染为真正的 <button>（键盘可达 + focus ring），不传时保持纯展示
+  // <div>——两种形态视觉完全一致，只是语义/可交互性不同。
+  onClick?: () => void
 }
 
-export function Stat({ label, value, delta, note, tone = 'default' }: StatProps) {
+export function Stat({ label, value, delta, note, tone = 'default', onClick }: StatProps) {
+  const Root = onClick ? 'button' : 'div'
   return (
-    <div className="flex-1 min-w-fit px-5 py-4 border-r border-line-soft last:border-r-0">
+    <Root
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`flex-1 min-w-fit px-5 py-4 border-r border-line-soft last:border-r-0 text-left ${
+        onClick ? 'transition-colors hover:bg-row-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset' : ''
+      }`}
+    >
       <div className="text-xs text-ink-500 mb-1.5 truncate">{label}</div>
       <div className={`text-2xl font-bold tracking-kpi tabular-nums truncate ${tone === 'danger' ? 'text-danger-text' : 'text-ink-900'}`}>{value}</div>
       {(delta || note) && (
@@ -20,7 +31,7 @@ export function Stat({ label, value, delta, note, tone = 'default' }: StatProps)
           {note && <span className="text-micro text-ink-400 truncate">{note}</span>}
         </div>
       )}
-    </div>
+    </Root>
   )
 }
 
