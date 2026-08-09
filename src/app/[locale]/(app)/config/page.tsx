@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
+import SectionCard from '@/components/ui/SectionCard'
+import LoadingState from '@/components/ui/LoadingState'
+import { Textarea } from '@/components/ui/Field'
 import { Save, Settings } from 'lucide-react'
 import type { Config } from '@/lib/types'
 
@@ -79,21 +82,17 @@ export default function ConfigPage() {
       />
 
       {loading ? (
-        <div className="text-center py-12 text-sm text-zinc-400">Loading...</div>
+        <LoadingState variant="plain" />
       ) : (
         <div className="space-y-4">
           {configs.map((config) => {
             const meta = CONFIG_META[config.key]
             return (
-              <div key={config.id} className="bg-white border border-zinc-200 rounded-xl p-5">
-                <div className="flex items-start justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <Settings className="w-4 h-4 text-violet-500" />
-                    <h3 className="font-semibold text-zinc-900 text-sm">
-                      {meta?.label ?? config.key}
-                    </h3>
-                    <code className="text-xs bg-zinc-100 text-zinc-500 px-1.5 py-0.5 rounded">{config.key}</code>
-                  </div>
+              <SectionCard
+                key={config.id}
+                icon={<Settings />}
+                title={meta?.label ?? config.key}
+                actions={
                   <Button
                     size="sm"
                     variant={saved[config.key] ? 'secondary' : 'primary'}
@@ -106,25 +105,41 @@ export default function ConfigPage() {
                       <><Save className="w-3 h-3" /> Save</>
                     )}
                   </Button>
+                }
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <code className="text-xs bg-muted-soft text-ink-500 px-1.5 py-0.5 rounded">{config.key}</code>
                 </div>
-                <p className="text-xs text-zinc-400 mb-3 ml-6">
+                <p className="text-xs text-ink-400 mb-3">
                   {meta?.description ?? config.description}
                 </p>
-                <textarea
+                {/* Textarea's contract fixes resize-none (no per-instance
+                    override without an unsupported class conflict) — rows is
+                    derived from the actual edited text (same string the
+                    textarea's `value` binds to), not from
+                    Object.keys(config.value).length: that formula only
+                    counted top-level keys, so a nested structure like
+                    automation_triggers (arrays of strings under each key)
+                    rendered far more lines than the box sized for, leaving no
+                    resize handle to compensate. Splitting on the live text
+                    keeps the box sized to what's actually on screen,
+                    including edits the user is mid-typing. */}
+                <Textarea
                   value={edits[config.key] ?? ''}
                   onChange={(e) => setEdits((prev) => ({ ...prev, [config.key]: e.target.value }))}
-                  rows={Object.keys(config.value).length + 2}
-                  className="w-full font-mono text-xs bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+                  rows={Math.max(4, (edits[config.key] ?? '').split('\n').length)}
+                  aria-label={meta?.label ?? config.key}
+                  className="font-mono"
                 />
-              </div>
+              </SectionCard>
             )
           })}
         </div>
       )}
 
-      <div className="mt-6 bg-amber-50 border border-amber-100 rounded-xl p-4">
-        <p className="text-xs font-medium text-amber-800 mb-1">How Config drives the system</p>
-        <ul className="text-xs text-amber-700 space-y-1">
+      <div className="mt-6 bg-warning-soft border border-warning-border rounded-card p-4">
+        <p className="text-xs font-medium text-warning-text mb-1">How Config drives the system</p>
+        <ul className="text-xs text-warning-text space-y-1">
           <li>• <strong>revenue_split</strong> — injected into Finance Agent prompts for accurate ROI calculation</li>
           <li>• <strong>roi_thresholds</strong> — used to classify creators as profitable / at-risk / loss</li>
           <li>• <strong>agent_tone</strong> — controls how each agent communicates in its prompts</li>

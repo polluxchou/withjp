@@ -5,17 +5,24 @@ import { useTranslations } from 'next-intl'
 import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
-import Badge from '@/components/ui/Badge'
+import SectionCard from '@/components/ui/SectionCard'
+import Tag from '@/components/ui/Tag'
 import EmptyState from '@/components/ui/EmptyState'
-import { Plus, BookOpen, Trash2, Tag } from 'lucide-react'
+import LoadingState from '@/components/ui/LoadingState'
+import { CountChip } from '@/components/ui/FilterChip'
+import { Field, Input, Select, Textarea } from '@/components/ui/Field'
+import { Plus, BookOpen, Trash2, Tag as TagIcon } from 'lucide-react'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Knowledge, KnowledgeCategory } from '@/lib/types'
 
-const CATEGORY_KEYS: { key: KnowledgeCategory; color: 'blue' | 'purple' | 'green' | 'amber' }[] = [
-  { key: 'outreach_scripts',     color: 'blue' },
-  { key: 'onboarding_materials', color: 'purple' },
-  { key: 'live_strategies',      color: 'green' },
-  { key: 'objection_handling',   color: 'amber' },
+// Categories are plain labels, not a registered status enum (design-system.md
+// §1.3) — no tone semantics to invent here, so every Tag/CountChip below uses
+// a single consistent tone="neutral" rather than a per-category color map.
+const CATEGORY_KEYS: KnowledgeCategory[] = [
+  'outreach_scripts',
+  'onboarding_materials',
+  'live_strategies',
+  'objection_handling',
 ]
 
 export default function KnowledgePage() {
@@ -71,7 +78,7 @@ export default function KnowledgePage() {
     load()
   }
 
-  const grouped = CATEGORY_KEYS.reduce((acc, { key }) => {
+  const grouped = CATEGORY_KEYS.reduce((acc, key) => {
     acc[key] = items.filter((i) => i.category === key)
     return acc
   }, {} as Record<KnowledgeCategory, Knowledge[]>)
@@ -88,116 +95,153 @@ export default function KnowledgePage() {
         }
       />
 
-      {/* Category filter */}
-      <div className="flex items-center gap-1.5 mb-5">
-        <button onClick={() => setFilter('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === 'all' ? 'bg-primary text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
-          {t('allFilter')} ({items.length})
-        </button>
-        {CATEGORY_KEYS.map(({ key }) => (
-          <button key={key} onClick={() => setFilter(key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === key ? 'bg-primary text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}>
-            {categoryLabel(key)} ({grouped[key]?.length ?? 0})
-          </button>
+      {/* Category filter — plain labels (not a status enum), so every chip
+          shares one neutral tone; only the active/inactive state carries the
+          visual distinction. */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        <CountChip
+          label={t('allFilter')}
+          count={items.length}
+          tone="neutral"
+          active={filter === 'all'}
+          onClick={() => setFilter('all')}
+        />
+        {CATEGORY_KEYS.map((key) => (
+          <CountChip
+            key={key}
+            label={categoryLabel(key)}
+            count={grouped[key]?.length ?? 0}
+            tone="neutral"
+            active={filter === key}
+            onClick={() => setFilter(key)}
+          />
         ))}
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-sm text-zinc-400">{t('loading')}</div>
+        <LoadingState variant="list" />
       ) : (
         <div className="grid grid-cols-3 gap-5">
-          {/* Entry list */}
-          <div className="col-span-1 space-y-2">
-            {items.length === 0 && (
-              <div className="bg-white border border-zinc-200 rounded-xl">
-                <EmptyState title={t('noEntries')} />
-              </div>
-            )}
-            {items.map((item) => {
-              const cat = CATEGORY_KEYS.find((c) => c.key === item.category)
-              return (
-                <button key={item.id} onClick={() => setSelected(item)}
-                  className={`w-full text-left bg-white border rounded-xl p-3 hover:shadow-sm transition-all ${selected?.id === item.id ? 'border-violet-300 ring-2 ring-violet-100' : 'border-zinc-200'}`}>
-                  <Badge label={categoryLabel(item.category)} color={cat?.color ?? 'slate'} size="sm" />
-                  <div className="font-medium text-sm text-zinc-900 mt-1.5 line-clamp-2">{item.title}</div>
-                </button>
-              )
-            })}
+          {/* Entry list — a SectionCard-wrapped selectable list rather than
+              RecordRow: RecordRow's only click affordance is `href` (Link
+              navigation), but this is a client-side master/detail selection
+              with no per-item route, so RecordRow's contract doesn't fit
+              without adding onClick/selected props to it (a breaking change
+              to a shared component used across the app). SectionCard gives
+              the same card chrome; each row stays a plain button styled with
+              design tokens, mirroring Sidebar's active-item convention
+              (bg-primary-soft, no invented border color). */}
+          <div className="col-span-1">
+            <SectionCard padding="none">
+              {items.length === 0 ? (
+                <EmptyState
+                  title={t('noEntries')}
+                  action={<Button size="sm" onClick={() => setShowAdd(true)}>{t('addEntry')}</Button>}
+                />
+              ) : (
+                <div className="p-2 space-y-1">
+                  {items.map((item) => {
+                    const isSelected = selected?.id === item.id
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => setSelected(item)}
+                        className={`w-full text-left rounded-field px-3 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+                          isSelected ? 'bg-primary-soft' : 'hover:bg-line-soft'
+                        }`}
+                      >
+                        <Tag size="sm" tone="neutral" label={categoryLabel(item.category)} />
+                        <div className="text-sm font-medium text-ink-900 mt-1.5 line-clamp-2">{item.title}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </SectionCard>
           </div>
 
           {/* Detail panel */}
           <div className="col-span-2">
             {!selected ? (
-              <div className="bg-white border border-zinc-200 rounded-xl h-full flex items-center justify-center p-12">
-                <div className="text-center">
-                  <BookOpen className="w-10 h-10 text-zinc-300 mx-auto mb-2" />
-                  <p className="text-sm text-zinc-400">{t('selectEntry')}</p>
-                </div>
-              </div>
+              <SectionCard>
+                <EmptyState icon={<BookOpen />} title={t('selectEntry')} />
+              </SectionCard>
             ) : (
-              <div className="bg-white border border-zinc-200 rounded-xl p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <Badge
-                      label={categoryLabel(selected.category)}
-                      color={CATEGORY_KEYS.find((c) => c.key === selected.category)?.color ?? 'slate'}
-                    />
-                    <h2 className="text-base font-semibold text-zinc-900 mt-2">{selected.title}</h2>
+              <SectionCard>
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="min-w-0">
+                    <Tag tone="neutral" label={categoryLabel(selected.category)} />
+                    <h2 className="text-lg font-semibold text-ink-900 tracking-section mt-2">{selected.title}</h2>
                   </div>
                   {canEdit(currentUser, selected.created_by_user_id) && (
-                    <Button variant="ghost" size="sm" onClick={() => deleteItem(selected.id)}>
-                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    <Button variant="ghost" size="sm" aria-label={tCommon('delete')} title={tCommon('delete')} onClick={() => deleteItem(selected.id)}>
+                      <Trash2 className="w-3.5 h-3.5 text-danger-text" />
                     </Button>
                   )}
                 </div>
-                <div className="prose prose-sm max-w-none text-zinc-600 text-sm leading-relaxed whitespace-pre-wrap">
+                <div className="text-sm text-ink-700 leading-relaxed whitespace-pre-wrap">
                   {selected.content}
                 </div>
                 {selected.tags.length > 0 && (
-                  <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-zinc-100">
-                    <Tag className="w-3.5 h-3.5 text-zinc-400" />
+                  <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-line-soft flex-wrap">
+                    <TagIcon className="w-3.5 h-3.5 text-ink-400" strokeWidth={1.5} />
                     {selected.tags.map((tag) => (
-                      <span key={tag} className="px-2 py-0.5 bg-zinc-100 text-zinc-600 rounded text-xs">{tag}</span>
+                      <Tag key={tag} size="sm" tone="neutral" label={tag} />
                     ))}
                   </div>
                 )}
-              </div>
+              </SectionCard>
             )}
           </div>
         </div>
       )}
 
-      {/* Add Entry Modal */}
+      {/* Add Entry Modal — form fields migrated to the shared Field/Input/
+          Select/Textarea family. The zh/ja/en copy already bakes " *" into
+          the required-field labels, so Field's own `required` prop (which
+          would render a second asterisk) is left unset; the native `required`
+          HTML attribute is still passed straight to the control for identical
+          validation behavior. */}
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title={t('addEntryModalTitle')} width="max-w-2xl">
         <form onSubmit={addItem} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('categoryField')}</label>
-              <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as KnowledgeCategory }))} required
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+            <Field label={t('categoryField')}>
+              <Select
+                required
+                value={form.category}
+                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as KnowledgeCategory }))}
+              >
                 <option value="">{t('categorySelect')}</option>
-                {CATEGORY_KEYS.map(({ key }) => <option key={key} value={key}>{categoryLabel(key)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('tagsField')}</label>
-              <input value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
+                {CATEGORY_KEYS.map((key) => <option key={key} value={key}>{categoryLabel(key)}</option>)}
+              </Select>
+            </Field>
+            <Field label={t('tagsField')}>
+              <Input
+                value={form.tags}
+                onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
                 placeholder={t('tagsPlaceholder')}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-            </div>
+              />
+            </Field>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1">{t('titleField')}</label>
-            <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} required
+          <Field label={t('titleField')}>
+            <Input
+              required
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               placeholder={t('titlePlaceholder')}
-              className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1">{t('contentField')}</label>
-            <textarea value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} required
-              rows={8} placeholder={t('contentPlaceholder')}
-              className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none" />
-          </div>
+            />
+          </Field>
+          <Field label={t('contentField')}>
+            <Textarea
+              required
+              value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              rows={8}
+              placeholder={t('contentPlaceholder')}
+            />
+          </Field>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={() => setShowAdd(false)}>{tCommon('cancel')}</Button>
             <Button type="submit">{t('addEntry')}</Button>
