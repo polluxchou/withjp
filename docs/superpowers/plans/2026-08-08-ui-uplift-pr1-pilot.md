@@ -886,7 +886,7 @@ export default function Header({ title, subtitle, actions, tabs, search }: Heade
     <div className="mb-4 sm:mb-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-ink-900 truncate">{title}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-title text-ink-900 truncate">{title}</h1>
           {subtitle && <p className="text-xs sm:text-sm text-ink-500 mt-1">{subtitle}</p>}
         </div>
         {(actions || search) && (
@@ -934,7 +934,15 @@ export default function Header({ title, subtitle, actions, tabs, search }: Heade
 - Modify: `docs/records/2026-08-08-ui-style-research-progress.md`（追加 PR1 状态一行）
 
 - [ ] **Step 1: 校准回写**——实现中与 design-system.md 数值不一致处（字号、间距、阴影……）逐条核对：实现更合理的改文档，文档更合理的改实现；同 commit。
-- [ ] **Step 2: 三语走查**——`/zh` `/ja` `/en` 各过支出管理 + 仪表盘 + 任务页；ja 重点看 CountChip/Stat/RecordRow 长词截断（`min-w-0`+truncate 应生效）；截图存档。
+- [ ] **Step 2: 三语走查**——`/zh` `/ja` `/en` 各过支出管理 + 仪表盘 + 任务页；ja 重点看 CountChip/Stat/RecordRow 长词截断（`min-w-0`+truncate 应生效）；截图存档。另需登录态专项核对全局件（Task10-12 静态验证阶段无法登录预览，留到本步骤补上）：
+  - a. 移动端抽屉三态截图（关闭/开启中/开启后），确认 `bg-atmosphere` 融合后抽屉与遮罩视觉正确、无黑色遮罩透出
+  - b. 仪表盘页头（`PageGreeting` 走 `<h1>` 继承字号）与其他静态标题页头并排截图，确认字号/字重一致
+  - c. 侧栏收合态：24px chip 居中效果，以及分组 flyout 面板配色（`bg-surface`/`shadow-pop`/`rounded-field`）
+  - d. 19 个 nav chip（10 一级菜单 + 9 子项）逐项点名核对颜色与 design-system §1.4 映射一致，含 creatorsList/competitors 继承 creators 的 pink
+  - e. 侧栏展开态右边界 x=240 处的接缝：三种宽度（1280/1440/1920）下确认 `bg-atmosphere` 在 aside 与 main 之间连续无断层
+  - f. 物品管理页 indigo CTA 按钮与页面其余 Button 组件同屏对比，确认视觉不冲突（indigo 硬编码属已知遗留，Task13/PR2 范围）
+  - g. `bg-atmosphere`（`background-attachment: fixed`）在长页面（finance-forecast、guild-venue）滚动时的性能观察，重点关注低端设备/移动端是否掉帧
+  - h. ja 语言下侧栏导航标签截断表现（长词走 `truncate`，收合/展开切换不跳动）
 - [ ] **Step 3: 全量验证**——`npm test && npm run test:copy && npm run build` 三绿。
 - [ ] **Step 4: 开 PR**——push 分支，PR 标题 `feat(ui): 风格提升 PR1 样板间 — token 体系 + 组件库 v1 + 支出管理页新语言`；描述含：spec/design-system 链接、改前/改后截图对（Task 1/10/11/13 各阶段截图）、两个刻意全站副作用说明、PR2-4 预告。**不合并**，等 pollux 验收。
 
