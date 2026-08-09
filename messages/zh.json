@@ -364,7 +364,8 @@
     "timeline": "时间轴",
     "logRevenue": "记录收入",
     "noNiche": "无领域",
-    "creatorNotFound": "未找到创作者"
+    "creatorNotFound": "未找到创作者",
+    "listTitle": "创作者列表"
   },
   "creatorForm": {
     "nameRequired": "姓名和平台不能为空",
@@ -417,12 +418,24 @@
     "noActivityYet": "还没有动态记录。",
     "viewOutput": "查看输出",
     "logRevenueCost": "记录收入和成本",
-    "revenueField": "收入 (¥) *",
-    "costField": "成本 (¥) *",
-    "periodField": "周期 *",
+    "revenueField": "收入 (¥)",
+    "costField": "成本 (¥)",
+    "periodField": "周期",
     "saveRecord": "保存记录",
     "editCreator": "编辑创作者",
-    "by": "由 {actor}"
+    "by": "由 {actor}",
+    "activityTypes": {
+      "created": "已创建",
+      "updated": "已更新",
+      "status_changed": "状态变更",
+      "task_created": "任务已创建",
+      "task_completed": "任务已完成",
+      "finance_logged": "财务已记录",
+      "note_added": "备注已添加",
+      "contact_updated": "联系方式已更新",
+      "profile_updated": "资料已更新",
+      "other": "其他"
+    }
   },
   "workspace": {
     "title": "工作区",

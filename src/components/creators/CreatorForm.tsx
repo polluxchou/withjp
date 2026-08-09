@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
+import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import { CREATOR_PLATFORMS } from '@/lib/creators/platforms'
 import type { BroadcastAccount, Creator, UserProfile } from '@/lib/types'
 
@@ -58,6 +59,10 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isEditing = !!creator
+  // Hand-rolled label/control pair below (see comment there) needs its own
+  // id — useId() rather than a literal string so two CreatorForm instances
+  // (unlikely today, but cheap to make safe) never collide.
+  const broadcastAccountId = useId()
 
   useEffect(() => {
     async function loadRelations() {
@@ -161,47 +166,63 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
   return (
     <form onSubmit={submit} className="space-y-4">
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+        <div role="alert" className="text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">
           {error}
         </div>
       )}
 
+      {/* Neither field carries a native `required` attribute here (nor did
+          the original raw <input>/<select> pair) — submit() enforces name +
+          platform via its own JS check and a red error banner instead of
+          browser-native validation, so Field's `required` prop (which would
+          inject a real `required` attribute, not just the asterisk) is
+          deliberately omitted to avoid changing that validation behavior.
+          The literal " *" already baked into the copy (t('name')/t('platform'))
+          carries the visual required-marker instead. */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('name')}</label>
-          <input value={form.name} onChange={set('name')} placeholder={t('namePlaceholder')}
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('platform')}</label>
-          <select value={form.platform} onChange={set('platform')}
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+        <Field label={t('name')}>
+          <Input value={form.name} onChange={set('name')} placeholder={t('namePlaceholder')} />
+        </Field>
+        <Field label={t('platform')}>
+          <Select value={form.platform} onChange={set('platform')}>
             <option value="">{t('selectPlatform')}</option>
             {CREATOR_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
+          </Select>
+        </Field>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-zinc-700 mb-1">{t('platformId')}</label>
-        <input value={form.platform_id} onChange={set('platform_id')} placeholder={t('platformIdPlaceholder')}
-          className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-        <p className="text-xs text-zinc-400 mt-1">{t('platformIdHint')}</p>
-      </div>
+      <Field label={t('platformId')} hint={t('platformIdHint')}>
+        <Input value={form.platform_id} onChange={set('platform_id')} placeholder={t('platformIdPlaceholder')} />
+      </Field>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('broadcastAccount')}</label>
+        {/* Composite control (select + inline "new" button) — Field's id
+            cloning only reaches a single direct child element, so wrapping
+            the select+button row in Field would clone the id onto that
+            wrapper div instead of the <select>, breaking the label/control
+            association. Label + hint are hand-rolled here, matching Field's
+            own markup (see components/ui/Field.tsx), for exactly this one
+            composite field. */}
+        <div className="min-w-0">
+          <label htmlFor={broadcastAccountId} className="block text-xs font-medium text-ink-700 mb-1.5">
+            {t('broadcastAccount')}
+          </label>
           <div className="flex gap-2">
-            <select value={form.broadcast_account_id} onChange={set('broadcast_account_id')}
-              className="min-w-0 flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
-              <option value="">{t('unassigned')}</option>
-              {broadcastAccounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name} · {account.platform} · {account.account_handle}
-                </option>
-              ))}
-            </select>
+            <div className="min-w-0 flex-1">
+              <Select
+                id={broadcastAccountId}
+                className="w-full"
+                value={form.broadcast_account_id}
+                onChange={set('broadcast_account_id')}
+              >
+                <option value="">{t('unassigned')}</option>
+                {broadcastAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} · {account.platform} · {account.account_handle}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <Button
               type="button"
               variant="secondary"
@@ -215,55 +236,47 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
               {t('new')}
             </Button>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">{t('broadcastHint')}</p>
+          <span className="block text-micro mt-1 text-ink-400">{t('broadcastHint')}</span>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('operator')}</label>
-          <select value={form.operator_user_id} onChange={set('operator_user_id')}
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+        <Field label={t('operator')}>
+          <Select value={form.operator_user_id} onChange={set('operator_user_id')}>
             <option value="">{t('unassigned')}</option>
             {operators.map((operator) => (
               <option key={operator.id} value={operator.id}>
                 {operator.name} · {operator.user_code}{operator.email ? ` · ${operator.email}` : ''}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
       </div>
 
       {showNewBroadcast && (
-        <div className="border border-zinc-200 rounded-lg p-3 space-y-3">
+        <div className="border border-line rounded-field p-3 space-y-3">
+          {/* Same rationale as the top name/platform Field pair above — no
+              native `required` on this trio originally (createBroadcastAccount()
+              does its own JS check + setError), so Field's `required` prop is
+              omitted here too; the copy's own " *" carries the marker. */}
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('accountName')}</label>
-              <input value={newBroadcast.name} onChange={setBroadcast('name')} placeholder={t('accountNamePlaceholder')}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('platform')}</label>
-              <select value={newBroadcast.platform} onChange={setBroadcast('platform')}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+            <Field label={t('accountName')}>
+              <Input value={newBroadcast.name} onChange={setBroadcast('name')} placeholder={t('accountNamePlaceholder')} />
+            </Field>
+            <Field label={t('platform')}>
+              <Select value={newBroadcast.platform} onChange={setBroadcast('platform')}>
                 <option value="">{t('selectPlatform')}</option>
                 {CREATOR_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('handle')}</label>
-              <input value={newBroadcast.account_handle} onChange={setBroadcast('account_handle')} placeholder={t('handlePlaceholder')}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-            </div>
+              </Select>
+            </Field>
+            <Field label={t('handle')}>
+              <Input value={newBroadcast.account_handle} onChange={setBroadcast('account_handle')} placeholder={t('handlePlaceholder')} />
+            </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('url')}</label>
-              <input value={newBroadcast.account_url} onChange={setBroadcast('account_url')} placeholder={t('urlPlaceholder')}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('notes')}</label>
-              <input value={newBroadcast.notes} onChange={setBroadcast('notes')} placeholder={tCommon('none')}
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-            </div>
+            <Field label={t('url')}>
+              <Input value={newBroadcast.account_url} onChange={setBroadcast('account_url')} placeholder={t('urlPlaceholder')} />
+            </Field>
+            <Field label={t('notes')}>
+              <Input value={newBroadcast.notes} onChange={setBroadcast('notes')} placeholder={tCommon('none')} />
+            </Field>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setShowNewBroadcast(false)}>{tCommon('cancel')}</Button>
@@ -273,46 +286,32 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
       )}
 
       <div className="grid grid-cols-3 gap-4">
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('niche')}</label>
-          <input value={form.niche} onChange={set('niche')} placeholder={t('nichePlaceholder')}
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('followers')}</label>
-          <input type="number" min="0" value={form.followers} onChange={set('followers')} placeholder="200000"
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('avgViews')}</label>
-          <input type="number" min="0" value={form.avg_views} onChange={set('avg_views')} placeholder="50000"
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-        </div>
+        <Field label={t('niche')}>
+          <Input value={form.niche} onChange={set('niche')} placeholder={t('nichePlaceholder')} />
+        </Field>
+        <Field label={t('followers')}>
+          <Input type="number" min="0" value={form.followers} onChange={set('followers')} placeholder="200000" />
+        </Field>
+        <Field label={t('avgViews')}>
+          <Input type="number" min="0" value={form.avg_views} onChange={set('avg_views')} placeholder="50000" />
+        </Field>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('location')}</label>
-          <input value={form.location} onChange={set('location')} placeholder={t('locationPlaceholder')}
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('email')}</label>
-          <input type="email" value={form.email} onChange={set('email')} placeholder={t('emailPlaceholder')}
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-zinc-700 mb-1">{t('wechat')}</label>
-          <input value={form.wechat} onChange={set('wechat')} placeholder={t('wechatPlaceholder')}
-            className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-        </div>
+        <Field label={t('location')}>
+          <Input value={form.location} onChange={set('location')} placeholder={t('locationPlaceholder')} />
+        </Field>
+        <Field label={t('email')}>
+          <Input type="email" value={form.email} onChange={set('email')} placeholder={t('emailPlaceholder')} />
+        </Field>
+        <Field label={t('wechat')}>
+          <Input value={form.wechat} onChange={set('wechat')} placeholder={t('wechatPlaceholder')} />
+        </Field>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-zinc-700 mb-1">{t('notes')}</label>
-        <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder={t('notesPlaceholder')}
-          className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none" />
-      </div>
+      <Field label={t('notes')}>
+        <Textarea value={form.notes} onChange={set('notes')} rows={2} placeholder={t('notesPlaceholder')} />
+      </Field>
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="secondary" type="button" onClick={onCancel}>{tCommon('cancel')}</Button>

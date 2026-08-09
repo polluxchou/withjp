@@ -364,7 +364,8 @@
     "timeline": "タイムライン",
     "logRevenue": "収益を記録",
     "noNiche": "ジャンルなし",
-    "creatorNotFound": "ライバーが見つかりません"
+    "creatorNotFound": "ライバーが見つかりません",
+    "listTitle": "ライバー一覧"
   },
   "creatorForm": {
     "nameRequired": "名前とプラットフォームは必須です",
@@ -417,12 +418,24 @@
     "noActivityYet": "アクティビティ記録はまだありません。",
     "viewOutput": "出力を表示",
     "logRevenueCost": "収益とコストを記録",
-    "revenueField": "収益 (¥) *",
-    "costField": "コスト (¥) *",
-    "periodField": "期間 *",
+    "revenueField": "収益 (¥)",
+    "costField": "コスト (¥)",
+    "periodField": "期間",
     "saveRecord": "記録を保存",
     "editCreator": "ライバーを編集",
-    "by": "{actor} が実施"
+    "by": "{actor} が実施",
+    "activityTypes": {
+      "created": "作成済み",
+      "updated": "更新済み",
+      "status_changed": "ステータス変更",
+      "task_created": "タスク作成",
+      "task_completed": "タスク完了",
+      "finance_logged": "財務記録",
+      "note_added": "メモ追加",
+      "contact_updated": "連絡先更新",
+      "profile_updated": "プロフィール更新",
+      "other": "その他"
+    }
   },
   "workspace": {
     "title": "ワークスペース",
