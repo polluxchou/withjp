@@ -1375,6 +1375,8 @@
       "power": "P",
       "network": "N"
     },
+    "listTabsLabel": "Canvas object list",
+    "viewModeLabel": "View mode",
     "tabShapes": "Spaces",
     "tabMarkers": "Markers",
     "tabItems": "Items",
