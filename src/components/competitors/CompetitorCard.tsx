@@ -78,7 +78,7 @@ export default function CompetitorCard({
                     if (e.key === 'Enter') { onUpdateHandle(c.id, handleInput); setEditingHandle(false) }
                     if (e.key === 'Escape') setEditingHandle(false)
                   }}
-                  placeholder="@handle 或链接"
+                  placeholder={t('handlePlaceholder')}
                   className="w-40 rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700"
                 />
                 <button onClick={() => { onUpdateHandle(c.id, handleInput); setEditingHandle(false) }} className="text-sky-600 hover:text-sky-800"><Check size={13} /></button>
@@ -91,7 +91,7 @@ export default function CompetitorCard({
                   <button
                     onClick={() => { setHandleInput(c.handle); setEditingHandle(true) }}
                     className="text-zinc-400 hover:text-zinc-700"
-                    aria-label="编辑 handle"
+                    aria-label={t('editHandle')}
                   >
                     <Pencil size={13} />
                   </button>
