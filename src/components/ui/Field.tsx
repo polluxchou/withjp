@@ -1,8 +1,35 @@
 'use client'
-import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactNode } from 'react'
-import { Search } from 'lucide-react'
+import { cloneElement, isValidElement, useId } from 'react'
+import type {
+  InputHTMLAttributes,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+  ReactNode,
+} from 'react'
+import { ChevronDown, Search } from 'lucide-react'
 
-const CONTROL = 'w-full h-8 rounded-field border border-line-strong bg-surface px-3 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 disabled:opacity-50 disabled:bg-canvas'
+type ControlSize = 'sm' | 'md' | 'lg'
+
+// 控件高度三档（design-system §3）：28 紧凑 chip/表内控件 / 32 默认 / 38 页头 CTA·搜索框。
+// Textarea 不设固定高度（多行内容会被裁切），只按同档位调 min-h，见 TEXTAREA_MIN_H。
+const CONTROL_HEIGHT: Record<ControlSize, string> = {
+  sm: 'h-7',
+  md: 'h-8',
+  lg: 'h-[38px]',
+}
+
+const TEXTAREA_MIN_H: Record<ControlSize, string> = {
+  sm: 'min-h-16',
+  md: 'min-h-20',
+  lg: 'min-h-28',
+}
+
+const CONTROL_BASE =
+  'w-full rounded-field border border-line-strong bg-surface px-3 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 disabled:opacity-50 disabled:bg-canvas'
+
+function controlClass(size: ControlSize) {
+  return `${CONTROL_BASE} ${CONTROL_HEIGHT[size]}`
+}
 
 interface FieldProps {
   label: string
@@ -13,51 +40,85 @@ interface FieldProps {
 }
 
 export function Field({ label, hint, error, required, children }: FieldProps) {
+  const id = useId()
+  const descId = `${id}-desc`
+  const hasDesc = Boolean(error || hint)
+
+  // 不无条件注入 undefined 值：cloneElement 用 Object.assign 合并 props，
+  // 显式的 undefined 会覆盖子元素自身可能已设置的同名 prop。只在真正需要时才带上该 key。
+  const injected: Record<string, unknown> = { id }
+  if (hasDesc) injected['aria-describedby'] = descId
+  if (error) injected['aria-invalid'] = true
+  if (required) injected.required = true
+  const child = isValidElement(children) ? cloneElement(children, injected) : children
+
   return (
-    <label className="block min-w-0">
-      <span className="block text-xs font-medium text-ink-700 mb-1.5">
+    <div className="min-w-0">
+      <label htmlFor={id} className="block text-xs font-medium text-ink-700 mb-1.5">
         {label}
         {required && <span className="text-danger-text ml-0.5">*</span>}
-      </span>
-      {children}
-      {error ? (
-        <span className="block text-micro text-danger-text mt-1">{error}</span>
-      ) : hint ? (
-        <span className="block text-micro text-ink-400 mt-1">{hint}</span>
-      ) : null}
-    </label>
+      </label>
+      {child}
+      {hasDesc && (
+        <span id={descId} className={`block text-micro mt-1 ${error ? 'text-danger-text' : 'text-ink-400'}`}>
+          {error || hint}
+        </span>
+      )}
+    </div>
   )
 }
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`${CONTROL} ${props.className ?? ''}`} />
+interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+  size?: ControlSize
 }
 
-// 下拉箭头用行内 data-URI SVG（非 lucide 图标，不走 §5 图标尺寸三档），
-// stroke 用 %23 转义 #（不是裸 hex，不触发门禁）；stroke-width 与
-// lucide 图标统一取 1.5（design-system §5）。
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Input({ size = 'md', className, ...props }: InputProps) {
+  return <input {...props} className={`${controlClass(size)} ${className ?? ''}`} />
+}
+
+interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
+  size?: ControlSize
+}
+
+// 下拉箭头用 lucide ChevronDown（非行内 data-URI SVG）：绝对定位叠在 select 右侧，
+// select 本身 appearance-none 去掉原生箭头 + pr-8 让文字不压到图标。
+// 尺寸 13px 落在 §5 图标三档（13/15/16）内，stroke-width 1.5 与全站图标统一。
+export function Select({ size = 'md', className, ...props }: SelectProps) {
   return (
-    <select
+    <div className="relative min-w-0">
+      <select {...props} className={`${controlClass(size)} appearance-none pr-8 ${className ?? ''}`} />
+      <ChevronDown
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-[13px] h-[13px] text-ink-400 pointer-events-none"
+        strokeWidth={1.5}
+        aria-hidden
+      />
+    </div>
+  )
+}
+
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  size?: ControlSize
+}
+
+export function Textarea({ size = 'md', className, ...props }: TextareaProps) {
+  return (
+    <textarea
       {...props}
-      className={`${CONTROL} appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22 viewBox=%220 0 16 16%22 fill=%22none%22 stroke=%22%238d87a1%22 stroke-width=%221.5%22><path d=%22M4 6l4 4 4-4%22/></svg>')] bg-no-repeat bg-[right_10px_center] pr-8 ${props.className ?? ''}`}
+      className={`${CONTROL_BASE} h-auto ${TEXTAREA_MIN_H[size]} py-2 resize-none ${className ?? ''}`}
     />
   )
 }
 
-export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`${CONTROL} h-auto min-h-20 py-2 resize-none ${props.className ?? ''}`} />
-}
-
-interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
+interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   kbdHint?: string
+  size?: ControlSize
 }
 
-export function SearchInput({ kbdHint, ...props }: SearchInputProps) {
+export function SearchInput({ kbdHint, size = 'md', className, ...props }: SearchInputProps) {
   return (
     <div className="relative min-w-0">
       <Search aria-hidden strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-ink-400" />
-      <input {...props} className={`${CONTROL} pl-8 ${kbdHint ? 'pr-12' : ''} ${props.className ?? ''}`} />
+      <input {...props} className={`${controlClass(size)} pl-8 ${kbdHint ? 'pr-12' : ''} ${className ?? ''}`} />
       {kbdHint && (
         <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-micro text-ink-400 border border-line rounded px-1 py-px bg-canvas">
           {kbdHint}
