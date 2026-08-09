@@ -753,6 +753,7 @@
     "totalExpense": "Total expense",
     "includesFees": "Includes cross-border fees",
     "paid": "Paid",
+    "pendingPayment": "Pending",
     "budgetPending": "Budget / pending",
     "thisMonth": "This month",
     "lastMonth": "Last month",

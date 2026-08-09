@@ -753,6 +753,7 @@
     "totalExpense": "总支出",
     "includesFees": "含跨境手续费",
     "paid": "已付款",
+    "pendingPayment": "待付款",
     "budgetPending": "预算/待付款",
     "thisMonth": "本月支出",
     "lastMonth": "上月",
