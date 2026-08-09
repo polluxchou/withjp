@@ -113,7 +113,7 @@ export default function NotificationBell({ collapsed = false }: NotificationBell
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 z-[70] mb-2 lg:bottom-0 lg:left-full lg:mb-0 lg:ml-2">
+        <div className="absolute bottom-full left-0 z-40 mb-2 lg:bottom-0 lg:left-full lg:mb-0 lg:ml-2">
           <NotificationPanel
             notifications={notifications}
             loadError={loadError}

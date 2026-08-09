@@ -382,7 +382,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-screen bg-atmosphere border-r border-line flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
+        className={`fixed top-0 left-0 h-screen bg-atmosphere lg:bg-transparent border-r border-line flex flex-col z-50 transition-transform duration-200 lg:transition-[width] lg:translate-x-0 ${
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0'
         }`}
         style={{

@@ -56,7 +56,7 @@
     --row-hover: rgba(124, 58, 237, 0.02);
   }
   body {
-    @apply bg-canvas text-ink-900 antialiased;
+    @apply bg-atmosphere text-ink-900 antialiased;
   }
 
   /* iOS Safari auto-zooms when an <input> / <select> / <textarea> with a
