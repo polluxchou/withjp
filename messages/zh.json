@@ -1532,6 +1532,8 @@
     "fieldOnline": "在线",
     "fieldLatestVideos": "最新视频",
     "openProfile": "打开主页",
-    "expandProfile": "展开档案"
+    "expandProfile": "展开档案",
+    "handlePlaceholder": "@handle 或链接",
+    "editHandle": "编辑 handle"
   }
 }
