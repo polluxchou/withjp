@@ -35,7 +35,10 @@ export default function LoadingState({ variant = 'plain', rows = 4 }: LoadingSta
       // 页面撑宽出现整页横向滚动条。
       <div aria-busy="true" role="status" aria-label={t('loading')} className="overflow-x-auto flex animate-pulse bg-surface border border-line rounded-card shadow-card">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex-1 px-5 py-3 border-r border-line-soft last:border-r-0 space-y-2.5">
+          // py-4 对齐 Stat.tsx 真实单元格（px-5 py-4），不是 py-3——stats 骨架
+          // 对齐的是 Stat 而不是 RecordRow，两者行高本就不同，之前误按 list
+          // 变体的 py-3 一起改会造成加载态到真实态的高度跳动。
+          <div key={i} className="flex-1 px-5 py-4 border-r border-line-soft last:border-r-0 space-y-2.5">
             <div className="h-2.5 w-14 rounded-[4px] bg-line-soft" />
             <div className="h-6 w-24 rounded-[4px] bg-line-soft" />
           </div>
