@@ -1375,6 +1375,8 @@
       "power": "电",
       "network": "网"
     },
+    "listTabsLabel": "画布对象列表",
+    "viewModeLabel": "视图模式",
     "tabShapes": "空间",
     "tabMarkers": "标识",
     "tabItems": "物品",
