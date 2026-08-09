@@ -45,6 +45,13 @@ interface CreatorDetail extends Creator {
 // category-color.ts) rather than folded into the shared status-tone.ts
 // domain table, which is reserved for actual state-machine status enums
 // (docs/design-system.md §1.3).
+//
+// The label rendered alongside this tone comes from
+// messages/{zh,en,ja}.json's `creatorDetail.activityTypes.*` — unlike this
+// Record<ActivityType, Tone>, that lookup is a plain string key with no
+// compile-time exhaustiveness check. Adding a new ActivityType value means
+// updating both: this map (TS will already force that) AND all three
+// activityTypes.* locale files (nothing will force that).
 const ACTIVITY_TONE: Record<ActivityType, Tone> = {
   created:         'success',
   updated:         'info',
@@ -72,6 +79,7 @@ export default function CreatorDetailPage() {
   const { id }    = useParams<{ id: string }>()
   const [data,    setData]    = useState<CreatorDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [transitioning, setTransitioning] = useState(false)
   const [executing, setExecuting]         = useState<string | null>(null)
   const [showFinance, setShowFinance]     = useState(false)
@@ -91,9 +99,24 @@ export default function CreatorDetailPage() {
     try {
       const res  = await fetch(`/api/creators/${id}`)
       const json = await res.json()
-      setData(json.data)
+      // /api/creators/[id] always answers a lookup failure (missing id, bad
+      // query, etc.) with 404 + a message — that's a legitimate "no such
+      // creator" application response, not a system failure, so it renders
+      // as the plain not-found state below (no retry). Any other non-ok
+      // status (401/403/500/…) is a real error: prefer the response's own
+      // json.error text, falling back to the generic copy.
+      if (!res.ok && res.status !== 404) {
+        console.error('Failed to load creator:', res.status, json.error)
+        setLoadError(json.error ?? tCommon('loadFailed'))
+        setData(null)
+      } else {
+        setLoadError(null)
+        setData(json.data)
+      }
     } catch (err) {
       console.error('Failed to load creator:', err)
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
+      setData(null)
     } finally {
       setLoading(false)
     }
@@ -145,7 +168,15 @@ export default function CreatorDetailPage() {
   }
 
   if (loading) return <LoadingState />
-  if (!data)   return <ErrorState title={tCreators('creatorNotFound')} onRetry={load} />
+  if (!data) {
+    // loadError only ever comes from a real system failure (network/parse
+    // exception, or a non-404 error status) — see load() above. A clean
+    // 404 (creator genuinely doesn't exist) has no loadError and gets no
+    // retry button, since retrying a missing record can't succeed.
+    return loadError
+      ? <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
+      : <ErrorState title={tCreators('creatorNotFound')} />
+  }
 
   const next = nextStatus(data.status)
   const totalRevenue = data.finance.reduce((s, f) => s + Number(f.revenue), 0)
@@ -211,7 +242,11 @@ export default function CreatorDetailPage() {
         <div className="mb-6">
           <StatBand>
             <Stat label={t('revenue')} value={`¥${fmtCompact(totalRevenue, locale)}`} />
-            <Stat label={t('cost')} value={`¥${fmtCompact(totalCost, locale)}`} tone="danger" />
+            {/* cost is a positive spend amount, not a negative value — §2
+                "负值用 danger text" doesn't apply here, so this stays the
+                default ink tone (deliberate change from an earlier
+                always-red rendering; see PR description). */}
+            <Stat label={t('cost')} value={`¥${fmtCompact(totalCost, locale)}`} />
             <Stat label={t('profit')} value={`¥${fmtCompact(totalProfit, locale)}`} tone={totalProfit >= 0 ? 'default' : 'danger'} />
             <Stat label={t('avgROI')} value={avgROI != null ? `${avgROI.toFixed(1)}%` : '—'} tone={(avgROI ?? 0) >= 0 ? 'default' : 'danger'} />
           </StatBand>
@@ -398,7 +433,10 @@ export default function CreatorDetailPage() {
                     <Tr key={f.id}>
                       <Td className="font-medium text-ink-900">{f.period}</Td>
                       <Td align="right" numeric>{`¥${fmtCompact(Number(f.revenue), locale)}`}</Td>
-                      <Td align="right" className="tabular-nums font-medium text-danger-text">{`¥${fmtCompact(Number(f.cost), locale)}`}</Td>
+                      {/* cost is a positive spend amount, not a negative
+                          value — §2 "负值用 danger text" doesn't apply;
+                          deliberate change from an earlier always-red cell. */}
+                      <Td align="right" numeric>{`¥${fmtCompact(Number(f.cost), locale)}`}</Td>
                       <Td align="right" className={`tabular-nums font-medium ${Number(f.profit) >= 0 ? 'text-ink-900' : 'text-danger-text'}`}>
                         {`¥${fmtCompact(Number(f.profit), locale)}`}
                       </Td>
@@ -468,7 +506,14 @@ export default function CreatorDetailPage() {
                             <p className="text-sm text-ink-700 mt-1">{log.description}</p>
                           )}
                         </div>
-                        <Tag size="sm" tone={tone} label={t(`activityTypes.${log.activity_type}`)} />
+                        {/* flex-none — Tag itself has no className prop, so
+                            the wrapping div carries it (same idiom as
+                            TaskCard.tsx's own agent Tag), preventing it from
+                            shrinking/wrapping as a bare flex child next to
+                            the title/description column above. */}
+                        <div className="flex-none">
+                          <Tag size="sm" tone={tone} label={t(`activityTypes.${log.activity_type}`)} />
+                        </div>
                       </div>
                       <div className="flex items-center gap-3 mt-2 text-xs text-ink-400">
                         <Clock className="w-3 h-3" />
@@ -515,7 +560,7 @@ export default function CreatorDetailPage() {
             <Textarea
               value={financeForm.notes}
               onChange={(e) => setFinanceForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={2} placeholder={tCommon('none')}
+              placeholder={tCommon('none')}
             />
           </Field>
           <div className="flex justify-end gap-2">

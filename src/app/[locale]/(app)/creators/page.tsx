@@ -35,11 +35,15 @@ export default function CreatorsPage() {
     try {
       const url = filter === 'all' ? '/api/creators' : `/api/creators?status=${filter}`
       const res = await fetch(url)
-      if (!res.ok) throw new Error(tCommon('loadFailed'))
+      if (!res.ok) {
+        console.error('Failed to load creators:', res.status)
+        throw new Error(tCommon('loadFailed'))
+      }
       const json = await res.json()
       setLoadError(json.error ?? null)
       setCreators(json.data ?? [])
     } catch (err) {
+      console.error('Failed to load creators:', err)
       setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
       setCreators([])
     } finally {
