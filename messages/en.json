@@ -952,7 +952,8 @@
     "finance": "Finance",
     "content": "Content",
     "growth": "Growth",
-    "legal": "Legal"
+    "legal": "Legal",
+    "tech": "Tech"
   },
   "financeForecast": {
     "pageTitle": "Finance Forecast",

@@ -952,7 +952,8 @@
     "finance": "财务",
     "content": "内容",
     "growth": "增长",
-    "legal": "法务"
+    "legal": "法务",
+    "tech": "技术"
   },
   "financeForecast": {
     "pageTitle": "财务预测看板",
