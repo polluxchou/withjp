@@ -780,6 +780,9 @@
     "to": "to",
     "empty": "No expenses yet",
     "addFirst": "Add your first expense",
+    "listTitle": "Expense records",
+    "sortByLabel": "Sort by",
+    "toggleSortDir": "Toggle sort direction",
     "category": {
       "viewPie": "Pie",
       "viewSankey": "Flow",

@@ -780,6 +780,9 @@
     "to": "〜",
     "empty": "支出記録はまだありません",
     "addFirst": "最初の支出を追加",
+    "listTitle": "支出明細",
+    "sortByLabel": "並び替え",
+    "toggleSortDir": "並び順を切り替え",
     "category": {
       "viewPie": "円グラフ",
       "viewSankey": "サンキー図",
