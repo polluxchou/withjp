@@ -5,7 +5,8 @@ import { useTranslations } from 'next-intl'
 import type { Expense, ExpenseCategory } from '@/lib/types'
 import { EXPENSE_CATEGORY_LABELS, crossBorderFee, effectiveCost } from '@/lib/expenses/costs'
 import { useCurrency } from '@/lib/currency'
-import { categoryColor } from './category-color'
+import { CHART_SERIES } from '@/lib/chart-theme'
+import { categoryColor, CATEGORY_INDEX } from './category-color'
 
 // ── Layout constants ──────────────────────────────────────────────
 // SVG_W matches typical content-area width so scale factor ≈ 1 and
@@ -97,8 +98,14 @@ function computeLayout(
   let yAcc = 0
   const catNodes: SankeyNode[] = catEntries.map(([cat, val]) => {
     const h    = scale(val)
+    // Unknown category (dirty/legacy data outside the current 6-value enum)
+    // gets an explicit fallback to the *last* CHART_SERIES color rather than
+    // silently falling through categoryColor()'s default-to-index-0 — index 0
+    // already belongs to tangible_asset, so a silent fallback would collide
+    // with a real category instead of reading as "other/unrecognized".
+    const known = Object.hasOwn(CATEGORY_INDEX, cat)
     const node = { id: cat, label: EXPENSE_CATEGORY_LABELS[cat as ExpenseCategory] ?? cat,
-                   value: val, color: categoryColor(cat as ExpenseCategory),
+                   value: val, color: known ? categoryColor(cat as ExpenseCategory) : CHART_SERIES[CHART_SERIES.length - 1],
                    y0: yAcc, y1: yAcc + h, col: 0 as const }
     yAcc += h + NODE_GAP
     return node

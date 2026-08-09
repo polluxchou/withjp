@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { AriaAttributes, ReactNode } from 'react'
 
 interface StatProps {
   label: string
@@ -11,15 +11,29 @@ interface StatProps {
   // 根节点渲染为真正的 <button>（键盘可达 + focus ring），不传时保持纯展示
   // <div>——两种形态视觉完全一致，只是语义/可交互性不同。
   onClick?: () => void
+  // 可选：toggle 语义的按下态（渲染 aria-pressed）。与 onClick 独立传——有些
+  // 调用方（如弹层触发器）需要 aria-haspopup/aria-expanded 而非 aria-pressed，
+  // 走 ariaProps 单独透传，两者不互斥。
+  pressed?: boolean
+  // 逃生舱：调用方需要 Stat 未内置的 aria-* 属性（如弹层触发器的
+  // aria-haspopup/aria-expanded）时透传给根 button，不为这些一次性场景
+  // 单独开 prop。仅在 onClick 存在（根节点是 button）时有意义。
+  ariaProps?: AriaAttributes
 }
 
-export function Stat({ label, value, delta, note, tone = 'default', onClick }: StatProps) {
+export function Stat({ label, value, delta, note, tone = 'default', onClick, pressed, ariaProps }: StatProps) {
   const Root = onClick ? 'button' : 'div'
   return (
     <Root
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`flex-1 min-w-fit px-5 py-4 border-r border-line-soft last:border-r-0 text-left ${
+      aria-pressed={onClick && pressed !== undefined ? pressed : undefined}
+      {...(onClick ? ariaProps : undefined)}
+      // w-full：非 flex 上下文（调用方需要自己包一层 div 承载弹层定位时，Stat
+      // 就不再是 StatBand 的直接 flex 子项）下，button/div 默认收缩到内容宽度，
+      // 留出一大片视觉在卡片内、实际点不中的死区。flex-1 在真正的 flex 容器
+      // （StatBand 本身）里已经决定尺寸，w-full 在那种场景是无操作的安全值。
+      className={`w-full flex-1 min-w-fit px-5 py-4 border-r border-line-soft last:border-r-0 text-left ${
         onClick ? 'transition-colors hover:bg-row-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset' : ''
       }`}
     >

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import { usePathname, useRouter } from '@/i18n/navigation'
 import Header from '@/components/layout/Header'
@@ -330,22 +331,62 @@ export default function ExpensesPage() {
   }
 
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)
+  // monthPickerRef anchors the trigger (Stat wrapper) — used both for the
+  // outside-click check and to measure where to plant the portaled panel.
   const monthPickerRef = useRef<HTMLDivElement | null>(null)
+  // monthPanelRef is the portaled dropdown itself. It lives under
+  // document.body (see createPortal below), not under monthPickerRef, so the
+  // outside-click handler must treat "inside the panel" as a second,
+  // independent containment check — `monthPickerRef.contains()` alone would
+  // never be true for clicks on the panel and would close it on every click.
+  const monthPanelRef = useRef<HTMLDivElement | null>(null)
+  const [monthPanelPos, setMonthPanelPos] = useState<{ top: number; left: number; width: number } | null>(null)
 
-  // Close the picker on outside click / Escape
+  // StatBand is `overflow-x-auto`, and per spec a non-`visible` value on one
+  // overflow axis forces the other axis to compute as `auto` too — so an
+  // absolutely-positioned child (the old implementation) gets clipped by
+  // StatBand's own box the moment it overflows vertically. Clipped ≠ hidden:
+  // the panel was still painted (sort of) but pointer-events landed on
+  // whatever was underneath, so it was open-but-unclickable. Portaling to
+  // document.body (Modal's own escape hatch, see components/ui/Modal.tsx)
+  // and positioning via getBoundingClientRect() sidesteps the clipping
+  // ancestor entirely.
+  function toggleMonthPicker() {
+    if (monthPickerOpen) { setMonthPickerOpen(false); return }
+    const rect = monthPickerRef.current?.getBoundingClientRect()
+    if (rect) setMonthPanelPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+    setMonthPickerOpen(true)
+  }
+
+  // Close the picker on outside click / Escape; reposition on scroll/resize
+  // while open (position:fixed + a one-time rect snapshot would otherwise
+  // drift away from the trigger as soon as the page scrolls).
   useEffect(() => {
     if (!monthPickerOpen) return
     const onPointer = (e: PointerEvent) => {
-      if (!monthPickerRef.current?.contains(e.target as Node)) setMonthPickerOpen(false)
+      const target = e.target as Node
+      if (monthPickerRef.current?.contains(target)) return
+      if (monthPanelRef.current?.contains(target)) return
+      setMonthPickerOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMonthPickerOpen(false)
     }
+    const reposition = () => {
+      const rect = monthPickerRef.current?.getBoundingClientRect()
+      if (rect) setMonthPanelPos({ top: rect.bottom + 8, left: rect.left, width: rect.width })
+    }
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)
+    // capture:true so this also fires for scrolls inside nested scroll
+    // containers, not just the window/document itself.
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
     return () => {
       document.removeEventListener('pointerdown', onPointer)
       document.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
     }
   }, [monthPickerOpen])
 
@@ -467,6 +508,22 @@ export default function ExpensesPage() {
     }
   }
 
+  // Shared three-state gate for all four view tabs (list/category/trend/
+  // monthly) — computed once, consumed at both render sites below (the
+  // chart slot above the filter row, and the list slot below it) so every
+  // tab shows the exact same loading/error/empty precedence and copy.
+  // `null` means "have data, render the real tab content instead".
+  const threeState = loading ? (
+    <LoadingState variant="plain" />
+  ) : loadError ? (
+    <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
+  ) : visibleExpenses.length === 0 ? (
+    <EmptyState
+      title={t('empty')}
+      action={<Button variant="secondary" size="sm" onClick={() => setShowForm(true)}>{t('addFirst')}</Button>}
+    />
+  ) : null
+
   return (
     <DiscussionProvider>
     <div>
@@ -551,34 +608,50 @@ export default function ExpensesPage() {
           value={fmtRmb(summary.totalCost, { compact: true })}
           note={activeKpi ? t('kpi.clickToClearFilter') : t('includesFees')}
           onClick={() => toggleKpi('reset')}
+          pressed={activeKpi === null}
         />
         <Stat
           label={t('paid')}
           value={fmtRmb(summary.paidCost, { compact: true })}
           note={activeKpi === 'paid' ? t('kpi.filterActive') : t('kpi.clickToFilterPaid')}
           onClick={() => toggleKpi('paid')}
+          pressed={activeKpi === 'paid'}
         />
         <Stat
           label={t('budgetPending')}
           value={fmtRmb(summary.budgetedUnpaidCost, { compact: true })}
           note={activeKpi === 'unpaid' ? t('kpi.filterActive') : t('kpi.clickToFilterPending')}
           onClick={() => toggleKpi('unpaid')}
+          pressed={activeKpi === 'unpaid'}
         />
         {/* Month-filter KPI keeps its popover — wraps Stat instead of using
             RecordRow-style composition since StatBand's flex children need
-            `relative` positioning for the dropdown to anchor correctly.
-            The border lives on this wrapper (not Stat's own `last:border-r-0`,
-            which would always fire since Stat is this div's only child). */}
+            `relative` positioning to anchor the trigger for rect
+            measurement (the panel itself is portaled out, see below).
+            The border lives on this wrapper rather than Stat's own
+            `last:border-r-0`: Stat is this div's ONLY child, so `last-child`
+            always matches here regardless of this wrapper's own position in
+            the StatBand row — Stat would silently drop its border even
+            though it's the 4th of 5 stats, not the actual last one. Moving
+            the border to the wrapper (which IS positioned correctly in the
+            row) sidesteps that mismatch. If this wrapper ever needs to
+            become the *actual* last Stat in the band, drop the hardcoded
+            border-r here and let Stat's own last:border-r-0 take over. */}
         <div ref={monthPickerRef} className="relative flex-1 min-w-fit border-r border-line-soft">
           <Stat
             label={activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
             value={fmtRmb(summary.currentMonthCost, { compact: true })}
             note={activeMonth ? t('kpi.monthFilterActive') : t('kpi.clickToFilterMonth')}
-            onClick={() => setMonthPickerOpen((v) => !v)}
+            onClick={toggleMonthPicker}
+            ariaProps={{ 'aria-haspopup': 'listbox', 'aria-expanded': monthPickerOpen }}
           />
 
-          {monthPickerOpen && (
-            <div className="absolute left-0 right-0 top-full mt-2 z-40 bg-surface border border-line rounded-card shadow-pop p-2">
+          {monthPickerOpen && monthPanelPos && createPortal(
+            <div
+              ref={monthPanelRef}
+              style={{ position: 'fixed', top: monthPanelPos.top, left: monthPanelPos.left, width: monthPanelPos.width }}
+              className="z-40 bg-surface border border-line rounded-card shadow-pop p-2"
+            >
               <div className="text-micro font-medium text-ink-400 px-2 py-1 uppercase tracking-wider">
                 {t('kpi.selectMonth')}
               </div>
@@ -613,7 +686,8 @@ export default function ExpensesPage() {
                   {t('kpi.clearMonthFilter')}
                 </button>
               )}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
         <Stat
@@ -621,21 +695,32 @@ export default function ExpensesPage() {
           value={fmtRmb(summary.crossBorderCost, { compact: true })}
           note={activeKpi === 'crossBorder' ? t('kpi.filterActive') : t('kpi.crossBorderHint', { rate: CROSS_BORDER_FEE_RATE * 100 })}
           onClick={() => toggleKpi('crossBorder')}
+          pressed={activeKpi === 'crossBorder'}
         />
       </StatBand>
 
       {/* Charts — rendered for the category/trend/monthly tabs; the 'list' tab
-          renders the RecordRow table further down instead. */}
+          renders the RecordRow table further down instead. Both render sites
+          consult the shared `threeState` computed below the JSX return, so
+          loading/error/empty look and behave identically across all four
+          tabs instead of only being handled on 'list' (previously, landing
+          on a chart tab during the initial fetch — or after a fetch error —
+          rendered nothing at all, since ExpenseCategoryChart's own guard
+          just returns null on empty data). */}
       {viewTab !== 'list' && (
-        <ExpenseCategoryChart
-          view={viewTab}
-          expenses={visibleExpenses}
-          categoryBreakdownExpenses={expenses}
-          selectedCategory={filters.category}
-          onCategorySelect={selectChartCategory}
-          selectedPeriod={{ from: filters.date_from, to: filters.date_to }}
-          onPeriodSelect={selectChartPeriod}
-        />
+        threeState ? (
+          <div className="mb-6"><SectionCard>{threeState}</SectionCard></div>
+        ) : (
+          <ExpenseCategoryChart
+            view={viewTab}
+            expenses={visibleExpenses}
+            categoryBreakdownExpenses={expenses}
+            selectedCategory={filters.category}
+            onCategorySelect={selectChartCategory}
+            selectedPeriod={{ from: filters.date_from, to: filters.date_to }}
+            onPeriodSelect={selectChartPeriod}
+          />
+        )
       )}
 
       {/* Saved filter views (localStorage) */}
@@ -727,7 +812,7 @@ export default function ExpensesPage() {
           title={t('listTitle')}
           accent="violet"
           actions={
-            !loading && !loadError && visibleExpenses.length > 0 ? (
+            !threeState ? (
               <div className="flex items-center gap-1.5">
                 <Select
                   aria-label={t('sortByLabel')}
@@ -752,16 +837,7 @@ export default function ExpensesPage() {
             ) : undefined
           }
         >
-          {loading ? (
-            <LoadingState variant="list" />
-          ) : loadError ? (
-            <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
-          ) : visibleExpenses.length === 0 ? (
-            <EmptyState
-              title={t('empty')}
-              action={<Button variant="secondary" size="sm" onClick={() => setShowForm(true)}>{t('addFirst')}</Button>}
-            />
-          ) : (
+          {threeState ?? (
             <div>
               {sortedExpenses.map((e) => {
                 const CategoryIcon = CATEGORY_ICON[e.expense_category]
