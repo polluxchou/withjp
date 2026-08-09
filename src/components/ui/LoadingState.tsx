@@ -17,15 +17,17 @@ export default function LoadingState({ variant = 'plain', rows = 4 }: LoadingSta
         {Array.from({ length: rows }).map((_, i) => (
           // py-3 对齐 RecordRow 的真实行高（px-5 py-3），骨架和加载完成后的
           // 实际内容切换时高度一致，不会有布局跳动。标题/meta 色块高度和
-          // 间距直接照抄 RecordRow 真实结构（h-4 对应 text-md 标题、
-          // mt-0.5 h-3.5 对应 text-xs meta 行），而不是用 space-y 随便估一
-          // 个间距——实测过整行高度要对上真实 RecordRow，光对齐 py 不够，
-          // 内容色块自己的高度也得跟着改。
+          // 间距/断点行为直接照抄 RecordRow 真实结构（h-5 对应 text-md 标题
+          // 20px 行盒、mt-0.5 h-4 对应 text-xs meta 行，且 meta 同样
+          // hidden sm:block——真实 meta 行在 640px 以下隐藏，骨架不隐藏的
+          // 话窄屏下两者高度就对不上），而不是用 space-y 随便估一个间距——
+          // 实测过两个断点下整行高度都要对上真实 RecordRow，光对齐 py 不
+          // 够，内容色块自己的高度和显隐也得跟着改。
           <div key={i} className="flex items-center gap-3.5 px-5 py-3 border-t border-line-soft first:border-t-0">
             <span className="w-2 h-2 rounded-full bg-line-soft" />
             <div className="flex-1">
-              <div className="h-4 w-1/3 rounded-[4px] bg-line-soft" />
-              <div className="mt-0.5 h-3.5 w-1/2 rounded-[4px] bg-line-soft" />
+              <div className="h-5 w-1/3 rounded-[4px] bg-line-soft" />
+              <div className="hidden sm:block mt-0.5 h-4 w-1/2 rounded-[4px] bg-line-soft" />
             </div>
             <div className="h-3 w-16 rounded-[4px] bg-line-soft" />
           </div>
