@@ -1192,6 +1192,10 @@
     "colStatus": "Status",
     "colResponsible": "Owner",
     "colSerial": "Serial",
+    "statTotalItems": "Total items",
+    "statItemUnit": "items",
+    "statTotalCost": "Total cost",
+    "costOriginalNote": "expense {price} · {name}",
     "kind": {
       "physical": "Physical",
       "virtual": "Virtual"
@@ -1206,6 +1210,8 @@
     "fieldKind": "Type *",
     "fieldExpense": "Linked cost (expense)",
     "fieldExpenseRequired": "Linked cost (expense) *",
+    "fieldItemValue": "Asset value",
+    "fieldItemValueHint": "If lower than the linked expense, enter the actual booked value",
     "fieldPlacementFloor": "Floor *",
     "fieldPlacementZone": "Zone *",
     "fieldQuantity": "Quantity",

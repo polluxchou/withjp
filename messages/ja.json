@@ -1328,6 +1328,10 @@
     "colStatus": "ステータス",
     "colResponsible": "担当者",
     "colSerial": "シリアル",
+    "statTotalItems": "備品総数",
+    "statItemUnit": "点",
+    "statTotalCost": "総コスト",
+    "costOriginalNote": "支出 {price} · {name}",
     "kind": {
       "physical": "現物",
       "virtual": "バーチャル商品"
@@ -1342,6 +1346,8 @@
     "fieldKind": "種別 *",
     "fieldExpense": "関連コスト（支出）",
     "fieldExpenseRequired": "関連コスト（支出）*",
+    "fieldItemValue": "取得原価",
+    "fieldItemValueHint": "関連支出より低い場合は実際の計上額を入力できます",
     "fieldPlacementFloor": "配置フロア *",
     "fieldPlacementZone": "配置エリア *",
     "fieldQuantity": "数量",
