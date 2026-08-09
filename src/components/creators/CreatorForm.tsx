@@ -63,6 +63,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
   // id — useId() rather than a literal string so two CreatorForm instances
   // (unlikely today, but cheap to make safe) never collide.
   const broadcastAccountId = useId()
+  const broadcastHintId = broadcastAccountId + '-desc'
 
   useEffect(() => {
     async function loadRelations() {
@@ -211,7 +212,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
             <div className="min-w-0 flex-1">
               <Select
                 id={broadcastAccountId}
-                className="w-full"
+                aria-describedby={broadcastHintId}
                 value={form.broadcast_account_id}
                 onChange={set('broadcast_account_id')}
               >
@@ -236,7 +237,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
               {t('new')}
             </Button>
           </div>
-          <span className="block text-micro mt-1 text-ink-400">{t('broadcastHint')}</span>
+          <span id={broadcastHintId} className="block text-micro mt-1 text-ink-400">{t('broadcastHint')}</span>
         </div>
         <Field label={t('operator')}>
           <Select value={form.operator_user_id} onChange={set('operator_user_id')}>

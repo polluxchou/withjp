@@ -24,7 +24,7 @@
     "emptyHint": "Add the first one!",
     "errorTitle": "Something went wrong",
     "retry": "Retry",
-    "loadFailed": "Failed to load, please retry"
+    "loadFailed": "Failed to load. Please retry."
   },
   "nav": {
     "dashboard": "Dashboard",
