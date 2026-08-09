@@ -16,7 +16,6 @@
   "src/components/competitors/ShotAlbum.tsx": 3,
   "src/components/competitors/ShotUploader.tsx": 3,
   "src/components/creators/CreatorForm.tsx": 37,
-  "src/components/dashboard/StatsCard.tsx": 4,
   "src/components/devices/DeviceForm.tsx": 11,
   "src/components/discussions/DiscussionBadge.tsx": 7,
   "src/components/discussions/DiscussionPanel.tsx": 19,
