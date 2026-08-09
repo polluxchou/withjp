@@ -1439,10 +1439,10 @@ function FloatingPanel({
         </div>
       </div>
       {/* 列表范围切换（空间 / 标识 / 物品）走共享 Tabs（design-system §6.1）；
-          计数并入 label 文本，Tabs 契约里 label 是纯字符串。 */}
-      {/* 不加左右内边距：Tabs 自带的 border-b 发丝线要一直画到面板两边，
-          留白会让它比面板窄一截、断在半空。 */}
-      <div className="pt-2">
+          计数并入 label 文本，Tabs 契约里 label 是纯字符串。
+          保留 px-3：FloatingPanel 自身就是容器（头部 p-4、列表 p-2），tab 文字
+          顶到卡片边框比发丝线短一截更难看，内衬与上下两块对齐优先。 */}
+      <div className="px-3 pt-2">
         <Tabs
           label={t('listTabsLabel')}
           value={listTab}

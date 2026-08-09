@@ -331,16 +331,19 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
       </Canvas>
 
       {/* 覆盖在 3D 场景之上的 DOM 控件（非场景内绘制）→ 走设计系统 chrome。
-          两个按钮没有本地变体/状态逻辑，直接用共享 Button secondary。 */}
-      <div className="absolute top-3 right-3 z-20 flex gap-2">
+          外层沿用 TransformToolbar 同一套悬浮片treatment（白底 95% + line 描边
+          + shadow-card + backdrop-blur）：这两组控件同处 top-3 一行，必须读成
+          同一族；也只有不透明底衬才能压住底下任意的 3D 几何。片内按钮因此用
+          ghost 而非 secondary——secondary 的紫晕本身是半透明的，叠在片上会透。 */}
+      <div className="absolute top-3 right-3 z-20 flex gap-1 rounded-field border border-line bg-white/95 p-1 shadow-card backdrop-blur">
         <Button
-          variant="secondary"
+          variant="ghost"
           onClick={() => setShowLabels((v) => !v)}
           aria-pressed={!showLabels}
         >
           {showLabels ? t('hideLabels') : t('showLabels')}
         </Button>
-        <Button variant="secondary" onClick={() => setCeilingNonce((n) => n + 1)}>
+        <Button variant="ghost" onClick={() => setCeilingNonce((n) => n + 1)}>
           {t('ceilingView')}
         </Button>
       </div>
