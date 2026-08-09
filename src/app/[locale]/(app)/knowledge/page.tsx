@@ -134,7 +134,10 @@ export default function KnowledgePage() {
           <div className="col-span-1">
             <SectionCard padding="none">
               {items.length === 0 ? (
-                <EmptyState title={t('noEntries')} />
+                <EmptyState
+                  title={t('noEntries')}
+                  action={<Button size="sm" onClick={() => setShowAdd(true)}>{t('addEntry')}</Button>}
+                />
               ) : (
                 <div className="p-2 space-y-1">
                   {items.map((item) => {
@@ -143,6 +146,7 @@ export default function KnowledgePage() {
                       <button
                         key={item.id}
                         type="button"
+                        aria-pressed={isSelected}
                         onClick={() => setSelected(item)}
                         className={`w-full text-left rounded-field px-3 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
                           isSelected ? 'bg-primary-soft' : 'hover:bg-line-soft'

@@ -114,14 +114,20 @@ export default function ConfigPage() {
                   {meta?.description ?? config.description}
                 </p>
                 {/* Textarea's contract fixes resize-none (no per-instance
-                    override without an unsupported class conflict) — the
-                    dynamic `rows` below already sizes the box to the JSON
-                    payload, so the lost manual resize handle is a minor,
-                    accepted tradeoff of adopting the shared control. */}
+                    override without an unsupported class conflict) — rows is
+                    derived from the actual edited text (same string the
+                    textarea's `value` binds to), not from
+                    Object.keys(config.value).length: that formula only
+                    counted top-level keys, so a nested structure like
+                    automation_triggers (arrays of strings under each key)
+                    rendered far more lines than the box sized for, leaving no
+                    resize handle to compensate. Splitting on the live text
+                    keeps the box sized to what's actually on screen,
+                    including edits the user is mid-typing. */}
                 <Textarea
                   value={edits[config.key] ?? ''}
                   onChange={(e) => setEdits((prev) => ({ ...prev, [config.key]: e.target.value }))}
-                  rows={Object.keys(config.value).length + 2}
+                  rows={Math.max(4, (edits[config.key] ?? '').split('\n').length)}
                   aria-label={meta?.label ?? config.key}
                   className="font-mono"
                 />
