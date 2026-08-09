@@ -82,7 +82,6 @@
     "addEntry": "Add entry",
     "addEntryModalTitle": "Add knowledge entry",
     "allFilter": "All",
-    "loading": "Loading...",
     "noEntries": "Nothing here yet — add the first entry!",
     "selectEntry": "Click an entry on the left to read it",
     "deletePrompt": "Delete this knowledge entry? You can't undo this.",
