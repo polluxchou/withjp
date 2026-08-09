@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Header from '@/components/layout/Header'
 import LifecycleBadge from '@/components/creators/LifecycleBadge'
 import SectionCard from '@/components/ui/SectionCard'
@@ -13,6 +13,12 @@ import type { Creator, CreatorStatus } from '@/lib/types'
 import { fmtCompact } from '@/lib/currency'
 import { ALL_STATUSES, nextStatus, canTransition } from '@/lib/state-machine/creator-lifecycle'
 
+// 卡内四个操作按钮（reactivate/rollback/advance/terminate）共享的基底类——
+// 抽出常量防止手写重复串静默漂移（此前 terminate 就漏了 font-medium），
+// 惯例同 RecordRow.tsx 的 ROW_CLASS。调用处只追加宽度(w-full/flex-1/px-2)
+// 与语义色(text-*/hover:border-*)。
+const CARD_BTN = 'flex items-center justify-center text-xs font-medium border border-line rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+
 export default function PipelinePage() {
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,7 +29,9 @@ export default function PipelinePage() {
   const tCommon = useTranslations('common')
   const tStatus = useTranslations('status')
 
-  async function load() {
+  // tCommon 不进依赖：同 locale 下 next-intl 引用稳定，与 creators/page.tsx
+  // 的 load() 同判。
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch('/api/creators')
@@ -41,9 +49,9 @@ export default function PipelinePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
   async function advance(creator: Creator) {
     const next = nextStatus(creator.status)
@@ -162,7 +170,7 @@ export default function PipelinePage() {
                             <button
                               onClick={() => reactivate(creator)}
                               disabled={moving === creator.id}
-                              className="w-full flex items-center justify-center gap-1 text-xs text-ink-700 hover:text-primary-hover font-medium border border-line hover:border-primary-border rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+                              className={`${CARD_BTN} w-full gap-1 text-ink-700 hover:text-primary-hover hover:border-primary-border`}
                               title={t('reactivate')}
                               aria-label={t('reactivate')}
                             >
@@ -174,7 +182,7 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => rollback(creator, previous)}
                                   disabled={moving === creator.id}
-                                  className="flex-1 flex items-center justify-center text-xs text-ink-500 hover:text-ink-700 font-medium border border-line hover:border-line-strong rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+                                  className={`${CARD_BTN} flex-1 text-ink-500 hover:text-ink-700 hover:border-line-strong`}
                                   title={t('moveBack', { status: tStatus(previous) })}
                                   aria-label={t('moveBack', { status: tStatus(previous) })}
                                 >
@@ -185,7 +193,7 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => advance(creator)}
                                   disabled={moving === creator.id}
-                                  className="flex-1 flex items-center justify-center text-xs text-primary hover:text-primary-hover font-medium border border-line hover:border-primary-border rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+                                  className={`${CARD_BTN} flex-1 text-primary hover:text-primary-hover hover:border-primary-border`}
                                   title={t('moveForward', { status: tStatus(next) })}
                                   aria-label={t('moveForward', { status: tStatus(next) })}
                                 >
@@ -196,7 +204,7 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => terminate(creator)}
                                   disabled={moving === creator.id}
-                                  className="flex items-center justify-center text-xs text-danger-text border border-line hover:border-danger-border rounded-field px-2 py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+                                  className={`${CARD_BTN} px-2 text-danger-text hover:border-danger-border`}
                                   title={t('terminate')}
                                   aria-label={t('terminate')}
                                 >
@@ -225,13 +233,13 @@ export default function PipelinePage() {
                 <LifecycleBadge status={s} size="sm" />
                 {i < arr.length - 1 && (
                   <>
-                    <ChevronRight className="w-3 h-3 text-ink-400" />
-                    <ChevronLeft className="w-3 h-3 text-ink-400" />
+                    <ChevronRight className="w-3 h-3 text-ink-400/60" />
+                    <ChevronLeft className="w-3 h-3 text-ink-400/60" />
                   </>
                 )}
               </span>
             ))}
-            <span className="text-ink-400 px-1">·</span>
+            <span className="text-ink-400/60 px-1">·</span>
             <LifecycleBadge status="terminated" size="sm" />
           </div>
         </SectionCard>
