@@ -11,19 +11,28 @@ import SavedViewsBar from '@/components/expenses/SavedViewsBar'
 import Modal from '@/components/ui/Modal'
 import DateRangeSlider from '@/components/ui/DateRangeSlider'
 import Button from '@/components/ui/Button'
-import ClampedText from '@/components/ui/ClampedText'
 import Tabs from '@/components/ui/Tabs'
 import { SearchInput, Select } from '@/components/ui/Field'
 import { CountChip } from '@/components/ui/FilterChip'
 import { Stat, StatBand } from '@/components/ui/Stat'
+import SectionCard from '@/components/ui/SectionCard'
+import RecordRow from '@/components/ui/RecordRow'
+import Tag from '@/components/ui/Tag'
+import LoadingState from '@/components/ui/LoadingState'
+import ErrorState from '@/components/ui/ErrorState'
+import { toneOf } from '@/lib/ui/status-tone'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
 import EmptyState from '@/components/ui/EmptyState'
-import { Plus, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
+import {
+  Plus, RotateCcw, Copy, Pencil, Trash2, Eye, ArrowUp, ArrowDown, Sparkles,
+  Receipt, Calendar, Package, Wallet, Home, Plane, Paperclip, Cloud,
+  type LucideIcon,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
-import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
+import type { Expense, ExpenseCategory } from '@/lib/types'
 import {
   type Filters,
   EMPTY_FILTERS as SHARED_EMPTY_FILTERS,
@@ -53,21 +62,17 @@ import {
 import type { SubjectInput } from '@/lib/discussions/types'
 
 
-const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
-  budgeted:           'bg-zinc-100 text-zinc-600',
-  ordered_unpaid:     'bg-amber-100 text-amber-700',
-  paid:               'bg-green-100 text-green-700',
-  refunded:           'bg-red-100 text-red-600',
-  partially_refunded: 'bg-orange-100 text-orange-700',
-}
-
-const CATEGORY_COLOR: Record<ExpenseCategory, string> = {
-  tangible_asset:  'bg-primary-soft text-primary',
-  salary:          'bg-amber-100 text-amber-700',
-  rent:            'bg-emerald-100 text-emerald-700',
-  travel:          'bg-blue-100 text-blue-700',
-  office_supplies: 'bg-purple-100 text-purple-700',
-  cloud_services:  'bg-pink-100 text-pink-700',
+// Category → icon (meta row, RecordRow). Payment status no longer gets a
+// bespoke color map — it goes through the shared toneOf('expense', status)
+// registry (docs/design-system.md §1.3) instead, same as every other status
+// enum in the app.
+const CATEGORY_ICON: Record<ExpenseCategory, LucideIcon> = {
+  tangible_asset:  Package,
+  salary:          Wallet,
+  rent:            Home,
+  travel:          Plane,
+  office_supplies: Paperclip,
+  cloud_services:  Cloud,
 }
 
 type SortKey = 'date' | 'period' | 'amount'
@@ -445,18 +450,6 @@ export default function ExpensesPage() {
     })
   }, [visibleExpenses, sortBy, sortDir])
 
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 text-zinc-300" />
-    return sortDir === 'asc'
-      ? <ArrowUp   className="w-3 h-3 text-primary" />
-      : <ArrowDown className="w-3 h-3 text-primary" />
-  }
-
-  function sortableHeaderClass(col: SortKey) {
-    const active = sortBy === col
-    return `inline-flex items-center gap-1 transition-colors ${active ? 'text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`
-  }
-
   async function confirmDelete() {
     if (!deleting) return
     setDelLoading(true)
@@ -723,229 +716,107 @@ export default function ExpensesPage() {
         />
       </div>
 
-      {/* Table — 'list' tab only; charts render above for the other three. */}
+      {/* List — 'list' tab only; charts render above for the other three.
+          A single RecordRow-based list replaces the old dual mobile-card /
+          desktop-table split: RecordRow already hides meta/who under the sm
+          breakpoint internally, so one render serves both. */}
       {viewTab === 'list' && (
-      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-sm text-zinc-400">{tCommon('loading')}</div>
-        ) : loadError ? (
-          <div className="p-6">
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              {loadError}
-            </div>
-          </div>
-        ) : visibleExpenses.length === 0 ? (
-          <EmptyState
-            title={t('empty')}
-            action={<button type="button" onClick={() => setShowForm(true)} className="mt-1 text-sm text-primary font-medium hover:underline">{t('addFirst')}</button>}
-          />
-        ) : (
-          <>
-          {/* Mobile card list — md:hidden. Each expense is a tap-to-view card with
-              the most-used actions (edit / duplicate / delete) inline. Less-used
-              columns (purpose, buyer, payment method) are surfaced via the
-              detail modal opened by the card body. */}
-          <ul className="md:hidden divide-y divide-zinc-100">
-            {sortedExpenses.map((e) => (
-              <li key={e.id} className="px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => setViewing(e)}
-                  className="w-full text-left"
+        <SectionCard
+          padding="none"
+          icon={<Receipt />}
+          title={t('listTitle')}
+          accent="violet"
+          actions={
+            !loading && !loadError && visibleExpenses.length > 0 ? (
+              <div className="flex items-center gap-1.5">
+                <Select
+                  aria-label={t('sortByLabel')}
+                  size="sm"
+                  className="w-28"
+                  value={sortBy}
+                  onChange={(e) => toggleSort(e.target.value as SortKey)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${CATEGORY_COLOR[e.expense_category]}`}>
-                          {t(`categories.${e.expense_category}`)}
-                        </span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_COLOR[e.payment_status]}`}>
-                          {t(`paymentStatuses.${e.payment_status}`)}
-                        </span>
+                  <option value="date">{t('date')}</option>
+                  <option value="period">{t('period')}</option>
+                  <option value="amount">{t('amount')}</option>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('toggleSortDir')}
+                  onClick={() => toggleSort(sortBy)}
+                >
+                  {sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            ) : undefined
+          }
+        >
+          {loading ? (
+            <LoadingState variant="list" />
+          ) : loadError ? (
+            <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
+          ) : visibleExpenses.length === 0 ? (
+            <EmptyState
+              title={t('empty')}
+              action={<Button variant="secondary" size="sm" onClick={() => setShowForm(true)}>{t('addFirst')}</Button>}
+            />
+          ) : (
+            <div>
+              {sortedExpenses.map((e) => {
+                const CategoryIcon = CATEGORY_ICON[e.expense_category]
+                const fee = crossBorderFee(e)
+                return (
+                  <RecordRow
+                    key={e.id}
+                    status={toneOf('expense', e.payment_status)}
+                    title={e.item_name}
+                    meta={[
+                      { text: `#${e.id.slice(0, 8)}`, mono: true },
+                      { icon: <Calendar />, text: e.period ? `${e.expense_date} · ${e.period}` : e.expense_date },
+                      { icon: <CategoryIcon />, text: t(`categories.${e.expense_category}`) },
+                    ]}
+                    amount={fmtRmb(Number(e.total_price))}
+                    tags={
+                      <div className="flex items-center gap-1.5 flex-none">
+                        <Tag size="sm" tone={toneOf('expense', e.payment_status)} label={t(`paymentStatuses.${e.payment_status}`)} />
+                        {fee > 0 && (
+                          <Tag size="sm" variant="dot" tone="warning" label={`+${fmtRmb(fee)}`} />
+                        )}
                       </div>
-                      <div className="text-sm font-medium text-zinc-900 truncate">{e.item_name}</div>
-                      <div className="text-xs text-zinc-500 mt-0.5">
-                        {e.expense_date}
-                        {e.period ? ` · ${e.period}` : ''}
-                        {e.user_name ? ` · ${e.user_name}` : ''}
-                      </div>
-                    </div>
-                    <div className="text-right whitespace-nowrap flex-shrink-0">
-                      <div
-                        className="text-sm font-semibold text-zinc-900"
-                        title={fmtRmb(Number(e.total_price))}
-                      >
-                        {fmtRmb(Number(e.total_price), { compact: true })}
-                      </div>
-                      {crossBorderFee(e) > 0 && (
-                        <div className="text-[10px] text-amber-600 mt-0.5">+{fmtRmb(crossBorderFee(e))} {t('crossBorderFeeShort')}</div>
-                      )}
-                    </div>
-                  </div>
-                </button>
-                <div className="mt-2 flex items-center justify-end gap-1">
-                  <DiscussionBadge
-                    subject={expenseRecordSubject(e)}
-                    onClick={() => setPanelSubject(expenseRecordSubject(e))}
-                    compact
-                  />
-                  {canEdit(currentUser, e.created_by_user_id) && (
-                    <button
-                      type="button"
-                      onClick={() => setEditing(e)}
-                      aria-label={tCommon('edit')}
-                      className="p-2 rounded-md text-zinc-500 hover:text-primary hover:bg-primary-soft"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setDuplicating(e)}
-                    aria-label={t('duplicateExpense')}
-                    className="p-2 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                  {canEdit(currentUser, e.created_by_user_id) && (
-                    <button
-                      type="button"
-                      onClick={() => { setDeleting(e); setDeleteErr(null) }}
-                      aria-label={tCommon('delete')}
-                      className="p-2 rounded-md text-zinc-500 hover:text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm min-w-[1100px]">
-              <thead>
-                <tr className="border-b border-zinc-100 bg-zinc-50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('categoryColumn')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500 w-[120px]">{t('name')}</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium">
-                    <button type="button" onClick={() => toggleSort('amount')} className={sortableHeaderClass('amount')}>
-                      {t('amount')} <SortIcon col="amount" />
-                    </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium">
-                    <button type="button" onClick={() => toggleSort('date')} className={sortableHeaderClass('date')}>
-                      {t('date')} <SortIcon col="date" />
-                    </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium">
-                    <button type="button" onClick={() => toggleSort('period')} className={sortableHeaderClass('period')}>
-                      {t('period')} <SortIcon col="period" />
-                    </button>
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('purpose')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('user')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('buyer')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('paymentMethod')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('paymentStatus')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('discussionsColumn')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedExpenses.map((e) => (
-                  <tr key={e.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${CATEGORY_COLOR[e.expense_category]}`}>
-                        {t(`categories.${e.expense_category}`)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-zinc-900 w-[120px] max-w-[120px]">
-                      <ClampedText text={e.item_name} onOverflowClick={() => setViewing(e)} />
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-zinc-900 whitespace-nowrap">
-                      <div title={fmtRmb(Number(e.total_price))}>
-                        {fmtRmb(Number(e.total_price), { compact: true })}
-                      </div>
-                      {crossBorderFee(e) > 0 && (
-                        <div
-                          className="text-[10px] text-amber-600 font-normal mt-0.5"
-                          title={t('crossBorderFeeTooltip')}
-                        >
-                          +{fmtRmb(crossBorderFee(e))} {t('crossBorderFeeShort')}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500 whitespace-nowrap">{e.expense_date}</td>
-                    <td className="px-4 py-3 text-zinc-500">{e.period || '—'}</td>
-                    <td className="px-4 py-3 text-zinc-500 max-w-[140px]">
-                      <ClampedText text={e.purpose} onOverflowClick={() => setViewing(e)} />
-                    </td>
-                    <td className="px-4 py-3 text-zinc-500">{e.user_name || '—'}</td>
-                    <td className="px-4 py-3 text-zinc-500">{e.buyer_name || '—'}</td>
-                    <td className="px-4 py-3 text-zinc-500 whitespace-nowrap">
-                      {e.payment_method
-                        ? t(`paymentMethods.${e.payment_method}`)
-                        : e.payment_method_legacy
-                          ? <span className="text-amber-600 text-xs">{e.payment_method_legacy}</span>
-                          : '—'
-                      }
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[e.payment_status]}`}>
-                        {t(`paymentStatuses.${e.payment_status}`)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <DiscussionBadge
-                        subject={expenseRecordSubject(e)}
-                        onClick={() => setPanelSubject(expenseRecordSubject(e))}
-                        compact
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1">
+                    }
+                    who={e.buyer_name || '—'}
+                    actions={
+                      <div className="flex items-center gap-1">
+                        <DiscussionBadge
+                          subject={expenseRecordSubject(e)}
+                          onClick={() => setPanelSubject(expenseRecordSubject(e))}
+                          compact
+                        />
+                        <Button variant="ghost" size="sm" aria-label={tCommon('view')} title={tCommon('view')} onClick={() => setViewing(e)}>
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
                         {canEdit(currentUser, e.created_by_user_id) && (
-                          <button
-                            type="button"
-                            onClick={() => setEditing(e)}
-                            aria-label={tCommon('edit')}
-                            title={tCommon('edit')}
-                            className="p-2 rounded-md text-zinc-500 hover:text-primary hover:bg-primary-soft transition-colors"
-                          >
+                          <Button variant="ghost" size="sm" aria-label={tCommon('edit')} title={tCommon('edit')} onClick={() => setEditing(e)}>
                             <Pencil className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => setDuplicating(e)}
-                          aria-label={t('duplicateExpense')}
-                          title={t('copyRecordTitle')}
-                          className="p-2 rounded-md text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
-                        >
+                        <Button variant="ghost" size="sm" aria-label={t('duplicateExpense')} title={t('copyRecordTitle')} onClick={() => setDuplicating(e)}>
                           <Copy className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                         {canEdit(currentUser, e.created_by_user_id) && (
-                          <button
-                            type="button"
-                            onClick={() => { setDeleting(e); setDeleteErr(null) }}
-                            aria-label={tCommon('delete')}
-                            title={tCommon('delete')}
-                            className="p-2 rounded-md text-zinc-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-                          >
+                          <Button variant="ghost" size="sm" aria-label={tCommon('delete')} title={tCommon('delete')} onClick={() => { setDeleting(e); setDeleteErr(null) }}>
                             <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          </Button>
                         )}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          </>
-        )}
-      </div>
+                    }
+                  />
+                )
+              })}
+            </div>
+          )}
+        </SectionCard>
       )}
 
       {/* Add Modal */}
@@ -985,11 +856,11 @@ export default function ExpensesPage() {
       <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
         {deleting && (
           <div className="space-y-4">
-            <p className="text-sm text-zinc-700">
+            <p className="text-sm text-ink-700">
               {t('deleteMessage', { name: deleting.item_name })}
             </p>
             {deleteErr && (
-              <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <div className="text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">
                 {deleteErr}
               </div>
             )}

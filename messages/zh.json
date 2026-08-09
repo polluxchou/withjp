@@ -780,6 +780,9 @@
     "to": "至",
     "empty": "还没有支出记录",
     "addFirst": "添加第一条支出",
+    "listTitle": "支出明细",
+    "sortByLabel": "排序方式",
+    "toggleSortDir": "切换排序方向",
     "category": {
       "viewPie": "饼图",
       "viewSankey": "流向图",
