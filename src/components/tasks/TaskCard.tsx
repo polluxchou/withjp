@@ -59,7 +59,12 @@ export default function TaskCard({ task }: TaskCardProps) {
           </div>
         )}
       </div>
-      <Tag size="sm" tone={tone} label={t(task.status)} />
+      {/* flex-none — Tag's own <span> is inline-flex and would otherwise
+          shrink/wrap as a bare flex child (equivalent to the original
+          span's flex-shrink-0). */}
+      <div className="flex-none">
+        <Tag size="sm" tone={tone} label={t(task.status)} />
+      </div>
     </div>
   )
 }

@@ -76,6 +76,7 @@ export default async function DashboardPage() {
   const t = await getTranslations('dashboard')
   const tCreators = await getTranslations('creators')
   const tStatus = await getTranslations('status')
+  const tTasks = await getTranslations('tasks')
   const locale = await getLocale()
 
   const fmt = (n: number) => `¥${fmtCompact(n, locale)}`
@@ -144,7 +145,13 @@ export default async function DashboardPage() {
                       <span className="text-ink-500">{tStatus(s)}</span>
                       <span className="font-medium text-ink-900 tabular-nums">{count}</span>
                     </div>
-                    <ProgressBar value={count} max={total} label={tStatus(s)} />
+                    {/* tone="default" pinned explicitly — ProgressBar's own
+                        >90% auto-warning heuristic reads as risk for a
+                        generic progress bar, but a pipeline stage holding
+                        >90% of all creators (e.g. everyone still sitting at
+                        prospect) is a normal distribution shape, not a
+                        warning signal. */}
+                    <ProgressBar value={count} max={total} label={tStatus(s)} tone="default" />
                   </div>
                 )
               })}
@@ -167,10 +174,19 @@ export default async function DashboardPage() {
                 {recentTasks.map((task) => (
                   <RecordRow
                     key={task.id}
+                    href={task.creator ? `/creators/${task.creator.id}` : undefined}
                     status={toneOf('task', task.status)}
                     title={task.title}
                     meta={task.creator ? [{ text: `${task.creator.name} · ${task.creator.platform}` }] : []}
-                    tags={task.agent?.name ? <Tag size="sm" tone="violet" label={task.agent.name} /> : undefined}
+                    tags={
+                      <div className="flex items-center gap-1.5 flex-none">
+                        {/* status dot alone is color-only — pair it with the
+                            text Tag so status isn't carried by color alone
+                            (design-system §6.2). */}
+                        <Tag size="sm" tone={toneOf('task', task.status)} label={tTasks(task.status)} />
+                        {task.agent?.name && <Tag size="sm" tone="violet" label={task.agent.name} />}
+                      </div>
+                    }
                   />
                 ))}
               </div>
@@ -201,7 +217,11 @@ export default async function DashboardPage() {
                     { text: c.platform },
                     { text: c.profile?.niche ?? tCreators('noNiche') },
                   ]}
-                  tags={<LifecycleBadge status={c.status} size="sm" />}
+                  tags={
+                    <div className="flex items-center gap-1.5 flex-none">
+                      <LifecycleBadge status={c.status} size="sm" />
+                    </div>
+                  }
                 />
               ))}
             </div>
