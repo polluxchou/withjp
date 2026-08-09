@@ -13,14 +13,14 @@ import DateRangeSlider from '@/components/ui/DateRangeSlider'
 import Button from '@/components/ui/Button'
 import ClampedText from '@/components/ui/ClampedText'
 import Tabs from '@/components/ui/Tabs'
-import { SearchInput } from '@/components/ui/Field'
+import { SearchInput, Select } from '@/components/ui/Field'
 import { CountChip } from '@/components/ui/FilterChip'
 import { Stat, StatBand } from '@/components/ui/Stat'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import { openCommandBar } from '@/components/intent/CommandBar'
 import { useCurrency } from '@/lib/currency'
 import EmptyState from '@/components/ui/EmptyState'
-import { Plus, Search, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
+import { Plus, RotateCcw, Copy, Pencil, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useCurrentUser, canEdit } from '@/lib/auth/useCurrentUser'
 import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
@@ -474,8 +474,6 @@ export default function ExpensesPage() {
     }
   }
 
-  const INPUT = 'border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
-
   return (
     <DiscussionProvider>
     <div>
@@ -658,72 +656,64 @@ export default function ExpensesPage() {
         />
       </div>
 
-      {/* Filters — stack vertically (2-col) on mobile, single row from sm: up */}
-      <div className="bg-white border border-zinc-200 rounded-xl p-3 sm:p-4 mb-3">
+      {/* Filters — stack vertically (2-col) on mobile, single row from sm: up.
+          The text search box lives in the page header (SearchInput, Step a) —
+          not duplicated here. */}
+      <div className="bg-surface border border-line rounded-card p-3 sm:p-4 mb-3">
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 sm:flex-wrap">
-          {/* Search — full width on mobile */}
-          <div className="relative col-span-2 sm:col-span-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-            <input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={t('searchPlaceholder')}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 sm:w-52"
-            />
-          </div>
-
           {/* Category */}
-          <select value={filters.category} onChange={setFilter('category')} className={`${INPUT} w-full sm:w-36`}>
+          <Select value={filters.category} onChange={setFilter('category')} className="w-full sm:w-36">
             <option value="">{t('allCategories')}</option>
             {EXPENSE_CATEGORY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{t(`categories.${o.value}`)}</option>
             ))}
-          </select>
+          </Select>
 
           {/* Status */}
-          <select value={filters.payment_status} onChange={setFilter('payment_status')} className={`${INPUT} w-full sm:w-36`}>
+          <Select value={filters.payment_status} onChange={setFilter('payment_status')} className="w-full sm:w-36">
             <option value="">{t('allStatuses')}</option>
             {EXPENSE_PAYMENT_STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{t(`paymentStatuses.${o.value}`)}</option>
             ))}
-          </select>
+          </Select>
 
           {/* User */}
-          <select value={filters.user_name} onChange={setFilter('user_name')} className={`${INPUT} w-full sm:w-28`}>
+          <Select value={filters.user_name} onChange={setFilter('user_name')} className="w-full sm:w-28">
             <option value="">{tCommon('all')} {t('user')}</option>
             {EXPENSE_USER_OPTIONS.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
-          </select>
+          </Select>
 
           {/* Buyer — full set: team members + company-account buyers */}
-          <select value={filters.buyer_name} onChange={setFilter('buyer_name')} className={`${INPUT} w-full sm:w-28`}>
+          <Select value={filters.buyer_name} onChange={setFilter('buyer_name')} className="w-full sm:w-28">
             <option value="">{tCommon('all')} {t('buyer')}</option>
             {EXPENSE_BUYER_OPTIONS.map((u) => (
               <option key={u} value={u}>{u}</option>
             ))}
-          </select>
+          </Select>
 
           {/* Period (quarterly) */}
-          <select value={filters.period} onChange={setFilter('period')} className={`${INPUT} w-full sm:w-36`}>
+          <Select value={filters.period} onChange={setFilter('period')} className="w-full sm:w-36">
             <option value="">{t('allPeriods')}</option>
             {EXPENSE_PERIOD_OPTIONS.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
-          </select>
+          </Select>
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={resetFilters}
-            className="col-span-2 sm:col-span-1 sm:ml-auto flex items-center justify-center sm:justify-start gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors py-1"
+            className="col-span-2 sm:col-span-1 sm:ml-auto justify-center sm:justify-start"
           >
             <RotateCcw className="w-3.5 h-3.5" /> {tCommon('reset')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Date range timeline — full width */}
-      <div className="bg-white border border-zinc-200 rounded-xl px-6 pt-4 pb-4 mb-5">
+      <div className="bg-surface border border-line rounded-card px-6 pt-4 pb-4 mb-5">
         <DateRangeSlider
           from={filters.date_from}
           to={filters.date_to}
