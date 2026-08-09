@@ -43,15 +43,26 @@ import {
   type LifecycleTemplateSet,
 } from '@/lib/finance-forecast/lifecycle'
 import { planLifecycleApplication } from '@/lib/finance-forecast/lifecycle-apply'
+import { AXIS, GRID, TOOLTIP_STYLE, TOOLTIP_LABEL_STYLE, seriesColor, areaFill } from '@/lib/chart-theme'
 
-const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
-  key:     '#8b5cf6',
-  mature:  '#10b981',
-  growing: '#3b82f6',
-  newbie:  '#f59e0b',
-  test:    '#ec4899',
-  other:   '#71717a',
-}
+// ForecastAccountType（重点号/成熟号/成长期/新号/测试号/其他）不是 design-system
+// §1.3 已登记的"创作者生命周期"枚举（那组是 潜在客户/已联系/已互动/已入驻/准备
+// 直播/直播中/已变现/已解约，站点、数量都不同），二者不是同一枚举，不能直接照搬
+// 语义 tone——这里按纯系列色处理，取值沿用各类型原有色相位（key 紫 · growing 蓝 ·
+// mature 绿 · newbie 橙 · test 粉 · other 灰）映射到 CHART_SERIES 对应位。
+const ACCOUNT_TYPE_INDEX = {
+  key:     0,
+  growing: 1,
+  mature:  2,
+  newbie:  3,
+  test:    4,
+  other:   5,
+} satisfies Record<ForecastAccountType, number>
+
+const accountTypeColor = (type: ForecastAccountType): string => seriesColor(ACCOUNT_TYPE_INDEX[type])
+
+// 累计利润面积图的渐变（§1.5 areaFill 14%→0 工厂）；只依赖静态系列色，模块级算一次即可。
+const CUM_PROFIT_FILL = areaFill('ffd-cum-profit', seriesColor(0))
 
 const CHART_TAB_KEYS = ['breakdown', 'cumulative', 'stacked', 'lines', 'indexed'] as const
 
@@ -1028,17 +1039,10 @@ export default function FinanceForecastDashboard({
               <ResponsiveContainer width="100%" height={340}>
                 {chartMode === 'breakdown' ? (
                   <ComposedChart data={breakdownData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: '#a1a1aa' }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={fmtForecastCompact}
-                      width={56}
-                    />
+                    <CartesianGrid {...GRID} />
+                    <XAxis dataKey="label" {...AXIS} />
+                    <YAxis {...AXIS} tickFormatter={fmtForecastCompact} width={56} />
                     <Tooltip
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
                       content={(props) => {
                         const { active, payload, label } = props as unknown as {
                           active?: boolean
@@ -1047,21 +1051,21 @@ export default function FinanceForecastDashboard({
                         }
                         if (!active || !payload || payload.length === 0) return null
                         const { revenue, cost, profit } = payload[0].payload
-                        const profitColor = profit >= 0 ? '#10b981' : '#e11d48'
+                        const profitColor = profit >= 0 ? 'var(--success-dot)' : 'var(--danger-dot)'
                         const profitWord  = profit >= 0 ? t('tooltipProfit') : t('tooltipLoss')
                         return (
-                          <div className="bg-white border border-zinc-200 rounded-lg shadow-md p-2.5 text-xs min-w-[180px]">
-                            <p className="font-semibold text-zinc-700 mb-1.5">{label}</p>
+                          <div className="bg-surface border border-line rounded-field shadow-pop p-2.5 text-xs min-w-[180px]">
+                            <p className="font-semibold text-ink-700 mb-1.5">{label}</p>
                             <p className="flex items-center justify-between gap-3">
-                              <span className="text-zinc-500">{t('tooltipRevenue')}</span>
-                              <span className="font-medium text-zinc-900 tabular-nums">{fmtForecast(revenue)}</span>
+                              <span className="text-ink-500">{t('tooltipRevenue')}</span>
+                              <span className="font-medium text-ink-900 tabular-nums">{fmtForecast(revenue)}</span>
                             </p>
                             <p className="flex items-center justify-between gap-3">
-                              <span className="text-zinc-500">{t('tooltipCost')}</span>
-                              <span className="font-medium text-zinc-900 tabular-nums">{fmtForecast(cost)}</span>
+                              <span className="text-ink-500">{t('tooltipCost')}</span>
+                              <span className="font-medium text-ink-900 tabular-nums">{fmtForecast(cost)}</span>
                             </p>
-                            <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-zinc-100">
-                              <span className="text-zinc-500">{profitWord}</span>
+                            <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-line-soft">
+                              <span className="text-ink-500">{profitWord}</span>
                               <span className="font-bold tabular-nums" style={{ color: profitColor }}>
                                 {fmtForecast(profit)}
                               </span>
@@ -1071,25 +1075,25 @@ export default function FinanceForecastDashboard({
                       }}
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
-                    <Bar dataKey="revenue" name={t('legendRevenue')} fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                    <Bar dataKey="cost"    name={t('legendCost')}    fill="#a1a1aa" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <ReferenceLine y={0} stroke="rgb(var(--ink-400) / 0.4)" strokeDasharray="2 4" />
+                    <Bar dataKey="revenue" name={t('legendRevenue')} fill={seriesColor(2)} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="cost"    name={t('legendCost')}    fill={seriesColor(5)} radius={[4, 4, 0, 0]} maxBarSize={32} />
                     <Line
                       type="monotone"
                       dataKey="profit"
                       name={t('legendProfitLine')}
-                      stroke="#8b5cf6"
-                      strokeWidth={2.5}
-                      dot={{ fill: '#8b5cf6', r: 3 }}
+                      stroke={seriesColor(0)}
+                      strokeWidth={2}
+                      dot={{ fill: seriesColor(0), r: 3 }}
                       activeDot={{ r: 5 }}
                     />
                   </ComposedChart>
                 ) : chartMode === 'stacked' ? (
                   <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
-                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <CartesianGrid {...GRID} />
+                    <XAxis dataKey="label" {...AXIS} />
+                    <YAxis {...AXIS} tickFormatter={fmtForecastCompact} width={56} />
+                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
                       <Area
@@ -1098,54 +1102,61 @@ export default function FinanceForecastDashboard({
                         dataKey={type}
                         name={accountTypeLabels[type]}
                         stackId="forecast"
-                        stroke={ACCOUNT_TYPE_COLORS[type]}
-                        fill={ACCOUNT_TYPE_COLORS[type]}
+                        stroke={accountTypeColor(type)}
+                        fill={accountTypeColor(type)}
                         fillOpacity={0.72}
                       />
                     ))}
-                    <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                    {/* NB: 6 个账户类型面积已用满 CHART_SERIES 全部 6 色，actual/budget
+                        这两条叠加参考线不可避免与其中两个类型撞色（mature/newbie 原本
+                        就分别是绿/橙——迁移前就是这个撞色，不是本次引入的新问题）；
+                        用不同 strokeDasharray 保持二者仍可辨识，未额外造新 hex。 */}
+                    <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="var(--success-dot)" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="var(--warning-dot)" strokeWidth={2} dot={false} strokeDasharray="5 4" />
                   </ComposedChart>
                 ) : chartMode === 'cumulative' ? (
                   <ComposedChart data={cumulativeData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
-                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <defs>
+                      <linearGradient id={CUM_PROFIT_FILL.id} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={CUM_PROFIT_FILL.from} />
+                        <stop offset="100%" stopColor={CUM_PROFIT_FILL.to} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid {...GRID} />
+                    <XAxis dataKey="label" {...AXIS} />
+                    <YAxis {...AXIS} tickFormatter={fmtForecastCompact} width={56} />
+                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
+                    <ReferenceLine y={0} stroke="rgb(var(--ink-400) / 0.4)" strokeDasharray="2 4" />
                     {breakevenIndex >= 0 && (
                       <ReferenceLine
                         x={cumulativeData[breakevenIndex].label}
-                        stroke="#10b981"
+                        stroke="var(--success-dot)"
                         strokeDasharray="4 4"
-                        label={{ value: t('breakevenLabel', { month: cumulativeData[breakevenIndex].label }), position: 'top', fontSize: 11, fill: '#10b981' }}
+                        label={{ value: t('breakevenLabel', { month: cumulativeData[breakevenIndex].label }), position: 'top', fontSize: 11, fill: 'var(--success-dot)' }}
                       />
                     )}
                     <Area
                       type="monotone"
                       dataKey="cum_profit"
                       name={t('legendCumProfit')}
-                      stroke="#8b5cf6"
-                      fill="#8b5cf6"
-                      fillOpacity={0.18}
+                      stroke={seriesColor(0)}
+                      fill={`url(#${CUM_PROFIT_FILL.id})`}
                       strokeWidth={2}
                     />
-                    <Line type="monotone" dataKey="cum_revenue" name={t('legendCumRevenue')} stroke="#10b981" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="cum_cost"    name={t('legendCumCost')}    stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                    <Line type="monotone" dataKey="cum_revenue" name={t('legendCumRevenue')} stroke={seriesColor(2)} strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="cum_cost"    name={t('legendCumCost')}    stroke={seriesColor(3)} strokeWidth={2} dot={false} strokeDasharray="5 4" />
                   </ComposedChart>
                 ) : (
                   <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+                    <CartesianGrid {...GRID} />
+                    <XAxis dataKey="label" {...AXIS} />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#a1a1aa' }}
-                      axisLine={false}
-                      tickLine={false}
+                      {...AXIS}
                       tickFormatter={chartMode === 'indexed' ? (v) => `${Number(v).toFixed(0)}` : fmtForecastCompact}
                       width={56}
                     />
-                    <Tooltip formatter={(value) => chartMode === 'indexed' ? Number(value).toFixed(0) : fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <Tooltip formatter={(value) => chartMode === 'indexed' ? Number(value).toFixed(0) : fmtForecast(Number(value))} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
                       <Line
@@ -1153,15 +1164,15 @@ export default function FinanceForecastDashboard({
                         type="monotone"
                         dataKey={type}
                         name={accountTypeLabels[type]}
-                        stroke={ACCOUNT_TYPE_COLORS[type]}
+                        stroke={accountTypeColor(type)}
                         strokeWidth={2}
                         dot={false}
                       />
                     ))}
                     {chartMode === 'lines' && (
                       <>
-                        <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-                        <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                        <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="var(--success-dot)" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="var(--warning-dot)" strokeWidth={2} dot={false} strokeDasharray="5 4" />
                       </>
                     )}
                   </LineChart>
@@ -1179,7 +1190,7 @@ export default function FinanceForecastDashboard({
               <div className="space-y-1">
                 {FORECAST_ACCOUNT_TYPES.map((type) => (
                   <div key={type} className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 border-b border-zinc-50 last:border-0">
-                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: ACCOUNT_TYPE_COLORS[type] }} />
+                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: accountTypeColor(type) }} />
                     <div className="min-w-0">
                       <div className="text-xs font-semibold text-zinc-700">{accountTypeLabels[type]}</div>
                       <div className="text-xs text-zinc-400">{accountTypeNotes[type]}</div>
@@ -1644,15 +1655,15 @@ function AnnualOverview({
         <p className="text-xs text-zinc-500 mb-4">{t('annualChartSub')}</p>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#71717a' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtForecastCompact} tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} width={56} />
-            <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+            <CartesianGrid {...GRID} />
+            <XAxis dataKey="year" {...AXIS} />
+            <YAxis {...AXIS} tickFormatter={fmtForecastCompact} width={56} />
+            <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="forecast" name={t('chartForecast')} fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="actual"   name={t('chartActual')}   fill="#10b981" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="budget"   name={t('chartBudget')}   fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="profit"   name={t('chartProfit')}   fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="forecast" name={t('chartForecast')} fill={seriesColor(0)} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="actual"   name={t('chartActual')}   fill={seriesColor(2)} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="budget"   name={t('chartBudget')}   fill={seriesColor(3)} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="profit"   name={t('chartProfit')}   fill={seriesColor(1)} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
