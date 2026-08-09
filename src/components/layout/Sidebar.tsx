@@ -220,7 +220,7 @@ function CollapsedNavLeaf({
       </Link>
       {top !== null && (
         <div
-          className="fixed z-40 rounded-md bg-ink-900 px-2 py-1 text-xs font-medium text-white shadow-lg whitespace-nowrap pointer-events-none"
+          className="fixed z-40 rounded-field bg-ink-900 px-2 py-1 text-xs font-medium text-white shadow-pop whitespace-nowrap pointer-events-none"
           style={{ top: top + 8, left: 56 }}
         >
           {label}
@@ -398,7 +398,7 @@ export default function Sidebar() {
       >
       {/* Logo + collapse toggle */}
       <div className={`flex items-center border-b border-line ${effectiveCollapsed ? 'justify-center px-2 py-5' : 'gap-2.5 px-5 py-5'}`}>
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-icon bg-primary flex items-center justify-center flex-shrink-0">
           <Zap className="w-4 h-4 text-white" />
         </div>
         {showLabel && (
@@ -423,7 +423,7 @@ export default function Sidebar() {
       {effectiveCollapsed && (
         <button
           onClick={() => setCollapsed(false)}
-          className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-surface border border-line text-ink-500 hover:text-ink-900 hover:bg-line-soft transition-colors flex items-center justify-center shadow-md"
+          className="absolute top-5 -right-3 w-6 h-6 rounded-full bg-surface border border-line text-ink-500 hover:text-ink-900 hover:bg-line-soft transition-colors flex items-center justify-center shadow-pop"
           title={tSidebar('expand')}
         >
           <ChevronRight className="w-3.5 h-3.5" />
