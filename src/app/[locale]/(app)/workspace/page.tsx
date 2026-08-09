@@ -20,40 +20,36 @@ import type { Agent, Conversation, ConversationMessage } from '@/lib/types'
 
 // ── Department display metadata ────────────────────────────────
 
-// Department → accent 映射（design-system §1.4 六色板，唯一登记处：本文件）。
-// 六个部门与六个 accent 恰好一一对应，取色对齐旧版硬编码色相
-// （bd 蓝 / ops 紫 / finance 绿 / content 粉 / growth 琥珀 / legal 灰）。
-const DEPT_ACCENT: Record<string, Accent> = {
-  bd:      'blue',
-  ops:     'violet',
-  finance: 'green',
-  content: 'pink',
-  growth:  'amber',
-  legal:   'mauve',
-}
+type DeptRole = 'bd' | 'ops' | 'finance' | 'content' | 'growth' | 'legal'
 
-const DEPT_META: Record<string, { initials: string }> = {
-  bd:      { initials: 'BD' },
-  ops:     { initials: 'OP' },
-  finance: { initials: 'FI' },
-  content: { initials: 'CO' },
-  growth:  { initials: 'GR' },
-  legal:   { initials: 'LG' },
-}
+// 部门唯一登记表：initials（头像缩写）+ accent（design-system §1.4 六色板，
+// 取色对齐旧版硬编码色相：bd 蓝 / ops 紫 / finance 绿 / content 粉 /
+// growth 琥珀 / legal 灰）。`satisfies` 强制六个 DeptRole 全部覆盖（漏登记
+// 编译期报错），替代此前 DEPT_ACCENT/DEPT_META/KNOWN_ROLES 三张各自维护、
+// 互相脱节的手写表。
+const DEPT = {
+  bd:      { initials: 'BD', accent: 'blue' },
+  ops:     { initials: 'OP', accent: 'violet' },
+  finance: { initials: 'FI', accent: 'green' },
+  content: { initials: 'CO', accent: 'pink' },
+  growth:  { initials: 'GR', accent: 'amber' },
+  legal:   { initials: 'LG', accent: 'mauve' },
+} satisfies Record<DeptRole, { initials: string; accent: Accent }>
 
-const KNOWN_ROLES = ['bd', 'ops', 'finance', 'content', 'growth', 'legal'] as const
+const KNOWN_ROLES = Object.keys(DEPT) as DeptRole[]
 
-function isKnownRole(role: string): role is typeof KNOWN_ROLES[number] {
+function isKnownRole(role: string): role is DeptRole {
   return (KNOWN_ROLES as readonly string[]).includes(role)
 }
 
 function AgentAvatar({ role, size = 'md' }: { role: string; size?: 'sm' | 'md' | 'lg' }) {
-  const meta = DEPT_META[role] ?? { initials: '??' }
-  const accent = DEPT_ACCENT[role] ?? 'violet'
+  const dept = isKnownRole(role) ? DEPT[role] : undefined
+  const initials = dept?.initials ?? '??'
+  const accent = dept?.accent ?? 'violet'
   const dim = size === 'sm' ? 'w-7 h-7 text-micro' : size === 'lg' ? 'w-9 h-9 text-sm' : 'w-8 h-8 text-xs'
   return (
     <div className={`rounded-full flex items-center justify-center font-semibold flex-shrink-0 ${dim} ${ACCENT_CHIP[accent]}`}>
-      {meta.initials}
+      {initials}
     </div>
   )
 }
@@ -246,11 +242,14 @@ export default function WorkspacePage() {
   // ── Render ─────────────────────────────────────────────────
   // Height calc mirrors `main-content`'s own responsive vertical padding
   // (src/app/[locale]/(app)/layout.tsx + globals.css `.main-content` rule):
-  // <640px → pt 4rem (mobile hamburger clearance) + pb-4 1rem = 5rem;
-  // 640-767px → sm:p-6 1.5rem × 2 = 3rem; ≥768px → md:p-8 2rem × 2 = 4rem.
+  // <640px → pt calc(env(safe-area-inset-top,0px) + 4rem) (mobile hamburger
+  // clearance, plus the notch/Dynamic Island inset — root layout sets
+  // viewportFit:'cover') + pb-4 1rem = 5rem + safe-area-inset-top;
+  // 640-767px → sm:p-6 1.5rem × 2 = 3rem; ≥768px → md:p-8 2rem × 2 = 4rem
+  // (neither of those two carries the safe-area term).
   // Keep in sync if that padding rule ever changes.
   return (
-    <div className="flex h-[calc(100dvh-5rem)] sm:h-[calc(100dvh-3rem)] md:h-[calc(100dvh-4rem)] bg-surface border border-line rounded-card shadow-card overflow-hidden">
+    <div className="flex h-[calc(100dvh-5rem-env(safe-area-inset-top,0px))] sm:h-[calc(100dvh-3rem)] md:h-[calc(100dvh-4rem)] bg-surface border border-line rounded-card shadow-card overflow-hidden">
       {/* ── ThreadList (agent inbox) ── */}
       <aside className="w-72 flex flex-col flex-shrink-0 border-r border-line-soft">
         {/* Inbox header */}
@@ -260,6 +259,7 @@ export default function WorkspacePage() {
             disabled={!selectedAgent}
             onClick={startNewChat}
             title={t('newChat')}
+            aria-label={t('newChat')}
             className="w-6 h-6 grid place-items-center rounded-field text-ink-500 hover:bg-line-soft hover:text-ink-900 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -343,7 +343,7 @@ export default function WorkspacePage() {
         ) : (
           <div className="flex items-center gap-2 px-6 h-14 border-b border-line-soft">
             <MessageSquare className="w-4 h-4 text-ink-400" />
-            <span className="text-sm text-ink-400">{t('selectAgent')}</span>
+            <span className="text-sm text-ink-500">{t('selectAgent')}</span>
           </div>
         )}
 
@@ -353,7 +353,7 @@ export default function WorkspacePage() {
             {!selectedAgent && (
               <div className="flex flex-col items-center justify-center text-center pt-16">
                 <div className="grid grid-cols-3 gap-3 mb-6 w-full max-w-md">
-                  {Object.keys(DEPT_META).map((role) => (
+                  {KNOWN_ROLES.map((role) => (
                     <div key={role} className="bg-surface p-4 text-center rounded-field border border-line">
                       <div className="flex justify-center mb-2">
                         <AgentAvatar role={role} size="lg" />
@@ -362,7 +362,7 @@ export default function WorkspacePage() {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-ink-400">{t('chooseAgent')}</p>
+                <p className="text-xs text-ink-500">{t('chooseAgent')}</p>
               </div>
             )}
 
@@ -390,7 +390,6 @@ export default function WorkspacePage() {
                   agent={selectedAgent}
                   showHead={showHead}
                   roleLabel={roleLabel}
-                  youLabel={t('agentFallback')}
                 />
               ))}
 
@@ -439,33 +438,21 @@ export default function WorkspacePage() {
                 }
                 disabled={!selectedAgent || sending}
                 rows={1}
-                className="w-full px-4 pt-3 pb-1 text-sm text-ink-900 placeholder:text-ink-400 resize-none focus:outline-none disabled:opacity-50 max-h-40 min-h-[28px] overflow-y-auto bg-transparent leading-relaxed"
+                // 焦点环用 ring-inset：这个 textarea 与 <form> 自身的圆角描边之间没有
+                // 外部留白可画标准 offset 环（design-system §4 例外①「全出血容器」），
+                // offset 环会在顶/左/右三边越出 <form> 的 rounded-field 描边。
+                className="w-full px-4 pt-3 pb-1 text-sm text-ink-900 placeholder:text-ink-400 resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset disabled:opacity-50 max-h-40 min-h-[28px] overflow-y-auto bg-transparent leading-relaxed"
               />
               <div className="flex items-center gap-1 px-2 pb-2 pt-1">
-                <button
-                  type="button"
-                  disabled
-                  className="w-7 h-7 grid place-items-center rounded-field text-ink-400 hover:bg-line-soft hover:text-ink-900 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-                  title={t('attachSoon')}
-                >
+                <ComposerIconBtn title={t('attachSoon')}>
                   <Plus className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="w-7 h-7 grid place-items-center rounded-field text-ink-400 hover:bg-line-soft hover:text-ink-900 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-                  title={t('mentionSoon')}
-                >
+                </ComposerIconBtn>
+                <ComposerIconBtn title={t('mentionSoon')}>
                   <span className="text-md font-semibold leading-none font-mono">@</span>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="w-7 h-7 grid place-items-center rounded-field text-ink-400 hover:bg-line-soft hover:text-ink-900 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-                  title={t('workflowSoon')}
-                >
+                </ComposerIconBtn>
+                <ComposerIconBtn title={t('workflowSoon')}>
                   <span className="text-md font-semibold leading-none font-mono">/</span>
-                </button>
+                </ComposerIconBtn>
                 <span className="ml-2 text-xs text-ink-400 hidden sm:inline-flex items-center gap-1.5">
                   <kbd className="inline-flex items-center justify-center px-1 h-4 text-micro text-ink-500 rounded bg-canvas border border-line font-mono">
                     <CornerDownLeft className="w-2.5 h-2.5" />
@@ -479,7 +466,7 @@ export default function WorkspacePage() {
                 <button
                   type="submit"
                   disabled={!selectedAgent || !input.trim() || sending}
-                  className="ml-auto w-8 h-7 grid place-items-center rounded-field bg-ink-900 text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="ml-auto w-8 h-7 grid place-items-center rounded-field bg-ink-900 text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                 >
                   {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                 </button>
@@ -557,10 +544,27 @@ function HeaderIconBtn({
     <button
       type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
       className={`w-7 h-7 grid place-items-center rounded-field transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
         active ? 'bg-primary-soft text-primary-hover' : 'text-ink-500 hover:bg-line-soft hover:text-ink-900'
       }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// 三个组合内尚未上线的按钮（附件/提及/工作流）共享同一套图标按钮外观，
+// 且恒为 disabled——直接把 disabled 收进组件里，避免三处重复 155 字符 className。
+function ComposerIconBtn({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      disabled
+      title={title}
+      aria-label={title}
+      className="w-7 h-7 grid place-items-center rounded-field text-ink-400 hover:bg-line-soft hover:text-ink-900 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
     >
       {children}
     </button>
@@ -574,19 +578,17 @@ function FCMessage({
   agent,
   showHead,
   roleLabel,
-  youLabel,
 }: {
   message: ConversationMessage
   agent: Agent | null
   showHead: boolean
   roleLabel: (r: string) => string
-  youLabel: string
 }) {
   const t = useTranslations('workspace')
   const isUser = message.sender_type === 'user'
   const author = isUser
     ? { name: t('you'), role: 'me' }
-    : { name: agent?.name ?? youLabel, role: agent?.role ?? '' }
+    : { name: agent?.name ?? t('agentFallback'), role: agent?.role ?? '' }
 
   const avatar = isUser ? (
     <div className="rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 w-7 h-7 text-micro bg-ink-900">
