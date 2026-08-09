@@ -99,11 +99,11 @@ export default function CreatorDetailPage() {
     try {
       const res  = await fetch(`/api/creators/${id}`)
       const json = await res.json()
-      // /api/creators/[id] always answers a lookup failure (missing id, bad
-      // query, etc.) with 404 + a message — that's a legitimate "no such
-      // creator" application response, not a system failure, so it renders
-      // as the plain not-found state below (no retry). Any other non-ok
-      // status (401/403/500/…) is a real error: prefer the response's own
+      // /api/creators/[id] maps every creators-query error to 404 — mostly
+      // "no such creator", but also rare system faults (bad uuid, RLS, DB
+      // down) it can't tell apart. With no finer signal, 404 renders as the
+      // plain not-found state below (no retry). Any other non-ok status
+      // (401/403/500/…) is a real error: prefer the response's own
       // json.error text, falling back to the generic copy.
       if (!res.ok && res.status !== 404) {
         console.error('Failed to load creator:', res.status, json.error)
