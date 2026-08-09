@@ -45,6 +45,10 @@ const DOOR_ATTACH_THRESHOLD = AREA_WALL_THICKNESS / 2 + 30
 // don't push labels off the top of the viewport.
 const LABEL_LEADER_HEIGHT = 60
 
+// 悬浮在 3D 画布之上的 DOM 按钮外观（场景内的工程语义色不适用这里）。
+const OVERLAY_BUTTON_CLASS =
+  'rounded-field border border-primary-border bg-surface px-3 py-1.5 text-sm font-medium text-primary-hover shadow-card hover:bg-primary-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+
 type TransformMode = 'select' | 'translate' | 'rotate' | 'scale'
 type DoorType = Extract<VenueMarkerType, 'door_inward' | 'door_outward' | 'door_sliding'>
 type WallSide = 'N' | 'S' | 'W' | 'E'
@@ -329,19 +333,20 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         />
       </Canvas>
 
+      {/* 覆盖在 3D 场景之上的 DOM 控件（非场景内绘制）→ 走设计系统 chrome。 */}
       <div className="absolute top-3 right-3 z-20 flex gap-2">
         <button
           type="button"
           onClick={() => setShowLabels((v) => !v)}
           aria-pressed={!showLabels}
-          className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 shadow ring-1 ring-indigo-100 hover:bg-indigo-50"
+          className={OVERLAY_BUTTON_CLASS}
         >
           {showLabels ? t('hideLabels') : t('showLabels')}
         </button>
         <button
           type="button"
           onClick={() => setCeilingNonce((n) => n + 1)}
-          className="rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm font-medium text-indigo-700 shadow ring-1 ring-indigo-100 hover:bg-indigo-50"
+          className={OVERLAY_BUTTON_CLASS}
         >
           {t('ceilingView')}
         </button>
@@ -661,7 +666,8 @@ function TransformToolbar({
     { id: 'scale',     icon: MoveVertical },
   ]
   return (
-    <div className="absolute left-1/2 top-3 -translate-x-1/2 inline-flex rounded-lg border border-slate-200 bg-white/95 shadow-sm backdrop-blur overflow-hidden">
+    // 变换模式工具条同样是叠在画布上的 DOM chrome，不是场景内容。
+    <div className="absolute left-1/2 top-3 -translate-x-1/2 inline-flex rounded-field border border-line bg-white/95 shadow-card backdrop-blur overflow-hidden">
       {items.map(({ id, icon: Icon }, index) => (
         <button
           key={id}
@@ -670,15 +676,15 @@ function TransformToolbar({
           title={labels[id]}
           aria-label={labels[id]}
           aria-pressed={mode === id}
-          className={`h-9 px-3 inline-flex items-center gap-1.5 text-xs font-medium transition-colors ${
-            index > 0 ? 'border-l border-slate-200' : ''
+          className={`h-9 px-3 inline-flex items-center gap-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+            index > 0 ? 'border-l border-line' : ''
           } ${
             mode === id
-              ? 'bg-indigo-50 text-indigo-700'
-              : 'bg-white text-slate-500 hover:bg-slate-50'
+              ? 'bg-primary-soft text-primary-hover'
+              : 'bg-surface text-ink-500 hover:bg-line-soft'
           }`}
         >
-          <Icon className="w-3.5 h-3.5" />
+          <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
           <span>{labels[id]}</span>
         </button>
       ))}
