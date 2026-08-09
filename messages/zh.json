@@ -1287,8 +1287,7 @@
     "floorStoreyHeight": "层高（米）",
     "mode2d": "2D",
     "mode3d": "3D",
-    "modeSwitchTo2d": "切到 2D 视图",
-    "modeSwitchTo3d": "切到 3D 视图",
+    "viewModeLabel": "视图模式",
     "mode3dLoading": "正在加载 3D 视图…",
     "mode3dMobileHint": "3D 视图建议在桌面端使用",
     "transformSelect": "选择",
@@ -1376,7 +1375,6 @@
       "network": "网"
     },
     "listTabsLabel": "画布对象列表",
-    "viewModeLabel": "视图模式",
     "tabShapes": "空间",
     "tabMarkers": "标识",
     "tabItems": "物品",

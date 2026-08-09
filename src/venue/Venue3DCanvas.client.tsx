@@ -7,6 +7,7 @@ import { Edges, Line, OrbitControls, TransformControls, useTexture } from '@reac
 import { DoubleSide, type Group } from 'three'
 import { useTranslations } from 'next-intl'
 import { MousePointer2, Move, RotateCcw, MoveVertical } from 'lucide-react'
+import Button from '@/components/ui/Button'
 import type { VenueFloor, VenueItem, VenueItemType, VenueMarkerType } from './layoutData'
 import { lightTrussAttachments, isLightType } from '@/venue/layoutData'
 
@@ -44,10 +45,6 @@ const DOOR_ATTACH_THRESHOLD = AREA_WALL_THICKNESS / 2 + 30
 // chip floats. Long enough to clear short items, short enough that tall walls
 // don't push labels off the top of the viewport.
 const LABEL_LEADER_HEIGHT = 60
-
-// 悬浮在 3D 画布之上的 DOM 按钮外观（场景内的工程语义色不适用这里）。
-const OVERLAY_BUTTON_CLASS =
-  'rounded-field border border-primary-border bg-surface px-3 py-1.5 text-sm font-medium text-primary-hover shadow-card hover:bg-primary-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
 
 type TransformMode = 'select' | 'translate' | 'rotate' | 'scale'
 type DoorType = Extract<VenueMarkerType, 'door_inward' | 'door_outward' | 'door_sliding'>
@@ -333,23 +330,19 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         />
       </Canvas>
 
-      {/* 覆盖在 3D 场景之上的 DOM 控件（非场景内绘制）→ 走设计系统 chrome。 */}
+      {/* 覆盖在 3D 场景之上的 DOM 控件（非场景内绘制）→ 走设计系统 chrome。
+          两个按钮没有本地变体/状态逻辑，直接用共享 Button secondary。 */}
       <div className="absolute top-3 right-3 z-20 flex gap-2">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => setShowLabels((v) => !v)}
           aria-pressed={!showLabels}
-          className={OVERLAY_BUTTON_CLASS}
         >
           {showLabels ? t('hideLabels') : t('showLabels')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setCeilingNonce((n) => n + 1)}
-          className={OVERLAY_BUTTON_CLASS}
-        >
+        </Button>
+        <Button variant="secondary" onClick={() => setCeilingNonce((n) => n + 1)}>
           {t('ceilingView')}
-        </button>
+        </Button>
       </div>
 
       {showLabels && (
@@ -676,8 +669,8 @@ function TransformToolbar({
           title={labels[id]}
           aria-label={labels[id]}
           aria-pressed={mode === id}
-          className={`h-9 px-3 inline-flex items-center gap-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
-            index > 0 ? 'border-l border-line' : ''
+          className={`h-8 px-3 inline-flex items-center gap-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+            index > 0 ? 'border-l border-line-strong' : ''
           } ${
             mode === id
               ? 'bg-primary-soft text-primary-hover'

@@ -1287,8 +1287,7 @@
     "floorStoreyHeight": "Storey height (m)",
     "mode2d": "2D",
     "mode3d": "3D",
-    "modeSwitchTo2d": "Switch to 2D view",
-    "modeSwitchTo3d": "Switch to 3D view",
+    "viewModeLabel": "View mode",
     "mode3dLoading": "Loading 3D view…",
     "mode3dMobileHint": "3D view works best on a desktop",
     "transformSelect": "Select",
@@ -1376,7 +1375,6 @@
       "network": "N"
     },
     "listTabsLabel": "Canvas object list",
-    "viewModeLabel": "View mode",
     "tabShapes": "Spaces",
     "tabMarkers": "Markers",
     "tabItems": "Items",

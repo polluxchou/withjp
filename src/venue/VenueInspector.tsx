@@ -71,7 +71,7 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
         >
           <PanelRightOpen className="w-4 h-4" strokeWidth={1.5} />
         </button>
-        <span className="text-xs font-medium text-ink-400 uppercase tracking-wide [writing-mode:vertical-rl]">
+        <span className="text-xs font-medium text-ink-500 uppercase tracking-wide [writing-mode:vertical-rl]">
           {t('inspectorTitle')}
         </span>
       </aside>
@@ -288,9 +288,11 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
         </Field>
 
         {/* 对象 ID 保持 readOnly 而非 disabled：用户仍需要能选中复制它。
-            font-mono 是 §2 的编号规则，且不与 Input 基础类冲突。 */}
+            但 readOnly 不触发 Input 自带的 disabled: 样式，只读感会丢，
+            所以在调用侧用 read-only: 变体补上灰底 + 弱化文字（这两条覆盖的是
+            伪类态，不与基础类冲突）。font-mono 是 §2 的编号规则。 */}
         <Field label={t('fieldId')}>
-          <Input value={item.id} readOnly className="font-mono" />
+          <Input value={item.id} readOnly className="font-mono read-only:bg-canvas read-only:text-ink-500" />
         </Field>
 
         {item && (
@@ -350,7 +352,7 @@ function LayerButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="h-9 rounded-field border border-line-strong bg-surface text-ink-500 inline-flex items-center justify-center hover:border-primary-border hover:text-primary-hover disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:border-line-strong disabled:hover:text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+      className="h-8 rounded-field border border-line-strong bg-surface text-ink-500 inline-flex items-center justify-center hover:border-primary-border hover:text-primary-hover disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:border-line-strong disabled:hover:text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
     >
       <Icon className="w-4 h-4" strokeWidth={1.5} />
     </button>

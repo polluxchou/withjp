@@ -1424,8 +1424,7 @@
     "floorStoreyHeight": "階高（m）",
     "mode2d": "2D",
     "mode3d": "3D",
-    "modeSwitchTo2d": "2D ビューに切り替え",
-    "modeSwitchTo3d": "3D ビューに切り替え",
+    "viewModeLabel": "表示モード",
     "mode3dLoading": "3D ビューを読み込み中…",
     "mode3dMobileHint": "3D ビューはデスクトップでの利用を推奨します",
     "transformSelect": "選択",
@@ -1513,7 +1512,6 @@
       "network": "ネ"
     },
     "listTabsLabel": "キャンバスオブジェクト一覧",
-    "viewModeLabel": "表示モード",
     "tabShapes": "スペース",
     "tabMarkers": "マーカー",
     "tabItems": "備品",
