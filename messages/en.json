@@ -21,7 +21,9 @@
     "singleDay": "Single day",
     "days": "{count, plural, =1 {1 day} other {# days}}",
     "emptyTitle": "Nothing here yet",
-    "emptyHint": "Add the first one!"
+    "emptyHint": "Add the first one!",
+    "errorTitle": "Something went wrong",
+    "retry": "Retry"
   },
   "nav": {
     "dashboard": "Dashboard",

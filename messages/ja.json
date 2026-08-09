@@ -21,7 +21,9 @@
     "singleDay": "1日のみ",
     "days": "{count}日",
     "emptyTitle": "まだ記録がありません",
-    "emptyHint": "最初の1件を追加しましょう"
+    "emptyHint": "最初の1件を追加しましょう",
+    "errorTitle": "読み込みに失敗しました",
+    "retry": "再試行"
   },
   "nav": {
     "dashboard": "ダッシュボード",
