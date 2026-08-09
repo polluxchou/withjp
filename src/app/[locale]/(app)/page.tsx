@@ -74,7 +74,6 @@ async function getDashboardData() {
 export default async function DashboardPage() {
   const { stats, recentTasks, recentCreators } = await getDashboardData()
   const t = await getTranslations('dashboard')
-  const tCreators = await getTranslations('creators')
   const tStatus = await getTranslations('status')
   const tTasks = await getTranslations('tasks')
   const locale = await getLocale()
@@ -100,23 +99,23 @@ export default async function DashboardPage() {
         <StatBand>
           <Stat
             label={t('totalCreators')}
-            value={stats?.total_creators ?? 0}
+            value={stats.total_creators}
             note={t('acrossAllStages')}
           />
           <Stat
             label={t('totalRevenue')}
-            value={fmt(stats?.total_revenue ?? 0)}
-            note={`${t('profit')}: ${fmt(stats?.total_profit ?? 0)}`}
+            value={fmt(stats.total_revenue)}
+            note={`${t('profit')}: ${fmt(stats.total_profit)}`}
           />
           <Stat
             label={t('avgROI')}
-            value={`${(stats?.avg_roi ?? 0).toFixed(1)}%`}
-            note={t('profitableCreators', { count: stats?.profitable_creators ?? 0 })}
+            value={`${stats.avg_roi.toFixed(1)}%`}
+            note={t('profitableCreators', { count: stats.profitable_creators })}
           />
           <Stat
             label={t('openTasks')}
-            value={(stats?.pending_tasks ?? 0) + (stats?.running_tasks ?? 0)}
-            note={t('completedTotal', { count: stats?.done_tasks ?? 0 })}
+            value={stats.pending_tasks + stats.running_tasks}
+            note={t('completedTotal', { count: stats.done_tasks })}
           />
         </StatBand>
       </div>
@@ -137,8 +136,8 @@ export default async function DashboardPage() {
           >
             <div className="space-y-3">
               {ALL_STATUSES.map((s) => {
-                const count = stats?.creators_by_status[s] ?? 0
-                const total = stats?.total_creators || 1
+                const count = stats.creators_by_status[s]
+                const total = stats.total_creators || 1
                 return (
                   <div key={s}>
                     <div className="flex items-center justify-between text-xs mb-1.5">
@@ -177,7 +176,7 @@ export default async function DashboardPage() {
                     href={task.creator ? `/creators/${task.creator.id}` : undefined}
                     status={toneOf('task', task.status)}
                     title={task.title}
-                    meta={task.creator ? [{ text: `${task.creator.name} · ${task.creator.platform}` }] : []}
+                    meta={task.creator ? [{ text: task.creator.name }, { text: task.creator.platform }] : []}
                     tags={
                       <div className="flex items-center gap-1.5 flex-none">
                         {/* status dot alone is color-only — pair it with the
@@ -215,7 +214,7 @@ export default async function DashboardPage() {
                   title={c.name}
                   meta={[
                     { text: c.platform },
-                    { text: c.profile?.niche ?? tCreators('noNiche') },
+                    ...(c.profile?.niche ? [{ text: c.profile.niche }] : []),
                   ]}
                   tags={
                     <div className="flex items-center gap-1.5 flex-none">

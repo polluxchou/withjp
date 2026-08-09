@@ -37,7 +37,7 @@ export default function TaskCard({ task }: TaskCardProps) {
   const t = useTranslations('tasks')
 
   return (
-    <div className="bg-surface border border-line rounded-card shadow-card p-4 flex items-start gap-3 hover:shadow-pop transition-shadow">
+    <div className="bg-surface border border-line rounded-card shadow-card p-4 flex items-start gap-3 hover:border-line-strong transition-colors">
       <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${TONE_TEXT[tone]} ${task.status === 'running' ? 'animate-spin' : ''}`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
