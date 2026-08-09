@@ -713,7 +713,6 @@ export default function ExpensesPage() {
           </div>
         ) : visibleExpenses.length === 0 ? (
           <EmptyState
-            emoji="🧾"
             title={t('empty')}
             action={<button type="button" onClick={() => setShowForm(true)} className="mt-1 text-sm text-primary font-medium hover:underline">{t('addFirst')}</button>}
           />

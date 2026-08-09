@@ -21,7 +21,9 @@
     "singleDay": "单日",
     "days": "{count}天",
     "emptyTitle": "还没有记录",
-    "emptyHint": "添加第一条吧"
+    "emptyHint": "添加第一条吧",
+    "errorTitle": "加载出错了",
+    "retry": "重试"
   },
   "nav": {
     "dashboard": "仪表盘",
