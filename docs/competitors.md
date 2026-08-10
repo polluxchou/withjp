@@ -146,7 +146,6 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 - `ShotAlbum`：截图相册。折叠态换行网格（大图约「上下 2 张≈一屏」/ 小图更密）；「查看全部」展开为按 ISO 周分组网格；lightbox 放大；每图删除；`compact` 小图模式。
 - `ShotUploader`：上传格。点击选图或 ⌘V 粘贴（`compressImage` 客户端压缩后上传）；`compact` 小尺寸。
 - `WeeklyFollowersCurve`：近 4 周粉丝曲线（复用 `chart.buildSparklinePoints`）；`compact` 纤细一行。
-- `Sparkline`：保留（原 mini 折线基础组件）。
 - `compressImage.ts`：canvas 缩到长边 ≤1280 + 转 WebP(q0.82)，压不小则回退原图、GIF 跳过——降低 Supabase 存储 / 出网流量。
 
 导航：侧栏「创作者」分组下 `/creators`（创作者列表）+ `/competitors`（竞品监测）。
