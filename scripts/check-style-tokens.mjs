@@ -13,6 +13,10 @@
 // 即可跳过该行扫描。
 //
 // 白名单：图表主题与全局 token 定义处允许 hex。
+//
+// 正向校验：token 家族（ink/line/primary/...）下的色阶/变体必须真实登记于
+// tailwind.config.ts，否则类名不会被生成、静默失效（教训：text-ink-600，
+// design-system §7）。此类违规不走基线，一律致命。
 import { readFileSync, writeFileSync, readdirSync, lstatSync, existsSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -36,6 +40,53 @@ const PATTERNS = [
   // 16px 不在排版阶梯上（design-system §2）
   { name: 'text-base', re: /\btext-base\b/g },
 ]
+
+// 从 tailwind.config.ts 解析已登记 token：colors 顶层键为家族名，嵌套键为
+// 色阶/变体（DEFAULT = 裸家族名）；backgroundImage 键一并纳入（bg-primary-gradient）。
+// 嵌套对象不含二层大括号，逐字符配平提取块即可。
+function loadRegisteredTokens() {
+  const cfg = readFileSync(join(ROOT, 'tailwind.config.ts'), 'utf8')
+  const tokens = new Set()
+  const families = new Set()
+  for (const section of ['colors', 'backgroundImage']) {
+    const head = cfg.indexOf(`${section}: {`)
+    if (head < 0) continue
+    const open = cfg.indexOf('{', head)
+    let depth = 0
+    let close = open
+    for (let i = open; i < cfg.length; i++) {
+      if (cfg[i] === '{') depth++
+      else if (cfg[i] === '}' && --depth === 0) { close = i; break }
+    }
+    const body = cfg.slice(open + 1, close)
+    const entryRe = /(['"]?)([A-Za-z0-9-]+)\1\s*:\s*(\{[^}]*\}|'[^']*')/g
+    let m
+    while ((m = entryRe.exec(body))) {
+      const [, , key, value] = m
+      if (section === 'colors') families.add(key)
+      if (!value.startsWith('{')) {
+        tokens.add(key)
+        continue
+      }
+      // 单次左到右分词剥掉字符串值：'key': 保留、'value' 剥成 ''，
+      // 避免 'soft-hover' 这类带引号的键造成引号配对错位、吃掉后续键
+      const inner = value.replace(/('[^']*'\s*:)|'[^']*'/g, (m, key) => (key ? m : "''"))
+      const subRe = /(['"]?)([A-Za-z0-9-]+)\1\s*:/g
+      let s
+      while ((s = subRe.exec(inner))) {
+        tokens.add(s[2] === 'DEFAULT' ? key : `${key}-${s[2]}`)
+      }
+    }
+  }
+  return { tokens, families }
+}
+
+const { tokens: REGISTERED, families: FAMILIES } = loadRegisteredTokens()
+const familyAlt = [...FAMILIES].sort((a, b) => b.length - a.length).join('|')
+const USAGE_RE = new RegExp(
+  String.raw`\b(?:bg|text|border|ring|divide|fill|stroke)-((?:${familyAlt})(?:-[a-z0-9]+)*)\b`,
+  'g',
+)
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -73,8 +124,23 @@ const args = process.argv.slice(2)
 const isUpdate = args.includes('--update-baseline')
 const allowIncrease = args.includes('--allow-increase')
 
+// 家族命中但色阶/变体未登记的用法（如 text-ink-600）：类名不会被生成，静默失效。
+function findUnregisteredTokens(text) {
+  const hits = []
+  text.split('\n').forEach((line, idx) => {
+    if (line.includes(IGNORE_MARKER)) return
+    USAGE_RE.lastIndex = 0
+    let m
+    while ((m = USAGE_RE.exec(line))) {
+      if (!REGISTERED.has(m[1])) hits.push({ line: idx + 1, sample: m[0] })
+    }
+  })
+  return hits
+}
+
 const seen = new Set()
 const violationsByFile = {}
+const unregisteredByFile = {}
 for (const file of walk(SRC)) {
   const rel = relative(ROOT, file)
   seen.add(rel)
@@ -82,8 +148,22 @@ for (const file of walk(SRC)) {
   const text = readFileSync(file, 'utf8')
   const violations = findViolations(text)
   if (violations.length) violationsByFile[rel] = violations
+  const unregistered = findUnregisteredTokens(text)
+  if (unregistered.length) unregisteredByFile[rel] = unregistered
 }
 const counts = Object.fromEntries(Object.entries(violationsByFile).map(([k, v]) => [k, v.length]))
+
+// 未登记 token 不走基线（--update-baseline 也拦）：类名压根不会生成，属静默 bug 而非迁移欠账。
+if (Object.keys(unregisteredByFile).length) {
+  for (const [rel, hits] of Object.entries(unregisteredByFile)) {
+    console.error(`\n✗ ${rel} (${hits.length} 处未登记 token)`)
+    for (const h of hits) {
+      console.error(`  ${rel}:${h.line}  [unregistered-token]  "${h.sample}"`)
+    }
+  }
+  console.error('\ncheck-style-tokens 失败：以上 token 家族的色阶/变体未登记于 tailwind.config.ts，类名不会被生成、样式静默失效 —— 请改用已登记 token，或先在 tailwind.config.ts + docs/design-system.md 登记后再用')
+  process.exit(1)
+}
 
 if (isUpdate) {
   let oldBaseline = {}

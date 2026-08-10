@@ -171,7 +171,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 ## 7. 治理
 
-1. `scripts/check-style-tokens.mjs`（挂 `test:copy` + CI `copy.yml`）：禁 slate/indigo/zinc/gray/stone/neutral 数字阶灰、裸 hex、固定透明度 token 带 `/N`、`text-base`；基线机制见 spec §4，终态零容忍；确有例外可整行加注释含 `style-tokens-ignore` 豁免
+1. `scripts/check-style-tokens.mjs`（挂 `test:copy` + CI `copy.yml`）：禁 slate/indigo/zinc/gray/stone/neutral 数字阶灰、裸 hex、固定透明度 token 带 `/N`、`text-base`；基线机制见 spec §4，终态零容忍；确有例外可整行加注释含 `style-tokens-ignore` 豁免。另做正向校验：`text-/bg-/border-/ring-` 等 + token 家族的用法，其色阶/变体必须真实登记于 `tailwind.config.ts`，未登记即致命（不走基线、`--update-baseline` 也拦）——不存在的类名不会被 Tailwind 生成、样式静默失效（教训：`text-ink-600`，ink 只登记了 900/700/500/400）
 2. 组件准入流程见 §6 开头；PR 中出现新的裸样式组合需在描述中说明原因
 3. 本文件与实现不一致 = bug：以先修正的一方为准并同 PR 同步另一方
 4. 图表新增系列色、状态新增枚举、z-index 新增层：先登记本文件，再写代码
