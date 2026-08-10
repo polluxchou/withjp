@@ -113,7 +113,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **圆角**：card `14px`（`rounded-card`）/ field·chip `10px`（`rounded-field`）/ 图标 chip `7px`（`rounded-icon`）/ 按钮·药丸·dot·头像 `full`（`rounded-btn`/`rounded-full`）。禁止 `rounded-lg/xl/2xl` 裸用，一律走 token 类名。内嵌几何圆角（外层 radius − 内边距，如 SegmentedControl 按钮）允许任意值（`rounded-[8px]`），但必须加一行注释说明换算依据
 - **阴影两档**：`shadow-card` = `0 1px 3px rgba(33,28,51,.05), 0 8px 24px -12px rgba(124,58,237,.08)`；`shadow-pop`（弹层）= `0 4px 12px rgba(33,28,51,.08), 0 16px 40px -12px rgba(33,28,51,.18)`。禁止 Tailwind 原生 shadow-*。例外：Button primary 的渐变复合阴影（`shadow-[0_2px_6px_rgba(124,58,237,.35),inset_0_1px_0_rgba(255,255,255,.2)]`）与 RecordRow 状态点 halo（`shadow-[0_0_0_3px_var(--*-soft)]`）是各自组件私有的任意值阴影，不登记为第三档通用 token，不受"仅两档"约束
 - **氛围底**：`bg-atmosphere` 单点定义（三层径向渐变，见 spec §3）；页面不得自定义底色/字体族/负 margin 逃逸容器
-- **z-index 层级表**（唯一登记处）：内容 0 · 粘性头 10 · 下拉/popover 40 · 移动端抽屉 50 · Modal 60 · Toast/通知 80。70 档位保留未启用：CommandBar 面板实际复用 Modal(60)（内嵌 PendingActionCard 的编辑 Modal 同层，靠开启顺序压对），触发药丸是内容层浮动按钮取 30；70 要等 Modal 支持「深度感知」（同屏多层按开启顺序取 60+depth）后才能真正启用，见 CommandBar 换皮报告（递延）。抽屉遮罩（Sidebar 移动端 backdrop）取值 40，属抽屉层（50）内部构成而非下拉/popover 语义——遮罩恒在抽屉体正下方一起出现/消失，不与真正的下拉/popover 同屏竞争，数值巧合不算冲突
+- **z-index 层级表**（唯一登记处）：内容 0 · 粘性头 10 · 内容层浮动按钮 30（Sidebar 移动端菜单钮、CommandBar 触发药丸——开任何遮罩层时被压住是期望行为）· 下拉/popover 40 · 移动端抽屉 50 · Modal 60 · Toast/通知 80。**70 保留未启用**：CommandBar 面板直接复用 Modal(60)（内嵌 PendingActionCard 编辑 Modal 同层，按开启顺序压对）；启用 70 需先让 Modal 支持深度感知（同屏多层取 60+depth）。抽屉遮罩（Sidebar 移动端 backdrop）取值 40，属抽屉层（50）内部构成而非下拉/popover 语义——遮罩恒在抽屉体正下方一起出现/消失，不与真正的下拉/popover 同屏竞争，数值巧合不算冲突
 
 ## 4. 动效与交互反馈
 
