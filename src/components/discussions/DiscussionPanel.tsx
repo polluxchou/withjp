@@ -260,9 +260,14 @@ export default function DiscussionPanel({ open, subject, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
+        role="dialog"
+        aria-label={tPanel('title')}
         className="relative bg-surface shadow-pop w-full sm:w-[460px] h-full flex flex-col"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
+        {/* 无 aria-modal：本面板没有 Modal.tsx 那套焦点圈定/Tab 循环实现，
+            SalaryManager 抽屉（tasks/page.tsx）先例已注明——role="dialog" +
+            aria-label + Escape（本文件已有）是不夸大能力的诚实子集。 */}
         {panelContent}
       </div>
     </div>

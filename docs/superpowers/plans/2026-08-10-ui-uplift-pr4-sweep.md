@@ -12,6 +12,8 @@
 
 **明确不做（递延登记，勿顺手）**：PR2 四项递延（Td tone prop 弱化失效 / Modal z-70 深度感知 / CountChip slice 计数 / mutation 错误反馈家族其余页面）、DiscussionPanel→Drawer 抽象、登录页迁移、PR2 changelog 条目（另行查重处理）。
 
+**T2 审查新增递延**：DiscussionPanel.loadThreads 失败仅 set error 无 UI 呈现（静默显示为空列表——属「mutation 错误反馈家族」，随该家族统一修）；讨论簇两种行内错误形态不统一（compose 裸文字 vs ThreadView 横幅）；ThreadView 删除按钮 24px 低于 §4 点击目标下限。
+
 **T1 审查新增递延**：PILL_* 本地常量（出现第三个消费者时走 §6 准入注册 pill 原语）、SegmentedControl 组件级键盘缺口（§6.2 声称 roving tabindex 未实现，doc-vs-impl bug）、FFD YearSummaryTable `<tr onClick>` 行点击重设计（Tr 契约无 onClick，两表须同迁——文件内已有注释）、pill 30px 偏梯高度。
 
 ---
