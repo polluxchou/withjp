@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
+import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import {
   WORK_TASK_TYPE_LABELS,
   WORK_TASK_STATUS_OPTIONS,
@@ -26,9 +27,6 @@ interface Props {
 
 interface Milestone { id: string; title: string }
 interface UserOption { id: string; name: string; user_code: string }
-
-const INPUT = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
-const LABEL = 'block text-xs font-medium text-zinc-700 mb-1'
 
 const REPEAT_OPTIONS = Object.entries(WORK_TASK_REPEAT_INTERVAL_LABELS) as [WorkTaskRepeatInterval, string][]
 
@@ -200,67 +198,63 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
   return (
     <form onSubmit={submit} className="space-y-4">
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>
+        <div className="text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">{error}</div>
       )}
 
       {/* Row 0: 业务 → 任务 → 事项(必填) */}
       <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className={LABEL}>{t('selectBusiness')}</label>
-          <select value={selBusinessId} className={INPUT}
+        <Field label={t('selectBusiness')}>
+          <Select value={selBusinessId}
             onChange={(e) => { setSelBusinessId(e.target.value); setSelTaskId(''); setOwnerFromCreator(false); setForm((f) => ({ ...f, business_task_item_id: '', business_task_item_name: '' })) }}>
             <option value="">{t('itemPlaceholder')}</option>
             {businesses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={LABEL}>{t('selectTask')}</label>
-          <select value={selTaskId} className={INPUT} disabled={!selBusinessId}
+          </Select>
+        </Field>
+        <Field label={t('selectTask')}>
+          <Select value={selTaskId} disabled={!selBusinessId}
             onChange={(e) => { setSelTaskId(e.target.value); setOwnerFromCreator(false); setForm((f) => ({ ...f, business_task_item_id: '', business_task_item_name: '' })) }}>
             <option value="">{t('selectTask')}</option>
             {tasksOfBiz.map((tk) => <option key={tk.id} value={tk.id}>{tk.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={LABEL}>{t('itemField')}</label>
-          <select value={form.business_task_item_id} className={INPUT} disabled={!selTaskId}
+          </Select>
+        </Field>
+        <Field label={t('itemField')}>
+          <Select value={form.business_task_item_id} disabled={!selTaskId}
             onChange={(e) => onPickItem(e.target.value)}>
             <option value="">{t('selectItem')}</option>
             {itemsOfTask.map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
-          </select>
-        </div>
+          </Select>
+        </Field>
       </div>
       {ownerFromCreator && (
-        <div className="text-xs text-amber-600">{t('ownerFromCreatorHint')}</div>
+        <div className="text-xs text-warning-text">{t('ownerFromCreatorHint')}</div>
       )}
 
       {/* Row 1: Type + Title with fuzzy suggestions */}
       <div className="grid grid-cols-4 gap-3">
-        <div>
-          <label className={LABEL}>{t('taskType')}</label>
-          <select value={form.task_type} onChange={set('task_type')} className={INPUT}>
+        <Field label={t('taskType')}>
+          <Select value={form.task_type} onChange={set('task_type')}>
             {(['fixed', 'adhoc'] as WorkTaskType[]).map((tt) => (
               <option key={tt} value={tt}>{WORK_TASK_TYPE_LABELS[tt]}</option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
         <div className="col-span-3 relative" ref={suggestionsRef}>
-          <label className={LABEL}>{t('titleField')}</label>
-          <input
-            value={form.title}
-            onChange={set('title')}
-            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-            placeholder={t('titleSuggestionPlaceholder')}
-            className={INPUT}
-            autoComplete="off"
-          />
+          <Field label={t('titleField')}>
+            <Input
+              value={form.title}
+              onChange={set('title')}
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              placeholder={t('titleSuggestionPlaceholder')}
+              autoComplete="off"
+            />
+          </Field>
           {showSuggestions && (
-            <ul className="absolute z-20 top-full mt-1 w-full bg-white border border-zinc-200 rounded-lg shadow-md overflow-hidden text-sm">
+            <ul className="absolute z-20 top-full mt-1 w-full bg-surface border border-line rounded-field shadow-pop overflow-hidden text-sm">
               {suggestions.map((s) => (
                 <li
                   key={s}
                   onMouseDown={() => pickSuggestion(s)}
-                  className="px-3 py-2 cursor-pointer hover:bg-primary-soft text-zinc-700 truncate"
+                  className="px-3 py-2 cursor-pointer hover:bg-primary-soft text-ink-700 truncate"
                 >
                   {s}
                 </li>
@@ -272,137 +266,125 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
 
       {/* Row 2: Start date + Due date + Department + Effort */}
       <div className="grid grid-cols-4 gap-3">
-        <div>
-          <label className={LABEL}>{t('date')}</label>
-          <input type="date" value={form.task_date} onChange={set('task_date')} className={INPUT} />
-        </div>
-        <div>
-          <label className={LABEL}>{t('dueDate')}</label>
-          <input type="date" value={form.due_date} onChange={set('due_date')} className={INPUT} />
-        </div>
-        <div>
-          <label className={LABEL}>{t('department')}</label>
-          <select value={form.department} onChange={set('department')} className={INPUT}>
+        <Field label={t('date')}>
+          <Input type="date" value={form.task_date} onChange={set('task_date')} />
+        </Field>
+        <Field label={t('dueDate')}>
+          <Input type="date" value={form.due_date} onChange={set('due_date')} />
+        </Field>
+        <Field label={t('department')}>
+          <Select value={form.department} onChange={set('department')}>
             {DEPARTMENT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-          </select>
-        </div>
-        <div>
-          <label className={LABEL}>{t('hours')}</label>
-          <select value={form.effort_hours} onChange={set('effort_hours')} className={INPUT}>
+          </Select>
+        </Field>
+        <Field label={t('hours')}>
+          <Select value={form.effort_hours} onChange={set('effort_hours')}>
             {([2, 4, 8] as WorkTaskEffort[]).map((h) => (
               <option key={h} value={h}>{EFFORT_LABELS[h]}</option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
       </div>
 
       {/* Row 3: Status + Repeat interval (only for fixed tasks) */}
       <div className="grid grid-cols-4 gap-3">
-        <div>
-          <label className={LABEL}>{t('status')}</label>
-          <select value={form.status} onChange={set('status')} className={INPUT}>
+        <Field label={t('status')}>
+          <Select value={form.status} onChange={set('status')}>
             {WORK_TASK_STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
         {form.task_type === 'fixed' && (
-          <div>
-            <label className={LABEL}>{t('repeatInterval')}</label>
-            <select value={form.repeat_interval} onChange={set('repeat_interval')} className={INPUT}>
+          <Field label={t('repeatInterval')}>
+            <Select value={form.repeat_interval} onChange={set('repeat_interval')}>
               <option value="">{t('noRepeat')}</option>
               {REPEAT_OPTIONS.map(([v, label]) => (
                 <option key={v} value={v}>{label}</option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
         )}
       </div>
 
       {/* Row 4: Milestone */}
-      <div>
-        <label className={LABEL}>{t('milestone')}</label>
-        <select value={form.milestone_id} onChange={set('milestone_id')} className={INPUT}>
+      <Field label={t('milestone')}>
+        <Select value={form.milestone_id} onChange={set('milestone_id')}>
           <option value="">{t('milestoneNone')}</option>
           {milestones.map((m) => (
             <option key={m.id} value={m.id}>{m.title}</option>
           ))}
-        </select>
-      </div>
+        </Select>
+      </Field>
 
       {/* Row 5: Owner + Reviewer + Executors */}
       <div className="grid grid-cols-4 gap-3">
-        <div>
-          <label className={LABEL}>{t('owner')}</label>
-          <select value={form.owner_user_id} onChange={set('owner_user_id')} className={INPUT}>
+        <Field label={t('owner')}>
+          <Select value={form.owner_user_id} onChange={set('owner_user_id')}>
             <option value="">{t('ownerSelect')}</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
-          </select>
-        </div>
-        <div>
-          <label className={LABEL}>{t('reviewer')}</label>
-          <select value={form.reviewer_user_id} onChange={set('reviewer_user_id')} className={INPUT}>
+          </Select>
+        </Field>
+        <Field label={t('reviewer')}>
+          <Select value={form.reviewer_user_id} onChange={set('reviewer_user_id')}>
             <option value="">{t('reviewerNone')}</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
         <div className="col-span-2">
-          <label className={LABEL}>{t('assignees')}</label>
-          <div className="flex flex-wrap gap-1.5 border border-zinc-200 rounded-lg p-2 min-h-[38px]">
-            {users.filter((u) => u.id !== form.owner_user_id).map((u) => {
-              const selected = form.executor_ids.includes(u.id)
-              return (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => toggleExecutor(u.id)}
-                  className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                    selected
-                      ? 'bg-primary text-white'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                  }`}
-                >
-                  {u.name}
-                </button>
-              )
-            })}
-            {users.length === 0 && (
-              <span className="text-xs text-zinc-400">{tCommon('loading')}</span>
-            )}
-          </div>
+          <Field label={t('assignees')}>
+            <div role="group" aria-label={t('assignees')} className="flex flex-wrap gap-1.5 border border-line-strong rounded-field p-2 min-h-[38px]">
+              {users.filter((u) => u.id !== form.owner_user_id).map((u) => {
+                const selected = form.executor_ids.includes(u.id)
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => toggleExecutor(u.id)}
+                    className={`px-2 py-0.5 rounded-btn text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
+                      selected
+                        ? 'bg-primary text-white'
+                        : 'bg-muted-soft text-muted-text hover:bg-line-soft'
+                    }`}
+                  >
+                    {u.name}
+                  </button>
+                )
+              })}
+              {users.length === 0 && (
+                <span className="text-xs text-ink-400">{tCommon('loading')}</span>
+              )}
+            </div>
+          </Field>
         </div>
       </div>
 
       {/* Row 6: Completion criteria */}
-      <div>
-        <label className={LABEL}>{t('completionCriteria')}</label>
-        <textarea
+      <Field label={t('completionCriteria')}>
+        <Textarea
           value={form.completion_criteria}
           onChange={set('completion_criteria')}
           rows={2}
           placeholder={t('completionCriteriaPlaceholder')}
-          className={`${INPUT} resize-none`}
         />
-      </div>
+      </Field>
 
       {/* Row 7: Description + Notes */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className={LABEL}>{t('description')}</label>
-          <textarea value={form.description} onChange={set('description')} rows={2}
-            placeholder={t('descriptionPlaceholder')} className={`${INPUT} resize-none`} />
-        </div>
-        <div>
-          <label className={LABEL}>{t('notes')}</label>
-          <textarea value={form.notes} onChange={set('notes')} rows={2}
-            placeholder={t('notesPlaceholder')} className={`${INPUT} resize-none`} />
-        </div>
+        <Field label={t('description')}>
+          <Textarea value={form.description} onChange={set('description')} rows={2}
+            placeholder={t('descriptionPlaceholder')} />
+        </Field>
+        <Field label={t('notes')}>
+          <Textarea value={form.notes} onChange={set('notes')} rows={2}
+            placeholder={t('notesPlaceholder')} />
+        </Field>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
