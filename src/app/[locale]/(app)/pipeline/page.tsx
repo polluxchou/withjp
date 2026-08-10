@@ -53,54 +53,52 @@ export default function PipelinePage() {
 
   useEffect(() => { load() }, [load])
 
+  // 四个迁移操作（advance/rollback/terminate/reactivate）共用的提交通道。
+  // moving 复位放 finally——此前裸 await 下网络异常会跳过复位，按钮永久卡
+  // 在 '...'；失败沿用 load() 的 loadError+ErrorState 呈现（页面无 Toast），
+  // 服务端 error 信封优先、无则回退 tCommon('loadFailed')。
+  async function runTransition(creator: Creator, body: Record<string, unknown>) {
+    setMoving(creator.id)
+    try {
+      const res = await fetch(`/api/creators/${creator.id}/transition`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        console.error('Failed to transition creator:', res.status, json?.error)
+        throw new Error(typeof json?.error === 'string' ? json.error : tCommon('loadFailed'))
+      }
+      await load()
+    } catch (err) {
+      console.error('Failed to transition creator:', err)
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
+    } finally {
+      setMoving(null)
+    }
+  }
+
   async function advance(creator: Creator) {
     const next = nextStatus(creator.status)
     if (!next) return
-    setMoving(creator.id)
-    await fetch(`/api/creators/${creator.id}/transition`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to_status: next, triggered_by: 'user' }),
-    })
-    await load()
-    setMoving(null)
+    await runTransition(creator, { to_status: next, triggered_by: 'user' })
   }
 
   async function rollback(creator: Creator, targetStatus: CreatorStatus) {
     if (!canTransition(creator.status, targetStatus)) return
-    setMoving(creator.id)
-    await fetch(`/api/creators/${creator.id}/transition`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to_status: targetStatus, triggered_by: 'user', notes: 'Rollback operation' }),
-    })
-    await load()
-    setMoving(null)
+    await runTransition(creator, { to_status: targetStatus, triggered_by: 'user', notes: 'Rollback operation' })
   }
 
   async function terminate(creator: Creator) {
     if (!canTransition(creator.status, 'terminated')) return
     if (typeof window !== 'undefined' && !window.confirm(t('confirmTerminate'))) return
-    setMoving(creator.id)
-    await fetch(`/api/creators/${creator.id}/transition`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to_status: 'terminated', triggered_by: 'user', notes: 'Contract terminated' }),
-    })
-    await load()
-    setMoving(null)
+    await runTransition(creator, { to_status: 'terminated', triggered_by: 'user', notes: 'Contract terminated' })
   }
 
   async function reactivate(creator: Creator) {
     if (!canTransition(creator.status, 'contacted')) return
-    setMoving(creator.id)
-    await fetch(`/api/creators/${creator.id}/transition`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to_status: 'contacted', triggered_by: 'user', notes: 'Reactivated' }),
-    })
-    await load()
-    setMoving(null)
+    await runTransition(creator, { to_status: 'contacted', triggered_by: 'user', notes: 'Reactivated' })
   }
 
   function getPreviousStatus(current: CreatorStatus): CreatorStatus | null {
