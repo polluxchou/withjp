@@ -4,6 +4,8 @@ import { MessageSquare, CheckCircle2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useDiscussionCount } from './DiscussionContext'
 import type { SubjectInput } from '@/lib/discussions/types'
+import { toneOf, type Tone } from '@/lib/ui/status-tone'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 
 interface Props {
   subject:   SubjectInput
@@ -30,29 +32,32 @@ export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
 
   let label: string
   let Icon  = MessageSquare
-  let tone:  'open' | 'resolved' | 'empty'
+  // 'open'/'resolved' 复用 ThreadStatus 枚举→tone 映射（status-tone.ts §thread
+  // 域，design-system.md §1.3「讨论」行）；'empty' 不是持久化状态，只是本组件
+  // 自己的第三种展示态（还没有任何讨论串），不进状态枚举映射表。
+  let tone:  Tone
   let ariaLabel: string
   if (hasOpen) {
     label = t('open',     { count: openCount })
     ariaLabel = t('ariaOpen', { count: openCount })
-    tone  = 'open'
+    tone  = toneOf('thread', 'open')
   } else if (hasResolved) {
     label = t('resolved',     { count: resolvedCount })
     ariaLabel = t('ariaResolved', { count: resolvedCount })
     Icon  = CheckCircle2
-    tone  = 'resolved'
+    tone  = toneOf('thread', 'resolved')
   } else {
     label = t('default')
     ariaLabel = t('ariaStart')
-    tone  = 'empty'
+    tone  = 'neutral'
   }
 
   const toneClass =
-    tone === 'open'
-      ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
-      : tone === 'resolved'
-      ? 'bg-zinc-50 text-zinc-500 hover:bg-zinc-100 border-zinc-200'
-      : 'bg-white text-zinc-500 hover:bg-zinc-50 border-zinc-200 border-dashed'
+    tone === 'info'
+      ? 'bg-info-soft text-info-text border-info-border'
+      : tone === 'success'
+      ? 'bg-success-soft text-success-text border-success-border'
+      : 'bg-surface text-ink-500 hover:bg-line-soft border-line-strong border-dashed'
 
   const sizeClass = compact
     ? 'px-1.5 py-0.5 text-[11px] gap-1'
@@ -66,13 +71,14 @@ export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
       onClick={onClick}
       aria-label={ariaLabel}
       className={[
-        'inline-flex items-center rounded-md font-medium border transition-colors',
+        'inline-flex items-center rounded-field font-medium border transition-colors',
+        FOCUS_RING,
         sizeClass,
         toneClass,
         loading ? 'opacity-60' : '',
       ].filter(Boolean).join(' ')}
     >
-      <Icon className={iconClass} aria-hidden="true" />
+      <Icon className={iconClass} strokeWidth={1.5} aria-hidden="true" />
       <span>{label}</span>
     </button>
   )
