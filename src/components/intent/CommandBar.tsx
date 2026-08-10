@@ -137,26 +137,27 @@ export default function CommandBar() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-5 z-[70] flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface border border-line shadow-pop hover:bg-canvas transition-colors text-sm text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+        className="fixed right-5 z-30 flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface border border-line shadow-pop hover:bg-canvas transition-colors text-sm text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
         title={t('openButtonTooltip')}
       >
         <Sparkles className="w-4 h-4 text-primary" strokeWidth={1.5} />
         <span className="text-xs font-medium">{t('openButtonLabel')}</span>
-        <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-micro rounded bg-canvas text-ink-400 border border-line">⌘K</kbd>
+        <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-micro rounded-icon bg-canvas text-ink-400 border border-line">⌘K</kbd>
       </button>
 
-      {/* The panel stays on the shared <Modal> (z-60) rather than the
-          layer-table's nominal "CommandBar 70": PendingActionCard (rendered
-          inside ResultView below for pending intents) opens its own nested
-          <Modal> for the "edit and save" flow, and Modal.tsx hardcodes
-          z-[60] internally. Two same-z Modals resolve correctly today via
-          DOM/mount order (the later-opened edit modal paints on top); moving
-          only the outer panel to z-70 would flip that — the edit modal would
-          render behind this panel's opaque body and become unusable. Only
-          the always-visible trigger pill above moves to 70; the panel keeps
-          60 to preserve that nested-modal interaction. See the CommandBar
-          report for Task 7 for the full trade-off. */}
+      {/* Stays on the shared <Modal> (z-60), not the layer-table's nominal
+          "CommandBar 70": PendingActionCard (rendered inside ResultView
+          below for pending intents) opens its own nested <Modal> for the
+          "edit and save" flow, and Modal.tsx hardcodes z-[60] internally.
+          Two same-z Modals resolve correctly today via DOM/mount order (the
+          later-opened edit modal paints on top); bumping just this outer
+          panel to z-70 would flip that — the edit modal would render behind
+          this panel's opaque body and become unusable. The trigger pill
+          above also stays at its original z-30 (a global FAB — z-70 would
+          sit above every Modal app-wide, including footers with primary
+          buttons pinned to the bottom on mobile). 70 stays reserved/unused;
+          see design-system.md §3. */}
       <Modal open={open} onClose={close} title={t('modalTitle')} width="max-w-2xl">
         <div className="space-y-4">
           <form onSubmit={submit} className="flex gap-2">
@@ -299,7 +300,8 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
                 <Tr key={g.key}>
                   <Td className="text-xs">{g.key}</Td>
                   <Td align="right" numeric className="text-xs">{formatValue(g.value, r.aggregate)}</Td>
-                  <Td align="right" className="text-xs tabular-nums text-ink-500">{g.count}</Td>
+                  {/* Td 基底色不可 className 覆盖（生成序），弱化需等 Td tone prop（递延） */}
+                  <Td align="right" className="text-xs tabular-nums">{g.count}</Td>
                 </Tr>
               ))}
             </TBody>
@@ -337,10 +339,10 @@ function ClarificationView({ r }: { r: Extract<ServerResult, { kind: 'clarificat
             <TBody>
               {r.candidates.slice(0, 10).map((c) => (
                 <Tr key={c.id}>
-                  <Td className="text-xs tabular-nums text-ink-500">{c.expense_date}</Td>
+                  <Td className="text-xs tabular-nums">{c.expense_date}</Td>
                   <Td className="text-xs">{c.item_name}</Td>
                   <Td align="right" numeric className="text-xs">¥{Number(c.total_price).toLocaleString('zh-CN')}</Td>
-                  <Td className="text-xs text-ink-500">{c.buyer_name || '—'}</Td>
+                  <Td className="text-xs">{c.buyer_name || '—'}</Td>
                 </Tr>
               ))}
             </TBody>
