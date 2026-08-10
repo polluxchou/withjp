@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import Tag from '@/components/ui/Tag'
+import EmptyState from '@/components/ui/EmptyState'
 import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import { toneOf } from '@/lib/ui/status-tone'
 import WorkTaskForm from './WorkTaskForm'
@@ -98,18 +100,19 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
     .sort((a, b) => weekHours(b.id) - weekHours(a.id))
 
   const today = toDateStr(new Date())
+  const colCount = 1 + weekDates.length + 2  // name + weekdays + totalH + cost
 
   return (
     <div>
       {/* Week navigation */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevWeek} className="p-1.5 rounded-field hover:bg-line-soft text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1">
+        <Button variant="ghost" size="sm" onClick={prevWeek}>
           <ChevronLeft className="w-5 h-5" />
-        </button>
+        </Button>
         <span className="text-sm font-semibold text-ink-700">{weekLabel}</span>
-        <button onClick={nextWeek} className="p-1.5 rounded-field hover:bg-line-soft text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1">
+        <Button variant="ghost" size="sm" onClick={nextWeek}>
           <ChevronRight className="w-5 h-5" />
-        </button>
+        </Button>
       </div>
 
       {/* Grid — member × day matrix, multi-column numeric comparison
@@ -120,7 +123,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
       <div className="bg-surface border border-line rounded-card overflow-hidden">
         <Table minWidth={720} label={weekLabel}>
           <THead>
-            <Th className="w-40">{t('table.member')}</Th>
+            <Th style={{ width: 160 }}>{t('table.member')}</Th>
             {weekDates.map((d, i) => {
               const ds = toDateStr(d)
               const isToday = ds === today
@@ -133,13 +136,13 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                 </Th>
               )
             })}
-            <Th align="center" className="w-20">{t('table.totalHoursCol')}</Th>
-            <Th align="center" className="w-24">{t('table.labourCostCol')}</Th>
+            <Th align="center" style={{ width: 80 }}>{t('table.totalHoursCol')}</Th>
+            <Th align="center" style={{ width: 96 }}>{t('table.labourCostCol')}</Th>
           </THead>
           <TBody>
             {sortedUsers.length === 0 ? (
               <Tr>
-                <Td colSpan={10} className="py-12 text-center text-ink-400">{t('emptyWeek')}</Td>
+                <Td colSpan={colCount}><EmptyState title={t('emptyWeek')} /></Td>
               </Tr>
             ) : (
               sortedUsers.map((u) => (
@@ -198,7 +201,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                 {weekStrs.map((ds) => {
                   const totalH = sortedUsers.reduce((s, u) => s + hoursForUserDay(u.id, ds), 0)
                   return (
-                    <td key={ds} className="px-1 py-2 text-center text-xs font-medium text-ink-600 tabular-nums">
+                    <td key={ds} className="px-1 py-2 text-center text-xs font-medium text-ink-500 tabular-nums">
                       {totalH > 0 ? `${totalH}h` : ''}
                     </td>
                   )
@@ -241,7 +244,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
           <div className="space-y-2">
             {detail.tasks.map((task) => (
               <div key={task.id} className="flex items-center gap-2 px-3 py-2 bg-canvas rounded-field">
-                <span className="text-xs font-medium text-ink-600 flex-1">{task.title}</span>
+                <span className="text-xs font-medium text-ink-700 flex-1">{task.title}</span>
                 <span className="text-xs text-ink-400 tabular-nums">{task.effort_hours}h</span>
                 <Tag
                   size="sm"
