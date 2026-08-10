@@ -31,8 +31,6 @@ const SRC = path.join(ROOT, 'src')
 // entry only if a single PR needs to land partial migration; the ratchet's
 // stale-allowlist check will flag it for removal once the file is fully
 // migrated.
-// NextTimelineView migrated to useTranslations() in the timeline/PR2
-// design-language pass — no bare Han remains, so the entry is removed.
 const ALLOWLIST = new Set([])
 
 function* walkFiles(dir) {

@@ -677,7 +677,6 @@
       "seriesCompleted": "完了済み",
       "seriesActive": "開始済み",
       "tooltipMonthMilestones": "今月のマイルストーン",
-      "empty": "データなし",
       "gap": "今日時点で計画では <strong>{planned}</strong> 件完了予定のところ、実際は <strong>{done}</strong> 件完了、<strong>{gap}</strong> 件の差があります。"
     },
     "detail": {

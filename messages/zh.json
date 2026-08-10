@@ -677,7 +677,6 @@
       "seriesCompleted": "已完成",
       "seriesActive": "已启动",
       "tooltipMonthMilestones": "本月节点",
-      "empty": "还没有数据",
       "gap": "截至今天，计划应完成 <strong>{planned}</strong> 个节点，实际完成 <strong>{done}</strong> 个，缺口 <strong>{gap}</strong> 个。"
     },
     "detail": {
