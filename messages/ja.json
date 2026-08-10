@@ -770,7 +770,9 @@
     "periodWeek": "週",
     "periodMonth": "月",
     "salarySettings": "給与設定",
-    "salaryManagement": "給与管理"
+    "salaryManagement": "給与管理",
+    "periodGroupLabel": "表示期間",
+    "selectDate": "日付を選択"
   },
   "expenses": {
     "title": "支出管理",

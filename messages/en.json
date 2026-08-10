@@ -770,7 +770,9 @@
     "periodWeek": "Week",
     "periodMonth": "Month",
     "salarySettings": "Salary settings",
-    "salaryManagement": "Salary management"
+    "salaryManagement": "Salary management",
+    "periodGroupLabel": "View period",
+    "selectDate": "Select date"
   },
   "expenses": {
     "title": "Expense Management",

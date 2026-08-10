@@ -770,7 +770,9 @@
     "periodWeek": "周",
     "periodMonth": "月",
     "salarySettings": "薪资设置",
-    "salaryManagement": "薪资管理"
+    "salaryManagement": "薪资管理",
+    "periodGroupLabel": "视图周期",
+    "selectDate": "选择日期"
   },
   "expenses": {
     "title": "支出管理",
