@@ -214,9 +214,11 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                           type="button"
                           aria-label={t('org.removeMemberNamed', { name: memberLabel })}
                           onClick={() => removeMember(p.id, m.id)}
-                          // p-1.5 -m-1.5 grows the click target to the §4 ≥32×32
-                          // minimum without shifting the icon's visual position
-                          // (negative margin cancels the added padding's layout footprint).
+                          // p-1.5 -m-1.5 grows the click target from 13px to 25px without
+                          // shifting the icon's visual position (negative margin cancels the
+                          // padding's layout footprint). §4's 32px floor is not reachable here:
+                          // the × rides an 18px-tall Tag pill row, and a true 32px box would
+                          // blow past the 6px gap-1.5 row spacing onto neighboring rows.
                           className="p-1.5 -m-1.5 text-ink-400 hover:text-danger-text rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                         >
                           <X className="w-[13px] h-[13px]" strokeWidth={1.5} />
