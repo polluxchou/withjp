@@ -2,17 +2,21 @@ export const dynamic = 'force-dynamic'
 
 import { createServerClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
-import StatsCard from '@/components/dashboard/StatsCard'
-import TaskCard from '@/components/tasks/TaskCard'
+import { Stat, StatBand } from '@/components/ui/Stat'
+import SectionCard from '@/components/ui/SectionCard'
+import RecordRow from '@/components/ui/RecordRow'
+import ProgressBar from '@/components/ui/ProgressBar'
+import Tag from '@/components/ui/Tag'
 import LifecycleBadge from '@/components/creators/LifecycleBadge'
+import EmptyState from '@/components/ui/EmptyState'
+import { toneOf } from '@/lib/ui/status-tone'
 import {
-  Users, TrendingUp, CheckSquare, DollarSign,
+  Users, CheckSquare,
   ArrowRight, Activity,
 } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { getLocale, getTranslations } from 'next-intl/server'
 import PageGreeting from '@/components/ui/PageGreeting'
-import EmptyState from '@/components/ui/EmptyState'
 import type { DashboardStats, Task, Creator, CreatorStatus } from '@/lib/types'
 import { ALL_STATUSES } from '@/lib/state-machine/creator-lifecycle'
 import { fmtCompact } from '@/lib/currency-format'
@@ -70,8 +74,8 @@ async function getDashboardData() {
 export default async function DashboardPage() {
   const { stats, recentTasks, recentCreators } = await getDashboardData()
   const t = await getTranslations('dashboard')
-  const tCreators = await getTranslations('creators')
   const tStatus = await getTranslations('status')
+  const tTasks = await getTranslations('tasks')
   const locale = await getLocale()
 
   const fmt = (n: number) => `¥${fmtCompact(n, locale)}`
@@ -82,132 +86,146 @@ export default async function DashboardPage() {
         title={<PageGreeting />}
         subtitle={t('subtitle')}
         actions={
-          <Link href="/creators" className="inline-flex items-center gap-1.5 text-sm text-primary font-medium hover:text-violet-800">
+          <Link href="/creators" className="inline-flex items-center gap-1.5 text-sm text-primary font-medium hover:text-primary-hover">
             {t('viewAllCreators')} <ArrowRight className="w-4 h-4" />
           </Link>
         }
       />
 
-      {/* KPI grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
-        <StatsCard
-          label={t('totalCreators')}
-          value={stats?.total_creators ?? 0}
-          icon={Users}
-          sub={t('acrossAllStages')}
-        />
-        <StatsCard
-          label={t('totalRevenue')}
-          value={fmt(stats?.total_revenue ?? 0)}
-          icon={DollarSign}
-          accent="bg-emerald-50 text-emerald-600"
-          sub={`${t('profit')}: ${fmt(stats?.total_profit ?? 0)}`}
-        />
-        <StatsCard
-          label={t('avgROI')}
-          value={`${(stats?.avg_roi ?? 0).toFixed(1)}%`}
-          icon={TrendingUp}
-          accent="bg-blue-50 text-blue-600"
-          sub={t('profitableCreators', { count: stats?.profitable_creators ?? 0 })}
-        />
-        <StatsCard
-          label={t('openTasks')}
-          value={(stats?.pending_tasks ?? 0) + (stats?.running_tasks ?? 0)}
-          icon={CheckSquare}
-          accent="bg-amber-50 text-amber-600"
-          sub={t('completedTotal', { count: stats?.done_tasks ?? 0 })}
-        />
+      {/* KPI band — StatBand + Stat×4 (new language KPI has no icon chip,
+          see docs/design-system.md §6.2; delta/note carry the pre-existing
+          `sub` copy, no trend deltas are available from this data source). */}
+      <div className="mb-8">
+        <StatBand>
+          <Stat
+            label={t('totalCreators')}
+            value={stats.total_creators}
+            note={t('acrossAllStages')}
+          />
+          <Stat
+            label={t('totalRevenue')}
+            value={fmt(stats.total_revenue)}
+            note={`${t('profit')}: ${fmt(stats.total_profit)}`}
+          />
+          <Stat
+            label={t('avgROI')}
+            value={`${stats.avg_roi.toFixed(1)}%`}
+            note={t('profitableCreators', { count: stats.profitable_creators })}
+          />
+          <Stat
+            label={t('openTasks')}
+            value={stats.pending_tasks + stats.running_tasks}
+            note={t('completedTotal', { count: stats.done_tasks })}
+          />
+        </StatBand>
       </div>
 
       {/* Pipeline funnel + recent activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Funnel */}
-        <div className="lg:col-span-1 bg-white border border-zinc-200 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-zinc-400" />
-            <h2 className="text-sm font-semibold text-zinc-900">{t('pipelineFunnel')}</h2>
-          </div>
-          <div className="space-y-2">
-            {ALL_STATUSES.map((s) => {
-              const count = stats?.creators_by_status[s] ?? 0
-              const total = stats?.total_creators || 1
-              const pct   = Math.round((count / total) * 100)
-              return (
-                <div key={s}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-zinc-600">{tStatus(s)}</span>
-                    <span className="font-medium text-zinc-900">{count}</span>
+        <div className="lg:col-span-1">
+          <SectionCard
+            icon={<Activity />}
+            title={t('pipelineFunnel')}
+            accent="violet"
+            footer={
+              <Link href="/pipeline" className="flex items-center gap-1 text-primary font-medium hover:text-primary-hover">
+                {t('openPipeline')} <ArrowRight className="w-3 h-3" />
+              </Link>
+            }
+          >
+            <div className="space-y-3">
+              {ALL_STATUSES.map((s) => {
+                const count = stats.creators_by_status[s]
+                const total = stats.total_creators || 1
+                return (
+                  <div key={s}>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="text-ink-500">{tStatus(s)}</span>
+                      <span className="font-medium text-ink-900 tabular-nums">{count}</span>
+                    </div>
+                    {/* tone="default" pinned explicitly — ProgressBar's own
+                        >90% auto-warning heuristic reads as risk for a
+                        generic progress bar, but a pipeline stage holding
+                        >90% of all creators (e.g. everyone still sitting at
+                        prospect) is a normal distribution shape, not a
+                        warning signal. */}
+                    <ProgressBar value={count} max={total} label={tStatus(s)} tone="default" />
                   </div>
-                  <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-violet-500 rounded-full transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          <Link href="/pipeline" className="mt-4 flex items-center gap-1 text-xs text-primary font-medium hover:text-violet-800">
-            {t('openPipeline')} <ArrowRight className="w-3 h-3" />
-          </Link>
+                )
+              })}
+            </div>
+          </SectionCard>
         </div>
 
         {/* Recent Tasks */}
-        <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-zinc-900">{t('recentTasks')}</h2>
-            <Link href="/tasks" className="text-xs text-primary font-medium hover:text-violet-800">{t('viewAll')}</Link>
-          </div>
-          {recentTasks.length === 0 && (
-            <div className="bg-white border border-zinc-200 rounded-xl">
+        <div className="lg:col-span-2">
+          <SectionCard
+            padding="none"
+            icon={<CheckSquare />}
+            title={t('recentTasks')}
+            actions={<Link href="/tasks" className="text-xs text-primary font-medium hover:text-primary-hover">{t('viewAll')}</Link>}
+          >
+            {recentTasks.length === 0 ? (
               <EmptyState title={t('noTasksYet')} />
-            </div>
-          )}
-          {recentTasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
-          ))}
+            ) : (
+              <div>
+                {recentTasks.map((task) => (
+                  <RecordRow
+                    key={task.id}
+                    href={task.creator ? `/creators/${task.creator.id}` : undefined}
+                    status={toneOf('task', task.status)}
+                    title={task.title}
+                    meta={task.creator ? [{ text: task.creator.name }, { text: task.creator.platform }] : []}
+                    tags={
+                      <div className="flex items-center gap-1.5 flex-none">
+                        {/* status dot alone is color-only — pair it with the
+                            text Tag so status isn't carried by color alone
+                            (design-system §6.2). */}
+                        <Tag size="sm" tone={toneOf('task', task.status)} label={tTasks(task.status)} />
+                        {task.agent?.name && <Tag size="sm" tone="violet" label={task.agent.name} />}
+                      </div>
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </SectionCard>
         </div>
       </div>
 
       {/* Recent Creators */}
       <div className="mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-zinc-900">{t('recentlyAddedCreators')}</h2>
-          <Link href="/creators" className="text-xs text-primary font-medium hover:text-violet-800">{t('viewAll')}</Link>
-        </div>
-        <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+        <SectionCard
+          padding="none"
+          icon={<Users />}
+          title={t('recentlyAddedCreators')}
+          actions={<Link href="/creators" className="text-xs text-primary font-medium hover:text-primary-hover">{t('viewAll')}</Link>}
+        >
           {recentCreators.length === 0 ? (
             <EmptyState title={t('noCreatorsYet')} />
           ) : (
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[560px]">
-              <thead>
-                <tr className="border-b border-zinc-100">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{tCreators('creator')}</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{tCreators('platform')}</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{tCreators('status')}</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{tCreators('niche')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {recentCreators.map((c) => (
-                  <tr key={c.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
-                    <td className="px-5 py-3 font-medium text-zinc-900">{c.name}</td>
-                    <td className="px-5 py-3 text-zinc-500">{c.platform}</td>
-                    <td className="px-5 py-3"><LifecycleBadge status={c.status} size="sm" /></td>
-                    <td className="px-5 py-3 text-zinc-400">{c.profile?.niche ?? '—'}</td>
-                    <td className="px-5 py-3 text-right">
-                      <Link href={`/creators/${c.id}`} className="text-xs text-primary hover:text-violet-800">{tCreators('view')} →</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div>
+              {recentCreators.map((c) => (
+                <RecordRow
+                  key={c.id}
+                  href={`/creators/${c.id}`}
+                  status={toneOf('creator', c.status)}
+                  title={c.name}
+                  meta={[
+                    { text: c.platform },
+                    ...(c.profile?.niche ? [{ text: c.profile.niche }] : []),
+                  ]}
+                  tags={
+                    <div className="flex items-center gap-1.5 flex-none">
+                      <LifecycleBadge status={c.status} size="sm" />
+                    </div>
+                  }
+                />
+              ))}
             </div>
           )}
-        </div>
+        </SectionCard>
       </div>
     </div>
   )
