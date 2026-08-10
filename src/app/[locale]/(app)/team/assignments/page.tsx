@@ -147,7 +147,11 @@ function AgentColumn({
       actions={
         <div className="flex items-center gap-1.5">
           {roleLabel && <Tag size="sm" tone="neutral" label={roleLabel} />}
+          {/* role="img": bare spans are role generic, where aria-label is
+              spec-prohibited and dropped by NVDA/JAWS; img supports naming
+              and ignores contents, so the count reads as its label. */}
           <span
+            role="img"
             className="text-sm font-semibold text-ink-900 tabular-nums"
             aria-label={taskCountLabel(tasks.length)}
             title={taskCountLabel(tasks.length)}
