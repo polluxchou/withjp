@@ -90,9 +90,18 @@ export default function TasksPage() {
       }
 
       const [wt, sal, usr] = await Promise.all([
-        fetch(url).then((r) => r.json()),
-        fetch('/api/user-salary?current=true').then((r) => r.json()),
-        fetch('/api/users').then((r) => r.json()),
+        fetch(url).then((r) => {
+          if (!r.ok) { console.error('Failed to load work tasks:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
+        fetch('/api/user-salary?current=true').then((r) => {
+          if (!r.ok) { console.error('Failed to load salaries:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
+        fetch('/api/users').then((r) => {
+          if (!r.ok) { console.error('Failed to load users:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
       ])
 
       setWorkTasks(wt.data ?? [])
@@ -170,6 +179,7 @@ export default function TasksPage() {
         subtitle={t('subtitle')}
         tabs={
           <Tabs
+            label={t('viewTabsLabel')}
             items={[
               { value: 'workload', label: t('tabWorkload') },
               { value: 'ai',       label: t('tabAi') },
@@ -305,20 +315,31 @@ export default function TasksPage() {
               dialog, so it deliberately keeps its own bespoke structure rather
               than the shared Modal (design-system.md §6.1 lists Modal as
               "阻断式编辑/确认"; this is closer to the DiscussionPanel-style side
-              context slot). Tokenised to match: backdrop z-40 / panel z-50 per
-              the z-index table (§3), same split as Sidebar's mobile drawer. */}
+              context slot). Single outer fixed z-50 container (mirrors
+              Modal.tsx's z-[60] wrapper), backdrop as an absolute-inset-0
+              child, panel as a sibling — backdrop and panel now share one
+              stacking context instead of being two separate top-level fixed
+              elements. That matters because Sidebar's own drawer panel is
+              also z-50 with no breakpoint guard: two separate fixed elements
+              at z-40/z-50 lose to Sidebar's z-50 on the backdrop (so the
+              sidebar stayed clickable through the dim overlay); nested under
+              one z-50 wrapper, the whole drawer paints as a single unit that
+              (being later in the DOM) wins the tie.
+              No aria-modal: it's not backed by a focus trap/inert like Modal
+              provides, so claiming aria-modal would be inaccurate —
+              role="dialog" + aria-label + Escape (handled above) is the
+              honest subset. */}
           {showSalary && (
-            <>
+            <div className="fixed inset-0 z-50">
               <div
-                className="fixed inset-0 bg-black/40 z-40"
+                className="absolute inset-0 bg-black/40"
                 onClick={() => setShowSalary(false)}
                 aria-hidden="true"
               />
               <div
                 role="dialog"
-                aria-modal="true"
                 aria-label={t('salaryManagement')}
-                className="fixed inset-y-0 right-0 z-50 w-full max-w-3xl bg-surface shadow-pop overflow-y-auto p-6"
+                className="absolute inset-y-0 right-0 w-full max-w-3xl bg-surface shadow-pop overflow-y-auto p-6"
               >
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-ink-900 tracking-title">{t('salaryManagement')}</h2>
@@ -333,7 +354,7 @@ export default function TasksPage() {
                 </div>
                 <SalaryManager />
               </div>
-            </>
+            </div>
           )}
         </>
       )}

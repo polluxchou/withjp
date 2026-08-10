@@ -4,14 +4,13 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
-import Button from '@/components/ui/Button'
 import Tag from '@/components/ui/Tag'
 import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import { toneOf } from '@/lib/ui/status-tone'
 import WorkTaskForm from './WorkTaskForm'
 import {
   DEPARTMENT_LABELS,
-  utilisationColor,
+  utilisationTone,
   buildUserWorkloads,
   toDateStr,
   getWeekDates,
@@ -171,9 +170,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                             onClick={() => dayTasks.length > 0 && setDetail({ user: u.name, date: ds, tasks: dayTasks })}
                             className="inline-flex flex-col items-center gap-0.5 rounded-field px-1 py-0.5 hover:bg-row-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                           >
-                            <span className={`text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-full ${utilisationColor(h)}`}>
-                              {h}h
-                            </span>
+                            <Tag variant="soft" size="sm" tone={utilisationTone(h)} label={`${h}h`} />
                             <span className="text-xs text-ink-400">{t('summary.tasksItem', { count: dayTasks.length })}</span>
                           </button>
                         ) : (
@@ -185,9 +182,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
 
                   {/* Total hours */}
                   <Td align="center">
-                    <span className={`text-xs font-semibold tabular-nums px-2 py-0.5 rounded-full ${utilisationColor(weekHours(u.id) / 5)}`}>
-                      {weekHours(u.id)}h
-                    </span>
+                    <Tag variant="soft" size="sm" tone={utilisationTone(weekHours(u.id) / 5)} label={`${weekHours(u.id)}h`} />
                   </Td>
 
                   {/* Weekly cost */}

@@ -4,11 +4,12 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import Tag from '@/components/ui/Tag'
 import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import WorkTaskForm from './WorkTaskForm'
 import {
   DEPARTMENT_LABELS,
-  utilisationColor,
+  utilisationTone,
   getMonthWeeks,
   toDateStr,
   WORKING_HOURS_PER_DAY,
@@ -192,9 +193,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
                     return (
                       <Td key={i} align="center">
                         {h > 0 ? (
-                          <span className={`font-semibold tabular-nums px-1.5 py-0.5 rounded-full ${utilisationColor(avg)}`}>
-                            {h}h
-                          </span>
+                          <Tag variant="soft" size="sm" tone={utilisationTone(avg)} label={`${h}h`} />
                         ) : (
                           <span className="text-line-strong">—</span>
                         )}
@@ -202,9 +201,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
                     )
                   })}
                   <Td align="center">
-                    <span className={`font-semibold tabular-nums px-2 py-0.5 rounded-full ${utilisationColor(monthHours(u.id) / 22)}`}>
-                      {monthHours(u.id)}h
-                    </span>
+                    <Tag variant="soft" size="sm" tone={utilisationTone(monthHours(u.id) / 22)} label={`${monthHours(u.id)}h`} />
                   </Td>
                   <Td align="center" numeric>{fmtRmb(monthCost(u.id))}</Td>
                 </Tr>

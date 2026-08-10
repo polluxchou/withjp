@@ -767,6 +767,7 @@
     "viewOutput": "構造化出力を表示",
     "tabAi": "AIタスク",
     "tabWorkload": "工数ビュー",
+    "viewTabsLabel": "表示切替",
     "periodDay": "日",
     "periodWeek": "週",
     "periodMonth": "月",
