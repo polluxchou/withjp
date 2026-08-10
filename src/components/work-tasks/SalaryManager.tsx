@@ -62,8 +62,14 @@ export default function SalaryManager() {
     setLoadError(null)
     try {
       const [sr, ur] = await Promise.all([
-        fetch('/api/user-salary').then((r) => r.json()),
-        fetch('/api/users').then((r) => r.json()),
+        fetch('/api/user-salary').then((r) => {
+          if (!r.ok) { console.error('Failed to load salary records:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
+        fetch('/api/users').then((r) => {
+          if (!r.ok) { console.error('Failed to load users:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
       ])
       setRecords(sr.data ?? [])
       setUsers(ur.data ?? [])

@@ -15,7 +15,7 @@ import {
   WORK_TASK_TYPE_LABELS,
   WORK_TASK_STATUS_LABELS,
   DEPARTMENT_LABELS,
-  utilisationColor,
+  utilisationTone,
   buildUserWorkloads,
   aggregateWorkload,
   WORKING_HOURS_PER_DAY,
@@ -139,9 +139,7 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
                       />
                     ))}
                   </div>
-                  <span className={`text-xs font-medium tabular-nums px-2 py-0.5 rounded-full ${utilisationColor(row.total_hours)}`}>
-                    {row.total_hours}h
-                  </span>
+                  <Tag variant="soft" size="sm" tone={utilisationTone(row.total_hours)} label={`${row.total_hours}h`} />
                   <span className="text-xs text-ink-400 tabular-nums">{fmtRmb(row.daily_cost * (row.total_hours / WORKING_HOURS_PER_DAY))}</span>
                 </div>
               </div>

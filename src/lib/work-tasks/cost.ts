@@ -1,4 +1,5 @@
 import type { WorkTask, WorkTaskStatus, WorkTaskType, AgentRole, UserWorkload } from '@/lib/types'
+import type { Tone } from '@/lib/ui/status-tone'
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -204,16 +205,17 @@ export function buildUserWorkloads(
 }
 
 /**
- * Utilisation colour based on daily hours — returns a soft/text token pair
- * (design-system.md §1.3) rather than a bare Tailwind numbered-color-scale
- * class. Thresholds unchanged (calc logic untouched, render layer only):
+ * Utilisation tone based on daily hours — returns a status-tone.ts `Tone`
+ * (design-system.md §1.3) for callers to hand straight to `<Tag tone=… />`,
+ * rather than a hand-assembled soft/text className pair. Thresholds
+ * unchanged (calc logic untouched, render layer only):
  * 0 idle → neutral, ≤4 light → success, ≤6 busy → warning, =8 full → info,
  * >8 overloaded → danger.
  */
-export function utilisationColor(hours: number): string {
-  if (hours === 0)  return 'bg-muted-soft text-muted-text'
-  if (hours <= 4)   return 'bg-success-soft text-success-text'
-  if (hours <= 6)   return 'bg-warning-soft text-warning-text'
-  if (hours === 8)  return 'bg-info-soft text-info-text'
-  return 'bg-danger-soft text-danger-text'  // overloaded
+export function utilisationTone(hours: number): Tone {
+  if (hours === 0)  return 'neutral'
+  if (hours <= 4)   return 'success'
+  if (hours <= 6)   return 'warning'
+  if (hours === 8)  return 'info'
+  return 'danger'  // overloaded
 }
