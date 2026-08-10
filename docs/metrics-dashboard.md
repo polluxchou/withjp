@@ -1,7 +1,7 @@
-# Creator Guild AI OS — Product Metrics Dashboard Specification
+# Creator Network AI OS — Product Metrics Dashboard Specification
 
 > Generated: 2026-05-13  
-> Product: Creator Guild AI OS (WithJP)  
+> Product: Creator Network AI OS (WithJP)  
 > Purpose: Define the single source of truth for measuring product health, creator pipeline performance, and business outcomes.
 
 ---
