@@ -201,28 +201,30 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
           {snapshot.positions.map((p) => (
             <div key={p.id} className="border border-line rounded-field p-3">
               <div className="font-medium text-sm text-ink-900">{p.name}</div>
-              {p.description && <div className="text-[11px] text-ink-400 mb-1">{p.description}</div>}
+              {p.description && <div className="text-micro text-ink-400 mb-1">{p.description}</div>}
               <div className="flex flex-wrap items-center gap-1.5 mt-1">
                 {p.members.length === 0 && <span className="text-xs text-ink-400">{t('org.empty')}</span>}
-                {p.members.map((m) => (
-                  <span key={m.id} className="inline-flex items-center gap-1">
-                    <Tag
-                      size="sm"
-                      tone={m.member_type === 'creator' ? 'violet' : 'neutral'}
-                      label={m.display_name || (m.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser'))}
-                    />
-                    {canEdit && (
-                      <button
-                        type="button"
-                        aria-label={t('org.delete')}
-                        onClick={() => removeMember(p.id, m.id)}
-                        className="text-ink-400 hover:text-danger-text rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-                      >
-                        <X className="w-[13px] h-[13px]" strokeWidth={1.5} />
-                      </button>
-                    )}
-                  </span>
-                ))}
+                {p.members.map((m) => {
+                  const memberLabel = m.display_name || (m.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser'))
+                  return (
+                    <span key={m.id} className="inline-flex items-center gap-1">
+                      <Tag size="sm" tone={m.member_type === 'creator' ? 'violet' : 'neutral'} label={memberLabel} />
+                      {canEdit && (
+                        <button
+                          type="button"
+                          aria-label={t('org.removeMemberNamed', { name: memberLabel })}
+                          onClick={() => removeMember(p.id, m.id)}
+                          // p-1.5 -m-1.5 grows the click target to the §4 ≥32×32
+                          // minimum without shifting the icon's visual position
+                          // (negative margin cancels the added padding's layout footprint).
+                          className="p-1.5 -m-1.5 text-ink-400 hover:text-danger-text rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+                        >
+                          <X className="w-[13px] h-[13px]" strokeWidth={1.5} />
+                        </button>
+                      )}
+                    </span>
+                  )
+                })}
               </div>
               {canEdit && (
                 <button className={ADD_LINK_CLASS} onClick={() => setPicker({ title: t('org.addMember'), allowClear: false, onSelect: (person) => { if (person) addMember(p.id, person) } })}>

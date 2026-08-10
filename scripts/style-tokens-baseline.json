@@ -34,7 +34,6 @@
   "src/components/org/OrgView.tsx": 29,
   "src/components/profile/ProfileEditor.tsx": 11,
   "src/components/tasks/TaskCard.tsx": 7,
-  "src/components/ui/Badge.tsx": 2,
   "src/components/ui/DateRangeSlider.tsx": 3,
   "src/components/work-tasks/SalaryManager.tsx": 30,
   "src/components/work-tasks/WorkTaskForm.tsx": 9,

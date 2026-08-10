@@ -55,7 +55,7 @@ export default async function TeamPage() {
       />
 
       {agents.length === 0 ? (
-        <EmptyState />
+        <EmptyState title={t('noAgents')} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {agents.map((agent) => {
