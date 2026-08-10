@@ -49,6 +49,10 @@ test('item 域覆盖（ItemStatus: in_use/in_storage/under_repair/disposed）', 
   assert.equal(toneOf('item', 'under_repair'), 'warning')
   assert.equal(toneOf('item', 'disposed'), 'danger')
 })
+test('thread 域覆盖（ThreadStatus: open/resolved，PR4 Task 2 登记）', () => {
+  assert.equal(toneOf('thread', 'open'), 'info')
+  assert.equal(toneOf('thread', 'resolved'), 'success')
+})
 test('未登记枚举回退 neutral（不抛错），且不因原型链键误判', () => {
   assert.equal(toneOf('creator', 'unknown-status'), 'neutral')
   assert.equal(toneOf('creator', 'toString'), 'neutral')

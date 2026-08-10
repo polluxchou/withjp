@@ -17,6 +17,22 @@ interface Props {
   compact?:  boolean
 }
 
+// tone → 底色/字色/描边完整映射（六 tone 穷举，参照 Tag.tsx 的 SOFT 映射
+// 构造）。用 Record<Tone, string> 而非 2-branch 三元：三元只覆盖了
+// info/success 两个分支，其余 4 个 Tone 成员（含 warning/danger/violet）会
+// 静默落进兜底的空态样式——将来 thread 域加第三个状态（如 toneOf 返回
+// warning）不会报错也不会明显出错，只是悄悄套用了错的配色。穷举后每个
+// Tone 都有对应且正确的样式，编译期也不会漏登记（新增 Tone 成员会在别处
+// 类型检查失败）。
+const TONE_CLASS: Record<Tone, string> = {
+  success: 'bg-success-soft text-success-text border-success-border',
+  warning: 'bg-warning-soft text-warning-text border-warning-border',
+  danger:  'bg-danger-soft text-danger-text border-danger-border',
+  info:    'bg-info-soft text-info-text border-info-border',
+  violet:  'bg-primary-soft text-primary-hover border-primary-border',
+  neutral: 'bg-surface text-ink-500 border-line-strong',
+}
+
 // Renders one of:
 //   [讨论]       — no threads yet (call-to-action to start one)
 //   [讨论 N]     — N open threads (resolved count hidden when any open)
@@ -37,6 +53,10 @@ export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
   // 自己的第三种展示态（还没有任何讨论串），不进状态枚举映射表。
   let tone:  Tone
   let ariaLabel: string
+  // 'empty' 态额外的虚线+hover 是本组件自己的一次性 CTA 装饰（提示"点我发起
+  // 讨论"），不是 neutral tone 本身该有的通用样式，所以不并入 TONE_CLASS，
+  // 单独拼在 toneClass 后面。
+  let emptyCta = ''
   if (hasOpen) {
     label = t('open',     { count: openCount })
     ariaLabel = t('ariaOpen', { count: openCount })
@@ -50,14 +70,10 @@ export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
     label = t('default')
     ariaLabel = t('ariaStart')
     tone  = 'neutral'
+    emptyCta = 'border-dashed hover:bg-line-soft'
   }
 
-  const toneClass =
-    tone === 'info'
-      ? 'bg-info-soft text-info-text border-info-border'
-      : tone === 'success'
-      ? 'bg-success-soft text-success-text border-success-border'
-      : 'bg-surface text-ink-500 hover:bg-line-soft border-line-strong border-dashed'
+  const toneClass = `${TONE_CLASS[tone]} ${emptyCta}`.trim()
 
   const sizeClass = compact
     ? 'px-1.5 py-0.5 text-[11px] gap-1'
