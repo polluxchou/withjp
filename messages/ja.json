@@ -753,6 +753,30 @@
         "medium": "中",
         "high": "高"
       }
+    },
+    "riskBadge": {
+      "low": "低リスク",
+      "medium": "中リスク",
+      "high": "高リスク"
+    },
+    "typeFilterLabel": "タイプで絞り込む",
+    "nextView": {
+      "heading": "今後{days}日間",
+      "subheading": "日付ごとに今後の戦略マイルストーンを確認できます",
+      "rangeLabel": "表示期間",
+      "rangeOption": "{days}日",
+      "plusDays": "+{days}日",
+      "emptyTitle": "今後{days}日間に戦略マイルストーンはありません",
+      "emptyHint": "90日表示に切り替えるとさらに先の計画を確認できます。",
+      "clusterCount": "{count}件のマイルストーン",
+      "ownerUnassigned": "担当者未定",
+      "clusterHint": "タップして直近のマイルストーンを表示",
+      "toneLabel": {
+        "danger": "高リスク",
+        "warning": "要注意",
+        "success": "完了",
+        "neutral": "計画中"
+      }
     }
   },
   "tasks": {

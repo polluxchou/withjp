@@ -11,13 +11,27 @@ import { startOfMonth } from 'date-fns/startOfMonth'
 import Header from '@/components/layout/Header'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import Tabs from '@/components/ui/Tabs'
+import { Select } from '@/components/ui/Field'
+import { CountChip } from '@/components/ui/FilterChip'
+import { Stat, StatBand } from '@/components/ui/Stat'
+import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
+import SectionCard from '@/components/ui/SectionCard'
+import Tag from '@/components/ui/Tag'
+import EmptyState from '@/components/ui/EmptyState'
+import LoadingState from '@/components/ui/LoadingState'
+import ErrorState from '@/components/ui/ErrorState'
+import { toneOf } from '@/lib/ui/status-tone'
+import { AXIS, GRID, seriesColor } from '@/lib/chart-theme'
 import MilestoneForm from '@/components/milestones/MilestoneForm'
 import NextTimelineView from '@/components/milestones/NextTimelineView'
 import {
   MilestoneStatusBadge,
   MilestonePriorityBadge,
   MilestoneTypeBadge,
-  STATUS_BAR_COLOR,
+  MILESTONE_STATUSES,
+  STATUS_LABEL_KEY,
+  STATUS_FILL_CLASS,
 } from '@/components/milestones/MilestoneStatusBadge'
 import {
   ResponsiveContainer,
@@ -31,31 +45,16 @@ import {
   ReferenceLine,
   Dot,
 } from 'recharts'
-import { Plus, List, BarChart2, TrendingUp, Target, AlertTriangle, CalendarDays } from 'lucide-react'
+import { Plus, Target, AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Milestone, MilestoneStatus, MilestoneType } from '@/lib/types'
 import { AT_RISK_DAYS } from '@/lib/milestones/constants'
 
 // ── Constants ─────────────────────────────────────────────────
 
-// Labels resolved at render time via t('status.<key>') / t('type.<key>').
-const STATUS_TAB_VALUES: (MilestoneStatus | 'all')[] = [
-  'all', 'planned', 'active', 'at_risk', 'completed', 'missed',
-]
-
 const TYPE_OPTION_VALUES: (MilestoneType | 'all')[] = [
   'all', 'campaign', 'launch', 'recruitment', 'finance', 'review',
 ]
-
-// MilestoneStatus snake_case → camelCase key under `timeline.status`.
-const STATUS_KEY: Record<MilestoneStatus | 'all', string> = {
-  all:       'all',
-  planned:   'planned',
-  active:    'active',
-  at_risk:   'atRisk',
-  completed: 'completed',
-  missed:    'missed',
-}
 
 // ── Gantt helpers ─────────────────────────────────────────────
 
@@ -90,8 +89,10 @@ function getBar(m: Milestone, rangeStart: Date) {
 
 export default function TimelinePage() {
   const t = useTranslations('timeline')
+  const tCommon = useTranslations('common')
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [loading, setLoading]       = useState(true)
+  const [loadError, setLoadError]   = useState<string | null>(null)
   const [view, setView]             = useState<'next' | 'list' | 'gantt' | 'curve'>('next')
   const [showForm, setShowForm]     = useState(false)
   const [statusFilter, setStatusFilter] = useState<MilestoneStatus | 'all'>('all')
@@ -105,57 +106,70 @@ export default function TimelinePage() {
       if (typeFilter   !== 'all') params.set('type',   typeFilter)
       const res  = await fetch(`/api/milestones?${params}`)
       const json = await res.json()
+      setLoadError(json.error ?? null)
       setMilestones(json.data ?? [])
     } catch (err) {
       console.error('Failed to load milestones:', err)
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
       setMilestones([])
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, typeFilter])
+  }, [statusFilter, typeFilter, tCommon])
 
   useEffect(() => { load() }, [load])
 
   const atRiskCount = milestones.filter(m => m.status === 'at_risk').length
+
+  // Shared three-state gate (design-system §6.3) — loading/error/empty look
+  // and behave the same across all four view tabs. `null` means "there's
+  // real data, render the tab's own content instead". LoadingState keeps
+  // the row-skeleton specifically for the 'list' tab (Table's real shape is
+  // known there); the other three tabs (next/gantt/curve) fall back to the
+  // generic spinner since their layouts vary too much to skeleton
+  // meaningfully (same rationale as expenses/page.tsx's own threeState).
+  const threeState = loading ? (
+    <LoadingState variant={view === 'list' ? 'list' : 'plain'} />
+  ) : loadError ? (
+    <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
+  ) : milestones.length === 0 ? (
+    <EmptyState
+      icon={<Target />}
+      title={t('empty')}
+      action={<Button size="sm" onClick={() => setShowForm(true)}><Plus className="w-3.5 h-3.5" /> {t('createFirst')}</Button>}
+    />
+  ) : null
 
   return (
     <div>
       <Header
         title={t('title')}
         subtitle={t('subtitle')}
+        tabs={
+          <Tabs
+            label={t('title')}
+            items={[
+              { value: 'next',  label: t('view.next') },
+              { value: 'list',  label: t('view.list') },
+              { value: 'gantt', label: t('view.gantt') },
+              { value: 'curve', label: t('view.curve') },
+            ]}
+            value={view}
+            onChange={(v) => setView(v as typeof view)}
+          />
+        }
         actions={
-          <div className="flex items-center gap-2">
-            {/* View toggle */}
-            <div className="flex bg-zinc-100 rounded-lg p-0.5">
-              <button onClick={() => setView('next')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'next' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                <CalendarDays className="w-3.5 h-3.5" /> {t('view.next')}
-              </button>
-              <button onClick={() => setView('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'list' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                <List className="w-3.5 h-3.5" /> {t('view.list')}
-              </button>
-              <button onClick={() => setView('gantt')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'gantt' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                <BarChart2 className="w-3.5 h-3.5" /> {t('view.gantt')}
-              </button>
-              <button onClick={() => setView('curve')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'curve' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}>
-                <TrendingUp className="w-3.5 h-3.5" /> {t('view.curve')}
-              </button>
-            </div>
-            <Button onClick={() => setShowForm(true)}>
-              <Plus className="w-4 h-4" /> {t('newMilestone')}
-            </Button>
-          </div>
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4" /> {t('newMilestone')}
+          </Button>
         }
       />
 
       {/* At-risk alert */}
       {atRiskCount > 0 && (
-        <div className="flex items-center gap-2 mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
-          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-          <p className="text-sm text-amber-800">
+        <div className="flex items-center gap-2 mb-4 rounded-card border border-warning-border bg-warning-soft px-4 py-2.5">
+          <AlertTriangle className="w-4 h-4 text-warning-text flex-shrink-0" strokeWidth={1.5} />
+          <p className="text-sm text-warning-text">
             {t.rich('atRiskAlert', {
               count: atRiskCount,
               days:  AT_RISK_DAYS,
@@ -165,46 +179,50 @@ export default function TimelinePage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        {/* Status tabs */}
-        <div className="flex items-center gap-1 flex-wrap">
-          {STATUS_TAB_VALUES.map(value => (
-            <button key={value} onClick={() => setStatusFilter(value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                statusFilter === value
-                  ? 'bg-primary text-white'
-                  : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
-              }`}>
-              {t(`status.${STATUS_KEY[value]}`)}
-            </button>
-          ))}
-        </div>
-
-        {/* Type filter */}
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as MilestoneType | 'all')}
-          className="text-xs border border-zinc-200 rounded-lg px-3 py-1.5 bg-white text-zinc-600 focus:outline-none focus:ring-1 focus:ring-violet-400">
+      {/* Filters — status CountChip row (same idiom as creators/page.tsx:
+          counts reflect only the currently loaded/filtered milestones since
+          statusFilter drives the server fetch, not a true cross-status
+          total — an existing characteristic of that reference pattern, not
+          a regression introduced here) + a compact type Select. */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        <CountChip
+          label={tCommon('all')}
+          count={milestones.length}
+          tone="neutral"
+          active={statusFilter === 'all'}
+          onClick={() => setStatusFilter('all')}
+        />
+        {MILESTONE_STATUSES.map((s) => (
+          <CountChip
+            key={s}
+            label={t(`status.${STATUS_LABEL_KEY[s]}`)}
+            count={milestones.filter((m) => m.status === s).length}
+            tone={toneOf('milestone', s)}
+            active={statusFilter === s}
+            onClick={() => setStatusFilter(s)}
+          />
+        ))}
+        <Select
+          aria-label={t('typeFilterLabel')}
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as MilestoneType | 'all')}
+          className="w-44"
+        >
           {TYPE_OPTION_VALUES.map(value => <option key={value} value={value}>{t(`type.${value}`)}</option>)}
-        </select>
+        </Select>
       </div>
 
       {/* Content */}
-      {loading ? (
-        <div className="p-12 text-center text-sm text-zinc-400">{t('loading')}</div>
-      ) : milestones.length === 0 ? (
-        <div className="p-12 text-center bg-white border border-zinc-200 rounded-xl">
-          <Target className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
-          <p className="text-sm text-zinc-500 mb-3">{t('empty')}</p>
-          <Button onClick={() => setShowForm(true)}><Plus className="w-4 h-4" /> {t('createFirst')}</Button>
-        </div>
-      ) : view === 'next' ? (
-        <NextTimelineView milestones={milestones} />
-      ) : view === 'list' ? (
-        <ListView milestones={milestones} onUpdated={load} />
-      ) : view === 'gantt' ? (
-        <GanttView milestones={milestones} />
-      ) : (
-        <CurveView milestones={milestones} />
+      {threeState ?? (
+        view === 'next' ? (
+          <NextTimelineView milestones={milestones} />
+        ) : view === 'list' ? (
+          <ListView milestones={milestones} onUpdated={load} />
+        ) : view === 'gantt' ? (
+          <GanttView milestones={milestones} />
+        ) : (
+          <CurveView milestones={milestones} />
+        )
       )}
 
       {/* Create modal */}
@@ -224,73 +242,78 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
   const t = useTranslations('timeline')
   const handleDelete = async (id: string) => {
     if (!confirm(t('deleteConfirm'))) return
-    const res = await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
-    if (res.ok) onUpdated()
+    try {
+      const res = await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
+      if (res.ok) onUpdated()
+      else console.error('Failed to delete milestone:', res.status)
+    } catch (err) {
+      console.error('Failed to delete milestone:', err)
+    }
   }
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-zinc-100 bg-zinc-50">
-            <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{t('table.milestone')}</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{t('table.type')}</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{t('table.status')}</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{t('table.priority')}</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{t('table.owner')}</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{t('table.start')}</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{t('table.target')}</th>
-            <th className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{t('table.daysLeft')}</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
+    <SectionCard padding="none">
+      <Table label={t('title')} minWidth={880}>
+        <THead>
+          <Tr>
+            <Th>{t('table.milestone')}</Th>
+            <Th>{t('table.type')}</Th>
+            <Th>{t('table.status')}</Th>
+            <Th>{t('table.priority')}</Th>
+            <Th>{t('table.owner')}</Th>
+            <Th>{t('table.start')}</Th>
+            <Th>{t('table.target')}</Th>
+            <Th>{t('table.daysLeft')}</Th>
+            <Th />
+          </Tr>
+        </THead>
+        <TBody>
           {milestones.map(m => {
             const daysLeft = m.days_until_target ?? 0
-            const daysColor = daysLeft < 0 ? 'text-red-500' : daysLeft <= AT_RISK_DAYS ? 'text-amber-600' : 'text-zinc-500'
+            const daysColor = daysLeft < 0 ? 'text-danger-text' : daysLeft <= AT_RISK_DAYS ? 'text-warning-text' : 'text-ink-500'
             return (
-              <tr key={m.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
-                <td className="px-5 py-3">
-                  <Link href={`/timeline/${m.id}`} className="font-medium text-zinc-900 hover:text-primary transition-colors">
+              <Tr key={m.id}>
+                <Td>
+                  <Link href={`/timeline/${m.id}`} className="font-medium text-ink-900 hover:text-primary transition-colors">
                     {m.title}
                   </Link>
                   {m.description && (
-                    <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">{m.description}</p>
+                    <p className="text-xs text-ink-400 mt-0.5 line-clamp-1">{m.description}</p>
                   )}
-                </td>
-                <td className="px-5 py-3"><MilestoneTypeBadge type={m.type} size="sm" /></td>
-                <td className="px-5 py-3"><MilestoneStatusBadge status={m.status} size="sm" /></td>
-                <td className="px-5 py-3"><MilestonePriorityBadge priority={m.priority} size="sm" /></td>
-                <td className="px-5 py-3 text-zinc-500 text-xs">
+                </Td>
+                <Td><MilestoneTypeBadge type={m.type} size="sm" /></Td>
+                <Td><MilestoneStatusBadge status={m.status} size="sm" /></Td>
+                <Td><MilestonePriorityBadge priority={m.priority} size="sm" /></Td>
+                <Td className="text-ink-500 text-xs">
                   {(m.owner_agent as { name?: string } | null | undefined)?.name ?? t('table.ownerEmpty')}
-                </td>
-                <td className="px-5 py-3 text-zinc-400 text-xs">
+                </Td>
+                <Td className="text-ink-400 text-xs">
                   {format(new Date(m.start_date), 'MMM d, yyyy')}
-                </td>
-                <td className="px-5 py-3 text-zinc-400 text-xs">
+                </Td>
+                <Td className="text-ink-400 text-xs">
                   {format(new Date(m.target_date), 'MMM d, yyyy')}
-                </td>
-                <td className={`px-5 py-3 text-xs font-medium ${daysColor}`}>
+                </Td>
+                <Td className={`text-xs font-medium ${daysColor}`}>
                   {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
-                </td>
-                <td className="px-5 py-3 text-right">
+                </Td>
+                <Td align="right">
                   <div className="flex items-center justify-end gap-3">
                     <Link href={`/timeline/${m.id}`}
-                      className="text-xs text-primary font-medium hover:text-violet-800">
+                      className="text-xs text-primary font-medium hover:text-primary-hover">
                       {t('table.view')}
                     </Link>
                     <button type="button" onClick={() => handleDelete(m.id)}
-                      className="text-xs text-zinc-400 hover:text-red-500 transition-colors">
+                      className="text-xs text-ink-400 hover:text-danger-text transition-colors">
                       {t('table.delete')}
                     </button>
                   </div>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             )
           })}
-        </tbody>
-      </table>
-    </div>
+        </TBody>
+      </Table>
+    </SectionCard>
   )
 }
 
@@ -312,7 +335,7 @@ function GanttView({ milestones }: { milestones: Milestone[] }) {
   const totalHeight = HEADER_H + milestones.length * ROW_H + 16
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+    <div className="bg-surface border border-line rounded-card overflow-hidden">
       <div className="overflow-x-auto">
         <div style={{ minWidth: totalWidth, height: totalHeight, position: 'relative' }}>
 
@@ -321,9 +344,9 @@ function GanttView({ milestones }: { milestones: Milestone[] }) {
             const offset = LABEL_WIDTH + differenceInDays(month, rangeStart) * PX_PER_DAY
             return (
               <div key={i} style={{ position: 'absolute', left: offset, top: 0, bottom: 0, width: 1 }}
-                className="border-l border-zinc-100">
+                className="border-l border-line-soft">
                 <span style={{ position: 'absolute', top: 10, left: 6 }}
-                  className="text-xs text-zinc-400 whitespace-nowrap">
+                  className="text-xs text-ink-400 whitespace-nowrap">
                   {format(month, 'MMM yyyy')}
                 </span>
               </div>
@@ -332,32 +355,32 @@ function GanttView({ milestones }: { milestones: Milestone[] }) {
 
           {/* Today line */}
           <div style={{ position: 'absolute', left: LABEL_WIDTH + todayOffset, top: 0, bottom: 0, width: 2, zIndex: 10 }}
-            className="bg-red-400 opacity-70">
+            className="bg-danger-dot opacity-70">
             <span style={{ position: 'absolute', top: 10, left: 4 }}
-              className="text-xs text-red-500 font-medium whitespace-nowrap">{t('gantt.today')}</span>
+              className="text-xs text-danger-text font-medium whitespace-nowrap">{t('gantt.today')}</span>
           </div>
 
           {/* Milestone rows */}
           {milestones.map((m, i) => {
             const { left, width } = getBar(m, rangeStart)
             const top = HEADER_H + i * ROW_H
-            const barColor = STATUS_BAR_COLOR[m.status]
+            const barClass = STATUS_FILL_CLASS[toneOf('milestone', m.status)]
             return (
               <div key={m.id} style={{ position: 'absolute', top, left: 0, right: 0, height: ROW_H }}>
                 {/* Row background (alternating) */}
                 {i % 2 === 0 && (
-                  <div style={{ position: 'absolute', inset: 0 }} className="bg-zinc-50/50" />
+                  <div style={{ position: 'absolute', inset: 0 }} className="bg-canvas" />
                 )}
                 {/* Label */}
                 <div style={{ position: 'absolute', left: 0, width: LABEL_WIDTH - 8, top: 8, height: ROW_H - 8 }}
                   className="flex items-center pr-3 pl-4 overflow-hidden">
-                  <span className="text-xs text-zinc-600 truncate font-medium">{m.title}</span>
+                  <span className="text-xs text-ink-700 truncate font-medium">{m.title}</span>
                 </div>
                 {/* Bar */}
                 <Link href={`/timeline/${m.id}`}>
                   <div
                     style={{ position: 'absolute', left: LABEL_WIDTH + left, width, top: 8, height: 24 }}
-                    className={`${barColor} rounded cursor-pointer hover:opacity-80 transition-opacity flex items-center overflow-hidden`}
+                    className={`${barClass} rounded-field cursor-pointer hover:opacity-80 transition-opacity flex items-center overflow-hidden`}
                     title={`${m.title} — ${format(new Date(m.start_date), 'MMM d')} → ${format(new Date(m.target_date), 'MMM d, yyyy')}`}>
                     <span className="text-white text-xs px-2 truncate leading-none">{m.title}</span>
                   </div>
@@ -369,16 +392,13 @@ function GanttView({ milestones }: { milestones: Milestone[] }) {
       </div>
 
       {/* Legend */}
-      <div className="border-t border-zinc-100 px-5 py-3 flex items-center gap-5 flex-wrap">
-        {(['planned', 'active', 'at_risk', 'completed', 'missed'] as MilestoneStatus[]).map(s => (
-          <div key={s} className="flex items-center gap-1.5">
-            <div className={`w-3 h-3 rounded ${STATUS_BAR_COLOR[s]}`} />
-            <span className="text-xs text-zinc-500">{t(`status.${STATUS_KEY[s]}`)}</span>
-          </div>
+      <div className="border-t border-line-soft px-5 py-3 flex items-center gap-5 flex-wrap">
+        {MILESTONE_STATUSES.map(s => (
+          <Tag key={s} size="sm" variant="dot" tone={toneOf('milestone', s)} label={t(`status.${STATUS_LABEL_KEY[s]}`)} />
         ))}
         <div className="flex items-center gap-1.5 ml-auto">
-          <div className="w-0.5 h-4 bg-red-400" />
-          <span className="text-xs text-zinc-500">{t('gantt.today')}</span>
+          <div className="w-0.5 h-4 bg-danger-dot" />
+          <span className="text-xs text-ink-500">{t('gantt.today')}</span>
         </div>
       </div>
     </div>
@@ -453,31 +473,31 @@ function CurveTooltip({ active, payload, label }: ChartTooltipProps) {
   const markers = point?.markers ?? []
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-lg shadow-md p-3 text-xs min-w-[200px]">
-      <p className="font-semibold text-zinc-700 mb-2">{label}</p>
+    <div className="bg-surface border border-line rounded-field shadow-pop p-3 text-xs min-w-[200px]">
+      <p className="font-semibold text-ink-700 mb-2">{label}</p>
       <div className="space-y-1 mb-2">
         {payload.map((p) => (
           <p key={String(p.dataKey)} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-            <span className="text-zinc-500">{p.name}:</span>
-            <span className="font-semibold text-zinc-800 ml-auto pl-2">{p.value}</span>
+            <span className="text-ink-500">{p.name}:</span>
+            <span className="font-semibold text-ink-900 ml-auto pl-2">{p.value}</span>
           </p>
         ))}
       </div>
       {markers.length > 0 && (
-        <div className="border-t border-zinc-100 pt-2 space-y-1">
-          <p className="text-zinc-400 mb-1">{t('curve.tooltipMonthMilestones')}</p>
+        <div className="border-t border-line-soft pt-2 space-y-1">
+          <p className="text-ink-400 mb-1">{t('curve.tooltipMonthMilestones')}</p>
           {markers.map(m => (
-            <p key={m.id} className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_BAR_COLOR[m.status]}`} />
-              <span className="text-zinc-700 truncate max-w-[140px]">{m.title}</span>
-              <span className={`ml-auto text-xs px-1 rounded ${
-                m.status === 'completed' ? 'text-green-600 bg-green-50' :
-                m.status === 'missed'    ? 'text-red-600 bg-red-50' :
-                m.status === 'at_risk'  ? 'text-amber-600 bg-amber-50' :
-                'text-zinc-500 bg-zinc-50'
-              }`}>{t(`status.${STATUS_KEY[m.status]}`)}</span>
-            </p>
+            <div key={m.id} className="flex items-center gap-2 justify-between">
+              <span className="text-ink-700 truncate min-w-0 flex-1">{m.title}</span>
+              {/* flex-none — Tag has no className prop, so the wrapping div
+                  carries it (same idiom as creators/[id]/page.tsx's own
+                  ACTIVITY_TONE Tag), keeping the pill from shrinking as a
+                  bare flex child next to the truncating title. */}
+              <div className="flex-none">
+                <Tag size="sm" variant="dot" tone={toneOf('milestone', m.status)} label={t(`status.${STATUS_LABEL_KEY[m.status]}`)} />
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -496,45 +516,41 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
 
   if (milestones.length === 0) {
     return (
-      <div className="bg-white border border-zinc-200 rounded-xl p-12 text-center text-sm text-zinc-400">
+      <div className="bg-surface border border-line rounded-card p-12 text-center text-sm text-ink-400">
         {t('curve.empty')}
       </div>
     )
   }
 
+  const pct = (value: number) => total > 0 ? `${((value / total) * 100).toFixed(0)}%` : '—'
+
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl p-5">
-      {/* KPI row */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
-        {[
-          { label: t('curve.kpiTotal'),     value: total,  color: 'text-zinc-900' },
-          { label: t('curve.kpiCompleted'), value: done,   color: 'text-green-700' },
-          { label: t('curve.kpiMissed'),    value: missed, color: 'text-red-600'   },
-          { label: t('curve.kpiAtRisk'),    value: atRisk, color: 'text-amber-600' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="border border-zinc-100 rounded-xl px-4 py-3">
-            <p className="text-xs text-zinc-500 mb-0.5">{label}</p>
-            <p className={`text-2xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-zinc-400 mt-0.5">{total > 0 ? `${((value / total) * 100).toFixed(0)}%` : '—'}</p>
-          </div>
-        ))}
+    <div className="bg-surface border border-line rounded-card p-5">
+      {/* KPI row — plain ink numbers throughout (design-system §0 "色彩纪律":
+          large colored KPI digits read as a rainbow, not a signal), with
+          `missed` the one value that flips to danger tone since an overdue
+          milestone is an unambiguous negative outcome (same convention as
+          ListView's own overdue daysColor). */}
+      <div className="mb-5">
+        <StatBand>
+          <Stat label={t('curve.kpiTotal')}     value={total}  note={pct(total)} />
+          <Stat label={t('curve.kpiCompleted')} value={done}   note={pct(done)} />
+          <Stat label={t('curve.kpiMissed')}    value={missed} note={pct(missed)} tone={missed > 0 ? 'danger' : 'default'} />
+          <Stat label={t('curve.kpiAtRisk')}    value={atRisk} note={pct(atRisk)} />
+        </StatBand>
       </div>
 
       {/* Chart */}
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data} margin={{ top: 8, right: 24, bottom: 0, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <CartesianGrid {...GRID} />
           <XAxis
             dataKey="month"
-            tick={{ fontSize: 11, fill: '#a1a1aa' }}
-            axisLine={false}
-            tickLine={false}
+            {...AXIS}
             interval="preserveStartEnd"
           />
           <YAxis
-            tick={{ fontSize: 11, fill: '#a1a1aa' }}
-            axisLine={false}
-            tickLine={false}
+            {...AXIS}
             allowDecimals={false}
             width={28}
           />
@@ -544,26 +560,28 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
           {/* Today marker */}
           <ReferenceLine
             x={today}
-            stroke="#ef4444"
+            stroke="var(--danger-dot)"
             strokeWidth={1.5}
             strokeDasharray="4 3"
-            label={{ value: t('curve.todayLabel'), position: 'insideTopLeft', fontSize: 10, fill: '#ef4444' }}
+            label={{ value: t('curve.todayLabel'), position: 'insideTopLeft', fontSize: 10, fill: 'var(--danger-dot)' }}
           />
 
           {/* Total capacity reference */}
           <ReferenceLine
             y={total}
-            stroke="#a1a1aa"
+            stroke="rgb(var(--ink-400) / 0.4)"
             strokeDasharray="3 3"
-            label={{ value: t('curve.totalLabel', { total }), position: 'insideTopRight', fontSize: 10, fill: '#a1a1aa' }}
+            label={{ value: t('curve.totalLabel', { total }), position: 'insideTopRight', fontSize: 10, fill: 'rgb(var(--ink-400) / 0.7)' }}
           />
 
-          {/* Lines */}
+          {/* Lines — planned/completed/active map onto CHART_SERIES[0/2/3]
+              (violet/green/amber), preserving the original three-color
+              intent through the shared series palette (design-system §1.5). */}
           <Line
             type="monotone"
             dataKey="planned"
             name={t('curve.seriesPlanned')}
-            stroke="#8b5cf6"
+            stroke={seriesColor(0)}
             strokeWidth={2}
             dot={false}
             strokeDasharray="6 2"
@@ -572,7 +590,7 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
             type="monotone"
             dataKey="completed"
             name={t('curve.seriesCompleted')}
-            stroke="#10b981"
+            stroke={seriesColor(2)}
             strokeWidth={2.5}
             dot={(props) => {
               // Show a dot on months that have milestone markers
@@ -584,8 +602,8 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
                   cx={props.cx}
                   cy={props.cy}
                   r={4}
-                  fill="#10b981"
-                  stroke="#fff"
+                  fill={seriesColor(2)}
+                  stroke="var(--surface)"
                   strokeWidth={2}
                 />
               )
@@ -595,7 +613,7 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
             type="monotone"
             dataKey="active"
             name={t('curve.seriesActive')}
-            stroke="#f59e0b"
+            stroke={seriesColor(3)}
             strokeWidth={1.5}
             dot={false}
             strokeDasharray="3 3"
@@ -608,8 +626,8 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
         const planned = milestones.filter(m => new Date(m.target_date) <= new Date()).length
         if (done >= planned) return null
         return (
-          <div className="mt-4 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <div className="mt-4 flex items-start gap-2 text-xs text-warning-text bg-warning-soft border border-warning-border rounded-field px-3 py-2">
+            <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" strokeWidth={1.5} />
             <span>
               {t.rich('curve.gap', {
                 planned,

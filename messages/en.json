@@ -753,6 +753,30 @@
         "medium": "Medium",
         "high": "High"
       }
+    },
+    "riskBadge": {
+      "low": "Low risk",
+      "medium": "Medium risk",
+      "high": "High risk"
+    },
+    "typeFilterLabel": "Filter by type",
+    "nextView": {
+      "heading": "Next {days} days",
+      "subheading": "Browse upcoming strategic milestones by date",
+      "rangeLabel": "Range",
+      "rangeOption": "{days} days",
+      "plusDays": "+{days} days",
+      "emptyTitle": "No strategic milestones in the next {days} days",
+      "emptyHint": "Switch to 90 days to see further-out plans.",
+      "clusterCount": "{count} milestones",
+      "ownerUnassigned": "Owner unassigned",
+      "clusterHint": "Tap to see the nearest milestone",
+      "toneLabel": {
+        "danger": "High risk",
+        "warning": "Needs attention",
+        "success": "Completed",
+        "neutral": "Planned"
+      }
     }
   },
   "tasks": {

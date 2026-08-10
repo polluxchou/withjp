@@ -753,6 +753,30 @@
         "medium": "中",
         "high": "高"
       }
+    },
+    "riskBadge": {
+      "low": "低风险",
+      "medium": "中风险",
+      "high": "高风险"
+    },
+    "typeFilterLabel": "按类型筛选",
+    "nextView": {
+      "heading": "接下来 {days} 天",
+      "subheading": "按日期查看即将到来的战略节点",
+      "rangeLabel": "查看范围",
+      "rangeOption": "{days} 天",
+      "plusDays": "+{days} 天",
+      "emptyTitle": "未来 {days} 天暂无战略节点",
+      "emptyHint": "可以切换到 90 天查看更远的规划。",
+      "clusterCount": "{count} 个节点",
+      "ownerUnassigned": "负责人未定",
+      "clusterHint": "点击查看最近节点",
+      "toneLabel": {
+        "danger": "高风险",
+        "warning": "需注意",
+        "success": "已完成",
+        "neutral": "计划中"
+      }
     }
   },
   "tasks": {
