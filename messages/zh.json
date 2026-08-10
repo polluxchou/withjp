@@ -1540,6 +1540,7 @@
     "actionFailed": "操作失败",
     "weeklyFollowers": "粉丝 · 近4周",
     "weeklyDelta": "{pct}%/周",
+    "weeklyPointTip": "{date} 起 · {count}",
     "weeklyEmpty": "暂无粉丝数据",
     "viewAll": "查看全部 {count}",
     "collapse": "收起",

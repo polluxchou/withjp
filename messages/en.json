@@ -1540,6 +1540,7 @@
     "actionFailed": "Action failed",
     "weeklyFollowers": "Followers · last 4 wks",
     "weeklyDelta": "{pct}%/wk",
+    "weeklyPointTip": "Week of {date} · {count}",
     "weeklyEmpty": "No follower data",
     "viewAll": "View all {count}",
     "collapse": "Collapse",
