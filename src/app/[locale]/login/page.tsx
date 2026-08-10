@@ -99,7 +99,7 @@ export default function LoginPage() {
             </div>
             <div>
               <div className="font-bold tracking-tight text-base leading-tight">{tNav('appName')}</div>
-              <div className="text-[10px] text-zinc-400 tracking-[0.22em]">CREATOR GUILD · OS</div>
+              <div className="text-[10px] text-zinc-400 tracking-[0.22em]">CREATOR NETWORK · OS</div>
             </div>
           </div>
           <div className="flex items-center gap-2 text-[10px] text-zinc-300 tracking-[0.2em] font-mono px-3 py-1.5 border border-zinc-800 rounded-full bg-zinc-950/60 backdrop-blur">
@@ -159,7 +159,7 @@ export default function LoginPage() {
             </div>
             <div className="leading-tight">
               <div className="font-bold text-sm text-zinc-900">{tNav('appName')}</div>
-              <div className="text-[9px] text-zinc-500 tracking-[0.22em] mt-0.5">CREATOR GUILD · OS</div>
+              <div className="text-[9px] text-zinc-500 tracking-[0.22em] mt-0.5">CREATOR NETWORK · OS</div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-zinc-500 font-mono">
@@ -293,7 +293,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="mt-8 sm:mt-12 lg:mt-auto pt-4 sm:pt-6 text-center text-[10px] tracking-[0.2em] text-zinc-400 font-mono">
-          © {new Date().getFullYear()} WITHJP · CREATOR GUILD OS
+          © {new Date().getFullYear()} WITHJP · CREATOR NETWORK OS
         </div>
       </main>
     </div>

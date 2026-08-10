@@ -14,9 +14,9 @@
 
 | 中文 | English | 备注 |
 |------|---------|------|
-| Creator Guild | Creator Guild | 产品名，不翻译 |
+| Creator Network | Creator Network | 产品名，不翻译 |
 | AI 运营系统 | AI Operating System | 应用副标题 |
-| 创作者公会运营概览 | Creator Guild operating overview | Dashboard 副标题 |
+| 创作者公会运营概览 | Creator Network operating overview | Dashboard 副标题 |
 
 ## 2. 业务实体
 
@@ -26,7 +26,7 @@
 | 团播账号 | Broadcast account | 直播账号实体；不要写成 "live account" / "streaming account" |
 | 负责人 | Operator | 团播账号或创作者的运营负责人；不要写成 "owner" / "manager" |
 | 部门代理 | Department agent | AI 代理；列表标题 Team (AI Agents) |
-| 公会 | Guild | 名词，特指 Creator Guild |
+| 公会 | Guild | 名词，特指 Creator Network |
 | 客户 / 用户 | — | **禁用**，公会内只有"创作者"和"运营成员"两类主体 |
 
 ## 3. 业务流程 / 生命周期
