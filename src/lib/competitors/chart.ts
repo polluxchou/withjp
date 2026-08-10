@@ -1,25 +1,8 @@
-// 纯函数：把一串数值映射为 <polyline points="x,y x,y ..."> 字符串。
+// 纯函数：把一串带日期的粉丝数映射为折线几何。
 //
-// buildWeeklyCurve 是带日期轴/数据点的版本：坐标一律归一化到 0–100 百分比，
-// 折线走 viewBox="0 0 100 100"，圆点与日期刻度用同一组百分比做 CSS 绝对定位。
+// buildWeeklyCurve 的坐标一律归一化到 0–100 百分比，折线走 viewBox="0 0 100 100"，
+// 圆点与日期刻度用同一组百分比做 CSS 绝对定位。
 // 这样文字不随 viewBox 缩放（11px 恒为 11px），而圆点也不会被非等比拉成椭圆。
-
-/** 至少 2 个点才画线；y 反转（值越大越靠上）。全相等时走中线。 */
-export function buildSparklinePoints(values: number[], width: number, height: number): string {
-  if (!Array.isArray(values) || values.length < 2) return ''
-  const max = Math.max(...values)
-  const min = Math.min(...values)
-  const span = max - min
-  const stepX = width / (values.length - 1)
-  return values
-    .map((v, i) => {
-      const x = Math.round(i * stepX * 100) / 100
-      const norm = span === 0 ? 0.5 : (v - min) / span
-      const y = Math.round((height - norm * height) * 100) / 100
-      return `${x},${y}`
-    })
-    .join(' ')
-}
 
 export interface WeeklyCurvePoint {
   week_start: string
