@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, X, Save } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import SegmentedControl from '@/components/ui/SegmentedControl'
@@ -140,7 +140,7 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
           </Button>
           <Button onClick={handleSave} disabled={!dirty || saving || loading} loading={saving}>
             {saving
-              ? <><Save className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('lifecycleSaving')}</>
+              ? t('lifecycleSaving')
               : <><Check className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('lifecycleSave')}</>}
           </Button>
         </>
@@ -157,7 +157,7 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
           }))}
           value={stage}
           onChange={(v) => setStage(v as LifecycleStartingStage)}
-          label={t('lifecycleColStatus')}
+          label={t('templateStageLabel')}
         />
       </div>
 
