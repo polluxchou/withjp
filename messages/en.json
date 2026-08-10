@@ -50,7 +50,7 @@
     "config": "Config",
     "profile": "Profile",
     "logout": "Logout",
-    "appName": "Creator Guild",
+    "appName": "Creator Network",
     "appSubtitle": "AI Operating System"
   },
   "language": {
@@ -311,7 +311,7 @@
     "password": "Password",
     "remember": "Remember email on this device",
     "loginFailed": "Login failed — check your email and password.",
-    "brandTag": "Creator Guild Control Tower",
+    "brandTag": "Creator Network Control Tower",
     "taglineLead": "Run the guild,",
     "taglineAccent": "not the chaos",
     "subtitle": "One operating system for streams, expenses, talent, and the producers in between.",

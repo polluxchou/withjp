@@ -1,4 +1,4 @@
-# Creator Guild OS 设计系统（权威参照）
+# Creator Network OS 设计系统（权威参照）
 
 > 建立：2026-08-08（界面风格提升轮，spec：`docs/superpowers/specs/2026-08-08-ui-style-uplift-design.md`）
 > 地位：**全站 UI 的唯一权威**。任何新页面、新组件、新图表先读本文件；与旧代码冲突时以本文件为准。
