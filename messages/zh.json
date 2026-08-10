@@ -107,6 +107,8 @@
     "inputSchema": "输入 Schema",
     "outputSchema": "输出 Schema",
     "viewPrompt": "查看 Prompt 模板",
+    "agentActive": "在线",
+    "agentOffline": "离线",
     "architectureTitle": "代理架构",
     "architectureBody": "代理是<strong>数据驱动</strong>的——所有行为由数据库里的 Prompt 模板定义。执行器是单一通用函数：加载任务和创作者、按创作者状态拉取相关知识、套用配置规则、渲染 Prompt 模板、调用配置的模型、解析结构化 JSON 输出。每个代理可独立使用 <strong>Anthropic</strong>、<strong>OpenAI</strong> 或 <strong>Gemini</strong>——通过上方下拉框配置。添加新代理只需在数据库插入一行，无需改代码。",
     "stats": {

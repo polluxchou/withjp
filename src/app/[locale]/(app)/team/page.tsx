@@ -3,18 +3,13 @@ export const dynamic = 'force-dynamic'
 import { getTranslations } from 'next-intl/server'
 import { createServerClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
-import Badge from '@/components/ui/Badge'
+import SectionCard from '@/components/ui/SectionCard'
+import Tag from '@/components/ui/Tag'
+import EmptyState from '@/components/ui/EmptyState'
 import AgentModelEditor from '@/components/agents/AgentModelEditor'
+import { toneOf } from '@/lib/ui/status-tone'
+import { Bot } from 'lucide-react'
 import type { Agent } from '@/lib/types'
-
-const ROLE_COLOR = {
-  bd:      'blue',
-  ops:     'teal',
-  finance: 'green',
-  content: 'indigo',
-  growth:  'amber',
-  legal:   'slate',
-} as const
 
 async function getAgents(): Promise<Agent[]> {
   const db = createServerClient()
@@ -39,6 +34,12 @@ async function getAgentStats() {
   return stats
 }
 
+// Detail/summary focus ring shares the site's one focus recipe (design-system
+// §4) — native <details><summary> doesn't get it for free like <button>/
+// <a> styled through Button/Field, so it's spelled out on every summary here.
+const SUMMARY_CLASS = 'text-xs text-ink-400 cursor-pointer hover:text-ink-700 font-medium rounded-field focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+const PRE_CLASS = 'mt-2 text-xs font-mono bg-canvas border border-line rounded-field p-2 overflow-auto max-h-20 text-ink-700'
+
 export default async function TeamPage() {
   const [agents, agentStats, t] = await Promise.all([
     getAgents(),
@@ -53,77 +54,88 @@ export default async function TeamPage() {
         subtitle={t('subtitle')}
       />
 
-      <div className="grid grid-cols-3 gap-5">
-        {agents.map((agent) => {
-          const stats = agentStats[agent.id] ?? { pending: 0, done: 0, failed: 0 }
-          return (
-            <div key={agent.id} className="bg-white border border-zinc-200 rounded-xl p-5">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="font-semibold text-zinc-900">{agent.name}</div>
-                  <Badge label={t(`role.${agent.role}`)} color={ROLE_COLOR[agent.role]} size="sm" />
+      {agents.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {agents.map((agent) => {
+            const stats = agentStats[agent.id] ?? { pending: 0, done: 0, failed: 0 }
+            return (
+              <SectionCard
+                key={agent.id}
+                icon={<Bot />}
+                title={agent.name}
+                actions={
+                  <div className="flex items-center gap-1.5">
+                    <Tag size="sm" tone="neutral" label={t(`role.${agent.role}`)} />
+                    <Tag
+                      size="sm"
+                      variant="dot"
+                      tone={agent.is_active ? 'success' : 'neutral'}
+                      label={agent.is_active ? t('agentActive') : t('agentOffline')}
+                    />
+                  </div>
+                }
+              >
+                <div className="space-y-3">
+                  <p className="text-xs text-ink-500 leading-relaxed">{agent.responsibility}</p>
+
+                  {/* Task stats — three small soft Tags rather than a KPI-weight
+                      Stat trio: these are per-card counters nested inside a
+                      3-column card grid, not page-level metrics (design-system
+                      §6.1 reserves Stat for that heavier register). */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['pending', 'done', 'failed'] as const).map((statKey) => (
+                      <Tag
+                        key={statKey}
+                        size="sm"
+                        tone={toneOf('task', statKey)}
+                        label={`${t(`stats.${statKey}`)} ${stats[statKey]}`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* I/O Schema — collapsed by default, only expanded on demand */}
+                  <div className="space-y-1.5">
+                    <details>
+                      <summary className={SUMMARY_CLASS}>{t('inputSchema')}</summary>
+                      <pre className={PRE_CLASS}>
+                        {JSON.stringify(agent.input_schema, null, 2)}
+                      </pre>
+                    </details>
+                    <details>
+                      <summary className={SUMMARY_CLASS}>{t('outputSchema')}</summary>
+                      <pre className={PRE_CLASS}>
+                        {JSON.stringify(agent.output_schema, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+
+                  {/* Prompt preview */}
+                  <details>
+                    <summary className={SUMMARY_CLASS}>{t('viewPrompt')}</summary>
+                    <pre className={`${PRE_CLASS} max-h-48 whitespace-pre-wrap`}>
+                      {agent.prompt_template}
+                    </pre>
+                  </details>
+
+                  {/* Model configuration editor */}
+                  <AgentModelEditor
+                    agentId={agent.id}
+                    initialProvider={agent.model_provider}
+                    initialModel={agent.model_name}
+                  />
                 </div>
-                <span className={`w-2.5 h-2.5 rounded-full mt-1 ${agent.is_active ? 'bg-green-400' : 'bg-zinc-300'}`} />
-              </div>
-
-              <p className="text-xs text-zinc-500 mb-4 leading-relaxed">{agent.responsibility}</p>
-
-              {/* Task stats */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {(['pending', 'done', 'failed'] as const).map((statKey) => {
-                  const color =
-                    statKey === 'pending' ? 'text-amber-600' :
-                    statKey === 'done'    ? 'text-green-600' :
-                                            'text-red-500'
-                  return (
-                    <div key={statKey} className="bg-zinc-50 rounded-lg p-2.5 text-center">
-                      <div className={`text-lg font-bold ${color}`}>{stats[statKey]}</div>
-                      <div className="text-xs text-zinc-400">{t(`stats.${statKey}`)}</div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* I/O Schema */}
-              <div className="space-y-2">
-                <div>
-                  <p className="text-xs font-medium text-zinc-500 mb-1">{t('inputSchema')}</p>
-                  <pre className="text-xs bg-zinc-50 rounded-lg p-2 text-zinc-600 overflow-auto max-h-20">
-                    {JSON.stringify(agent.input_schema, null, 2)}
-                  </pre>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-zinc-500 mb-1">{t('outputSchema')}</p>
-                  <pre className="text-xs bg-zinc-50 rounded-lg p-2 text-zinc-600 overflow-auto max-h-20">
-                    {JSON.stringify(agent.output_schema, null, 2)}
-                  </pre>
-                </div>
-              </div>
-
-              {/* Prompt preview */}
-              <details className="mt-3">
-                <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-600 font-medium">{t('viewPrompt')}</summary>
-                <pre className="mt-2 text-xs bg-zinc-900 text-zinc-300 rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap">
-                  {agent.prompt_template}
-                </pre>
-              </details>
-
-              {/* Model configuration editor */}
-              <AgentModelEditor
-                agentId={agent.id}
-                initialProvider={agent.model_provider}
-                initialModel={agent.model_name}
-              />
-            </div>
-          )
-        })}
-      </div>
+              </SectionCard>
+            )
+          })}
+        </div>
+      )}
 
       {/* Architecture note */}
-      <div className="mt-6 bg-primary-soft border border-violet-100 rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-violet-900 mb-1">{t('architectureTitle')}</h3>
-        <p className="text-xs text-violet-700 leading-relaxed">
+      <div className="mt-6 bg-primary-soft border border-primary-border rounded-card p-4">
+        <h3 className="text-sm font-semibold text-primary-hover mb-1">{t('architectureTitle')}</h3>
+        <p className="text-xs text-primary-hover leading-relaxed">
           {t.rich('architectureBody', {
             strong: (chunks) => <strong>{chunks}</strong>,
           })}

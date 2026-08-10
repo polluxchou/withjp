@@ -107,6 +107,8 @@
     "inputSchema": "Input schema",
     "outputSchema": "Output schema",
     "viewPrompt": "View prompt template",
+    "agentActive": "Active",
+    "agentOffline": "Offline",
     "architectureTitle": "Agent architecture",
     "architectureBody": "Agents are <strong>data-driven</strong> — all behavior is defined by the prompt template stored in the database. The executor is a single generic function: it loads the task + creator, fetches relevant knowledge by creator status, applies config rules, renders the prompt template, calls the configured model, and parses the structured JSON output. Each agent can independently use <strong>Anthropic</strong>, <strong>OpenAI</strong>, or <strong>Gemini</strong> — configure via the dropdowns above. Adding a new agent requires only inserting a new row — no code changes.",
     "stats": {
