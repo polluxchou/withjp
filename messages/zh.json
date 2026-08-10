@@ -132,6 +132,7 @@
       "agentsLabel": "代理数",
       "activeLabel": "在岗代理",
       "unknownAgent": "未知 / 已停用代理",
+      "taskCountAria": "任务数 {count}",
       "noTasks": "暂无任务",
       "noTasksAll": "还没有任何任务",
       "noCreator": "无关联创作者",

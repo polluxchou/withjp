@@ -134,7 +134,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                 type="button"
                 disabled={!canEdit}
                 onClick={() => setPicker({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => setBusinessOwner(b.id, p) })}
-                className={`text-xs ${canEdit ? 'text-primary hover:text-primary-hover' : 'text-ink-500 cursor-default'}`}
+                className={`truncate max-w-[12rem] text-xs ${canEdit ? 'text-primary hover:text-primary-hover' : 'text-ink-500 cursor-default'}`}
               >
                 {t('org.owner')}：{b.owner_name ?? t('org.noOwner')}
               </button>
@@ -150,8 +150,8 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                     <div className="font-medium text-sm text-ink-900 min-w-0 truncate">{task.name}</div>
                     {canEdit && (
                       <div className="flex gap-3 text-xs flex-none">
-                        <button className="text-primary hover:text-primary-hover" onClick={() => editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
-                        <button className="text-ink-400 hover:text-danger-text" onClick={() => deleteTask(task.id)}>{t('org.delete')}</button>
+                        <button type="button" className="text-primary hover:text-primary-hover" onClick={() => editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
+                        <button type="button" className="text-ink-400 hover:text-danger-text" onClick={() => deleteTask(task.id)}>{t('org.delete')}</button>
                       </div>
                     )}
                   </div>
@@ -173,13 +173,13 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                           >
                             {it.owner_name ?? t('org.noOwner')}
                           </button>
-                          {canEdit && <button className="text-xs text-ink-400 hover:text-danger-text" onClick={() => deleteItem(it.id)}>{t('org.delete')}</button>}
+                          {canEdit && <button type="button" className="text-xs text-ink-400 hover:text-danger-text" onClick={() => deleteItem(it.id)}>{t('org.delete')}</button>}
                         </span>
                       </li>
                     ))}
                   </ul>
                   {canEdit && (
-                    <button className={ADD_LINK_CLASS} onClick={() => addItem(task.id)}>
+                    <button type="button" className={ADD_LINK_CLASS} onClick={() => addItem(task.id)}>
                       <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addItem')}
                     </button>
                   )}
@@ -188,7 +188,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
             </div>
 
             {canEdit && (
-              <button className={ADD_LINK_CLASS} onClick={() => addTask(b.id)}>
+              <button type="button" className={ADD_LINK_CLASS} onClick={() => addTask(b.id)}>
                 <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addTask')}
               </button>
             )}
@@ -214,12 +214,13 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                           type="button"
                           aria-label={t('org.removeMemberNamed', { name: memberLabel })}
                           onClick={() => removeMember(p.id, m.id)}
-                          // p-1.5 -m-1.5 grows the click target from 13px to 25px without
-                          // shifting the icon's visual position (negative margin cancels the
-                          // padding's layout footprint). §4's 32px floor is not reachable here:
-                          // the × rides an 18px-tall Tag pill row, and a true 32px box would
-                          // blow past the 6px gap-1.5 row spacing onto neighboring rows.
-                          className="p-1.5 -m-1.5 text-ink-400 hover:text-danger-text rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+                          // Split-axis padding: px-1.5 -mx-1.5 widens the click target to
+                          // 25px, py-1 -my-1 only to 21px — deliberately less on the vertical
+                          // axis than the horizontal, so the target doesn't grow into the
+                          // gap-1.5 (6px) row spacing and overlap a neighboring member pill
+                          // above/below when this Tag+× wraps onto a new line. §4's 32px
+                          // floor is not reachable here without that overlap.
+                          className="px-1.5 -mx-1.5 py-1 -my-1 text-ink-400 hover:text-danger-text rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                         >
                           <X className="w-[13px] h-[13px]" strokeWidth={1.5} />
                         </button>
@@ -229,7 +230,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                 })}
               </div>
               {canEdit && (
-                <button className={ADD_LINK_CLASS} onClick={() => setPicker({ title: t('org.addMember'), allowClear: false, onSelect: (person) => { if (person) addMember(p.id, person) } })}>
+                <button type="button" className={ADD_LINK_CLASS} onClick={() => setPicker({ title: t('org.addMember'), allowClear: false, onSelect: (person) => { if (person) addMember(p.id, person) } })}>
                   <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addMember')}
                 </button>
               )}
