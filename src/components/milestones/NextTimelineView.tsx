@@ -1,8 +1,10 @@
 'use client'
 
 import { useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { format } from 'date-fns/format'
+import SegmentedControl from '@/components/ui/SegmentedControl'
 import type { Milestone } from '@/lib/types'
 import {
   DAY_MS,
@@ -13,10 +15,30 @@ import {
   getTimelineVisual,
   groupTimelineItems,
   shouldNavigateTimelinePress,
+  type TimelineGroup,
 } from '@/lib/milestones/next-timeline'
 
 const RANGE_OPTIONS = [14, 30, 90] as const
 type RangeDays = (typeof RANGE_OPTIONS)[number]
+
+// ── Layout constants for the above/below stem+dot chain ────────
+// (see the collision-avoidance block below for how these combine)
+const ABOVE_TOP = 28
+const ABOVE_STEM = 40
+const BELOW_TOP = 154
+const BELOW_STEM = 32
+// Extra vertical reach (px) per stagger layer when two same-side cards would
+// otherwise overlap horizontally.
+const LAYER_STEP = 56
+// Bounded to 2 lanes per side — enough for the common "two neighbours landed
+// on the same side" case without growing the canvas indefinitely for rare,
+// very dense clusters (see the comment on `assignLayer` below).
+const MAX_LAYER = 2
+// `TimelineCard` is `w-44` (176px) against the canvas's own `min-w-[900px]`
+// baseline ≈ 19.5% of the width — two same-side cards whose x is closer than
+// that will visually overlap. 18% leaves a small buffer while not
+// over-triggering the stagger for cards that are merely close-ish.
+const COLLISION_PCT = 18
 
 function readableX(x: number): number {
   return Math.min(94, Math.max(6, x))
@@ -33,38 +55,87 @@ function isTouchLikeTimelineClick(event: ReactMouseEvent<HTMLElement>): boolean 
   )
 }
 
+// Tone → class lookup (design-system §1.3 dot/soft/text triad), plus a
+// `stem` color for the thin connector line. Same shadow-halo idiom as
+// RecordRow.tsx's own DOT map (`shadow-[0_0_0_Npx_var(--x-soft)]` — a
+// private arbitrary-value shadow, not a registered token, per that file's
+// own comment) instead of the old `ring-4 ring-{color}-100` pairing.
 const TONE_CLASS = {
   danger: {
-    dot: 'bg-red-500 ring-red-100',
-    hollow: 'border-red-500 bg-white ring-red-100',
-    card: 'border-red-200 bg-red-50',
-    text: 'text-red-600',
-    stem: 'bg-red-400',
+    dot: 'bg-danger-dot shadow-[0_0_0_4px_var(--danger-soft)]',
+    hollow: 'border-danger-dot bg-surface shadow-[0_0_0_4px_var(--danger-soft)]',
+    card: 'border-danger-border bg-danger-soft',
+    text: 'text-danger-text',
+    stem: 'bg-danger-dot',
   },
   warning: {
-    dot: 'bg-amber-500 ring-amber-100',
-    hollow: 'border-amber-500 bg-white ring-amber-100',
-    card: 'border-amber-200 bg-amber-50',
-    text: 'text-amber-700',
-    stem: 'bg-amber-400',
+    dot: 'bg-warning-dot shadow-[0_0_0_4px_var(--warning-soft)]',
+    hollow: 'border-warning-dot bg-surface shadow-[0_0_0_4px_var(--warning-soft)]',
+    card: 'border-warning-border bg-warning-soft',
+    text: 'text-warning-text',
+    stem: 'bg-warning-dot',
   },
   success: {
-    dot: 'bg-green-500 ring-green-100',
-    hollow: 'border-green-500 bg-white ring-green-100',
-    card: 'border-green-200 bg-green-50',
-    text: 'text-green-700',
-    stem: 'bg-green-400',
+    dot: 'bg-success-dot shadow-[0_0_0_4px_var(--success-soft)]',
+    hollow: 'border-success-dot bg-surface shadow-[0_0_0_4px_var(--success-soft)]',
+    card: 'border-success-border bg-success-soft',
+    text: 'text-success-text',
+    stem: 'bg-success-dot',
   },
   neutral: {
-    dot: 'bg-zinc-400 ring-zinc-100',
-    hollow: 'border-zinc-400 bg-white ring-zinc-100',
-    card: 'border-zinc-200 bg-white',
-    text: 'text-zinc-500',
-    stem: 'bg-zinc-300',
+    dot: 'bg-muted-dot shadow-[0_0_0_4px_var(--muted-soft)]',
+    hollow: 'border-muted-dot bg-surface shadow-[0_0_0_4px_var(--muted-soft)]',
+    card: 'border-line bg-surface',
+    text: 'text-ink-500',
+    stem: 'bg-muted-dot',
   },
 } as const
 
+// ── Collision avoidance (fix 1/3: overlapping node cards) ──────
+//
+// `groupTimelineItems` (next-timeline.ts) only clusters milestones whose
+// *target dates* land within a couple of percentage points of each other —
+// it has no notion of how wide a rendered `TimelineCard` is. Two groups a
+// few points apart pass that test as "distinct", but at ~19.5% wide each
+// (COLLISION_PCT above), their cards still overlap on screen once both land
+// on the same side of the axis (above/below alternates strictly by index,
+// not by proximity).
+//
+// Fix: a second, purely visual pass. Groups already arrive x-ascending
+// (`groups` is built by walking milestones sorted by target_date), so for
+// each side (above/below) we greedily assign the first "lane" whose last
+// occupant is far enough away in x; a lane that's still too close bumps to
+// the next one, up to MAX_LAYER. `layer > 0` pushes that card's leader line
+// further from the axis instead of moving the dot (see the wrapperTop/stem
+// math where this is consumed) — the dot stays exactly on its true date
+// position; only the card's "reach" grows.
+function assignLayer(lastXByLane: number[], x: number): number {
+  for (let layer = 0; layer < MAX_LAYER; layer++) {
+    if (lastXByLane[layer] === undefined || x - lastXByLane[layer] >= COLLISION_PCT) {
+      lastXByLane[layer] = x
+      return layer
+    }
+  }
+  // Every lane still collides (a dense cluster of 3+ near-neighbours on the
+  // same side) — pile onto the last lane rather than adding a third. A
+  // small residual overlap here is the accepted trade-off of a bounded,
+  // simple avoidance pass rather than an open-ended layout solve.
+  lastXByLane[MAX_LAYER - 1] = x
+  return MAX_LAYER - 1
+}
+
+function placeGroups(groups: TimelineGroup<Milestone>[]) {
+  const lastXAbove: number[] = []
+  const lastXBelow: number[] = []
+  return groups.map((group, index) => {
+    const above = index % 2 === 0
+    const layer = assignLayer(above ? lastXAbove : lastXBelow, group.x)
+    return { group, above, layer }
+  })
+}
+
 export default function NextTimelineView({ milestones }: { milestones: Milestone[] }) {
+  const t = useTranslations('timeline')
   const [rangeDays, setRangeDays] = useState<RangeDays>(30)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [armedId, setArmedId] = useState<string | null>(null)
@@ -75,6 +146,7 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
     () => groupTimelineItems(upcoming, range, rangeDays === 90 ? 2 : 3),
     [upcoming, range, rangeDays],
   )
+  const placedGroups = useMemo(() => placeGroups(groups), [groups])
 
   const activeMilestone = activeId
     ? upcoming.find((m) => m.id === activeId) ?? upcoming[0] ?? null
@@ -83,12 +155,12 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
   const ticks = useMemo(() => {
     const midpoint = Math.round(rangeDays / 2)
     return [
-      { label: '今天', date: range.start },
-      { label: '+7 天', date: new Date(range.start.getTime() + Math.min(7, rangeDays) * DAY_MS) },
-      { label: `+${midpoint} 天`, date: new Date(range.start.getTime() + midpoint * DAY_MS) },
-      { label: `+${rangeDays} 天`, date: range.end },
+      { label: t('gantt.today'), date: range.start },
+      { label: t('nextView.plusDays', { days: 7 }), date: new Date(range.start.getTime() + Math.min(7, rangeDays) * DAY_MS) },
+      { label: t('nextView.plusDays', { days: midpoint }), date: new Date(range.start.getTime() + midpoint * DAY_MS) },
+      { label: t('nextView.plusDays', { days: rangeDays }), date: range.end },
     ]
-  }, [range, rangeDays])
+  }, [range, rangeDays, t])
 
   const handleRangeChange = (days: RangeDays) => {
     setRangeDays(days)
@@ -112,9 +184,9 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
 
   if (upcoming.length === 0) {
     return (
-      <section className="bg-white border border-zinc-200 rounded-card p-10 text-center">
-        <p className="text-sm font-medium text-zinc-600">未来 {rangeDays} 天暂无战略节点</p>
-        <p className="text-xs text-zinc-400 mt-1">可以切换到 90 天查看更远的规划。</p>
+      <section className="bg-surface border border-line rounded-card p-10 text-center">
+        <p className="text-sm font-medium text-ink-700">{t('nextView.emptyTitle', { days: rangeDays })}</p>
+        <p className="text-xs text-ink-400 mt-1">{t('nextView.emptyHint')}</p>
         <div className="mt-5 flex justify-center">
           <RangeSwitch value={rangeDays} onChange={handleRangeChange} />
         </div>
@@ -123,47 +195,77 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
   }
 
   return (
-    <section className="bg-white border border-zinc-200 rounded-card p-5">
+    <section className="bg-surface border border-line rounded-card p-5">
       <div className="flex items-end justify-between gap-4 mb-5 flex-wrap">
         <div>
-          <h2 className="text-lg font-bold text-zinc-900">接下来 {rangeDays} 天</h2>
-          <p className="text-xs text-zinc-500 mt-1">按日期查看即将到来的战略节点</p>
+          <h2 className="text-lg font-bold text-ink-900">{t('nextView.heading', { days: rangeDays })}</h2>
+          <p className="text-xs text-ink-500 mt-1">{t('nextView.subheading')}</p>
         </div>
         <RangeSwitch value={rangeDays} onChange={handleRangeChange} />
       </div>
 
       <div className="overflow-x-auto pb-2">
         <div className="relative min-w-[900px] h-[320px] mx-2">
-          <div className="absolute left-0 right-0 top-[150px] h-0.5 bg-zinc-200" />
+          <div className="absolute left-0 right-0 top-[150px] h-0.5 bg-line-strong" />
 
-          {ticks.map((tick) => {
+          {/* Fix 2/3 (left-end date truncation) + fix 3/3 (right-end "+N天"
+              wrap): the middle two ticks stay centered (-translate-x-1/2,
+              plenty of room on both sides), but the first tick (left: 0%)
+              and last tick (left: 100%) used to share that same centered
+              anchor — which pushes half the label's width past the
+              container's own edge with nothing to hold it, clipping the
+              date text at the left edge of the scroll area. Edge ticks now
+              anchor flush to their own edge instead (`left-0`/`items-start`
+              for the first, `right-0`/`items-end` for the last — no
+              translate, so nothing overhangs). Every tick's two text lines
+              get `flex-none whitespace-nowrap` so "+{rangeDays} 天" always
+              renders on one line instead of wrapping ("+30" / "天") when
+              squeezed near that edge. */}
+          {ticks.map((tick, index) => {
+            const isFirst = index === 0
+            const isLast = index === ticks.length - 1
             const left = getTimelinePosition(tick.date.toISOString(), range)
             return (
               <div
                 key={`${tick.label}-${tick.date.toISOString()}`}
-                className="absolute top-[160px] -translate-x-1/2 text-center"
-                style={{ left: `${left}%` }}
+                className={`absolute top-[160px] inline-flex flex-col ${
+                  isFirst ? 'items-start text-left' : isLast ? 'items-end text-right' : '-translate-x-1/2 items-center text-center'
+                }`}
+                style={isFirst ? { left: 0 } : isLast ? { right: 0 } : { left: `${left}%` }}
               >
-                <div className="mx-auto mb-1 h-2 w-px bg-zinc-300" />
-                <p className="text-[10px] font-medium text-zinc-500">{tick.label}</p>
-                <p className="text-[10px] text-zinc-400">{format(tick.date, 'MMM d')}</p>
+                <div className="mb-1 h-2 w-px flex-none bg-line-strong" />
+                <p className="flex-none whitespace-nowrap text-[10px] font-medium text-ink-500">{tick.label}</p>
+                <p className="flex-none whitespace-nowrap text-[10px] text-ink-400">{format(tick.date, 'MMM d')}</p>
               </div>
             )
           })}
 
-          {groups.map((group, index) => {
+          {placedGroups.map(({ group, above, layer }) => {
             const first = group.milestones[0]
             const visual = getTimelineVisual(first)
             const cls = TONE_CLASS[visual.tone]
-            const above = index % 2 === 0
             const isCluster = group.milestones.length > 1
             const selected = activeMilestone && group.milestones.some((m) => m.id === activeMilestone.id)
+
+            // Fix 1/3 (overlapping cards): `layer > 0` only changes how far
+            // the card sits from the axis — the dot's own position stays
+            // fixed. For "above" (card, stem, dot in that DOM order), the
+            // card is positioned directly by `wrapperTop`, so moving it away
+            // from the axis means moving wrapperTop itself; the stem grows
+            // by the same amount so the dot (wrapperTop + card + stem) lands
+            // in the same place regardless of layer. For "below" (dot,
+            // stem, card), the dot is first in flow — its position is just
+            // wrapperTop, untouched by anything after it — so only the stem
+            // needs to grow to push the card further down.
+            const dx = layer * LAYER_STEP
+            const wrapperTop = above ? ABOVE_TOP - dx : BELOW_TOP
+            const stemHeight = (above ? ABOVE_STEM : BELOW_STEM) + dx
 
             return (
               <div
                 key={group.id}
                 className="absolute -translate-x-1/2"
-                style={{ left: `${readableX(group.x)}%`, top: above ? 28 : 154 }}
+                style={{ left: `${readableX(group.x)}%`, top: wrapperTop }}
                 onMouseEnter={() => setActiveId(first.id)}
               >
                 {above && (
@@ -175,7 +277,7 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
                     onPress={handleMilestonePress}
                   />
                 )}
-                <div className={`mx-auto w-0.5 ${above ? 'h-10' : 'h-8'} ${cls.stem}`} />
+                <div className={`mx-auto w-0.5 ${cls.stem}`} style={{ height: stemHeight }} />
                 <TimelineDot
                   milestone={first}
                   count={group.milestones.length}
@@ -211,23 +313,14 @@ function RangeSwitch({
   value: RangeDays
   onChange: (value: RangeDays) => void
 }) {
+  const t = useTranslations('timeline')
   return (
-    <div className="flex bg-zinc-100 rounded-lg p-0.5">
-      {RANGE_OPTIONS.map((days) => (
-        <button
-          key={days}
-          type="button"
-          onClick={() => onChange(days)}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-            value === days
-              ? 'bg-white shadow-sm text-zinc-900'
-              : 'text-zinc-500 hover:text-zinc-700'
-          }`}
-        >
-          {days} 天
-        </button>
-      ))}
-    </div>
+    <SegmentedControl
+      label={t('nextView.rangeLabel')}
+      items={RANGE_OPTIONS.map((days) => ({ value: String(days), label: t('nextView.rangeOption', { days }) }))}
+      value={String(value)}
+      onChange={(v) => onChange(Number(v) as RangeDays)}
+    />
   )
 }
 
@@ -246,10 +339,11 @@ function TimelineDot({
   onFocus: () => void
   onPress: (event: ReactMouseEvent<HTMLElement>, milestoneId: string) => void
 }) {
+  const t = useTranslations('timeline')
   const visual = getTimelineVisual(milestone)
   const cls = TONE_CLASS[visual.tone]
   const title = isCluster
-    ? `${count} 个节点 · ${format(new Date(milestone.target_date), 'MMM d')}`
+    ? `${t('nextView.clusterCount', { count })} · ${format(new Date(milestone.target_date), 'MMM d')}`
     : `${milestone.title} · ${format(new Date(milestone.target_date), 'MMM d')}`
   const dotClass = visual.hollow
     ? `border-2 ${cls.hollow}`
@@ -261,9 +355,9 @@ function TimelineDot({
         type="button"
         onClick={onFocus}
         title={title}
-        className={`relative mx-auto block h-4 w-4 rounded-full ring-4 transition-transform hover:scale-110 ${dotClass} ${selected ? 'scale-125' : ''}`}
+        className={`relative mx-auto block h-4 w-4 rounded-full transition-transform hover:scale-110 ${dotClass} ${selected ? 'scale-125' : ''}`}
       >
-        <span className="absolute -mt-5 ml-2 rounded-full bg-zinc-900 px-1.5 py-0.5 text-[10px] text-white">
+        <span className="absolute -mt-5 ml-2 rounded-full bg-ink-900 px-1.5 py-0.5 text-[10px] text-white">
           {count}
         </span>
       </button>
@@ -275,7 +369,7 @@ function TimelineDot({
       href={`/timeline/${milestone.id}`}
       title={title}
       onClick={(event) => onPress(event, milestone.id)}
-      className={`mx-auto block h-4 w-4 rounded-full ring-4 transition-transform hover:scale-110 ${dotClass} ${selected ? 'scale-125' : ''}`}
+      className={`mx-auto block h-4 w-4 rounded-full transition-transform hover:scale-110 ${dotClass} ${selected ? 'scale-125' : ''}`}
     />
   )
 }
@@ -293,6 +387,7 @@ function TimelineCard({
   selected: boolean
   onPress: (event: ReactMouseEvent<HTMLElement>, milestoneId: string) => void
 }) {
+  const t = useTranslations('timeline')
   const visual = getTimelineVisual(milestone)
   const daysLeft = getDaysLeft(milestone.target_date)
   const cls = TONE_CLASS[visual.tone]
@@ -301,24 +396,24 @@ function TimelineCard({
   return (
     <Link
       href={`/timeline/${milestone.id}`}
-      title={`${milestone.title} · ${visual.label}`}
+      title={`${milestone.title} · ${t(`nextView.toneLabel.${visual.tone}`)}`}
       onClick={(event) => onPress(event, milestone.id)}
-      className={`block w-44 rounded-lg border px-3 py-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${cls.card} ${selected ? 'ring-2 ring-violet-300' : ''}`}
+      className={`block w-44 rounded-field border px-3 py-2 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-pop ${cls.card} ${selected ? 'ring-2 ring-primary-border' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold text-zinc-900 line-clamp-2">
-          {isCluster ? `${count} 个节点` : milestone.title}
+        <p className="text-xs font-semibold text-ink-900 line-clamp-2">
+          {isCluster ? t('nextView.clusterCount', { count }) : milestone.title}
         </p>
         <span className={`text-[10px] font-semibold whitespace-nowrap ${cls.text}`}>
-          {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d`}
+          {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
         </span>
       </div>
-      <p className="text-[10px] text-zinc-500 mt-1 truncate">
-        {owner ?? 'Owner 未定'}
+      <p className="text-[10px] text-ink-500 mt-1 truncate">
+        {owner ?? t('nextView.ownerUnassigned')}
       </p>
       {isCluster && (
-        <p className="text-[10px] text-zinc-400 mt-1 truncate">
-          点击查看最近节点
+        <p className="text-[10px] text-ink-400 mt-1 truncate">
+          {t('nextView.clusterHint')}
         </p>
       )}
     </Link>
@@ -326,32 +421,33 @@ function TimelineCard({
 }
 
 function FocusDetail({ milestone }: { milestone: Milestone }) {
+  const t = useTranslations('timeline')
   const visual = getTimelineVisual(milestone)
   const daysLeft = getDaysLeft(milestone.target_date)
   const cls = TONE_CLASS[visual.tone]
   const owner = (milestone.owner_agent as { name?: string; role?: string } | null | undefined)
 
   return (
-    <div className={`mt-4 rounded-lg border px-4 py-3 ${cls.card}`}>
+    <div className={`mt-4 rounded-field border px-4 py-3 ${cls.card}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <Link
             href={`/timeline/${milestone.id}`}
-            className="text-sm font-semibold text-zinc-900 hover:text-primary transition-colors"
+            className="text-sm font-semibold text-ink-900 hover:text-primary transition-colors"
           >
             {milestone.title}
           </Link>
           {milestone.description && (
-            <p className="text-xs text-zinc-600 mt-1 line-clamp-2">{milestone.description}</p>
+            <p className="text-xs text-ink-700 mt-1 line-clamp-2">{milestone.description}</p>
           )}
-          <div className="flex items-center gap-3 flex-wrap mt-2 text-xs text-zinc-500">
+          <div className="flex items-center gap-3 flex-wrap mt-2 text-xs text-ink-500">
             <span>{format(new Date(milestone.target_date), 'MMM d, yyyy')}</span>
-            <span>{owner?.name ? `${owner.name}${owner.role ? ` (${owner.role})` : ''}` : 'Owner 未定'}</span>
-            <span className={cls.text}>{visual.label}</span>
+            <span>{owner?.name ? `${owner.name}${owner.role ? ` (${owner.role})` : ''}` : t('nextView.ownerUnassigned')}</span>
+            <span className={cls.text}>{t(`nextView.toneLabel.${visual.tone}`)}</span>
           </div>
         </div>
         <div className={`text-xs font-semibold whitespace-nowrap ${cls.text}`}>
-          {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d`}
+          {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
         </div>
       </div>
     </div>
