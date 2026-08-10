@@ -1305,6 +1305,7 @@
     "actionFailed": "操作に失敗しました",
     "weeklyFollowers": "フォロワー · 直近4週",
     "weeklyDelta": "{pct}%/週",
+    "weeklyPointTip": "{date} の週 · {count}",
     "weeklyEmpty": "フォロワーデータなし",
     "viewAll": "すべて表示 {count}",
     "collapse": "折りたたむ",
