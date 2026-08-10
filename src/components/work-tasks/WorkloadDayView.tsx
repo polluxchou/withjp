@@ -12,9 +12,6 @@ import { Field, Input } from '@/components/ui/Field'
 import { toneOf } from '@/lib/ui/status-tone'
 import WorkTaskForm from './WorkTaskForm'
 import {
-  WORK_TASK_TYPE_LABELS,
-  WORK_TASK_STATUS_LABELS,
-  DEPARTMENT_LABELS,
   utilisationTone,
   buildUserWorkloads,
   aggregateWorkload,
@@ -96,7 +93,7 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
             .sort((a, b) => b[1].hours - a[1].hours)
             .map(([dept, { hours, cost }]) => (
               <div key={dept} className="bg-surface border border-line rounded-field px-3 py-1.5 text-xs">
-                <span className="font-medium text-ink-700">{DEPARTMENT_LABELS[dept]}</span>
+                <span className="font-medium text-ink-700">{t(`department.${dept}`)}</span>
                 <span className="text-ink-400 mx-1">·</span>
                 <span className="text-ink-700 tabular-nums">{hours}h</span>
                 <span className="text-ink-400 mx-1">·</span>
@@ -127,7 +124,7 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
                 </div>
                 <div className="flex-1">
                   <span className="text-sm font-semibold text-ink-900">{row.user_name}</span>
-                  <span className="ml-2 text-xs text-ink-400">{DEPARTMENT_LABELS[row.department]}</span>
+                  <span className="ml-2 text-xs text-ink-400">{t(`department.${row.department}`)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Utilisation bar */}
@@ -149,8 +146,8 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
                 {row.tasks.map((task) => (
                   <div key={task.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-row-hover transition-colors">
                     <div className="flex gap-1.5 mt-0.5 flex-shrink-0">
-                      <Tag size="sm" tone={TYPE_TONE[task.task_type]} label={WORK_TASK_TYPE_LABELS[task.task_type]} />
-                      <Tag size="sm" tone={toneOf('work_task', task.status)} label={WORK_TASK_STATUS_LABELS[task.status]} />
+                      <Tag size="sm" tone={TYPE_TONE[task.task_type]} label={t(`taskType.${task.task_type}`)} />
+                      <Tag size="sm" tone={toneOf('work_task', task.status)} label={t(`status.${task.status}`)} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink-900 truncate">{task.title}</p>
