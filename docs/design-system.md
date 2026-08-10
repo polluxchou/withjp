@@ -72,8 +72,9 @@
 | 财务预测账号收入档 | 重点跟进 success · 稳定 violet · 观察 warning（`StatusBadge` 按月收入阈值派生，非持久化枚举） |
 | 财务预测视角 | 公开 success · 私有 neutral · 归属徽章 neutral |
 | 财务预测年份卡 | 本年 violet（`AnnualOverview` 年份卡的「本年」标记） |
+| 讨论 | 进行中 open info · 已结束 resolved success（PR4 Task 2 登记：与任务/战略节点的"进行中"、任务/工时任务的"已完成"同色系，非阻断性正向终态） |
 
-> DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 与 ThreadStatus 在 PR2/PR3 迁移对应界面时登记。
+> DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 待 PR2/PR3 迁移对应界面时登记。
 
 ### 1.4 彩色图标 chip 色板（仅限侧栏与区块卡头图标）
 
