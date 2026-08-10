@@ -24,7 +24,9 @@
     "emptyHint": "Add the first one!",
     "errorTitle": "Something went wrong",
     "retry": "Retry",
-    "loadFailed": "Failed to load. Please retry."
+    "loadFailed": "Failed to load. Please retry.",
+    "prev": "Previous",
+    "next": "Next"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -219,6 +221,7 @@
     "openButtonTooltip": "Natural-language action (⌘K)",
     "modalTitle": "Type a sentence to act",
     "placeholder": "Type a sentence (v1: expense management only). e.g. How much of Q3 salary went to MC / Add a travel expense: taxi May 10, ¥320",
+    "sendButtonLabel": "Send",
     "query": {
       "emptyDenom": {
         "title": "Cannot compute a ratio",

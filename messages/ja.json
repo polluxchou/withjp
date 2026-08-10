@@ -24,7 +24,9 @@
     "emptyHint": "最初の1件を追加しましょう",
     "errorTitle": "エラーが発生しました",
     "retry": "再試行",
-    "loadFailed": "読み込みに失敗しました。再試行してください"
+    "loadFailed": "読み込みに失敗しました。再試行してください",
+    "prev": "前へ",
+    "next": "次へ"
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -219,6 +221,7 @@
     "openButtonTooltip": "自然言語で操作 (⌘K)",
     "modalTitle": "一言で操作する",
     "placeholder": "一文で操作してください（v1は支出管理のみ対応）。例：Q3の給与のうちMCはどのくらい / 5月10日の交通費 320元を追加",
+    "sendButtonLabel": "送信",
     "query": {
       "emptyDenom": {
         "title": "比率を計算できません",

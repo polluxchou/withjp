@@ -34,6 +34,7 @@ function fmtRmb(v: number) {
 
 export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh }: Props) {
   const t = useTranslations('workTasks')
+  const tCommon = useTranslations('common')
   const DAY_LABELS = t.raw('weekdays') as string[]
   const [refDate,  setRefDate]  = useState(new Date())
   const [creating, setCreating] = useState<string | null>(null)   // date string
@@ -106,11 +107,11 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
     <div>
       {/* Week navigation */}
       <div className="flex items-center justify-between mb-4">
-        <Button variant="ghost" size="sm" onClick={prevWeek}>
+        <Button variant="ghost" size="sm" onClick={prevWeek} aria-label={tCommon('prev')}>
           <ChevronLeft className="w-5 h-5" />
         </Button>
         <span className="text-sm font-semibold text-ink-700">{weekLabel}</span>
-        <Button variant="ghost" size="sm" onClick={nextWeek}>
+        <Button variant="ghost" size="sm" onClick={nextWeek} aria-label={tCommon('next')}>
           <ChevronRight className="w-5 h-5" />
         </Button>
       </div>

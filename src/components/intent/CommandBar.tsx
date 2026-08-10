@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl'
 import { Sparkles, Send, Copy, Check } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import { Input } from '@/components/ui/Field'
+import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import PendingActionCard, { type PendingActionState } from './PendingActionCard'
 import type { Expense } from '@/lib/types'
 import type { VenueAction } from '@/venue/layoutData'
@@ -135,33 +137,44 @@ export default function CommandBar() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-5 z-30 flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-zinc-200 shadow-sm hover:bg-zinc-50 transition-colors text-sm text-zinc-700"
+        className="fixed right-5 z-[70] flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface border border-line shadow-pop hover:bg-canvas transition-colors text-sm text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
         title={t('openButtonTooltip')}
       >
-        <Sparkles className="w-4 h-4 text-violet-500" />
+        <Sparkles className="w-4 h-4 text-primary" strokeWidth={1.5} />
         <span className="text-xs font-medium">{t('openButtonLabel')}</span>
-        <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] rounded bg-zinc-100 text-zinc-500 border border-zinc-200">⌘K</kbd>
+        <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-micro rounded bg-canvas text-ink-400 border border-line">⌘K</kbd>
       </button>
 
+      {/* The panel stays on the shared <Modal> (z-60) rather than the
+          layer-table's nominal "CommandBar 70": PendingActionCard (rendered
+          inside ResultView below for pending intents) opens its own nested
+          <Modal> for the "edit and save" flow, and Modal.tsx hardcodes
+          z-[60] internally. Two same-z Modals resolve correctly today via
+          DOM/mount order (the later-opened edit modal paints on top); moving
+          only the outer panel to z-70 would flip that — the edit modal would
+          render behind this panel's opaque body and become unusable. Only
+          the always-visible trigger pill above moves to 70; the panel keeps
+          60 to preserve that nested-modal interaction. See the CommandBar
+          report for Task 7 for the full trade-off. */}
       <Modal open={open} onClose={close} title={t('modalTitle')} width="max-w-2xl">
         <div className="space-y-4">
           <form onSubmit={submit} className="flex gap-2">
-            <input
+            <Input
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={venueScoped ? t('venuePlaceholder') : t('placeholder')}
-              className="flex-1 border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               disabled={busy}
+              className="flex-1"
             />
-            <Button type="submit" variant="primary" loading={busy} disabled={!text.trim() || busy}>
-              <Send className="w-4 h-4" />
+            <Button type="submit" variant="primary" loading={busy} disabled={!text.trim() || busy} aria-label={t('sendButtonLabel')}>
+              <Send className="w-4 h-4" strokeWidth={1.5} />
             </Button>
           </form>
 
           {result && (
-            <div className="border-t border-zinc-100 pt-4">
+            <div className="border-t border-line-soft pt-4">
               <ResultView
                 result={result}
                 inputText={text}
@@ -211,7 +224,7 @@ function VenuePreviewView({
   const t = useTranslations('intent')
   return (
     <div className="space-y-3">
-      <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-3 text-sm text-zinc-800">
+      <div className="bg-canvas border border-line rounded-field p-3 text-sm text-ink-700">
         {action.summary}
       </div>
       <div className="flex justify-end gap-2">
@@ -236,7 +249,7 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-zinc-500">{r.breadcrumbs}</div>
+      <div className="text-xs text-ink-500">{r.breadcrumbs}</div>
 
       {/* Empty-state branches come first so a 0 doesn't masquerade as a real answer. */}
       {denomEmpty ? (
@@ -252,48 +265,50 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
           suggestions={t.raw('query.emptyNumerator.suggestions') as string[]}
         />
       ) : isRatio ? (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 space-y-1">
-          <div className="text-2xl font-semibold text-zinc-900">
+        <div className="bg-canvas border border-line rounded-card p-4 space-y-1">
+          <div className="text-2xl font-bold tracking-kpi tabular-nums text-ink-900">
             {(r.denominator!.ratio * 100).toFixed(1)}%
           </div>
-          <div className="text-sm text-zinc-600">
-            {formatValue(r.numerator.value, r.aggregate)} <span className="text-zinc-400">/</span>{' '}
+          <div className="text-sm text-ink-500 tabular-nums">
+            {formatValue(r.numerator.value, r.aggregate)} <span className="text-ink-400">/</span>{' '}
             {formatValue(r.denominator!.value, r.aggregate)}
           </div>
-          <div className="text-xs text-zinc-500">
+          <div className="text-xs text-ink-500">
             {t('query.ratioCounts', { num: r.numerator.count, denom: r.denominator!.count })}
           </div>
         </div>
       ) : (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-4 space-y-1">
-          <div className="text-2xl font-semibold text-zinc-900">
+        <div className="bg-canvas border border-line rounded-card p-4 space-y-1">
+          <div className="text-2xl font-bold tracking-kpi tabular-nums text-ink-900">
             {formatValue(r.numerator.value, r.aggregate)}
           </div>
-          <div className="text-xs text-zinc-500">{t('query.countShort', { count: r.numerator.count })}</div>
+          <div className="text-xs text-ink-500">{t('query.countShort', { count: r.numerator.count })}</div>
         </div>
       )}
 
       {r.groups && r.groups.length > 0 && (
-        <div className="border border-zinc-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-zinc-600 text-xs">
-              <tr><th className="text-left px-3 py-2">{t('query.groupCol')}</th><th className="text-right px-3 py-2">{t('query.groupValueCol')}</th><th className="text-right px-3 py-2">{t('query.groupCountCol')}</th></tr>
-            </thead>
-            <tbody>
+        <div className="bg-surface border border-line rounded-card overflow-hidden">
+          <Table>
+            <THead>
+              <Th>{t('query.groupCol')}</Th>
+              <Th align="right">{t('query.groupValueCol')}</Th>
+              <Th align="right">{t('query.groupCountCol')}</Th>
+            </THead>
+            <TBody>
               {r.groups.map((g) => (
-                <tr key={g.key} className="border-t border-zinc-100">
-                  <td className="px-3 py-1.5">{g.key}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{formatValue(g.value, r.aggregate)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums text-zinc-500">{g.count}</td>
-                </tr>
+                <Tr key={g.key}>
+                  <Td className="text-xs">{g.key}</Td>
+                  <Td align="right" numeric className="text-xs">{formatValue(g.value, r.aggregate)}</Td>
+                  <Td align="right" className="text-xs tabular-nums text-ink-500">{g.count}</Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         </div>
       )}
 
       {r.sample && r.sample.length > 0 && (
-        <div className="text-xs text-zinc-500">
+        <div className="text-xs text-ink-500">
           {t('query.sampleHint', { count: r.sample.length })}
         </div>
       )}
@@ -307,31 +322,29 @@ function ClarificationView({ r }: { r: Extract<ServerResult, { kind: 'clarificat
   const t = useTranslations('intent.clarification')
   return (
     <div className="space-y-3">
-      <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+      <div className="text-sm text-warning-text bg-warning-soft border border-warning-border rounded-field px-3 py-2">
         {r.message}
       </div>
       {r.candidates && r.candidates.length > 0 && (
-        <div className="border border-zinc-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-zinc-600 text-xs">
-              <tr>
-                <th className="text-left px-3 py-2">{t('dateCol')}</th>
-                <th className="text-left px-3 py-2">{t('nameCol')}</th>
-                <th className="text-right px-3 py-2">{t('amountCol')}</th>
-                <th className="text-left px-3 py-2">{t('buyerCol')}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="bg-surface border border-line rounded-card overflow-hidden">
+          <Table>
+            <THead>
+              <Th>{t('dateCol')}</Th>
+              <Th>{t('nameCol')}</Th>
+              <Th align="right">{t('amountCol')}</Th>
+              <Th>{t('buyerCol')}</Th>
+            </THead>
+            <TBody>
               {r.candidates.slice(0, 10).map((c) => (
-                <tr key={c.id} className="border-t border-zinc-100">
-                  <td className="px-3 py-1.5 tabular-nums text-zinc-600">{c.expense_date}</td>
-                  <td className="px-3 py-1.5">{c.item_name}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">¥{Number(c.total_price).toLocaleString('zh-CN')}</td>
-                  <td className="px-3 py-1.5 text-zinc-600">{c.buyer_name || '—'}</td>
-                </tr>
+                <Tr key={c.id}>
+                  <Td className="text-xs tabular-nums text-ink-500">{c.expense_date}</Td>
+                  <Td className="text-xs">{c.item_name}</Td>
+                  <Td align="right" numeric className="text-xs">¥{Number(c.total_price).toLocaleString('zh-CN')}</Td>
+                  <Td className="text-xs text-ink-500">{c.buyer_name || '—'}</Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         </div>
       )}
     </div>
@@ -349,11 +362,11 @@ function EmptyHint({
 }) {
   const t = useTranslations('intent.emptyHint')
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
-      <div className="text-sm font-medium text-amber-900">{title}</div>
-      <div className="text-sm text-amber-800">{body}</div>
-      <div className="text-xs font-medium text-amber-900 pt-1">{t('suggestionsHeader')}</div>
-      <ul className="text-xs text-amber-800 list-disc list-inside space-y-1">
+    <div className="bg-warning-soft border border-warning-border rounded-card p-4 space-y-2">
+      <div className="text-sm font-medium text-warning-text">{title}</div>
+      <div className="text-sm text-warning-text">{body}</div>
+      <div className="text-xs font-medium text-warning-text pt-1">{t('suggestionsHeader')}</div>
+      <ul className="text-xs text-warning-text list-disc list-inside space-y-1">
         {suggestions.map((s, i) => <li key={i}>{s}</li>)}
       </ul>
     </div>
@@ -405,35 +418,36 @@ function ErrorView({
   }
 
   return (
-    <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+    <div className="bg-danger-soft border border-danger-border rounded-card p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-medium text-red-900">{friendly.title}</div>
+        <div className="text-sm font-medium text-danger-text">{friendly.title}</div>
         <button
           type="button"
           onClick={copy}
-          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded border border-red-200 bg-white text-red-700 hover:bg-red-100 transition-colors"
           title={t('copyTooltip')}
+          className="flex-none flex items-center gap-1 text-micro font-medium px-2 py-1 rounded-field border border-danger-border bg-surface text-danger-text hover:bg-danger-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
         >
-          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? <Check className="w-3 h-3" strokeWidth={1.5} /> : <Copy className="w-3 h-3" strokeWidth={1.5} />}
           {copied ? t('copied') : t('copyButton')}
         </button>
       </div>
-      <div className="text-sm text-red-800">{friendly.body}</div>
+      <div className="text-sm text-danger-text">{friendly.body}</div>
       {friendly.suggestions.length > 0 && (
         <>
-          <div className="text-xs font-medium text-red-900 pt-1">{t('suggestionsHeader')}</div>
-          <ul className="text-xs text-red-800 list-disc list-inside space-y-1">
+          <div className="text-xs font-medium text-danger-text pt-1">{t('suggestionsHeader')}</div>
+          <ul className="text-xs text-danger-text list-disc list-inside space-y-1">
             {friendly.suggestions.map((s, i) => <li key={i}>{s}</li>)}
           </ul>
         </>
       )}
       {friendly.showRaw && (
-        <details className="text-xs text-red-600 pt-1">
-          <summary className="cursor-pointer select-none">{t('techDetails')}</summary>
-          <pre className="mt-1 whitespace-pre-wrap font-mono text-[11px]">{report}</pre>
+        <details className="w-fit text-xs text-danger-text pt-1">
+          <summary className="w-fit cursor-pointer select-none rounded-field focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1">
+            {t('techDetails')}
+          </summary>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-micro text-ink-700 bg-canvas border border-line rounded-field p-2">{report}</pre>
         </details>
       )}
     </div>
   )
 }
-
