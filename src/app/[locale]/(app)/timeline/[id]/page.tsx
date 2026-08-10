@@ -147,7 +147,7 @@ export default function MilestoneDetailPage() {
     <div className="max-w-5xl">
       {/* Back link */}
       <Link href="/timeline"
-        className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-800 mb-4 transition-colors">
+        className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-900 mb-4 transition-colors">
         <ArrowLeft className="w-4 h-4" /> {t('detail.backLink')}
       </Link>
 

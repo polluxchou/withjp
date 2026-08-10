@@ -170,11 +170,13 @@ function AgentColumn({
               >
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-ink-900 truncate">{task.title}</div>
-                  <div className="text-[11px] text-ink-400 truncate">
+                  <div className="text-micro text-ink-400 truncate">
                     {task.creator?.name ?? noCreatorLabel} · {task.created_at.slice(0, 10)}
                   </div>
                 </div>
-                <Tag size="sm" tone={toneOf('task', task.status)} label={statusLabel(task.status)} />
+                <div className="flex-none">
+                  <Tag size="sm" tone={toneOf('task', task.status)} label={statusLabel(task.status)} />
+                </div>
               </li>
             ))}
           </ul>

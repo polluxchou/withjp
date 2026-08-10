@@ -109,6 +109,7 @@
     "viewPrompt": "プロンプトテンプレートを確認",
     "agentActive": "オンライン",
     "agentOffline": "オフライン",
+    "noAgents": "エージェントがまだありません",
     "architectureTitle": "エージェントアーキテクチャ",
     "architectureBody": "エージェントは<strong>データ駆動</strong>です — すべての動作はデータベースに保存されたプロンプトテンプレートで定義されます。エグゼキューターは単一の汎用関数です：タスクとライバーを読み込み、ライバーのステータスに基づいて関連ナレッジを取得し、設定ルールを適用し、プロンプトテンプレートをレンダリングし、設定済みモデルを呼び出し、構造化JSONの出力を解析します。各エージェントは独立して<strong>Anthropic</strong>、<strong>OpenAI</strong>、<strong>Gemini</strong>を使用できます — 上部のドロップダウンで設定してください。新しいエージェントを追加するには、データベースに1行挿入するだけでコード変更は不要です。",
     "stats": {
@@ -157,6 +158,7 @@
       "clearOwner": "担当者をクリア",
       "rename": "名称変更",
       "delete": "削除",
+      "removeMemberNamed": "{name}を削除",
       "confirmDelete": "削除しますか？",
       "sourceUser": "社員",
       "sourceCreator": "ライバー",

@@ -142,9 +142,9 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
           </Field>
         </div>
 
-        {/* Test button */}
+        {/* Test button — ghost keeps it below Save in visual weight */}
         <Button
-          variant="secondary"
+          variant="ghost"
           size="sm"
           loading={testStatus === 'testing'}
           onClick={handleTest}
@@ -153,9 +153,11 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
           {testStatus === 'testing' ? t('testing') : t('test')}
         </Button>
 
-        {/* Save button */}
+        {/* Save button — secondary, not primary: this component renders once
+            per agent card (design-system §6.2 "primary 一屏至多一个" — a grid
+            of agent cards would otherwise stack several gradient pills). */}
         <Button
-          variant="primary"
+          variant="secondary"
           size="sm"
           loading={saving}
           onClick={handleSave}
