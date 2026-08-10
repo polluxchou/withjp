@@ -1,40 +1,57 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Header from '@/components/layout/Header'
 import LifecycleBadge from '@/components/creators/LifecycleBadge'
-import Button from '@/components/ui/Button'
-import { ChevronRight, ChevronLeft, Users, XCircle, RotateCcw } from 'lucide-react'
+import SectionCard from '@/components/ui/SectionCard'
+import LoadingState from '@/components/ui/LoadingState'
+import ErrorState from '@/components/ui/ErrorState'
+import { ChevronRight, ChevronLeft, Users, XCircle, RotateCcw, GitBranch } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { useTranslations, useLocale } from 'next-intl'
 import type { Creator, CreatorStatus } from '@/lib/types'
 import { fmtCompact } from '@/lib/currency'
 import { ALL_STATUSES, nextStatus, canTransition } from '@/lib/state-machine/creator-lifecycle'
 
+// 卡内四个操作按钮（reactivate/rollback/advance/terminate）共享的基底类——
+// 抽出常量防止手写重复串静默漂移（此前 terminate 就漏了 font-medium），
+// 惯例同 RecordRow.tsx 的 ROW_CLASS。调用处只追加宽度(w-full/flex-1/px-2)
+// 与语义色(text-*/hover:border-*)。
+const CARD_BTN = 'flex items-center justify-center text-xs font-medium border border-line rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+
 export default function PipelinePage() {
   const [creators, setCreators] = useState<Creator[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [moving, setMoving] = useState<string | null>(null)
   const locale = useLocale()
   const t = useTranslations('pipeline')
   const tCommon = useTranslations('common')
   const tStatus = useTranslations('status')
 
-  async function load() {
+  // tCommon 不进依赖：同 locale 下 next-intl 引用稳定，与 creators/page.tsx
+  // 的 load() 同判。
+  const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res  = await fetch('/api/creators')
+      const res = await fetch('/api/creators')
+      if (!res.ok) {
+        console.error('Failed to load creators:', res.status)
+        throw new Error(tCommon('loadFailed'))
+      }
       const json = await res.json()
+      setLoadError(json.error ?? null)
       setCreators(json.data ?? [])
     } catch (err) {
       console.error('Failed to load creators:', err)
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
       setCreators([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
   async function advance(creator: Creator) {
     const next = nextStatus(creator.status)
@@ -109,7 +126,9 @@ export default function PipelinePage() {
       />
 
       {loading ? (
-        <div className="text-center py-12 text-sm text-zinc-400">{tCommon('loading')}</div>
+        <LoadingState />
+      ) : loadError ? (
+        <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {ALL_STATUSES.map((status) => (
@@ -117,7 +136,7 @@ export default function PipelinePage() {
               {/* Column header */}
               <div className="flex items-center gap-2 mb-3 px-1">
                 <LifecycleBadge status={status} size="sm" />
-                <span className="text-xs text-zinc-400 ml-auto font-medium">
+                <span className="text-xs text-ink-400 ml-auto font-medium">
                   {byStatus[status].length}
                 </span>
               </div>
@@ -125,23 +144,23 @@ export default function PipelinePage() {
               {/* Cards */}
               <div className="space-y-2 min-h-[120px]">
                 {byStatus[status].length === 0 ? (
-                  <div className="border-2 border-dashed border-zinc-200 rounded-xl h-20 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-zinc-300" />
+                  <div className="border-2 border-dashed border-line-strong rounded-card h-20 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-ink-400" />
                   </div>
                 ) : (
                   byStatus[status].map((creator) => {
                     const next = nextStatus(creator.status)
                     const previous = getPreviousStatus(creator.status)
                     return (
-                      <div key={creator.id} className="bg-white border border-zinc-200 rounded-xl p-3 hover:shadow-sm transition-shadow group">
+                      <div key={creator.id} className="bg-surface border border-line rounded-card p-3 hover:border-line-strong transition-colors">
                         <Link href={`/creators/${creator.id}`} className="block">
-                          <div className="font-medium text-sm text-zinc-900 truncate">{creator.name}</div>
-                          <div className="text-xs text-zinc-400 mt-0.5">{creator.platform}</div>
+                          <div className="font-medium text-sm text-ink-900 truncate">{creator.name}</div>
+                          <div className="text-xs text-ink-400 mt-0.5">{creator.platform}</div>
                           {creator.profile?.niche && (
-                            <div className="text-xs text-zinc-400">{creator.profile.niche}</div>
+                            <div className="text-xs text-ink-400">{creator.profile.niche}</div>
                           )}
                           {creator.profile?.followers && (
-                            <div className="text-xs text-zinc-400 mt-1">
+                            <div className="text-xs text-ink-400 mt-1">
                               {fmtCompact(creator.profile.followers, locale)} {t('followers')}
                             </div>
                           )}
@@ -151,8 +170,9 @@ export default function PipelinePage() {
                             <button
                               onClick={() => reactivate(creator)}
                               disabled={moving === creator.id}
-                              className="w-full flex items-center justify-center gap-1 text-xs text-zinc-600 hover:text-primary-hover font-medium border border-zinc-200 hover:border-violet-300 rounded-lg py-1.5 transition-colors disabled:opacity-50"
+                              className={`${CARD_BTN} w-full gap-1 text-ink-700 hover:text-primary-hover hover:border-primary-border`}
                               title={t('reactivate')}
+                              aria-label={t('reactivate')}
                             >
                               {moving === creator.id ? '...' : <RotateCcw className="w-3.5 h-3.5" />}
                             </button>
@@ -162,8 +182,9 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => rollback(creator, previous)}
                                   disabled={moving === creator.id}
-                                  className="flex-1 flex items-center justify-center text-xs text-zinc-500 hover:text-zinc-700 font-medium border border-zinc-200 hover:border-zinc-300 rounded-lg py-1.5 transition-colors disabled:opacity-50"
+                                  className={`${CARD_BTN} flex-1 text-ink-500 hover:text-ink-700 hover:border-line-strong`}
                                   title={t('moveBack', { status: tStatus(previous) })}
+                                  aria-label={t('moveBack', { status: tStatus(previous) })}
                                 >
                                   {moving === creator.id ? '...' : <ChevronLeft className="w-4 h-4" />}
                                 </button>
@@ -172,8 +193,9 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => advance(creator)}
                                   disabled={moving === creator.id}
-                                  className="flex-1 flex items-center justify-center text-xs text-primary hover:text-violet-800 font-medium border border-violet-100 hover:border-violet-300 rounded-lg py-1.5 transition-colors disabled:opacity-50"
+                                  className={`${CARD_BTN} flex-1 text-primary hover:text-primary-hover hover:border-primary-border`}
                                   title={t('moveForward', { status: tStatus(next) })}
+                                  aria-label={t('moveForward', { status: tStatus(next) })}
                                 >
                                   {moving === creator.id ? '...' : <ChevronRight className="w-4 h-4" />}
                                 </button>
@@ -182,8 +204,9 @@ export default function PipelinePage() {
                                 <button
                                   onClick={() => terminate(creator)}
                                   disabled={moving === creator.id}
-                                  className="flex items-center justify-center text-xs text-rose-500 hover:text-rose-700 border border-zinc-200 hover:border-rose-300 rounded-lg px-2 py-1.5 transition-colors disabled:opacity-50"
+                                  className={`${CARD_BTN} px-2 text-danger-text hover:border-danger-border`}
                                   title={t('terminate')}
+                                  aria-label={t('terminate')}
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
                                 </button>
@@ -202,26 +225,24 @@ export default function PipelinePage() {
       )}
 
       {/* Legend */}
-      <div className="mt-6 bg-white border border-zinc-200 rounded-xl p-4">
-        <p className="text-xs font-medium text-zinc-500 mb-2">{t('stateMachineRules')}</p>
-        <div className="flex flex-wrap gap-1.5 items-center text-xs text-zinc-400">
-          {ALL_STATUSES.filter((s) => s !== 'terminated').map((s, i, arr) => (
-            <span key={s} className="flex items-center gap-1">
-              <LifecycleBadge status={s} size="sm" />
-              {i < arr.length - 1 && (
-                <>
-                  <ChevronRight className="w-3 h-3 text-zinc-300" />
-                  <ChevronLeft className="w-3 h-3 text-zinc-300" />
-                </>
-              )}
-            </span>
-          ))}
-          <span className="text-zinc-300 px-1">·</span>
-          <LifecycleBadge status="terminated" size="sm" />
-        </div>
-        <p className="text-xs text-zinc-400 mt-2">
-          {t('transitionsInfo')}
-        </p>
+      <div className="mt-6">
+        <SectionCard icon={<GitBranch />} title={t('stateMachineRules')} footer={t('transitionsInfo')}>
+          <div className="flex flex-wrap gap-1.5 items-center text-xs text-ink-400">
+            {ALL_STATUSES.filter((s) => s !== 'terminated').map((s, i, arr) => (
+              <span key={s} className="flex items-center gap-1">
+                <LifecycleBadge status={s} size="sm" />
+                {i < arr.length - 1 && (
+                  <>
+                    <ChevronRight className="w-3 h-3 text-ink-400/60" />
+                    <ChevronLeft className="w-3 h-3 text-ink-400/60" />
+                  </>
+                )}
+              </span>
+            ))}
+            <span className="text-ink-400/60 px-1">·</span>
+            <LifecycleBadge status="terminated" size="sm" />
+          </div>
+        </SectionCard>
       </div>
     </div>
   )

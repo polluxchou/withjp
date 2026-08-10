@@ -23,7 +23,10 @@
     "emptyTitle": "まだ記録がありません",
     "emptyHint": "最初の1件を追加しましょう",
     "errorTitle": "エラーが発生しました",
-    "retry": "再試行"
+    "retry": "再試行",
+    "loadFailed": "読み込みに失敗しました。再試行してください",
+    "prev": "前へ",
+    "next": "次へ"
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -106,6 +109,9 @@
     "inputSchema": "入力スキーマ",
     "outputSchema": "出力スキーマ",
     "viewPrompt": "プロンプトテンプレートを確認",
+    "agentActive": "オンライン",
+    "agentOffline": "オフライン",
+    "noAgents": "エージェントがまだありません",
     "architectureTitle": "エージェントアーキテクチャ",
     "architectureBody": "エージェントは<strong>データ駆動</strong>です — すべての動作はデータベースに保存されたプロンプトテンプレートで定義されます。エグゼキューターは単一の汎用関数です：タスクとライバーを読み込み、ライバーのステータスに基づいて関連ナレッジを取得し、設定ルールを適用し、プロンプトテンプレートをレンダリングし、設定済みモデルを呼び出し、構造化JSONの出力を解析します。各エージェントは独立して<strong>Anthropic</strong>、<strong>OpenAI</strong>、<strong>Gemini</strong>を使用できます — 上部のドロップダウンで設定してください。新しいエージェントを追加するには、データベースに1行挿入するだけでコード変更は不要です。",
     "stats": {
@@ -128,6 +134,7 @@
       "agentsLabel": "エージェント数",
       "activeLabel": "稼働中エージェント",
       "unknownAgent": "不明／停止中のエージェント",
+      "taskCountAria": "タスク {count} 件",
       "noTasks": "タスクなし",
       "noTasksAll": "タスクがまだありません",
       "noCreator": "関連ライバーなし",
@@ -154,6 +161,7 @@
       "clearOwner": "担当者をクリア",
       "rename": "名称変更",
       "delete": "削除",
+      "removeMemberNamed": "{name}を削除",
       "confirmDelete": "削除しますか？",
       "sourceUser": "社員",
       "sourceCreator": "ライバー",
@@ -213,6 +221,7 @@
     "openButtonTooltip": "自然言語で操作 (⌘K)",
     "modalTitle": "一言で操作する",
     "placeholder": "一文で操作してください（v1は支出管理のみ対応）。例：Q3の給与のうちMCはどのくらい / 5月10日の交通費 320元を追加",
+    "sendButtonLabel": "送信",
     "query": {
       "emptyDenom": {
         "title": "比率を計算できません",
@@ -240,6 +249,7 @@
       "sampleHint": "{count} 件のサンプルを返しました。全件絞り込みは支出一覧ページで操作してください。"
     },
     "clarification": {
+      "tableLabel": "候補レコード",
       "dateCol": "日付",
       "nameCol": "名称",
       "amountCol": "金額",
@@ -342,10 +352,7 @@
     "searchCreators": "ライバーを検索...",
     "noCreatorsFound": "ライバーが見つかりません。条件を変えるか、追加してみましょう。",
     "addFirstCreator": "ライバーを追加",
-    "view": "表示",
-    "creator": "ライバー",
     "platform": "プラットフォーム",
-    "status": "ステータス",
     "niche": "ジャンル",
     "followers": "フォロワー数",
     "location": "地域",
@@ -364,7 +371,8 @@
     "timeline": "タイムライン",
     "logRevenue": "収益を記録",
     "noNiche": "ジャンルなし",
-    "creatorNotFound": "ライバーが見つかりません"
+    "creatorNotFound": "ライバーが見つかりません",
+    "listTitle": "ライバー一覧"
   },
   "creatorForm": {
     "nameRequired": "名前とプラットフォームは必須です",
@@ -417,12 +425,24 @@
     "noActivityYet": "アクティビティ記録はまだありません。",
     "viewOutput": "出力を表示",
     "logRevenueCost": "収益とコストを記録",
-    "revenueField": "収益 (¥) *",
-    "costField": "コスト (¥) *",
-    "periodField": "期間 *",
+    "revenueField": "収益 (¥)",
+    "costField": "コスト (¥)",
+    "periodField": "期間",
     "saveRecord": "記録を保存",
     "editCreator": "ライバーを編集",
-    "by": "{actor} が実施"
+    "by": "{actor} が実施",
+    "activityTypes": {
+      "created": "作成済み",
+      "updated": "更新済み",
+      "status_changed": "ステータス変更",
+      "task_created": "タスク作成",
+      "task_completed": "タスク完了",
+      "finance_logged": "財務記録",
+      "note_added": "メモ追加",
+      "contact_updated": "連絡先更新",
+      "profile_updated": "プロフィール更新",
+      "other": "その他"
+    }
   },
   "workspace": {
     "title": "ワークスペース",
@@ -485,6 +505,7 @@
     "createTask": "タスクを作成",
     "duplicateTaskTo": "タスクのコピー先を選択",
     "duplicateConfirm": "<title>{name}</title>をここにコピー：",
+    "targetDateField": "コピー先の日付",
     "confirmDuplicate": "コピーを確認",
     "deleteConfirm": "タスク<title>{name}</title>を削除しますか？削除すると元に戻せません。",
     "emptyDay": "この日のタスクはありません",
@@ -611,7 +632,6 @@
     "subtitle": "会社レベルの戦略マイルストーンと実行計画",
     "newMilestone": "マイルストーンを作成",
     "createFirst": "最初のマイルストーンを作成",
-    "loading": "マイルストーンを読み込み中…",
     "empty": "マイルストーンはまだありません。",
     "deleteConfirm": "このマイルストーンを削除しますか？削除すると元に戻せません。",
     "view": {
@@ -666,11 +686,9 @@
       "seriesCompleted": "完了済み",
       "seriesActive": "開始済み",
       "tooltipMonthMilestones": "今月のマイルストーン",
-      "empty": "データなし",
       "gap": "今日時点で計画では <strong>{planned}</strong> 件完了予定のところ、実際は <strong>{done}</strong> 件完了、<strong>{gap}</strong> 件の差があります。"
     },
     "detail": {
-      "loading": "マイルストーンを読み込み中…",
       "notFound": "マイルストーンが見つかりません。",
       "back": "← タイムラインに戻る",
       "backLink": "戦略タイムライン",
@@ -741,6 +759,30 @@
         "medium": "中",
         "high": "高"
       }
+    },
+    "riskBadge": {
+      "low": "低リスク",
+      "medium": "中リスク",
+      "high": "高リスク"
+    },
+    "typeFilterLabel": "タイプで絞り込む",
+    "nextView": {
+      "heading": "今後{days}日間",
+      "subheading": "日付ごとに今後の戦略マイルストーンを確認できます",
+      "rangeLabel": "表示期間",
+      "rangeOption": "{days}日",
+      "plusDays": "+{days}日",
+      "emptyTitle": "今後{days}日間に戦略マイルストーンはありません",
+      "emptyHint": "90日表示に切り替えるとさらに先の計画を確認できます。",
+      "clusterCount": "{count}件のマイルストーン",
+      "ownerUnassigned": "担当者未定",
+      "clusterHint": "タップして直近のマイルストーンを表示",
+      "toneLabel": {
+        "danger": "高リスク",
+        "warning": "要注意",
+        "success": "完了",
+        "neutral": "計画中"
+      }
     }
   },
   "tasks": {
@@ -755,11 +797,14 @@
     "viewOutput": "構造化出力を表示",
     "tabAi": "AIタスク",
     "tabWorkload": "工数ビュー",
+    "viewTabsLabel": "表示切替",
     "periodDay": "日",
     "periodWeek": "週",
     "periodMonth": "月",
     "salarySettings": "給与設定",
-    "salaryManagement": "給与管理"
+    "salaryManagement": "給与管理",
+    "periodGroupLabel": "表示期間",
+    "selectDate": "日付を選択"
   },
   "expenses": {
     "title": "支出管理",

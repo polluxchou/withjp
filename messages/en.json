@@ -23,7 +23,10 @@
     "emptyTitle": "Nothing here yet",
     "emptyHint": "Add the first one!",
     "errorTitle": "Something went wrong",
-    "retry": "Retry"
+    "retry": "Retry",
+    "loadFailed": "Failed to load. Please retry.",
+    "prev": "Previous",
+    "next": "Next"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -106,6 +109,9 @@
     "inputSchema": "Input schema",
     "outputSchema": "Output schema",
     "viewPrompt": "View prompt template",
+    "agentActive": "Active",
+    "agentOffline": "Offline",
+    "noAgents": "No agents yet",
     "architectureTitle": "Agent architecture",
     "architectureBody": "Agents are <strong>data-driven</strong> — all behavior is defined by the prompt template stored in the database. The executor is a single generic function: it loads the task + creator, fetches relevant knowledge by creator status, applies config rules, renders the prompt template, calls the configured model, and parses the structured JSON output. Each agent can independently use <strong>Anthropic</strong>, <strong>OpenAI</strong>, or <strong>Gemini</strong> — configure via the dropdowns above. Adding a new agent requires only inserting a new row — no code changes.",
     "stats": {
@@ -128,6 +134,7 @@
       "agentsLabel": "Agents",
       "activeLabel": "Active agents",
       "unknownAgent": "Unknown / inactive agent",
+      "taskCountAria": "{count, plural, one {# task} other {# tasks}}",
       "noTasks": "No tasks",
       "noTasksAll": "No tasks yet",
       "noCreator": "No linked creator",
@@ -154,6 +161,7 @@
       "clearOwner": "Clear owner",
       "rename": "Rename",
       "delete": "Delete",
+      "removeMemberNamed": "Remove {name}",
       "confirmDelete": "Delete?",
       "sourceUser": "Staff",
       "sourceCreator": "Streamer",
@@ -213,6 +221,7 @@
     "openButtonTooltip": "Natural-language action (⌘K)",
     "modalTitle": "Type a sentence to act",
     "placeholder": "Type a sentence (v1: expense management only). e.g. How much of Q3 salary went to MC / Add a travel expense: taxi May 10, ¥320",
+    "sendButtonLabel": "Send",
     "query": {
       "emptyDenom": {
         "title": "Cannot compute a ratio",
@@ -240,6 +249,7 @@
       "sampleHint": "Returned {count, plural, =1 {1 sample} other {# samples}}. Go to the expenses page for the full filtered list."
     },
     "clarification": {
+      "tableLabel": "Candidate records",
       "dateCol": "Date",
       "nameCol": "Name",
       "amountCol": "Amount",
@@ -342,10 +352,7 @@
     "searchCreators": "Search creators...",
     "noCreatorsFound": "No creators found. Adjust filters or add one.",
     "addFirstCreator": "Add creator",
-    "view": "View",
-    "creator": "Creator",
     "platform": "Platform",
-    "status": "Status",
     "niche": "Niche",
     "followers": "Followers",
     "location": "Location",
@@ -364,7 +371,8 @@
     "timeline": "Timeline",
     "logRevenue": "Log revenue",
     "noNiche": "No niche",
-    "creatorNotFound": "Creator not found"
+    "creatorNotFound": "Creator not found",
+    "listTitle": "Creator list"
   },
   "creatorForm": {
     "nameRequired": "Name and platform are required",
@@ -417,12 +425,24 @@
     "noActivityYet": "No activity yet.",
     "viewOutput": "View output",
     "logRevenueCost": "Log revenue and cost",
-    "revenueField": "Revenue (¥) *",
-    "costField": "Cost (¥) *",
-    "periodField": "Period *",
+    "revenueField": "Revenue (¥)",
+    "costField": "Cost (¥)",
+    "periodField": "Period",
     "saveRecord": "Save record",
     "editCreator": "Edit creator",
-    "by": "by {actor}"
+    "by": "by {actor}",
+    "activityTypes": {
+      "created": "Created",
+      "updated": "Updated",
+      "status_changed": "Status changed",
+      "task_created": "Task created",
+      "task_completed": "Task completed",
+      "finance_logged": "Finance logged",
+      "note_added": "Note added",
+      "contact_updated": "Contact updated",
+      "profile_updated": "Profile updated",
+      "other": "Other"
+    }
   },
   "workspace": {
     "title": "Workspace",
@@ -485,6 +505,7 @@
     "createTask": "Create task",
     "duplicateTaskTo": "Copy task to",
     "duplicateConfirm": "Copy <title>{name}</title> to:",
+    "targetDateField": "Target date",
     "confirmDuplicate": "Confirm copy",
     "deleteConfirm": "Delete task <title>{name}</title>? This can't be undone.",
     "emptyDay": "No tasks today",
@@ -611,7 +632,6 @@
     "subtitle": "Company-level strategic milestones, with execution plans attached",
     "newMilestone": "New milestone",
     "createFirst": "Create your first milestone",
-    "loading": "Loading milestones…",
     "empty": "No milestones yet — create your first one!",
     "deleteConfirm": "Delete this milestone? This can't be undone.",
     "view": {
@@ -666,11 +686,9 @@
       "seriesCompleted": "Completed",
       "seriesActive": "Active",
       "tooltipMonthMilestones": "This month's milestones",
-      "empty": "No data yet",
       "gap": "As of today, <strong>{planned}</strong> {planned, plural, =1 {milestone} other {milestones}} should be complete, but only <strong>{done}</strong> {done, plural, =1 {is} other {are}} done — gap of <strong>{gap}</strong>."
     },
     "detail": {
-      "loading": "Loading milestone…",
       "notFound": "Milestone not found — it may have been deleted.",
       "back": "← Back to Timeline",
       "backLink": "Strategic Timeline",
@@ -741,6 +759,30 @@
         "medium": "Medium",
         "high": "High"
       }
+    },
+    "riskBadge": {
+      "low": "Low risk",
+      "medium": "Medium risk",
+      "high": "High risk"
+    },
+    "typeFilterLabel": "Filter by type",
+    "nextView": {
+      "heading": "Next {days} days",
+      "subheading": "Browse upcoming strategic milestones by date",
+      "rangeLabel": "Range",
+      "rangeOption": "{days} days",
+      "plusDays": "+{days} days",
+      "emptyTitle": "No strategic milestones in the next {days} days",
+      "emptyHint": "Switch to 90 days to see further-out plans.",
+      "clusterCount": "{count} milestones",
+      "ownerUnassigned": "Owner unassigned",
+      "clusterHint": "Tap to see the nearest milestone",
+      "toneLabel": {
+        "danger": "High risk",
+        "warning": "Needs attention",
+        "success": "Completed",
+        "neutral": "Planned"
+      }
     }
   },
   "tasks": {
@@ -755,11 +797,14 @@
     "viewOutput": "View structured output",
     "tabAi": "AI tasks",
     "tabWorkload": "Workload",
+    "viewTabsLabel": "View switch",
     "periodDay": "Day",
     "periodWeek": "Week",
     "periodMonth": "Month",
     "salarySettings": "Salary settings",
-    "salaryManagement": "Salary management"
+    "salaryManagement": "Salary management",
+    "periodGroupLabel": "View period",
+    "selectDate": "Select date"
   },
   "expenses": {
     "title": "Expense Management",
