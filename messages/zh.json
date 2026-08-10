@@ -496,6 +496,7 @@
     "createTask": "创建任务",
     "duplicateTaskTo": "复制任务到",
     "duplicateConfirm": "将<title>{name}</title>复制到：",
+    "targetDateField": "目标日期",
     "confirmDuplicate": "确认复制",
     "deleteConfirm": "确定要删除任务<title>{name}</title>吗？删了就找不回来了。",
     "emptyDay": "今天没有任务",

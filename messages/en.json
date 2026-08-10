@@ -496,6 +496,7 @@
     "createTask": "Create task",
     "duplicateTaskTo": "Copy task to",
     "duplicateConfirm": "Copy <title>{name}</title> to:",
+    "targetDateField": "Target date",
     "confirmDuplicate": "Confirm copy",
     "deleteConfirm": "Delete task <title>{name}</title>? This can't be undone.",
     "emptyDay": "No tasks today",

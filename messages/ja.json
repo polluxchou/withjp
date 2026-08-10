@@ -496,6 +496,7 @@
     "createTask": "タスクを作成",
     "duplicateTaskTo": "タスクのコピー先を選択",
     "duplicateConfirm": "<title>{name}</title>をここにコピー：",
+    "targetDateField": "コピー先の日付",
     "confirmDuplicate": "コピーを確認",
     "deleteConfirm": "タスク<title>{name}</title>を削除しますか？削除すると元に戻せません。",
     "emptyDay": "この日のタスクはありません",

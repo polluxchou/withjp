@@ -203,11 +203,17 @@ export function buildUserWorkloads(
   }).sort((a, b) => b.total_hours - a.total_hours)
 }
 
-/** Utilisation colour based on daily hours */
+/**
+ * Utilisation colour based on daily hours — returns a soft/text token pair
+ * (design-system.md §1.3) rather than a bare Tailwind numbered-color-scale
+ * class. Thresholds unchanged (calc logic untouched, render layer only):
+ * 0 idle → neutral, ≤4 light → success, ≤6 busy → warning, =8 full → info,
+ * >8 overloaded → danger.
+ */
 export function utilisationColor(hours: number): string {
-  if (hours === 0)  return 'bg-zinc-100 text-zinc-400'
-  if (hours <= 4)   return 'bg-green-100 text-green-700'
-  if (hours <= 6)   return 'bg-yellow-100 text-yellow-700'
-  if (hours === 8)  return 'bg-blue-100 text-blue-700'
-  return 'bg-red-100 text-red-700'  // overloaded
+  if (hours === 0)  return 'bg-muted-soft text-muted-text'
+  if (hours <= 4)   return 'bg-success-soft text-success-text'
+  if (hours <= 6)   return 'bg-warning-soft text-warning-text'
+  if (hours === 8)  return 'bg-info-soft text-info-text'
+  return 'bg-danger-soft text-danger-text'  // overloaded
 }
