@@ -32,6 +32,7 @@ function fmtRmb(v: number) {
 
 export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefresh }: Props) {
   const t = useTranslations('workTasks')
+  const tCommon = useTranslations('common')
   const now    = new Date()
   const [year,  setYear]  = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -126,11 +127,11 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
     <div>
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">
-        <Button variant="ghost" size="sm" onClick={prevMonth}>
+        <Button variant="ghost" size="sm" onClick={prevMonth} aria-label={tCommon('prev')}>
           <ChevronLeft className="w-5 h-5" />
         </Button>
         <span className="text-sm font-semibold text-ink-700">{t('table.ymLabel', { year, month })}</span>
-        <Button variant="ghost" size="sm" onClick={nextMonth}>
+        <Button variant="ghost" size="sm" onClick={nextMonth} aria-label={tCommon('next')}>
           <ChevronRight className="w-5 h-5" />
         </Button>
       </div>

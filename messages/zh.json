@@ -24,7 +24,9 @@
     "emptyHint": "添加第一条吧",
     "errorTitle": "出错了",
     "retry": "重试",
-    "loadFailed": "加载失败，请重试"
+    "loadFailed": "加载失败，请重试",
+    "prev": "上一个",
+    "next": "下一个"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -219,6 +221,7 @@
     "openButtonTooltip": "自然语言操作 (⌘K)",
     "modalTitle": "用一句话操作",
     "placeholder": "用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元",
+    "sendButtonLabel": "发送",
     "query": {
       "emptyDenom": {
         "title": "无法计算占比",
