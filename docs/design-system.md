@@ -71,6 +71,7 @@
 | 工时任务 | 计划中 planned neutral · 进行中 doing info · 已完成 done success · 已取消 cancelled neutral |
 | 财务预测账号收入档 | 重点跟进 success · 稳定 violet · 观察 warning（`StatusBadge` 按月收入阈值派生，非持久化枚举） |
 | 财务预测视角 | 公开 success · 私有 neutral · 归属徽章 neutral |
+| 财务预测年份卡 | 本年 violet（`AnnualOverview` 年份卡的「本年」标记） |
 
 > DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 与 ThreadStatus 在 PR2/PR3 迁移对应界面时登记。
 
@@ -120,7 +121,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 ## 4. 动效与交互反馈
 
 - hover/active：`transition-colors 150ms ease`；抽屉/侧栏位移 `200ms ease-out`；无数据入场动画
-- focus：全站唯一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`；禁止自定义 focus 样式——例外改用第二配方 `focus-visible:ring-2 ring-primary-ring ring-inset`：① 全出血容器（RecordRow 整行 Link 等没有外部留白可画 offset 的场景）② chip 内部按钮（FilterChip）③ 滚动容器内的项（Sidebar 导航项、Tabs）——offset 在 `overflow-y-auto`/`overflow-x-auto` 容器内会被裁切，改内嵌避免视觉截断
+- focus：全站唯一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`，字符串唯一登记处为 `src/lib/ui/recipes.ts` 的 `FOCUS_RING`（组件外的调用方一律 import，不要再抄一份本地常量）；禁止自定义 focus 样式——例外改用第二配方 `focus-visible:ring-2 ring-primary-ring ring-inset`：① 全出血容器（RecordRow 整行 Link 等没有外部留白可画 offset 的场景）② chip 内部按钮（FilterChip）③ 滚动容器内的项（Sidebar 导航项、Tabs）——offset 在 `overflow-y-auto`/`overflow-x-auto` 容器内会被裁切，改内嵌避免视觉截断
 - 点击目标 ≥ 32×32px（移动端 ≥ 40）；行级操作（···）默认弱化、hover 显形；Button `size="sm"`（28px 高）是 §3 控件高度紧凑档在按钮上的登记例外，允许低于本条下限，仅用于表格内联操作等空间受限场景
 - `prefers-reduced-motion` 下关闭位移动画
 - iOS：`pointer:coarse` 下表单控件 16px 字号规则保留（globals.css 既有）

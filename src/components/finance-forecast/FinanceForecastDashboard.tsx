@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { InputHTMLAttributes, ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { useCurrency } from '@/lib/currency'
 import {
@@ -25,6 +25,7 @@ import Modal from '@/components/ui/Modal'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Tag from '@/components/ui/Tag'
 import { Field, Input, Select } from '@/components/ui/Field'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import { Link } from '@/i18n/navigation'
 import {
   FORECAST_ACCOUNT_TYPES,
@@ -72,8 +73,7 @@ const CHART_TAB_KEYS = ['breakdown', 'cumulative', 'stacked', 'lines', 'indexed'
 
 // 本文件复用的裸样式组合：都写成完整类名字面量（不做 `text-${x}` 式拼接），
 // Tailwind JIT 才能从源码里静态提取到——拼接出来的类名扫不到会静默失效。
-// FOCUS_RING = design-system §4 全站唯一 focus 配方。
-const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+// focus 环走 @/lib/ui/recipes 的 FOCUS_RING（§4 唯一登记处）。
 // 月份/全年/视角这类互斥药丸：条目数远超 SegmentedControl 适用的「小范围互斥」
 // （12 个月 + 全年），保留药丸行形态，只把配色换成 token。
 const PILL_BASE = 'rounded-field border text-xs font-semibold transition-colors'
@@ -807,6 +807,12 @@ export default function FinanceForecastDashboard({
           <section className="bg-surface border border-line rounded-card shadow-card overflow-hidden mb-4">
             <div className={`flex items-center justify-between gap-4 px-5 py-3.5 ${inputOpen ? 'border-b border-line-soft' : ''}`}>
               <div className="flex items-center gap-2 min-w-0">
+                {/* 刻意不套 §2 区块标题配方（lg/600/tracking-section）：这行不是
+                    普通卡头，而是整个编辑面板的"当前年·当前月"定位锚——年份与
+                    月份是用户在月份药丸行上反复切换的对象，需要比同屏其它卡头
+                    更强的展示层级，故用 xl/700/tracking-title（§2 二级页头档）
+                    并把月份染主色。同屏兄弟卡头（图表卡/贡献卡/年度图表卡）保持
+                    lg/600/tracking-section 不变。 */}
                 <h2 className="flex items-baseline gap-1.5 shrink-0">
                   <span className="text-xl font-bold text-ink-900 tabular-nums tracking-title">
                     {selected?.month.slice(0, 4) ?? selectedYear}
@@ -929,6 +935,13 @@ export default function FinanceForecastDashboard({
                   <YearSummaryTable months={summary.months} onSelectMonth={(index) => { setShowYearView(false); setSelectedMonth(index) }} monthLabels={monthLabels} />
                 ) : (
                   <>
+                    {/* 递延：未迁 Table 原语。blocker 不是样式而是交互契约——
+                        本表每格都是可编辑控件、且末列有行删除按钮，迁移本身可行；
+                        真正卡住的是下面 YearSummaryTable 的整行点击（<tr onClick>），
+                        Tr 契约明确不提供 onClick（<tr> 无原生键盘可达性），要迁就
+                        得先把"点整行选月份"改造成行内 Link/button，属交互重设计而非
+                        换皮。两张表同属本文件，一起迁才不会出现"半边 Table 原语 +
+                        半边手写"的混用（§6）。 */}
                     <div className="overflow-x-auto">
                   <table className="w-full text-sm min-w-[1120px]">
                     <thead>
@@ -1324,14 +1337,17 @@ function AddFromTemplateModal({
         </button>
       </div>
       {/* 起始阶段是「选项 + 右侧说明」的纵向单选列表，不是 SegmentedControl
-          那种等宽互斥条，保留本地形态只换配色 token。 */}
-      <div role="radiogroup" aria-label={t('templateStageLabel')} className="grid grid-cols-1 gap-1.5 mb-4">
+          那种等宽互斥条，保留本地形态只换配色 token。
+          语义用 role="group" + aria-pressed（与 SegmentedControl.tsx 一致），
+          不用 radiogroup/radio：APG 的 radiogroup 要求方向键在选项间移动焦点
+          且组内只有一个 tab stop，这里没实现那套键盘契约，挂了 role 反而是
+          对辅助技术撒谎——普通按钮的 Tab 逐项可达是诚实且可用的形态。 */}
+      <div role="group" aria-label={t('templateStageLabel')} className="grid grid-cols-1 gap-1.5 mb-4">
         {LIFECYCLE_STARTING_STAGES.map((s) => (
           <button
             key={s}
             type="button"
-            role="radio"
-            aria-checked={s === stage}
+            aria-pressed={s === stage}
             onClick={() => setStage(s)}
             className={`flex items-center justify-between gap-3 px-3 py-2 rounded-field border text-xs font-semibold transition-colors text-left ${FOCUS_RING} ${
               s === stage
@@ -1726,6 +1742,9 @@ function YearSummaryTable({
   }
 
   return (
+    // 递延：未迁 Table 原语——下面的 <tr onClick> 是"点整行跳到该月"的主交互，
+    // 而 Tr 契约不提供 onClick（§6.2：行级点击须由 RecordRow 或行内 Link/button
+    // 承载）。迁移需要先重设计这段交互，超出本轮换皮范围。
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
@@ -1869,6 +1888,10 @@ function KpiCard({
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={interactive ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
+      // 本文件里带 onClick 的 KPI 卡只有一种用途：折叠/展开下方输入面板，
+      // active 就是展开态，故直接映射 aria-expanded。若将来出现非 disclosure
+      // 语义的可点 KPI 卡，需要改成由调用方声明。
+      aria-expanded={interactive ? Boolean(active) : undefined}
       // 激活态只留 border-primary-border + shadow-card（外加箭头转向与主色），
       // 不再叠 ring：ring 这一轨让给 §4 的 focus 环，两者共用会互相覆盖。
       className={`relative bg-surface rounded-card border p-4 sm:p-5 transition-colors select-none ${
@@ -1949,25 +1972,25 @@ function SideStat({ label, value, valueClassName = 'text-ink-900' }: { label: st
 }
 
 // 数字输入：取值/钳位/草稿态行为原样保留，只把裸 input 换成共享 Input。
-// `id` 是给共享 Field 用的——Field 通过 cloneElement 注入 id 并用 htmlFor 关联
-// label，中间隔着这个包装组件时必须显式透传，否则 label 点击对不上焦点。
+// `...rest` 必须整体透传：共享 Field 通过 cloneElement 往子元素上注入
+// id / aria-describedby / aria-invalid / required，中间隔着这个包装组件时
+// 不透传就会被整组吞掉——label 点击对不上焦点、hint 与错误也读不出来。
 function NumberInput({
-  id,
   value,
   onChange,
   step = 1,
   min = 0,
   max,
   disabled,
+  ...rest
 }: {
-  id?: string
   value: number
   onChange: (value: number) => void
   step?: number
   min?: number
   max?: number
   disabled?: boolean
-}) {
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'step' | 'min' | 'max' | 'disabled' | 'size'>) {
   const format = (v: number) => (Number.isFinite(v) ? String(v) : '')
   const [draft, setDraft] = useState(() => format(value))
   const [focused, setFocused] = useState(false)
@@ -2005,7 +2028,7 @@ function NumberInput({
 
   return (
     <Input
-      id={id}
+      {...rest}
       type="text"
       inputMode={step < 1 ? 'decimal' : 'numeric'}
       pattern="[0-9]*\.?[0-9]*"
@@ -2060,9 +2083,10 @@ function AddAccountMenu({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={t('ariaAddAccountMenu')}
         className={`inline-flex items-center px-1.5 py-1.5 rounded-r-field bg-primary text-white border-l border-primary-hover hover:bg-primary-hover transition-colors ${FOCUS_RING}`}
       >
-        <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.5} />
+        <ChevronDown aria-hidden className="w-3.5 h-3.5" strokeWidth={1.5} />
       </button>
 
       {open && (

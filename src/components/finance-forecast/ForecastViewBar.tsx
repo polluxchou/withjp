@@ -7,10 +7,9 @@ import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Tag from '@/components/ui/Tag'
 import { Field, Input } from '@/components/ui/Field'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import { MAX_VIEWS_PER_USER, type ForecastView } from '@/lib/finance-forecast/views'
 
-// design-system §4 全站唯一 focus 配方；写成完整字面量供 Tailwind JIT 提取。
-const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
 // 视角选择药丸：ui/ 里没有能承载「名字 + 归属 + 公开图标 + 激活态」的 chip
 // 原语（FilterChip 是 label+清除、CountChip 是 label+计数），保留本地形态，
 // 只把配色换成 token；与 FinanceForecastDashboard 的月份药丸同款。
@@ -103,16 +102,16 @@ export default function ForecastViewBar({
         aria-haspopup="menu"
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${PILL_BASE} ${FOCUS_RING} ${open ? PILL_ACTIVE : PILL_IDLE} ${busy && !open ? 'opacity-60 cursor-not-allowed' : ''}`}
       >
-        <Layers className={`w-3.5 h-3.5 ${open ? 'text-white/70' : 'text-ink-400'}`} strokeWidth={1.5} />
+        <Layers className={`w-3.5 h-3.5 ${open ? 'text-white/85' : 'text-ink-400'}`} strokeWidth={1.5} />
         <span className="hidden sm:inline text-micro font-medium uppercase tracking-wider opacity-80">{t('viewBarLabel')}</span>
         <span className="truncate max-w-[12rem]">{triggerLabel}</span>
         {triggerOwnerHint && (
-          <span className={`text-micro font-medium ${open ? 'text-white/70' : 'text-ink-400'}`}>
+          <span className={`text-micro font-medium ${open ? 'text-white/85' : 'text-ink-400'}`}>
             · {triggerOwnerHint}
           </span>
         )}
         {activeView?.is_public && (
-          <Globe aria-hidden className={`w-3 h-3 ${open ? 'text-white/70' : 'text-success-dot'}`} strokeWidth={1.5} />
+          <Globe aria-hidden className={`w-3 h-3 ${open ? 'text-white/85' : 'text-success-dot'}`} strokeWidth={1.5} />
         )}
         <ChevronDown
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
@@ -251,15 +250,19 @@ function ViewChip({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-pressed={active}
+      // 本 chip 渲染在 role="menu" 弹层内 → 用 menuitemradio/aria-checked，
+      // 不用 aria-pressed（toggle 语义在 menu 子项上不合法），与
+      // FinanceForecastDashboard 的 ScopeOption 保持同一种做法。
+      role="menuitemradio"
+      aria-checked={active}
       className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${PILL_BASE} ${FOCUS_RING} ${active ? PILL_ACTIVE : PILL_IDLE} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
       <span className="truncate max-w-[14rem]">{view.name}</span>
-      <span className={`text-micro font-medium ${active ? 'text-white/70' : 'text-ink-400'}`}>
+      <span className={`text-micro font-medium ${active ? 'text-white/85' : 'text-ink-400'}`}>
         · {ownerLabel}
       </span>
       {view.is_public && (
-        <Globe aria-hidden className={`w-3 h-3 ${active ? 'text-white/70' : 'text-success-dot'}`} strokeWidth={1.5} />
+        <Globe aria-hidden className={`w-3 h-3 ${active ? 'text-white/85' : 'text-success-dot'}`} strokeWidth={1.5} />
       )}
     </button>
   )
@@ -379,12 +382,15 @@ function EditForm({
         {canTogglePublic ? (
           // 复选框：ui/Field 只登记了 Input/Select/Textarea，没有 Checkbox 原语，
           // 保留原生 input 并用 accent-primary 让勾选色对齐品牌色。
-          <label className={`inline-flex items-center gap-2 text-xs text-ink-700 cursor-pointer rounded-field focus-within:ring-2 focus-within:ring-primary-ring focus-within:ring-offset-1`}>
+          // focus 环挂在 input 本身（§4 唯一配方），不用 focus-within 画在 label 上
+          // ——那是自定义 focus 样式，且键盘焦点实际落点是 input，环画在外层会
+          // 让焦点位置读起来比真实范围大一圈。
+          <label className="inline-flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
             <input
               type="checkbox"
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
-              className="w-3.5 h-3.5 accent-primary focus:outline-none"
+              className={`w-3.5 h-3.5 accent-primary rounded-sm ${FOCUS_RING}`}
             />
             {t('viewPublicToggle')}
           </label>

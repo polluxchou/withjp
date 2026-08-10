@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Check, X } from 'lucide-react'
+import { Check } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import SegmentedControl from '@/components/ui/SegmentedControl'
@@ -115,8 +115,6 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
     onClose()
   }
 
-  if (!open) return null
-
   const tpl = set?.[stage] ?? null
 
   return (
@@ -124,6 +122,11 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
     // 移动端底部弹出全部由 Modal 兜底。原来的说明文案从卡头挪进正文首行
     // （Modal 的 title 只收字符串，没有副标题位）。
     // footer 的状态文案用 mr-auto 顶到左侧——Modal footer 本身是 justify-end。
+    //
+    // open 只由 Modal 处理，本组件不再提前 return null：两处都判会让"面板从无
+    // 到有"的时机取决于父组件是先挂载再切 open 还是直接以 open=true 挂载，而
+    // Modal 的焦点入场 effect 正是靠 [open, mounted] 这对依赖抓这个时机（见
+    // Modal.tsx 注释）。统一交给 Modal，行为只有一条路径。
     <Modal
       open={open}
       onClose={handleClose}
@@ -136,7 +139,7 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
             {error && <span className="ml-2 text-danger-text">{error}</span>}
           </span>
           <Button variant="secondary" onClick={handleClose} disabled={saving}>
-            <X className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('lifecycleClose')}
+            {t('lifecycleClose')}
           </Button>
           <Button onClick={handleSave} disabled={!dirty || saving || loading} loading={saving}>
             {saving
