@@ -4,7 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Plus, Pencil, Trash2, Globe, Lock, Check, X, ChevronDown, Layers, Repeat } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import Modal from '@/components/ui/Modal'
+import Tag from '@/components/ui/Tag'
+import { Field, Input } from '@/components/ui/Field'
 import { MAX_VIEWS_PER_USER, type ForecastView } from '@/lib/finance-forecast/views'
+
+// design-system §4 全站唯一 focus 配方；写成完整字面量供 Tailwind JIT 提取。
+const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+// 视角选择药丸：ui/ 里没有能承载「名字 + 归属 + 公开图标 + 激活态」的 chip
+// 原语（FilterChip 是 label+清除、CountChip 是 label+计数），保留本地形态，
+// 只把配色换成 token；与 FinanceForecastDashboard 的月份药丸同款。
+const PILL_BASE = 'rounded-field border text-xs font-semibold transition-colors'
+const PILL_ACTIVE = 'bg-primary text-white border-primary shadow-card'
+const PILL_IDLE = 'bg-surface text-ink-700 border-line-strong hover:border-primary-border hover:text-primary'
 
 interface Props {
   views:               ForecastView[]
@@ -89,25 +101,22 @@ export default function ForecastViewBar({
         disabled={busy && !open}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-          open
-            ? 'bg-primary text-white border-primary shadow-sm'
-            : 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-300 hover:text-primary'
-        } ${busy && !open ? 'opacity-60 cursor-not-allowed' : ''}`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${PILL_BASE} ${FOCUS_RING} ${open ? PILL_ACTIVE : PILL_IDLE} ${busy && !open ? 'opacity-60 cursor-not-allowed' : ''}`}
       >
-        <Layers className={`w-3.5 h-3.5 ${open ? 'text-violet-100' : 'text-zinc-400'}`} />
-        <span className="hidden sm:inline text-[10px] font-medium uppercase tracking-wider opacity-80">{t('viewBarLabel')}</span>
+        <Layers className={`w-3.5 h-3.5 ${open ? 'text-white/70' : 'text-ink-400'}`} strokeWidth={1.5} />
+        <span className="hidden sm:inline text-micro font-medium uppercase tracking-wider opacity-80">{t('viewBarLabel')}</span>
         <span className="truncate max-w-[12rem]">{triggerLabel}</span>
         {triggerOwnerHint && (
-          <span className={`text-[10px] font-medium ${open ? 'text-violet-100' : 'text-zinc-400'}`}>
+          <span className={`text-micro font-medium ${open ? 'text-white/70' : 'text-ink-400'}`}>
             · {triggerOwnerHint}
           </span>
         )}
         {activeView?.is_public && (
-          <Globe className={`w-3 h-3 ${open ? 'text-violet-100' : 'text-emerald-500'}`} />
+          <Globe aria-hidden className={`w-3 h-3 ${open ? 'text-white/70' : 'text-success-dot'}`} strokeWidth={1.5} />
         )}
         <ChevronDown
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          strokeWidth={1.5}
         />
       </button>
 
@@ -115,11 +124,13 @@ export default function ForecastViewBar({
         <div
           ref={popoverRef}
           role="menu"
-          className="absolute top-full left-0 mt-2 w-[min(640px,calc(100vw-2rem))] bg-white border border-zinc-200 rounded-xl shadow-xl z-40 p-4 space-y-3"
+          // 非阻断下拉（点外面/Escape 即关，不锁滚动、不抢焦点）→ 保留本地
+          // popover，只把配色换成 token；z-40 = §3 层级表的下拉/popover 档。
+          className="absolute top-full left-0 mt-2 w-[min(640px,calc(100vw-2rem))] bg-surface border border-line rounded-card shadow-pop z-40 p-4 space-y-3"
         >
           <div className="flex flex-wrap items-center gap-2">
             {views.length === 0 && !creating && (
-              <span className="text-sm text-zinc-400">{t('viewNoViews')}</span>
+              <span className="text-sm text-ink-400">{t('viewNoViews')}</span>
             )}
 
             {views.map((view) => (
@@ -142,14 +153,14 @@ export default function ForecastViewBar({
                 onClick={() => setCreating(true)}
                 disabled={!canCreate || busy}
                 title={canCreate ? t('viewCreateNew') : t('viewMaxHint', { max: MAX_VIEWS_PER_USER })}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1 px-3 py-1.5 ${PILL_BASE} ${FOCUS_RING} ${
                   canCreate && !busy
-                    ? 'bg-white text-primary border-violet-200 hover:border-violet-400'
-                    : 'bg-zinc-50 text-zinc-400 border-zinc-200 cursor-not-allowed'
+                    ? 'bg-surface text-primary border-primary-border hover:border-primary'
+                    : 'bg-canvas text-ink-400 border-line cursor-not-allowed'
                 }`}
               >
-                <Plus className="w-3.5 h-3.5" /> {t('viewCreateNew')}
-                <span className="ml-1 text-[10px] text-zinc-400 tabular-nums">{ownedCount}/{MAX_VIEWS_PER_USER}</span>
+                <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('viewCreateNew')}
+                <span className="ml-1 text-micro text-ink-400 tabular-nums">{ownedCount}/{MAX_VIEWS_PER_USER}</span>
               </button>
             )}
           </div>
@@ -165,7 +176,7 @@ export default function ForecastViewBar({
           )}
 
           {activeView && !creating && (
-            <div className="pt-3 border-t border-zinc-100">
+            <div className="pt-3 border-t border-line-soft">
               {editingId === activeView.id ? (
                 <EditForm
                   view={activeView}
@@ -191,13 +202,13 @@ export default function ForecastViewBar({
           )}
 
           {onOpenLifecycle && !creating && editingId === null && (
-            <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
+            <div className="pt-3 border-t border-line-soft flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-zinc-700">{t('viewLifecycleTitle')}</p>
-                <p className="text-[11px] text-zinc-400">{t('viewLifecycleSub')}</p>
+                <p className="text-xs font-semibold text-ink-700">{t('viewLifecycleTitle')}</p>
+                <p className="text-micro text-ink-400">{t('viewLifecycleSub')}</p>
               </div>
               <Button variant="secondary" size="sm" onClick={() => { onOpenLifecycle(); setOpen(false) }}>
-                <Repeat className="w-3.5 h-3.5" /> {t('viewEditTemplate')}
+                <Repeat className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('viewEditTemplate')}
               </Button>
             </div>
           )}
@@ -240,18 +251,15 @@ function ViewChip({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-        active
-          ? 'bg-primary text-white border-primary shadow-sm'
-          : 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-300 hover:text-primary'
-      } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${PILL_BASE} ${FOCUS_RING} ${active ? PILL_ACTIVE : PILL_IDLE} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
     >
       <span className="truncate max-w-[14rem]">{view.name}</span>
-      <span className={`text-[10px] font-medium ${active ? 'text-violet-100' : 'text-zinc-400'}`}>
+      <span className={`text-micro font-medium ${active ? 'text-white/70' : 'text-ink-400'}`}>
         · {ownerLabel}
       </span>
       {view.is_public && (
-        <Globe className={`w-3 h-3 ${active ? 'text-violet-100' : 'text-emerald-500'}`} />
+        <Globe aria-hidden className={`w-3 h-3 ${active ? 'text-white/70' : 'text-success-dot'}`} strokeWidth={1.5} />
       )}
     </button>
   )
@@ -285,51 +293,38 @@ function MetadataDisplay({
     <div className="flex items-start gap-4 flex-wrap">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-sm font-bold text-zinc-900 truncate">{view.name}</h3>
-          <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
-            {t('viewOwnerBadge', { owner: ownerLabel })}
-          </span>
-          {view.is_public ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-              <Globe className="w-3 h-3" /> {t('viewPublic')}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
-              <Lock className="w-3 h-3" /> {t('viewPrivate')}
-            </span>
-          )}
+          <h3 className="text-md font-semibold text-ink-900 truncate">{view.name}</h3>
+          {/* 归属/可见性徽章走共享 Tag（§6.1 状态展示）；tone 映射登记在
+              design-system §1.3。Tag 没有图标位，Globe/Lock 由文案本身承载语义。 */}
+          <Tag label={t('viewOwnerBadge', { owner: ownerLabel })} tone="neutral" size="sm" />
+          <Tag label={view.is_public ? t('viewPublic') : t('viewPrivate')} tone={view.is_public ? 'success' : 'neutral'} size="sm" />
         </div>
         {view.note && (
-          <p className="text-xs text-zinc-500 mt-1 whitespace-pre-wrap break-words">{view.note}</p>
+          <p className="text-xs text-ink-500 mt-1 whitespace-pre-wrap break-words">{view.note}</p>
         )}
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {isAdmin && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onTogglePublic}
             title={view.is_public ? t('viewRemovePublicAdmin') : t('viewMakePublicAdmin')}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-600 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
           >
-            {view.is_public ? <Lock className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
+            {view.is_public ? <Lock className="w-3.5 h-3.5" strokeWidth={1.5} /> : <Globe className="w-3.5 h-3.5" strokeWidth={1.5} />}
             {view.is_public ? t('viewRemovePublicAdmin') : t('viewMakePublic')}
-          </button>
-        )}
-        {canEdit && (
-          <Button variant="secondary" size="sm" onClick={onStartEdit}>
-            <Pencil className="w-3.5 h-3.5" /> {t('viewEdit')}
           </Button>
         )}
         {canEdit && (
-          <button
-            type="button"
-            onClick={onRequestDelete}
-            title={t('viewDeleteHint')}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> {t('viewDelete')}
-          </button>
+          <Button variant="secondary" size="sm" onClick={onStartEdit}>
+            <Pencil className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('viewEdit')}
+          </Button>
+        )}
+        {canEdit && (
+          <Button variant="danger" size="sm" onClick={onRequestDelete} title={t('viewDeleteHint')}>
+            <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('viewDelete')}
+          </Button>
         )}
       </div>
     </div>
@@ -372,46 +367,36 @@ function EditForm({
   return (
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
-        <label className="block">
-          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('viewEditNameLabel')}</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={60}
-            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-          />
-        </label>
-        <label className="block">
-          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('viewEditNoteLabel')}</span>
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={t('viewEditNotePlaceholder')}
-            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-          />
-        </label>
+        <Field label={t('viewEditNameLabel')}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+        </Field>
+        <Field label={t('viewEditNoteLabel')}>
+          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('viewEditNotePlaceholder')} />
+        </Field>
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         {canTogglePublic ? (
-          <label className="inline-flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+          // 复选框：ui/Field 只登记了 Input/Select/Textarea，没有 Checkbox 原语，
+          // 保留原生 input 并用 accent-primary 让勾选色对齐品牌色。
+          <label className={`inline-flex items-center gap-2 text-xs text-ink-700 cursor-pointer rounded-field focus-within:ring-2 focus-within:ring-primary-ring focus-within:ring-offset-1`}>
             <input
               type="checkbox"
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
-              className="w-3.5 h-3.5"
+              className="w-3.5 h-3.5 accent-primary focus:outline-none"
             />
             {t('viewPublicToggle')}
           </label>
         ) : (
-          <span className="text-xs text-zinc-400">{t('viewPublicReadonly')}</span>
+          <span className="text-xs text-ink-400">{t('viewPublicReadonly')}</span>
         )}
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel}>
-            <X className="w-3.5 h-3.5" /> {t('viewEditCancel')}
+            <X className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('viewEditCancel')}
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-            <Check className="w-3.5 h-3.5" /> {submitting ? t('viewSaving') : t('viewSave')}
+            <Check className="w-3.5 h-3.5" strokeWidth={1.5} /> {submitting ? t('viewSaving') : t('viewSave')}
           </Button>
         </div>
       </div>
@@ -444,35 +429,27 @@ function CreateForm({
   }
 
   return (
-    <div className="pt-3 border-t border-zinc-100 space-y-3">
+    <div className="pt-3 border-t border-line-soft space-y-3">
       <div className="grid gap-3 md:grid-cols-[1fr_2fr]">
-        <label className="block">
-          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('viewCreateNameLabel')}</span>
-          <input
+        <Field label={t('viewCreateNameLabel')}>
+          <Input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
             placeholder={t('viewCreateNamePlaceholder')}
-            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
-        </label>
-        <label className="block">
-          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('viewCreateNoteLabel')}</span>
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={t('viewCreateNotePlaceholder')}
-            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-          />
-        </label>
+        </Field>
+        <Field label={t('viewCreateNoteLabel')}>
+          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('viewCreateNotePlaceholder')} />
+        </Field>
       </div>
       <div className="flex items-center justify-end gap-2">
         <Button variant="secondary" size="sm" onClick={onCancel}>
-          <X className="w-3.5 h-3.5" /> {t('viewCreateCancel')}
+          <X className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('viewCreateCancel')}
         </Button>
         <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-          <Check className="w-3.5 h-3.5" /> {submitting ? t('viewCreating') : t('viewCreate')}
+          <Check className="w-3.5 h-3.5" strokeWidth={1.5} /> {submitting ? t('viewCreating') : t('viewCreate')}
         </Button>
       </div>
     </div>
@@ -501,27 +478,28 @@ function DeleteConfirm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
-      <div className="bg-white rounded-xl border border-zinc-200 shadow-xl max-w-md w-full p-5">
-        <h3 className="text-base font-bold text-zinc-900 mb-2">{t('viewDeleteTitle')}</h3>
-        <p className="text-sm text-zinc-600 mb-1">
-          {t('viewDeleteDesc', { name: view.name })}
-        </p>
-        <p className="text-xs text-red-600 mb-4">{t('viewDeleteWarning')}</p>
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={submitting}>
+    // 阻断式危险确认 → 共享 Modal + danger Button（design-system §6.1 / §6.3），
+    // 不再手写 fixed inset-0 遮罩（原来的 z-50 也不在 §3 层级表的 Modal 档上）。
+    <Modal
+      open
+      onClose={onCancel}
+      title={t('viewDeleteTitle')}
+      width="max-w-md"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onCancel} disabled={submitting}>
             {t('viewDeleteCancel')}
           </Button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={submitting}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> {submitting ? t('viewDeleting') : t('viewDeleteConfirm')}
-          </button>
-        </div>
-      </div>
-    </div>
+          <Button variant="danger" onClick={handleConfirm} loading={submitting}>
+            <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} /> {submitting ? t('viewDeleting') : t('viewDeleteConfirm')}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-ink-700 mb-1">
+        {t('viewDeleteDesc', { name: view.name })}
+      </p>
+      <p className="text-xs text-danger-text">{t('viewDeleteWarning')}</p>
+    </Modal>
   )
 }
