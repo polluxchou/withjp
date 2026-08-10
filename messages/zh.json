@@ -553,7 +553,32 @@
     "status": {
       "done": "已完成",
       "doing": "进行中",
-      "planned": "计划中"
+      "planned": "计划中",
+      "cancelled": "已取消"
+    },
+    "taskType": {
+      "fixed": "固定任务",
+      "adhoc": "临时任务"
+    },
+    "department": {
+      "bd": "BD",
+      "ops": "运营",
+      "finance": "财务",
+      "content": "内容",
+      "growth": "增长",
+      "legal": "法务",
+      "tech": "技术"
+    },
+    "effort": {
+      "2": "2h（半天）",
+      "4": "4h（半天）",
+      "8": "8h（全天）"
+    },
+    "repeat": {
+      "daily": "每日",
+      "weekly": "每周",
+      "biweekly": "每两周",
+      "monthly": "每月"
     },
     "form": {
       "errTitle": "任务标题不能为空",

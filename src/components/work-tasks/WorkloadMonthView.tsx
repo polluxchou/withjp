@@ -10,7 +10,6 @@ import EmptyState from '@/components/ui/EmptyState'
 import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import WorkTaskForm from './WorkTaskForm'
 import {
-  DEPARTMENT_LABELS,
   utilisationTone,
   getMonthWeeks,
   toDateStr,
@@ -143,7 +142,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
             .sort((a, b) => b[1].hours - a[1].hours)
             .map(([dept, { hours, cost, people }]) => (
               <div key={dept} className="bg-surface border border-line rounded-field px-3 py-1.5 text-xs flex items-center gap-2">
-                <span className="font-medium text-ink-700">{DEPARTMENT_LABELS[dept]}</span>
+                <span className="font-medium text-ink-700">{t(`department.${dept}`)}</span>
                 <span className="text-ink-400">·</span>
                 <span className="text-ink-700 tabular-nums">{t('summary.participantsValue', { count: people.size })}</span>
                 <span className="text-ink-400">·</span>
@@ -189,7 +188,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
                       <span className="font-medium text-ink-900 truncate">{u.name}</span>
                     </div>
                   </Td>
-                  <Td className="text-ink-500">{DEPARTMENT_LABELS[u.department]}</Td>
+                  <Td className="text-ink-500">{t(`department.${u.department}`)}</Td>
                   {weeks.map((w, i) => {
                     const h    = hoursForUserWeek(u.id, w)
                     const avg  = avgDailyHoursForWeek(u.id, w)

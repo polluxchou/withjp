@@ -553,7 +553,32 @@
     "status": {
       "done": "完了",
       "doing": "進行中",
-      "planned": "予定"
+      "planned": "予定",
+      "cancelled": "キャンセル"
+    },
+    "taskType": {
+      "fixed": "固定タスク",
+      "adhoc": "臨時タスク"
+    },
+    "department": {
+      "bd": "BD",
+      "ops": "オペレーション",
+      "finance": "財務",
+      "content": "コンテンツ",
+      "growth": "グロース",
+      "legal": "法務",
+      "tech": "テック"
+    },
+    "effort": {
+      "2": "2h（半日）",
+      "4": "4h（半日）",
+      "8": "8h（終日）"
+    },
+    "repeat": {
+      "daily": "毎日",
+      "weekly": "毎週",
+      "biweekly": "隔週",
+      "monthly": "毎月"
     },
     "form": {
       "errTitle": "タスクタイトルは必須です",
