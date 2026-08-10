@@ -1,4 +1,4 @@
-import type { WorkTask, WorkTaskStatus, WorkTaskType, AgentRole, UserWorkload } from '@/lib/types'
+import type { WorkTask, WorkTaskStatus, AgentRole, UserWorkload } from '@/lib/types'
 import type { Tone } from '@/lib/ui/status-tone'
 
 // ── Constants ─────────────────────────────────────────────────
@@ -9,50 +9,14 @@ export const WORKING_DAYS_PER_MONTH = 22
 /** Working hours per day */
 export const WORKING_HOURS_PER_DAY = 8
 
-// ── Labels ────────────────────────────────────────────────────
+// ── Option values ─────────────────────────────────────────────
+// Display labels live in messages/{zh,en,ja}.json under workTasks
+// (status / taskType / department / effort / repeat) — render with
+// useTranslations('workTasks'), e.g. t(`status.${value}`).
 
-export const WORK_TASK_TYPE_LABELS: Record<WorkTaskType, string> = {
-  fixed: '固定任务',
-  adhoc: '临时任务',
-}
+export const WORK_TASK_STATUS_OPTIONS: WorkTaskStatus[] = ['planned', 'doing', 'done', 'cancelled']
 
-export const WORK_TASK_STATUS_LABELS: Record<WorkTaskStatus, string> = {
-  planned:   '计划中',
-  doing:     '进行中',
-  done:      '已完成',
-  cancelled: '已取消',
-}
-
-export const WORK_TASK_STATUS_OPTIONS: { value: WorkTaskStatus; label: string }[] = [
-  { value: 'planned',   label: '计划中' },
-  { value: 'doing',     label: '进行中' },
-  { value: 'done',      label: '已完成' },
-  { value: 'cancelled', label: '已取消' },
-]
-
-export const DEPARTMENT_LABELS: Record<AgentRole, string> = {
-  bd:      'BD',
-  ops:     '运营',
-  finance: '财务',
-  content: '内容',
-  growth:  '增长',
-  legal:   '法务',
-}
-
-export const DEPARTMENT_OPTIONS: { value: AgentRole; label: string }[] = [
-  { value: 'bd',      label: 'BD' },
-  { value: 'ops',     label: '运营' },
-  { value: 'finance', label: '财务' },
-  { value: 'content', label: '内容' },
-  { value: 'growth',  label: '增长' },
-  { value: 'legal',   label: '法务' },
-]
-
-export const EFFORT_LABELS: Record<number, string> = {
-  2: '2h（半天）',
-  4: '4h（半天）',
-  8: '8h（全天）',
-}
+export const DEPARTMENT_OPTIONS: AgentRole[] = ['bd', 'ops', 'finance', 'content', 'growth', 'legal']
 
 // ── Cost calculation ──────────────────────────────────────────
 

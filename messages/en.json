@@ -553,7 +553,32 @@
     "status": {
       "done": "Done",
       "doing": "Doing",
-      "planned": "Planned"
+      "planned": "Planned",
+      "cancelled": "Cancelled"
+    },
+    "taskType": {
+      "fixed": "Fixed task",
+      "adhoc": "Ad-hoc task"
+    },
+    "department": {
+      "bd": "BD",
+      "ops": "Operations",
+      "finance": "Finance",
+      "content": "Content",
+      "growth": "Growth",
+      "legal": "Legal",
+      "tech": "Tech"
+    },
+    "effort": {
+      "2": "2h (half day)",
+      "4": "4h (half day)",
+      "8": "8h (full day)"
+    },
+    "repeat": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "biweekly": "Biweekly",
+      "monthly": "Monthly"
     },
     "form": {
       "errTitle": "Task title cannot be empty",

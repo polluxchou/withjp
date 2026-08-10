@@ -5,12 +5,10 @@ import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import {
-  WORK_TASK_TYPE_LABELS,
   WORK_TASK_STATUS_OPTIONS,
   DEPARTMENT_OPTIONS,
-  EFFORT_LABELS,
 } from '@/lib/work-tasks/cost'
-import { WORK_TASK_REPEAT_INTERVAL_LABELS } from '@/lib/types'
+import { WORK_TASK_REPEAT_INTERVAL_OPTIONS } from '@/lib/types'
 import { prefillFromItem } from '@/lib/work-tasks/org-link'
 import type {
   WorkTask, WorkTaskType, WorkTaskStatus, AgentRole, WorkTaskEffort, WorkTaskRepeatInterval,
@@ -28,10 +26,9 @@ interface Props {
 interface Milestone { id: string; title: string }
 interface UserOption { id: string; name: string; user_code: string }
 
-const REPEAT_OPTIONS = Object.entries(WORK_TASK_REPEAT_INTERVAL_LABELS) as [WorkTaskRepeatInterval, string][]
-
 export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSuccess, onCancel }: Props) {
   const t = useTranslations('workTasks.form')
+  const tWorkTasks = useTranslations('workTasks')
   const tCommon = useTranslations('common')
   const source    = task ?? duplicateFrom
   const isEditing = !!task
@@ -234,7 +231,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
         <Field label={t('taskType')}>
           <Select value={form.task_type} onChange={set('task_type')}>
             {(['fixed', 'adhoc'] as WorkTaskType[]).map((tt) => (
-              <option key={tt} value={tt}>{WORK_TASK_TYPE_LABELS[tt]}</option>
+              <option key={tt} value={tt}>{tWorkTasks(`taskType.${tt}`)}</option>
             ))}
           </Select>
         </Field>
@@ -275,14 +272,14 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
         <Field label={t('department')}>
           <Select value={form.department} onChange={set('department')}>
             {DEPARTMENT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o} value={o}>{tWorkTasks(`department.${o}`)}</option>
             ))}
           </Select>
         </Field>
         <Field label={t('hours')}>
           <Select value={form.effort_hours} onChange={set('effort_hours')}>
             {([2, 4, 8] as WorkTaskEffort[]).map((h) => (
-              <option key={h} value={h}>{EFFORT_LABELS[h]}</option>
+              <option key={h} value={h}>{tWorkTasks(`effort.${h}`)}</option>
             ))}
           </Select>
         </Field>
@@ -293,7 +290,7 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
         <Field label={t('status')}>
           <Select value={form.status} onChange={set('status')}>
             {WORK_TASK_STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o} value={o}>{tWorkTasks(`status.${o}`)}</option>
             ))}
           </Select>
         </Field>
@@ -301,8 +298,8 @@ export default function WorkTaskForm({ task, duplicateFrom, defaultDate, onSucce
           <Field label={t('repeatInterval')}>
             <Select value={form.repeat_interval} onChange={set('repeat_interval')}>
               <option value="">{t('noRepeat')}</option>
-              {REPEAT_OPTIONS.map(([v, label]) => (
-                <option key={v} value={v}>{label}</option>
+              {WORK_TASK_REPEAT_INTERVAL_OPTIONS.map((v) => (
+                <option key={v} value={v}>{tWorkTasks(`repeat.${v}`)}</option>
               ))}
             </Select>
           </Field>
