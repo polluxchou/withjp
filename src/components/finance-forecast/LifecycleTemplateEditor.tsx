@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, X, Save } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import Modal from '@/components/ui/Modal'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import { Input, Select } from '@/components/ui/Field'
+import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import {
   FORECAST_ACCOUNT_TYPES,
   type ForecastAccountType,
@@ -116,147 +120,139 @@ export default function LifecycleTemplateEditor({ open, onClose, onSaved }: Prop
   const tpl = set?.[stage] ?? null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
-      <div className="bg-white rounded-xl border border-zinc-200 shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-zinc-100">
-          <div>
-            <h2 className="text-base font-bold text-zinc-900">{t('lifecycleTitle')}</h2>
-            <p className="text-xs text-zinc-500 mt-0.5">{t('lifecycleDesc')}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            aria-label={t('lifecycleClose')}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="px-5 pt-4 flex gap-1 flex-wrap">
-          {LIFECYCLE_STARTING_STAGES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStage(s)}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-                s === stage
-                  ? 'bg-primary text-white border-primary shadow-sm'
-                  : 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-300 hover:text-primary'
-              }`}
-            >
-              {t('lifecycleStageFrom', { stage: stageLabels[s] })}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex-1 overflow-auto px-5 py-4">
-          {loading || !tpl ? (
-            <div className="py-10 text-center text-sm text-zinc-400">{t('lifecycleLoading')}</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-y border-zinc-100 bg-zinc-50">
-                  <th className="text-left px-3 py-2 text-xs font-medium text-zinc-500 w-16">{t('lifecycleColMonth')}</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-zinc-500">{t('lifecycleColStatus')}</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-zinc-500">{t('lifecycleColLiveDays')}</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-zinc-500">{t('lifecycleColAvgHours')}</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-zinc-500">{t('lifecycleColRevPerMin')}</th>
-                  <th className="text-left px-3 py-2 text-xs font-medium text-zinc-500">{t('lifecycleColShareRatio')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tpl.map((cell, i) => (
-                  <tr key={i} className="border-b border-zinc-50">
-                    <td className="px-3 py-2 text-xs font-semibold text-zinc-500 tabular-nums">M{i + 1}</td>
-                    <td className="px-3 py-2">
-                      <select
-                        value={cell.account_type}
-                        onChange={(e) => updateCell(stage, i, { account_type: e.target.value as ForecastAccountType })}
-                        className={INPUT_CLASS}
-                      >
-                        {FORECAST_ACCOUNT_TYPES.map((type) => (
-                          <option key={type} value={type}>{accountTypeLabels[type]}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-2">
-                      <NumberCell
-                        value={cell.live_days}
-                        onChange={(live_days) => updateCell(stage, i, { live_days })}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <NumberCell
-                        value={cell.avg_daily_hours}
-                        step={0.5}
-                        onChange={(avg_daily_hours) => updateCell(stage, i, { avg_daily_hours })}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <NumberCell
-                        value={cell.revenue_per_minute_usd}
-                        step={0.01}
-                        onChange={(revenue_per_minute_usd) => updateCell(stage, i, { revenue_per_minute_usd })}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <NumberCell
-                        value={cell.share_ratio_pct}
-                        max={100}
-                        onChange={(share_ratio_pct) => updateCell(stage, i, { share_ratio_pct })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-zinc-100">
-          <span className="text-xs text-zinc-400">
+    // 阻断式编辑器 → 共享 Modal（design-system §6.1）：Escape/焦点圈定/portal/
+    // 移动端底部弹出全部由 Modal 兜底。原来的说明文案从卡头挪进正文首行
+    // （Modal 的 title 只收字符串，没有副标题位）。
+    // footer 的状态文案用 mr-auto 顶到左侧——Modal footer 本身是 justify-end。
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={t('lifecycleTitle')}
+      width="max-w-5xl"
+      footer={
+        <>
+          <span className="mr-auto text-xs text-ink-400">
             {t('lifecycleFooter', { stages: LIFECYCLE_STARTING_STAGES.length, months: LIFECYCLE_MONTH_COUNT })}
-            {error && <span className="ml-2 text-red-500">{error}</span>}
+            {error && <span className="ml-2 text-danger-text">{error}</span>}
           </span>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={handleClose} disabled={saving}>
-              <X className="w-3.5 h-3.5" /> {t('lifecycleClose')}
-            </Button>
-            <Button size="sm" onClick={handleSave} disabled={!dirty || saving || loading}>
-              {saving
-                ? <><Save className="w-3.5 h-3.5" /> {t('lifecycleSaving')}</>
-                : <><Check className="w-3.5 h-3.5" /> {t('lifecycleSave')}</>}
-            </Button>
-          </div>
-        </div>
+          <Button variant="secondary" onClick={handleClose} disabled={saving}>
+            <X className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('lifecycleClose')}
+          </Button>
+          <Button onClick={handleSave} disabled={!dirty || saving || loading} loading={saving}>
+            {saving
+              ? <><Save className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('lifecycleSaving')}</>
+              : <><Check className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('lifecycleSave')}</>}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-xs text-ink-500 mb-3">{t('lifecycleDesc')}</p>
+
+      {/* 5 个起始阶段互斥切换 = §6.1 的 SegmentedControl 场景 */}
+      <div className="mb-3">
+        <SegmentedControl
+          items={LIFECYCLE_STARTING_STAGES.map((s) => ({
+            value: s,
+            label: t('lifecycleStageFrom', { stage: stageLabels[s] }),
+          }))}
+          value={stage}
+          onChange={(v) => setStage(v as LifecycleStartingStage)}
+          label={t('lifecycleColStatus')}
+        />
       </div>
-    </div>
+
+      {loading || !tpl ? (
+        <div className="py-10 text-center text-sm text-ink-400">{t('lifecycleLoading')}</div>
+      ) : (
+        <Table label={t('lifecycleTitle')} minWidth={760}>
+          <THead>
+            <Th style={{ width: 64 }}>{t('lifecycleColMonth')}</Th>
+            <Th>{t('lifecycleColStatus')}</Th>
+            <Th>{t('lifecycleColLiveDays')}</Th>
+            <Th>{t('lifecycleColAvgHours')}</Th>
+            <Th>{t('lifecycleColRevPerMin')}</Th>
+            <Th>{t('lifecycleColShareRatio')}</Th>
+          </THead>
+          <TBody>
+            {tpl.map((cell, i) => (
+              <Tr key={i}>
+                <Td className="text-xs font-semibold text-ink-500 tabular-nums">M{i + 1}</Td>
+                <Td>
+                  <Select
+                    aria-label={t('lifecycleColStatus')}
+                    value={cell.account_type}
+                    onChange={(e) => updateCell(stage, i, { account_type: e.target.value as ForecastAccountType })}
+                  >
+                    {FORECAST_ACCOUNT_TYPES.map((type) => (
+                      <option key={type} value={type}>{accountTypeLabels[type]}</option>
+                    ))}
+                  </Select>
+                </Td>
+                <Td>
+                  <NumberCell
+                    label={t('lifecycleColLiveDays')}
+                    value={cell.live_days}
+                    onChange={(live_days) => updateCell(stage, i, { live_days })}
+                  />
+                </Td>
+                <Td>
+                  <NumberCell
+                    label={t('lifecycleColAvgHours')}
+                    value={cell.avg_daily_hours}
+                    step={0.5}
+                    onChange={(avg_daily_hours) => updateCell(stage, i, { avg_daily_hours })}
+                  />
+                </Td>
+                <Td>
+                  <NumberCell
+                    label={t('lifecycleColRevPerMin')}
+                    value={cell.revenue_per_minute_usd}
+                    step={0.01}
+                    onChange={(revenue_per_minute_usd) => updateCell(stage, i, { revenue_per_minute_usd })}
+                  />
+                </Td>
+                <Td>
+                  <NumberCell
+                    label={t('lifecycleColShareRatio')}
+                    value={cell.share_ratio_pct}
+                    max={100}
+                    onChange={(share_ratio_pct) => updateCell(stage, i, { share_ratio_pct })}
+                  />
+                </Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      )}
+    </Modal>
   )
 }
 
+// 表内数字格：取值行为不动，只把裸 input 换成共享 Input。列头不在同一
+// 单元格里，aria-label 由调用方传入的列名承担（表内控件没有可见 label）。
 function NumberCell({
+  label,
   value,
   onChange,
   step = 1,
   max,
 }: {
+  label:    string
   value:    number
   onChange: (value: number) => void
   step?:    number
   max?:     number
 }) {
   return (
-    <input
+    <Input
+      aria-label={label}
       type="number"
       min={0}
       max={max}
       step={step}
       value={Number.isFinite(value) ? value : 0}
       onChange={(e) => onChange(Number(e.target.value))}
-      className={INPUT_CLASS}
+      className="tabular-nums"
     />
   )
 }
-
-const INPUT_CLASS = 'w-full min-h-9 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-violet-500'

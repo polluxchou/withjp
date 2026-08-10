@@ -70,6 +70,7 @@
 | 物品 | 使用中 success · 闲置 neutral · 维修 warning · 报废 danger |
 | 工时任务 | 计划中 planned neutral · 进行中 doing info · 已完成 done success · 已取消 cancelled neutral |
 | 财务预测账号收入档 | 重点跟进 success · 稳定 violet · 观察 warning（`StatusBadge` 按月收入阈值派生，非持久化枚举） |
+| 财务预测视角 | 公开 success · 私有 neutral · 归属徽章 neutral |
 
 > DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 与 ThreadStatus 在 PR2/PR3 迁移对应界面时登记。
 
