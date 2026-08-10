@@ -249,6 +249,7 @@
       "sampleHint": "已返回 {count} 条样例。完整筛选请到支出列表页操作。"
     },
     "clarification": {
+      "tableLabel": "候选记录",
       "dateCol": "日期",
       "nameCol": "名称",
       "amountCol": "金额",

@@ -249,6 +249,7 @@
       "sampleHint": "Returned {count, plural, =1 {1 sample} other {# samples}}. Go to the expenses page for the full filtered list."
     },
     "clarification": {
+      "tableLabel": "Candidate records",
       "dateCol": "Date",
       "nameCol": "Name",
       "amountCol": "Amount",
