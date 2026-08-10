@@ -491,7 +491,9 @@ function DeleteConfirm({
             {t('viewDeleteCancel')}
           </Button>
           <Button variant="danger" onClick={handleConfirm} loading={submitting}>
-            <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} /> {submitting ? t('viewDeleting') : t('viewDeleteConfirm')}
+            {submitting
+              ? t('viewDeleting')
+              : <><Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('viewDeleteConfirm')}</>}
           </Button>
         </>
       }
