@@ -11,7 +11,6 @@ import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import { toneOf } from '@/lib/ui/status-tone'
 import WorkTaskForm from './WorkTaskForm'
 import {
-  DEPARTMENT_LABELS,
   utilisationTone,
   buildUserWorkloads,
   toDateStr,
@@ -156,7 +155,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-ink-900 truncate">{u.name}</p>
-                        <p className="text-xs text-ink-400">{DEPARTMENT_LABELS[u.department as AgentRole]}</p>
+                        <p className="text-xs text-ink-400">{t(`department.${u.department}`)}</p>
                       </div>
                     </div>
                   </Td>
@@ -250,7 +249,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                 <Tag
                   size="sm"
                   tone={toneOf('work_task', task.status)}
-                  label={task.status === 'done' ? t('status.done') : task.status === 'doing' ? t('status.doing') : t('status.planned')}
+                  label={t(`status.${task.status}`)}
                 />
               </div>
             ))}

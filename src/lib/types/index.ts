@@ -447,12 +447,8 @@ export type WorkTaskRepeatInterval = 'daily' | 'weekly' | 'biweekly' | 'monthly'
 
 export const WORK_TASK_EFFORT_OPTIONS: WorkTaskEffort[] = [2, 4, 8]
 
-export const WORK_TASK_REPEAT_INTERVAL_LABELS: Record<WorkTaskRepeatInterval, string> = {
-  daily:    '每日',
-  weekly:   '每周',
-  biweekly: '每两周',
-  monthly:  '每月',
-}
+// Labels live in messages/*.json under workTasks.repeat
+export const WORK_TASK_REPEAT_INTERVAL_OPTIONS: WorkTaskRepeatInterval[] = ['daily', 'weekly', 'biweekly', 'monthly']
 
 export interface WorkTask {
   id:                   string

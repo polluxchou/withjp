@@ -12,7 +12,6 @@ import EmptyState from '@/components/ui/EmptyState'
 import LoadingState from '@/components/ui/LoadingState'
 import ErrorState from '@/components/ui/ErrorState'
 import type { AgentRole } from '@/lib/types'
-import { DEPARTMENT_LABELS } from '@/lib/work-tasks/cost'
 
 interface SalaryRecord {
   id:             string
@@ -37,6 +36,7 @@ function fmtRmb(v: number) {
 
 export default function SalaryManager() {
   const t = useTranslations('workTasks.salary')
+  const tWorkTasks = useTranslations('workTasks')
   const tCommon = useTranslations('common')
   const [records,  setRecords]  = useState<SalaryRecord[]>([])
   const [users,    setUsers]    = useState<UserOption[]>([])
@@ -203,7 +203,7 @@ export default function SalaryManager() {
                         {isCurrent && <Tag size="sm" tone="success" label={t('current')} />}
                       </div>
                     </Td>
-                    <Td className={dim}>{DEPARTMENT_LABELS[r.user.role]}</Td>
+                    <Td className={dim}>{tWorkTasks(`department.${r.user.role}`)}</Td>
                     <Td align="right" numeric className={dim}>{fmtRmb(r.monthly_salary)}</Td>
                     <Td className={dim}>{r.effective_from}</Td>
                     <Td className={`text-ink-400 ${dim}`}>{r.effective_to ?? '—'}</Td>
@@ -254,7 +254,7 @@ export default function SalaryManager() {
               >
                 <option value="">{t('employeeSelect')}</option>
                 {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} ({DEPARTMENT_LABELS[u.role]})</option>
+                  <option key={u.id} value={u.id}>{u.name} ({tWorkTasks(`department.${u.role}`)})</option>
                 ))}
               </Select>
             </Field>
