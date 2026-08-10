@@ -513,6 +513,10 @@ function CurveTooltip({ active, payload, label }: ChartTooltipProps) {
   )
 }
 
+// No milestones.length===0 guard here — the page-level `threeState` gate
+// (see TimelinePage above) already renders EmptyState and never mounts any
+// of the four views (including this one) while `milestones` is empty, so
+// this component is only ever called with a non-empty array.
 function CurveView({ milestones }: { milestones: Milestone[] }) {
   const t = useTranslations('timeline')
   const data    = buildCurveData(milestones)
@@ -521,14 +525,6 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
   const done    = milestones.filter(m => m.status === 'completed').length
   const missed  = milestones.filter(m => m.status === 'missed').length
   const atRisk  = milestones.filter(m => m.status === 'at_risk').length
-
-  if (milestones.length === 0) {
-    return (
-      <div className="bg-surface border border-line rounded-card p-12 text-center text-sm text-ink-400">
-        {t('curve.empty')}
-      </div>
-    )
-  }
 
   const pct = (value: number) => total > 0 ? `${((value / total) * 100).toFixed(0)}%` : '—'
 

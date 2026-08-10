@@ -677,7 +677,6 @@
       "seriesCompleted": "Completed",
       "seriesActive": "Active",
       "tooltipMonthMilestones": "This month's milestones",
-      "empty": "No data yet",
       "gap": "As of today, <strong>{planned}</strong> {planned, plural, =1 {milestone} other {milestones}} should be complete, but only <strong>{done}</strong> {done, plural, =1 {is} other {are}} done — gap of <strong>{gap}</strong>."
     },
     "detail": {

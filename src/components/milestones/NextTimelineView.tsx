@@ -30,9 +30,15 @@ type RangeDays = (typeof RANGE_OPTIONS)[number]
 const MAX_LAYER = 2
 // `TimelineCard` is `w-44` (176px) against the canvas's own `min-w-[900px]`
 // baseline ≈ 19.5% of the width — two same-side cards whose x is closer than
-// that will visually overlap. 18% leaves a small buffer while not
-// over-triggering the stagger for cards that are merely close-ish.
-const COLLISION_PCT = 18
+// that will visually overlap. 20% is the smallest round number *above*
+// 19.5%, so any pair `assignLayer` judges "far enough apart" truly never
+// overlaps at the 900px minimum width (an earlier pass used 18% here, which
+// got the direction backwards: 18 < 19.5 let pairs 18–19.5% apart through as
+// "no collision" while their cards still visually overlapped by up to
+// ~14px). Wider canvases only shrink the card's percentage share, so this
+// threshold never goes stale in the unsafe direction — it can only end up
+// more conservative than strictly necessary.
+const COLLISION_PCT = 20
 
 // Worst-case `TimelineCard` height (see that component): `py-2` padding
 // (8+8=16) + `line-clamp-2` title at `text-xs`/12px-16px-line-height
@@ -53,24 +59,46 @@ const LAYER_GAP = 12
 // cards visibly clipped into each other — see git history).
 const LAYER_STEP = CARD_MAX_H + LAYER_GAP
 
-// ABOVE_TOP/AXIS_TOP/TICK_TOP/BELOW_TOP are shifted down by exactly
-// LAYER_STEP from their "obvious" baseline (28/150/160/154 — see git
-// history for that first-pass version). Reason: a layer-1 "above" card
-// sits at `wrapperTop = ABOVE_TOP - LAYER_STEP` (see the placement math
-// further down). At the naive baseline that's 28 - 96 = -68 — negative,
-// i.e. above y=0 of this canvas. The ancestor of this canvas is
-// `overflow-x-auto`, and per the CSS overflow spec, when one axis is a
-// non-`visible` value the other axis's computed `visible` is force-promoted
-// to `auto` — so the negative offset wasn't just "off-screen with a
-// scrollbar to reach it", it was silently clipped with nothing to scroll
-// to. Shifting every anchor down by LAYER_STEP makes the worst case (layer
-// MAX_LAYER-1) land exactly on the old baseline (ABOVE_TOP - LAYER_STEP =
-// 28 ≥ 0) instead of going negative.
-const ABOVE_TOP = 28 + LAYER_STEP
+// The deepest lane is MAX_LAYER-1 steps away from lane 0 (`dx` in the
+// placement math further down maxes out at `layer * LAYER_STEP` for
+// `layer = MAX_LAYER - 1`), so the maximum per-item offset is
+// (MAX_LAYER-1) * LAYER_STEP — NOT a bare LAYER_STEP. Every anchor below is
+// sized off MAX_DX, not LAYER_STEP directly: hardcoding "one LAYER_STEP" of
+// headroom here was itself a latent bug — bumping MAX_LAYER (say to 3)
+// wouldn't add the matching second LAYER_STEP of headroom, silently
+// reviving the exact clipping/overlap bugs these constants exist to
+// prevent (see git history — both a negative-`wrapperTop` clip and a
+// same-layer-height overlap shipped once already). At the current
+// MAX_LAYER=2, MAX_DX === LAYER_STEP (96), so this changes none of the
+// numbers below.
+const MAX_DX = (MAX_LAYER - 1) * LAYER_STEP
+
+// ABOVE_TOP/AXIS_TOP/TICK_TOP/BELOW_TOP are shifted down by exactly MAX_DX
+// from their "obvious" baseline (28/150/160/154 — see git history for that
+// first-pass version). Reason: a deepest-lane "above" card sits at
+// `wrapperTop = ABOVE_TOP - MAX_DX` (see the placement math further down).
+// At the naive baseline that's 28 - 96 = -68 — negative, i.e. above y=0 of
+// this canvas. The ancestor of this canvas is `overflow-x-auto`, and per
+// the CSS overflow spec, when one axis is a non-`visible` value the other
+// axis's computed `visible` is force-promoted to `auto` — so the negative
+// offset wasn't just "off-screen with a scrollbar to reach it", it was
+// silently clipped with nothing to scroll to. Shifting every anchor down by
+// MAX_DX makes the worst case land exactly on the old baseline
+// (ABOVE_TOP - MAX_DX = 28 ≥ 0) instead of going negative.
+//
+// Known un-fixed wobble (not a regression, don't "fix" this without
+// re-deriving the whole layout): on the "above" side the DOM order is
+// [card, stem, dot], so the dot's actual y = wrapperTop + cardHeight +
+// stemHeight — and `cardHeight` varies with real content (a 1-line title
+// with no cluster hint is ≈50px; the CARD_MAX_H worst case below is 84px),
+// so the dot can float ~34px off AXIS_TOP depending on what's in the card.
+// The "below" side has no such wobble — its DOM order is [dot, stem, card],
+// so the dot's y is just `wrapperTop`, independent of card content.
+const ABOVE_TOP = 28 + MAX_DX
 const ABOVE_STEM = 40
-const AXIS_TOP = 150 + LAYER_STEP
-const TICK_TOP = 160 + LAYER_STEP
-const BELOW_TOP = 154 + LAYER_STEP
+const AXIS_TOP = 150 + MAX_DX
+const TICK_TOP = 160 + MAX_DX
+const BELOW_TOP = 154 + MAX_DX
 const BELOW_STEM = 32
 
 // `TimelineDot` is `h-4 w-4` (16px tall) and sits first in the "below" DOM
@@ -79,13 +107,13 @@ const DOT_H = 16
 // Small breathing room below the deepest possible card so it doesn't sit
 // flush against the canvas's own bottom edge.
 const BOTTOM_BUFFER = 20
-// The binding constraint is the "below" side's deepest lane (layer
-// MAX_LAYER-1): dot → stem (BELOW_STEM + that layer's extra reach) → card.
-// BELOW_TOP(250) + DOT_H(16) + (BELOW_STEM(32) + LAYER_STEP(96)) +
+// The binding constraint is the "below" side's deepest lane: dot → stem
+// (BELOW_STEM + that lane's MAX_DX reach) → card.
+// BELOW_TOP(250) + DOT_H(16) + (BELOW_STEM(32) + MAX_DX(96)) +
 // CARD_MAX_H(84) + BOTTOM_BUFFER(20) = 498. (The "above" side never
 // threatens the bottom edge — its layers only move *up*, toward y=0, which
 // is already guarded by the ABOVE_TOP shift above.)
-const CANVAS_HEIGHT = BELOW_TOP + DOT_H + (BELOW_STEM + LAYER_STEP) + CARD_MAX_H + BOTTOM_BUFFER
+const CANVAS_HEIGHT = BELOW_TOP + DOT_H + (BELOW_STEM + MAX_DX) + CARD_MAX_H + BOTTOM_BUFFER
 
 function readableX(x: number): number {
   return Math.min(94, Math.max(6, x))
@@ -176,17 +204,18 @@ function placeGroups(groups: TimelineGroup<Milestone>[]) {
   const lastXBelow: number[] = []
   return groups.map((group, index) => {
     const above = index % 2 === 0
-    // Feed the same clamped position the render pass actually uses
-    // (`readableX`, applied again at the render site below) into collision
-    // detection — not the raw `group.x`. `readableX` only clamps the outer
-    // 6%/94% edges, so two raw positions that are >= COLLISION_PCT apart
-    // (e.g. 0 and 18) can still clamp down to within COLLISION_PCT of each
-    // other on screen (6 and 18 — only 12 apart), which `assignLayer` would
-    // have judged collision-free had it seen the unclamped 18. `readableX`
-    // is a monotonic clamp, so feeding it in doesn't disturb the x-ascending
-    // order `assignLayer` relies on.
-    const layer = assignLayer(above ? lastXAbove : lastXBelow, readableX(group.x))
-    return { group, above, layer }
+    // Clamp once here and reuse `x` at the render site below — not the raw
+    // `group.x` fed into `assignLayer` while a *different* `readableX(group.x)`
+    // call determines the actual rendered position. `readableX` only clamps
+    // the outer 6%/94% edges, so two raw positions that are >= COLLISION_PCT
+    // apart (e.g. 0 and 18) can still clamp down to within COLLISION_PCT of
+    // each other on screen (6 and 18 — only 12 apart), which `assignLayer`
+    // would have judged collision-free had it seen the unclamped 18.
+    // `readableX` is a monotonic clamp, so computing it here doesn't disturb
+    // the x-ascending order `assignLayer` relies on.
+    const x = readableX(group.x)
+    const layer = assignLayer(above ? lastXAbove : lastXBelow, x)
+    return { group, above, layer, x }
   })
 }
 
@@ -210,12 +239,24 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
 
   const ticks = useMemo(() => {
     const midpoint = Math.round(rangeDays / 2)
-    return [
+    const candidates = [
       { label: t('gantt.today'), date: range.start },
       { label: t('nextView.plusDays', { days: 7 }), date: new Date(range.start.getTime() + Math.min(7, rangeDays) * DAY_MS) },
       { label: t('nextView.plusDays', { days: midpoint }), date: new Date(range.start.getTime() + midpoint * DAY_MS) },
       { label: t('nextView.plusDays', { days: rangeDays }), date: range.end },
     ]
+    // rangeDays=14 rounds midpoint to 7 too, making the "+7" and
+    // "+{midpoint}" candidates identical — same label, same date, same
+    // React key (`${label}-${date.toISOString()}`), duplicate rendered
+    // tick. Dedupe by timestamp rather than special-casing rangeDays===14,
+    // so this stays correct if RANGE_OPTIONS ever changes.
+    const seen = new Set<number>()
+    return candidates.filter((tick) => {
+      const ms = tick.date.getTime()
+      if (seen.has(ms)) return false
+      seen.add(ms)
+      return true
+    })
   }, [range, rangeDays, t])
 
   const handleRangeChange = (days: RangeDays) => {
@@ -302,7 +343,7 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
             )
           })}
 
-          {placedGroups.map(({ group, above, layer }) => {
+          {placedGroups.map(({ group, above, layer, x }) => {
             const first = group.milestones[0]
             const visual = getTimelineVisual(first)
             const cls = TONE_CLASS[visual.tone]
@@ -327,7 +368,7 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
               <div
                 key={group.id}
                 className="absolute -translate-x-1/2"
-                style={{ left: `${readableX(group.x)}%`, top: wrapperTop }}
+                style={{ left: `${x}%`, top: wrapperTop }}
                 onMouseEnter={() => setActiveId(first.id)}
               >
                 {above && (
