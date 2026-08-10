@@ -227,13 +227,18 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
         </Select>
       </Field>
 
-      {/* Involved Agents — a checkbox list, not a single control, so it
+      {/* Involved Agents — a checkbox GROUP, not a single control, so it
           can't go through Field's one-child cloning (same composite-field
-          rationale as CreatorForm.tsx's broadcast-account row): label is
-          hand-rolled with Field's own label markup instead. */}
+          rationale as CreatorForm.tsx's broadcast-account row). Unlike a
+          plain hand-rolled <label> (which associates with nothing — there's
+          no single control for htmlFor to point at), <fieldset>/<legend> is
+          the correct native grouping semantic for "one caption over N
+          checkboxes"; border-0/p-0/m-0 strip the browser's default fieldset
+          box so it still reads as plain text, matching the original
+          label's visual weight exactly. */}
       {agents.length > 0 && (
-        <div className="min-w-0">
-          <label className="block text-xs font-medium text-ink-700 mb-1.5">{t('form.involvedAgents')}</label>
+        <fieldset className="min-w-0 m-0 border-0 p-0">
+          <legend className="block text-xs font-medium text-ink-700 mb-1.5 p-0">{t('form.involvedAgents')}</legend>
           <div className="border border-line rounded-field p-2.5 space-y-1.5 max-h-32 overflow-y-auto">
             {agents.map(a => (
               <label key={a.id} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -246,19 +251,25 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
       )}
 
-      {/* Success Metric — three inputs sharing one label, same composite
-          rationale as Involved Agents above. */}
+      {/* Success Metric — three inputs sharing one visual heading. The
+          heading stays a plain <label> (it's not `htmlFor`-linked to any
+          one of the three, so it's decorative, not an accessible name) —
+          each Input instead gets its own aria-label reusing the same copy
+          already shown as its placeholder, so a screen reader still
+          announces a real name per field even after the placeholder itself
+          is gone (placeholders aren't reliably exposed as an accessible
+          name across browsers/AT). */}
       <div className="min-w-0">
         <label className="block text-xs font-medium text-ink-700 mb-1.5">{t('form.successMetric')}</label>
         <div className="grid grid-cols-3 gap-2">
-          <Input placeholder={t('form.metricName')}
+          <Input aria-label={t('form.metricName')} placeholder={t('form.metricName')}
             value={form.metric_name} onChange={e => set('metric_name', e.target.value)} />
-          <Input placeholder={t('form.metricTarget')}
+          <Input aria-label={t('form.metricTarget')} placeholder={t('form.metricTarget')}
             value={form.metric_target} onChange={e => set('metric_target', e.target.value)} />
-          <Input placeholder={t('form.metricUnit')}
+          <Input aria-label={t('form.metricUnit')} placeholder={t('form.metricUnit')}
             value={form.metric_unit} onChange={e => set('metric_unit', e.target.value)} />
         </div>
       </div>

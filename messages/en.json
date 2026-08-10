@@ -623,7 +623,6 @@
     "subtitle": "Company-level strategic milestones, with execution plans attached",
     "newMilestone": "New milestone",
     "createFirst": "Create your first milestone",
-    "loading": "Loading milestones…",
     "empty": "No milestones yet — create your first one!",
     "deleteConfirm": "Delete this milestone? This can't be undone.",
     "view": {
@@ -682,7 +681,6 @@
       "gap": "As of today, <strong>{planned}</strong> {planned, plural, =1 {milestone} other {milestones}} should be complete, but only <strong>{done}</strong> {done, plural, =1 {is} other {are}} done — gap of <strong>{gap}</strong>."
     },
     "detail": {
-      "loading": "Loading milestone…",
       "notFound": "Milestone not found — it may have been deleted.",
       "back": "← Back to Timeline",
       "backLink": "Strategic Timeline",
