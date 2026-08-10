@@ -34,10 +34,15 @@ async function getAgentStats() {
   return stats
 }
 
-// Detail/summary focus ring shares the site's one focus recipe (design-system
-// §4) — native <details><summary> doesn't get it for free like <button>/
-// <a> styled through Button/Field, so it's spelled out on every summary here.
-const SUMMARY_CLASS = 'text-xs text-ink-400 cursor-pointer hover:text-ink-700 font-medium rounded-field focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+// <summary> is a block-level list-item by default, so a bare focus-visible
+// ring would stretch across the full card width instead of hugging the
+// label — w-fit constrains the ring (and the hover color) to the text.
+// This is the same ring recipe design-system §4 uses everywhere else, spelled
+// out by hand because native <details><summary> doesn't pick it up for free
+// the way <button>/<a> do through Button/Field. (tasks/page.tsx:246 and
+// creators/[id]/page.tsx:396 have their own <summary> without this ring —
+// pre-existing gaps, left alone here, deferred.)
+const SUMMARY_CLASS = 'w-fit text-xs text-ink-400 cursor-pointer hover:text-ink-700 font-medium rounded-field focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
 const PRE_CLASS = 'mt-2 text-xs font-mono bg-canvas border border-line rounded-field p-2 overflow-auto max-h-20 text-ink-700'
 
 export default async function TeamPage() {
@@ -89,7 +94,10 @@ export default async function TeamPage() {
                       <Tag
                         key={statKey}
                         size="sm"
-                        tone={toneOf('task', statKey)}
+                        // A zero count isn't a live warning/failure — tone it
+                        // neutral so a healthy, idle agent doesn't read as
+                        // alarmed just because its failed count is 0.
+                        tone={stats[statKey] > 0 ? toneOf('task', statKey) : 'neutral'}
                         label={`${t(`stats.${statKey}`)} ${stats[statKey]}`}
                       />
                     ))}

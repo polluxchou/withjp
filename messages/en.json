@@ -132,6 +132,7 @@
       "agentsLabel": "Agents",
       "activeLabel": "Active agents",
       "unknownAgent": "Unknown / inactive agent",
+      "taskCountAria": "{count} tasks",
       "noTasks": "No tasks",
       "noTasksAll": "No tasks yet",
       "noCreator": "No linked creator",

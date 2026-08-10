@@ -132,6 +132,7 @@
       "agentsLabel": "エージェント数",
       "activeLabel": "稼働中エージェント",
       "unknownAgent": "不明／停止中のエージェント",
+      "taskCountAria": "タスク {count} 件",
       "noTasks": "タスクなし",
       "noTasksAll": "タスクがまだありません",
       "noCreator": "関連ライバーなし",
