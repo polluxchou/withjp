@@ -23,13 +23,7 @@ type RangeDays = (typeof RANGE_OPTIONS)[number]
 
 // ── Layout constants for the above/below stem+dot chain ────────
 // (see the collision-avoidance block below for how these combine)
-const ABOVE_TOP = 28
-const ABOVE_STEM = 40
-const BELOW_TOP = 154
-const BELOW_STEM = 32
-// Extra vertical reach (px) per stagger layer when two same-side cards would
-// otherwise overlap horizontally.
-const LAYER_STEP = 56
+//
 // Bounded to 2 lanes per side — enough for the common "two neighbours landed
 // on the same side" case without growing the canvas indefinitely for rare,
 // very dense clusters (see the comment on `assignLayer` below).
@@ -39,6 +33,59 @@ const MAX_LAYER = 2
 // that will visually overlap. 18% leaves a small buffer while not
 // over-triggering the stagger for cards that are merely close-ish.
 const COLLISION_PCT = 18
+
+// Worst-case `TimelineCard` height (see that component): `py-2` padding
+// (8+8=16) + `line-clamp-2` title at `text-xs`/12px-16px-line-height
+// (2×16=32) + the owner line (`text-[10px]`, ~14px line height + `mt-1`
+// 4px margin ≈ 18) + the cluster-hint line, same shape, only rendered when
+// `isCluster` (≈18) = 16+32+18+18 = 84.
+const CARD_MAX_H = 84
+// Visual breathing room between two stacked layers' cards.
+const LAYER_GAP = 12
+// Extra vertical reach (px) per stagger layer when two same-side cards would
+// otherwise overlap horizontally. This MUST be >= CARD_MAX_H: layer1's card
+// sits LAYER_STEP away from layer0's anchor, but the two anchors are for
+// *the same axis position* on cards that are usually still close in x (that
+// closeness is exactly why one got bumped to layer1) — if LAYER_STEP were
+// smaller than a card's own height, layer1's card would still overlap
+// layer0's card vertically even though they're nominally "different
+// layers" (this shipped once at LAYER_STEP=56 < CARD_MAX_H=84 and the two
+// cards visibly clipped into each other — see git history).
+const LAYER_STEP = CARD_MAX_H + LAYER_GAP
+
+// ABOVE_TOP/AXIS_TOP/TICK_TOP/BELOW_TOP are shifted down by exactly
+// LAYER_STEP from their "obvious" baseline (28/150/160/154 — see git
+// history for that first-pass version). Reason: a layer-1 "above" card
+// sits at `wrapperTop = ABOVE_TOP - LAYER_STEP` (see the placement math
+// further down). At the naive baseline that's 28 - 96 = -68 — negative,
+// i.e. above y=0 of this canvas. The ancestor of this canvas is
+// `overflow-x-auto`, and per the CSS overflow spec, when one axis is a
+// non-`visible` value the other axis's computed `visible` is force-promoted
+// to `auto` — so the negative offset wasn't just "off-screen with a
+// scrollbar to reach it", it was silently clipped with nothing to scroll
+// to. Shifting every anchor down by LAYER_STEP makes the worst case (layer
+// MAX_LAYER-1) land exactly on the old baseline (ABOVE_TOP - LAYER_STEP =
+// 28 ≥ 0) instead of going negative.
+const ABOVE_TOP = 28 + LAYER_STEP
+const ABOVE_STEM = 40
+const AXIS_TOP = 150 + LAYER_STEP
+const TICK_TOP = 160 + LAYER_STEP
+const BELOW_TOP = 154 + LAYER_STEP
+const BELOW_STEM = 32
+
+// `TimelineDot` is `h-4 w-4` (16px tall) and sits first in the "below" DOM
+// order (dot → stem → card), so it contributes to the reach but never moves.
+const DOT_H = 16
+// Small breathing room below the deepest possible card so it doesn't sit
+// flush against the canvas's own bottom edge.
+const BOTTOM_BUFFER = 20
+// The binding constraint is the "below" side's deepest lane (layer
+// MAX_LAYER-1): dot → stem (BELOW_STEM + that layer's extra reach) → card.
+// BELOW_TOP(250) + DOT_H(16) + (BELOW_STEM(32) + LAYER_STEP(96)) +
+// CARD_MAX_H(84) + BOTTOM_BUFFER(20) = 498. (The "above" side never
+// threatens the bottom edge — its layers only move *up*, toward y=0, which
+// is already guarded by the ABOVE_TOP shift above.)
+const CANVAS_HEIGHT = BELOW_TOP + DOT_H + (BELOW_STEM + LAYER_STEP) + CARD_MAX_H + BOTTOM_BUFFER
 
 function readableX(x: number): number {
   return Math.min(94, Math.max(6, x))
@@ -205,8 +252,14 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
       </div>
 
       <div className="overflow-x-auto pb-2">
-        <div className="relative min-w-[900px] h-[320px] mx-2">
-          <div className="absolute left-0 right-0 top-[150px] h-0.5 bg-line-strong" />
+        {/* Height (and AXIS_TOP/TICK_TOP/ABOVE_TOP/BELOW_TOP below) are
+            derived constants, not literal Tailwind arbitrary-value classes
+            — a templated `h-[${CANVAS_HEIGHT}px]` string wouldn't be
+            statically extractable by the Tailwind JIT scanner (same
+            "template literal class names don't work" pitfall documented in
+            Table.tsx), so this stays an inline style. */}
+        <div className="relative min-w-[900px] mx-2" style={{ height: CANVAS_HEIGHT }}>
+          <div className="absolute left-0 right-0 h-0.5 bg-line-strong" style={{ top: AXIS_TOP }} />
 
           {/* Fix 2/3 (left-end date truncation) + fix 3/3 (right-end "+N天"
               wrap): the middle two ticks stay centered (-translate-x-1/2,
@@ -228,10 +281,10 @@ export default function NextTimelineView({ milestones }: { milestones: Milestone
             return (
               <div
                 key={`${tick.label}-${tick.date.toISOString()}`}
-                className={`absolute top-[160px] inline-flex flex-col ${
+                className={`absolute inline-flex flex-col ${
                   isFirst ? 'items-start text-left' : isLast ? 'items-end text-right' : '-translate-x-1/2 items-center text-center'
                 }`}
-                style={isFirst ? { left: 0 } : isLast ? { right: 0 } : { left: `${left}%` }}
+                style={isFirst ? { top: TICK_TOP, left: 0 } : isLast ? { top: TICK_TOP, right: 0 } : { top: TICK_TOP, left: `${left}%` }}
               >
                 <div className="mb-1 h-2 w-px flex-none bg-line-strong" />
                 <p className="flex-none whitespace-nowrap text-[10px] font-medium text-ink-500">{tick.label}</p>
