@@ -187,9 +187,14 @@ export default function SalaryManager() {
             <TBody>
               {records.map((r) => {
                 const isCurrent = !r.effective_to
+                // Hoisted once per row and applied to every Td (including
+                // actions, which the ternary-per-cell version had missed) —
+                // a lapsed salary record should read as dimmed end-to-end,
+                // not have its edit/delete buttons stay at full opacity.
+                const dim = isCurrent ? '' : 'opacity-60'
                 return (
                   <Tr key={r.id}>
-                    <Td className={isCurrent ? '' : 'opacity-60'}>
+                    <Td className={dim}>
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-primary-soft flex items-center justify-center text-xs font-bold text-primary">
                           {r.user.name.slice(0, 1).toUpperCase()}
@@ -198,12 +203,12 @@ export default function SalaryManager() {
                         {isCurrent && <Tag size="sm" tone="success" label={t('current')} />}
                       </div>
                     </Td>
-                    <Td className={isCurrent ? '' : 'opacity-60'}>{DEPARTMENT_LABELS[r.user.role]}</Td>
-                    <Td align="right" numeric className={isCurrent ? '' : 'opacity-60'}>{fmtRmb(r.monthly_salary)}</Td>
-                    <Td className={isCurrent ? '' : 'opacity-60'}>{r.effective_from}</Td>
-                    <Td className={`text-ink-400 ${isCurrent ? '' : 'opacity-60'}`}>{r.effective_to ?? '—'}</Td>
-                    <Td className={`text-ink-400 max-w-[160px] truncate ${isCurrent ? '' : 'opacity-60'}`}>{r.notes ?? '—'}</Td>
-                    <Td align="right">
+                    <Td className={dim}>{DEPARTMENT_LABELS[r.user.role]}</Td>
+                    <Td align="right" numeric className={dim}>{fmtRmb(r.monthly_salary)}</Td>
+                    <Td className={dim}>{r.effective_from}</Td>
+                    <Td className={`text-ink-400 ${dim}`}>{r.effective_to ?? '—'}</Td>
+                    <Td className={`text-ink-400 max-w-[160px] truncate ${dim}`}>{r.notes ?? '—'}</Td>
+                    <Td align="right" className={dim}>
                       <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost" size="sm"

@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import Tag from '@/components/ui/Tag'
+import EmptyState from '@/components/ui/EmptyState'
 import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import WorkTaskForm from './WorkTaskForm'
 import {
@@ -124,13 +126,13 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
     <div>
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevMonth} className="p-1.5 rounded-field hover:bg-line-soft text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1">
+        <Button variant="ghost" size="sm" onClick={prevMonth}>
           <ChevronLeft className="w-5 h-5" />
-        </button>
+        </Button>
         <span className="text-sm font-semibold text-ink-700">{t('table.ymLabel', { year, month })}</span>
-        <button onClick={nextMonth} className="p-1.5 rounded-field hover:bg-line-soft text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1">
+        <Button variant="ghost" size="sm" onClick={nextMonth}>
           <ChevronRight className="w-5 h-5" />
-        </button>
+        </Button>
       </div>
 
       {/* Department summary chips */}
@@ -142,11 +144,11 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
               <div key={dept} className="bg-surface border border-line rounded-field px-3 py-1.5 text-xs flex items-center gap-2">
                 <span className="font-medium text-ink-700">{DEPARTMENT_LABELS[dept]}</span>
                 <span className="text-ink-400">·</span>
-                <span className="text-ink-600 tabular-nums">{t('summary.participantsValue', { count: people.size })}</span>
+                <span className="text-ink-700 tabular-nums">{t('summary.participantsValue', { count: people.size })}</span>
                 <span className="text-ink-400">·</span>
-                <span className="text-ink-600 tabular-nums">{hours}h</span>
+                <span className="text-ink-700 tabular-nums">{hours}h</span>
                 <span className="text-ink-400">·</span>
-                <span className="text-ink-600 tabular-nums">{fmtRmb(cost)}</span>
+                <span className="text-ink-700 tabular-nums">{fmtRmb(cost)}</span>
               </div>
             ))}
         </div>
@@ -159,21 +161,21 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
       <div className="bg-surface border border-line rounded-card overflow-hidden">
         <Table minWidth={720} label={t('table.ymLabel', { year, month })}>
           <THead>
-            <Th className="w-32">{t('table.member')}</Th>
-            <Th className="w-16">{t('table.department')}</Th>
+            <Th style={{ width: 128 }}>{t('table.member')}</Th>
+            <Th style={{ width: 64 }}>{t('table.department')}</Th>
             {weekLabels.map((wl, i) => (
-              <Th key={i} align="center" className="w-28">
+              <Th key={i} align="center" style={{ width: 112 }}>
                 <div>{t('table.weekN', { n: i + 1 })}</div>
                 <div className="font-normal text-ink-400">{wl}</div>
               </Th>
             ))}
-            <Th align="center" className="w-20">{t('table.monthHoursCol')}</Th>
-            <Th align="center" className="w-24">{t('table.labourCostCol')}</Th>
+            <Th align="center" style={{ width: 80 }}>{t('table.monthHoursCol')}</Th>
+            <Th align="center" style={{ width: 96 }}>{t('table.labourCostCol')}</Th>
           </THead>
           <TBody>
             {sortedUsers.length === 0 ? (
               <Tr>
-                <Td colSpan={colCount} className="py-12 text-center text-ink-400">{t('emptyMonth')}</Td>
+                <Td colSpan={colCount}><EmptyState title={t('emptyMonth')} /></Td>
               </Tr>
             ) : (
               sortedUsers.map((u) => (
@@ -213,7 +215,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
           {sortedUsers.length > 0 && (
             <tfoot>
               <tr className="bg-canvas border-t border-line font-semibold">
-                <td className="px-3 py-2 text-ink-600" colSpan={2}>{t('table.rowTotal')}</td>
+                <td className="px-3 py-2 text-ink-700" colSpan={2}>{t('table.rowTotal')}</td>
                 {weeks.map((w, i) => {
                   const total = sortedUsers.reduce((s, u) => s + hoursForUserWeek(u.id, w), 0)
                   return (

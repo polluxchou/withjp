@@ -98,9 +98,9 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
               <div key={dept} className="bg-surface border border-line rounded-field px-3 py-1.5 text-xs">
                 <span className="font-medium text-ink-700">{DEPARTMENT_LABELS[dept]}</span>
                 <span className="text-ink-400 mx-1">·</span>
-                <span className="text-ink-600 tabular-nums">{hours}h</span>
+                <span className="text-ink-700 tabular-nums">{hours}h</span>
                 <span className="text-ink-400 mx-1">·</span>
-                <span className="text-ink-600 tabular-nums">{fmtRmb(cost)}</span>
+                <span className="text-ink-700 tabular-nums">{fmtRmb(cost)}</span>
               </div>
             ))}
         </div>
@@ -162,7 +162,7 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-ink-400 flex-shrink-0">
-                      <span className="font-medium text-ink-600 tabular-nums">{task.effort_hours}h</span>
+                      <span className="font-medium text-ink-700 tabular-nums">{task.effort_hours}h</span>
                       <span>·</span>
                       <span>{task.owner_user_id === row.user_id ? t('roleOwner') : t('roleAssignee')}</span>
                     </div>
