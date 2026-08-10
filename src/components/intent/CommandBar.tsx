@@ -12,6 +12,12 @@ import type { Expense } from '@/lib/types'
 import type { VenueAction } from '@/venue/layoutData'
 import { notifyIntentApplied } from '@/lib/intent/events'
 
+// design-system.md §4's one focus recipe, deduped across the three hand-rolled
+// interactive elements in this file (trigger pill, copy-error button, details
+// summary) that don't go through Button/Field and so don't get it for free —
+// same CARD_BTN-constant idiom as pipeline/page.tsx.
+const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+
 // ── Venue scope registry ──────────────────────────────────────
 // The venue editor registers a provider while mounted. When present, the command
 // bar scopes intents to the current canvas and applies the parsed action
@@ -137,7 +143,7 @@ export default function CommandBar() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed right-5 z-30 flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface border border-line shadow-pop hover:bg-canvas transition-colors text-sm text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+        className={`fixed right-5 z-30 flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface border border-line shadow-pop hover:bg-canvas transition-colors text-sm text-ink-700 ${FOCUS_RING}`}
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
         title={t('openButtonTooltip')}
       >
@@ -289,7 +295,7 @@ function QueryResultView({ r }: { r: Extract<ServerResult, { kind: 'query_result
 
       {r.groups && r.groups.length > 0 && (
         <div className="bg-surface border border-line rounded-card overflow-hidden">
-          <Table>
+          <Table label={r.breadcrumbs}>
             <THead>
               <Th>{t('query.groupCol')}</Th>
               <Th align="right">{t('query.groupValueCol')}</Th>
@@ -329,7 +335,7 @@ function ClarificationView({ r }: { r: Extract<ServerResult, { kind: 'clarificat
       </div>
       {r.candidates && r.candidates.length > 0 && (
         <div className="bg-surface border border-line rounded-card overflow-hidden">
-          <Table>
+          <Table label={t('tableLabel')} minWidth={480}>
             <THead>
               <Th>{t('dateCol')}</Th>
               <Th>{t('nameCol')}</Th>
@@ -427,7 +433,7 @@ function ErrorView({
           type="button"
           onClick={copy}
           title={t('copyTooltip')}
-          className="flex-none flex items-center gap-1 text-micro font-medium px-2 py-1 rounded-field border border-danger-border bg-surface text-danger-text hover:bg-danger-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+          className={`flex-none flex items-center gap-1 text-micro font-medium px-2 py-1 rounded-field border border-danger-border bg-surface text-danger-text hover:bg-canvas transition-colors ${FOCUS_RING}`}
         >
           {copied ? <Check className="w-3 h-3" strokeWidth={1.5} /> : <Copy className="w-3 h-3" strokeWidth={1.5} />}
           {copied ? t('copied') : t('copyButton')}
@@ -443,11 +449,16 @@ function ErrorView({
         </>
       )}
       {friendly.showRaw && (
-        <details className="w-fit text-xs text-danger-text pt-1">
-          <summary className="w-fit cursor-pointer select-none rounded-field focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1">
+        // No w-fit on <details> itself — it made the block size to its
+        // content's natural width instead of the modal's, so the multi-line
+        // <pre> below pushed the whole thing past the modal's edge (measured
+        // overflow on a 343px mobile column). <summary> keeps its own w-fit
+        // so the focus ring still hugs just the label, not the full row.
+        <details className="text-xs text-danger-text pt-1">
+          <summary className={`w-fit cursor-pointer select-none rounded-field ${FOCUS_RING}`}>
             {t('techDetails')}
           </summary>
-          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-micro text-ink-700 bg-canvas border border-line rounded-field p-2">{report}</pre>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-micro text-ink-700 bg-canvas border border-line rounded-field p-2">{report}</pre>
         </details>
       )}
     </div>
