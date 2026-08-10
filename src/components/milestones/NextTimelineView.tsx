@@ -176,7 +176,16 @@ function placeGroups(groups: TimelineGroup<Milestone>[]) {
   const lastXBelow: number[] = []
   return groups.map((group, index) => {
     const above = index % 2 === 0
-    const layer = assignLayer(above ? lastXAbove : lastXBelow, group.x)
+    // Feed the same clamped position the render pass actually uses
+    // (`readableX`, applied again at the render site below) into collision
+    // detection — not the raw `group.x`. `readableX` only clamps the outer
+    // 6%/94% edges, so two raw positions that are >= COLLISION_PCT apart
+    // (e.g. 0 and 18) can still clamp down to within COLLISION_PCT of each
+    // other on screen (6 and 18 — only 12 apart), which `assignLayer` would
+    // have judged collision-free had it seen the unclamped 18. `readableX`
+    // is a monotonic clamp, so feeding it in doesn't disturb the x-ascending
+    // order `assignLayer` relies on.
+    const layer = assignLayer(above ? lastXAbove : lastXBelow, readableX(group.x))
     return { group, above, layer }
   })
 }

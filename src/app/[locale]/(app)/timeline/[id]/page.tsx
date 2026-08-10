@@ -49,15 +49,25 @@ export default function MilestoneDetailPage() {
     try {
       const res  = await fetch(`/api/milestones/${id}`)
       const json = await res.json()
-      if (json.data) {
+      // /api/milestones/[id] maps every lookup failure to 404 ("Milestone
+      // not found") — mostly "no such milestone", but also rare system
+      // faults (bad uuid, RLS, DB down) it can't tell apart. With no finer
+      // signal, 404 renders as the plain not-found state below (no retry).
+      // Any other non-ok status (401/403/500/…) is a real error: prefer the
+      // response's own json.error text, falling back to the generic copy
+      // (same split as creators/[id]/page.tsx's own load()).
+      if (!res.ok && res.status !== 404) {
+        console.error('Failed to load milestone:', res.status, json.error)
+        setLoadError(json.error ?? tCommon('loadFailed'))
+        setMilestone(null)
+      } else {
         setLoadError(null)
         setMilestone(json.data as MilestoneDetail)
-      } else {
-        setMilestone(null)
       }
     } catch (err) {
       console.error('Failed to load milestone:', err)
       setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
+      setMilestone(null)
     } finally {
       setLoading(false)
     }
@@ -108,17 +118,18 @@ export default function MilestoneDetailPage() {
   if (loading) return <LoadingState />
 
   if (!milestone) {
-    // loadError only ever comes from a real system failure (network/parse
-    // exception) — a clean "no such milestone" response has no loadError
-    // and gets no retry button, since retrying a missing record can't
-    // succeed (same not-found/error split as creators/[id]/page.tsx).
+    // loadError only ever comes from a real system failure (non-404
+    // response, or a network/parse exception) — a clean 404 "no such
+    // milestone" has no loadError and gets no retry button, since retrying
+    // a missing record can't succeed (same not-found/error split as
+    // creators/[id]/page.tsx's own load()).
     return loadError
       ? <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
       : (
-        <div className="text-center">
-          <EmptyState title={t('detail.notFound')} />
-          <Link href="/timeline" className="text-sm text-primary font-medium hover:text-primary-hover">{t('detail.back')}</Link>
-        </div>
+        <EmptyState
+          title={t('detail.notFound')}
+          action={<Link href="/timeline" className="text-sm text-primary font-medium hover:text-primary-hover">{t('detail.back')}</Link>}
+        />
       )
   }
 

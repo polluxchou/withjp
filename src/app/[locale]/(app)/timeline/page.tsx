@@ -202,14 +202,22 @@ export default function TimelinePage() {
             onClick={() => setStatusFilter(s)}
           />
         ))}
-        <Select
-          aria-label={t('typeFilterLabel')}
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as MilestoneType | 'all')}
-          className="w-44"
-        >
-          {TYPE_OPTION_VALUES.map(value => <option key={value} value={value}>{t(`type.${value}`)}</option>)}
-        </Select>
+        {/* Width goes on a wrapping div, not Select's own className — Select
+            (Field.tsx) already carries `w-full` in its base class list, and
+            a bare `w-44` passed as className fights it at equal specificity
+            (winner is Tailwind's internal generation order, not className
+            write order — the same dead-class trap FilterChip.tsx's own
+            border merge comment already flags). expenses/page.tsx's
+            SearchInput `search` slot uses this exact wrapping-div idiom. */}
+        <div className="w-44">
+          <Select
+            aria-label={t('typeFilterLabel')}
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as MilestoneType | 'all')}
+          >
+            {TYPE_OPTION_VALUES.map(value => <option key={value} value={value}>{t(`type.${value}`)}</option>)}
+          </Select>
+        </div>
       </div>
 
       {/* Content */}
