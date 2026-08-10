@@ -12,6 +12,8 @@
 
 **明确不做（递延登记，勿顺手）**：PR2 四项递延（Td tone prop 弱化失效 / Modal z-70 深度感知 / CountChip slice 计数 / mutation 错误反馈家族其余页面）、DiscussionPanel→Drawer 抽象、登录页迁移、PR2 changelog 条目（另行查重处理）。
 
+**T1 审查新增递延**：PILL_* 本地常量（出现第三个消费者时走 §6 准入注册 pill 原语）、SegmentedControl 组件级键盘缺口（§6.2 声称 roving tabindex 未实现，doc-vs-impl bug）、FFD YearSummaryTable `<tr onClick>` 行点击重设计（Tr 契约无 onClick，两表须同迁——文件内已有注释）、pill 30px 偏梯高度。
+
 ---
 
 ## Task 0: 工作区
@@ -51,7 +53,8 @@ worktree 已就位：`/Users/fengzhou/Code/newWith/.claude/worktrees/ui-uplift-p
 ## Task 5: 横向清扫（spec §6 PR4 条目）+ 画布灰区丙案
 
 - [ ] **裸 i18n key 全扫**：写一次性脚本（scratchpad，不入库）提取全库 `t('key')`/`useTranslations('ns')` 组合并对照 messages/zh.json 平铺 key 集，缺失项列清单并三语补齐（en/ja 同步）；扫描结果贴报告
-- [ ] **focus ring 收口**：grep `focus:outline-none`（无伴随 ring 的）与非标准 `focus:ring-`/`focus-visible:ring-`（非 primary-ring 配方）→ 统一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`（滚动容器内用 ring-inset，§4 例外规则）
+- [ ] **focus ring 收口**：grep `focus:outline-none`（无伴随 ring 的）与非标准 `focus:ring-`/`focus-visible:ring-`（非 primary-ring 配方）→ 统一走 `src/lib/ui/recipes.ts` 的 `FOCUS_RING`（T1 已建，§4 唯一登记处；滚动容器内用 ring-inset，§4 例外规则）；`CommandBar.tsx` 的本地副本改 import
+- [ ] **样板对比度修复**：`expenses/page.tsx:707` `text-white/70` on bg-primary（3.58:1 不过 AA）→ `text-white/85`（T1 审查发现的样板缺陷，全库同配方一并 grep）
 - [ ] **状态色映射复制删除**：grep 本地 STATUS_COLOR/TONE/BADGE 类常量（status-tone.ts 之外的状态→颜色映射）→ 全部改走 `toneOf`；发现未登记枚举先登记 design-system.md §1.3
 - [ ] **手写 modal 终审**：`fixed inset-0` 全库清点。Task 1-4 已迁除外；`Sidebar.tsx`（移动端抽屉，非 modal）与 `tasks/page.tsx`（PR2 页面集，若仍有残留仅报告）分类说明，其余若仍有手写遮罩一律迁 Modal 或说明豁免理由
 - [ ] **EdgeLabelOverlay 丙案**（pollux 已拍板）：`Venue3DCanvas.client.tsx:~1353` chips 的 chrome 属性 token 化——rounded-md→rounded-field、shadow-sm→shadow-card、text-[11px]→text-micro、text-slate-700→text-ink-700、border-slate-200→border-line；**选中色 #f4511e 与引线 #94a3b8 保留**（场景语义）
