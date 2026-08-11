@@ -208,7 +208,8 @@
     "paymentMethodPlaceholder": "e.g. Company card",
     "paymentStatus": "Payment status *",
     "selectStatus": "Select status",
-    "addDevice": "Add device"
+    "addDevice": "Add device",
+    "editDevice": "Edit device"
   },
   "currency": {
     "switchHint": "Switch the displayed currency at fixed rates (1 USD = 7 CNY; 1 CNY = 20 JPY)"

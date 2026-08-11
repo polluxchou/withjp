@@ -208,7 +208,8 @@
     "paymentMethodPlaceholder": "例：法人カード",
     "paymentStatus": "支払いステータス *",
     "selectStatus": "ステータスを選択",
-    "addDevice": "機材を追加"
+    "addDevice": "機材を追加",
+    "editDevice": "機材を編集"
   },
   "currency": {
     "switchHint": "固定レートで表示通貨を切り替え（1 USD = 7 CNY；1 CNY = 20 JPY）"
