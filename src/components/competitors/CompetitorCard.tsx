@@ -23,7 +23,8 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, nested = false,
+  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
+  dateWindow, selectedDate, nested = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -32,6 +33,8 @@ export default function CompetitorCard({
   parentOptions: { id: string; label: string }[]
   onAssignParent: (id: string, parentId: string | null) => void
   onUpdateHandle: (id: string, raw: string) => void
+  dateWindow: string[]
+  selectedDate: string | null
   nested?: boolean
 }) {
   const t = useTranslations('competitors')
@@ -56,7 +59,10 @@ export default function CompetitorCard({
   ].filter((part) => part != null && part !== '')
 
   const shell = nested
-    ? 'rounded-field border border-line-soft bg-canvas p-3'
+    // 子卡不能有自己的边框和横向内边距:那会让它的内容盒比父卡窄 26px,
+    // 同比例的 1fr_3fr 落进去,列宽就对不上了(实测第 5 列偏 21px)。
+    // 层级感改用 ring —— box-shadow 不参与盒模型,拿不走一个像素的宽度。
+    ? 'rounded-field bg-muted-soft py-3 ring-1 ring-inset ring-line'
     : 'rounded-card border border-line bg-surface p-4'
 
   return (
@@ -172,17 +178,18 @@ export default function CompetitorCard({
         )}
       </div>
 
-      {nested ? (
-        <div className="space-y-2">
-          <WeeklyFollowersCurve weekly={c.weekly} compact />
-          <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} compact />
-        </div>
-      ) : (
-        <div className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1">
-          <WeeklyFollowersCurve weekly={c.weekly} />
-          <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} />
-        </div>
-      )}
+      {/* 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开 */}
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1">
+        <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
+        <ShotAlbum
+          competitorId={c.id}
+          shots={c.shots}
+          canEdit={canEdit}
+          onChanged={onChanged}
+          dateWindow={dateWindow}
+          selectedDate={selectedDate}
+        />
+      </div>
 
       {c.related.length > 0 && (
         <div className="mt-3 border-t border-line-soft pt-3">
@@ -194,8 +201,9 @@ export default function CompetitorCard({
             {relOpen ? <ChevronDown size={14} strokeWidth={1.5} /> : <ChevronRight size={14} strokeWidth={1.5} />}
             {t('related')} (<span className="tabular-nums">{c.related.length}</span>)
           </button>
+          {/* 子卡容器不能有 pl-3:横向平移会让子卡的列对不上父卡的列 */}
           {relOpen && (
-            <div className="mt-2 space-y-2 border-l-2 border-line-soft pl-3">
+            <div className="mt-2 space-y-2">
               {c.related.map((child) => (
                 <CompetitorCard
                   key={child.id}
@@ -206,6 +214,8 @@ export default function CompetitorCard({
                   parentOptions={parentOptions}
                   onAssignParent={onAssignParent}
                   onUpdateHandle={onUpdateHandle}
+                  dateWindow={dateWindow}
+                  selectedDate={selectedDate}
                   nested
                 />
               ))}
