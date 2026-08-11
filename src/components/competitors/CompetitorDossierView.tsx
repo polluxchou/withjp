@@ -5,7 +5,12 @@ import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import CompetitorCard from './CompetitorCard'
+import ShotDateStrip from './ShotDateStrip'
+import { collectShotDates, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
 import type { CompetitorBoard } from '@/lib/competitors/types'
+
+/** 日期窗口列数：一屏横向对比 5 天。 */
+const SHOT_WINDOW_SIZE = 5
 
 export default function CompetitorDossierView({ initial }: { initial: CompetitorBoard }) {
   const t = useTranslations('competitors')
@@ -15,6 +20,14 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   const [addParentId, setAddParentId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  // 整页共用的截图日期轴：所有竞品(含子主播)有图日期的并集
+  const [anchorDate, setAnchorDate] = useState<string | null>(null)
+  const shotAxis = useMemo(() => collectShotDates(board.competitors), [board.competitors])
+  const selectedDate = useMemo(() => resolveAnchor(shotAxis, anchorDate), [shotAxis, anchorDate])
+  const dateWindow = useMemo(
+    () => windowOf(shotAxis, selectedDate ? shotAxis.indexOf(selectedDate) : -1, SHOT_WINDOW_SIZE),
+    [shotAxis, selectedDate],
+  )
 
   // 顶层竞品可作为父账号选项。
   const parentOptions = useMemo(
@@ -156,6 +169,12 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
         <p className="text-sm text-zinc-500">{t('empty')}</p>
       ) : (
         <div className="space-y-3">
+          <ShotDateStrip
+            axis={shotAxis}
+            dateWindow={dateWindow}
+            selectedDate={selectedDate}
+            onPick={setAnchorDate}
+          />
           {board.competitors.map((c) => (
             <CompetitorCard
               key={c.id}
@@ -166,6 +185,8 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               parentOptions={parentOptions}
               onAssignParent={assignParent}
               onUpdateHandle={updateHandle}
+              dateWindow={dateWindow}
+              selectedDate={selectedDate}
             />
           ))}
         </div>

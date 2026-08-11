@@ -20,7 +20,8 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, nested = false,
+  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
+  dateWindow, selectedDate, nested = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -29,6 +30,8 @@ export default function CompetitorCard({
   parentOptions: { id: string; label: string }[]
   onAssignParent: (id: string, parentId: string | null) => void
   onUpdateHandle: (id: string, raw: string) => void
+  dateWindow: string[]
+  selectedDate: string | null
   nested?: boolean
 }) {
   const t = useTranslations('competitors')
@@ -50,7 +53,9 @@ export default function CompetitorCard({
   ].filter(Boolean).join(' · ')
 
   const shell = nested
-    ? 'rounded-lg border border-zinc-100 bg-zinc-50 p-3'
+    // 子卡不能有自己的边框和横向内边距:那会让它的内容盒比父卡窄 26px,
+    // 同比例的 1fr_3fr 落进去,列宽就对不上了。层级感交给底色。
+    ? 'rounded-lg bg-canvas py-3'
     : 'rounded-xl border border-zinc-200 bg-white p-4'
 
   return (
@@ -150,17 +155,17 @@ export default function CompetitorCard({
         )}
       </div>
 
-      {nested ? (
-        <div className="space-y-2">
-          <WeeklyFollowersCurve weekly={c.weekly} compact />
-          <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} compact />
-        </div>
-      ) : (
-        <div className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1">
-          <WeeklyFollowersCurve weekly={c.weekly} />
-          <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} />
-        </div>
-      )}
+      <div className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1">
+        <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
+        <ShotAlbum
+          competitorId={c.id}
+          shots={c.shots}
+          canEdit={canEdit}
+          onChanged={onChanged}
+          dateWindow={dateWindow}
+          selectedDate={selectedDate}
+        />
+      </div>
 
       {c.related.length > 0 && (
         <div className="mt-3 border-t border-zinc-100 pt-3">
@@ -173,7 +178,7 @@ export default function CompetitorCard({
             {t('related')} ({c.related.length})
           </button>
           {relOpen && (
-            <div className="mt-2 space-y-2 border-l-2 border-zinc-100 pl-3">
+            <div className="mt-2 space-y-2">
               {c.related.map((child) => (
                 <CompetitorCard
                   key={child.id}
@@ -184,6 +189,8 @@ export default function CompetitorCard({
                   parentOptions={parentOptions}
                   onAssignParent={onAssignParent}
                   onUpdateHandle={onUpdateHandle}
+                  dateWindow={dateWindow}
+                  selectedDate={selectedDate}
                   nested
                 />
               ))}
