@@ -41,11 +41,72 @@ const config: Config = {
         info:    { text: 'var(--info-text)',    soft: 'var(--info-soft)',    dot: 'var(--info-dot)', border: 'var(--info-border)' },
         muted:   { text: 'var(--muted-text)',   soft: 'var(--muted-soft)',   dot: 'var(--muted-dot)' },
         'row-hover': 'var(--row-hover)',
+        // 对外官网（/[locale]/site）的独立命名空间。fg 走 rgb 三元组以支持
+        // `/N` 修饰符（官网文字层级全靠白色透明度分级）；其余是固定值 var()，
+        // 加 `/N` 会被 Tailwind 静默丢弃——禁止这样用。
+        site: {
+          canvas: 'var(--site-canvas)',
+          panel: 'var(--site-panel)',
+          header: 'var(--site-header)',
+          fg: 'rgb(var(--site-fg) / <alpha-value>)',
+          accent: 'var(--site-accent)',
+          'on-accent': 'var(--site-on-accent)',
+          hot: 'var(--site-hot)',
+          'hot-hover': 'var(--site-hot-hover)',
+          'on-hot': 'var(--site-on-hot)',
+          line: 'var(--site-line)',
+          'line-strong': 'var(--site-line-strong)',
+        },
       },
       fontFamily: {
         // design-system §2：mono 仅用于编号/金额/代码。Tailwind 默认 mono 栈里是
         // "SFMono-Regular"（而非 "SF Mono"），与设计稿登记的字族名不一致，故显式覆盖。
         mono: ['"SF Mono"', 'ui-monospace', 'Menlo', 'monospace'],
+        // 对外官网专用（后台仍禁衬线、禁混搭）：condensed 承担英文标题与全部
+        // 大写标签，serif-jp 承担和文明朝标题。两个拉丁族由 next/font 自托管
+        // （变量在 src/app/[locale]/site/layout.tsx 注入）；和文走系统栈，
+        // 不下载字体——理由见该 layout 的注释。
+        condensed: ['var(--font-barlow-condensed)', '"Hiragino Sans"', '"Noto Sans JP"', 'sans-serif'],
+        'serif-jp': [
+          '"Noto Serif JP"',
+          '"Hiragino Mincho ProN"',
+          '"Yu Mincho"',
+          'YuMincho',
+          '"MS PMincho"',
+          'serif',
+        ],
+        site: [
+          'var(--font-barlow)',
+          '"Hiragino Sans"',
+          '"Noto Sans JP"',
+          '"Yu Gothic"',
+          'system-ui',
+          'sans-serif',
+        ],
+      },
+      // 官网的白色透明度阶梯。Tailwind 默认 opacity 阶只有 5 的倍数中的一部分
+      // （0/5/10/20/25/30/40/50/60/70/75/80/90/95/100），而颜色的 `/N` 修饰符取的
+      // 就是这张表 —— 写 `text-site-fg/78` 而表里没有 78，Tailwind 不报错、直接
+      // 不生成类（教训同 design-system §7 的静默失效）。设计稿用到的档位在此登记。
+      opacity: {
+        8: '0.08',
+        15: '0.15',
+        22: '0.22',
+        35: '0.35',
+        55: '0.55',
+        62: '0.62',
+        65: '0.65',
+        66: '0.66',
+        68: '0.68',
+        72: '0.72',
+        78: '0.78',
+      },
+      animation: {
+        // 官网动效。keyframes 定义在 globals.css（reduced-motion 降级也在那里）。
+        'site-ticker': 'site-ticker 38s linear infinite',
+        'site-pulse': 'site-pulse 2s infinite',
+        'site-veil': 'site-veil .42s cubic-bezier(.2,.8,.2,1) both',
+        'site-veil-in': 'site-veil-in .5s .1s both',
       },
       fontSize: {
         micro: ['11px', '14px'], xs: ['12px', '16px'], sm: ['13px', '18px'],
