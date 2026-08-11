@@ -45,6 +45,7 @@
 |---|---|
 | `src/lib/competitors/shotGrid.ts` | **新建**。纯函数：日期轴收集、窗口切片、anchor 回落、按日期归组、日期格式校验。无 React、无 IO。 |
 | `src/lib/competitors/shotGrid.test.ts` | **新建**。上述纯函数的单测。 |
+| `src/lib/competitors/localDate.ts` | **新建**。`todayLocal()` —— 读时钟，所以不放进 `shotGrid.ts`。上传器和灯箱共用，避免 UTC 那个坑被复制两份。 |
 | `src/components/competitors/ShotDateStrip.tsx` | **新建**。页面级日期条：窗口内日期 chip + 前后翻页。只读 axis/anchor，只回调 `onPick`。 |
 | `src/components/competitors/ShotLightbox.tsx` | **新建**。当天图集查看器：左右切换、计数、日期编辑、删除。从 `ShotAlbum` 拆出来，避免 `ShotAlbum` 继续膨胀。 |
 | `src/components/competitors/ShotAlbum.tsx` | **重写**。日期网格渲染，一格一天。原有 flex-wrap / 按周分组 / 折叠展开逻辑全部删除。 |
@@ -961,6 +962,7 @@ git commit -m "feat(competitors): ShotDateStrip 页面级日期条"
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
+import { todayLocal } from '@/lib/competitors/localDate'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
 export default function ShotLightbox({
@@ -1025,7 +1027,9 @@ export default function ShotLightbox({
       const res = await fetch(`/api/competitors/shots/${current.id}`, { method: 'DELETE' })
       if (!res.ok) { setError(t('actionFailed')); return }
       onChanged()
-      onClose()
+      // 只在删掉最后一张时才关。否则清理某天的多张图要"开→删→关→再开"
+      // 循环一遍;留着不关的话,refetch 后 shots 变短、idx 自动夹逼,直接看下一张。
+      if (shots.length <= 1) onClose()
     } catch {
       setError(t('actionFailed'))
     } finally {
@@ -1077,6 +1081,7 @@ export default function ShotLightbox({
               <input
                 type="date"
                 value={dateInput}
+                max={todayLocal()}
                 onChange={(e) => setDateInput(e.target.value)}
                 className="rounded border border-line-strong px-1.5 py-0.5 text-ink-900"
               />
@@ -1147,9 +1152,33 @@ git commit -m "feat(competitors): ShotLightbox 当天图集查看与日期编辑
 现在是 `h-[46vh] w-[26vh]` 的大块拖放区，与缩略图并排。日期网格下它不能占据一列，否则破坏列对齐——改为标题行内联控件。
 
 **Files:**
+- Create: `src/lib/competitors/localDate.ts`
 - Modify: `src/components/competitors/ShotUploader.tsx`（整体重写）
 
-- [ ] **Step 1: 重写整个文件**
+- [ ] **Step 1: 新建本地日期小模块**
+
+上传器和灯箱两处都要「今天」——一处算日期默认值，两处算 `max`。这段逻辑绝不能复制两份：`toISOString` 那个 UTC 坑就是这么来的，复制之后只会修好一处。
+
+创建 `src/lib/competitors/localDate.ts`：
+
+```ts
+// src/lib/competitors/localDate.ts
+// 读时钟,所以不放进 shotGrid.ts（那里全是可单测的纯函数）。
+
+/**
+ * 本地时区的今天，YYYY-MM-DD。
+ * 不能用 toISOString——那是 UTC，对 UTC+8 团队每天 08:00 前会算成昨天，
+ * 而 shot_on 是整个日期轴的主键，差一天就会把截图塞进错误的列。
+ */
+export function todayLocal(): string {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+```
+
+- [ ] **Step 2: 重写整个文件**
 
 ```tsx
 // src/components/competitors/ShotUploader.tsx
@@ -1159,24 +1188,14 @@ import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
 import { compressImage } from './compressImage'
-
-/**
- * 本地时区的今天。不能用 toISOString——那是 UTC，
- * 对 UTC+8 团队每天 08:00 前会算成昨天，而 shot_on 是整个日期轴的主键。
- */
-function today(): string {
-  const d = new Date()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${mm}-${dd}`
-}
+import { todayLocal } from '@/lib/competitors/localDate'
 
 export default function ShotUploader({ competitorId, onDone }: { competitorId: string; onDone: () => void }) {
   const t = useTranslations('competitors')
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [shotOn, setShotOn] = useState(today)
+  const [shotOn, setShotOn] = useState(todayLocal)
 
   const onPick = async (file: File) => {
     setBusy(true)
@@ -1220,11 +1239,12 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
       onPaste={onPaste}
       aria-label={t('upload')}
       title={t('orPaste')}
-      className="flex shrink-0 items-center gap-1.5 rounded border border-dashed border-line px-1.5 py-1 outline-none focus:border-primary-border"
+      className="flex shrink-0 items-center gap-1.5 rounded border border-dashed border-line px-1.5 py-1 outline-none focus-within:border-primary-border"
     >
       <input
         type="date"
         value={shotOn}
+        max={todayLocal()}
         onChange={(e) => setShotOn(e.target.value)}
         aria-label={t('shotDate')}
         className="rounded border border-line px-1 py-0.5 text-[11px] text-ink-700"
@@ -1253,7 +1273,7 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
 
 改动要点：`compact` prop 移除（内联控件不需要两套尺寸）；`shot_on` 从硬编码今天改为可选日期 state；`text-zinc-*` / `border-zinc-300` 全换成语义 token，该文件违规数从 3 降到 0。
 
-- [ ] **Step 2: 类型检查**
+- [ ] **Step 3: 类型检查**
 
 ```bash
 npx tsc --noEmit
@@ -1261,7 +1281,7 @@ npx tsc --noEmit
 
 预期：会报 `ShotAlbum.tsx` 传了已删除的 `compact` prop —— 这是预期内的，Task 11 会一并修好。先确认报错**只**来自 `ShotAlbum.tsx`。
 
-- [ ] **Step 3: 暂不提交**
+- [ ] **Step 4: 暂不提交**
 
 本任务与 Task 11 存在编译期耦合，合并到 Task 11 结束后一起提交。
 
@@ -1285,15 +1305,20 @@ import ShotUploader from './ShotUploader'
 import ShotLightbox from './ShotLightbox'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
-function DateCell({ shots, dateKey, compact, selected, onOpen }: {
+function DateCell({ shots, dateKey, selected, onOpen }: {
   shots: CompetitorShot[]
   dateKey: string
-  compact: boolean
   selected: boolean
   onOpen: () => void
 }) {
   const t = useTranslations('competitors')
-  const box = compact ? 'h-32' : 'h-[46vh] min-h-[300px]'
+  // 宽度由网格决定,高度必须交给比例。旧缩略图是 h-[46vh] w-[26vh],两个维度
+  // 都绑在 vh 上所以比例恒为 9:16、其实不裁;只留高度那一半的话,1080p 上一张
+  // 竖屏截图会被 object-cover 横向裁掉约 40%,大屏近 60% —— 并排主播、右侧
+  // 礼物榜、左侧弹幕列全在被切掉的那两条里,只剩中间一条看得出"有人在播"。
+  const box = 'aspect-[9/16]'
+  // 描边两个分支都要:一列里空格子越多,越需要它告诉你看的是同一天
+  const ring = selected ? 'ring-2 ring-primary' : ''
 
   if (!shots.length) {
     // role="img" 是必要的：aria-label 挂在裸 div 上多数读屏根本不播报。
@@ -1302,7 +1327,7 @@ function DateCell({ shots, dateKey, compact, selected, onOpen }: {
       <div
         role="img"
         aria-label={dateKey === UNDATED_KEY ? t('noShotUndated') : t('noShotOnDate', { date: dateKey })}
-        className={`${box} rounded-lg border border-dashed border-line-soft`}
+        className={`${box} ${ring} rounded-lg border border-dashed border-line-soft`}
       />
     )
   }
@@ -1311,10 +1336,11 @@ function DateCell({ shots, dateKey, compact, selected, onOpen }: {
   const extra = shots.length - 1
 
   return (
-    <div className={`relative ${box} overflow-hidden rounded-lg bg-canvas ${selected ? 'ring-2 ring-primary' : ''}`}>
+    <div className={`relative ${box} ${ring} overflow-hidden rounded-lg bg-canvas`}>
       <button type="button" onClick={onOpen} className="block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cover.image_url} alt={cover.caption || cover.tag || ''} className="h-full w-full object-cover" loading="lazy" />
+        {/* caption 默认空串、tag 常为 null,兜底到日期,否则读屏只念"按钮" */}
+        <img src={cover.image_url} alt={cover.caption || cover.tag || dateKey} className="h-full w-full object-cover" loading="lazy" />
       </button>
       {extra > 0 && (
         <span className="pointer-events-none absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
@@ -1331,7 +1357,7 @@ function DateCell({ shots, dateKey, compact, selected, onOpen }: {
 }
 
 export default function ShotAlbum({
-  competitorId, shots, canEdit, onChanged, dateWindow, selectedDate, compact = false,
+  competitorId, shots, canEdit, onChanged, dateWindow, selectedDate,
 }: {
   competitorId: string
   shots: CompetitorShot[]
@@ -1339,7 +1365,6 @@ export default function ShotAlbum({
   onChanged: () => void
   dateWindow: string[]
   selectedDate: string | null
-  compact?: boolean
 }) {
   const t = useTranslations('competitors')
   const [openDate, setOpenDate] = useState<string | null>(null)
@@ -1349,7 +1374,11 @@ export default function ShotAlbum({
     return (
       <div className="min-w-0 space-y-2">
         <p className="text-xs text-muted-text">{t('noShots')}</p>
-        {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} />}
+        {canEdit && (
+          <div className="flex justify-end">
+            <ShotUploader competitorId={competitorId} onDone={onChanged} />
+          </div>
+        )}
       </div>
     )
   }
@@ -1367,7 +1396,6 @@ export default function ShotAlbum({
             key={d}
             shots={grouped.get(d) ?? []}
             dateKey={d}
-            compact={compact}
             selected={d === selectedDate}
             onOpen={() => setOpenDate(d)}
           />
@@ -1389,6 +1417,8 @@ export default function ShotAlbum({
 ```
 
 删掉的东西：`weekStartOf` import、按周分组、`viewAll` / `collapse` 折叠按钮、旧的单图 lightbox state、缩略图上的删除按钮（已移进 `ShotLightbox`）。
+
+`compact` prop 也一并删掉：格子宽度现在由网格决定，唯一能让子卡矮一截的办法是给它另一个长宽比，而那等于把裁切从横向换成纵向（`h-32` 下一张 9:16 的图会被纵向裁掉近一半，只剩中间一条横带，房间标题和弹幕栏全没）。同一张截图在父卡和子卡里长得像两张图，不如统一。`WeeklyFollowersCurve` 的 `compact` 保留不动。
 
 **注意**：`src/lib/competitors/weekly.ts` 本身不要动——`WeeklyFollowersCurve` 还在用。
 
@@ -1492,10 +1522,11 @@ export default function CompetitorCard({
           onChanged={onChanged}
           dateWindow={dateWindow}
           selectedDate={selectedDate}
-          compact={nested}
         />
       </div>
 ```
+
+`ShotAlbum` 没有 `compact` 了（见 Task 11 的说明），只有曲线还分两套尺寸。
 
 这样子卡和顶层卡的相册列宽、左起点完全一致。
 
