@@ -696,7 +696,13 @@ import { isValidShotDate } from './shotGrid'
 
 ```ts
   if (!input?.image_url) return err('invalid_input', 'image_url required')
-  if (!isValidShotDate(input.shot_on)) return err('invalid_input', 'shot_on must be YYYY-MM-DD')
+  if (!isValidShotDate(input.shot_on)) return err('invalid_input', SHOT_ON_HINT)
+```
+
+并在文件里 `addShot` 之前定义这个常量（两处共用，且比 `must be YYYY-MM-DD` 更准确——校验还会拒 `2026-02-30` 和越界年份）：
+
+```ts
+const SHOT_ON_HINT = 'shot_on must be a real calendar date in YYYY-MM-DD (1900-2999), or null to clear'
 ```
 
 - [ ] **Step 3: 在 updateShot 里前置校验**
@@ -710,9 +716,12 @@ import { isValidShotDate } from './shotGrid'
 改为：
 
 ```ts
-  if (!isValidShotDate(fields.shot_on)) return err('invalid_input', 'shot_on must be YYYY-MM-DD')
+  if (!fields || typeof fields !== 'object') return err('invalid_input', 'body must be an object')
+  if (!isValidShotDate(fields.shot_on)) return err('invalid_input', SHOT_ON_HINT)
   const patch: Record<string, unknown> = {}
 ```
+
+第一行的 null 守卫和 `addShot` 的 `input?.image_url` 对称：路由把 `await req.json()` 原样透传，请求体是字面量 `null` 时 `fields.shot_on` 会抛 TypeError 变成 500——正是本任务要消灭的那类失败。
 
 - [ ] **Step 4: 类型检查**
 
@@ -750,6 +759,7 @@ git commit -m "fix(competitors): shot_on 非法格式返回 400 而非落到 DB 
     "earlierDates": "更早",
     "laterDates": "更晚",
     "noShotOnDate": "{date} 无截图",
+    "noShotUndated": "无未标日期的截图",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "prevShot": "上一张",
@@ -767,6 +777,7 @@ git commit -m "fix(competitors): shot_on 非法格式返回 400 而非落到 DB 
     "earlierDates": "Earlier",
     "laterDates": "Later",
     "noShotOnDate": "No shot on {date}",
+    "noShotUndated": "No undated shot",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "prevShot": "Previous shot",
@@ -781,15 +792,16 @@ git commit -m "fix(competitors): shot_on 非法格式返回 400 而非落到 DB 
 
 ```json
     "shotDates": "スクショの日付",
-    "earlierDates": "前へ",
-    "laterDates": "次へ",
+    "earlierDates": "より古い日付",
+    "laterDates": "より新しい日付",
     "noShotOnDate": "{date} のスクショなし",
+    "noShotUndated": "日付なしのスクショはありません",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "prevShot": "前の画像",
     "nextShot": "次の画像",
     "closeShot": "閉じる",
-    "shotDate": "撮影日",
+    "shotDate": "日付",
     "saveShotDate": "日付を保存",
     "shotDateInvalid": "日付の形式が不正です"
 ```
@@ -1105,8 +1117,15 @@ import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
 import { compressImage } from './compressImage'
 
+/**
+ * 本地时区的今天。不能用 toISOString——那是 UTC，
+ * 对 UTC+8 团队每天 08:00 前会算成昨天，而 shot_on 是整个日期轴的主键。
+ */
 function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 export default function ShotUploader({ competitorId, onDone }: { competitorId: string; onDone: () => void }) {
@@ -1223,9 +1242,9 @@ import ShotUploader from './ShotUploader'
 import ShotLightbox from './ShotLightbox'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
-function DateCell({ shots, label, compact, selected, onOpen }: {
+function DateCell({ shots, dateKey, compact, selected, onOpen }: {
   shots: CompetitorShot[]
-  label: string
+  dateKey: string
   compact: boolean
   selected: boolean
   onOpen: () => void
@@ -1234,9 +1253,12 @@ function DateCell({ shots, label, compact, selected, onOpen }: {
   const box = compact ? 'h-32' : 'h-[46vh] min-h-[300px]'
 
   if (!shots.length) {
+    // role="img" 是必要的：aria-label 挂在裸 div 上多数读屏根本不播报。
+    // 无日期列要单独一句文案,否则会拼出 "No shot on Undated" 这种病句。
     return (
       <div
-        aria-label={t('noShotOnDate', { date: label })}
+        role="img"
+        aria-label={dateKey === UNDATED_KEY ? t('noShotUndated') : t('noShotOnDate', { date: dateKey })}
         className={`${box} rounded-lg border border-dashed border-line-soft`}
       />
     )
@@ -1301,7 +1323,7 @@ export default function ShotAlbum({
           <DateCell
             key={d}
             shots={grouped.get(d) ?? []}
-            label={d === UNDATED_KEY ? t('undated') : d}
+            dateKey={d}
             compact={compact}
             selected={d === selectedDate}
             onOpen={() => setOpenDate(d)}
