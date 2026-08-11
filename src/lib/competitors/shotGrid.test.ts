@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { UNDATED_KEY, isValidShotDate } from './shotGrid.ts'
+import { UNDATED_KEY, isValidShotDate, collectShotDates } from './shotGrid.ts'
+import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
 
 test('UNDATED_KEY: 无日期占位键', () => {
   assert.equal(UNDATED_KEY, '—')
@@ -30,4 +31,81 @@ test('isValidShotDate: 格式不合规', () => {
 test('isValidShotDate: 非字符串类型', () => {
   assert.equal(isValidShotDate(20260810), false)
   assert.equal(isValidShotDate({}), false)
+})
+
+function shot(id: string, shot_on: string | null): CompetitorShot {
+  return {
+    id,
+    competitor_id: 'c1',
+    image_url: `https://example.test/${id}.png`,
+    shot_on,
+    tag: null,
+    caption: '',
+    sort_order: 0,
+    created_at: '2026-08-01T00:00:00Z',
+  }
+}
+
+function competitor(
+  id: string,
+  shots: CompetitorShot[],
+  related: CompetitorWithHistory[] = [],
+): CompetitorWithHistory {
+  return {
+    id,
+    platform: 'tiktok',
+    handle: id,
+    profile_url: `https://www.tiktok.com/@${id}`,
+    display_name: null,
+    note: '',
+    created_at: '2026-08-01T00:00:00Z',
+    parent_id: null,
+    avatar_url: null,
+    region: 'JP',
+    member_count: null,
+    composition: null,
+    launch_city: null,
+    launched_on: null,
+    mc_note: null,
+    online_note: null,
+    latest_videos: null,
+    latest: null,
+    history: [],
+    shots,
+    weekly: [],
+    related,
+  }
+}
+
+test('collectShotDates: 跨竞品去重并升序', () => {
+  const axis = collectShotDates([
+    competitor('a', [shot('s1', '2026-08-05'), shot('s2', '2026-08-03')]),
+    competitor('b', [shot('s3', '2026-08-05'), shot('s4', '2026-08-01')]),
+  ])
+  assert.deepEqual(axis, ['2026-08-01', '2026-08-03', '2026-08-05'])
+})
+
+test('collectShotDates: 递归收集 related 子主播的日期', () => {
+  const axis = collectShotDates([
+    competitor('parent', [shot('s1', '2026-08-05')], [
+      competitor('kid', [shot('s2', '2026-08-02')]),
+    ]),
+  ])
+  assert.deepEqual(axis, ['2026-08-02', '2026-08-05'])
+})
+
+test('collectShotDates: 存在无日期图时末尾追加 UNDATED_KEY', () => {
+  const axis = collectShotDates([
+    competitor('a', [shot('s1', '2026-08-05'), shot('s2', null)]),
+  ])
+  assert.deepEqual(axis, ['2026-08-05', UNDATED_KEY])
+})
+
+test('collectShotDates: 只有无日期图时轴上只有占位键', () => {
+  assert.deepEqual(collectShotDates([competitor('a', [shot('s1', null)])]), [UNDATED_KEY])
+})
+
+test('collectShotDates: 全空返回空数组', () => {
+  assert.deepEqual(collectShotDates([]), [])
+  assert.deepEqual(collectShotDates([competitor('a', [])]), [])
 })
