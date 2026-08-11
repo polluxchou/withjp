@@ -2,7 +2,7 @@
 
 > 建立：2026-08-11
 > 分支：`feat/public-site`（自 `origin/main` @ 3082d13）
-> 设计源：claude.design 项目 `478a0d1c-c990-47a8-a555-858082c5a11a`，文件 `EchoAmp 官网.dc.html`，快照 version `1786430485202163`（2026-08-11T06:41:25Z）
+> 设计源：claude.design 项目 `478a0d1c-c990-47a8-a555-858082c5a11a`，文件 `EchoAmp 官网.dc.html`，快照 version `1786432470264615`（2026-08-11T07:14Z，含 logo 三角幕交互）
 > 目标读者：WithJP 工程团队 / PMO
 
 ## 1. 背景与目标
@@ -60,6 +60,7 @@ WithJP 至今只有内部经营后台（登录后可见的紫罗兰浅色体系�
 7. **错位三重描边标题**：同一行文字三层叠放（青 / 红 / 白，偏移 ±3px），只用于首页副标题
 8. **纵排文字**：`writing-mode: vertical-rl` + 0.4em 字距，用于首页主视觉侧栏
 9. **duotone 图片**：图片染成单色调，与黑底和着ぐるみ题材相性好
+10. **logo 三角幕**：hover 顶栏 logo 时，青色三角从左上角尖点扫开覆盖视口，内含黑字宣言（细节见 §5.1）
 
 ### 2.4 骨架尺度
 
@@ -76,7 +77,7 @@ WithJP 至今只有内部经营后台（登录后可见的紫罗兰浅色体系�
 |---|---|---|
 | `/[locale]/site` | TOP | hero（pulse 标签 / h1 / 三重描边副标 / 双 CTA / 三格数字）→ ticker → 01 NEWS 三卡 → 02 VISION 说明 + 四卡 → 03 PROJECT MOONDOLLZ（群像 + MOON/DOLLZ/-Z 释义）→ 04 SERVICES 四栏 → 05 TECHNOLOGY 着ぐるみ → RECRUIT 红色横幅 |
 | `/[locale]/site/news` | NEWS | 分类药丸（ALL/RECRUIT/PROJECT/LIVE）+ 4 行日期表 |
-| `/[locale]/site/vision` | VISION + MEMBERS | 宣言 → 夜景图 → 四个年代数字卡 → COLOR/TYPE/IMAGE 三栏 → 双队长卡 → 12 位成员 6 列网格 |
+| `/[locale]/site/vision` | VISION + MEMBERS | 宣言（h2 与三角幕同句：`大阪で、最も才能ある歌って踊る配信者を見つけ出す。`）→ 夜景图 → 四个年代数字卡 → COLOR/TYPE/IMAGE 三栏 → 双队长卡 → 12 位成员 6 列网格 |
 | `/[locale]/site/live` | TIKTOK LIVE | 6 行排班表 + ON AIR NOW 侧卡 |
 | `/[locale]/site/services` | SERVICES | 四条事业（编号 / 明朝标题 / 英文副标 / 说明）+ 04-A/B/C 三栏 + 两张现场图 |
 | `/[locale]/site/recruit` | RECRUIT | 募集要项 5 行表 + 收益待遇卡 + **应募表单** |
@@ -122,6 +123,21 @@ WithJP 至今只有内部经营后台（登录后可见的紫罗兰浅色体系�
 | `ScheduleTable` | 排班表头 + 行 | `rows` |
 | `MemberCard` | 成员卡（3:4 图 + NO. + 名 + 说明） | `member` |
 | `ApplicationForm`（client） | 应募表单、校验错误态、提交状态、成功态 | `locale` |
+| `LogoVeil`（client） | logo hover 触发的三角幕（见 §5.1） | — |
+
+### 5.1 LogoVeil：logo 三角幕交互
+
+顶栏 logo 悬停时，一块青色三角从视口左上角扫开，压在全站之上，内含公会宣言。
+
+- 形状：`clip-path: polygon(0 0, 68% 0, 0 96%)`，`position: fixed; inset: 0; z-index: 60`（高于 sticky 顶栏的 40），底色 `site-accent`
+- 入场：clip-path 由退化尖点（`polygon(0 0,0 0,0 0)`）+ opacity .4 展开到最终形状，0.42s `cubic-bezier(.2,.8,.2,1)`；内部文字块 opacity + `translateY(-8px)` 收敛，0.5s 延迟 0.1s
+- 内容：eyebrow `ECHOAMP OSAKA ／ VISION 2027`（13px / 0.34em）+ 明朝 40px 两行宣言，均为**黑字**（青底上唯一可读的选择）
+- `pointer-events: none`：不拦截任何点击
+- 收起：监听 `mousemove`，`x/(0.68·vw) + y/(0.96·vh) > 1` 即光标离开三角区域则收起；导航跳转时一并收起
+- **仅指针设备**：`@media (hover: hover) and (pointer: fine)` 才启用 —— 触屏没有 hover，且移动端盖住半屏是故障而不是效果
+- `prefers-reduced-motion: reduce` 时直接以终态显示、不做扫开动画
+- `aria-hidden="true"`：纯装饰性瞬态层，同一句宣言在 VISION 页有正式的标题呈现
+- 文案走 i18n（`site.veil.*`），三语各自一份
 
 ## 6. 内容与三语
 
