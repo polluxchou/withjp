@@ -41,8 +41,8 @@ function DateCell({ shots, dateKey, selected, onOpen }: {
   return (
     <div className={`relative ${box} ${ring} overflow-hidden rounded-lg bg-canvas`}>
       <button type="button" onClick={onOpen} className="block h-full w-full">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         {/* caption 默认空串、tag 常为 null,兜底到日期,否则读屏只念"按钮" */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={cover.image_url} alt={cover.caption || cover.tag || (dateKey === UNDATED_KEY ? t('undated') : dateKey)} className="h-full w-full object-cover" loading="lazy" />
       </button>
       {extra > 0 && (
