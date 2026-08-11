@@ -2147,18 +2147,43 @@
     "contact": {
       "eyebrow": "CONTACT",
       "title": "联系我们",
-      "creator": {
-        "eyebrow": "FOR CREATOR",
-        "title": "想报名的人",
-        "body": "关于试镜、课程与活动条件。走 LINE 咨询最快。",
-        "cta": "用 LINE 咨询"
-      },
-      "client": {
-        "eyebrow": "FOR CLIENT",
-        "title": "企业与品牌方",
-        "body": "联名直播、AIGC 影像制作、歌曲制作、皮套 IP 合作，请从这里联系。",
-        "cta": "business@echoamp.jp"
-      }
+      "sections": [
+        {
+          "no": "01", "eyebrow": "FOR CREATOR", "title": "想报名的人",
+          "body": "关于试镜、课程与活动条件。招募及线下运营由 Chiron 株式会社负责，通过 LINE 咨询最快。",
+          "cta": "用 LINE 咨询", "action": "recruit", "partner": "RECRUITING PARTNER",
+          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "rows": [
+            { "label": "公司名称", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
+            { "label": "代表", "value": "ZHANG QIAN" },
+            { "label": "成立・所在地", "value": "2021年／大阪市浪速区" },
+            { "label": "业务内容", "value": "ライブ配信キャストの採用・オフライン運営" },
+            { "label": "所在地", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" }
+          ]
+        },
+        {
+          "no": "02", "eyebrow": "FOR COMPANION", "title": "制作与运营合作伙伴",
+          "body": "负责妆发、外景拍摄、团体直播运营培训和 AIGC 内容制作的合作伙伴。",
+          "note": "咨询窗口正在准备中", "partner": "PRODUCTION PARTNER",
+          "rows": [
+            { "label": "公司名称", "value": "吉光片羽株式会社" },
+            { "label": "代表", "value": "YANG JIANUO" },
+            { "label": "成立・所在地", "value": "2019年／西宮市" },
+            { "label": "业务内容", "value": "インフルエンサーマーケティング" },
+            { "label": "负责领域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" }
+          ]
+        },
+        {
+          "no": "03", "eyebrow": "FOR CLIENT", "title": "企业与品牌方",
+          "body": "联名直播、AIGC 影像制作、歌曲制作和皮套 IP 合作，请通过邮件联系我们。",
+          "cta": "business@echoamp.jp", "action": "email",
+          "rows": [
+            { "label": "内容", "value": "联名直播／AIGC 影像制作／歌曲制作／皮套 IP" },
+            { "label": "联系方式", "value": "business@echoamp.jp", "link": "email" },
+            { "label": "服务时间", "value": "工作日 10:00–19:00（JST）／日语・中文" }
+          ]
+        }
+      ]
     },
     "theme": {
       "dark": "◐ DARK",

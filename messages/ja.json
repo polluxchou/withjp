@@ -2147,18 +2147,53 @@
     "contact": {
       "eyebrow": "CONTACT",
       "title": "お問い合わせ",
-      "creator": {
-        "eyebrow": "FOR CREATOR",
-        "title": "応募したい方へ",
-        "body": "オーディション、レッスン、活動条件について。LINE での相談が最短です。",
-        "cta": "LINE で相談する"
-      },
-      "client": {
-        "eyebrow": "FOR CLIENT",
-        "title": "法人・ブランド様へ",
-        "body": "タイアップ配信、AIGC 映像制作、楽曲制作、着ぐるみ IP のご相談はこちら。",
-        "cta": "business@echoamp.jp"
-      }
+      "sections": [
+        {
+          "no": "01",
+          "eyebrow": "FOR CREATOR",
+          "title": "応募したい方へ",
+          "body": "オーディション、レッスン、活動条件について。採用とオフライン運営はカイロン株式会社が担当します。LINE でのご相談が最短です。",
+          "cta": "LINE で相談する",
+          "action": "recruit",
+          "partner": "RECRUITING PARTNER",
+          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "rows": [
+            { "label": "会社名", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
+            { "label": "代表", "value": "ZHANG QIAN" },
+            { "label": "設立・所在地", "value": "2021年／大阪市浪速区" },
+            { "label": "事業内容", "value": "ライブ配信キャストの採用・オフライン運営" },
+            { "label": "所在地", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" }
+          ]
+        },
+        {
+          "no": "02",
+          "eyebrow": "FOR COMPANION",
+          "title": "制作・運営パートナー",
+          "body": "ヘアメイク、ロケ撮影、グループ配信の運営研修、AIGC コンテンツ制作を担当するパートナーです。",
+          "note": "お問い合わせ窓口は準備中",
+          "partner": "PRODUCTION PARTNER",
+          "rows": [
+            { "label": "会社名", "value": "吉光片羽株式会社" },
+            { "label": "代表", "value": "YANG JIANUO" },
+            { "label": "設立・所在地", "value": "2019年／西宮市" },
+            { "label": "事業内容", "value": "インフルエンサーマーケティング" },
+            { "label": "担当領域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" }
+          ]
+        },
+        {
+          "no": "03",
+          "eyebrow": "FOR CLIENT",
+          "title": "法人・ブランド様へ",
+          "body": "タイアップ配信、AIGC 映像制作、楽曲制作、着ぐるみ IP のご相談はメールで承ります。",
+          "cta": "business@echoamp.jp",
+          "action": "email",
+          "rows": [
+            { "label": "内容", "value": "タイアップ配信／AIGC 映像制作／楽曲制作／着ぐるみ IP" },
+            { "label": "連絡先", "value": "business@echoamp.jp", "link": "email" },
+            { "label": "対応", "value": "平日 10:00–19:00（JST）／日本語・中国語" }
+          ]
+        }
+      ]
     },
     "theme": {
       "dark": "◐ DARK",

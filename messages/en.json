@@ -2147,18 +2147,43 @@
     "contact": {
       "eyebrow": "CONTACT",
       "title": "GET IN TOUCH",
-      "creator": {
-        "eyebrow": "FOR CREATOR",
-        "title": "If you want to apply",
-        "body": "Auditions, lessons and activity terms. LINE is the fastest route.",
-        "cta": "Ask us on LINE"
-      },
-      "client": {
-        "eyebrow": "FOR CLIENT",
-        "title": "For companies and brands",
-        "body": "Tie-up streams, AIGC film production, music production and suit IP — start here.",
-        "cta": "business@echoamp.jp"
-      }
+      "sections": [
+        {
+          "no": "01", "eyebrow": "FOR CREATOR", "title": "For applicants",
+          "body": "For auditions, lessons and activity terms. Chiron handles recruiting and offline operations; LINE is the fastest way to reach us.",
+          "cta": "Ask us on LINE", "action": "recruit", "partner": "RECRUITING PARTNER",
+          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "rows": [
+            { "label": "Company", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
+            { "label": "Representative", "value": "ZHANG QIAN" },
+            { "label": "Founded / location", "value": "2021年／大阪市浪速区" },
+            { "label": "Business", "value": "ライブ配信キャストの採用・オフライン運営" },
+            { "label": "Address", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" }
+          ]
+        },
+        {
+          "no": "02", "eyebrow": "FOR COMPANION", "title": "Production & operations partner",
+          "body": "Our partner for hair and makeup, location shoots, group-stream operations training and AIGC content production.",
+          "note": "Contact desk coming soon", "partner": "PRODUCTION PARTNER",
+          "rows": [
+            { "label": "Company", "value": "吉光片羽株式会社" },
+            { "label": "Representative", "value": "YANG JIANUO" },
+            { "label": "Founded / location", "value": "2019年／西宮市" },
+            { "label": "Business", "value": "インフルエンサーマーケティング" },
+            { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" }
+          ]
+        },
+        {
+          "no": "03", "eyebrow": "FOR CLIENT", "title": "For companies and brands",
+          "body": "For tie-up streams, AIGC film production, music production and suit IP, contact us by email.",
+          "cta": "business@echoamp.jp", "action": "email",
+          "rows": [
+            { "label": "Services", "value": "Tie-up streams / AIGC film production / music production / suit IP" },
+            { "label": "Contact", "value": "business@echoamp.jp", "link": "email" },
+            { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese and Chinese" }
+          ]
+        }
+      ]
     },
     "theme": {
       "dark": "◐ DARK",
