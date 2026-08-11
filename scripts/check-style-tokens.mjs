@@ -1,31 +1,35 @@
 // 禁用样式扫描：slate-* / indigo-* / zinc-* / gray-* / stone-* / neutral-* /
 // 裸 hex / 固定透明度 token 带 /N / text-base。
 //
-// 基线机制：--update-baseline 记录存量违规（文件 × 计数），常规运行时任何
-// 文件的违规数超过基线即失败；低于基线则提示可收紧（非致命）。基线中若有
-// 文件已不存在（僵尸条目）则视为致命错误，提示重新生成基线。
-//
-// 防洗白：--update-baseline 默认拒绝任何文件计数比旧基线上升（可能是在借
-// 机蒙混新增违规），需显式加 --allow-increase 才放行；正常收紧/改名不受
-// 影响。
+// 零容忍：白名单外任何一处违规即失败。（历史：PR1-PR3 期间靠
+// scripts/style-tokens-baseline.json 记录存量、只减不增；PR4 存量清零后基线
+// 与 --update-baseline/--allow-increase 一并退役，见 docs/design-system.md §7。）
 //
 // 行级豁免：某一行确有必要保留禁用样式时，整行加注释含 `style-tokens-ignore`
-// 即可跳过该行扫描。
+// 即可跳过该行扫描（正向校验同样跳过）。
 //
-// 白名单：图表主题与全局 token 定义处允许 hex。
+// 文件白名单（见下方 WHITELIST，逐行注明理由）：只豁免上述禁用样式扫描，
+// 正向校验仍然生效。
 //
 // 正向校验：token 家族（ink/line/primary/...）下的色阶/变体必须真实登记于
 // tailwind.config.ts，否则类名不会被生成、静默失效（教训：text-ink-600，
-// design-system §7）。此类违规不走基线，一律致命。
-import { readFileSync, writeFileSync, readdirSync, lstatSync, existsSync } from 'node:fs'
+// design-system §7）。全库一律致命，白名单文件也不例外。
+import { readFileSync, readdirSync, lstatSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(ROOT, 'src')
-const BASELINE = join(ROOT, 'scripts/style-tokens-baseline.json')
 const IGNORE_MARKER = 'style-tokens-ignore'
-const WHITELIST = ['src/lib/chart-theme.ts', 'src/app/globals.css']
+// 仅豁免「禁用样式」扫描的文件。新增条目必须在此写明理由，并在
+// docs/design-system.md §7 同步登记。
+const WHITELIST = [
+  'src/lib/chart-theme.ts', // 图表色板唯一定义处，hex 就是它的产物（design-system §1.5）
+  'src/app/globals.css', // token CSS 变量定义处，hex 是 token 本身的取值
+  'src/venue/VenueCanvas.tsx', // 场馆 2D 平面图：纸面/网格/家具类型色属工程制图语义，非 UI chrome（spec §6「不动的」）
+  'src/venue/Venue3DCanvas.client.tsx', // 场馆 3D 视图：three.js 材质/场景色同上，且需与 2D 同色系对齐（spec §6）
+  'src/app/[locale]/login/page.tsx', // 登录页是独立营销位，不属后台设计系统辖区（spec §6「不动的」）
+]
 
 const PATTERNS = [
   { name: 'slate', re: /\bslate-\d{2,3}\b/g },
@@ -120,10 +124,6 @@ function findViolations(text) {
   return violations
 }
 
-const args = process.argv.slice(2)
-const isUpdate = args.includes('--update-baseline')
-const allowIncrease = args.includes('--allow-increase')
-
 // 家族命中但色阶/变体未登记的用法（如 text-ink-600）：类名不会被生成，静默失效。
 function findUnregisteredTokens(text) {
   const hits = []
@@ -138,22 +138,21 @@ function findUnregisteredTokens(text) {
   return hits
 }
 
-const seen = new Set()
 const violationsByFile = {}
 const unregisteredByFile = {}
 for (const file of walk(SRC)) {
   const rel = relative(ROOT, file)
-  seen.add(rel)
-  if (WHITELIST.includes(rel)) continue
   const text = readFileSync(file, 'utf8')
-  const violations = findViolations(text)
-  if (violations.length) violationsByFile[rel] = violations
+  // 白名单只豁免禁用样式扫描，正向校验照跑
+  if (!WHITELIST.includes(rel)) {
+    const violations = findViolations(text)
+    if (violations.length) violationsByFile[rel] = violations
+  }
   const unregistered = findUnregisteredTokens(text)
   if (unregistered.length) unregisteredByFile[rel] = unregistered
 }
-const counts = Object.fromEntries(Object.entries(violationsByFile).map(([k, v]) => [k, v.length]))
 
-// 未登记 token 不走基线（--update-baseline 也拦）：类名压根不会生成，属静默 bug 而非迁移欠账。
+// 未登记 token 单独先报：类名压根不会生成，属静默 bug 而非样式选色问题。
 if (Object.keys(unregisteredByFile).length) {
   for (const [rel, hits] of Object.entries(unregisteredByFile)) {
     console.error(`\n✗ ${rel} (${hits.length} 处未登记 token)`)
@@ -165,79 +164,15 @@ if (Object.keys(unregisteredByFile).length) {
   process.exit(1)
 }
 
-if (isUpdate) {
-  let oldBaseline = {}
-  if (existsSync(BASELINE)) {
-    try { oldBaseline = JSON.parse(readFileSync(BASELINE, 'utf8')) } catch { oldBaseline = {} }
-  }
-
-  const increased = []
-  for (const [file, n] of Object.entries(counts)) {
-    const old = oldBaseline[file] ?? 0
-    if (n > old) increased.push({ file, old, n })
-  }
-
-  if (increased.length && !allowIncrease) {
-    console.error('check-style-tokens --update-baseline 被拒：以下文件违规数比旧基线上升，疑似借机洗白新增违规。')
-    console.error('如确认是新增扫描模式一次性提升基线等正当场景，显式加 --allow-increase 重跑：')
-    for (const { file, old, n } of increased) {
-      console.error(`  ${file}: ${old} -> ${n} (+${n - old})`)
-    }
-    process.exit(1)
-  }
-
-  const sorted = {}
-  for (const key of Object.keys(counts).sort()) sorted[key] = counts[key]
-  writeFileSync(BASELINE, JSON.stringify(sorted, null, 2) + '\n')
-  console.log(`baseline updated: ${Object.keys(sorted).length} files, ${Object.values(sorted).reduce((a, b) => a + b, 0)} violations`)
-  process.exit(0)
-}
-
-let baseline = {}
-if (existsSync(BASELINE)) {
-  try {
-    baseline = JSON.parse(readFileSync(BASELINE, 'utf8'))
-  } catch (e) {
-    console.error(`check-style-tokens 失败：基线文件读取/解析失败，可能已损坏或存在未解决的合并冲突 —— ${BASELINE}`)
-    console.error(e.message)
-    process.exit(1)
-  }
-} // 文件不存在 = 零容忍，baseline 保持 {}
-
-const zombies = Object.keys(baseline).filter((rel) => !seen.has(rel))
-const overBaseline = []
 for (const [rel, violations] of Object.entries(violationsByFile)) {
-  const allowed = baseline[rel] ?? 0
-  if (violations.length > allowed) overBaseline.push({ rel, violations, allowed })
-}
-const belowBaseline = []
-for (const [rel, allowed] of Object.entries(baseline)) {
-  if (!seen.has(rel)) continue // 已作为僵尸条目报告
-  const current = (violationsByFile[rel] ?? []).length
-  if (current < allowed) belowBaseline.push({ rel, current, allowed })
-}
-
-for (const { rel, violations, allowed } of overBaseline) {
-  console.error(`\n✗ ${rel} (${violations.length} 处，基线 ${allowed} 处)`)
+  console.error(`\n✗ ${rel} (${violations.length} 处)`)
   for (const v of violations) {
     console.error(`  ${rel}:${v.line}  [${v.name}]  "${v.sample}"`)
   }
 }
 
-if (zombies.length) {
-  console.error('\n✗ 基线中存在僵尸条目（文件已不存在/已移动），请跑 `node scripts/check-style-tokens.mjs --update-baseline` 重新生成基线（若是改名/合并导致新文件名下违规数看似上升，裸命令会被防洗白守卫拒绝，需改跑 `--update-baseline --allow-increase`）：')
-  for (const rel of zombies) console.error(`  - ${rel}`)
-}
-
-if (belowBaseline.length) {
-  console.log(`\n提示：${belowBaseline.length} 个文件低于基线，可跑 --update-baseline 收紧：`)
-  for (const { rel, current, allowed } of belowBaseline) {
-    console.log(`  ${rel}: ${current} < ${allowed}`)
-  }
-}
-
-if (overBaseline.length || zombies.length) {
-  console.error('\ncheck-style-tokens 失败：新增了 slate/indigo/zinc/gray/stone/neutral/裸 hex 等禁用样式，或基线存在僵尸条目 —— 请改用 docs/design-system.md 的 token，或重新生成基线')
+if (Object.keys(violationsByFile).length) {
+  console.error('\ncheck-style-tokens 失败：出现 slate/indigo/zinc/gray/stone/neutral/裸 hex 等禁用样式 —— 请改用 docs/design-system.md 的 token；确有必要的单行可加 `style-tokens-ignore` 注释豁免，整文件豁免需改本脚本 WHITELIST 并在 design-system §7 登记')
   process.exit(1)
 }
 

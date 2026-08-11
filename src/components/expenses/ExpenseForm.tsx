@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import {
   EXPENSE_CATEGORY_OPTIONS,
   EXPENSE_PAYMENT_METHOD_OPTIONS,
@@ -38,8 +39,8 @@ interface Props {
   onCancel:       () => void
 }
 
-const INPUT = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
-const LABEL = 'block text-xs font-medium text-zinc-700 mb-1'
+const INPUT = `w-full border border-line-strong rounded-field px-3 py-2 text-sm text-ink-900 ${FOCUS_RING}`
+const LABEL = 'block text-xs font-medium text-ink-700 mb-1'
 
 export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCancel }: Props) {
   const source = expense ?? duplicateFrom
@@ -156,14 +157,14 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
   return (
     <form onSubmit={submit} className="space-y-4">
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+        <div className="text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">
           {error}
         </div>
       )}
 
       {/* Legacy payment method notice */}
       {isEditing && expense?.payment_method_legacy && !expense.payment_method && (
-        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        <div className="text-xs text-warning-text bg-warning-soft border border-warning-border rounded-field px-3 py-2">
           {t('legacyPaymentMethod', { method: expense.payment_method_legacy })}
         </div>
       )}
@@ -210,7 +211,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         )}
         <div className={showQty ? 'col-span-2 sm:col-span-1' : ''}>
           <label className={LABEL}>{t('total')}</label>
-          <div className="w-full border border-zinc-200 bg-zinc-50 rounded-lg px-3 py-2 text-sm text-zinc-700 font-medium">
+          <div className="w-full border border-line-strong bg-canvas rounded-field px-3 py-2 text-sm text-ink-700 font-medium tabular-nums">
             ¥{displayTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
           </div>
         </div>
@@ -225,8 +226,8 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
         {showPeriod && (
           <div>
             <label className={LABEL}>{t('period')}</label>
-            <div className="w-full border border-zinc-200 bg-zinc-50 rounded-lg px-3 py-2 text-sm text-zinc-700 font-medium">
-              {dateToQuarter(form.expense_date) || <span className="text-zinc-400 font-normal">{t('periodAutoFromDate')}</span>}
+            <div className="w-full border border-line-strong bg-canvas rounded-field px-3 py-2 text-sm text-ink-700 font-medium">
+              {dateToQuarter(form.expense_date) || <span className="text-ink-400 font-normal">{t('periodAutoFromDate')}</span>}
             </div>
           </div>
         )}
@@ -281,7 +282,7 @@ export default function ExpenseForm({ expense, duplicateFrom, onSuccess, onCance
             </optgroup>
           </select>
           {isCompanyAcct && (
-            <p className="mt-1 text-[10px] text-amber-600">
+            <p className="mt-1 text-[10px] text-warning-text">
               {t('companyAccountHint', { buyers: COMPANY_ACCOUNT_BUYERS.join(' / ') })}
             </p>
           )}
