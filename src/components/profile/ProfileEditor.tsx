@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { LogOut } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import { useRouter } from '@/i18n/navigation'
 import type { AgentRole, UserProfile } from '@/lib/types'
 
@@ -14,7 +15,10 @@ interface ProfileEditorProps {
   onSuccess?: () => void
 }
 
-const ROLES: AgentRole[] = ['bd', 'ops', 'finance', 'content', 'growth', 'legal']
+// 真人可选角色下拉：AgentRole 8 值里的 6 部门 + 'tech'（真人技术岗，
+// migration 016 新增）。'pmo' 刻意不进这个数组——它是 AI 代理专属角色
+// （PMO Agent 自身的 role），不该出现在真人用户可选的角色列表里。
+const ROLES: AgentRole[] = ['bd', 'ops', 'finance', 'content', 'growth', 'legal', 'tech']
 
 export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEditorProps) {
   const t = useTranslations('profile')
@@ -105,18 +109,18 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
     }
   }
 
-  const INPUT  = 'w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
-  const RO     = 'w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-600 bg-zinc-50'
-  const LABEL  = 'block text-xs font-medium text-zinc-700 mb-1.5'
+  const INPUT  = `w-full px-3 py-2 border border-line-strong rounded-field text-sm text-ink-900 ${FOCUS_RING}`
+  const RO     = 'w-full px-3 py-2 border border-line-strong rounded-field text-sm text-ink-700 bg-canvas'
+  const LABEL  = 'block text-xs font-medium text-ink-700 mb-1.5'
 
   return (
     <Modal open={open} onClose={onClose} title={t('title')} width="max-w-2xl">
       {loading ? (
-        <div className="text-center py-8 text-sm text-zinc-400">{tCommon('loading')}</div>
+        <div className="text-center py-8 text-sm text-ink-400">{tCommon('loading')}</div>
       ) : (
         <div className="space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-danger-soft border border-danger-border text-danger-text px-4 py-3 rounded-field text-sm">
               {error}
             </div>
           )}
@@ -133,7 +137,7 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
                 maxLength={30}
                 className={INPUT}
               />
-              <div className="text-xs text-zinc-400 mt-1">{name.length}/30</div>
+              <div className="text-xs text-ink-400 mt-1">{name.length}/30</div>
             </div>
             <div>
               <label className={LABEL}>{t('role')}</label>
@@ -175,14 +179,14 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
                       {t('roleAdmin')}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-muted-soft text-muted-text">
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                       </svg>
                       {t('roleUser')}
                     </span>
                   )}
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-xs text-ink-400">
                     {profile.is_admin ? t('adminScope') : t('userScope')}
                   </span>
                 </div>
@@ -190,14 +194,14 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
             </>
           )}
 
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-100 mt-2">
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-line-soft mt-2">
             <button
               type="button"
               onClick={handleLogout}
               disabled={signingOut}
-              className="flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+              className={`flex items-center gap-1.5 text-sm text-danger-text hover:bg-danger-soft px-3 py-1.5 rounded-field transition-colors disabled:opacity-50 ${FOCUS_RING}`}
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4" strokeWidth={1.5} />
               {signingOut ? tCommon('loading') : tNav('logout')}
             </button>
             <div className="flex gap-2">

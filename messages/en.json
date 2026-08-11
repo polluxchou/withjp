@@ -1024,7 +1024,8 @@
     "content": "Content",
     "growth": "Growth",
     "legal": "Legal",
-    "tech": "Tech"
+    "tech": "Tech",
+    "pmo": "PMO"
   },
   "financeForecast": {
     "pageTitle": "Finance Forecast",
