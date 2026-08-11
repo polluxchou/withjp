@@ -143,3 +143,8 @@
 1. 增加新业务概念前先在本表登记，PR 必须包含术语表 diff
 2. 当英文 sentence-case 与中文标题（首字大写 / 全大写 / 标题式）冲突时，以**用户实际看到的位置**为准 —— 表内标注的写法是 i18n 词典中的写法，UI 层若需 ALL CAPS 通过 CSS `text-transform: uppercase` 实现，不要往词典里塞大写文本
 3. 与产品/设计/运营协商后修订时，需要同步更新 [messages/zh.json](../messages/zh.json)、[messages/en.json](../messages/en.json) 与本文件
+4. `scripts/check-i18n.mjs`（挂 `test:copy` + CI `copy.yml`）做两件事：
+   - **键对齐**：zh/en/ja 三份 messages 的键集必须完全一致（含数组长度）
+   - **源码引用校验**：用 TypeScript AST 解析 `src/**/*.{ts,tsx}` 里的 `useTranslations('ns')` / `getTranslations('ns')` 绑定，再解析该变量的 `t('key')`、`t.rich/raw/markup/has` 调用，还原出完整 `ns.key` 路径。引用了不存在的键 = **致命**（next-intl 运行时不抛异常，只 `console.error` 一条 MISSING_MESSAGE，然后把 `competitors.viewAll` 这种字面路径直接渲染进 UI；仓库没有 `IntlMessages` 类型增强，`tsc --noEmit` 也看不见）；命名空间拼错同样致命且不走基线。定义了但无人引用的键只报**警告**，因为动态拼接的键静态分析看不到
+   - 动态键（`t(变量)`、模板字面量）无法静态解析，跳过并计数；模板字面量若有静态前缀（`` t(`filters.${x}`) ``），只对 `<ns>.filters` 子树关闭"未引用"告警，不牵连整个命名空间
+   - 基线：存量问题记在 [scripts/i18n-baseline.json](../scripts/i18n-baseline.json)，用 `node scripts/check-i18n.mjs --update-baseline` 重新生成；某文件的缺失引用数若比旧基线上升会被防洗白守卫拒绝，确属正当场景才加 `--allow-increase`
