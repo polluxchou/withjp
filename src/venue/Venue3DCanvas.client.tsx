@@ -1343,10 +1343,17 @@ function EdgeLabelOverlay({
             pointerEvents: 'none',
             userSelect: 'none',
           } as CSSProperties}
-          className={`px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap shadow-sm border ${
+          // 半迁（PR4 灰区丙案）：chip 的 chrome 属性走 token（圆角/阴影/
+          // 字号/字色/边框），但**场景语义色不动**——选中色 #f4511e 与上方
+          // 引线 #94a3b8 是画布内的高亮/连线语义（spec §10「渲染在
+          // canvas/SVG 内的 = 语义色不动」的延伸：这些 chip 是画布标注的
+          // DOM 投影，配色必须与 3D 场景里的选中描边保持同一套）。
+          // text-micro = 11px（design-system §2 字号阶梯），与原
+          // text-[11px] 同值，无视觉尺寸变化。
+          className={`px-2 py-0.5 rounded-field text-micro font-medium whitespace-nowrap shadow-card border ${
             lbl.selected
               ? 'bg-[#f4511e] text-white border-[#f4511e]'
-              : 'bg-white/95 text-slate-700 border-slate-200'
+              : 'bg-white/95 text-ink-700 border-line'
           }`}
         >
           {lbl.name}
