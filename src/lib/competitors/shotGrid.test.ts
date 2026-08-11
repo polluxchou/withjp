@@ -2,7 +2,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { UNDATED_KEY, isValidShotDate, collectShotDates, windowOf, resolveAnchor } from './shotGrid.ts'
+import {
+  UNDATED_KEY,
+  isValidShotDate,
+  collectShotDates,
+  windowOf,
+  resolveAnchor,
+  groupShotsByDate,
+} from './shotGrid.ts'
 import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
 
 test('UNDATED_KEY: 无日期占位键', () => {
@@ -174,4 +181,43 @@ test('resolveAnchor: anchor 本身是 UNDATED_KEY 但已脱轴时取最新一天
 test('resolveAnchor: 空轴返回 null', () => {
   assert.equal(resolveAnchor([], '2026-08-01'), null)
   assert.equal(resolveAnchor([], null), null)
+})
+
+function shotAt(id: string, shot_on: string | null, sort_order: number, created_at: string): CompetitorShot {
+  return { ...shot(id, shot_on), sort_order, created_at }
+}
+
+test('groupShotsByDate: 按日期归组', () => {
+  const g = groupShotsByDate([
+    shot('s1', '2026-08-01'),
+    shot('s2', '2026-08-02'),
+    shot('s3', '2026-08-01'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['s1', 's3'])
+  assert.deepEqual(g.get('2026-08-02')!.map((s) => s.id), ['s2'])
+})
+
+test('groupShotsByDate: 组内按 sort_order 升序，首张为封面', () => {
+  const g = groupShotsByDate([
+    shotAt('b', '2026-08-01', 2, '2026-08-01T00:00:00Z'),
+    shotAt('a', '2026-08-01', 1, '2026-08-01T00:00:00Z'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['a', 'b'])
+})
+
+test('groupShotsByDate: sort_order 相同时按 created_at 升序', () => {
+  const g = groupShotsByDate([
+    shotAt('late', '2026-08-01', 0, '2026-08-01T10:00:00Z'),
+    shotAt('early', '2026-08-01', 0, '2026-08-01T09:00:00Z'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['early', 'late'])
+})
+
+test('groupShotsByDate: shot_on 为空归入 UNDATED_KEY', () => {
+  const g = groupShotsByDate([shot('s1', null)])
+  assert.deepEqual(g.get(UNDATED_KEY)!.map((s) => s.id), ['s1'])
+})
+
+test('groupShotsByDate: 空输入返回空 Map', () => {
+  assert.equal(groupShotsByDate([]).size, 0)
 })

@@ -83,3 +83,21 @@ export function resolveAnchor(axis: string[], anchor: string | null): string | n
   }
   return best
 }
+
+/**
+ * 按日期归组；shot_on 为空归入 UNDATED_KEY。
+ * 组内按 sort_order 再 created_at 升序，首张即该日封面。
+ */
+export function groupShotsByDate(shots: CompetitorShot[]): Map<string, CompetitorShot[]> {
+  const map = new Map<string, CompetitorShot[]>()
+  for (const s of shots ?? []) {
+    const key = s.shot_on || UNDATED_KEY
+    const arr = map.get(key) ?? []
+    arr.push(s)
+    map.set(key, arr)
+  }
+  for (const arr of Array.from(map.values())) {
+    arr.sort((a, b) => (a.sort_order - b.sort_order) || a.created_at.localeCompare(b.created_at))
+  }
+  return map
+}
