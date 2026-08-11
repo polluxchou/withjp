@@ -1659,9 +1659,9 @@
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE 公認ギルド",
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
       "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp は大阪を拠点とする TikTok LIVE 公認ギルド。ダブルキャプテン制の歌唱＆ダンスグループをプロデュースし、配信トレーニングから楽曲制作までを一社で完結させる。"
+      "description": "EchoAmp は、大阪を拠点とする TikTok LIVE Creator Network。ダブルキャプテン制を軸に、女性ライバーの募集・育成からダンストレーニング、配信運営、オリジナルコンテンツ制作までを一貫して行う。"
     },
     "nav": {
       "top": "TOP",
@@ -1687,7 +1687,7 @@
       "line2": "歌って踊る配信者を見つけ出す。"
     },
     "footer": {
-      "address": "大阪市中央区難波 ／ TikTok LIVE 公認ギルド\n配信トレーニング・AIGC 映像・楽曲制作",
+      "address": "大阪市中央区難波 ／ TikTok LIVE Creator Network\n配信トレーニング・AIGC 映像・楽曲制作",
       "visionMembers": "VISION ／ MEMBERS",
       "live": "TIKTOK LIVE",
       "services": "SERVICES",
@@ -1707,27 +1707,27 @@
       ]
     },
     "home": {
-      "eyebrow": "TIKTOK LIVE OFFICIAL GUILD ／ 大阪",
-      "title1": "ダブルキャプテン制、",
-      "title2": "大阪発の歌って踊る TikTok グループ。",
-      "tagline": "ECHO FROM OSAKA NIGHT",
-      "lead": "EchoAmp は大阪を拠点とする TikTok LIVE 公認ギルド。ダブルキャプテン制の女子歌唱＆ダンスグループをプロデュースし、配信トレーニングから楽曲制作までを一社で完結させる。",
-      "ctaApply": "応募する ／ APPLY",
-      "ctaAbout": "私たちについて",
-      "heroCaption": "道頓堀の灯を、配信に",
+      "eyebrow": "TIKTOK LIVE CREATOR NETWORK ／ 大阪",
+      "title1": "大阪から、次世代の",
+      "title2": "TikTok LIVE 女性歌唱・ダンス配信グループを育てる。",
+      "tagline": "BORN IN OSAKA. BUILT FOR LIVE.",
+      "lead": "EchoAmp は、大阪を拠点とする TikTok LIVE Creator Network です。ダブルキャプテン制を軸に、女性ライバーの募集・育成から、ダンストレーニング、配信運営、オリジナルコンテンツ制作まで一貫して行い、長期的に活動できる歌唱・ダンス配信グループを育てます。",
+      "ctaApply": "メンバー募集",
+      "ctaAbout": "ECHOAMP について",
+      "heroCaption": "大阪の光を、ライブ配信の中へ。",
       "heroPlaceholder": "ヒーロー画像／MoonDollz キービジュアル",
       "stats": [
         {
-          "value": "2027",
-          "label": "大阪発・世界規模のビジョン"
+          "value": "OSAKA",
+          "label": "大阪を拠点に活動"
         },
         {
-          "value": "04",
-          "label": "トレーニング／AIGC／楽曲／着ぐるみ"
+          "value": "02 CAPTAINS",
+          "label": "ダブルキャプテン制"
         },
         {
           "value": "08–12",
-          "label": "2026 二次募集スケジュール"
+          "label": "2026 第2期メンバー募集"
         }
       ],
       "newsHead": {
@@ -1970,7 +1970,7 @@
     "live": {
       "eyebrow": "TIKTOK LIVE",
       "title": "配信スケジュール",
-      "lead": "難波スタジオから毎晩生配信。公認ギルドとして、TikTok LIVE の運営そのものを事業の中核に置く。",
+      "lead": "難波スタジオから毎晩生配信。Creator Network として、TikTok LIVE の運営そのものを事業の中核に置く。",
       "headers": {
         "day": "DAY",
         "program": "PROGRAM",
