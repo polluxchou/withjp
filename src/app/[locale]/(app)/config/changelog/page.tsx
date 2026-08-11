@@ -3,12 +3,15 @@ import { CHANGELOG, type ChangeKind, type DailyChangelog } from '@/lib/changelog
 import { getTranslations } from 'next-intl/server'
 import { Sparkles, Bug, Wrench, ShieldCheck, Cog } from 'lucide-react'
 
+// kind → tone 三件套（design-system §1.3）：rose/amber/emerald/violet-100 是
+// check-style-tokens.mjs 门禁盲区（只禁 slate/indigo/zinc/gray/stone/neutral
+// 数字阶灰，不禁其余颜色族），但仍属离系裸色，统一走语义 token。
 const KIND_STYLES: Record<ChangeKind, { bg: string; text: string; ring: string; Icon: typeof Sparkles }> = {
-  feat:     { bg: 'bg-primary-soft',  text: 'text-primary',  ring: 'ring-violet-100',  Icon: Sparkles },
-  fix:      { bg: 'bg-rose-50',    text: 'text-rose-700',    ring: 'ring-rose-100',    Icon: Bug },
-  improve:  { bg: 'bg-amber-50',   text: 'text-amber-700',   ring: 'ring-amber-100',   Icon: Wrench },
-  security: { bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-100', Icon: ShieldCheck },
-  infra:    { bg: 'bg-muted-soft', text: 'text-muted-text', ring: 'ring-line-strong', Icon: Cog },
+  feat:     { bg: 'bg-primary-soft', text: 'text-primary',      ring: 'ring-primary-border', Icon: Sparkles },
+  fix:      { bg: 'bg-danger-soft',  text: 'text-danger-text',  ring: 'ring-danger-border',  Icon: Bug },
+  improve:  { bg: 'bg-warning-soft', text: 'text-warning-text', ring: 'ring-warning-border', Icon: Wrench },
+  security: { bg: 'bg-success-soft', text: 'text-success-text', ring: 'ring-success-border', Icon: ShieldCheck },
+  infra:    { bg: 'bg-muted-soft',   text: 'text-muted-text',   ring: 'ring-line-strong',    Icon: Cog },
 }
 
 // Today is also "today" for the user — flag any entry whose date is today so
@@ -58,7 +61,7 @@ export default async function ChangelogPage({ params }: { params: { locale: stri
         <span className="px-2.5 py-1 rounded-full bg-primary-soft text-primary">
           {t('summaryFeat', { count: totalFeat })}
         </span>
-        <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700">
+        <span className="px-2.5 py-1 rounded-full bg-danger-soft text-danger-text">
           {t('summaryFix', { count: totalFix })}
         </span>
       </div>

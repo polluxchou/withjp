@@ -7,6 +7,7 @@ import { Upload } from 'lucide-react'
 import { compressImage } from './compressImage'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { UNDATED_KEY } from '@/lib/competitors/shotGrid'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 
 export default function ShotUploader({ competitorId, onDone, defaultDate }: { competitorId: string; onDone: () => void; defaultDate?: string | null }) {
   const t = useTranslations('competitors')
@@ -60,7 +61,9 @@ export default function ShotUploader({ competitorId, onDone, defaultDate }: { co
       onPaste={onPaste}
       aria-label={t('upload')}
       title={t('orPaste')}
-      className="flex shrink-0 items-center gap-1.5 rounded border border-dashed border-line px-1.5 py-1 outline-none focus-within:border-primary-border"
+      // focus-within 是"可以往这儿粘"的提示(粘贴事件会从内部控件冒泡上来);
+      // FOCUS_RING 负责整块自身获得焦点时的可见环。
+      className={`flex shrink-0 items-center gap-1.5 rounded-field border border-dashed border-line-strong px-1.5 py-1 focus-within:border-primary-border ${FOCUS_RING}`}
     >
       <input
         type="date"
@@ -68,15 +71,15 @@ export default function ShotUploader({ competitorId, onDone, defaultDate }: { co
         max={todayLocal()}
         onChange={(e) => setShotOn(e.target.value)}
         aria-label={t('shotDate')}
-        className="rounded border border-line px-1 py-0.5 text-[11px] text-ink-700"
+        className="rounded-field border border-line px-1 py-0.5 text-[11px] text-ink-700"
       />
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="flex items-center gap-1 text-[11px] text-ink-500 hover:text-ink-900 disabled:opacity-50"
+        className={`flex items-center gap-1 rounded-field text-[11px] text-ink-500 hover:text-ink-900 disabled:opacity-50 ${FOCUS_RING}`}
       >
-        <Upload size={13} />
+        <Upload size={13} strokeWidth={1.5} />
         {t('upload')}
       </button>
       <input

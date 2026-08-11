@@ -332,7 +332,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
                 textAnchor="middle" dominantBaseline="middle"
                 fontSize={7.5} fill={DANGER_DOT}
               >
-                {t('category.crossBorderBadge', { amount: fmtC(l.crossBorder) })}
+                {t('categoryChart.crossBorderBadge', { amount: fmtC(l.crossBorder) })}
               </text>
             )}
           </g>

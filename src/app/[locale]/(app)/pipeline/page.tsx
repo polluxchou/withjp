@@ -12,12 +12,14 @@ import { useTranslations, useLocale } from 'next-intl'
 import type { Creator, CreatorStatus } from '@/lib/types'
 import { fmtCompact } from '@/lib/currency'
 import { ALL_STATUSES, nextStatus, canTransition } from '@/lib/state-machine/creator-lifecycle'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 
 // 卡内四个操作按钮（reactivate/rollback/advance/terminate）共享的基底类——
 // 抽出常量防止手写重复串静默漂移（此前 terminate 就漏了 font-medium），
 // 惯例同 RecordRow.tsx 的 ROW_CLASS。调用处只追加宽度(w-full/flex-1/px-2)
-// 与语义色(text-*/hover:border-*)。
-const CARD_BTN = 'flex items-center justify-center text-xs font-medium border border-line rounded-field py-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+// 与语义色(text-*/hover:border-*)。focus 配方从 recipes.ts 拼进来（§4 唯一
+// 登记处），不在本地再抄一份串。
+const CARD_BTN = `flex items-center justify-center text-xs font-medium border border-line rounded-field py-1.5 transition-colors disabled:opacity-50 ${FOCUS_RING}`
 
 export default function PipelinePage() {
   const [creators, setCreators] = useState<Creator[]>([])

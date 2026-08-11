@@ -8,6 +8,10 @@ import ShotUploader from './ShotUploader'
 import ShotLightbox from './ShotLightbox'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
+// 格子是 overflow-hidden 的全出血容器，FOCUS_RING 的 offset 变体会被裁掉一圈，
+// 按 §4 第二配方①改用 ring-inset，故不导入 FOCUS_RING。
+const CELL_FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset'
+
 function DateCell({ shots, dateKey, selected, onOpen }: {
   shots: CompetitorShot[]
   dateKey: string
@@ -30,7 +34,7 @@ function DateCell({ shots, dateKey, selected, onOpen }: {
       <div
         role="img"
         aria-label={dateKey === UNDATED_KEY ? t('noShotUndated') : t('noShotOnDate', { date: dateKey })}
-        className={`${box} ${ring} rounded-lg border border-dashed border-line-strong`}
+        className={`${box} ${ring} rounded-field border border-dashed border-line-strong`}
       />
     )
   }
@@ -39,8 +43,8 @@ function DateCell({ shots, dateKey, selected, onOpen }: {
   const extra = shots.length - 1
 
   return (
-    <div className={`relative ${box} ${ring} overflow-hidden rounded-lg bg-canvas`}>
-      <button type="button" onClick={onOpen} className="block h-full w-full">
+    <div className={`relative ${box} ${ring} overflow-hidden rounded-field bg-line-soft`}>
+      <button type="button" onClick={onOpen} className={`block h-full w-full ${CELL_FOCUS_RING}`}>
         {/* caption 默认空串、tag 常为 null,兜底到日期,否则读屏只念"按钮" */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={cover.image_url} alt={cover.caption || cover.tag || (dateKey === UNDATED_KEY ? t('undated') : dateKey)} className="h-full w-full object-cover" loading="lazy" />
@@ -73,40 +77,29 @@ export default function ShotAlbum({
   const [openDate, setOpenDate] = useState<string | null>(null)
   const grouped = useMemo(() => groupShotsByDate(shots), [shots])
 
+  // key:defaultDate 走的是 useState 初值器,只在挂载时跑一次。
+  // 不重挂载的话,切换选中列后上传器仍停在旧日期,图会落到窗口外。
+  const uploader = (
+    <ShotUploader
+      key={selectedDate ?? 'today'}
+      competitorId={competitorId}
+      onDone={onChanged}
+      defaultDate={selectedDate}
+    />
+  )
+
   if (dateWindow.length === 0) {
     return (
       <div className="min-w-0 space-y-2">
-        <p className="text-xs text-muted-text">{t('noShots')}</p>
-        {canEdit && (
-          <div className="flex justify-end">
-            <ShotUploader
-            // key:defaultDate 走的是 useState 初值器,只在挂载时跑一次。
-            // 不重挂载的话,切换选中列后上传器仍停在旧日期,图会落到窗口外。
-            key={selectedDate ?? 'today'}
-            competitorId={competitorId}
-            onDone={onChanged}
-            defaultDate={selectedDate}
-          />
-          </div>
-        )}
+        <p className="text-xs text-ink-500">{t('noShots')}</p>
+        {canEdit && <div className="flex justify-end">{uploader}</div>}
       </div>
     )
   }
 
   return (
     <div className="min-w-0">
-      {canEdit && (
-        <div className="mb-2 flex justify-end">
-          <ShotUploader
-            // key:defaultDate 走的是 useState 初值器,只在挂载时跑一次。
-            // 不重挂载的话,切换选中列后上传器仍停在旧日期,图会落到窗口外。
-            key={selectedDate ?? 'today'}
-            competitorId={competitorId}
-            onDone={onChanged}
-            defaultDate={selectedDate}
-          />
-        </div>
-      )}
+      {canEdit && <div className="mb-2 flex justify-end">{uploader}</div>}
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${SHOT_WINDOW_SIZE}, minmax(0, 1fr))` }}>
         {dateWindow.map((d) => (
           <DateCell

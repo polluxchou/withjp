@@ -6,6 +6,7 @@ import type { ChangeEvent, ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import SegmentedControl from '@/components/ui/SegmentedControl'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import {
   VENUE_ITEM_STATUS_OPTIONS,
   VENUE_ITEM_TYPE_OPTIONS,
@@ -53,8 +54,9 @@ type Props = {
 }
 
 // 面板内所有图标按钮共用的方形按钮外观（design-system §3 形状 / §4 focus）。
+// focus 配方从 recipes.ts 拼入（§4 唯一登记处），本地不再抄一份串。
 const ICON_BUTTON_CLASS =
-  'w-9 h-9 inline-flex items-center justify-center rounded-field transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+  `w-9 h-9 inline-flex items-center justify-center rounded-field transition-colors ${FOCUS_RING}`
 
 export default function VenueInspector({ item, layerIndex, layerCount, collapsed, storeyHeightCm, emptyStateActions, placedItems = [], placedItemsTotalCost = 0, onOpenItems, onToggleCollapsed, onChange, onMoveLayer, onDelete }: Props) {
   const t = useTranslations('venue')

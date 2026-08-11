@@ -208,7 +208,8 @@
     "paymentMethodPlaceholder": "e.g. Company card",
     "paymentStatus": "Payment status *",
     "selectStatus": "Select status",
-    "addDevice": "Add device"
+    "addDevice": "Add device",
+    "editDevice": "Edit device"
   },
   "currency": {
     "switchHint": "Switch the displayed currency at fixed rates (1 USD = 7 CNY; 1 CNY = 20 JPY)"
@@ -872,7 +873,8 @@
     "listTitle": "Expense records",
     "sortByLabel": "Sort by",
     "toggleSortDir": "Toggle sort direction",
-    "category": {
+    "category": "Category",
+    "categoryChart": {
       "viewPie": "Pie",
       "viewSankey": "Flow",
       "crossBorderTooltip": "Cross-border transfer cost {amount}",
@@ -1023,7 +1025,8 @@
     "content": "Content",
     "growth": "Growth",
     "legal": "Legal",
-    "tech": "Tech"
+    "tech": "Tech",
+    "pmo": "PMO"
   },
   "financeForecast": {
     "pageTitle": "Finance Forecast",
@@ -1064,6 +1067,10 @@
     "stageNameTest": "Test",
     "chartBreakdown": "P&L Breakdown",
     "chartCumulative": "Cumulative",
+    "chartStacked": "Stacked",
+    "chartLines": "Lines",
+    "chartIndexed": "Indexed",
+    "chartTabsLabel": "Chart view switcher",
     "noViewHint": "No visible forecast views yet — click to create the first one",
     "noViewEmpty": "No visible forecast views.",
     "noViewGuide": "Create a forecast scenario from the View menu above to get started.",
@@ -1103,6 +1110,8 @@
     "revenueTitle": "Revenue Forecast",
     "ariaCollapse": "Collapse",
     "ariaExpand": "Expand",
+    "ariaDeleteRow": "Delete row",
+    "ariaAddAccountMenu": "Open add-account menu",
     "allYear": "Full Year",
     "copyPrevMonth": "Copy from last month",
     "applyForward": "Apply to subsequent months",
@@ -1635,6 +1644,7 @@
     "uploadFailed": "Upload failed",
     "noShots": "No screenshots yet",
     "undated": "Undated",
+    "shotPreview": "Screenshot preview",
     "bio": "Bio",
     "fieldMembers": "Members",
     "fieldComposition": "Type",
