@@ -22,6 +22,8 @@ on:
       - 'scripts/check-i18n.mjs'
       - 'scripts/check-no-bare-han.mjs'
       - 'scripts/check-style-tokens.mjs'
+      # 正向校验从这里读已登记 token：只删/改注册项的 PR 也必须触发门禁
+      - 'tailwind.config.ts'
       - 'docs/copy-glossary.md'
       - '.github/workflows/copy.yml'
   push:
