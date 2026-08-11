@@ -1713,6 +1713,7 @@ npx next dev --port 3011
 1. 页面顶部出现日期条，显示 5 个 `MM-DD`，最右一个默认高亮
 2. 每个竞品卡片的相册是 5 列等宽网格，没图的格子是虚线空框
 3. **跨卡片竖着看**：不同竞品卡的第 N 列左边缘对齐、宽度一致
+3b. **把界面切到英文再看一遍第 3、4 条**。中文下 1024px 恰好为零漂移，英文下 compact 曲线更宽会把子卡第一格撑开——只用中文测会漏掉（Task 15 Step 1 的成因）。另外把窗口收到 ~1200px 再看一次中文
 4. **日期条的 chip 正好压在它标注的那一列上方**——格子里不显示任何日期文字，日期条是屏幕上唯一能看到日期的地方，错位了用户就只能数格子。重点看第 1 个和第 5 个 chip 的中线是否对准对应列的中线
 4. 展开某个有关联主播的竞品，**子主播卡的列与父卡的列也对齐**（无缩进、同列宽）。这条要认真量，不要扫一眼就过——子卡曾经带着自己的边框和 `p-3` 套在父卡的 `p-4` 里，列宽差 3.9px、到第 5 列累计 21px。重点比第 5 列的右边缘
 5. 点日期条上另一天 → 该列在所有卡片里同时高亮
@@ -1723,7 +1724,9 @@ npx next dev --port 3011
 10. 未点过日期条时上传一张图 → 轴新增该列且自动选中；先点定某天再上传 → 选中态不动（见 Task 13 的行为说明）
 11. **有无日期图时默认选中的仍是最新那天**，不是末尾的「未标日期」列（`resolveAnchor` 的已知坑，代码质量审查捞出来的）
 12. 展开一个有关联主播的竞品：只有折叠子卡才有图的那些日期，会在父卡这一行显示为空列。这是结构对齐的既定代价，确认它看起来是「那天父卡没图」而不是「页面坏了」
-13. 用 `resize_window` 切到 mobile：卡片外层是 `max-md:grid-cols-1`，但相册内部是硬编码 5 列，手机上每列约 60px。确认不至于糊成一片；若不可用，记下来但**不要**在本轮扩大范围去改
+13. 往下滚两张卡，**日期条应该吸顶不走**（Task 15 Step 5）。若没吸住，多半是某个祖先元素带了 `overflow: hidden`——sticky 会静默失效，需要找出来
+14. 显式点定一个较早的日期，再上传一张图：应落在那一天、当场可见，而不是落到今天跑出窗口（Task 15 Step 6）
+15. 用 `resize_window` 切到 mobile：卡片外层是 `max-md:grid-cols-1`，但相册内部是硬编码 5 列，手机上每列约 60px。确认不至于糊成一片；若不可用，记下来但**不要**在本轮扩大范围去改
 
 - [ ] **Step 4: 检查浏览器控制台**
 
@@ -1741,6 +1744,205 @@ git push -u origin feat/competitor-shot-date-columns
 ```
 
 PR 走 `gh pr create`，目标分支 `main`。**不要直接推 main。**
+
+---
+
+### Task 15: 装配后审查捞出的修复
+
+Task 12/13 落地后第一次能整体看这个特性，代码质量审查在无头浏览器里实测布局，发现两个会直接击穿特性的 CSS 缺陷，外加四条会在实机验证时立刻现形的问题。都是计划缺陷。
+
+**Files:**
+- Modify: `src/lib/competitors/shotGrid.ts`
+- Modify: `src/components/competitors/WeeklyFollowersCurve.tsx`
+- Modify: `src/components/competitors/CompetitorCard.tsx`
+- Modify: `src/components/competitors/CompetitorDossierView.tsx`
+- Modify: `src/components/competitors/ShotDateStrip.tsx`
+- Modify: `src/components/competitors/ShotAlbum.tsx`
+- Modify: `src/components/competitors/ShotUploader.tsx`
+- Modify: `src/components/competitors/ShotLightbox.tsx`
+
+- [ ] **Step 1: `1fr` 的 min-content 下限会撑开第一格,列就此对不齐**
+
+`grid-cols-[1fr_3fr]` 里的 `1fr` 实际是 `minmax(auto, 1fr)`，`auto` 作为下限解析为 **min-content**。`ShotAlbum` 有 `min-w-0` 所以它那格是安全的；compact 版的 `WeeklyFollowersCurve` 没有——它是个 flex **行**，装着硬编码的 `w-24`（96px）迷你图加三段文字加三个 `gap-2`，min-content 英文下约 283px、中日文约 226px。而顶层卡用的非 compact 版是 flex **列**，min-content 只有约 70px。
+
+于是子卡的第一格被撑到 283px 而顶层卡是 244.5px，相册那格相应被挤窄：
+
+| 语言 | 容器 | 顶层轨道 | 子卡轨道 | 第 5 列漂移 |
+|---|---|---|---|---|
+| en | 1024 | 244.5 / 733.5 | 283.4 / 694.6 | +7.8px |
+| en | 900 | 213.5 / 640.5 | 283.4 / 570.6 | +14.0px |
+| zh | 1024 | 244.5 / 733.5 | 244.5 / 733.5 | 0（刚好塞得下） |
+| zh | 900 | 213.5 / 640.5 | 226.0 / 628.0 | +2.5px |
+
+**英文界面下子卡永远对不齐，即使在 `max-w-5xl` 的最大宽度**；中文下 1024px 刚好为零，窗口一窄就漂——正是「只用中文测就发现不了」的那类 bug。Task 12 抹平边框和内边距是必要的，但只统一了内容盒，没管轨道尺寸算法本身还依赖内容。
+
+`src/components/competitors/CompetitorCard.tsx`，把：
+
+```tsx
+      <div className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1">
+```
+
+改为：
+
+```tsx
+      {/* 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开 */}
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1">
+```
+
+`src/components/competitors/ShotDateStrip.tsx` 里那行同样改（两处必须一致，否则日期条和相册各算各的）：
+
+```tsx
+        className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1"
+```
+
+- [ ] **Step 2: compact 曲线补 self-start / min-w-0 / shrink-0**
+
+Task 12 把 compact 曲线从 `space-y-2` 竖排搬进了 grid 单元格，但 grid 项默认 `align-items: stretch`——非 compact 分支有 `self-start`，compact 分支没有（以前不需要）。于是一个 32px 高的小条被拉到 249px，和相册齐高；而它的底色又是 `bg-canvas`，和子卡外壳同色，看上去就是「一行粉丝数字浮在 250px 的空白正中间」，像布局坏了。
+
+`src/components/competitors/WeeklyFollowersCurve.tsx` 的 compact 分支，把：
+
+```tsx
+      <div className="flex items-center gap-2 rounded-md bg-canvas px-2.5 py-1.5 text-xs">
+        <span className="text-ink-500">{t('weeklyFollowers')}</span>
+```
+
+改为：
+
+```tsx
+      {/* self-start:grid 项默认 stretch,否则 32px 的小条会被拉到和相册齐高。
+          min-w-0 + truncate + shrink-0:让它在窄格里收缩而不是撑破轨道(见 Step 1)。 */}
+      <div className="flex min-w-0 items-center gap-2 self-start rounded-md bg-canvas px-2.5 py-1.5 text-xs">
+        <span className="truncate text-ink-500">{t('weeklyFollowers')}</span>
+```
+
+并给迷你图那个 span 加 `shrink-0`：
+
+```tsx
+          <span className="relative ml-auto h-5 w-24 shrink-0" role="img" aria-label={seriesLabel}>
+```
+
+- [ ] **Step 3: 轨道数固定为 5,不随轴长收缩**
+
+`windowOf` 在轴短于 5 时返回全部，`ShotAlbum` 又按 `repeat(dateWindow.length, ...)` 铺轨道。于是只有 1 个拍摄日期时，那一格占满 733.5px 宽，`aspect-[9/16]` 推出来 **1304px 高**；2 个日期各 645px。刚建好的看板正是这个状态，实机验证第一眼就会撞上。
+
+把列数钉死为 5、只渲染 `dateWindow.length` 个子元素，尾部轨道留空——顺带让列几何变成与轴长无关的常量，正合这个特性的核心不变式。
+
+`src/lib/competitors/shotGrid.ts` 末尾导出常量（放这里而不是 `CompetitorDossierView`，因为现在有三个文件要用同一个值）：
+
+```ts
+/** 日期窗口列数：一屏横向对比 5 天。三处渲染必须用同一个值,否则列对不齐。 */
+export const SHOT_WINDOW_SIZE = 5
+```
+
+`src/components/competitors/CompetitorDossierView.tsx`：删掉本地的 `const SHOT_WINDOW_SIZE = 5`，改从 `@/lib/competitors/shotGrid` 一起 import。
+
+`src/components/competitors/ShotAlbum.tsx` 与 `src/components/competitors/ShotDateStrip.tsx`：import `SHOT_WINDOW_SIZE`，并把两处的
+
+```tsx
+style={{ gridTemplateColumns: `repeat(${dateWindow.length}, minmax(0, 1fr))` }}
+```
+
+都改成
+
+```tsx
+style={{ gridTemplateColumns: `repeat(${SHOT_WINDOW_SIZE}, minmax(0, 1fr))` }}
+```
+
+- [ ] **Step 4: 子卡层级感——用 ring 而不是 border**
+
+`--canvas` 是 `#faf9fc`，`bg-white` 是 `#ffffff`，对比度约 **1.02:1**——笔记本屏幕稍微侧一点就完全看不见边界。旧版那点微弱底色是靠边框、2px 左规、12px 缩进三样一起撑着的，现在三样全没了，子卡会读成父卡里散落的内容而不是它的下级。
+
+不能用 `border`（会重新引入横向内边距差，Step 1 好不容易才抹平）。`ring` 是 box-shadow，完全不参与盒模型：
+
+`src/components/competitors/CompetitorCard.tsx`：
+
+```tsx
+  const shell = nested
+    // 子卡不能有自己的边框和横向内边距:那会让它的内容盒比父卡窄 26px,
+    // 同比例的 1fr_3fr 落进去,列宽就对不上了。层级感改用 ring——
+    // box-shadow 不参与盒模型,拿不走一个像素的宽度。
+    ? 'rounded-lg bg-muted-soft py-3 ring-1 ring-inset ring-line'
+    : 'rounded-xl border border-zinc-200 bg-white p-4'
+```
+
+`bg-muted-soft` 合成到白底上约 `#f3f2f4`，比 `bg-canvas` 的色差大约 2.5 倍；同时它和 compact 曲线的 `bg-canvas` 不再同色，Step 2 那个小条也就看得见了。
+
+- [ ] **Step 5: 日期条吸顶**
+
+格子里刻意不显示日期文字，日期条是屏幕上唯一能看到日期的地方。但它是 `div.space-y-3` 的静态首个子元素——几张卡片加上展开的子主播之后就滚出视野，只剩选中列那圈 ring 还在。「竖着看一列」这件事没了表头就做不成。
+
+`src/components/competitors/ShotDateStrip.tsx`，最外层：
+
+```tsx
+    // 吸顶:格子里没有日期文字,滚走了就没法对应列。需要不透明底色,
+    // 否则卡片会从 chip 底下穿过去。
+    <div className="sticky top-0 z-10 bg-canvas px-4 py-2">
+```
+
+- [ ] **Step 6: 上传器默认落在选中的那一天**
+
+`ShotUploader` 永远默认今天，且 `ShotAlbum` 从没告诉过它当前选中哪一列。默认状态下看不出问题（`anchorDate` 为 null 时选中态跟着最新一天走，传今天的图正好把窗口拉过去）。但用户显式点定某天、往回翻之后再上传，图落在今天、在窗口之外，相册毫无变化——看上去就是上传失败了。
+
+`src/components/competitors/ShotUploader.tsx`，props 加一个可选初值：
+
+```tsx
+export default function ShotUploader({ competitorId, onDone, defaultDate }: { competitorId: string; onDone: () => void; defaultDate?: string | null }) {
+```
+
+并把初始 state 改为：
+
+```tsx
+  // 落在用户当前正在看的那一天,否则显式选了旧日期再上传会像是没反应
+  const [shotOn, setShotOn] = useState(
+    () => (defaultDate && defaultDate !== UNDATED_KEY ? defaultDate : todayLocal()),
+  )
+```
+
+需要 `import { UNDATED_KEY } from '@/lib/competitors/shotGrid'`。
+
+`src/components/competitors/ShotAlbum.tsx` 两处 `<ShotUploader ... />` 都补 `defaultDate={selectedDate}`。
+
+- [ ] **Step 7: 三处小修**
+
+`src/components/competitors/ShotAlbum.tsx`：
+
+1. 无日期列的封面 `alt` 会变成裸的 `—`。改为 `alt={cover.caption || cover.tag || (dateKey === UNDATED_KEY ? t('undated') : dateKey)}`，和空格子分支的处理保持一致。
+2. 空格子的虚线用的是 `border-line-soft`（5% 不透明度），在子卡底色上几乎看不见——而这些占位格正是「那天没有截图」的唯一信号。改为 `border-line-strong`。
+
+`src/components/competitors/ShotLightbox.tsx`：
+
+3. `removeCurrent` 里 `onChanged()` 没有 await，`setBusy(false)` 立刻执行，于是 refetch 往返的那 100–500ms 里屏幕上还挂着刚删掉的那张图、计数还显示「2 / 3」。终态会自愈，但紧跟在一个破坏性操作之后，用户多半会以为删除失败了。把 props 里的 `onChanged` 类型放宽并 await：
+
+```tsx
+  onChanged: () => void | Promise<void>
+```
+
+```tsx
+      await onChanged()
+      if (shots.length <= 1) onClose()
+```
+
+`saveDate` 里同样改成 `await onChanged()`。按钮在这段窗口里保持 disabled，`disabled:opacity-50` 正好是「处理中」的视觉。
+
+- [ ] **Step 8: 类型检查与全部闸门**
+
+```bash
+npx tsc --noEmit
+npm run test:copy
+npm test 2>&1 | tail -5
+```
+
+预期：`tsc` 无输出；`test:copy` 全过；293/293。
+
+注意 `CompetitorCard.tsx` 的样式违规数会从 30 再降（`bg-zinc-50` 换成了 `bg-muted-soft`），低于基线是非致命提示。
+
+- [ ] **Step 9: 提交**
+
+```bash
+git rev-parse --abbrev-ref HEAD
+git add src/lib/competitors/shotGrid.ts src/components/competitors/WeeklyFollowersCurve.tsx src/components/competitors/CompetitorCard.tsx src/components/competitors/CompetitorDossierView.tsx src/components/competitors/ShotDateStrip.tsx src/components/competitors/ShotAlbum.tsx src/components/competitors/ShotUploader.tsx src/components/competitors/ShotLightbox.tsx
+git commit -m "fix(competitors): 修复轨道被 min-content 撑开导致的列错位,日期条吸顶"
+```
 
 ---
 
