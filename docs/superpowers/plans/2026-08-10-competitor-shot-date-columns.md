@@ -80,6 +80,7 @@ test('UNDATED_KEY: 无日期占位键', () => {
 test('isValidShotDate: 合法日期与 null', () => {
   assert.equal(isValidShotDate('2026-08-10'), true)
   assert.equal(isValidShotDate('2026-02-28'), true)
+  assert.equal(isValidShotDate('2024-02-29'), true) // 闰年
   assert.equal(isValidShotDate(null), true)
   assert.equal(isValidShotDate(undefined), true)
 })
@@ -87,7 +88,15 @@ test('isValidShotDate: 合法日期与 null', () => {
 test('isValidShotDate: 越界月日', () => {
   assert.equal(isValidShotDate('2026-13-01'), false)
   assert.equal(isValidShotDate('2026-02-30'), false)
+  assert.equal(isValidShotDate('2026-02-29'), false) // 平年无 2/29
   assert.equal(isValidShotDate('2026-00-10'), false)
+})
+
+test('isValidShotDate: 年份超出合理范围', () => {
+  // <input type="date"> 手滑很容易打出 0020 这种年份
+  assert.equal(isValidShotDate('0000-01-01'), false)
+  assert.equal(isValidShotDate('0020-08-10'), false)
+  assert.equal(isValidShotDate('3000-01-01'), false)
 })
 
 test('isValidShotDate: 格式不合规', () => {
@@ -124,13 +133,21 @@ export const UNDATED_KEY = '—'
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * shot_on 是否合法：null / undefined（表示不设置）或真实存在的 YYYY-MM-DD 日历日。
- * 用 toISOString 回读比对，挡掉 2026-02-30 这类会被 Date 自动进位的假日期。
+ * shot_on 是否合法：null / undefined 或真实存在的 YYYY-MM-DD 日历日。
+ *
+ * 这是**写入前的入参守卫**，不是通用的格式判定：null 表示"显式清空日期"、
+ * undefined 表示"本次不改这个字段"，两者都必须放行，所以 null 合法而空串不合法。
+ * 别拿它去校验文本框输入。
+ *
+ * 用 toISOString 回读比对，挡掉 2026-02-30 这类会被 Date 自动进位的假日期；
+ * 年份另外卡范围，否则 0020-08-10 这种手滑值会在日期轴上拉出一列两千年前的孤儿。
  */
 export function isValidShotDate(value: unknown): boolean {
   if (value === null || value === undefined) return true
   if (typeof value !== 'string') return false
   if (!DATE_RE.test(value)) return false
+  const year = Number(value.slice(0, 4))
+  if (year < 1900 || year > 2999) return false
   const d = new Date(value + 'T00:00:00Z')
   if (Number.isNaN(d.getTime())) return false
   return d.toISOString().slice(0, 10) === value
@@ -143,7 +160,7 @@ export function isValidShotDate(value: unknown): boolean {
 node --test --experimental-strip-types src/lib/competitors/shotGrid.test.ts
 ```
 
-预期：PASS，5 个 test 全绿
+预期：PASS，6 个 test 全绿
 
 - [ ] **Step 5: 把新测试文件接进 npm test**
 
@@ -157,7 +174,7 @@ node --test --experimental-strip-types src/lib/competitors/shotGrid.test.ts
 npm test 2>&1 | tail -20
 ```
 
-预期：输出的 `# tests` 总数比改动前增加 5，且 `# fail 0`
+预期：输出的 `# tests` 总数比改动前增加 6，且 `# fail 0`（改动前基线 260）
 
 - [ ] **Step 7: 提交**
 
@@ -314,7 +331,7 @@ export function collectShotDates(competitors: CompetitorWithHistory[]): string[]
 node --test --experimental-strip-types src/lib/competitors/shotGrid.test.ts
 ```
 
-预期：PASS，10 个 test 全绿
+预期：PASS，11 个 test 全绿
 
 - [ ] **Step 5: 提交**
 
@@ -406,7 +423,7 @@ export function windowOf(axis: string[], anchorIndex: number, size: number): str
 node --test --experimental-strip-types src/lib/competitors/shotGrid.test.ts
 ```
 
-预期：PASS，17 个 test 全绿
+预期：PASS，18 个 test 全绿
 
 - [ ] **Step 5: 提交**
 
@@ -459,6 +476,15 @@ test('resolveAnchor: anchor 本身是 UNDATED_KEY 但已脱轴时取最新一天
   assert.equal(resolveAnchor(['2026-08-01', '2026-08-05'], UNDATED_KEY), '2026-08-05')
 })
 
+test('resolveAnchor: 轴尾有 UNDATED_KEY 时默认仍取最新的有日期那天', () => {
+  // collectShotDates 把占位键追加在轴尾,不能直接拿 axis 末位当"最新一天"
+  assert.equal(resolveAnchor(['2026-08-01', '2026-08-05', UNDATED_KEY], null), '2026-08-05')
+})
+
+test('resolveAnchor: 轴上只剩 UNDATED_KEY 时返回占位键', () => {
+  assert.equal(resolveAnchor([UNDATED_KEY], '2026-08-01'), UNDATED_KEY)
+})
+
 test('resolveAnchor: 空轴返回 null', () => {
   assert.equal(resolveAnchor([], '2026-08-01'), null)
   assert.equal(resolveAnchor([], null), null)
@@ -486,9 +512,11 @@ node --test --experimental-strip-types src/lib/competitors/shotGrid.test.ts
 export function resolveAnchor(axis: string[], anchor: string | null): string | null {
   if (!axis.length) return null
   if (anchor && axis.includes(anchor)) return anchor
-  const newest = axis[axis.length - 1]
-  if (!anchor || anchor === UNDATED_KEY) return newest
+  // 注意：UNDATED_KEY 被 collectShotDates 追加在轴尾，所以"最新一天"必须从
+  // 过滤掉占位键的 dated 里取，不能直接拿 axis 的末位。
   const dated = axis.filter((d) => d !== UNDATED_KEY)
+  const newest = dated.length ? dated[dated.length - 1] : axis[axis.length - 1]
+  if (!anchor || anchor === UNDATED_KEY) return newest
   if (!dated.length) return newest
   const target = Date.parse(anchor + 'T00:00:00Z')
   if (Number.isNaN(target)) return dated[dated.length - 1]
@@ -511,7 +539,7 @@ export function resolveAnchor(axis: string[], anchor: string | null): string | n
 node --test --experimental-strip-types src/lib/competitors/shotGrid.test.ts
 ```
 
-预期：PASS，24 个 test 全绿
+预期：PASS，27 个 test 全绿
 
 - [ ] **Step 5: 提交**
 
@@ -572,6 +600,12 @@ test('groupShotsByDate: shot_on 为空归入 UNDATED_KEY', () => {
 test('groupShotsByDate: 空输入返回空 Map', () => {
   assert.equal(groupShotsByDate([]).size, 0)
 })
+
+test('groupShotsByDate: 不修改入参数组的顺序', () => {
+  const input = [shotAt('b', '2026-08-01', 2, '2026-08-01T00:00:00Z'), shotAt('a', '2026-08-01', 1, '2026-08-01T00:00:00Z')]
+  groupShotsByDate(input)
+  assert.deepEqual(input.map((s) => s.id), ['b', 'a'])
+})
 ```
 
 - [ ] **Step 2: 跑测试确认失败**
@@ -612,7 +646,7 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
 node --test --experimental-strip-types src/lib/competitors/shotGrid.test.ts
 ```
 
-预期：PASS，29 个 test 全绿
+预期：PASS，33 个 test 全绿
 
 - [ ] **Step 5: 跑全量测试 + 类型检查**
 
@@ -809,9 +843,11 @@ export default function ShotDateStrip({
   const atStart = axis.indexOf(first) <= 0
   const atEnd = axis.indexOf(last) >= axis.length - 1
 
-  const step = (delta: number) => {
+  // 整屏翻:轴上累积几个月后逐天点会点到手废
+  const step = (direction: -1 | 1) => {
     const anchor = selectedDate ?? last
-    const next = axis[Math.min(Math.max(axis.indexOf(anchor) + delta, 0), axis.length - 1)]
+    const target = axis.indexOf(anchor) + direction * dateWindow.length
+    const next = axis[Math.min(Math.max(target, 0), axis.length - 1)]
     if (next) onPick(next)
   }
 
@@ -1562,6 +1598,9 @@ npx next dev --port 3011
 8. 灯箱里改日期保存 → 页面刷新，该图跳到新日期列
 9. 上传控件在相册右上角，带日期输入，不占据任何一列
 10. 未点过日期条时上传一张图 → 轴新增该列且自动选中；先点定某天再上传 → 选中态不动（见 Task 13 的行为说明）
+11. **有无日期图时默认选中的仍是最新那天**，不是末尾的「未标日期」列（`resolveAnchor` 的已知坑，代码质量审查捞出来的）
+12. 展开一个有关联主播的竞品：只有折叠子卡才有图的那些日期，会在父卡这一行显示为空列。这是结构对齐的既定代价，确认它看起来是「那天父卡没图」而不是「页面坏了」
+13. 用 `resize_window` 切到 mobile：卡片外层是 `max-md:grid-cols-1`，但相册内部是硬编码 5 列，手机上每列约 60px。确认不至于糊成一片；若不可用，记下来但**不要**在本轮扩大范围去改
 
 - [ ] **Step 4: 检查浏览器控制台**
 
