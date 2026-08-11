@@ -71,7 +71,7 @@ export default function TasksPage() {
     } finally {
       setAiLoading(false)
     }
-  }, [filter])
+  }, [filter, tCommon])
 
   useEffect(() => { if (mainTab === 'ai') loadAI() }, [loadAI, mainTab])
 
@@ -126,7 +126,7 @@ export default function TasksPage() {
     } finally {
       setWlLoading(false)
     }
-  }, [period, dayDate])
+  }, [period, dayDate, tCommon])
 
   useEffect(() => { if (mainTab === 'workload') loadWorkloads() }, [loadWorkloads, mainTab])
 

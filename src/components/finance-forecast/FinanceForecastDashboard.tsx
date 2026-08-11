@@ -159,7 +159,9 @@ export default function FinanceForecastDashboard({
   const prevByYearRef = useRef<Record<number, ForecastMonthInput[]>>(initialByYear)
   const prevViewIdRef = useRef<string | null>(defaultViewId)
 
-  const months = byYear[selectedYear] ?? []
+  // Memoised so the `?? []` fallback doesn't hand a fresh array to the
+  // `summary` memo below on every render.
+  const months = useMemo(() => byYear[selectedYear] ?? [], [byYear, selectedYear])
   const summary = useMemo(() => summarizeForecast(months), [months])
   const safeSelectedMonth = Math.min(Math.max(0, selectedMonth), Math.max(0, summary.months.length - 1))
   const selected = summary.months[safeSelectedMonth]

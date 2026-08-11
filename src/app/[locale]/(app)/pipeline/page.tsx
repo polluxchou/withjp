@@ -31,8 +31,6 @@ export default function PipelinePage() {
   const tCommon = useTranslations('common')
   const tStatus = useTranslations('status')
 
-  // tCommon 不进依赖：同 locale 下 next-intl 引用稳定，与 creators/page.tsx
-  // 的 load() 同判。
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -51,7 +49,7 @@ export default function PipelinePage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [tCommon])
 
   useEffect(() => { load() }, [load])
 
