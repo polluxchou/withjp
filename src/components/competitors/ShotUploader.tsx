@@ -5,24 +5,14 @@ import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
 import { compressImage } from './compressImage'
-
-/**
- * 本地时区的今天。不能用 toISOString——那是 UTC，
- * 对 UTC+8 团队每天 08:00 前会算成昨天，而 shot_on 是整个日期轴的主键。
- */
-function today(): string {
-  const d = new Date()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${mm}-${dd}`
-}
+import { todayLocal } from '@/lib/competitors/localDate'
 
 export default function ShotUploader({ competitorId, onDone }: { competitorId: string; onDone: () => void }) {
   const t = useTranslations('competitors')
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [shotOn, setShotOn] = useState(today)
+  const [shotOn, setShotOn] = useState(todayLocal)
 
   const onPick = async (file: File) => {
     setBusy(true)
@@ -66,11 +56,12 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
       onPaste={onPaste}
       aria-label={t('upload')}
       title={t('orPaste')}
-      className="flex shrink-0 items-center gap-1.5 rounded border border-dashed border-line px-1.5 py-1 outline-none focus:border-primary-border"
+      className="flex shrink-0 items-center gap-1.5 rounded border border-dashed border-line px-1.5 py-1 outline-none focus-within:border-primary-border"
     >
       <input
         type="date"
         value={shotOn}
+        max={todayLocal()}
         onChange={(e) => setShotOn(e.target.value)}
         aria-label={t('shotDate')}
         className="rounded border border-line px-1 py-0.5 text-[11px] text-ink-700"

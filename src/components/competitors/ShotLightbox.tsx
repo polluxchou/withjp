@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
+import { todayLocal } from '@/lib/competitors/localDate'
 
 export default function ShotLightbox({
   shots, canEdit, onClose, onChanged,
@@ -68,7 +69,9 @@ export default function ShotLightbox({
       const res = await fetch(`/api/competitors/shots/${current.id}`, { method: 'DELETE' })
       if (!res.ok) { setError(t('actionFailed')); return }
       onChanged()
-      onClose()
+      // 只在删掉最后一张时才关。否则清理某天的多张图要"开→删→关→再开"
+      // 循环一遍;留着不关的话,refetch 后 shots 变短、idx 自动夹逼,直接看下一张。
+      if (shots.length <= 1) onClose()
     } catch {
       setError(t('actionFailed'))
     } finally {
@@ -120,6 +123,7 @@ export default function ShotLightbox({
               <input
                 type="date"
                 value={dateInput}
+                max={todayLocal()}
                 onChange={(e) => setDateInput(e.target.value)}
                 className="rounded border border-line-strong px-1.5 py-0.5 text-ink-900"
               />
