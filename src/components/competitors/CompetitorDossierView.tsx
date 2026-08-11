@@ -142,7 +142,9 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
             </Select>
           )}
           <Button onClick={add} loading={pending}>
-            <Plus size={16} strokeWidth={1.5} /> {t('addButton')}
+            {pending
+              ? t('addButton')
+              : <><Plus size={16} strokeWidth={1.5} /> {t('addButton')}</>}
           </Button>
         </div>
       )}
