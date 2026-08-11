@@ -82,7 +82,7 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 官网挂在 `/[locale]/site` 下，与内部后台的 `(app)` 路由组平级但不共享 layout。`src/middleware.ts` 的 `PUBLIC_PATHS` 增加了 `/site`，因此不走 Supabase 会话检查 —— 这是它能被公网访问的唯一开关。
 
-生产官网域名为 `echoamp.agenova.chat`，middleware 按 `host` 做路由隔离：
+生产官网域名为 `eacn.agenova.chat`，middleware 按 `host` 做路由隔离：
 
 - `/`、`/news`、`/recruit` 等干净路径内部 rewrite 到 `/ja/site/*`，浏览器地址不暴露 `/site`
 - `/zh/*`、`/en/*` 映射到对应语言；无语言前缀时默认日文
