@@ -3,9 +3,11 @@ name: copy
 # Guards the i18n + design-token contract:
 #   * messages/zh.json and messages/en.json must have identical key shape
 #   * No new JSX file may introduce bare Chinese (use useTranslations() instead)
-#   * No new file may introduce slate/indigo/zinc/gray/stone/neutral/bare-hex
+#   * No file may introduce slate/indigo/zinc/gray/stone/neutral/bare-hex
 #     styling (see docs/design-system.md); scripts/check-style-tokens.mjs
-#     enforces this against scripts/style-tokens-baseline.json
+#     enforces this with zero tolerance — the migration baseline was retired
+#     on 2026-08-11, exceptions now live in the script's WHITELIST or in
+#     per-line `style-tokens-ignore` comments
 # All checks are pure Node scripts and need no extra install beyond the
 # project's existing devDependencies.
 
@@ -20,7 +22,6 @@ on:
       - 'scripts/check-i18n.mjs'
       - 'scripts/check-no-bare-han.mjs'
       - 'scripts/check-style-tokens.mjs'
-      - 'scripts/style-tokens-baseline.json'
       - 'docs/copy-glossary.md'
       - '.github/workflows/copy.yml'
   push:
