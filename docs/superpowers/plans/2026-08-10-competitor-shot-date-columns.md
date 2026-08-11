@@ -850,14 +850,16 @@ export default function ShotDateStrip({
   onPick: (date: string) => void
 }) {
   const t = useTranslations('competitors')
-  if (axis.length === 0) return null
+  // dateWindow 才是渲染依据,axis 非空不代表窗口非空
+  if (axis.length === 0 || dateWindow.length === 0) return null
 
   const first = dateWindow[0]
   const last = dateWindow[dateWindow.length - 1]
   const atStart = axis.indexOf(first) <= 0
   const atEnd = axis.indexOf(last) >= axis.length - 1
 
-  // 整屏翻:轴上累积几个月后逐天点会点到手废
+  // 整屏翻,且连选中的那天一起挪 —— 高亮永远留在屏幕上。
+  // 轴上累积几个月后逐天点会点到手废。
   const step = (direction: -1 | 1) => {
     const anchor = selectedDate ?? last
     const target = axis.indexOf(anchor) + direction * dateWindow.length
@@ -866,48 +868,63 @@ export default function ShotDateStrip({
   }
 
   return (
-    <div className="flex items-center gap-2" role="group" aria-label={t('shotDates')}>
-      <button
-        type="button"
-        onClick={() => step(-1)}
-        disabled={atStart}
-        aria-label={t('earlierDates')}
-        className="shrink-0 rounded border border-line px-1 py-1 text-ink-500 hover:text-ink-900 disabled:opacity-40"
+    // 外层 px-4 对齐卡片的 p-4,内层复刻卡片的 grid-cols-[1fr_3fr] gap-3。
+    // 这是必须的:格子里不显示任何日期文字,日期条是屏幕上唯一能看到日期的地方,
+    // chip 必须正好落在它标注的那一列上方,否则用户只能靠数格子来对应。
+    <div className="px-4">
+      <div
+        className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1"
+        role="group"
+        aria-label={t('shotDates')}
       >
-        <ChevronLeft size={14} />
-      </button>
-      <div className="grid flex-1 gap-2" style={{ gridTemplateColumns: `repeat(${dateWindow.length}, minmax(0, 1fr))` }}>
-        {dateWindow.map((d) => (
+        <div className="flex items-center justify-end gap-1 max-md:justify-start">
           <button
-            key={d}
             type="button"
-            onClick={() => onPick(d)}
-            aria-pressed={d === selectedDate}
-            className={`truncate rounded px-1 py-1 text-center text-[11px] ${
-              d === selectedDate
-                ? 'bg-primary-soft text-primary'
-                : 'text-ink-500 hover:bg-row-hover'
-            }`}
+            onClick={() => step(-1)}
+            disabled={atStart}
+            aria-label={t('earlierDates')}
+            className="rounded border border-line px-1 py-1 text-ink-500 hover:text-ink-900 disabled:opacity-40"
           >
-            {d === UNDATED_KEY ? t('undated') : d.slice(5)}
+            <ChevronLeft size={14} />
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={() => step(1)}
+            disabled={atEnd}
+            aria-label={t('laterDates')}
+            className="rounded border border-line px-1 py-1 text-ink-500 hover:text-ink-900 disabled:opacity-40"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${dateWindow.length}, minmax(0, 1fr))` }}>
+          {dateWindow.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => onPick(d)}
+              aria-pressed={d === selectedDate}
+              title={d === UNDATED_KEY ? undefined : d}
+              aria-label={d === UNDATED_KEY ? undefined : d}
+              className={`truncate rounded px-1 py-1 text-center text-[11px] ${
+                d === selectedDate
+                  ? 'bg-primary-soft text-primary'
+                  : 'text-ink-500 hover:bg-row-hover'
+              }`}
+            >
+              {d === UNDATED_KEY ? t('undated') : d.slice(5)}
+            </button>
+          ))}
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={() => step(1)}
-        disabled={atEnd}
-        aria-label={t('laterDates')}
-        className="shrink-0 rounded border border-line px-1 py-1 text-ink-500 hover:text-ink-900 disabled:opacity-40"
-      >
-        <ChevronRight size={14} />
-      </button>
     </div>
   )
 }
 ```
 
-日期 chip 显示 `d.slice(5)` 即 `MM-DD`，省掉年份让 5 列在卡片宽度内不挤。
+日期 chip 只显示 `d.slice(5)` 即 `MM-DD`，省掉年份让 5 列在列宽内不挤；完整日期挂在 `title` 和 `aria-label` 上，跨年时不会有 `08-10` 到底是哪年的歧义。
+
+外层的 `px-4` 与卡片 `p-4` 差 1px 边框，列宽累计漂移不超过 2px，肉眼不可见；Task 14 会目视确认。
 
 - [ ] **Step 2: 类型检查 + 闸门**
 
@@ -960,16 +977,22 @@ export default function ShotLightbox({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const current = shots[index]
+  // 渲染期夹逼,不放 useEffect:effect 版本在 shots 变短时会先渲染出
+  // current === undefined 的一帧(整个灯箱闪掉),effect 跑完才回来。
+  const idx = Math.min(index, Math.max(shots.length - 1, 0))
+  const current = shots[idx]
 
+  // 依赖 id 而不是对象本身,这样不依赖调用方有没有把 shots 记忆化
   useEffect(() => {
     setDateInput(current?.shot_on ?? '')
     setError(null)
-  }, [current])
+  }, [current?.id])
 
   useEffect(() => {
-    if (shots.length && index > shots.length - 1) setIndex(shots.length - 1)
-  }, [shots.length, index])
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   if (!current) return null
 
@@ -982,7 +1005,9 @@ export default function ShotLightbox({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shot_on: dateInput || null }),
       })
-      if (!res.ok) { setError(t('shotDateInvalid')); return }
+      // 只有 400 才是日期本身的问题;401/500 也说成"日期格式不对"
+      // 会让人反复重打一个根本没错的日期
+      if (!res.ok) { setError(res.status === 400 ? t('shotDateInvalid') : t('actionFailed')); return }
       onChanged()
       onClose()
     } catch {
@@ -995,6 +1020,7 @@ export default function ShotLightbox({
   const removeCurrent = async () => {
     if (!confirm(t('deleteShotConfirm'))) return
     setBusy(true)
+    setError(null)
     try {
       const res = await fetch(`/api/competitors/shots/${current.id}`, { method: 'DELETE' })
       if (!res.ok) { setError(t('actionFailed')); return }
@@ -1012,13 +1038,18 @@ export default function ShotLightbox({
       className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/70 p-6"
       onClick={onClose}
       role="dialog"
-      aria-modal="true"
+      aria-label={current.shot_on ?? t('undated')}
     >
+      {/*
+        不写 aria-modal:本仓约定是没有 focus trap 就不许声明它
+        (见 tasks/page.tsx 的同款注释),否则等于骗读屏说外面已经 inert。
+        全套 focus trap 在 components/ui/Modal.tsx,这里用不上,Esc 关闭已够。
+      */}
       <div className="flex max-h-[80vh] items-center gap-3" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.max(i - 1, 0))}
-          disabled={index === 0}
+          onClick={() => setIndex(Math.max(idx - 1, 0))}
+          disabled={idx === 0}
           aria-label={t('prevShot')}
           className="rounded bg-black/50 p-2 text-white disabled:opacity-30"
         >
@@ -1028,8 +1059,8 @@ export default function ShotLightbox({
         <img src={current.image_url} alt={current.caption || current.tag || ''} className="max-h-[80vh] max-w-full rounded-lg" />
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.min(i + 1, shots.length - 1))}
-          disabled={index >= shots.length - 1}
+          onClick={() => setIndex(Math.min(idx + 1, shots.length - 1))}
+          disabled={idx >= shots.length - 1}
           aria-label={t('nextShot')}
           className="rounded bg-black/50 p-2 text-white disabled:opacity-30"
         >
@@ -1038,7 +1069,7 @@ export default function ShotLightbox({
       </div>
 
       <div className="flex items-center gap-3 text-xs text-white" onClick={(e) => e.stopPropagation()}>
-        <span>{t('shotIndexOf', { index: index + 1, total: shots.length })}</span>
+        <span>{t('shotIndexOf', { index: idx + 1, total: shots.length })}</span>
         {canEdit && (
           <>
             <label className="flex items-center gap-1">
@@ -1047,7 +1078,7 @@ export default function ShotLightbox({
                 type="date"
                 value={dateInput}
                 onChange={(e) => setDateInput(e.target.value)}
-                className="rounded border border-line px-1.5 py-0.5 text-ink-900"
+                className="rounded border border-line-strong px-1.5 py-0.5 text-ink-900"
               />
             </label>
             <button
@@ -1074,11 +1105,21 @@ export default function ShotLightbox({
         </button>
       </div>
 
-      {error && <p className="text-xs text-white">{error}</p>}
+      {error && (
+        <p
+          role="status"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded bg-danger-strong px-2 py-1 text-xs text-white"
+        >
+          {error}
+        </p>
+      )}
     </div>
   )
 }
 ```
+
+几处不显眼但要紧的：错误提示做成实心 danger 药丸而不是白字——白字和下面的 `2 / 3` 计数长得一模一样，出错了看不出来；红字在 `bg-black/70` 蒙层上对比度只有 2.2:1，比白字还差。`role="status"` 让读屏播报。它自己也要 `stopPropagation`，否则点自己的报错会把弹窗关掉。
 
 `hover:bg-danger-strong` 用的是 `danger.strong`，已登记在 `tailwind.config.ts`。
 
@@ -1334,6 +1375,8 @@ export default function ShotAlbum({
       </div>
       {openDate && (
         <ShotLightbox
+          // key 保证换一天就重新挂载,index 不会带着上一天的值过来
+          key={openDate}
           shots={grouped.get(openDate) ?? []}
           canEdit={canEdit}
           onClose={() => setOpenDate(null)}
@@ -1615,6 +1658,7 @@ npx next dev --port 3011
 1. 页面顶部出现日期条，显示 5 个 `MM-DD`，最右一个默认高亮
 2. 每个竞品卡片的相册是 5 列等宽网格，没图的格子是虚线空框
 3. **跨卡片竖着看**：不同竞品卡的第 N 列左边缘对齐、宽度一致
+4. **日期条的 chip 正好压在它标注的那一列上方**——格子里不显示任何日期文字，日期条是屏幕上唯一能看到日期的地方，错位了用户就只能数格子。重点看第 1 个和第 5 个 chip 的中线是否对准对应列的中线
 4. 展开某个有关联主播的竞品，**子主播卡的列与父卡的列也对齐**（无缩进、同列宽）
 5. 点日期条上另一天 → 该列在所有卡片里同时高亮
 6. 点左右箭头 → 窗口平移，所有卡片同步换列

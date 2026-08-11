@@ -83,9 +83,11 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
 页面级日期条，渲染在竞品卡片列表上方：
 
 - 窗口内 5 个日期 chip，当前 `anchorDate` 高亮
-- 左右箭头各翻 1 列；到轴端点时禁用
+- 左右箭头整屏翻（一次 5 天），并且连选中的那天一起挪，所以高亮永远留在屏幕上；到轴端点时禁用
 - 点某个 chip 即设为 `anchorDate`
 - 轴为空时整条不渲染
+
+**日期条必须与相册列严格同宽同起点**：`DateCell` 里不显示任何日期文字，这条日期条是屏幕上唯一能看到日期的地方。所以它的外层要用 `px-4` 对齐卡片的 `p-4`，内层复刻卡片的 `grid-cols-[1fr_3fr] gap-3`，chip 网格落在 `3fr` 那一格、与相册用同样的 `gap-2`；左右箭头收进 `1fr` 那一格右对齐。做成简单的全宽 flex 会让 chip 悬在粉丝曲线上方而不是它标注的列上方。
 
 ### `ShotAlbum` 重构
 
