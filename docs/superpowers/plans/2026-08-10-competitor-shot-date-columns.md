@@ -1499,7 +1499,31 @@ export default function CompetitorCard({
 
 这样子卡和顶层卡的相册列宽、左起点完全一致。
 
-- [ ] **Step 3: 去掉 related 区块的缩进**
+- [ ] **Step 3: 抹平子卡自己的边框与横向内边距**
+
+只统一内层 grid 是不够的。子卡的 `shell` 自带 `border` + `p-3`，又套在父卡的 `p-4` + 1px 边框里，于是同样的 `1fr_3fr` 比例落在一个更小的盒子上——列宽差约 3.9px，到第 5 列累计约 21px，是列宽的 13%，肉眼明显。
+
+把：
+
+```tsx
+  const shell = nested
+    ? 'rounded-lg border border-zinc-100 bg-zinc-50 p-3'
+    : 'rounded-xl border border-zinc-200 bg-white p-4'
+```
+
+改为：
+
+```tsx
+  const shell = nested
+    // 子卡不能有自己的边框和横向内边距:那会让它的内容盒比父卡窄 26px,
+    // 同比例的 1fr_3fr 落进去,列宽就对不上了。层级感交给底色。
+    ? 'rounded-lg bg-canvas py-3'
+    : 'rounded-xl border border-zinc-200 bg-white p-4'
+```
+
+这样子卡内容盒与父卡内容盒**完全等宽等起点**，列才真对得齐。顺带把 `border-zinc-100` 和 `bg-zinc-50` 两处违规也消掉。
+
+- [ ] **Step 4: 去掉 related 区块的缩进**
 
 把：
 
@@ -1515,7 +1539,7 @@ export default function CompetitorCard({
 
 层级感由子卡已有的 `bg-zinc-50` 底色承担。顺带让 `CompetitorCard.tsx` 的样式违规数减 1（基线 33 → 32，非致命）。
 
-- [ ] **Step 4: 递归传给子卡**
+- [ ] **Step 5: 递归传给子卡**
 
 在 `c.related.map((child) => (<CompetitorCard ... />))` 里补两个 prop：
 
@@ -1524,7 +1548,7 @@ export default function CompetitorCard({
                   selectedDate={selectedDate}
 ```
 
-- [ ] **Step 5: 类型检查**
+- [ ] **Step 6: 类型检查**
 
 ```bash
 npx tsc --noEmit
@@ -1532,7 +1556,7 @@ npx tsc --noEmit
 
 预期：报 `CompetitorDossierView.tsx` 没传新 prop —— 预期内，Task 13 修。确认报错**只**来自 `CompetitorDossierView.tsx`。
 
-- [ ] **Step 6: 暂不提交**
+- [ ] **Step 7: 暂不提交**
 
 与 Task 13 存在编译期耦合，一起提交。
 
@@ -1659,7 +1683,7 @@ npx next dev --port 3011
 2. 每个竞品卡片的相册是 5 列等宽网格，没图的格子是虚线空框
 3. **跨卡片竖着看**：不同竞品卡的第 N 列左边缘对齐、宽度一致
 4. **日期条的 chip 正好压在它标注的那一列上方**——格子里不显示任何日期文字，日期条是屏幕上唯一能看到日期的地方，错位了用户就只能数格子。重点看第 1 个和第 5 个 chip 的中线是否对准对应列的中线
-4. 展开某个有关联主播的竞品，**子主播卡的列与父卡的列也对齐**（无缩进、同列宽）
+4. 展开某个有关联主播的竞品，**子主播卡的列与父卡的列也对齐**（无缩进、同列宽）。这条要认真量，不要扫一眼就过——子卡曾经带着自己的边框和 `p-3` 套在父卡的 `p-4` 里，列宽差 3.9px、到第 5 列累计 21px。重点比第 5 列的右边缘
 5. 点日期条上另一天 → 该列在所有卡片里同时高亮
 6. 点左右箭头 → 窗口平移，所有卡片同步换列
 7. 点一个有 `+N` 角标的格子 → 灯箱打开，左右能切换，计数正确
