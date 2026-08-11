@@ -25,14 +25,27 @@ export const SITE_NAV: SiteNavItem[] = [
 
 export const RECRUIT_HREF = `${SITE_BASE}/recruit`
 
+const CLEAN_SITE_SECTION_RE = /^\/(?:news|vision|live|services|contact|recruit)(?:\/.*)?$/
+
 /**
  * 导航激活判定。TOP 必须精确匹配，否则每个子页都会把 TOP 点亮
  * （子页路径都以 /site 开头）。
  */
 export function isNavActive(pathname: string, href: string): boolean {
-  const stripped = stripLocale(pathname)
+  const stripped = normalizeSiteNavigationPath(pathname)
   if (href === SITE_BASE) return stripped === SITE_BASE || stripped === `${SITE_BASE}/`
   return stripped === href || stripped.startsWith(`${href}/`)
+}
+
+/**
+ * 官网独立域名把 /ja/site/news 暴露为 /news。导航仍以 /site/* 为唯一内部模型，
+ * 所以在比较激活态前把干净 URL 映射回来；未知路径保持原样，避免误亮。
+ */
+export function normalizeSiteNavigationPath(pathname: string): string {
+  const stripped = stripLocale(pathname)
+  if (stripped === '/') return SITE_BASE
+  if (CLEAN_SITE_SECTION_RE.test(stripped)) return `${SITE_BASE}${stripped}`
+  return stripped
 }
 
 /** 去掉 /zh /en /ja 前缀，得到与 SITE_NAV.href 同构的路径。 */

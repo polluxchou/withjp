@@ -6,14 +6,14 @@ import {
   matchesAppMiddlewarePath,
 } from './middleware-matcher.ts'
 
-test('matcher excludes API routes at the edge entrypoint', () => {
+test('matcher includes API routes so host routing can isolate the public domain', () => {
   assert.equal(
     MIDDLEWARE_MATCHER,
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'
   )
-  assert.equal(matchesAppMiddlewarePath('/api'), false)
-  assert.equal(matchesAppMiddlewarePath('/api/creators'), false)
-  assert.equal(matchesAppMiddlewarePath('/api/profile'), false)
+  assert.equal(matchesAppMiddlewarePath('/api'), true)
+  assert.equal(matchesAppMiddlewarePath('/api/creators'), true)
+  assert.equal(matchesAppMiddlewarePath('/api/site/applications'), true)
 })
 
 test('matcher still includes localized app pages', () => {

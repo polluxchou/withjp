@@ -26,6 +26,15 @@ test('works whether or not the pathname carries a locale prefix', () => {
   }
 })
 
+test('clean public-domain paths activate the existing site navigation entries', () => {
+  assert.equal(isNavActive('/', SITE_BASE), true)
+  assert.equal(isNavActive('/ja', SITE_BASE), true)
+  assert.equal(isNavActive('/news', '/site/news'), true)
+  assert.equal(isNavActive('/zh/news/launch', '/site/news'), true)
+  assert.equal(isNavActive('/en/recruit', '/site/recruit'), true)
+  assert.equal(isNavActive('/unknown', '/site/news'), false)
+})
+
 test('stripLocale leaves non-locale paths untouched', () => {
   assert.equal(stripLocale('/site/news'), '/site/news')
   assert.equal(stripLocale('/jazz/site'), '/jazz/site')
