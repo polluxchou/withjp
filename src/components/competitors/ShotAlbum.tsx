@@ -79,7 +79,14 @@ export default function ShotAlbum({
         <p className="text-xs text-muted-text">{t('noShots')}</p>
         {canEdit && (
           <div className="flex justify-end">
-            <ShotUploader competitorId={competitorId} onDone={onChanged} defaultDate={selectedDate} />
+            <ShotUploader
+            // key:defaultDate 走的是 useState 初值器,只在挂载时跑一次。
+            // 不重挂载的话,切换选中列后上传器仍停在旧日期,图会落到窗口外。
+            key={selectedDate ?? 'today'}
+            competitorId={competitorId}
+            onDone={onChanged}
+            defaultDate={selectedDate}
+          />
           </div>
         )}
       </div>
@@ -90,7 +97,14 @@ export default function ShotAlbum({
     <div className="min-w-0">
       {canEdit && (
         <div className="mb-2 flex justify-end">
-          <ShotUploader competitorId={competitorId} onDone={onChanged} defaultDate={selectedDate} />
+          <ShotUploader
+            // key:defaultDate 走的是 useState 初值器,只在挂载时跑一次。
+            // 不重挂载的话,切换选中列后上传器仍停在旧日期,图会落到窗口外。
+            key={selectedDate ?? 'today'}
+            competitorId={competitorId}
+            onDone={onChanged}
+            defaultDate={selectedDate}
+          />
         </div>
       )}
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${SHOT_WINDOW_SIZE}, minmax(0, 1fr))` }}>

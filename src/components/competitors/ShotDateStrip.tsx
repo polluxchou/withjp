@@ -32,12 +32,12 @@ export default function ShotDateStrip({
   }
 
   return (
-    // 外层 px-4 对齐卡片的 p-4,内层复刻卡片的 grid-cols-[1fr_3fr] gap-3。
+    // 外层 px-4 对齐卡片的 p-4,内层复刻卡片的 minmax(0,1fr)/minmax(0,3fr) 轨道与 gap-3。
     // 这是必须的:格子里不显示任何日期文字,日期条是屏幕上唯一能看到日期的地方,
     // chip 必须正好落在它标注的那一列上方,否则用户只能靠数格子来对应。
     // 吸顶:格子里没有日期文字,滚走了就没法对应列。需要不透明底色,
     // 否则卡片会从 chip 底下穿过去。
-    <div className="sticky top-0 z-10 bg-canvas px-4 py-2">
+    <div className="sticky top-0 z-10 bg-atmosphere px-4 py-2">
       <div
         className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1"
         role="group"
