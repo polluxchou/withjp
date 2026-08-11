@@ -50,10 +50,14 @@ export default function ProfileEditor({ open, onClose, onSuccess }: ProfileEdito
     }
   }
 
+  // Fire once per open, not per render: `loadProfile` is a plain function
+  // declaration re-created every render, so listing it would refetch the
+  // profile continuously while the modal is open.
   useEffect(() => {
     if (open) {
       loadProfile()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   async function loadProfile() {

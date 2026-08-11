@@ -81,6 +81,9 @@ export default function SalaryManager() {
     }
   }
 
+  // Mount-once load: `load` is a plain function declaration re-created every
+  // render, so listing it would turn this into a per-render refetch loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [])
 
   function openCreate() {
