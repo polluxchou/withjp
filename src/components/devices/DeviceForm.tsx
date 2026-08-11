@@ -1,5 +1,10 @@
 'use client'
 
+// 当前无任何调用方：/devices 页已 redirect 到 /expenses（设备管理功能已被
+// 支出管理取代），src 全树搜不到 import DeviceForm 的地方。保留并迁到
+// 共享 Modal + Field 系（对齐 ItemForm）是有意为之，不是遗留死代码——
+// 如果设备管理将来重新独立成一个页面，可以直接接线复用，不必从头重写。
+
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Modal from '@/components/ui/Modal'
