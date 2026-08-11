@@ -19,6 +19,7 @@ test('UNDATED_KEY: 无日期占位键', () => {
 test('isValidShotDate: 合法日期与 null', () => {
   assert.equal(isValidShotDate('2026-08-10'), true)
   assert.equal(isValidShotDate('2026-02-28'), true)
+  assert.equal(isValidShotDate('2024-02-29'), true) // 闰年
   assert.equal(isValidShotDate(null), true)
   assert.equal(isValidShotDate(undefined), true)
 })
@@ -26,7 +27,15 @@ test('isValidShotDate: 合法日期与 null', () => {
 test('isValidShotDate: 越界月日', () => {
   assert.equal(isValidShotDate('2026-13-01'), false)
   assert.equal(isValidShotDate('2026-02-30'), false)
+  assert.equal(isValidShotDate('2026-02-29'), false) // 平年无 2/29
   assert.equal(isValidShotDate('2026-00-10'), false)
+})
+
+test('isValidShotDate: 年份超出合理范围', () => {
+  // <input type="date"> 手滑很容易打出 0020 这种年份
+  assert.equal(isValidShotDate('0000-01-01'), false)
+  assert.equal(isValidShotDate('0020-08-10'), false)
+  assert.equal(isValidShotDate('3000-01-01'), false)
 })
 
 test('isValidShotDate: 格式不合规', () => {
@@ -178,6 +187,15 @@ test('resolveAnchor: anchor 本身是 UNDATED_KEY 但已脱轴时取最新一天
   assert.equal(resolveAnchor(['2026-08-01', '2026-08-05'], UNDATED_KEY), '2026-08-05')
 })
 
+test('resolveAnchor: 轴尾有 UNDATED_KEY 时默认仍取最新的有日期那天', () => {
+  // collectShotDates 把占位键追加在轴尾,不能直接拿 axis 末位当"最新一天"
+  assert.equal(resolveAnchor(['2026-08-01', '2026-08-05', UNDATED_KEY], null), '2026-08-05')
+})
+
+test('resolveAnchor: 轴上只剩 UNDATED_KEY 时返回占位键', () => {
+  assert.equal(resolveAnchor([UNDATED_KEY], '2026-08-01'), UNDATED_KEY)
+})
+
 test('resolveAnchor: 空轴返回 null', () => {
   assert.equal(resolveAnchor([], '2026-08-01'), null)
   assert.equal(resolveAnchor([], null), null)
@@ -220,4 +238,10 @@ test('groupShotsByDate: shot_on 为空归入 UNDATED_KEY', () => {
 
 test('groupShotsByDate: 空输入返回空 Map', () => {
   assert.equal(groupShotsByDate([]).size, 0)
+})
+
+test('groupShotsByDate: 不修改入参数组的顺序', () => {
+  const input = [shotAt('b', '2026-08-01', 2, '2026-08-01T00:00:00Z'), shotAt('a', '2026-08-01', 1, '2026-08-01T00:00:00Z')]
+  groupShotsByDate(input)
+  assert.deepEqual(input.map((s) => s.id), ['b', 'a'])
 })

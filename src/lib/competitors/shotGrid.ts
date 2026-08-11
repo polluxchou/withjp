@@ -8,13 +8,21 @@ export const UNDATED_KEY = '—'
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * shot_on 是否合法：null / undefined（表示不设置）或真实存在的 YYYY-MM-DD 日历日。
- * 用 toISOString 回读比对，挡掉 2026-02-30 这类会被 Date 自动进位的假日期。
+ * shot_on 是否合法：null / undefined 或真实存在的 YYYY-MM-DD 日历日。
+ *
+ * 这是**写入前的入参守卫**，不是通用的格式判定：null 表示"显式清空日期"、
+ * undefined 表示"本次不改这个字段"，两者都必须放行，所以 null 合法而空串不合法。
+ * 别拿它去校验文本框输入。
+ *
+ * 用 toISOString 回读比对，挡掉 2026-02-30 这类会被 Date 自动进位的假日期；
+ * 年份另外卡范围，否则 0020-08-10 这种手滑值会在日期轴上拉出一列两千年前的孤儿。
  */
 export function isValidShotDate(value: unknown): boolean {
   if (value === null || value === undefined) return true
   if (typeof value !== 'string') return false
   if (!DATE_RE.test(value)) return false
+  const year = Number(value.slice(0, 4))
+  if (year < 1900 || year > 2999) return false
   const d = new Date(value + 'T00:00:00Z')
   if (Number.isNaN(d.getTime())) return false
   return d.toISOString().slice(0, 10) === value
@@ -66,9 +74,11 @@ export function windowOf(axis: string[], anchorIndex: number, size: number): str
 export function resolveAnchor(axis: string[], anchor: string | null): string | null {
   if (!axis.length) return null
   if (anchor && axis.includes(anchor)) return anchor
-  const newest = axis[axis.length - 1]
-  if (!anchor || anchor === UNDATED_KEY) return newest
+  // 注意：UNDATED_KEY 被 collectShotDates 追加在轴尾，所以"最新一天"必须从
+  // 过滤掉占位键的 dated 里取，不能直接拿 axis 的末位。
   const dated = axis.filter((d) => d !== UNDATED_KEY)
+  const newest = dated.length ? dated[dated.length - 1] : axis[axis.length - 1]
+  if (!anchor || anchor === UNDATED_KEY) return newest
   if (!dated.length) return newest
   const target = Date.parse(anchor + 'T00:00:00Z')
   if (Number.isNaN(target)) return dated[dated.length - 1]
