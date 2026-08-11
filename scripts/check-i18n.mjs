@@ -334,6 +334,9 @@ function scanFile(filePath, text) {
           // key is fully computed under the root namespace.
           dynamicPrefixes.add(ns === undefined ? '*' : dynamicPrefix(arg, ns) || '*')
         } else {
+          // A static key under an unresolvable namespace tells us nothing about
+          // which message it hits, so treat the whole tree as reachable.
+          if (ns === undefined) dynamicPrefixes.add('*')
           references.push({
             path: ns ? `${ns}.${key}` : key,
             method,
