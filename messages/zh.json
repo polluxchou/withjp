@@ -2155,7 +2155,7 @@
           "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
           "rows": [
             { "label": "公司名称", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
-            { "label": "代表", "value": "ZHANG QIAN" },
+            { "label": "代表", "value": "CHEN HAO" },
             { "label": "成立・所在地", "value": "2021年／大阪市浪速区" },
             { "label": "业务内容", "value": "ライブ配信キャストの採用・オフライン運営" },
             { "label": "所在地", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" }
