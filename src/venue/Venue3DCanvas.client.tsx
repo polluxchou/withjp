@@ -245,6 +245,9 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
   )
 
   return (
+    // 【成套·勿单边改】容器底色 bg-slate-50 与下方场景 <color args={['#f8fafc']} /> 取同一个值：
+    // WebGL 预热/降级期间画面尚未出图，先由 DOM 底色顶上，两者同值才不会闪一下变色。
+    // 改其中一处必须同步改另一处（design-system 门禁白名单内，spec §6「画布语义色不动」）。
     <div ref={containerRef} className={`relative h-full min-h-[560px] w-full bg-slate-50${spaceHeld ? ' cursor-grab' : ''}`}>
       <Canvas
         shadows={false}
@@ -257,6 +260,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         <InitOrbitTarget target={orbitTarget} />
         <CeilingView nonce={ceilingNonce} floor={floor} />
         <SceneProjector entries={labelEntries} onUpdate={onProjected} onCameraDir={setCameraDir} />
+        {/* 与外层容器 bg-slate-50 同值配对，防预热期闪变，勿单边改 */}
         <color attach="background" args={['#f8fafc']} />
         <ambientLight intensity={0.65} />
         <directionalLight position={[floor.width, floor.height * 2, floor.height]} intensity={0.45} />

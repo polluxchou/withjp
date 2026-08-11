@@ -175,7 +175,20 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 ## 7. 治理
 
-1. `scripts/check-style-tokens.mjs`（挂 `test:copy` + CI `copy.yml`）：禁 slate/indigo/zinc/gray/stone/neutral 数字阶灰、裸 hex、固定透明度 token 带 `/N`、`text-base`；基线机制见 spec §4，终态零容忍；确有例外可整行加注释含 `style-tokens-ignore` 豁免。另做正向校验：`text-/bg-/border-/ring-` 等 + token 家族的用法，其色阶/变体必须真实登记于 `tailwind.config.ts`，未登记即致命（不走基线、`--update-baseline` 也拦）——不存在的类名不会被 Tailwind 生成、样式静默失效（教训：`text-ink-600`，ink 只登记了 900/700/500/400）
+1. `scripts/check-style-tokens.mjs`（挂 `test:copy` + CI `copy.yml`）是**零容忍硬门禁**：禁 slate/indigo/zinc/gray/stone/neutral 数字阶灰、裸 hex、固定透明度 token 带 `/N`、`text-base`，白名单外命中一处即失败。另做正向校验：`text-/bg-/border-/ring-` 等 + token 家族的用法，其色阶/变体必须真实登记于 `tailwind.config.ts`，未登记即致命——不存在的类名不会被 Tailwind 生成、样式静默失效（教训：`text-ink-600`，ink 只登记了 900/700/500/400）。正向校验对**全库生效，文件白名单也不豁免**
+   - **行级豁免**：确有必要的单行，整行加注释含 `style-tokens-ignore` 即跳过（禁用样式扫描与正向校验同时跳过）
+   - **文件白名单**（写死在脚本 `WHITELIST`，只豁免禁用样式扫描；新增条目须在脚本内注明理由并同步本表）：
+
+     | 文件 | 理由 |
+     |---|---|
+     | `src/lib/chart-theme.ts` | 图表色板唯一定义处，hex 就是它的产物（§1.5） |
+     | `src/app/globals.css` | token CSS 变量定义处，hex 是 token 本身的取值 |
+     | `src/venue/VenueCanvas.tsx` | 场馆 2D 平面图：纸面/网格/家具类型色属工程制图语义，非 UI chrome |
+     | `src/venue/Venue3DCanvas.client.tsx` | 场馆 3D 视图：three.js 材质/场景色同上，需与 2D 同色系对齐 |
+     | `src/app/[locale]/login/page.tsx` | 登录页是独立营销位，不属后台设计系统辖区 |
+
+   - 后三者的 DOM/画布配色是**成套**的（桌面灰↔纸面白↔网格线；3D 容器底↔场景 `<color>`），源码就地有成对注释，改一处必须同步另一处
+   - **基线机制已退役**：2026-08-11（UI 改造 PR4）存量清零后删除 `scripts/style-tokens-baseline.json`，`--update-baseline` / `--allow-increase` 一并从脚本移除；此后欠账不再有「记账」出口，只有上面两种显式豁免
 2. 组件准入流程见 §6 开头；PR 中出现新的裸样式组合需在描述中说明原因
 3. 本文件与实现不一致 = bug：以先修正的一方为准并同 PR 同步另一方
 4. 图表新增系列色、状态新增枚举、z-index 新增层：先登记本文件，再写代码
