@@ -1707,27 +1707,27 @@
       ]
     },
     "home": {
-      "eyebrow": "TIKTOK LIVE CREATOR NETWORK ／ 大阪",
-      "title1": "在大阪，培养下一代",
-      "title2": "TikTok LIVE 女子唱跳直播团。",
-      "tagline": "BORN IN OSAKA. BUILT FOR LIVE.",
-      "lead": "EchoAmp 是以大阪为据点的 TikTok LIVE Creator Network。我们以双队长制为核心，招募并培养女子直播创作者，从舞蹈训练、直播运营到原创内容制作，持续打造长期发展的女子唱跳直播团体。",
-      "ctaApply": "报名 ／ APPLY",
-      "ctaAbout": "了解 ECHOAMP",
+      "eyebrow": "TIKTOK LIVE 创作者网络",
+      "title1": "在大阪，打造",
+      "title2": "女子唱跳直播团。",
+      "tagline": "回响自大阪。",
+      "lead": "招募、训练、直播、内容制作。EchoAmp 与创作者一起成长。",
+      "ctaApply": "报名",
+      "ctaAbout": "了解 EchoAmp",
       "heroCaption": "把大阪的灯火，搬进直播间。",
       "heroPlaceholder": "主视觉／MoonDollz 关键视觉",
       "stats": [
         {
-          "value": "OSAKA",
-          "label": "扎根大阪，本地运营"
+          "value": "2026.09",
+          "label": "第一期成员招募"
         },
         {
-          "value": "02 CAPTAINS",
-          "label": "双队长培养体系"
+          "value": "2026.11",
+          "label": "第二期成员招募"
         },
         {
-          "value": "08–12",
-          "label": "2026 第二期成员招募"
+          "value": "2027.03",
+          "label": "正式成团"
         }
       ],
       "newsHead": {
