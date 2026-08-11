@@ -8,15 +8,20 @@ import ShotUploader from './ShotUploader'
 import ShotLightbox from './ShotLightbox'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
-function DateCell({ shots, dateKey, compact, selected, onOpen }: {
+function DateCell({ shots, dateKey, selected, onOpen }: {
   shots: CompetitorShot[]
   dateKey: string
-  compact: boolean
   selected: boolean
   onOpen: () => void
 }) {
   const t = useTranslations('competitors')
-  const box = compact ? 'h-32' : 'h-[46vh] min-h-[300px]'
+  // 宽度由网格决定,高度必须交给比例。旧缩略图是 h-[46vh] w-[26vh],两个维度
+  // 都绑在 vh 上所以比例恒为 9:16、其实不裁;只留高度那一半的话,1080p 上一张
+  // 竖屏截图会被 object-cover 横向裁掉约 40%,大屏近 60% —— 并排主播、右侧
+  // 礼物榜、左侧弹幕列全在被切掉的那两条里,只剩中间一条看得出"有人在播"。
+  const box = 'aspect-[9/16]'
+  // 描边两个分支都要:一列里空格子越多,越需要它告诉你看的是同一天
+  const ring = selected ? 'ring-2 ring-primary' : ''
 
   if (!shots.length) {
     // role="img" 是必要的：aria-label 挂在裸 div 上多数读屏根本不播报。
@@ -25,7 +30,7 @@ function DateCell({ shots, dateKey, compact, selected, onOpen }: {
       <div
         role="img"
         aria-label={dateKey === UNDATED_KEY ? t('noShotUndated') : t('noShotOnDate', { date: dateKey })}
-        className={`${box} rounded-lg border border-dashed border-line-soft`}
+        className={`${box} ${ring} rounded-lg border border-dashed border-line-soft`}
       />
     )
   }
@@ -34,10 +39,11 @@ function DateCell({ shots, dateKey, compact, selected, onOpen }: {
   const extra = shots.length - 1
 
   return (
-    <div className={`relative ${box} overflow-hidden rounded-lg bg-canvas ${selected ? 'ring-2 ring-primary' : ''}`}>
+    <div className={`relative ${box} ${ring} overflow-hidden rounded-lg bg-canvas`}>
       <button type="button" onClick={onOpen} className="block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cover.image_url} alt={cover.caption || cover.tag || ''} className="h-full w-full object-cover" loading="lazy" />
+        {/* caption 默认空串、tag 常为 null,兜底到日期,否则读屏只念"按钮" */}
+        <img src={cover.image_url} alt={cover.caption || cover.tag || dateKey} className="h-full w-full object-cover" loading="lazy" />
       </button>
       {extra > 0 && (
         <span className="pointer-events-none absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
@@ -54,7 +60,7 @@ function DateCell({ shots, dateKey, compact, selected, onOpen }: {
 }
 
 export default function ShotAlbum({
-  competitorId, shots, canEdit, onChanged, dateWindow, selectedDate, compact = false,
+  competitorId, shots, canEdit, onChanged, dateWindow, selectedDate,
 }: {
   competitorId: string
   shots: CompetitorShot[]
@@ -62,7 +68,6 @@ export default function ShotAlbum({
   onChanged: () => void
   dateWindow: string[]
   selectedDate: string | null
-  compact?: boolean
 }) {
   const t = useTranslations('competitors')
   const [openDate, setOpenDate] = useState<string | null>(null)
@@ -72,7 +77,11 @@ export default function ShotAlbum({
     return (
       <div className="min-w-0 space-y-2">
         <p className="text-xs text-muted-text">{t('noShots')}</p>
-        {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} />}
+        {canEdit && (
+          <div className="flex justify-end">
+            <ShotUploader competitorId={competitorId} onDone={onChanged} />
+          </div>
+        )}
       </div>
     )
   }
@@ -90,7 +99,6 @@ export default function ShotAlbum({
             key={d}
             shots={grouped.get(d) ?? []}
             dateKey={d}
-            compact={compact}
             selected={d === selectedDate}
             onOpen={() => setOpenDate(d)}
           />
