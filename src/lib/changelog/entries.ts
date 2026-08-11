@@ -30,6 +30,13 @@ export const CHANGELOG: DailyChangelog[] = [
     date: '2026-08-11',
     items: [
       {
+        kind: 'improve',
+        scope: '对外官网',
+        title: '官网首屏换定位口径：从「公认公会」改为 TikTok LIVE Creator Network',
+        details:
+          '首屏整块文案三语同步换新：顶部定位改为 TIKTOK LIVE CREATOR NETWORK ／ 大阪，主标题改成「在大阪，培养下一代 TikTok LIVE 女子唱跳直播团」，英文视觉 slogan 换成 BORN IN OSAKA. BUILT FOR LIVE.，正文改为以双队长制为核心讲招募与培养链路，两个按钮改为「报名 ／ APPLY」和「了解 ECHOAMP」。主视觉右侧的竖排小文案从「道顿堀」上收到「大阪」——首屏承担的是整个品牌定位，道顿堀、心斋桥这些留给后面介绍团体文化时再用。底部三格原本是 2027 ／ 04 ／ 08–12，第一眼看不懂，现在改成 OSAKA ／ 02 CAPTAINS ／ 08–12，每格都配一句说明（据点、双队长培养体系、2026 第二期成员招募）。首屏之外残留旧口径的地方一并统一：浏览器标签页标题与搜索摘要、页脚地址块、TIKTOK LIVE 页的引言。',
+      },
+      {
         kind: 'feat',
         scope: '竞品监测',
         title: '直播间截图按日期成列，竖着看一列就是同一天的各家竞品',
