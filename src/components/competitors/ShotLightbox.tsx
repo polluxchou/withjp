@@ -26,11 +26,15 @@ export default function ShotLightbox({
   const idx = Math.min(index, Math.max(shots.length - 1, 0))
   const current = shots[idx]
 
-  // 依赖 id 而不是对象本身,这样不依赖调用方有没有把 shots 记忆化
+  // 依赖两个原始值而不是 current 对象本身:调用方每次渲染换引用也不会重复触发,
+  // 同时满足 exhaustive-deps(依赖数组不参与类型检查,靠 lint 兜底,别写成对象)。
+  const currentId = current?.id
+  const currentShotOn = current?.shot_on ?? ''
+
   useEffect(() => {
-    setDateInput(current?.shot_on ?? '')
+    setDateInput(currentShotOn)
     setError(null)
-  }, [current?.id])
+  }, [currentId, currentShotOn])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
