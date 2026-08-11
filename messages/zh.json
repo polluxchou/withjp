@@ -873,7 +873,8 @@
     "listTitle": "支出明细",
     "sortByLabel": "排序方式",
     "toggleSortDir": "切换排序方向",
-    "category": {
+    "category": "类别",
+    "categoryChart": {
       "viewPie": "饼图",
       "viewSankey": "流向图",
       "crossBorderTooltip": "跨境转账成本 {amount}",

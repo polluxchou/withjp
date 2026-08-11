@@ -873,7 +873,8 @@
     "listTitle": "Expense records",
     "sortByLabel": "Sort by",
     "toggleSortDir": "Toggle sort direction",
-    "category": {
+    "category": "Category",
+    "categoryChart": {
       "viewPie": "Pie",
       "viewSankey": "Flow",
       "crossBorderTooltip": "Cross-border transfer cost {amount}",

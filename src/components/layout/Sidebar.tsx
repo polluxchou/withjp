@@ -385,7 +385,11 @@ export default function Sidebar() {
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Backdrop — only shown when the mobile drawer is open */}
+      {/* Backdrop — only shown when the mobile drawer is open.
+          这里的 `fixed inset-0` 是**抽屉遮罩**，不是手写 modal 遮罩（§6.1
+          只有"阻断式编辑/确认"才必须走 Modal）：它恒与下方 <aside> 抽屉体
+          一起出现/消失，z-40 属抽屉层（50）的内部构成，design-system §3
+          层级表已单独登记。全库 `fixed inset-0` 清点时按抽屉归类。 */}
       {isMobile && mobileOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/50 z-40"
