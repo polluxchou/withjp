@@ -1,136 +1,110 @@
 // src/components/competitors/ShotAlbum.tsx
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Trash2 } from 'lucide-react'
-import { weekStartOf } from '@/lib/competitors/weekly'
+import { UNDATED_KEY, groupShotsByDate } from '@/lib/competitors/shotGrid'
 import ShotUploader from './ShotUploader'
+import ShotLightbox from './ShotLightbox'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
-function Thumb({ shot, canEdit, compact, onOpen, onDelete }: {
-  shot: CompetitorShot
-  canEdit: boolean
+function DateCell({ shots, dateKey, compact, selected, onOpen }: {
+  shots: CompetitorShot[]
+  dateKey: string
   compact: boolean
+  selected: boolean
   onOpen: () => void
-  onDelete: () => void
 }) {
   const t = useTranslations('competitors')
-  const label = [shot.shot_on, shot.tag].filter(Boolean).join(' · ')
-  const box = compact
-    ? 'h-32 w-[72px]'
-    : 'h-[46vh] w-[26vh] min-h-[300px] min-w-[169px]'
+  const box = compact ? 'h-32' : 'h-[46vh] min-h-[300px]'
+
+  if (!shots.length) {
+    // role="img" 是必要的：aria-label 挂在裸 div 上多数读屏根本不播报。
+    // 无日期列要单独一句文案,否则会拼出 "No shot on Undated" 这种病句。
+    return (
+      <div
+        role="img"
+        aria-label={dateKey === UNDATED_KEY ? t('noShotUndated') : t('noShotOnDate', { date: dateKey })}
+        className={`${box} rounded-lg border border-dashed border-line-soft`}
+      />
+    )
+  }
+
+  const cover = shots[0]
+  const extra = shots.length - 1
+
   return (
-    <div className={`relative ${box} shrink-0 overflow-hidden rounded-lg bg-zinc-100`}>
+    <div className={`relative ${box} overflow-hidden rounded-lg bg-canvas ${selected ? 'ring-2 ring-primary' : ''}`}>
       <button type="button" onClick={onOpen} className="block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={shot.image_url} alt={shot.caption || shot.tag || ''} className="h-full w-full object-cover" loading="lazy" />
+        <img src={cover.image_url} alt={cover.caption || cover.tag || ''} className="h-full w-full object-cover" loading="lazy" />
       </button>
-      {label && (
-        <span className={`pointer-events-none absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-white ${compact ? 'text-[9px]' : 'inset-x-2 bottom-2 px-1.5 text-xs'}`}>{label}</span>
+      {extra > 0 && (
+        <span className="pointer-events-none absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
+          {t('moreShots', { count: extra })}
+        </span>
       )}
-      {canEdit && (
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label={t('delete')}
-          className={`absolute rounded bg-black/50 text-white hover:bg-red-600 ${compact ? 'right-1 top-1 p-0.5' : 'right-2 top-2 p-1'}`}
-        >
-          <Trash2 size={compact ? 12 : 16} />
-        </button>
+      {cover.tag && (
+        <span className="pointer-events-none absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-[9px] text-white">
+          {cover.tag}
+        </span>
       )}
     </div>
   )
 }
 
 export default function ShotAlbum({
-  competitorId, shots, canEdit, onChanged, compact = false,
+  competitorId, shots, canEdit, onChanged, dateWindow, selectedDate, compact = false,
 }: {
   competitorId: string
   shots: CompetitorShot[]
   canEdit: boolean
   onChanged: () => void
+  dateWindow: string[]
+  selectedDate: string | null
   compact?: boolean
 }) {
   const t = useTranslations('competitors')
-  const [open, setOpen] = useState(false)
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  const [openDate, setOpenDate] = useState<string | null>(null)
+  const grouped = useMemo(() => groupShotsByDate(shots), [shots])
 
-  const removeShot = async (id: string) => {
-    if (!confirm(t('deleteShotConfirm'))) return
-    try {
-      const res = await fetch(`/api/competitors/shots/${id}`, { method: 'DELETE' })
-      if (res.ok) onChanged()
-    } catch {
-      // 忽略：失败时保留原状，用户可重试
-    }
+  if (dateWindow.length === 0) {
+    return (
+      <div className="min-w-0 space-y-2">
+        <p className="text-xs text-muted-text">{t('noShots')}</p>
+        {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} />}
+      </div>
+    )
   }
-
-  if (shots.length === 0 && !canEdit) {
-    return <p className="text-xs text-zinc-500">{t('noShots')}</p>
-  }
-
-  const foldedCount = compact ? 8 : 4
-  const folded = shots.slice(0, foldedCount)
-
-  const groups = new Map<string, CompetitorShot[]>()
-  for (const s of shots) {
-    const key = s.shot_on ? weekStartOf(s.shot_on) : '—'
-    const arr = groups.get(key) ?? []
-    arr.push(s)
-    groups.set(key, arr)
-  }
-  const weekKeys = Array.from(groups.keys()).sort((a, b) => {
-    if (a === '—') return 1
-    if (b === '—') return -1
-    return b.localeCompare(a)
-  })
 
   return (
     <div className="min-w-0">
-      {!open ? (
-        <div className="flex flex-wrap gap-2">
-          {folded.map((s) => (
-            <Thumb key={s.id} shot={s} canEdit={canEdit} compact={compact} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
-          ))}
-          {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} compact={compact} />}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {weekKeys.map((wk) => (
-            <div key={wk}>
-              <div className="mb-1 text-[11px] text-zinc-500">{wk === '—' ? t('undated') : wk}</div>
-              <div className="flex flex-wrap gap-2">
-                {groups.get(wk)!.map((s) => (
-                  <Thumb key={s.id} shot={s} canEdit={canEdit} compact={compact} onOpen={() => setLightbox(s.image_url)} onDelete={() => removeShot(s.id)} />
-                ))}
-              </div>
-            </div>
-          ))}
-          {canEdit && <ShotUploader competitorId={competitorId} onDone={onChanged} compact={compact} />}
+      {canEdit && (
+        <div className="mb-2 flex justify-end">
+          <ShotUploader competitorId={competitorId} onDone={onChanged} />
         </div>
       )}
-
-      {shots.length > foldedCount && (
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="mt-2 text-xs text-sky-600 hover:underline"
-        >
-          {open ? t('collapse') : t('viewAll', { count: shots.length })}
-        </button>
-      )}
-
-      {lightbox && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
-          onClick={() => setLightbox(null)}
-          role="dialog"
-          aria-modal="true"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lightbox} alt="" className="max-h-full max-w-full rounded-lg" />
-        </div>
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${dateWindow.length}, minmax(0, 1fr))` }}>
+        {dateWindow.map((d) => (
+          <DateCell
+            key={d}
+            shots={grouped.get(d) ?? []}
+            dateKey={d}
+            compact={compact}
+            selected={d === selectedDate}
+            onOpen={() => setOpenDate(d)}
+          />
+        ))}
+      </div>
+      {openDate && (
+        <ShotLightbox
+          // key 保证换一天就重新挂载,index 不会带着上一天的值过来
+          key={openDate}
+          shots={grouped.get(openDate) ?? []}
+          canEdit={canEdit}
+          onClose={() => setOpenDate(null)}
+          onChanged={onChanged}
+        />
       )}
     </div>
   )
