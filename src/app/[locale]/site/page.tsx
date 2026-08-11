@@ -8,6 +8,7 @@ import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import HairlineGrid, { GridCell } from '@/components/site/HairlineGrid'
 import SiteImage from '@/components/site/SiteImage'
+import SiteHeroVideo from '@/components/site/SiteHeroVideo'
 import SiteButton from '@/components/site/SiteButton'
 import StatGrid from '@/components/site/StatGrid'
 import Ticker from '@/components/site/Ticker'
@@ -85,11 +86,10 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
 
           <div className="relative flex min-w-0 pb-14 lg:py-14 lg:pl-14">
             <div className="relative h-[360px] w-full sm:h-[460px] lg:h-[520px]">
-              <SiteImage
-                src="/site/moondollz-key.webp"
+              <SiteHeroVideo
+                src="/site/hero-key.mp4"
+                poster="/site/hero-key-poster.webp"
                 alt={t('heroPlaceholder')}
-                placeholder={t('heroPlaceholder')}
-                priority
                 sizes="(min-width: 1024px) 620px, 100vw"
                 className="h-full w-full"
               />
