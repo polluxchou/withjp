@@ -1024,7 +1024,8 @@
     "content": "内容",
     "growth": "增长",
     "legal": "法务",
-    "tech": "技术"
+    "tech": "技术",
+    "pmo": "PMO"
   },
   "financeForecast": {
     "pageTitle": "财务预测看板",

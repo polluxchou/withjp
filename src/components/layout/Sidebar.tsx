@@ -33,13 +33,26 @@ import type { LucideIcon } from 'lucide-react'
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
 import NotificationBell from '@/components/notifications/NotificationBell'
-import type { UserProfile } from '@/lib/types'
+import type { AgentRole, UserProfile } from '@/lib/types'
 import { ACCENT_CHIP } from '@/lib/ui/accent'
 import type { Accent } from '@/lib/ui/accent'
 
 type NavLeaf  = { href: string; key: string; icon: LucideIcon; exact?: boolean }
 type NavGroup = { key: string; icon: LucideIcon; children: readonly NavLeaf[] }
 type NavItem  = NavLeaf | NavGroup
+
+// messages/*.json "roles" 命名空间已登记的角色键（对齐 workspace 页
+// isKnownRole 模式）。`satisfies Record<AgentRole, true>` 强制这里覆盖
+// AgentRole 全部值——以后 DB enum 再新增角色而忘记登记翻译，这里会编译期
+// 报错，而不是运行时静默展示裸 key。
+const REGISTERED_ROLE_KEYS = {
+  bd: true, ops: true, finance: true, content: true,
+  growth: true, legal: true, tech: true, pmo: true,
+} satisfies Record<AgentRole, true>
+
+function isRegisteredRole(role: string): role is AgentRole {
+  return Object.hasOwn(REGISTERED_ROLE_KEYS, role)
+}
 
 const isGroup = (item: NavItem): item is NavGroup => 'children' in item
 
@@ -527,8 +540,12 @@ export default function Sidebar() {
               </span>
               <span className="block text-[10px] text-ink-500 truncate">
                 {profile
-                  ? [profile.user_code, profile.role ? tRoles(profile.role) : null]
-                      .filter(Boolean).join(' · ')
+                  ? [
+                      profile.user_code,
+                      // 未登记角色（脏数据/历史遗留）回退显示原始 role 字符串，
+                      // 而不是 next-intl 缺省渲染出的裸 key "roles.xxx"。
+                      profile.role ? (isRegisteredRole(profile.role) ? tRoles(profile.role) : profile.role) : null,
+                    ].filter(Boolean).join(' · ')
                   : tCommon('loading')}
               </span>
             </span>

@@ -1024,7 +1024,8 @@
     "content": "コンテンツ",
     "growth": "グロース",
     "legal": "法務",
-    "tech": "テック"
+    "tech": "テック",
+    "pmo": "PMO"
   },
   "financeForecast": {
     "pageTitle": "財務予測ダッシュボード",
