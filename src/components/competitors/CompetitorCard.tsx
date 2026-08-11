@@ -53,11 +53,11 @@ export default function CompetitorCard({
     c.composition ?? null,
     c.online_note ? `${t('fieldOnline')} ${c.online_note}` : null,
     c.latest ? t('latestOn', { date: c.latest.captured_on }) : null,
-  ].filter((part) => part != null)
+  ].filter((part) => part != null && part !== '')
 
   const shell = nested
     ? 'rounded-field border border-line-soft bg-canvas p-3'
-    : 'rounded-card border border-line-strong bg-surface p-4'
+    : 'rounded-card border border-line bg-surface p-4'
 
   return (
     <div className={shell}>

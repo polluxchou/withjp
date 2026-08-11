@@ -142,12 +142,14 @@ export default function ShotAlbum({
         // 登记在 50，这里是一个独立的全屏媒体查看器，语义上与 Modal 同层
         // （60），Tailwind 默认刻度不含 60，需方括号任意值写法（Modal.tsx
         // 同款写法）。原来只能点遮罩关闭、无键盘出口，补一个可聚焦的关闭
-        // 按钮 + Esc（见上方 effect）满足 §6.2 可访问性底线。
+        // 按钮 + Esc（见上方 effect）满足 §6.2 可访问性底线。role="dialog" +
+        // aria-label（不带 aria-modal）：本层没有 Modal.tsx 那套焦点圈定/Tab
+        // 循环实现，不能夸大能力——与 DiscussionPanel 的"诚实子集"先例一致。
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-6"
           onClick={() => setLightbox(null)}
           role="dialog"
-          aria-modal="true"
+          aria-label={t('shotPreview')}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={lightbox} alt="" className="max-h-full max-w-full rounded-card" />
