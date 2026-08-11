@@ -20,16 +20,22 @@ export default function ShotLightbox({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const current = shots[index]
+  // 渲染期夹逼,不放 useEffect:effect 版本在 shots 变短时会先渲染出
+  // current === undefined 的一帧(整个灯箱闪掉),effect 跑完才回来。
+  const idx = Math.min(index, Math.max(shots.length - 1, 0))
+  const current = shots[idx]
 
+  // 依赖 id 而不是对象本身,这样不依赖调用方有没有把 shots 记忆化
   useEffect(() => {
     setDateInput(current?.shot_on ?? '')
     setError(null)
-  }, [current])
+  }, [current?.id])
 
   useEffect(() => {
-    if (shots.length && index > shots.length - 1) setIndex(shots.length - 1)
-  }, [shots.length, index])
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   if (!current) return null
 
@@ -42,7 +48,9 @@ export default function ShotLightbox({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shot_on: dateInput || null }),
       })
-      if (!res.ok) { setError(t('shotDateInvalid')); return }
+      // 只有 400 才是日期本身的问题;401/500 也说成"日期格式不对"
+      // 会让人反复重打一个根本没错的日期
+      if (!res.ok) { setError(res.status === 400 ? t('shotDateInvalid') : t('actionFailed')); return }
       onChanged()
       onClose()
     } catch {
@@ -55,6 +63,7 @@ export default function ShotLightbox({
   const removeCurrent = async () => {
     if (!confirm(t('deleteShotConfirm'))) return
     setBusy(true)
+    setError(null)
     try {
       const res = await fetch(`/api/competitors/shots/${current.id}`, { method: 'DELETE' })
       if (!res.ok) { setError(t('actionFailed')); return }
@@ -72,13 +81,18 @@ export default function ShotLightbox({
       className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/70 p-6"
       onClick={onClose}
       role="dialog"
-      aria-modal="true"
+      aria-label={current.shot_on ?? t('undated')}
     >
+      {/*
+        不写 aria-modal:本仓约定是没有 focus trap 就不许声明它
+        (见 tasks/page.tsx 的同款注释),否则等于骗读屏说外面已经 inert。
+        全套 focus trap 在 components/ui/Modal.tsx,这里用不上,Esc 关闭已够。
+      */}
       <div className="flex max-h-[80vh] items-center gap-3" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.max(i - 1, 0))}
-          disabled={index === 0}
+          onClick={() => setIndex(Math.max(idx - 1, 0))}
+          disabled={idx === 0}
           aria-label={t('prevShot')}
           className="rounded bg-black/50 p-2 text-white disabled:opacity-30"
         >
@@ -88,8 +102,8 @@ export default function ShotLightbox({
         <img src={current.image_url} alt={current.caption || current.tag || ''} className="max-h-[80vh] max-w-full rounded-lg" />
         <button
           type="button"
-          onClick={() => setIndex((i) => Math.min(i + 1, shots.length - 1))}
-          disabled={index >= shots.length - 1}
+          onClick={() => setIndex(Math.min(idx + 1, shots.length - 1))}
+          disabled={idx >= shots.length - 1}
           aria-label={t('nextShot')}
           className="rounded bg-black/50 p-2 text-white disabled:opacity-30"
         >
@@ -98,7 +112,7 @@ export default function ShotLightbox({
       </div>
 
       <div className="flex items-center gap-3 text-xs text-white" onClick={(e) => e.stopPropagation()}>
-        <span>{t('shotIndexOf', { index: index + 1, total: shots.length })}</span>
+        <span>{t('shotIndexOf', { index: idx + 1, total: shots.length })}</span>
         {canEdit && (
           <>
             <label className="flex items-center gap-1">
@@ -107,7 +121,7 @@ export default function ShotLightbox({
                 type="date"
                 value={dateInput}
                 onChange={(e) => setDateInput(e.target.value)}
-                className="rounded border border-line px-1.5 py-0.5 text-ink-900"
+                className="rounded border border-line-strong px-1.5 py-0.5 text-ink-900"
               />
             </label>
             <button
@@ -134,7 +148,15 @@ export default function ShotLightbox({
         </button>
       </div>
 
-      {error && <p className="text-xs text-white">{error}</p>}
+      {error && (
+        <p
+          role="status"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded bg-danger-strong px-2 py-1 text-xs text-white"
+        >
+          {error}
+        </p>
+      )}
     </div>
   )
 }
