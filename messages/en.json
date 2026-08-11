@@ -1649,9 +1649,9 @@
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ Official TikTok LIVE Guild",
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
       "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp is an official TikTok LIVE guild based in Osaka. We build a dual-captain singing and dance group, and keep everything in house — from live-streaming training to original music."
+      "description": "EchoAmp is an Osaka-based TikTok LIVE Creator Network. Through our dual-captain system, we recruit and develop female live creators — from dance training to livestream operations and original content production."
     },
     "nav": {
       "top": "TOP",
@@ -1677,7 +1677,7 @@
       "line2": "performers who sing and dance."
     },
     "footer": {
-      "address": "Namba, Chuo-ku, Osaka ／ Official TikTok LIVE guild\nLive training · AIGC film · Original music",
+      "address": "Namba, Chuo-ku, Osaka ／ TikTok LIVE Creator Network\nLive training · AIGC film · Original music",
       "visionMembers": "VISION ／ MEMBERS",
       "live": "TIKTOK LIVE",
       "services": "SERVICES",
@@ -1960,7 +1960,7 @@
     "live": {
       "eyebrow": "TIKTOK LIVE",
       "title": "STREAM SCHEDULE",
-      "lead": "Live every night from the Namba studio. As an official guild, running TikTok LIVE itself sits at the core of our business.",
+      "lead": "Live every night from the Namba studio. As a Creator Network, running TikTok LIVE itself sits at the core of our business.",
       "headers": {
         "day": "DAY",
         "program": "PROGRAM",

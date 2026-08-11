@@ -1649,9 +1649,9 @@
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE 公認ギルド",
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
       "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp は大阪を拠点とする TikTok LIVE 公認ギルド。ダブルキャプテン制の歌唱＆ダンスグループをプロデュースし、配信トレーニングから楽曲制作までを一社で完結させる。"
+      "description": "EchoAmp は、大阪を拠点とする TikTok LIVE Creator Network。ダブルキャプテン制を軸に、女性ライバーの募集・育成からダンストレーニング、配信運営、オリジナルコンテンツ制作までを一貫して行う。"
     },
     "nav": {
       "top": "TOP",
@@ -1677,7 +1677,7 @@
       "line2": "歌って踊る配信者を見つけ出す。"
     },
     "footer": {
-      "address": "大阪市中央区難波 ／ TikTok LIVE 公認ギルド\n配信トレーニング・AIGC 映像・楽曲制作",
+      "address": "大阪市中央区難波 ／ TikTok LIVE Creator Network\n配信トレーニング・AIGC 映像・楽曲制作",
       "visionMembers": "VISION ／ MEMBERS",
       "live": "TIKTOK LIVE",
       "services": "SERVICES",
@@ -1960,7 +1960,7 @@
     "live": {
       "eyebrow": "TIKTOK LIVE",
       "title": "配信スケジュール",
-      "lead": "難波スタジオから毎晩生配信。公認ギルドとして、TikTok LIVE の運営そのものを事業の中核に置く。",
+      "lead": "難波スタジオから毎晩生配信。Creator Network として、TikTok LIVE の運営そのものを事業の中核に置く。",
       "headers": {
         "day": "DAY",
         "program": "PROGRAM",

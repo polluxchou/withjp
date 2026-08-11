@@ -1649,9 +1649,9 @@
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE 公认公会",
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
       "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp 是位于大阪的 TikTok LIVE 公认公会。打造双队长制的歌唱与舞蹈团体，从直播培训到原创曲制作全部自有完成。"
+      "description": "EchoAmp 是以大阪为据点的 TikTok LIVE Creator Network。以双队长制为核心，招募并培养女子直播创作者，从舞蹈训练、直播运营到原创内容制作全部自有完成。"
     },
     "nav": {
       "top": "TOP",
@@ -1677,7 +1677,7 @@
       "line2": "能唱能跳的直播者。"
     },
     "footer": {
-      "address": "大阪市中央区难波 ／ TikTok LIVE 公认公会\n直播培训・AIGC 影像・原创曲制作",
+      "address": "大阪市中央区难波 ／ TikTok LIVE Creator Network\n直播培训・AIGC 影像・原创曲制作",
       "visionMembers": "VISION ／ MEMBERS",
       "live": "TIKTOK LIVE",
       "services": "SERVICES",
@@ -1708,7 +1708,7 @@
       "heroPlaceholder": "主视觉／MoonDollz 关键视觉",
       "stats": [
         {
-          "value": "大阪",
+          "value": "OSAKA",
           "label": "扎根大阪，本地运营"
         },
         {
@@ -1960,7 +1960,7 @@
     "live": {
       "eyebrow": "TIKTOK LIVE",
       "title": "直播排期",
-      "lead": "每晚从难波工作室直播。作为公认公会，我们把 TikTok LIVE 的运营本身放在业务核心。",
+      "lead": "每晚从难波工作室直播。作为 Creator Network，我们把 TikTok LIVE 的运营本身放在业务核心。",
       "headers": {
         "day": "DAY",
         "program": "PROGRAM",
