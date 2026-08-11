@@ -126,13 +126,11 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
 
 ### 后端改动
 
-`src/app/api/competitors/shots/[shotId]/route.ts` 目前只有 `DELETE`，增加 `PATCH`：
+`PATCH /api/competitors/shots/[shotId]`（body `{ shot_on?, tag?, caption?, sort_order? }`）与 `service.updateShot` **均已存在**，前端可直接调用，无需新增路由。
 
-```
-PATCH /api/competitors/shots/[shotId]   body { shot_on: string | null }
-```
+唯一缺口是校验：现有 `updateShot` 把 `shot_on` 原样透给数据库（`service.ts:188-200`），格式非法时由 Postgres 的 `date` 列报错，经 `db_error` 映射成 500，而语义上应是 400。
 
-`src/lib/competitors/service.ts` 增加 `updateShot(shotId, input)`，校验 `shot_on` 为 `YYYY-MM-DD` 或 `null`，非法返回 400。
+补法：在 `shotGrid.ts` 里导出纯函数 `isValidShotDate(value: unknown): boolean`（接受 `null` 或 `YYYY-MM-DD` 且为真实存在的日历日），在 `updateShot` 和 `addShot` 里前置校验，非法返回 `invalid_input`。校验逻辑放纯函数模块而非 `service.ts`，是因为 `service.ts` 依赖 `createServerClient()`、无法脱离数据库做单测。
 
 **无需数据库迁移** — `competitor_shots.shot_on` 字段已存在（`043_competitor_dossier.sql:21`，且 `(competitor_id, shot_on)` 上已有索引）。
 
@@ -170,7 +168,7 @@ getCompetitorBoard (server)
 
 - `PATCH` 失败：灯箱内红字提示（沿用 `t('actionFailed')`），保留原日期不刷新，用户可重试
 - 日期格式非法：前端 `<input type="date">` 自身约束 + 提交前校验，非法时禁用保存按钮
-- 后端 `updateShot` 独立再校验一次 `YYYY-MM-DD`，非法返回 400
+- 后端 `updateShot` / `addShot` 用 `isValidShotDate` 独立再校验一次，非法返回 `invalid_input`（400），避免落到 Postgres 报错后被映射成 500
 - 删除失败：沿用现有行为（静默保留原状，用户可重试）
 
 ## 测试
@@ -181,7 +179,19 @@ getCompetitorBoard (server)
 - `windowOf` — anchor 居中、贴左边界、贴右边界、轴长度短于 size、size 为 0
 - `groupShotsByDate` — 组内按 `sort_order` 再 `created_at` 排序、`shot_on` 为 null 归入 `UNDATED_KEY`、空输入
 
-`service.ts` 的 `updateShot` 日期校验按该文件既有测试惯例补测。
+- `isValidShotDate` — 合法 `YYYY-MM-DD`、`null`、空串、`2026-13-01` 等越界月日、`2026-2-3` 等非补零写法、非字符串类型
+
+`src/lib/competitors/` 下现有 5 个测试文件（`metrics` / `chart` / `assemble` / `weekly` / `mentions`）均只测纯函数；`service.ts` 因依赖 `createServerClient()` 无对应单测，本轮沿用该边界，不为其新建测试。
+
+**注意**：新测试文件必须手动加入 `package.json` 的 `test` 脚本文件列表，否则不会被执行。
+
+## 仓库闸门约束
+
+三个 `npm run test:copy` 闸门会直接影响本轮的写法：
+
+1. **`check-style-tokens.mjs`** — `zinc-*` / `gray-*` / 裸 hex 等属禁用样式，走基线机制：每个文件的违规数不得超过 `scripts/style-tokens-baseline.json` 里的记录。现有基线为 `CompetitorCard.tsx: 33`、`CompetitorDossierView.tsx: 7`、`ShotAlbum.tsx: 3`、`ShotUploader.tsx: 3`。新建的 `ShotDateStrip.tsx` 不在基线里，**任何一处违规即致命**，必须全程用语义 token。
+2. **正向 token 校验（致命，不走基线）** — 类名里的色阶必须真实登记于 `tailwind.config.ts`，否则 Tailwind 不生成该类、样式静默失效。已登记的灰阶只有 `ink-900 / ink-700 / ink-500 / ink-400`——**没有 `ink-600`**；边框用 `line-soft / line / line-strong`，背景用 `canvas / surface`，弱化文字用 `muted-text`，强调色用 `primary` 系。禁止给 `primary-soft`、`line` 这类固定值 token 加 `/50` 透明度修饰符（会静默失效）。
+3. **`check-no-bare-han.mjs`** — JSX 里不允许出现裸中文（children、属性字符串、模板字面量都查），允许名单已清空。所有新文案必须走 `useTranslations()` 并同步补齐 `messages/{en,zh,ja}.json` 三个文件。
 
 ## 影响面
 
@@ -194,6 +204,7 @@ getCompetitorBoard (server)
 | `src/components/competitors/ShotUploader.tsx` | 移位 + 日期输入 |
 | `src/components/competitors/CompetitorCard.tsx` | 透传 props + 子卡对齐修正 |
 | `src/components/competitors/CompetitorDossierView.tsx` | 持有 anchorDate + 渲染日期条 |
-| `src/lib/competitors/service.ts` | 新增 `updateShot` |
-| `src/app/api/competitors/shots/[shotId]/route.ts` | 新增 `PATCH` |
+| `src/lib/competitors/service.ts` | `addShot` / `updateShot` 前置日期校验 |
+| `src/app/api/competitors/shots/[shotId]/route.ts` | 无需改动（`PATCH` 已存在） |
+| `package.json` | `test` 脚本追加 `shotGrid.test.ts` |
 | `messages/{en,zh,ja}.json` | `competitors` 命名空间补文案；删除该命名空间下的 `viewAll` / `collapse`（已确认仅被 `ShotAlbum.tsx:120` 引用，与 sidebar 的 `collapse`、首页的 `viewAll` 是不同命名空间，不受影响） |
