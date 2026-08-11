@@ -208,7 +208,8 @@
     "paymentMethodPlaceholder": "例：法人カード",
     "paymentStatus": "支払いステータス *",
     "selectStatus": "ステータスを選択",
-    "addDevice": "機材を追加"
+    "addDevice": "機材を追加",
+    "editDevice": "機材を編集"
   },
   "currency": {
     "switchHint": "固定レートで表示通貨を切り替え（1 USD = 7 CNY；1 CNY = 20 JPY）"
@@ -872,7 +873,8 @@
     "listTitle": "支出明細",
     "sortByLabel": "並び替え",
     "toggleSortDir": "並び順を切り替え",
-    "category": {
+    "category": "カテゴリ",
+    "categoryChart": {
       "viewPie": "円グラフ",
       "viewSankey": "サンキー図",
       "crossBorderTooltip": "国際送金コスト {amount}",
@@ -1023,7 +1025,8 @@
     "content": "コンテンツ",
     "growth": "グロース",
     "legal": "法務",
-    "tech": "テック"
+    "tech": "テック",
+    "pmo": "PMO"
   },
   "financeForecast": {
     "pageTitle": "財務予測ダッシュボード",
@@ -1064,6 +1067,10 @@
     "stageNameTest": "テスト",
     "chartBreakdown": "損益分解",
     "chartCumulative": "累計",
+    "chartStacked": "積み上げ",
+    "chartLines": "折れ線",
+    "chartIndexed": "指数化",
+    "chartTabsLabel": "グラフ表示の切り替え",
     "noViewHint": "表示できる予測視点がまだありません — 左側から最初の視点を作成してください",
     "noViewEmpty": "表示できる予測視点がまだありません。",
     "noViewGuide": "上部の「視点」メニューから新しい予測シナリオを作成してください。",
@@ -1100,6 +1107,8 @@
     "revenueTitle": "収益予測",
     "ariaCollapse": "折りたたむ",
     "ariaExpand": "展開する",
+    "ariaDeleteRow": "この行を削除",
+    "ariaAddAccountMenu": "アカウント追加メニューを開く",
     "allYear": "年間",
     "copyPrevMonth": "前月をコピー",
     "applyForward": "以降の月に適用",
@@ -1389,6 +1398,7 @@
     "uploadFailed": "アップロード失敗",
     "noShots": "スクショはまだありません",
     "undated": "日付なし",
+    "shotPreview": "スクリーンショットのプレビュー",
     "bio": "プロフィール文",
     "fieldMembers": "人数",
     "fieldComposition": "構成",

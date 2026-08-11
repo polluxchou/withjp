@@ -208,7 +208,8 @@
     "paymentMethodPlaceholder": "例如 公司卡",
     "paymentStatus": "支付状态 *",
     "selectStatus": "选择状态",
-    "addDevice": "添加设备"
+    "addDevice": "添加设备",
+    "editDevice": "编辑设备"
   },
   "currency": {
     "switchHint": "按固定汇率切换显示币种（1 USD = 7 CNY；1 CNY = 20 JPY）"
@@ -872,7 +873,8 @@
     "listTitle": "支出明细",
     "sortByLabel": "排序方式",
     "toggleSortDir": "切换排序方向",
-    "category": {
+    "category": "类别",
+    "categoryChart": {
       "viewPie": "饼图",
       "viewSankey": "流向图",
       "crossBorderTooltip": "跨境转账成本 {amount}",
@@ -1023,7 +1025,8 @@
     "content": "内容",
     "growth": "增长",
     "legal": "法务",
-    "tech": "技术"
+    "tech": "技术",
+    "pmo": "PMO"
   },
   "financeForecast": {
     "pageTitle": "财务预测看板",
@@ -1064,6 +1067,10 @@
     "stageNameTest": "测试号",
     "chartBreakdown": "盈亏分解",
     "chartCumulative": "累计",
+    "chartStacked": "堆叠",
+    "chartLines": "折线",
+    "chartIndexed": "指数化",
+    "chartTabsLabel": "图表视图切换",
     "noViewHint": "还没有任何可见的预测视角 — 点击左侧创建第一个",
     "noViewEmpty": "还没有任何可见的预测视角。",
     "noViewGuide": "在上方「视角」菜单里新建一个预测场景即可开始。",
@@ -1103,6 +1110,8 @@
     "revenueTitle": "收入预测",
     "ariaCollapse": "折叠",
     "ariaExpand": "展开",
+    "ariaDeleteRow": "删除该行",
+    "ariaAddAccountMenu": "展开新增账号菜单",
     "allYear": "全年",
     "copyPrevMonth": "复制上月",
     "applyForward": "应用到后续月份",
@@ -1624,6 +1633,7 @@
     "uploadFailed": "上传失败",
     "noShots": "还没有截图",
     "undated": "未标日期",
+    "shotPreview": "截图预览",
     "bio": "简介",
     "fieldMembers": "人数",
     "fieldComposition": "构成",

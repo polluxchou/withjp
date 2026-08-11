@@ -704,7 +704,9 @@ export default function ExpensesPage() {
                       }`}
                     >
                       <span className="font-medium">{opt.label}</span>
-                      <span className={isActive ? 'text-white/70' : 'text-ink-400'}>
+                      {/* bg-primary 上的白字最低 /85：/70 只有 3.58:1 不过
+                          WCAG AA（design-system §0 色彩纪律的对比度底线）。 */}
+                      <span className={isActive ? 'text-white/85' : 'text-ink-400'}>
                         {opt.ym}
                       </span>
                     </button>

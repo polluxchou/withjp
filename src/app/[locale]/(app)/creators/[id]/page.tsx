@@ -19,6 +19,7 @@ import ErrorState from '@/components/ui/ErrorState'
 import LoadingState from '@/components/ui/LoadingState'
 import Tag from '@/components/ui/Tag'
 import { toneOf, type Tone } from '@/lib/ui/status-tone'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import {
   ArrowLeft, ChevronRight, Play, DollarSign,
   Clock, Edit, Info, GitBranch,
@@ -393,7 +394,10 @@ export default function CreatorDetailPage() {
                 )}
                 {task.status === 'done' && task.output && (
                   <details className="pl-7">
-                    <summary className="text-xs text-ink-400 cursor-pointer hover:text-ink-700">{t('viewOutput')}</summary>
+                    {/* w-fit + rounded-field 让 focus 环贴着文字而非撑满整行
+                        （<summary> 默认 block）——同 team/page.tsx 的
+                        SUMMARY_CLASS 配方，环本身取自 recipes.ts。 */}
+                    <summary className={`w-fit text-xs text-ink-400 cursor-pointer hover:text-ink-700 rounded-field ${FOCUS_RING}`}>{t('viewOutput')}</summary>
                     <pre className="mt-2 text-xs bg-canvas border border-line rounded-field p-3 overflow-auto max-h-60 text-ink-700">
                       {JSON.stringify(task.output, null, 2)}
                     </pre>
