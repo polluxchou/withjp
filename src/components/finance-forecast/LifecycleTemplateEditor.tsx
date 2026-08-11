@@ -15,7 +15,7 @@ import {
   type LifecycleStartingStage,
   type LifecycleTemplate,
   type LifecycleTemplateSet,
-} from '@/lib/finance-forecast/lifecycle'
+} from '@/lib/finance-forecast/lifecycle-template'
 
 interface Props {
   open:     boolean

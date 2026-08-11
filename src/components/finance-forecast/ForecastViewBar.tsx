@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Plus, Pencil, Trash2, Globe, Lock, Check, X, ChevronDown, Layers, Repeat } from 'lucide-react'
 import Button from '@/components/ui/Button'
-import { MAX_VIEWS_PER_USER, type ForecastView } from '@/lib/finance-forecast/views'
+import { MAX_VIEWS_PER_USER } from '@/lib/finance-forecast/views-permissions'
+import type { ForecastView } from '@/lib/finance-forecast/views'
 
 interface Props {
   views:               ForecastView[]
