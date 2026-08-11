@@ -1,7 +1,10 @@
 name: copy
 
 # Guards the i18n + design-token contract:
-#   * messages/zh.json and messages/en.json must have identical key shape
+#   * messages/{zh,en,ja}.json must have identical key shape
+#   * Every t('key') in src/ must resolve to a real message, and every message
+#     should be referenced from somewhere; scripts/check-i18n.mjs enforces this
+#     against scripts/i18n-baseline.json
 #   * No new JSX file may introduce bare Chinese (use useTranslations() instead)
 #   * No file may introduce slate/indigo/zinc/gray/stone/neutral/bare-hex
 #     styling (see docs/design-system.md); scripts/check-style-tokens.mjs
@@ -20,6 +23,7 @@ on:
       - 'src/**/*.css'
       - 'messages/**'
       - 'scripts/check-i18n.mjs'
+      - 'scripts/i18n-baseline.json'
       - 'scripts/check-no-bare-han.mjs'
       - 'scripts/check-style-tokens.mjs'
       # 正向校验从这里读已登记 token：只删/改注册项的 PR 也必须触发门禁
@@ -42,7 +46,7 @@ jobs:
 
       - run: npm install --ignore-scripts
 
-      - name: zh/en key parity
+      - name: i18n key parity + source references
         run: npm run test:i18n
 
       - name: No bare Chinese in JSX
