@@ -42,3 +42,18 @@ export function collectShotDates(competitors: CompetitorWithHistory[]): string[]
   if (hasUndated) axis.push(UNDATED_KEY)
   return axis
 }
+
+/**
+ * 以 anchorIndex 为中心取 size 列，夹逼到 [0, axis.length)。
+ * 靠边时向另一侧补足，仍尽量取满 size 列，保证每个竞品行的列数一致。
+ * anchorIndex 为 -1（anchor 不在轴上）时按贴右处理，即取轴末尾 size 列。
+ */
+export function windowOf(axis: string[], anchorIndex: number, size: number): string[] {
+  if (!axis.length || size <= 0) return []
+  if (size >= axis.length) return axis.slice()
+  const anchor = anchorIndex < 0 ? axis.length - 1 : Math.min(anchorIndex, axis.length - 1)
+  let start = anchor - Math.floor((size - 1) / 2)
+  if (start < 0) start = 0
+  if (start + size > axis.length) start = axis.length - size
+  return axis.slice(start, start + size)
+}
