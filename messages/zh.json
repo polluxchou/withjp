@@ -208,7 +208,8 @@
     "paymentMethodPlaceholder": "例如 公司卡",
     "paymentStatus": "支付状态 *",
     "selectStatus": "选择状态",
-    "addDevice": "添加设备"
+    "addDevice": "添加设备",
+    "editDevice": "编辑设备"
   },
   "currency": {
     "switchHint": "按固定汇率切换显示币种（1 USD = 7 CNY；1 CNY = 20 JPY）"
