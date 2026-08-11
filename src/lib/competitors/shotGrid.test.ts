@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { UNDATED_KEY, isValidShotDate, collectShotDates, windowOf } from './shotGrid.ts'
+import { UNDATED_KEY, isValidShotDate, collectShotDates, windowOf, resolveAnchor } from './shotGrid.ts'
 import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
 
 test('UNDATED_KEY: 无日期占位键', () => {
@@ -141,4 +141,37 @@ test('windowOf: 不修改入参', () => {
   const axis = AXIS10.slice()
   windowOf(axis, 4, 5)
   assert.deepEqual(axis, AXIS10)
+})
+
+test('resolveAnchor: anchor 在轴上时原样返回', () => {
+  assert.equal(resolveAnchor(['2026-08-01', '2026-08-05'], '2026-08-01'), '2026-08-01')
+})
+
+test('resolveAnchor: anchor 为 null 时取最新一天', () => {
+  assert.equal(resolveAnchor(['2026-08-01', '2026-08-05'], null), '2026-08-05')
+})
+
+test('resolveAnchor: anchor 脱轴时取日历距离最近的一天', () => {
+  const axis = ['2026-08-01', '2026-08-10', '2026-08-20']
+  assert.equal(resolveAnchor(axis, '2026-08-09'), '2026-08-10')
+  assert.equal(resolveAnchor(axis, '2026-08-02'), '2026-08-01')
+})
+
+test('resolveAnchor: 距离并列时取较新的一天', () => {
+  // 08-05 距 08-01 与 08-09 各 4 天
+  assert.equal(resolveAnchor(['2026-08-01', '2026-08-09'], '2026-08-05'), '2026-08-09')
+})
+
+test('resolveAnchor: UNDATED_KEY 不参与距离计算', () => {
+  const axis = ['2026-08-01', UNDATED_KEY]
+  assert.equal(resolveAnchor(axis, '2026-08-30'), '2026-08-01')
+})
+
+test('resolveAnchor: anchor 本身是 UNDATED_KEY 但已脱轴时取最新一天', () => {
+  assert.equal(resolveAnchor(['2026-08-01', '2026-08-05'], UNDATED_KEY), '2026-08-05')
+})
+
+test('resolveAnchor: 空轴返回 null', () => {
+  assert.equal(resolveAnchor([], '2026-08-01'), null)
+  assert.equal(resolveAnchor([], null), null)
 })

@@ -57,3 +57,29 @@ export function windowOf(axis: string[], anchorIndex: number, size: number): str
   if (start + size > axis.length) start = axis.length - size
   return axis.slice(start, start + size)
 }
+
+/**
+ * 把用户选中的 anchor 归一化到轴上的一个真实日期。
+ * 命中则原样返回；未命中（轴重算后该天消失、或初始为 null）取日历距离最近的一天，
+ * 距离并列时取较新的一天。UNDATED_KEY 不参与距离计算。轴为空返回 null。
+ */
+export function resolveAnchor(axis: string[], anchor: string | null): string | null {
+  if (!axis.length) return null
+  if (anchor && axis.includes(anchor)) return anchor
+  const newest = axis[axis.length - 1]
+  if (!anchor || anchor === UNDATED_KEY) return newest
+  const dated = axis.filter((d) => d !== UNDATED_KEY)
+  if (!dated.length) return newest
+  const target = Date.parse(anchor + 'T00:00:00Z')
+  if (Number.isNaN(target)) return dated[dated.length - 1]
+  let best = dated[0]
+  let bestDist = Infinity
+  for (const d of dated) {
+    const dist = Math.abs(Date.parse(d + 'T00:00:00Z') - target)
+    if (dist < bestDist || (dist === bestDist && d > best)) {
+      best = d
+      bestDist = dist
+    }
+  }
+  return best
+}
