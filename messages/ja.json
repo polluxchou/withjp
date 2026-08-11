@@ -51,7 +51,8 @@
     "appSubtitle": "AI 運営システム",
     "costManagement": "コスト管理",
     "venue": "会場レイアウト",
-    "items": "備品管理"
+    "items": "備品管理",
+    "recruitApplications": "サイト応募"
   },
   "language": {
     "zh": "中文",
@@ -1635,5 +1636,552 @@
     "readOnly": "閲覧のみ",
     "readOnlyHint": "この会場の編集権限がありません",
     "addFacility": "設備"
+  },
+  "site": {
+    "meta": {
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE 公認ギルド",
+      "titleTemplate": "%s ｜ EchoAmp OSAKA",
+      "description": "EchoAmp は大阪を拠点とする TikTok LIVE 公認ギルド。ダブルキャプテン制の歌唱＆ダンスグループをプロデュースし、配信トレーニングから楽曲制作までを一社で完結させる。"
+    },
+    "nav": {
+      "top": "TOP",
+      "news": "NEWS",
+      "vision": "VISION",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "contact": "CONTACT",
+      "recruit": "RECRUIT 応募する",
+      "openMenu": "メニューを開く",
+      "closeMenu": "メニューを閉じる"
+    },
+    "locale": {
+      "ja": "日本語",
+      "zh": "中文",
+      "en": "EN"
+    },
+    "veil": {
+      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "line1": "大阪で、最も才能ある",
+      "line2": "歌って踊る配信者を見つけ出す。"
+    },
+    "footer": {
+      "address": "大阪市中央区難波 ／ TikTok LIVE 公認ギルド\n配信トレーニング・AIGC 映像・楽曲制作",
+      "visionMembers": "VISION ／ MEMBERS",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "news": "NEWS",
+      "recruit": "RECRUIT",
+      "contact": "CONTACT",
+      "social": "TIKTOK ／ X ／ LINE",
+      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+    },
+    "ticker": {
+      "items": [
+        "道頓堀 GLICO 1935",
+        "通天閣・新世界 1912",
+        "NEON GOLDEN AGE 1950–1970",
+        "大大阪モダングラフィック",
+        "MOONDOLLZ 企画始動"
+      ]
+    },
+    "home": {
+      "eyebrow": "TIKTOK LIVE OFFICIAL GUILD ／ 大阪",
+      "title1": "ダブルキャプテン制、",
+      "title2": "大阪発の歌って踊る TikTok グループ。",
+      "tagline": "ECHO FROM OSAKA NIGHT",
+      "lead": "EchoAmp は大阪を拠点とする TikTok LIVE 公認ギルド。ダブルキャプテン制の女子歌唱＆ダンスグループをプロデュースし、配信トレーニングから楽曲制作までを一社で完結させる。",
+      "ctaApply": "応募する ／ APPLY",
+      "ctaAbout": "私たちについて",
+      "heroCaption": "道頓堀の灯を、配信に",
+      "heroPlaceholder": "ヒーロー画像／MoonDollz キービジュアル",
+      "stats": [
+        {
+          "value": "2027",
+          "label": "大阪発・世界規模のビジョン"
+        },
+        {
+          "value": "04",
+          "label": "トレーニング／AIGC／楽曲／着ぐるみ"
+        },
+        {
+          "value": "08–12",
+          "label": "2026 二次募集スケジュール"
+        }
+      ],
+      "newsHead": {
+        "eyebrow": "01 ／ NEWS",
+        "title": "最新情報",
+        "more": "VIEW ALL →"
+      },
+      "visionHead": {
+        "eyebrow": "02 ／ VISION",
+        "title": "なぜ、大阪なのか",
+        "more": "READ MORE →"
+      },
+      "visionBody": "大阪には、アニメより先にネオンがあった。道頓堀と新世界が戦後に積み上げてきた「派手で、賑やかで、夜の街」の視覚言語こそ、私たちの原点。EchoAmp はその遺産をライブ配信の画面の中に持ち込む。",
+      "visionCards": [
+        {
+          "no": "01",
+          "title": "道頓堀グリコサイン",
+          "body": "1935 年初代設置、現在は 6 代目。走る人のネオンは Bebop より 60 年早い大阪の都市記号。"
+        },
+        {
+          "no": "02",
+          "title": "新世界・通天閣",
+          "body": "1912 年建設。巨大なふぐ提灯と濃い昭和ネオンが「賑やかな大阪」の景観をつくる。"
+        },
+        {
+          "no": "03",
+          "title": "ネオン黄金期",
+          "body": "1950–70 年代、ラスベガス文化の影響で看板は大型化。今日の道頓堀の原型。"
+        },
+        {
+          "no": "04",
+          "title": "大大阪モダン",
+          "body": "大正末〜昭和初期の商業チラシに、すでに成熟したモダングラフィックがあった。"
+        }
+      ],
+      "projectHead": {
+        "eyebrow": "03 ／ PROJECT",
+        "title": "MOONDOLLZ",
+        "sub": "夜の姫たち、夢を連れて。／ 双キャプテン制の歌唱＆ダンスグループ",
+        "more": "MEMBERS →"
+      },
+      "projectPlaceholder": "MOONDOLLZ コンセプトアート（月夜＋和装）",
+      "quote1": "“BORN IN MOONLIGHT.",
+      "quote2": "GLOWING LIKE DOLLS.”",
+      "projectTerms": [
+        {
+          "term": "MOON",
+          "body": "夢幻・夜系・神秘。姫系＋夜メイク＋深夜配信の空気に合う。"
+        },
+        {
+          "term": "DOLLZ",
+          "body": "複数の人形。ひとりひとりが違うスタイルを持つ「団体感」。"
+        },
+        {
+          "term": "-Z",
+          "body": "Y2K・ストリート・サブカルの温度をひとさじ。"
+        }
+      ],
+      "projectNote": "小ユニットごとに人物設定を分けて運営し、大グループとして共同デビュー。配信の影響力を束ねる。",
+      "servicesHead": {
+        "eyebrow": "04 ／ SERVICES",
+        "title": "4つの事業"
+      },
+      "techHead": {
+        "eyebrow": "05 ／ TECHNOLOGY",
+        "title": "着ぐるみ配信技術"
+      },
+      "techBody": "日本国内でほぼ空白の領域である着ぐるみ（皮套人）配信を、モーション連動とリアルタイム演出で運用可能なレベルまで内製化。これが EchoAmp 唯一の差別化資産。",
+      "techCta": "技術を見る",
+      "techPlaceholder": "着ぐるみ／モーションキャプチャ現場写真",
+      "bannerEyebrow": "RECRUIT ／ 二次募集",
+      "bannerLine1": "踊れる人、目立ちたい人、",
+      "bannerLine2": "まだ何者でもない人へ。",
+      "bannerCta": "応募要項を見る →"
+    },
+    "news": {
+      "eyebrow": "NEWS",
+      "title": "最新情報",
+      "filters": [
+        "ALL",
+        "RECRUIT",
+        "PROJECT",
+        "LIVE"
+      ],
+      "empty": "このカテゴリの情報はまだありません",
+      "read": "READ →",
+      "back": "← NEWS 一覧へ",
+      "backCta": "NEWS 一覧",
+      "applyCta": "応募する ／ APPLY",
+      "imagePlaceholder": "記事のメイン画像",
+      "articles": [
+        {
+          "date": "2026.10.01",
+          "tag": "LIVE",
+          "title": "難波スタジオより毎晩 21:00 定期配信スタート",
+          "lead": "10 月 1 日より、難波の自社スタジオから毎晩 21:00 に TikTok LIVE の定期配信を開始します。",
+          "body": [
+            "曜日ごとに担当ユニットとテーマを固定し、視聴者が「いつ・誰の枠か」を迷わない編成にしました。月曜は MOON UNIT の深夜帯、火曜は DOLLZ UNIT のダンス企画、水曜は着ぐるみキャストの回です。",
+            "配信は原則としてスタジオからの有線環境で行い、音声・照明・カメラは専任スタッフが担当します。演者はパフォーマンスに集中できる体制です。",
+            "各枠のアーカイブと切り抜きは順次公開予定。スケジュールの詳細は TIKTOK LIVE ページをご覧ください。"
+          ]
+        },
+        {
+          "date": "2026.09.10",
+          "tag": "PROJECT",
+          "title": "女性グループ企画「MOONDOLLZ」始動を発表",
+          "lead": "ダブルキャプテン制の歌唱＆ダンスグループ「MOONDOLLZ」の始動を発表しました。",
+          "body": [
+            "MOON は夢幻・夜・神秘、DOLLZ はひとりひとり異なるスタイルを持つ「団体感」、語尾の Z は Y2K とストリートの温度。三つの語を重ねたグループ名です。",
+            "小ユニットごとに人物設定を分けて運営しながら、大グループとして共同でデビューします。キャプテンは綾月（MOON SIDE）と雪羽（DOLLZ SIDE）の二名。",
+            "メンバーは 10 月・12 月に順次公開予定です。"
+          ]
+        },
+        {
+          "date": "2026.08.28",
+          "tag": "RECRUIT",
+          "title": "一期生オーディション、関西エリアで募集開始",
+          "lead": "大阪・関西在住の 18〜26 歳前後の女性を対象に、一期生オーディションの受付を開始しました。",
+          "body": [
+            "ダンス（ストリート／チア／バレエ等）、舞台経験、大学ダンス部や社会人チームでの活動歴がある方を歓迎します。配信は未経験でも構いません。",
+            "選考はフォーム送信 → 書類選考 → オンライン面談 → 大阪スタジオでの実技 → 契約の流れで、所要 2〜3 週間を想定しています。",
+            "レッスン費・スタジオ利用料・衣装・撮影は事務所負担。収益と待遇の詳細は面談時に個別にご説明します。"
+          ]
+        },
+        {
+          "date": "2026.08.10",
+          "tag": "PROJECT",
+          "title": "EchoAmp 大阪オフィス・配信スタジオ稼働",
+          "lead": "新大阪エリアにオフィスと配信スタジオを開設し、運用を開始しました。",
+          "body": [
+            "配信ブース、レッスンスペース、撮影スペースを同一フロアに集約し、練習から本番までを一箇所で完結できる構成にしています。",
+            "新大阪駅から徒歩 5 分。新幹線・地下鉄いずれからもアクセスしやすい立地です。",
+            "来訪は完全予約制です。詳細な住所は面談確定後にご案内します。"
+          ]
+        }
+      ]
+    },
+    "vision": {
+      "eyebrow": "VISION ／ 2027",
+      "title": "大阪で、最も才能ある歌って踊る配信者を見つけ出す。",
+      "lead": "私たちが目指すのは「日本アニメ風のサイト」ではない。高彩度の色面、黒いシルエット、圧縮した斜めの文字組み——その語彙を、道頓堀と新世界という本物の視覚遺産に接続する。大阪自身のネオン・ノワール。それが EchoAmp の見え方であり、配信の見え方でもある。",
+      "imagePlaceholder": "道頓堀／新世界の夜景写真",
+      "eras": [
+        {
+          "value": "1935",
+          "title": "道頓堀グリコサイン",
+          "body": "戦時の撤去と再建を経て現在は 6 代目。走る人のネオンは、いまも大阪の都市記号である。"
+        },
+        {
+          "value": "1912",
+          "title": "新世界・通天閣",
+          "body": "パリとニューヨークを模した街として建設。巨大ふぐ提灯と昭和ネオンの濃さが個性。"
+        },
+        {
+          "value": "50s–70s",
+          "title": "ネオン黄金期",
+          "body": "ラスベガスの影響で看板が大型化・過剰化し、いまの道頓堀の景観が固まった。"
+        },
+        {
+          "value": "大大阪",
+          "title": "モダングラフィック",
+          "body": "大正末〜昭和初期の百貨店チラシや劇場ポスターに、成熟した近代デザインがあった。"
+        }
+      ],
+      "principles": [
+        {
+          "label": "COLOR",
+          "title": "夜の紺と、鋼の青",
+          "body": "通天閣の夜空を地色に、単一のアクセントだけで構成する。装飾色は足さない。"
+        },
+        {
+          "label": "TYPE",
+          "title": "圧縮欧文 × 明朝",
+          "body": "見出しは Barlow Condensed、和文は明朝の縦の線で、看板文字の緊張感を写す。"
+        },
+        {
+          "label": "IMAGE",
+          "title": "シルエットとデュオトーン",
+          "body": "人物は黒シルエット寄りに、写真はすべてアクセントに染める。着ぐるみとも相性が良い。"
+        }
+      ]
+    },
+    "members": {
+      "eyebrow": "MEMBERS ／ MOONDOLLZ",
+      "title": "MOONDOLLZ",
+      "sub": "双キャプテン制。小ユニットごとに人物設定を分け、大グループとして共同デビュー。",
+      "note": "※ メンバーは 10 月・12 月に順次公開",
+      "placeholder": "MEMBER",
+      "captains": [
+        {
+          "eyebrow": "CAPTAIN 01 ／ MOON SIDE",
+          "name": "AYATSUKI",
+          "jp": "綾月／リーダー",
+          "body": "夜・和・静のユニットを率いる。光を導く月——夢を指し示すリーダー。深夜帯の配信とステージのセンターを担当。"
+        },
+        {
+          "eyebrow": "CAPTAIN 02 ／ DOLLZ SIDE",
+          "name": "YUKIHA",
+          "jp": "雪羽／リーダー",
+          "body": "雪の吐息で透明な痛みを癒す。雪・竹・静寂のユニットを率い、ダンスとバトル系企画を担当。"
+        }
+      ],
+      "unrevealedName": "— 公開前 —",
+      "unrevealedRole": "12月 公開",
+      "list": [
+        {
+          "name": "KANO",
+          "role": "花乃／儚い微笑みの罠"
+        },
+        {
+          "name": "MIKOTO",
+          "role": "美琴／優雅なる刃"
+        },
+        {
+          "name": "LULU",
+          "role": "ルル／弾けるピンクの閃光"
+        },
+        {
+          "name": "CHIYO",
+          "role": "千夜／千の夜に舞う孤星"
+        },
+        {
+          "name": "AKAYA",
+          "role": "綾香／宮廷に咲く強き桜"
+        },
+        {
+          "name": "YUMEKI",
+          "role": "夢綺／幻を織る声"
+        },
+        {
+          "name": "SHINO",
+          "role": "紫乃／高貴で危険な誘惑者"
+        },
+        {
+          "name": "HIMENE",
+          "role": "姫音／音のために生まれた姫"
+        }
+      ]
+    },
+    "live": {
+      "eyebrow": "TIKTOK LIVE",
+      "title": "配信スケジュール",
+      "lead": "難波スタジオから毎晩生配信。公認ギルドとして、TikTok LIVE の運営そのものを事業の中核に置く。",
+      "headers": {
+        "day": "DAY",
+        "program": "PROGRAM",
+        "cast": "CAST",
+        "time": "TIME"
+      },
+      "schedule": [
+        {
+          "day": "MON",
+          "program": "深夜の姫の間",
+          "cast": "MOON UNIT",
+          "time": "21:00–24:00"
+        },
+        {
+          "day": "TUE",
+          "program": "DOLLZ ダンス部",
+          "cast": "DOLLZ UNIT",
+          "time": "21:00–23:30"
+        },
+        {
+          "day": "WED",
+          "program": "着ぐるみナイト",
+          "cast": "SUIT CAST",
+          "time": "22:00–24:00"
+        },
+        {
+          "day": "THU",
+          "program": "新人配信オーディション枠",
+          "cast": "TRAINEE",
+          "time": "20:00–22:00"
+        },
+        {
+          "day": "FRI",
+          "program": "難波ネオン歌枠",
+          "cast": "ALL",
+          "time": "21:00–01:00"
+        },
+        {
+          "day": "SAT",
+          "program": "MOONDOLLZ 合同配信",
+          "cast": "ALL",
+          "time": "20:00–24:00"
+        }
+      ],
+      "onAirLabel": "ON AIR NOW",
+      "onAirPlaceholder": "配信画面キャプチャ（縦型）",
+      "onAirProgram": "深夜の姫の間",
+      "onAirTime": "毎晩 21:00 — 24:00 ／ 難波スタジオ"
+    },
+    "services": {
+      "eyebrow": "SERVICES",
+      "title": "事業内容",
+      "items": [
+        {
+          "no": "01",
+          "code": "S-01",
+          "title": "配信トレーニング",
+          "en": "LIVE TRAINING",
+          "short": "未経験からの発声・カメラワーク・トーク設計・数値運用まで、専属マネージャーが伴走。",
+          "body": "未経験者を対象に、発声・カメラワーク・トーク設計・コメント運用・数値分析までを段階的に指導。専属マネージャーが日次で伴走し、配信枠の設計まで並走する。"
+        },
+        {
+          "no": "02",
+          "code": "S-02",
+          "title": "AIGC アイドル動画",
+          "en": "AIGC IDOL DRAMA",
+          "short": "生成 AI を用いた短編アイドルドラマの企画・制作。配信外の世界観をつくる。",
+          "body": "生成 AI を用いた短編アイドルドラマの企画・脚本・制作。配信の外側に世界観を作り、メンバーの人物設定を映像として蓄積する。"
+        },
+        {
+          "no": "03",
+          "code": "S-03",
+          "title": "専属楽曲制作",
+          "en": "ORIGINAL MUSIC",
+          "short": "グループとソロのオリジナル楽曲を書き下ろし、配信・ステージ双方に供給。",
+          "body": "グループ曲とソロ曲を書き下ろし、配信・ステージ・映像に供給。楽曲を軸にリリースとイベントの年間計画を組む。"
+        },
+        {
+          "no": "04",
+          "code": "S-04",
+          "title": "着ぐるみ配信技術",
+          "en": "SUIT LIVE TECHNOLOGY",
+          "short": "造形・モーション連動・リアルタイム演出を内製。日本でほぼ空白の差別化領域。",
+          "body": "日本国内でほぼ空白の領域である着ぐるみ（皮套人）配信のノウハウを内製で保有。造形・モーション・音声・リアルタイム演出を一体で運用し、演者の顔出しリスクを外しながらキャラクター IP を育てられる。EchoAmp 唯一の差別化資産。"
+        }
+      ],
+      "subItems": [
+        {
+          "no": "04-A",
+          "title": "造形とスーツ設計",
+          "body": "配信で映える輪郭・可動域・視界を前提に設計。長時間配信に耐える通気と重量配分。"
+        },
+        {
+          "no": "04-B",
+          "title": "モーション連動",
+          "body": "演者の動きに追従する表情・発光・エフェクト制御を配信側でリアルタイム合成。"
+        },
+        {
+          "no": "04-C",
+          "title": "IP としての運用",
+          "body": "キャラクターは演者に依存しない資産として、AIGC 映像・楽曲・グッズへ展開。"
+        }
+      ],
+      "placeholders": [
+        "着ぐるみ撮影／制作風景",
+        "モーション連動のテスト画面"
+      ]
+    },
+    "recruit": {
+      "eyebrow": "RECRUIT ／ 募集要項",
+      "title1": "踊れる人、目立ちたい人、",
+      "title2": "まだ何者でもない人へ。",
+      "rows": [
+        {
+          "label": "募集対象",
+          "body": "18〜26 歳前後の女性／大阪・関西在住、または通える方。日本国籍または就労可能な在留資格をお持ちの方。"
+        },
+        {
+          "label": "歓迎する経験",
+          "body": "ダンス（ストリート／チア／バレエ等）、舞台・ステージ経験、大学ダンス部・社会人チーム。未経験でも意欲があれば可。"
+        },
+        {
+          "label": "活動内容",
+          "body": "TikTok LIVE 配信、MOONDOLLZ としてのグループ活動、AIGC 映像出演、楽曲リリース、イベント出演。"
+        },
+        {
+          "label": "待遇",
+          "body": "レッスン費・スタジオ利用は事務所負担。配信収益は規定に基づき分配。衣装・撮影サポートあり。"
+        },
+        {
+          "label": "応募方法",
+          "body": "フォーム送信 → 書類選考 → オンライン面談 → 大阪スタジオでの実技 → 合格・契約。所要 2〜3 週間。"
+        }
+      ],
+      "payEyebrow": "RECRUIT ／ 収益・待遇について",
+      "payTitle": "収益と待遇の考え方",
+      "payCols": [
+        "配信収益は規定に基づき分配。配信時間・実績・グループ活動への参加度に応じて段階的に変わります。",
+        "レッスン費・スタジオ使用料・衣装・撮影は事務所負担。初期費用の負担はありません。",
+        "具体的な金額・契約形態・稼働イメージは、オンライン面談の際に個別にご説明します。"
+      ],
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "お名前",
+        "age": "年齢",
+        "residence": "お住まい",
+        "contact": "ご連絡先",
+        "contactHint": "LINE ID・メール・SNS アカウントのいずれか",
+        "experience": "経験・SNS",
+        "consent": "応募選考の目的で、入力内容を利用することに同意します。",
+        "submit": "送信する",
+        "submitting": "送信中…",
+        "lineNote": "LINE からの応募も受け付けています。@echoamp_osaka",
+        "successTitle": "ご応募ありがとうございます。",
+        "successBody": "内容を確認のうえ、2〜3 週間以内にご連絡します。お急ぎの場合は LINE（@echoamp_osaka）へどうぞ。",
+        "errors": {
+          "required": "入力してください",
+          "tooLong": "文字数が上限を超えています",
+          "outOfRange": "16〜60 の範囲で入力してください",
+          "invalidAge": "半角数字で入力してください",
+          "consent": "同意が必要です",
+          "rateLimited": "送信が集中しています。しばらくしてからお試しください。",
+          "network": "送信に失敗しました。通信環境をご確認ください。"
+        }
+      },
+      "office": {
+        "eyebrow": "OFFICE ／ オフィスについて",
+        "title": "新大阪駅から徒歩 5 分",
+        "body": "オフィスと配信スタジオは新大阪エリアにあります。新幹線・地下鉄いずれからもアクセスしやすく、レッスンと配信を同じ場所で完結できます。建物名・部屋番号は、面談が確定した方に個別にご案内します。",
+        "rows": [
+          {
+            "label": "最寄駅",
+            "value": "JR・地下鉄「新大阪」駅 徒歩 5 分"
+          },
+          {
+            "label": "設備",
+            "value": "配信ブース／レッスンスペース／撮影スペース"
+          },
+          {
+            "label": "来訪",
+            "value": "完全予約制。詳細住所は面談確定後にご案内"
+          }
+        ],
+        "map": {
+          "station": "新大阪駅",
+          "walk": "徒歩 5 分 ／ 400m",
+          "studio": "ECHOAMP STUDIO",
+          "areaEn": "SHIN-OSAKA AREA",
+          "areaJp": "大阪市淀川区・新大阪エリア",
+          "north": "N ↑",
+          "axis": "西 ← → 東",
+          "alt": "新大阪駅から徒歩 5 分の位置関係を示した概略図"
+        }
+      }
+    },
+    "contact": {
+      "eyebrow": "CONTACT",
+      "title": "お問い合わせ",
+      "creator": {
+        "eyebrow": "FOR CREATOR",
+        "title": "応募したい方へ",
+        "body": "オーディション、レッスン、活動条件について。LINE での相談が最短です。",
+        "cta": "LINE で相談する"
+      },
+      "client": {
+        "eyebrow": "FOR CLIENT",
+        "title": "法人・ブランド様へ",
+        "body": "タイアップ配信、AIGC 映像制作、楽曲制作、着ぐるみ IP のご相談はこちら。",
+        "cta": "business@echoamp.jp"
+      }
+    },
+    "theme": {
+      "dark": "◐ DARK",
+      "light": "◑ LIGHT",
+      "toggle": "テーマを切り替える"
+    }
+  },
+  "recruitApplications": {
+    "title": "サイト応募",
+    "subtitle": "公式サイト RECRUIT フォームからの応募（閲覧のみ）",
+    "totalLabel": "応募総数",
+    "newLabel": "未対応",
+    "todayLabel": "本日",
+    "listTitle": "応募一覧",
+    "empty": "まだ応募はありません",
+    "columns": {
+      "date": "受信",
+      "name": "お名前",
+      "age": "年齢",
+      "residence": "お住まい",
+      "contact": "ご連絡先",
+      "locale": "言語",
+      "experience": "経験・SNS"
+    }
   }
 }

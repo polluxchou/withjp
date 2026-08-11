@@ -51,7 +51,8 @@
     "profile": "个人信息",
     "logout": "退出登录",
     "appName": "Creator Network",
-    "appSubtitle": "AI 运营系统"
+    "appSubtitle": "AI 运营系统",
+    "recruitApplications": "官网应募"
   },
   "language": {
     "zh": "中文",
@@ -1635,5 +1636,552 @@
     "expandProfile": "展开档案",
     "handlePlaceholder": "@handle 或链接",
     "editHandle": "编辑 handle"
+  },
+  "site": {
+    "meta": {
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE 公认公会",
+      "titleTemplate": "%s ｜ EchoAmp OSAKA",
+      "description": "EchoAmp 是位于大阪的 TikTok LIVE 公认公会。打造双队长制的歌唱与舞蹈团体，从直播培训到原创曲制作全部自有完成。"
+    },
+    "nav": {
+      "top": "TOP",
+      "news": "NEWS",
+      "vision": "VISION",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "contact": "CONTACT",
+      "recruit": "RECRUIT 报名",
+      "openMenu": "打开菜单",
+      "closeMenu": "关闭菜单"
+    },
+    "locale": {
+      "ja": "日本語",
+      "zh": "中文",
+      "en": "EN"
+    },
+    "veil": {
+      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "line1": "在大阪，找出最有才华的",
+      "line2": "能唱能跳的直播者。"
+    },
+    "footer": {
+      "address": "大阪市中央区难波 ／ TikTok LIVE 公认公会\n直播培训・AIGC 影像・原创曲制作",
+      "visionMembers": "VISION ／ MEMBERS",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "news": "NEWS",
+      "recruit": "RECRUIT",
+      "contact": "CONTACT",
+      "social": "TIKTOK ／ X ／ LINE",
+      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+    },
+    "ticker": {
+      "items": [
+        "道顿堀 GLICO 1935",
+        "通天阁・新世界 1912",
+        "NEON GOLDEN AGE 1950–1970",
+        "大大阪现代平面设计",
+        "MOONDOLLZ 企划启动"
+      ]
+    },
+    "home": {
+      "eyebrow": "TIKTOK LIVE OFFICIAL GUILD ／ 大阪",
+      "title1": "双队长制，",
+      "title2": "来自大阪的能唱能跳 TikTok 团体。",
+      "tagline": "ECHO FROM OSAKA NIGHT",
+      "lead": "EchoAmp 是位于大阪的 TikTok LIVE 公认公会。我们打造双队长制的女子歌唱与舞蹈团体，从直播培训到原创曲制作，全部在一家公司内完成。",
+      "ctaApply": "报名 ／ APPLY",
+      "ctaAbout": "关于我们",
+      "heroCaption": "把道顿堀的灯，搬进直播间",
+      "heroPlaceholder": "主视觉／MoonDollz 关键视觉",
+      "stats": [
+        {
+          "value": "2027",
+          "label": "大阪出发・面向全球的愿景"
+        },
+        {
+          "value": "04",
+          "label": "培训／AIGC／原创曲／皮套"
+        },
+        {
+          "value": "08–12",
+          "label": "2026 二次招募时间表"
+        }
+      ],
+      "newsHead": {
+        "eyebrow": "01 ／ NEWS",
+        "title": "最新动态",
+        "more": "VIEW ALL →"
+      },
+      "visionHead": {
+        "eyebrow": "02 ／ VISION",
+        "title": "为什么是大阪",
+        "more": "READ MORE →"
+      },
+      "visionBody": "在大阪，霓虹比动画来得更早。道顿堀与新世界在战后堆叠起来的那套「艳丽、喧闹、属于夜晚」的视觉语言，才是我们的原点。EchoAmp 要把这份遗产搬进直播画面里。",
+      "visionCards": [
+        {
+          "no": "01",
+          "title": "道顿堀格力高招牌",
+          "body": "1935 年初代设立，现在是第 6 代。奔跑的人形霓虹，比 Bebop 早了 60 年成为大阪的城市符号。"
+        },
+        {
+          "no": "02",
+          "title": "新世界・通天阁",
+          "body": "1912 年建成。巨大的河豚灯笼与浓烈的昭和霓虹，构成了「喧闹大阪」的景观。"
+        },
+        {
+          "no": "03",
+          "title": "霓虹黄金期",
+          "body": "1950–70 年代，受拉斯维加斯文化影响招牌大型化，奠定了今天道顿堀的原型。"
+        },
+        {
+          "no": "04",
+          "title": "大大阪现代",
+          "body": "大正末至昭和初期的商业传单里，已经有了成熟的现代平面设计。"
+        }
+      ],
+      "projectHead": {
+        "eyebrow": "03 ／ PROJECT",
+        "title": "MOONDOLLZ",
+        "sub": "夜之公主，带着梦而来。／ 双队长制的歌唱与舞蹈团体",
+        "more": "MEMBERS →"
+      },
+      "projectPlaceholder": "MOONDOLLZ 概念图（月夜＋和装）",
+      "quote1": "“BORN IN MOONLIGHT.",
+      "quote2": "GLOWING LIKE DOLLS.”",
+      "projectTerms": [
+        {
+          "term": "MOON",
+          "body": "梦幻・夜系・神秘。契合公主系＋夜妆＋深夜直播的气息。"
+        },
+        {
+          "term": "DOLLZ",
+          "body": "复数的玩偶。每个人都有各自的风格，合起来才有「团体感」。"
+        },
+        {
+          "term": "-Z",
+          "body": "加一勺 Y2K、街头与亚文化的温度。"
+        }
+      ],
+      "projectNote": "按小单元区分人物设定分别运营，再作为大团体共同出道，把直播影响力汇聚起来。",
+      "servicesHead": {
+        "eyebrow": "04 ／ SERVICES",
+        "title": "四条业务线"
+      },
+      "techHead": {
+        "eyebrow": "05 ／ TECHNOLOGY",
+        "title": "皮套直播技术"
+      },
+      "techBody": "皮套（着ぐるみ）直播在日本国内几乎是空白领域，我们把它做到了可运营的水平：动作联动加实时演出，全部自有。这是 EchoAmp 唯一的差异化资产。",
+      "techCta": "查看技术",
+      "techPlaceholder": "皮套／动作捕捉现场照片",
+      "bannerEyebrow": "RECRUIT ／ 二次招募",
+      "bannerLine1": "给会跳舞的人、想被看见的人，",
+      "bannerLine2": "以及还什么都不是的人。",
+      "bannerCta": "查看招募要项 →"
+    },
+    "news": {
+      "eyebrow": "NEWS",
+      "title": "最新动态",
+      "filters": [
+        "ALL",
+        "RECRUIT",
+        "PROJECT",
+        "LIVE"
+      ],
+      "empty": "该分类下暂无内容",
+      "read": "READ →",
+      "back": "← 返回 NEWS 列表",
+      "backCta": "NEWS 列表",
+      "applyCta": "报名 ／ APPLY",
+      "imagePlaceholder": "文章主图",
+      "articles": [
+        {
+          "date": "2026.10.01",
+          "tag": "LIVE",
+          "title": "难波工作室每晚 21:00 定期直播开始",
+          "lead": "自 10 月 1 日起，我们从难波的自有工作室每晚 21:00 开始 TikTok LIVE 定期直播。",
+          "body": [
+            "每天固定由哪个单元、做什么主题，观众不用猜「今天是谁的场」。周一是 MOON UNIT 的深夜档，周二是 DOLLZ UNIT 的舞蹈企划，周三是皮套演出的场次。",
+            "直播原则上在工作室的有线网络环境下进行，声音、灯光、摄像都有专职人员负责，演出者只需专注在表演上。",
+            "各场次的回放与切片会陆续公开。排期详情请看 TIKTOK LIVE 页面。"
+          ]
+        },
+        {
+          "date": "2026.09.10",
+          "tag": "PROJECT",
+          "title": "宣布女子团体企划「MOONDOLLZ」启动",
+          "lead": "我们宣布双队长制的歌唱与舞蹈团体「MOONDOLLZ」正式启动。",
+          "body": [
+            "MOON 是梦幻、夜与神秘；DOLLZ 是每个人各有风格的「团体感」；结尾的 Z 是 Y2K 与街头的温度。团名由这三个词叠成。",
+            "按小单元区分人物设定分别运营，同时作为大团体共同出道。两位队长是绫月（MOON SIDE）与雪羽（DOLLZ SIDE）。",
+            "成员将于 10 月、12 月陆续公开。"
+          ]
+        },
+        {
+          "date": "2026.08.28",
+          "tag": "RECRUIT",
+          "title": "一期生试镜在关西地区开始招募",
+          "lead": "面向居住在大阪・关西的 18–26 岁左右女性，一期生试镜开始受理报名。",
+          "body": [
+            "欢迎有舞蹈（街舞／啦啦队／芭蕾等）、舞台经验，或在大学舞蹈部与社会人舞团活动过的人。直播没做过也没关系。",
+            "选拔流程是：提交表单 → 资料筛选 → 线上面谈 → 大阪工作室实技 → 签约，预计需要 2–3 周。",
+            "课程费、场地费、服装与拍摄由公司承担。收益与待遇的细节会在面谈时单独说明。"
+          ]
+        },
+        {
+          "date": "2026.08.10",
+          "tag": "PROJECT",
+          "title": "EchoAmp 大阪办公室与直播工作室启用",
+          "lead": "我们在新大阪一带开设了办公室与直播工作室，现已开始运作。",
+          "body": [
+            "直播间、课程空间与拍摄空间集中在同一层，从练习到正式直播都能在一个地方完成。",
+            "距新大阪站步行 5 分钟，新干线与地铁都方便到达。",
+            "来访完全预约制，详细地址会在面谈确定后单独告知。"
+          ]
+        }
+      ]
+    },
+    "vision": {
+      "eyebrow": "VISION ／ 2027",
+      "title": "在大阪，找出最有才华的能唱能跳的直播者。",
+      "lead": "我们要做的不是「日本动画风格的网站」。高饱和的色块、黑色剪影、压缩的斜向文字编排——我们把这套语汇，接回道顿堀与新世界这份真实的视觉遗产。属于大阪自己的霓虹黑色电影。这既是 EchoAmp 的样子，也是我们直播的样子。",
+      "imagePlaceholder": "道顿堀／新世界夜景照片",
+      "eras": [
+        {
+          "value": "1935",
+          "title": "道顿堀格力高招牌",
+          "body": "历经战时拆除与重建，现在是第 6 代。奔跑的人形霓虹，至今仍是大阪的城市符号。"
+        },
+        {
+          "value": "1912",
+          "title": "新世界・通天阁",
+          "body": "模仿巴黎与纽约建成的街区。巨大河豚灯笼与浓烈昭和霓虹是它的个性。"
+        },
+        {
+          "value": "50s–70s",
+          "title": "霓虹黄金期",
+          "body": "受拉斯维加斯影响，招牌越做越大越过剩，今天道顿堀的景观就此定型。"
+        },
+        {
+          "value": "大大阪",
+          "title": "现代平面设计",
+          "body": "大正末至昭和初期的百货传单与剧场海报里，已有成熟的现代设计。"
+        }
+      ],
+      "principles": [
+        {
+          "label": "COLOR",
+          "title": "夜的藏青与钢的蓝",
+          "body": "以通天阁的夜空为底色，只用单一强调色构成，不再添加装饰色。"
+        },
+        {
+          "label": "TYPE",
+          "title": "压缩西文 × 明朝体",
+          "body": "标题用 Barlow Condensed，和文用明朝体的竖向笔画，复刻招牌文字的紧张感。"
+        },
+        {
+          "label": "IMAGE",
+          "title": "剪影与双色调",
+          "body": "人物偏黑色剪影，照片一律染成强调色。这与皮套的题材也很相配。"
+        }
+      ]
+    },
+    "members": {
+      "eyebrow": "MEMBERS ／ MOONDOLLZ",
+      "title": "MOONDOLLZ",
+      "sub": "双队长制。按小单元区分人物设定，再作为大团体共同出道。",
+      "note": "※ 成员将于 10 月・12 月陆续公开",
+      "placeholder": "MEMBER",
+      "captains": [
+        {
+          "eyebrow": "CAPTAIN 01 ／ MOON SIDE",
+          "name": "AYATSUKI",
+          "jp": "绫月／队长",
+          "body": "带领夜・和・静的单元。引路的月亮——指向梦的队长。负责深夜档直播与舞台中心位。"
+        },
+        {
+          "eyebrow": "CAPTAIN 02 ／ DOLLZ SIDE",
+          "name": "YUKIHA",
+          "jp": "雪羽／队长",
+          "body": "以雪的呼吸治愈透明的疼痛。带领雪・竹・静寂的单元，负责舞蹈与对战类企划。"
+        }
+      ],
+      "unrevealedName": "— 尚未公开 —",
+      "unrevealedRole": "12 月公开",
+      "list": [
+        {
+          "name": "KANO",
+          "role": "花乃／易碎微笑的陷阱"
+        },
+        {
+          "name": "MIKOTO",
+          "role": "美琴／优雅之刃"
+        },
+        {
+          "name": "LULU",
+          "role": "露露／炸开的粉色闪光"
+        },
+        {
+          "name": "CHIYO",
+          "role": "千夜／千夜起舞的孤星"
+        },
+        {
+          "name": "AKAYA",
+          "role": "绫香／宫廷里盛放的强樱"
+        },
+        {
+          "name": "YUMEKI",
+          "role": "梦绮／编织幻象的声音"
+        },
+        {
+          "name": "SHINO",
+          "role": "紫乃／高贵而危险的诱惑者"
+        },
+        {
+          "name": "HIMENE",
+          "role": "姬音／为声音而生的公主"
+        }
+      ]
+    },
+    "live": {
+      "eyebrow": "TIKTOK LIVE",
+      "title": "直播排期",
+      "lead": "每晚从难波工作室直播。作为公认公会，我们把 TikTok LIVE 的运营本身放在业务核心。",
+      "headers": {
+        "day": "DAY",
+        "program": "PROGRAM",
+        "cast": "CAST",
+        "time": "TIME"
+      },
+      "schedule": [
+        {
+          "day": "MON",
+          "program": "深夜公主之间",
+          "cast": "MOON UNIT",
+          "time": "21:00–24:00"
+        },
+        {
+          "day": "TUE",
+          "program": "DOLLZ 舞蹈部",
+          "cast": "DOLLZ UNIT",
+          "time": "21:00–23:30"
+        },
+        {
+          "day": "WED",
+          "program": "皮套之夜",
+          "cast": "SUIT CAST",
+          "time": "22:00–24:00"
+        },
+        {
+          "day": "THU",
+          "program": "新人直播试镜档",
+          "cast": "TRAINEE",
+          "time": "20:00–22:00"
+        },
+        {
+          "day": "FRI",
+          "program": "难波霓虹歌房",
+          "cast": "ALL",
+          "time": "21:00–01:00"
+        },
+        {
+          "day": "SAT",
+          "program": "MOONDOLLZ 联合直播",
+          "cast": "ALL",
+          "time": "20:00–24:00"
+        }
+      ],
+      "onAirLabel": "ON AIR NOW",
+      "onAirPlaceholder": "直播画面截图（竖屏）",
+      "onAirProgram": "深夜公主之间",
+      "onAirTime": "每晚 21:00 — 24:00 ／ 难波工作室"
+    },
+    "services": {
+      "eyebrow": "SERVICES",
+      "title": "业务内容",
+      "items": [
+        {
+          "no": "01",
+          "code": "S-01",
+          "title": "直播培训",
+          "en": "LIVE TRAINING",
+          "short": "从零起步的发声、镜头感、话术设计到数据运营，专属经理全程陪跑。",
+          "body": "面向无经验者，分阶段指导发声、镜头感、话术设计、评论运营与数据分析。专属经理每日陪跑，连直播时段的设计也一起做。"
+        },
+        {
+          "no": "02",
+          "code": "S-02",
+          "title": "AIGC 偶像影像",
+          "en": "AIGC IDOL DRAMA",
+          "short": "用生成式 AI 企划与制作短篇偶像剧，在直播之外建立世界观。",
+          "body": "用生成式 AI 做短篇偶像剧的企划、剧本与制作。在直播之外搭建世界观，把成员的人物设定沉淀成影像资产。"
+        },
+        {
+          "no": "03",
+          "code": "S-03",
+          "title": "专属原创曲",
+          "en": "ORIGINAL MUSIC",
+          "short": "为团体与个人量身写歌，同时供给直播与舞台。",
+          "body": "为团体曲与个人曲量身创作，供给直播、舞台与影像。以歌曲为轴心，编排全年的发行与活动计划。"
+        },
+        {
+          "no": "04",
+          "code": "S-04",
+          "title": "皮套直播技术",
+          "en": "SUIT LIVE TECHNOLOGY",
+          "short": "造型、动作联动与实时演出全部自有。日本国内近乎空白的差异化领域。",
+          "body": "皮套（着ぐるみ）直播在日本国内几乎是空白领域，这套 know-how 我们自有：造型、动作、声音与实时演出一体运营，既避开演出者露脸的风险，又能把角色养成 IP。这是 EchoAmp 唯一的差异化资产。"
+        }
+      ],
+      "subItems": [
+        {
+          "no": "04-A",
+          "title": "造型与套装设计",
+          "body": "以「在直播里好看」为前提设计轮廓、可动范围与视野，并解决长时间直播的透气与配重。"
+        },
+        {
+          "no": "04-B",
+          "title": "动作联动",
+          "body": "跟随演出者动作的表情、发光与特效控制，在直播端实时合成。"
+        },
+        {
+          "no": "04-C",
+          "title": "作为 IP 运营",
+          "body": "角色是不依赖演出者的资产，可延伸到 AIGC 影像、歌曲与周边。"
+        }
+      ],
+      "placeholders": [
+        "皮套拍摄／制作现场",
+        "动作联动测试画面"
+      ]
+    },
+    "recruit": {
+      "eyebrow": "RECRUIT ／ 招募要项",
+      "title1": "给会跳舞的人、想被看见的人，",
+      "title2": "以及还什么都不是的人。",
+      "rows": [
+        {
+          "label": "招募对象",
+          "body": "18–26 岁女性；居住于大阪・关西或可通勤者。需持有日本国籍或可工作的在留资格。"
+        },
+        {
+          "label": "优先经验",
+          "body": "舞蹈（街舞／啦啦队／芭蕾等）、舞台经验、大学舞蹈部与社会人舞团成员。无经验但有意愿者亦可。"
+        },
+        {
+          "label": "活动内容",
+          "body": "TikTok LIVE 直播、MOONDOLLZ 团体活动、AIGC 影像出演、原创曲发行、线下活动。"
+        },
+        {
+          "label": "待遇",
+          "body": "课程与场地费用由公司承担；直播收益按规定分成；提供服装与拍摄支持。"
+        },
+        {
+          "label": "应征流程",
+          "body": "提交表单 → 资料筛选 → 线上面谈 → 大阪工作室实技 → 录取签约。约需 2–3 周。"
+        }
+      ],
+      "payEyebrow": "RECRUIT ／ 关于收益与待遇",
+      "payTitle": "收益与待遇的思路",
+      "payCols": [
+        "直播收益按规定分成，并会随直播时长、成绩与参与团体活动的程度分档变化。",
+        "课程费、场地费、服装与拍摄由公司承担，不需要你承担初期费用。",
+        "具体金额、合约形式与工作强度，会在线上面谈时单独说明。"
+      ],
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "姓名",
+        "age": "年龄",
+        "residence": "居住地",
+        "contact": "联系方式",
+        "contactHint": "LINE ID、邮箱或社交账号任一",
+        "experience": "经验・社交账号",
+        "consent": "我同意公司为招募选拔目的使用以上信息。",
+        "submit": "提交",
+        "submitting": "提交中…",
+        "lineNote": "也可以通过 LINE 报名：@echoamp_osaka",
+        "successTitle": "感谢你的报名。",
+        "successBody": "我们会在确认内容后于 2–3 周内联系你。如需加急，请直接联系 LINE（@echoamp_osaka）。",
+        "errors": {
+          "required": "请填写",
+          "tooLong": "超出字数上限",
+          "outOfRange": "请填写 16–60 之间的数字",
+          "invalidAge": "请填写半角数字",
+          "consent": "需要你的同意",
+          "rateLimited": "提交过于频繁，请稍后再试。",
+          "network": "提交失败，请检查网络后重试。"
+        }
+      },
+      "office": {
+        "eyebrow": "OFFICE ／ 关于办公室",
+        "title": "距新大阪站步行 5 分钟",
+        "body": "办公室与直播工作室位于新大阪一带，新干线与地铁都方便到达，课程与直播能在同一个地方完成。楼名与房号会在面谈确定后单独告知。",
+        "rows": [
+          {
+            "label": "最近车站",
+            "value": "JR・地铁「新大阪」站 步行 5 分钟"
+          },
+          {
+            "label": "设施",
+            "value": "直播间／课程空间／拍摄空间"
+          },
+          {
+            "label": "来访",
+            "value": "完全预约制，详细地址面谈确定后告知"
+          }
+        ],
+        "map": {
+          "station": "新大阪站",
+          "walk": "步行 5 分 ／ 400m",
+          "studio": "ECHOAMP STUDIO",
+          "areaEn": "SHIN-OSAKA AREA",
+          "areaJp": "大阪市淀川区・新大阪一带",
+          "north": "N ↑",
+          "axis": "西 ← → 东",
+          "alt": "示意图：从新大阪站到工作室步行 5 分钟的位置关系"
+        }
+      }
+    },
+    "contact": {
+      "eyebrow": "CONTACT",
+      "title": "联系我们",
+      "creator": {
+        "eyebrow": "FOR CREATOR",
+        "title": "想报名的人",
+        "body": "关于试镜、课程与活动条件。走 LINE 咨询最快。",
+        "cta": "用 LINE 咨询"
+      },
+      "client": {
+        "eyebrow": "FOR CLIENT",
+        "title": "企业与品牌方",
+        "body": "联名直播、AIGC 影像制作、歌曲制作、皮套 IP 合作，请从这里联系。",
+        "cta": "business@echoamp.jp"
+      }
+    },
+    "theme": {
+      "dark": "◐ DARK",
+      "light": "◑ LIGHT",
+      "toggle": "切换深浅主题"
+    }
+  },
+  "recruitApplications": {
+    "title": "官网应募",
+    "subtitle": "对外官网 RECRUIT 表单的投递记录（只读）",
+    "totalLabel": "投递总数",
+    "newLabel": "待处理",
+    "todayLabel": "今日新增",
+    "listTitle": "投递列表",
+    "empty": "还没有收到投递",
+    "columns": {
+      "date": "时间",
+      "name": "姓名",
+      "age": "年龄",
+      "residence": "居住地",
+      "contact": "联系方式",
+      "locale": "语言",
+      "experience": "经验・社交账号"
+    }
   }
 }

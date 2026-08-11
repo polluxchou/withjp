@@ -176,3 +176,15 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 3. 本文件与实现不一致 = bug：以先修正的一方为准并同 PR 同步另一方
 4. 图表新增系列色、状态新增枚举、z-index 新增层：先登记本文件，再写代码
 5. Tailwind `content` 扫描范围必须与门禁（`check-style-tokens.mjs`）扫描范围保持一致——即 `src` 全树：色板/映射表放在任何 `src` 子目录都必须能被 Tailwind JIT 提取到，否则该目录下的类名组合会静默不生成样式（教训：`src/lib/ui/accent.ts` 曾因 `tailwind.config.ts` 的 `content` 未纳入 `src/lib` 而静默失效）
+
+## 8. 例外面：对外公会官网（`/[locale]/site`）
+
+本文件第 0–7 节约束的是**内部后台**。2026-08-11 起仓库里多了一个对外公开面 —— EchoAmp 公会官网（`src/app/[locale]/site`、`src/components/site/`），它是一套刻意与后台无关的视觉语言，**不受本文件 §1 色彩、§2 字体、§3 圆角的约束**，但受 §7 治理（门禁）的全部约束。
+
+设计权威在 `docs/superpowers/specs/2026-08-11-echoamp-public-site-design.md`，要点：
+
+1. **独立 token 命名空间 `site-*`**：变量定义在 `globals.css`，映射登记在 `tailwind.config.ts`。后台不读 `--site-*`，官网不读 `--ink-*`/`--primary-*`，两侧改动互不影响。
+2. **官网允许、后台仍禁的三件事**：明朝体（`font-serif-jp`，和文标题）、纯黑/浅灰画布、零圆角。原因是它要复刻大阪看板的视觉遗产，与后台「紫罗兰氛围底 + 白卡分层」是两种产品语气。
+3. **深浅双主题**：`<html data-theme="light">` 覆盖 `--site-*` 一组变量即可，组件不写任何 `dark:` 变体。`--site-fg` 是 RGB 三元组，透明度阶梯（`text-site-fg/78` 等）随主题自动翻转；`--site-hot` / `--site-on-hot` / `--site-map-*` 是刻意不翻转的常量。
+4. **透明度阶梯必须登记**：官网用到 8/15/22/35/55/62/65/66/68/72/78 这些非 5 的倍数档位，已在 `tailwind.config.ts` 的 `theme.extend.opacity` 登记。**未登记的 `/N` 修饰符 Tailwind 不报错、直接不生成类**（与 §7.1 同一类静默失效）。
+5. **改了 `tailwind.config.ts` 必须重启 dev server**：Next 的 PostCSS 管线会缓存配置，只改配置不重启时新 token 的类名不会生成，浏览器里表现为「类名在 DOM 上但没颜色」。落地时踩过一次（`text-site-on-accent` 静默失效），排查方式是往页面插一个只带该类名的探针元素读 `getComputedStyle`。
