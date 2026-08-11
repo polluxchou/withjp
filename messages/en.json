@@ -1697,27 +1697,27 @@
       ]
     },
     "home": {
-      "eyebrow": "TIKTOK LIVE OFFICIAL GUILD ／ OSAKA",
-      "title1": "Two captains, one group —",
-      "title2": "Osaka's TikTok act that sings and dances.",
-      "tagline": "ECHO FROM OSAKA NIGHT",
-      "lead": "EchoAmp is an official TikTok LIVE guild based in Osaka. We produce a dual-captain girls' singing and dance group and keep the whole chain in house, from live-streaming training to original music.",
-      "ctaApply": "APPLY NOW",
-      "ctaAbout": "About us",
-      "heroCaption": "Bringing Dotonbori's lights to the stream",
+      "eyebrow": "TIKTOK LIVE CREATOR NETWORK ／ OSAKA",
+      "title1": "Building the next generation of TikTok LIVE",
+      "title2": "female singing & dance groups in Osaka.",
+      "tagline": "BORN IN OSAKA. BUILT FOR LIVE.",
+      "lead": "EchoAmp is an Osaka-based TikTok LIVE Creator Network. Through our dual-captain system, we recruit and develop female live creators, covering dance training, livestream operations, and original content production to build long-term singing & dance livestream groups.",
+      "ctaApply": "APPLY",
+      "ctaAbout": "ABOUT ECHOAMP",
+      "heroCaption": "BRING THE LIGHTS OF OSAKA INTO LIVE.",
       "heroPlaceholder": "Hero image / MoonDollz key visual",
       "stats": [
         {
-          "value": "2027",
-          "label": "From Osaka, aiming worldwide"
+          "value": "OSAKA",
+          "label": "Based in Osaka, Japan"
         },
         {
-          "value": "04",
-          "label": "Training / AIGC / Music / Suit tech"
+          "value": "02 CAPTAINS",
+          "label": "Dual-Captain System"
         },
         {
           "value": "08–12",
-          "label": "2026 second-round audition window"
+          "label": "2026 2ND RECRUITMENT"
         }
       ],
       "newsHead": {
