@@ -68,7 +68,11 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
 
 ### state 归属
 
-`CompetitorDossierView` 持有 `anchorDate: string | null`，默认为轴上最新的一天（即窗口贴右）。用 `useMemo` 从 `board.competitors` 算出 `axis`，再算出 `dateWindow: string[]`。
+`CompetitorDossierView` 持有 `anchorDate: string | null` —— 存的是**用户点了什么**，初始为 `null`。真正生效的选中态是 `selectedDate = resolveAnchor(axis, anchorDate)`：`null` 或已脱轴时归一化到轴上一个真实日期（默认最新一天，即窗口贴右）。
+
+这样拆成"用户意图"与"归一化结果"两个值，是为了让轴重算（上传、改日期、删除都会触发）时的回落成为纯函数的派生结果，不需要额外的 `useEffect` 去同步 state——`useEffect` 里改 state 会多一轮渲染，也容易和 `refresh()` 的时序打架。
+
+`axis` 与 `dateWindow` 同样用 `useMemo` 从 `board.competitors` 派生。
 
 `dateWindow` 和 `selectedDate` 作为 props 逐层下传：`CompetitorDossierView` → `CompetitorCard` → `ShotAlbum`。`CompetitorCard` 只透传，递归渲染 `related` 子卡时原样下发。
 
@@ -160,7 +164,7 @@ getCompetitorBoard (server)
 | 轴不足 5 天 | 列数 = 轴长度，不补空列 |
 | 某竞品在窗口内全无图 | 该行 5 个虚线占位，行高不塌 |
 | `shot_on = null` 的历史数据 | 归入轴末尾的 `UNDATED_KEY` 列，标题显示 `t('undated')` |
-| 新传图的日期不在轴上 | `refresh()` 后轴重算，`anchorDate` 跟到该天 |
+| 新传图的日期不在轴上 | `refresh()` 后轴重算并新增该列。用户**未**显式选过某天时（`anchorDate` 为 `null`），选中态跟随轴上最新一天，因此自动落到新图；用户已显式选过某天时保持不动，不打断正在进行的横向对比 |
 | 改日期导致某列变空并从轴上消失 | 轴重算；若消失的正是 `anchorDate`，回落到轴上日历距离最近的日期，并列时取较新的一天 |
 | 同一天同一竞品图片数为 1 | 不显示 `+N` 角标 |
 
