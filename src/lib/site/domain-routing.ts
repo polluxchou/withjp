@@ -1,4 +1,11 @@
-export const PUBLIC_SITE_HOST = 'echoamp.agenova.chat'
+// 官网对外域名。用列表而不是单个常量：这里最早写死成一个当时还没解析的域名
+// （echoamp.agenova.chat），真实配好的是 eacn.agenova.chat，host 对不上就会静静
+// 落回后台鉴权流程、访客看到的是内部登录页。以后换/加域名往这里加一行即可，
+// 旧域名保留一段时间也不会互相顶掉。
+export const PUBLIC_SITE_HOSTS = ['eacn.agenova.chat'] as const
+
+/** 规范域名（生成绝对链接、文档引用时用这个）。 */
+export const PUBLIC_SITE_HOST = PUBLIC_SITE_HOSTS[0]
 
 const DEFAULT_PUBLIC_LOCALE = 'ja'
 const PUBLIC_LOCALES = ['zh', 'en', 'ja'] as const
@@ -39,7 +46,7 @@ export function resolvePublicSiteRoute(
   hostname: string,
   pathname: string,
 ): PublicSiteRoute | null {
-  if (normalizeHostname(hostname) !== PUBLIC_SITE_HOST) return null
+  if (!(PUBLIC_SITE_HOSTS as readonly string[]).includes(normalizeHostname(hostname))) return null
 
   if (pathname === PUBLIC_APPLICATION_PATH || pathname === `${PUBLIC_APPLICATION_PATH}/`) {
     return { kind: 'passthrough' }
