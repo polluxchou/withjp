@@ -11,12 +11,10 @@ import PendingActionCard, { type PendingActionState } from './PendingActionCard'
 import type { Expense } from '@/lib/types'
 import type { VenueAction } from '@/venue/layoutData'
 import { notifyIntentApplied } from '@/lib/intent/events'
-
-// design-system.md §4's one focus recipe, deduped across the three hand-rolled
-// interactive elements in this file (trigger pill, copy-error button, details
-// summary) that don't go through Button/Field and so don't get it for free —
-// same CARD_BTN-constant idiom as pipeline/page.tsx.
-const FOCUS_RING = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+// design-system.md §4 的唯一 focus 配方，供本文件三处手写交互元素（触发药丸、
+// 复制报错按钮、details summary）复用——它们不走 Button/Field，拿不到默认
+// focus 环。字符串唯一登记处在 recipes.ts，此处只 import 不再抄本地副本。
+import { FOCUS_RING } from '@/lib/ui/recipes'
 
 // ── Venue scope registry ──────────────────────────────────────
 // The venue editor registers a provider while mounted. When present, the command

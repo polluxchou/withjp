@@ -61,7 +61,11 @@ export interface BroadcastAccount {
 
 // ── Agent ─────────────────────────────────────────────────────
 
-export type AgentRole = 'bd' | 'ops' | 'finance' | 'content' | 'growth' | 'legal'
+// DB enum agent_role 全量 8 值（迁移 001/003/010/016 累计添加）：
+// bd/ops/finance/content/growth/legal 是真人可选部门角色；'tech' 是新增的
+// 真人可选角色（真人技术岗）；'pmo' 是 AI 代理专属角色（PMO Agent 自身的
+// role，不出现在任何真人可选角色下拉——见 ProfileEditor 的 ROLES 数组）。
+export type AgentRole = 'bd' | 'ops' | 'finance' | 'content' | 'growth' | 'legal' | 'pmo' | 'tech'
 export type ModelProvider = 'anthropic' | 'openai' | 'gemini'
 
 export interface Agent {

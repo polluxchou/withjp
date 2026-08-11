@@ -19,6 +19,7 @@ import { Play, RefreshCw, CheckSquare, Settings, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toDateStr } from '@/lib/work-tasks/cost'
 import { toneOf } from '@/lib/ui/status-tone'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import type { Task, TaskStatus, WorkTask, AgentRole } from '@/lib/types'
 
 const STATUS_TABS: (TaskStatus | 'all')[] = ['all', 'pending', 'running', 'done', 'failed']
@@ -243,7 +244,10 @@ export default function TasksPage() {
                   )}
                   {task.status === 'done' && task.output && (
                     <details className="pl-7 pt-1">
-                      <summary className="text-xs text-ink-400 cursor-pointer hover:text-ink-700">{t('viewOutput')}</summary>
+                      {/* w-fit + rounded-field 让 focus 环贴着文字而非撑满整行
+                          （<summary> 默认 block）——同 team/page.tsx 的
+                          SUMMARY_CLASS 配方，环本身取自 recipes.ts。 */}
+                      <summary className={`w-fit text-xs text-ink-400 cursor-pointer hover:text-ink-700 rounded-field ${FOCUS_RING}`}>{t('viewOutput')}</summary>
                       <pre className="mt-2 text-xs font-mono bg-canvas border border-line rounded-field p-3 overflow-auto max-h-48 text-ink-700">
                         {JSON.stringify(task.output, null, 2)}
                       </pre>

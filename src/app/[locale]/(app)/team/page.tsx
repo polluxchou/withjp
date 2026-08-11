@@ -8,6 +8,7 @@ import Tag from '@/components/ui/Tag'
 import EmptyState from '@/components/ui/EmptyState'
 import AgentModelEditor from '@/components/agents/AgentModelEditor'
 import { toneOf } from '@/lib/ui/status-tone'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import { Bot } from 'lucide-react'
 import type { Agent } from '@/lib/types'
 
@@ -37,12 +38,11 @@ async function getAgentStats() {
 // <summary> is a block-level list-item by default, so a bare focus-visible
 // ring would stretch across the full card width instead of hugging the
 // label — w-fit constrains the ring (and the hover color) to the text.
-// This is the same ring recipe design-system §4 uses everywhere else, spelled
-// out by hand because native <details><summary> doesn't pick it up for free
-// the way <button>/<a> do through Button/Field. (tasks/page.tsx:246 and
-// creators/[id]/page.tsx:396 have their own <summary> without this ring —
-// pre-existing gaps, left alone here, deferred.)
-const SUMMARY_CLASS = 'w-fit text-xs text-ink-400 cursor-pointer hover:text-ink-700 font-medium rounded-field focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1'
+// The ring itself comes from recipes.ts (§4 唯一登记处) because native
+// <details><summary> doesn't pick it up for free the way <button>/<a> do
+// through Button/Field. (tasks/page.tsx 与 creators/[id]/page.tsx 的
+// <summary> 原本缺环，PR4 Task 5 已就地补齐同一配方。)
+const SUMMARY_CLASS = `w-fit text-xs text-ink-400 cursor-pointer hover:text-ink-700 font-medium rounded-field ${FOCUS_RING}`
 const PRE_CLASS = 'mt-2 text-xs font-mono bg-canvas border border-line rounded-field p-2 overflow-auto max-h-20 text-ink-700'
 
 export default async function TeamPage() {
