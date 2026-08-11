@@ -873,7 +873,8 @@
     "listTitle": "支出明細",
     "sortByLabel": "並び替え",
     "toggleSortDir": "並び順を切り替え",
-    "category": {
+    "category": "カテゴリ",
+    "categoryChart": {
       "viewPie": "円グラフ",
       "viewSankey": "サンキー図",
       "crossBorderTooltip": "国際送金コスト {amount}",
