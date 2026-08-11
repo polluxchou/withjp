@@ -1616,6 +1616,7 @@
     "earlierDates": "Earlier",
     "laterDates": "Later",
     "noShotOnDate": "No shot on {date}",
+    "noShotUndated": "No undated shot",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "prevShot": "Previous shot",
