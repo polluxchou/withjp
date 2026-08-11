@@ -1657,7 +1657,9 @@
     "locale": {
       "ja": "日本語",
       "zh": "中文",
-      "en": "EN"
+      "en": "EN",
+      "toggle": "Switch language",
+      "menuLabel": "Language options"
     },
     "veil": {
       "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
@@ -2151,7 +2153,7 @@
         {
           "no": "01", "eyebrow": "FOR CREATOR", "title": "For applicants",
           "body": "For auditions, lessons and activity terms. Chiron handles recruiting and offline operations; LINE is the fastest way to reach us.",
-          "cta": "Ask us on LINE", "action": "recruit", "partner": "RECRUITING PARTNER",
+          "cta": "Ask us on LINE", "action": "recruit", "partner": "Operating Entity",
           "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
           "rows": [
             { "label": "Company", "value": "カイロン株式会社（Chiron Co., Ltd.）" },

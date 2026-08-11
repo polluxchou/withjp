@@ -1657,7 +1657,9 @@
     "locale": {
       "ja": "日本語",
       "zh": "中文",
-      "en": "EN"
+      "en": "EN",
+      "toggle": "切换语言",
+      "menuLabel": "语言选项"
     },
     "veil": {
       "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
@@ -2151,7 +2153,7 @@
         {
           "no": "01", "eyebrow": "FOR CREATOR", "title": "想报名的人",
           "body": "关于试镜、课程与活动条件。招募及线下运营由 Chiron 株式会社负责，通过 LINE 咨询最快。",
-          "cta": "用 LINE 咨询", "action": "recruit", "partner": "RECRUITING PARTNER",
+          "cta": "用 LINE 咨询", "action": "recruit", "partner": "运营主体",
           "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
           "rows": [
             { "label": "公司名称", "value": "カイロン株式会社（Chiron Co., Ltd.）" },

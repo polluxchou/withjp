@@ -10,6 +10,14 @@ const ja = JSON.parse(
   readFileSync(new URL('../../../messages/ja.json', import.meta.url), 'utf8'),
 ) as { site: { contact: { sections: SiteContactSectionCopy[] } } }
 
+const zh = JSON.parse(
+  readFileSync(new URL('../../../messages/zh.json', import.meta.url), 'utf8'),
+) as { site: { contact: { sections: SiteContactSectionCopy[] } } }
+
+const en = JSON.parse(
+  readFileSync(new URL('../../../messages/en.json', import.meta.url), 'utf8'),
+) as { site: { contact: { sections: SiteContactSectionCopy[] } } }
+
 test('Japanese contact copy preserves the three screenshot sections in order', () => {
   const sections = ja.site.contact.sections
   assert.equal(sections.length, 3)
@@ -35,4 +43,13 @@ test('contact actions become locale-safe internal and external links', () => {
   assert.equal(sections[2].ctaHref, 'mailto:business@echoamp.jp')
   assert.equal(sections[2].rows[1].href, 'mailto:business@echoamp.jp')
   assert.deepEqual(sections.map(({ id }) => id), ['contact-01', 'contact-02', 'contact-03'])
+})
+
+test('Contact localizes the operating entity but keeps production partner unchanged', () => {
+  assert.equal(zh.site.contact.sections[0].partner, '运营主体')
+  assert.equal(ja.site.contact.sections[0].partner, '運営主体')
+  assert.equal(en.site.contact.sections[0].partner, 'Operating Entity')
+  for (const messages of [zh, ja, en]) {
+    assert.equal(messages.site.contact.sections[1].partner, 'PRODUCTION PARTNER')
+  }
 })

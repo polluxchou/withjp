@@ -1657,7 +1657,9 @@
     "locale": {
       "ja": "日本語",
       "zh": "中文",
-      "en": "EN"
+      "en": "EN",
+      "toggle": "言語を切り替える",
+      "menuLabel": "言語オプション"
     },
     "veil": {
       "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
@@ -2155,7 +2157,7 @@
           "body": "オーディション、レッスン、活動条件について。採用とオフライン運営はカイロン株式会社が担当します。LINE でのご相談が最短です。",
           "cta": "LINE で相談する",
           "action": "recruit",
-          "partner": "RECRUITING PARTNER",
+          "partner": "運営主体",
           "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
           "rows": [
             { "label": "会社名", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
