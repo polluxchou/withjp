@@ -51,7 +51,8 @@
     "profile": "Profile",
     "logout": "Logout",
     "appName": "Creator Network",
-    "appSubtitle": "AI Operating System"
+    "appSubtitle": "AI Operating System",
+    "recruitApplications": "Site applications"
   },
   "language": {
     "zh": "中文",
@@ -1645,5 +1646,579 @@
     "expandProfile": "Toggle dossier",
     "handlePlaceholder": "@handle or URL",
     "editHandle": "Edit handle"
+  },
+  "site": {
+    "meta": {
+      "titleDefault": "EchoAmp OSAKA ／ Official TikTok LIVE Guild",
+      "titleTemplate": "%s ｜ EchoAmp OSAKA",
+      "description": "EchoAmp is an official TikTok LIVE guild based in Osaka. We build a dual-captain singing and dance group, and keep everything in house — from live-streaming training to original music."
+    },
+    "nav": {
+      "top": "TOP",
+      "news": "NEWS",
+      "vision": "VISION",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "contact": "CONTACT",
+      "recruit": "RECRUIT / APPLY",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu"
+    },
+    "locale": {
+      "ja": "日本語",
+      "zh": "中文",
+      "en": "EN",
+      "toggle": "Switch language",
+      "menuLabel": "Language options"
+    },
+    "veil": {
+      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "line1": "Finding Osaka's most gifted",
+      "line2": "performers who sing and dance."
+    },
+    "footer": {
+      "address": "Namba, Chuo-ku, Osaka ／ Official TikTok LIVE guild\nLive training · AIGC film · Original music",
+      "visionMembers": "VISION ／ MEMBERS",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "news": "NEWS",
+      "recruit": "RECRUIT",
+      "contact": "CONTACT",
+      "social": "TIKTOK ／ X ／ LINE",
+      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+    },
+    "ticker": {
+      "items": [
+        "DOTONBORI GLICO 1935",
+        "TSUTENKAKU · SHINSEKAI 1912",
+        "NEON GOLDEN AGE 1950–1970",
+        "GREATER OSAKA MODERN GRAPHICS",
+        "MOONDOLLZ PROJECT LAUNCHED"
+      ]
+    },
+    "home": {
+      "eyebrow": "TIKTOK LIVE OFFICIAL GUILD ／ OSAKA",
+      "title1": "Two captains, one group —",
+      "title2": "Osaka's TikTok act that sings and dances.",
+      "tagline": "ECHO FROM OSAKA NIGHT",
+      "lead": "EchoAmp is an official TikTok LIVE guild based in Osaka. We produce a dual-captain girls' singing and dance group and keep the whole chain in house, from live-streaming training to original music.",
+      "ctaApply": "APPLY NOW",
+      "ctaAbout": "About us",
+      "heroCaption": "Bringing Dotonbori's lights to the stream",
+      "heroPlaceholder": "Hero image / MoonDollz key visual",
+      "stats": [
+        {
+          "value": "2027",
+          "label": "From Osaka, aiming worldwide"
+        },
+        {
+          "value": "04",
+          "label": "Training / AIGC / Music / Suit tech"
+        },
+        {
+          "value": "08–12",
+          "label": "2026 second-round audition window"
+        }
+      ],
+      "newsHead": {
+        "eyebrow": "01 ／ NEWS",
+        "title": "LATEST",
+        "more": "VIEW ALL →"
+      },
+      "visionHead": {
+        "eyebrow": "02 ／ VISION",
+        "title": "WHY OSAKA",
+        "more": "READ MORE →"
+      },
+      "visionBody": "In Osaka, neon came before anime. The visual language Dotonbori and Shinsekai built after the war — loud, gaudy, nocturnal — is where we start. EchoAmp carries that inheritance into the live-stream frame.",
+      "visionCards": [
+        {
+          "no": "01",
+          "title": "Dotonbori Glico sign",
+          "body": "First installed in 1935, now in its sixth generation. The running man in neon became Osaka's civic symbol 60 years before Bebop."
+        },
+        {
+          "no": "02",
+          "title": "Shinsekai & Tsutenkaku",
+          "body": "Built in 1912. Giant blowfish lanterns and dense Showa-era neon shaped the look of a boisterous Osaka."
+        },
+        {
+          "no": "03",
+          "title": "Neon golden age",
+          "body": "Through the 1950s–70s, Las Vegas influence pushed signage to enormous scale — the template for today's Dotonbori."
+        },
+        {
+          "no": "04",
+          "title": "Greater Osaka modern",
+          "body": "Commercial flyers from the late Taisho and early Showa eras already carried fully mature modern graphics."
+        }
+      ],
+      "projectHead": {
+        "eyebrow": "03 ／ PROJECT",
+        "title": "MOONDOLLZ",
+        "sub": "Princesses of the night, carrying dreams. ／ A dual-captain singing and dance group",
+        "more": "MEMBERS →"
+      },
+      "projectPlaceholder": "MOONDOLLZ concept art (moonlit night + wafuku)",
+      "quote1": "“BORN IN MOONLIGHT.",
+      "quote2": "GLOWING LIKE DOLLS.”",
+      "projectTerms": [
+        {
+          "term": "MOON",
+          "body": "Dreamlike, nocturnal, mysterious — a fit for princess styling, night makeup and late-night streams."
+        },
+        {
+          "term": "DOLLZ",
+          "body": "Dolls, plural. Each member carries her own style; together they read as a troupe."
+        },
+        {
+          "term": "-Z",
+          "body": "A spoonful of Y2K, streetwear and subculture."
+        }
+      ],
+      "projectNote": "Sub-units are run with distinct character settings, then debut together as one large group so the streaming reach compounds.",
+      "servicesHead": {
+        "eyebrow": "04 ／ SERVICES",
+        "title": "FOUR BUSINESS LINES"
+      },
+      "techHead": {
+        "eyebrow": "05 ／ TECHNOLOGY",
+        "title": "SUIT LIVE TECHNOLOGY"
+      },
+      "techBody": "Costumed-suit (kigurumi) streaming is close to untouched in Japan. We brought it in house to an operable level, with motion linkage and real-time staging. It is EchoAmp's one true differentiator.",
+      "techCta": "See the tech",
+      "techPlaceholder": "Suit / motion-capture session photo",
+      "bannerEyebrow": "RECRUIT ／ SECOND ROUND",
+      "bannerLine1": "For those who can dance, those who want to be seen,",
+      "bannerLine2": "and those who are still nobody.",
+      "bannerCta": "See requirements →"
+    },
+    "news": {
+      "eyebrow": "NEWS",
+      "title": "LATEST",
+      "filters": [
+        "ALL",
+        "RECRUIT",
+        "PROJECT",
+        "LIVE"
+      ],
+      "empty": "Nothing in this category yet",
+      "read": "READ →",
+      "back": "← Back to NEWS",
+      "backCta": "All NEWS",
+      "applyCta": "APPLY NOW",
+      "imagePlaceholder": "Article hero image",
+      "articles": [
+        {
+          "date": "2026.10.01",
+          "tag": "LIVE",
+          "title": "Nightly 21:00 streams begin from the Namba studio",
+          "lead": "From 1 October we stream TikTok LIVE every night at 21:00 from our own studio in Namba.",
+          "body": [
+            "Each weekday has a fixed unit and theme, so viewers never have to guess whose slot it is. Monday is MOON UNIT's late-night hour, Tuesday is DOLLZ UNIT's dance format, Wednesday belongs to the suit cast.",
+            "Streams run on the studio's wired setup, with dedicated staff on audio, lighting and camera. Performers only have to think about performing.",
+            "Archives and clips from each slot will be published progressively. See the TIKTOK LIVE page for the full schedule."
+          ]
+        },
+        {
+          "date": "2026.09.10",
+          "tag": "PROJECT",
+          "title": "Girl-group project MOONDOLLZ announced",
+          "lead": "We announced MOONDOLLZ, a dual-captain singing and dance group.",
+          "body": [
+            "MOON is the dreamlike, nocturnal and mysterious; DOLLZ is the sense of a troupe where every member carries her own style; the closing Z is the temperature of Y2K and streetwear. The name stacks all three.",
+            "Sub-units are run with distinct character settings while debuting together as one group. The captains are Ayatsuki (MOON SIDE) and Yukiha (DOLLZ SIDE).",
+            "Members will be revealed progressively in October and December."
+          ]
+        },
+        {
+          "date": "2026.08.28",
+          "tag": "RECRUIT",
+          "title": "First-generation auditions open across Kansai",
+          "lead": "Auditions for our first generation are open to women around 18–26 living in Osaka and the wider Kansai area.",
+          "body": [
+            "We welcome dance backgrounds (street, cheer, ballet and so on), stage experience, and time in university dance clubs or amateur teams. No streaming experience required.",
+            "The process runs form submission → document screening → online interview → a practical session at the Osaka studio → contract, and takes about 2–3 weeks.",
+            "Lessons, studio use, costume and shooting are covered by the agency. Revenue and terms are explained individually at the interview."
+          ]
+        },
+        {
+          "date": "2026.08.10",
+          "tag": "PROJECT",
+          "title": "EchoAmp Osaka office and streaming studio go live",
+          "lead": "We opened an office and streaming studio in the Shin-Osaka area and have started operating from there.",
+          "body": [
+            "Streaming booths, lesson space and a shooting space sit on the same floor, so everything from rehearsal to broadcast happens in one place.",
+            "Five minutes on foot from Shin-Osaka station, easy to reach by both shinkansen and subway.",
+            "Visits are by appointment only. We share the exact address once an interview is confirmed."
+          ]
+        }
+      ]
+    },
+    "vision": {
+      "eyebrow": "VISION ／ 2027",
+      "title": "Finding Osaka's most gifted performers who sing and dance.",
+      "lead": "We are not building an anime-styled website. High-chroma color fields, black silhouettes, condensed type set on a slant — we connect that vocabulary back to a real visual inheritance: Dotonbori and Shinsekai. Osaka's own neon noir. That is how EchoAmp looks, and how our streams look.",
+      "imagePlaceholder": "Night view of Dotonbori / Shinsekai",
+      "eras": [
+        {
+          "value": "1935",
+          "title": "Dotonbori Glico sign",
+          "body": "Dismantled in wartime and rebuilt since; now in its sixth generation. The running man is still Osaka's civic symbol."
+        },
+        {
+          "value": "1912",
+          "title": "Shinsekai & Tsutenkaku",
+          "body": "Built as a district modelled on Paris and New York. Giant blowfish lanterns and dense Showa neon give it its character."
+        },
+        {
+          "value": "50s–70s",
+          "title": "Neon golden age",
+          "body": "Vegas influence made signage bigger and more excessive, fixing the Dotonbori skyline we know today."
+        },
+        {
+          "value": "Greater Osaka",
+          "title": "Modern graphics",
+          "body": "Department-store flyers and theatre posters of the late Taisho and early Showa eras already showed mature modern design."
+        }
+      ],
+      "principles": [
+        {
+          "label": "COLOR",
+          "title": "Night navy, steel blue",
+          "body": "Tsutenkaku's night sky as the ground, built with a single accent. No decorative colors added."
+        },
+        {
+          "label": "TYPE",
+          "title": "Condensed Latin × Mincho",
+          "body": "Barlow Condensed for headings, Mincho's vertical strokes for Japanese — the tension of signboard lettering."
+        },
+        {
+          "label": "IMAGE",
+          "title": "Silhouette and duotone",
+          "body": "People read closer to black silhouettes; every photo is dyed in the accent. It suits the suit work too."
+        }
+      ]
+    },
+    "members": {
+      "eyebrow": "MEMBERS ／ MOONDOLLZ",
+      "title": "MOONDOLLZ",
+      "sub": "Two captains. Sub-units carry distinct character settings, then debut together as one group.",
+      "note": "* Members revealed progressively in October and December",
+      "placeholder": "MEMBER",
+      "captains": [
+        {
+          "eyebrow": "CAPTAIN 01 ／ MOON SIDE",
+          "name": "AYATSUKI",
+          "jp": "Ayatsuki / Leader",
+          "body": "Leads the night–wa–stillness unit. The moon that guides the light, the leader who points at the dream. Anchors late-night streams and center stage."
+        },
+        {
+          "eyebrow": "CAPTAIN 02 ／ DOLLZ SIDE",
+          "name": "YUKIHA",
+          "jp": "Yukiha / Leader",
+          "body": "Heals transparent pain with a breath of snow. Leads the snow–bamboo–silence unit; owns dance and battle-format shows."
+        }
+      ],
+      "unrevealedName": "— NOT YET REVEALED —",
+      "unrevealedRole": "Revealed in December",
+      "list": [
+        {
+          "name": "KANO",
+          "role": "Kano / The trap of a fragile smile"
+        },
+        {
+          "name": "MIKOTO",
+          "role": "Mikoto / The graceful blade"
+        },
+        {
+          "name": "LULU",
+          "role": "Lulu / A burst of pink light"
+        },
+        {
+          "name": "CHIYO",
+          "role": "Chiyo / Lone star dancing a thousand nights"
+        },
+        {
+          "name": "AKAYA",
+          "role": "Akaya / Strong cherry blossom of the court"
+        },
+        {
+          "name": "YUMEKI",
+          "role": "Yumeki / The voice that weaves illusions"
+        },
+        {
+          "name": "SHINO",
+          "role": "Shino / Noble and dangerous temptress"
+        },
+        {
+          "name": "HIMENE",
+          "role": "Himene / A princess born for sound"
+        }
+      ]
+    },
+    "live": {
+      "eyebrow": "TIKTOK LIVE",
+      "title": "STREAM SCHEDULE",
+      "lead": "Live every night from the Namba studio. As an official guild, running TikTok LIVE itself sits at the core of our business.",
+      "headers": {
+        "day": "DAY",
+        "program": "PROGRAM",
+        "cast": "CAST",
+        "time": "TIME"
+      },
+      "schedule": [
+        {
+          "day": "MON",
+          "program": "Midnight Princess Chamber",
+          "cast": "MOON UNIT",
+          "time": "21:00–24:00"
+        },
+        {
+          "day": "TUE",
+          "program": "DOLLZ Dance Club",
+          "cast": "DOLLZ UNIT",
+          "time": "21:00–23:30"
+        },
+        {
+          "day": "WED",
+          "program": "Suit Night",
+          "cast": "SUIT CAST",
+          "time": "22:00–24:00"
+        },
+        {
+          "day": "THU",
+          "program": "Rookie Audition Slot",
+          "cast": "TRAINEE",
+          "time": "20:00–22:00"
+        },
+        {
+          "day": "FRI",
+          "program": "Namba Neon Song Hour",
+          "cast": "ALL",
+          "time": "21:00–01:00"
+        },
+        {
+          "day": "SAT",
+          "program": "MOONDOLLZ Joint Stream",
+          "cast": "ALL",
+          "time": "20:00–24:00"
+        }
+      ],
+      "onAirLabel": "ON AIR NOW",
+      "onAirPlaceholder": "Stream capture (vertical)",
+      "onAirProgram": "Midnight Princess Chamber",
+      "onAirTime": "Nightly 21:00 — 24:00 ／ Namba studio"
+    },
+    "services": {
+      "eyebrow": "SERVICES",
+      "title": "WHAT WE DO",
+      "items": [
+        {
+          "no": "01",
+          "code": "S-01",
+          "title": "Live-streaming training",
+          "en": "LIVE TRAINING",
+          "short": "From zero: voice, camera work, talk design and metrics — a dedicated manager runs alongside you.",
+          "body": "Built for people with no experience: voice, camera work, talk design, comment handling and metrics, taught in stages. A dedicated manager works with you daily, down to planning your stream slots."
+        },
+        {
+          "no": "02",
+          "code": "S-02",
+          "title": "AIGC idol drama",
+          "en": "AIGC IDOL DRAMA",
+          "short": "Short-form idol drama planned and produced with generative AI, building a world outside the stream.",
+          "body": "Planning, writing and production of short idol dramas using generative AI. It builds a world beyond the stream and banks each member's character setting as footage."
+        },
+        {
+          "no": "03",
+          "code": "S-03",
+          "title": "Original music",
+          "en": "ORIGINAL MUSIC",
+          "short": "Group and solo songs written to order, supplied to both streams and stages.",
+          "body": "Group and solo songs written to order and supplied to streams, stages and film. The annual release and event calendar is built around the music."
+        },
+        {
+          "no": "04",
+          "code": "S-04",
+          "title": "Suit live technology",
+          "en": "SUIT LIVE TECHNOLOGY",
+          "short": "Fabrication, motion linkage and real-time staging in house — a near-empty field in Japan.",
+          "body": "Costumed-suit (kigurumi) streaming is close to untouched in Japan, and the know-how is ours: fabrication, motion, voice and real-time staging run as one. It removes the performer's face-reveal risk while growing a character IP. EchoAmp's one true differentiator."
+        }
+      ],
+      "subItems": [
+        {
+          "no": "04-A",
+          "title": "Fabrication and suit design",
+          "body": "Designed for how it reads on stream — silhouette, range of motion, field of view — plus airflow and weight balance for long sessions."
+        },
+        {
+          "no": "04-B",
+          "title": "Motion linkage",
+          "body": "Expression, glow and effect control that follow the performer, composited live on the streaming side."
+        },
+        {
+          "no": "04-C",
+          "title": "Running it as IP",
+          "body": "The character is an asset independent of any performer, extensible to AIGC film, music and merchandise."
+        }
+      ],
+      "placeholders": [
+        "Suit shoot / production floor",
+        "Motion linkage test screen"
+      ]
+    },
+    "recruit": {
+      "eyebrow": "RECRUIT ／ REQUIREMENTS",
+      "title1": "For those who can dance, those who want to be seen,",
+      "title2": "and those who are still nobody.",
+      "rows": [
+        {
+          "label": "Who we seek",
+          "body": "Women around 18–26, living in Osaka/Kansai or able to commute. Japanese nationality or a residence status permitting work."
+        },
+        {
+          "label": "Welcome experience",
+          "body": "Dance (street, cheer, ballet and so on), stage experience, university dance clubs or amateur teams. No experience is fine if the drive is there."
+        },
+        {
+          "label": "Activities",
+          "body": "TikTok LIVE streams, group activity as MOONDOLLZ, appearing in AIGC film, music releases and live events."
+        },
+        {
+          "label": "Terms",
+          "body": "Lessons and studio use are covered by the agency. Stream revenue is shared per our published terms. Costume and shooting support included."
+        },
+        {
+          "label": "How to apply",
+          "body": "Submit the form → document screening → online interview → practical session at the Osaka studio → offer and contract. Around 2–3 weeks."
+        }
+      ],
+      "payEyebrow": "RECRUIT ／ REVENUE AND TERMS",
+      "payTitle": "How we think about revenue and terms",
+      "payCols": [
+        "Stream revenue is shared per our published terms, tiered by hours streamed, results and participation in group activity.",
+        "Lessons, studio, costume and shooting are covered by the agency. There are no upfront costs for you.",
+        "Exact figures, contract form and expected workload are explained individually during the online interview."
+      ],
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "Name",
+        "age": "Age",
+        "residence": "Where you live",
+        "contact": "How to reach you",
+        "contactHint": "LINE ID, email or a social account",
+        "experience": "Experience / socials",
+        "consent": "I agree that the information above may be used for recruitment screening.",
+        "submit": "Submit",
+        "submitting": "Sending…",
+        "lineNote": "You can also apply via LINE: @echoamp_osaka",
+        "successTitle": "Thank you for applying.",
+        "successBody": "We will review your entry and get back to you within 2–3 weeks. If it is urgent, reach us on LINE (@echoamp_osaka).",
+        "errors": {
+          "required": "Required",
+          "tooLong": "Too long",
+          "outOfRange": "Enter a number between 16 and 60",
+          "invalidAge": "Digits only",
+          "consent": "Your consent is required",
+          "rateLimited": "Too many submissions right now. Please try again shortly.",
+          "network": "Could not send. Check your connection and try again."
+        }
+      }
+    },
+    "contact": {
+      "eyebrow": "CONTACT",
+      "title": "GET IN TOUCH",
+      "sections": [
+        {
+          "no": "01", "eyebrow": "FOR CREATOR", "title": "For applicants",
+          "body": "For auditions, lessons and activity terms. Chiron handles recruiting and offline operations; LINE is the fastest way to reach us.",
+          "cta": "Ask us on LINE", "action": "recruit", "partner": "Operating Entity",
+          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "rows": [
+            { "label": "Company", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
+            { "label": "Representative", "value": "CHEN HAO" },
+            { "label": "Founded / location", "value": "2021年／大阪市浪速区" },
+            { "label": "Business", "value": "ライブ配信キャストの採用・オフライン運営" },
+            { "label": "Address", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" }
+          ]
+        },
+        {
+          "no": "02", "eyebrow": "FOR COMPANION", "title": "Production & operations partner",
+          "body": "Our partner for hair and makeup, location shoots, group-stream operations training and AIGC content production.",
+          "note": "Contact desk coming soon", "partner": "PRODUCTION PARTNER",
+          "rows": [
+            { "label": "Company", "value": "吉光片羽株式会社" },
+            { "label": "Representative", "value": "YANG JIANUO" },
+            { "label": "Founded / location", "value": "2019年／西宮市" },
+            { "label": "Business", "value": "インフルエンサーマーケティング" },
+            { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" }
+          ]
+        },
+        {
+          "no": "03", "eyebrow": "FOR CLIENT", "title": "For companies and brands",
+          "body": "For tie-up streams, AIGC film production, music production and suit IP, contact us by email.",
+          "cta": "business@echoamp.jp", "action": "email",
+          "rows": [
+            { "label": "Services", "value": "Tie-up streams / AIGC film production / music production / suit IP" },
+            { "label": "Contact", "value": "business@echoamp.jp", "link": "email" },
+            { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese and Chinese" }
+          ]
+        }
+      ],
+      "office": {
+        "eyebrow": "OFFICE ／ ABOUT THE OFFICE",
+        "title": "Five minutes on foot from Shin-Osaka",
+        "body": "Our office and streaming studio are in the Shin-Osaka area, easy to reach by both shinkansen and subway, so lessons and streams happen in one place. We share the building and room number once an interview is confirmed.",
+        "rows": [
+          {
+            "label": "Nearest station",
+            "value": "Shin-Osaka (JR / subway), 5 min walk"
+          },
+          {
+            "label": "Facilities",
+            "value": "Streaming booths / lesson space / shooting space"
+          },
+          {
+            "label": "Visits",
+            "value": "By appointment only; address shared after the interview"
+          }
+        ],
+        "map": {
+          "station": "Shin-Osaka",
+          "walk": "5 min walk ／ 400m",
+          "studio": "ECHOAMP STUDIO",
+          "areaEn": "SHIN-OSAKA AREA",
+          "areaJp": "Yodogawa-ku, Osaka",
+          "north": "N ↑",
+          "axis": "W ← → E",
+          "alt": "Schematic showing the studio five minutes on foot from Shin-Osaka station"
+        }
+      }
+    },
+    "theme": {
+      "dark": "◐ DARK",
+      "light": "◑ LIGHT",
+      "toggle": "Switch theme"
+    }
+  },
+  "recruitApplications": {
+    "title": "Site applications",
+    "subtitle": "Entries from the public site's RECRUIT form (read-only)",
+    "totalLabel": "Total",
+    "newLabel": "Unhandled",
+    "todayLabel": "Today",
+    "listTitle": "Entries",
+    "empty": "No applications yet",
+    "columns": {
+      "date": "Received",
+      "name": "Name",
+      "age": "Age",
+      "residence": "Lives in",
+      "contact": "Contact",
+      "locale": "Language",
+      "experience": "Experience / socials"
+    }
   }
 }
