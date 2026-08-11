@@ -22,7 +22,7 @@ test('Japanese contact copy preserves the three screenshot sections in order', (
     ],
   )
   assert.equal(sections[0].rows[0].value, 'カイロン株式会社（Chiron Co., Ltd.）')
-  assert.equal(sections[0].rows[1].value, 'ZHANG QIAN')
+  assert.equal(sections[0].rows[1].value, 'CHEN HAO')
   assert.equal(sections[1].rows[0].value, '吉光片羽株式会社')
   assert.equal(sections[1].rows[1].value, 'YANG JIANUO')
   assert.equal(sections[2].rows[1].value, 'business@echoamp.jp')
