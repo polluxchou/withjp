@@ -46,7 +46,7 @@ import {
   LIFECYCLE_STARTING_STAGES,
   type LifecycleStartingStage,
   type LifecycleTemplateSet,
-} from '@/lib/finance-forecast/lifecycle'
+} from '@/lib/finance-forecast/lifecycle-template'
 import { planLifecycleApplication } from '@/lib/finance-forecast/lifecycle-apply'
 import { AXIS, GRID, TOOLTIP_STYLE, TOOLTIP_LABEL_STYLE, seriesColor, areaFill } from '@/lib/chart-theme'
 

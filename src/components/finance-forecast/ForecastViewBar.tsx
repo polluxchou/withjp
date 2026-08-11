@@ -8,7 +8,8 @@ import Modal from '@/components/ui/Modal'
 import Tag from '@/components/ui/Tag'
 import { Field, Input } from '@/components/ui/Field'
 import { FOCUS_RING } from '@/lib/ui/recipes'
-import { MAX_VIEWS_PER_USER, type ForecastView } from '@/lib/finance-forecast/views'
+import { MAX_VIEWS_PER_USER } from '@/lib/finance-forecast/views-permissions'
+import type { ForecastView } from '@/lib/finance-forecast/views'
 
 // 视角选择药丸：ui/ 里没有能承载「名字 + 归属 + 公开图标 + 激活态」的 chip
 // 原语（FilterChip 是 label+清除、CountChip 是 label+计数），保留本地形态，
