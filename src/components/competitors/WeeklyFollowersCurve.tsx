@@ -51,13 +51,15 @@ export default function WeeklyFollowersCurve({ weekly, compact = false }: { week
   const seriesLabel = `${t('weeklyFollowers')} — ${pts.map(tip).join('; ')}`
 
   if (compact) {
+    // self-start:grid 项默认 stretch,否则 32px 的小条会被拉到和相册齐高。
+    // min-w-0 + truncate + shrink-0:让它在窄格里收缩而不是撑破轨道(见 Step 1)。
     return (
-      <div className="flex items-center gap-2 rounded-md bg-canvas px-2.5 py-1.5 text-xs">
-        <span className="text-ink-500">{t('weeklyFollowers')}</span>
+      <div className="flex min-w-0 items-center gap-2 self-start rounded-md bg-canvas px-2.5 py-1.5 text-xs">
+        <span className="truncate text-ink-500">{t('weeklyFollowers')}</span>
         <span className="font-medium tabular-nums text-ink-900">{formatCount(latest)}</span>
         {delta && <span className="text-sky-600">{delta}</span>}
         {curve.polyline ? (
-          <span className="relative ml-auto h-5 w-24" role="img" aria-label={seriesLabel}>
+          <span className="relative ml-auto h-5 w-24 shrink-0" role="img" aria-label={seriesLabel}>
             <CurveLine polyline={curve.polyline} />
           </span>
         ) : pts.length === 0 ? (

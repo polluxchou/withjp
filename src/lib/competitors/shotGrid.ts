@@ -5,6 +5,9 @@ import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
 /** 无日期图片在日期轴上的占位键。 */
 export const UNDATED_KEY = '—'
 
+/** 日期窗口列数：一屏横向对比 5 天。三处渲染必须用同一个值,否则列对不齐。 */
+export const SHOT_WINDOW_SIZE = 5
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**

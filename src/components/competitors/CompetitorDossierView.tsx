@@ -6,11 +6,8 @@ import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import CompetitorCard from './CompetitorCard'
 import ShotDateStrip from './ShotDateStrip'
-import { collectShotDates, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
+import { SHOT_WINDOW_SIZE, collectShotDates, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
 import type { CompetitorBoard } from '@/lib/competitors/types'
-
-/** 日期窗口列数：一屏横向对比 5 天。 */
-const SHOT_WINDOW_SIZE = 5
 
 export default function CompetitorDossierView({ initial }: { initial: CompetitorBoard }) {
   const t = useTranslations('competitors')

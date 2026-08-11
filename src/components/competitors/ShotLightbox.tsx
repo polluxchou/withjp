@@ -13,7 +13,7 @@ export default function ShotLightbox({
   shots: CompetitorShot[]
   canEdit: boolean
   onClose: () => void
-  onChanged: () => void
+  onChanged: () => void | Promise<void>
 }) {
   const t = useTranslations('competitors')
   const [index, setIndex] = useState(0)
@@ -52,7 +52,7 @@ export default function ShotLightbox({
       // 只有 400 才是日期本身的问题;401/500 也说成"日期格式不对"
       // 会让人反复重打一个根本没错的日期
       if (!res.ok) { setError(res.status === 400 ? t('shotDateInvalid') : t('actionFailed')); return }
-      onChanged()
+      await onChanged()
       onClose()
     } catch {
       setError(t('actionFailed'))
@@ -68,7 +68,7 @@ export default function ShotLightbox({
     try {
       const res = await fetch(`/api/competitors/shots/${current.id}`, { method: 'DELETE' })
       if (!res.ok) { setError(t('actionFailed')); return }
-      onChanged()
+      await onChanged()
       // 只在删掉最后一张时才关。否则清理某天的多张图要"开→删→关→再开"
       // 循环一遍;留着不关的话,refetch 后 shots 变短、idx 自动夹逼,直接看下一张。
       if (shots.length <= 1) onClose()

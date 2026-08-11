@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { UNDATED_KEY, groupShotsByDate } from '@/lib/competitors/shotGrid'
+import { SHOT_WINDOW_SIZE, UNDATED_KEY, groupShotsByDate } from '@/lib/competitors/shotGrid'
 import ShotUploader from './ShotUploader'
 import ShotLightbox from './ShotLightbox'
 import type { CompetitorShot } from '@/lib/competitors/types'
@@ -30,7 +30,7 @@ function DateCell({ shots, dateKey, selected, onOpen }: {
       <div
         role="img"
         aria-label={dateKey === UNDATED_KEY ? t('noShotUndated') : t('noShotOnDate', { date: dateKey })}
-        className={`${box} ${ring} rounded-lg border border-dashed border-line-soft`}
+        className={`${box} ${ring} rounded-lg border border-dashed border-line-strong`}
       />
     )
   }
@@ -43,7 +43,7 @@ function DateCell({ shots, dateKey, selected, onOpen }: {
       <button type="button" onClick={onOpen} className="block h-full w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {/* caption 默认空串、tag 常为 null,兜底到日期,否则读屏只念"按钮" */}
-        <img src={cover.image_url} alt={cover.caption || cover.tag || dateKey} className="h-full w-full object-cover" loading="lazy" />
+        <img src={cover.image_url} alt={cover.caption || cover.tag || (dateKey === UNDATED_KEY ? t('undated') : dateKey)} className="h-full w-full object-cover" loading="lazy" />
       </button>
       {extra > 0 && (
         <span className="pointer-events-none absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
@@ -79,7 +79,7 @@ export default function ShotAlbum({
         <p className="text-xs text-muted-text">{t('noShots')}</p>
         {canEdit && (
           <div className="flex justify-end">
-            <ShotUploader competitorId={competitorId} onDone={onChanged} />
+            <ShotUploader competitorId={competitorId} onDone={onChanged} defaultDate={selectedDate} />
           </div>
         )}
       </div>
@@ -90,10 +90,10 @@ export default function ShotAlbum({
     <div className="min-w-0">
       {canEdit && (
         <div className="mb-2 flex justify-end">
-          <ShotUploader competitorId={competitorId} onDone={onChanged} />
+          <ShotUploader competitorId={competitorId} onDone={onChanged} defaultDate={selectedDate} />
         </div>
       )}
-      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${dateWindow.length}, minmax(0, 1fr))` }}>
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${SHOT_WINDOW_SIZE}, minmax(0, 1fr))` }}>
         {dateWindow.map((d) => (
           <DateCell
             key={d}

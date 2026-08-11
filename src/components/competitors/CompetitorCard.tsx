@@ -54,8 +54,9 @@ export default function CompetitorCard({
 
   const shell = nested
     // 子卡不能有自己的边框和横向内边距:那会让它的内容盒比父卡窄 26px,
-    // 同比例的 1fr_3fr 落进去,列宽就对不上了。层级感交给底色。
-    ? 'rounded-lg bg-canvas py-3'
+    // 同比例的 1fr_3fr 落进去,列宽就对不上了。层级感改用 ring——
+    // box-shadow 不参与盒模型,拿不走一个像素的宽度。
+    ? 'rounded-lg bg-muted-soft py-3 ring-1 ring-inset ring-line'
     : 'rounded-xl border border-zinc-200 bg-white p-4'
 
   return (
@@ -155,7 +156,8 @@ export default function CompetitorCard({
         )}
       </div>
 
-      <div className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1">
+      {/* 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开 */}
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1">
         <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
         <ShotAlbum
           competitorId={c.id}

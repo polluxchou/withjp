@@ -3,7 +3,7 @@
 
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { UNDATED_KEY } from '@/lib/competitors/shotGrid'
+import { SHOT_WINDOW_SIZE, UNDATED_KEY } from '@/lib/competitors/shotGrid'
 
 export default function ShotDateStrip({
   axis, dateWindow, selectedDate, onPick,
@@ -35,9 +35,11 @@ export default function ShotDateStrip({
     // 外层 px-4 对齐卡片的 p-4,内层复刻卡片的 grid-cols-[1fr_3fr] gap-3。
     // 这是必须的:格子里不显示任何日期文字,日期条是屏幕上唯一能看到日期的地方,
     // chip 必须正好落在它标注的那一列上方,否则用户只能靠数格子来对应。
-    <div className="px-4">
+    // 吸顶:格子里没有日期文字,滚走了就没法对应列。需要不透明底色,
+    // 否则卡片会从 chip 底下穿过去。
+    <div className="sticky top-0 z-10 bg-canvas px-4 py-2">
       <div
-        className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1"
+        className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1"
         role="group"
         aria-label={t('shotDates')}
       >
@@ -61,7 +63,7 @@ export default function ShotDateStrip({
             <ChevronRight size={14} />
           </button>
         </div>
-        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${dateWindow.length}, minmax(0, 1fr))` }}>
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${SHOT_WINDOW_SIZE}, minmax(0, 1fr))` }}>
           {dateWindow.map((d) => (
             <button
               key={d}

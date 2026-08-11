@@ -6,13 +6,17 @@ import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
 import { compressImage } from './compressImage'
 import { todayLocal } from '@/lib/competitors/localDate'
+import { UNDATED_KEY } from '@/lib/competitors/shotGrid'
 
-export default function ShotUploader({ competitorId, onDone }: { competitorId: string; onDone: () => void }) {
+export default function ShotUploader({ competitorId, onDone, defaultDate }: { competitorId: string; onDone: () => void; defaultDate?: string | null }) {
   const t = useTranslations('competitors')
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [shotOn, setShotOn] = useState(todayLocal)
+  // 落在用户当前正在看的那一天,否则显式选了旧日期再上传会像是没反应
+  const [shotOn, setShotOn] = useState(
+    () => (defaultDate && defaultDate !== UNDATED_KEY ? defaultDate : todayLocal()),
+  )
 
   const onPick = async (file: File) => {
     setBusy(true)
