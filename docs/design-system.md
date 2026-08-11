@@ -69,8 +69,12 @@
 | 战略节点 | 计划中 neutral · 进行中 info · 有风险 warning · 已完成 success · 已逾期 danger |
 | 物品 | 使用中 success · 闲置 neutral · 维修 warning · 报废 danger |
 | 工时任务 | 计划中 planned neutral · 进行中 doing info · 已完成 done success · 已取消 cancelled neutral |
+| 财务预测账号收入档 | 重点跟进 success · 稳定 violet · 观察 warning（`StatusBadge` 按月收入阈值派生，非持久化枚举） |
+| 财务预测视角 | 公开 success · 私有 neutral · 归属徽章 neutral |
+| 财务预测年份卡 | 本年 violet（`AnnualOverview` 年份卡的「本年」标记） |
+| 讨论 | 进行中 open info · 已结束 resolved success（PR4 Task 2 登记：与任务/战略节点的"进行中"、任务/工时任务的"已完成"同色系，非阻断性正向终态） |
 
-> DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 与 ThreadStatus 在 PR2/PR3 迁移对应界面时登记。
+> DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 待 PR2/PR3 迁移对应界面时登记。
 
 ### 1.4 彩色图标 chip 色板（仅限侧栏与区块卡头图标）
 
@@ -118,7 +122,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 ## 4. 动效与交互反馈
 
 - hover/active：`transition-colors 150ms ease`；抽屉/侧栏位移 `200ms ease-out`；无数据入场动画
-- focus：全站唯一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`；禁止自定义 focus 样式——例外改用第二配方 `focus-visible:ring-2 ring-primary-ring ring-inset`：① 全出血容器（RecordRow 整行 Link 等没有外部留白可画 offset 的场景）② chip 内部按钮（FilterChip）③ 滚动容器内的项（Sidebar 导航项、Tabs）——offset 在 `overflow-y-auto`/`overflow-x-auto` 容器内会被裁切，改内嵌避免视觉截断
+- focus：全站唯一 `focus-visible:ring-2 ring-primary-ring ring-offset-1`，字符串唯一登记处为 `src/lib/ui/recipes.ts` 的 `FOCUS_RING`（组件外的调用方一律 import，不要再抄一份本地常量）；禁止自定义 focus 样式——例外改用第二配方 `focus-visible:ring-2 ring-primary-ring ring-inset`：① 全出血容器（RecordRow 整行 Link 等没有外部留白可画 offset 的场景）② chip 内部按钮（FilterChip）③ 滚动容器内的项（Sidebar 导航项、Tabs）——offset 在 `overflow-y-auto`/`overflow-x-auto` 容器内会被裁切，改内嵌避免视觉截断
 - 点击目标 ≥ 32×32px（移动端 ≥ 40）；行级操作（···）默认弱化、hover 显形；Button `size="sm"`（28px 高）是 §3 控件高度紧凑档在按钮上的登记例外，允许低于本条下限，仅用于表格内联操作等空间受限场景
 - `prefers-reduced-motion` 下关闭位移动画
 - iOS：`pointer:coarse` 下表单控件 16px 字号规则保留（globals.css 既有）
@@ -171,7 +175,20 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 ## 7. 治理
 
-1. `scripts/check-style-tokens.mjs`（挂 `test:copy` + CI `copy.yml`）：禁 slate/indigo/zinc/gray/stone/neutral 数字阶灰、裸 hex、固定透明度 token 带 `/N`、`text-base`；基线机制见 spec §4，终态零容忍；确有例外可整行加注释含 `style-tokens-ignore` 豁免。另做正向校验：`text-/bg-/border-/ring-` 等 + token 家族的用法，其色阶/变体必须真实登记于 `tailwind.config.ts`，未登记即致命（不走基线、`--update-baseline` 也拦）——不存在的类名不会被 Tailwind 生成、样式静默失效（教训：`text-ink-600`，ink 只登记了 900/700/500/400）
+1. `scripts/check-style-tokens.mjs`（挂 `test:copy` + CI `copy.yml`）是**零容忍硬门禁**：禁 slate/indigo/zinc/gray/stone/neutral 数字阶灰、裸 hex、固定透明度 token 带 `/N`、`text-base`，白名单外命中一处即失败。另做正向校验：`text-/bg-/border-/ring-` 等 + token 家族的用法，其色阶/变体必须真实登记于 `tailwind.config.ts`，未登记即致命——不存在的类名不会被 Tailwind 生成、样式静默失效（教训：`text-ink-600`，ink 只登记了 900/700/500/400）。正向校验对**全库生效，文件白名单也不豁免**
+   - **行级豁免**：确有必要的单行，整行加注释含 `style-tokens-ignore` 即跳过（禁用样式扫描与正向校验同时跳过）
+   - **文件白名单**（写死在脚本 `WHITELIST`，只豁免禁用样式扫描；新增条目须在脚本内注明理由并同步本表）：
+
+     | 文件 | 理由 |
+     |---|---|
+     | `src/lib/chart-theme.ts` | 图表色板唯一定义处，hex 就是它的产物（§1.5） |
+     | `src/app/globals.css` | token CSS 变量定义处，hex 是 token 本身的取值 |
+     | `src/venue/VenueCanvas.tsx` | 场馆 2D 平面图：纸面/网格/家具类型色属工程制图语义，非 UI chrome |
+     | `src/venue/Venue3DCanvas.client.tsx` | 场馆 3D 视图：three.js 材质/场景色同上，需与 2D 同色系对齐 |
+     | `src/app/[locale]/login/page.tsx` | 登录页是独立营销位，不属后台设计系统辖区 |
+
+   - 两个 venue 画布文件（`VenueCanvas.tsx` / `Venue3DCanvas.client.tsx`）的 DOM/画布配色是**成套**的（桌面灰↔纸面白↔网格线；3D 容器底↔场景 `<color>`），源码就地有成对注释，改一处必须同步另一处
+   - **基线机制已退役**：2026-08-11（UI 改造 PR4）存量清零后删除 `scripts/style-tokens-baseline.json`，`--update-baseline` / `--allow-increase` 一并从脚本移除；此后欠账不再有「记账」出口，只有上面两种显式豁免
 2. 组件准入流程见 §6 开头；PR 中出现新的裸样式组合需在描述中说明原因
 3. 本文件与实现不一致 = bug：以先修正的一方为准并同 PR 同步另一方
 4. 图表新增系列色、状态新增枚举、z-index 新增层：先登记本文件，再写代码

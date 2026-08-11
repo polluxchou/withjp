@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Loader2, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Message, SubjectInput, Thread } from '@/lib/discussions/types'
 import {
@@ -11,6 +11,10 @@ import {
 } from './DiscussionContext'
 import ThreadList from './ThreadList'
 import ThreadView from './ThreadView'
+import { FOCUS_RING } from '@/lib/ui/recipes'
+import Button from '@/components/ui/Button'
+import { Field, Input, Textarea } from '@/components/ui/Field'
+import LoadingState from '@/components/ui/LoadingState'
 
 interface Props {
   open:     boolean
@@ -157,15 +161,15 @@ export default function DiscussionPanel({ open, subject, onClose }: Props) {
     if (loading) {
       return (
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
-            <h2 className="text-sm font-semibold text-zinc-900">{tPanel('title')}</h2>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line-soft">
+            <h2 className="text-sm font-semibold text-ink-900">{tPanel('title')}</h2>
             <button onClick={onClose} aria-label={tPanel('close')}
-              className="w-8 h-8 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100">
-              <X className="w-4 h-4" />
+              className={`w-8 h-8 rounded-field flex items-center justify-center text-ink-400 hover:text-ink-700 hover:bg-line-soft transition-colors ${FOCUS_RING}`}>
+              <X className="w-4 h-4" strokeWidth={1.5} />
             </button>
           </div>
-          <div className="flex-1 flex items-center justify-center text-zinc-400 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin mr-2" /> {tPanel('loading')}
+          <div className="flex-1 flex items-center justify-center">
+            <LoadingState variant="plain" />
           </div>
         </div>
       )
@@ -174,62 +178,48 @@ export default function DiscussionPanel({ open, subject, onClose }: Props) {
     if (view.kind === 'compose') {
       return (
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line-soft">
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-zinc-900">{tPanel('newTitle')}</h2>
+              <h2 className="text-sm font-semibold text-ink-900">{tPanel('newTitle')}</h2>
               {subjectLabel && (
-                <p className="text-xs text-zinc-500 truncate mt-0.5">
+                <p className="text-xs text-ink-500 truncate mt-0.5">
                   {tPanel('subjectLine', { label: subjectLabel })}
                 </p>
               )}
             </div>
             <button onClick={onClose} aria-label={tPanel('close')}
-              className="w-8 h-8 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100">
-              <X className="w-4 h-4" />
+              className={`w-8 h-8 rounded-field flex items-center justify-center text-ink-400 hover:text-ink-700 hover:bg-line-soft transition-colors ${FOCUS_RING}`}>
+              <X className="w-4 h-4" strokeWidth={1.5} />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">{tPanel('titleLabel')}</label>
-              <input
+            <Field label={tPanel('titleLabel')}>
+              <Input
                 value={draftTitle}
                 onChange={e => setDraftTitle(e.target.value)}
                 maxLength={200}
                 placeholder={tPanel('titlePlaceholder')}
-                className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">{tPanel('messageLabel')}</label>
-              <textarea
+            </Field>
+            <Field label={tPanel('messageLabel')}>
+              <Textarea
                 value={draftMessage}
                 onChange={e => setDraftMessage(e.target.value)}
                 rows={5}
                 placeholder={tPanel('messagePlaceholder')}
-                className="w-full resize-none rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               />
-            </div>
-            {error && <div className="text-xs text-red-600">{error}</div>}
+            </Field>
+            {error && <div className="text-xs text-danger-text">{error}</div>}
           </div>
-          <div className="px-3 py-2 border-t border-zinc-100 flex items-center gap-2 justify-end">
+          <div className="px-3 py-2 border-t border-line-soft flex items-center gap-2 justify-end">
             {threads.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setView({ kind: 'list' })}
-                className="text-xs px-3 py-2 rounded-md text-zinc-600 hover:bg-zinc-50"
-              >
+              <Button variant="secondary" size="sm" onClick={() => setView({ kind: 'list' })}>
                 {tPanel('cancel')}
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              onClick={() => void submitCompose()}
-              disabled={creating}
-              className="text-xs font-medium px-3 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 inline-flex items-center gap-1"
-            >
-              {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            <Button size="sm" onClick={() => void submitCompose()} disabled={creating} loading={creating}>
               {tPanel('submit')}
-            </button>
+            </Button>
           </div>
         </div>
       )
@@ -259,13 +249,25 @@ export default function DiscussionPanel({ open, subject, onClose }: Props) {
     )
   })()
 
+  // 侧滑面板模式保留（Drawer 抽象不在本 PR，见 design-system.md §6.1）：仅
+  // 遮罩/面板壳 token 化。z-50 而非 Modal 的 z-60——§3 层级表把"移动端抽屉"
+  // 登记在 50，本面板与 tasks 页 SalaryManager 抽屉同属"侧向上下文"类别
+  // （非阻断式，§6.1 选型表明确"不用 Modal"），两者约定统一为 50。面板贴满
+  // 上下右三边（h-full），四角都没有可见留白，加 rounded-card 不会产生视觉
+  // 效果（顶右/底右角紧贴视口边缘会被裁掉），故不加圆角，与 SalaryManager
+  // 抽屉的既有做法一致。
   const content = (
-    <div className="fixed inset-0 z-[60] flex justify-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
-        className="relative bg-white shadow-2xl w-full sm:w-[460px] h-full flex flex-col"
+        role="dialog"
+        aria-label={tPanel('title')}
+        className="relative bg-surface shadow-pop w-full sm:w-[460px] h-full flex flex-col"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
+        {/* 无 aria-modal：本面板没有 Modal.tsx 那套焦点圈定/Tab 循环实现，
+            SalaryManager 抽屉（tasks/page.tsx）先例已注明——role="dialog" +
+            aria-label + Escape（本文件已有）是不夸大能力的诚实子集。 */}
         {panelContent}
       </div>
     </div>

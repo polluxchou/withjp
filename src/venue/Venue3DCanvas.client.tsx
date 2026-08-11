@@ -245,6 +245,9 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
   )
 
   return (
+    // 【成套·勿单边改】容器底色 bg-slate-50 与下方场景 <color args={['#f8fafc']} /> 取同一个值：
+    // WebGL 预热/降级期间画面尚未出图，先由 DOM 底色顶上，两者同值才不会闪一下变色。
+    // 改其中一处必须同步改另一处（design-system 门禁白名单内，spec §6「画布语义色不动」）。
     <div ref={containerRef} className={`relative h-full min-h-[560px] w-full bg-slate-50${spaceHeld ? ' cursor-grab' : ''}`}>
       <Canvas
         shadows={false}
@@ -257,6 +260,7 @@ export default function Venue3DCanvas({ floor, selectedItemIds, onSelectItems, o
         <InitOrbitTarget target={orbitTarget} />
         <CeilingView nonce={ceilingNonce} floor={floor} />
         <SceneProjector entries={labelEntries} onUpdate={onProjected} onCameraDir={setCameraDir} />
+        {/* 与外层容器 bg-slate-50 同值配对，防预热期闪变，勿单边改 */}
         <color attach="background" args={['#f8fafc']} />
         <ambientLight intensity={0.65} />
         <directionalLight position={[floor.width, floor.height * 2, floor.height]} intensity={0.45} />
@@ -1343,10 +1347,17 @@ function EdgeLabelOverlay({
             pointerEvents: 'none',
             userSelect: 'none',
           } as CSSProperties}
-          className={`px-2 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap shadow-sm border ${
+          // 半迁（PR4 灰区丙案）：chip 的 chrome 属性走 token（圆角/阴影/
+          // 字号/字色/边框），但**场景语义色不动**——选中色 #f4511e 与上方
+          // 引线 #94a3b8 是画布内的高亮/连线语义（spec §10「渲染在
+          // canvas/SVG 内的 = 语义色不动」的延伸：这些 chip 是画布标注的
+          // DOM 投影，配色必须与 3D 场景里的选中描边保持同一套）。
+          // text-micro = 11px（design-system §2 字号阶梯），与原
+          // text-[11px] 同值，无视觉尺寸变化。
+          className={`px-2 py-0.5 rounded-field text-micro font-medium whitespace-nowrap shadow-card border ${
             lbl.selected
               ? 'bg-[#f4511e] text-white border-[#f4511e]'
-              : 'bg-white/95 text-slate-700 border-slate-200'
+              : 'bg-white/95 text-ink-700 border-line'
           }`}
         >
           {lbl.name}

@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
 import { compressImage } from './compressImage'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 
 export default function ShotUploader({ competitorId, onDone, compact = false }: { competitorId: string; onDone: () => void; compact?: boolean }) {
   const t = useTranslations('competitors')
@@ -55,18 +56,18 @@ export default function ShotUploader({ competitorId, onDone, compact = false }: 
       onPaste={onPaste}
       aria-label={t('upload')}
       title={t('orPaste')}
-      className={`flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400 outline-none focus:border-sky-400 focus:text-sky-500 ${compact ? 'h-32 w-[72px]' : 'h-[46vh] w-[26vh] min-h-[300px] min-w-[169px]'}`}
+      className={`flex shrink-0 flex-col items-center justify-center gap-1 rounded-field border border-dashed border-line-strong text-ink-400 ${FOCUS_RING} ${compact ? 'h-32 w-[72px]' : 'h-[46vh] w-[26vh] min-h-[300px] min-w-[169px]'}`}
     >
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="flex flex-col items-center gap-1 text-[11px] disabled:opacity-50"
+        className={`flex flex-col items-center gap-1 rounded-field text-[11px] disabled:opacity-50 ${FOCUS_RING}`}
       >
-        <Upload size={compact ? 14 : 18} />
+        <Upload size={compact ? 14 : 18} strokeWidth={1.5} />
         {t('upload')}
       </button>
-      {!compact && <span className="text-[9px] text-zinc-400">{t('orPaste')}</span>}
+      {!compact && <span className="text-[9px] text-ink-400">{t('orPaste')}</span>}
       <input
         ref={inputRef}
         type="file"
@@ -74,7 +75,7 @@ export default function ShotUploader({ competitorId, onDone, compact = false }: 
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = '' }}
       />
-      {error && <span className="px-1 text-center text-[9px] text-red-600">{error}</span>}
+      {error && <span className="px-1 text-center text-[9px] text-danger-text">{error}</span>}
     </div>
   )
 }
