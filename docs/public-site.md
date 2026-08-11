@@ -71,7 +71,7 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 - NEWS / 成员 / 排班的**后台可编辑化**（现在改内容 = 改 i18n 文案 = 发一次版）
 - 应募的**状态流转与导出**（后台只读）
-- 域名、CDN、robots/sitemap、埋点与营销工具
+- CDN、robots/sitemap、埋点与营销工具
 - 应募数据的自动清理策略（保留期限待产品侧定）
 
 ---
@@ -82,7 +82,13 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 官网挂在 `/[locale]/site` 下，与内部后台的 `(app)` 路由组平级但不共享 layout。`src/middleware.ts` 的 `PUBLIC_PATHS` 增加了 `/site`，因此不走 Supabase 会话检查 —— 这是它能被公网访问的唯一开关。
 
-未来接自有域名不需要重写页面：加一段按 `host` 判断的 rewrite，把 `<域名>/*` 映射到 `/ja/site/*` 即可。
+生产官网域名为 `echoamp.agenova.chat`，middleware 按 `host` 做路由隔离：
+
+- `/`、`/news`、`/recruit` 等干净路径内部 rewrite 到 `/ja/site/*`，浏览器地址不暴露 `/site`
+- `/zh/*`、`/en/*` 映射到对应语言；无语言前缀时默认日文
+- 旧式 `/[locale]/site/*` 链接永久重定向到干净路径，兼容仓库内既有 next-intl 链接
+- 只放行 `/api/site/applications`；后台页面和其他 `/api/*` 在官网域名统一返回 404
+- `mcn.agenova.chat` 与 Vercel Preview host 不进入这套分支，继续走原有 i18n 与 Supabase 鉴权
 
 ### 3.2 设计面隔离（关键）
 
@@ -207,4 +213,4 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 2. **主视觉的授权范围** —— 12 张成员素材是生成资产，入库不等于已授权对外发布
 3. **应募数据的保留期限与删除流程** —— 已有明示同意，但自动清理未实现
 
-**后续可做**：域名与 rewrite、robots/sitemap、把 NEWS/成员/排班搬到数据库做成后台可编辑、应募状态流转。
+**后续可做**：robots/sitemap、把 NEWS/成员/排班搬到数据库做成后台可编辑、应募状态流转。
