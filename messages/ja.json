@@ -1718,16 +1718,16 @@
       "heroPlaceholder": "ヒーロー画像／MoonDollz キービジュアル",
       "stats": [
         {
-          "value": "OSAKA",
-          "label": "大阪を拠点に活動"
+          "value": "2026.09",
+          "label": "第1期メンバー募集"
         },
         {
-          "value": "02 CAPTAINS",
-          "label": "ダブルキャプテン制"
+          "value": "2026.11",
+          "label": "第2期メンバー募集"
         },
         {
-          "value": "08–12",
-          "label": "2026 第2期メンバー募集"
+          "value": "2027.03",
+          "label": "グループ結成"
         }
       ],
       "newsHead": {
