@@ -221,7 +221,7 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
         <div>
           <SectionHead eyebrow={t('techHead.eyebrow')} title={t('techHead.title')} />
           <p className="mb-7 mt-4 text-[16px] leading-[2] text-site-fg/78">{t('techBody')}</p>
-          <SiteButton href={`${SITE_BASE}/services`} variant="ghost" size="md">
+          <SiteButton href={`${SITE_BASE}/services`} variant="ghost" size="md" weight="normal">
             {t('techCta')}
           </SiteButton>
         </div>
@@ -241,7 +241,7 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
               {t('bannerLine2')}
             </div>
           </div>
-          <SiteButton href={RECRUIT_HREF} variant="ink" size="lg">
+          <SiteButton href={RECRUIT_HREF} variant="ink" size="xl" weight="normal">
             {t('bannerCta')}
           </SiteButton>
         </div>

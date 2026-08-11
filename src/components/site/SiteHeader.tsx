@@ -8,7 +8,7 @@ import { SITE_NAV, RECRUIT_HREF, isNavActive } from '@/lib/site/nav'
 import LocaleSwitch from './LocaleSwitch'
 import ThemeToggle from './ThemeToggle'
 import LogoVeil from './LogoVeil'
-import { Ticks } from './BlueprintFrame'
+import { CornerMarks } from './BlueprintFrame'
 
 export default function SiteHeader({ locale }: { locale: string }) {
   const t = useTranslations('site.nav')
@@ -70,10 +70,10 @@ export default function SiteHeader({ locale }: { locale: string }) {
           <Link
             href={RECRUIT_HREF}
             onClick={leave}
-            className="relative hidden whitespace-nowrap bg-site-hot px-5 py-2.5 font-condensed text-[15px] font-semibold tracking-[0.12em] text-site-on-hot transition-colors hover:bg-site-hot-hover md:block"
+            className="relative hidden whitespace-nowrap border border-site-fg/22 bg-site-hot px-5 py-2.5 font-condensed text-[15px] font-semibold tracking-[0.12em] text-site-on-hot transition-colors hover:bg-site-hot-hover md:block"
           >
             {t('recruit')}
-            <Ticks tone="soft" />
+            <CornerMarks />
           </Link>
 
           <button
