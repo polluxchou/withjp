@@ -59,7 +59,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
         setError(t('addFailed'))
       }
     })
-  }, [input, parent, refresh, t])
+  }, [input, addType, addParentId, refresh, t])
 
   const remove = useCallback((id: string) => {
     if (!confirm(t('deleteConfirm'))) return
