@@ -5,6 +5,7 @@ import {
   useId,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
 import { ChevronDown } from 'lucide-react'
@@ -21,7 +22,9 @@ export default function LocaleSwitch({ locale }: { locale: string }) {
   const pathname = usePathname()
   const options = buildLocaleMenuOptions(locale)
   const current = options.find(({ active }) => active) ?? options[0]
+  const currentIndex = Math.max(options.findIndex(({ active }) => active), 0)
   const [open, setOpen] = useState(false)
+  const [focusIndex, setFocusIndex] = useState(currentIndex)
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const optionRefs = useRef<Array<HTMLAnchorElement | null>>([])
@@ -36,37 +39,25 @@ export default function LocaleSwitch({ locale }: { locale: string }) {
       }
     }
 
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setOpen((value) => nextLocaleMenuOpen(value, 'escape'))
-        triggerRef.current?.focus()
-        return
-      }
-
-      const currentIndex = optionRefs.current.findIndex(
-        (node) => node === document.activeElement,
-      )
-      if (currentIndex < 0) return
-
-      const nextIndex = nextLocaleMenuIndex(currentIndex, event.key, options.length)
-      if (nextIndex !== currentIndex) {
-        event.preventDefault()
-        optionRefs.current[nextIndex]?.focus()
-      }
-    }
-
     document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open, options.length])
+  }, [open])
 
   function openAndFocus(index: number) {
+    setFocusIndex(index)
     setOpen(true)
     requestAnimationFrame(() => optionRefs.current[index]?.focus())
+  }
+
+  function toggleMenu() {
+    if (open) {
+      setOpen((value) => nextLocaleMenuOpen(value, 'toggle'))
+      return
+    }
+
+    openAndFocus(currentIndex)
   }
 
   function onTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
@@ -79,8 +70,43 @@ export default function LocaleSwitch({ locale }: { locale: string }) {
     }
   }
 
+  function onRootKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!open) return
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setOpen((value) => nextLocaleMenuOpen(value, 'escape'))
+      triggerRef.current?.focus()
+      return
+    }
+
+    const activeIndex = optionRefs.current.findIndex(
+      (node) => node === document.activeElement,
+    )
+    if (activeIndex < 0) return
+
+    const nextIndex = nextLocaleMenuIndex(activeIndex, event.key, options.length)
+    if (nextIndex !== activeIndex) {
+      event.preventDefault()
+      setFocusIndex(nextIndex)
+      optionRefs.current[nextIndex]?.focus()
+    }
+  }
+
+  function onRootBlur(event: ReactFocusEvent<HTMLDivElement>) {
+    const nextTarget = event.relatedTarget
+    if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) {
+      setOpen((value) => nextLocaleMenuOpen(value, 'outside'))
+    }
+  }
+
   return (
-    <div ref={rootRef} className="relative">
+    <div
+      ref={rootRef}
+      onBlur={onRootBlur}
+      onKeyDown={onRootKeyDown}
+      className="relative"
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -88,7 +114,7 @@ export default function LocaleSwitch({ locale }: { locale: string }) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
-        onClick={() => setOpen((value) => nextLocaleMenuOpen(value, 'toggle'))}
+        onClick={toggleMenu}
         onKeyDown={onTriggerKeyDown}
         className="inline-flex min-w-[108px] items-center justify-between gap-3 whitespace-nowrap border border-site-line-strong px-2.5 py-[7px] font-condensed text-[12px] tracking-[0.16em] text-site-accent transition-colors hover:border-site-accent"
       >
@@ -118,7 +144,9 @@ export default function LocaleSwitch({ locale }: { locale: string }) {
               href={pathname}
               locale={option.locale}
               role="menuitem"
+              tabIndex={focusIndex === index ? 0 : -1}
               aria-current={option.active ? 'true' : undefined}
+              onFocus={() => setFocusIndex(index)}
               onClick={() => setOpen((value) => nextLocaleMenuOpen(value, 'select'))}
               className={`flex w-full items-center gap-2 border-b border-site-line px-3 py-2.5 font-condensed text-[13px] tracking-[0.16em] transition-colors last:border-b-0 hover:bg-site-panel hover:text-site-accent ${option.active ? 'text-site-accent' : 'text-site-fg/60'}`}
             >
