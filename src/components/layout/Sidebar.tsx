@@ -23,6 +23,7 @@ import {
   Package,
   Map as MapIcon,
   Radar,
+  Inbox,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -53,6 +54,8 @@ const NAV = [
     children: [
       { href: '/creators',    key: 'creatorsList', icon: Users, exact: true },
       { href: '/competitors', key: 'competitors',  icon: Radar },
+      // 官网 RECRUIT 表单的投递：招募来的人最终进 creators，归在同一组
+      { href: '/recruit-applications', key: 'recruitApplications', icon: Inbox },
     ],
   },
   { href: '/pipeline',  key: 'pipeline',  icon: GitBranch },
@@ -98,6 +101,7 @@ const NAV_ACCENT: NavAccentMap = {
   costManagement: 'green', config: 'mauve',
   expenses: 'violet', items: 'amber', venue: 'violet', financeForecast: 'green',
   teamAgents: 'violet', teamAssignments: 'blue', teamOrg: 'green',
+  recruitApplications: 'pink',
 }
 
 // 渲染处 item.key 的类型是普通 string（NavLeaf/NavGroup 接口未按字面量收窄），

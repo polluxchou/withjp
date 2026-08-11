@@ -2,7 +2,7 @@
 
 > 建立：2026-08-11
 > 分支：`feat/public-site`（自 `origin/main` @ 3082d13）
-> 设计源：claude.design 项目 `478a0d1c-c990-47a8-a555-858082c5a11a`，文件 `EchoAmp 官网.dc.html`，快照 version `1786432470264615`（2026-08-11T07:14Z，含 logo 三角幕交互）
+> 设计源：claude.design 项目 `478a0d1c-c990-47a8-a555-858082c5a11a`，文件 `EchoAmp 官网.dc.html`，快照 version `1786437924471281`（2026-08-11T08:45Z，含深浅双主题、NEWS 详情页、OFFICE 示意图）
 > 目标读者：WithJP 工程团队 / PMO
 
 ## 1. 背景与目标
@@ -47,7 +47,8 @@ WithJP 至今只有内部经营后台（登录后可见的紫罗兰浅色体系�
 - `Noto Serif JP`（明朝）：和文标题与卡片小标题——看板文字的紧张感来源
 - `Barlow` + `Noto Sans JP`：正文，15px / line-height 1.6，段落 1.9–2.1
 - 标题尺寸走 clamp：首页 h1 `clamp(28px,3.2vw,58px)`、区块 h2 `clamp(32px,3.2vw,44px)`、子页 h2 `clamp(38px,4vw,56px)`
-- 全部字体用 `next/font/google` 自托管，暴露为 CSS 变量，不引外链 CDN
+- 两个拉丁族（Barlow / Barlow Condensed）用 `next/font/google` 自托管，暴露为 CSS 变量，不引外链 CDN
+- **和文字体走系统栈，不下载**：`Noto Serif JP` / `Noto Sans JP` 在 Google Fonts 上被切成上百个 unicode-range 分片，构建时逐个抓取会拖死构建（落地时实测：网络受限环境下构建卡在字体阶段不前进），全量自托管也是数 MB 的首屏负担。改为 `"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif` —— 日本用户的 Mac/iOS 上是 Hiragino Mincho、Windows 上是 Yu Mincho，本机装了 Noto 则优先用 Noto，观感与设计稿一致且零下载
 
 ### 2.3 形态手法（照抄，不发明）
 
@@ -107,8 +108,8 @@ WithJP 至今只有内部经营后台（登录后可见的紫罗兰浅色体系�
 
 | 组件 | 职责 | 关键 props |
 |---|---|---|
-| `SiteShell` | 官网外层：黑底 `min-h-screen`、字体变量、覆盖 body 的浅色底 | `children` |
-| `SiteHeader`（client） | sticky 顶栏、导航激活态下划线、RECRUIT CTA、语言切换、<768 抽屉菜单 | `locale` |
+| `SiteSection` | 区块容器：1360 内容宽 + 32px 留白 + 区块间发丝线（官网外层由 site layout 自己承担，不单独抽组件） | `tone` `divider` |
+| `SiteHeader`（client） | sticky 顶栏、导航激活态下划线、RECRUIT CTA、语言与主题切换、<1024 抽屉菜单 | `locale` |
 | `SiteFooter` | 四栏页脚 + 版权行 | — |
 | `LocaleSwitch`（client） | 分段描边控件，切 zh/en/ja，保留当前子路径 | `locale` |
 | `SectionHead` | eyebrow（`01 ／ NEWS`）+ h2 + 可选副标 + 可选右侧「VIEW ALL →」 | `no` `label` `title` `sub` `moreHref` |
@@ -119,11 +120,14 @@ WithJP 至今只有内部经营后台（登录后可见的紫罗兰浅色体系�
 | `PulseDot` | 呼吸方块 | `size` |
 | `SiteImage` | 有图渲染 next/image（可选 duotone），无图渲染占位说明 | `src` `alt` `placeholder` `duotone` |
 | `StatGrid` | hero 的三格数字（大数字 + 说明） | `stats` |
-| `NewsRow` | NEWS 页一行（日期 / 分类药丸 / 标题 / →） | `item` |
+| `NewsRow` / `NewsCard` | NEWS 的行形态与卡形态，均整块链到文章详情 | `article` |
+| `NewsFilter`（client） | 分类药丸筛选（设计稿里是静态装饰，落地做成真可点） | `filters` `articles` |
 | `ScheduleTable` | 排班表头 + 行 | `rows` |
 | `MemberCard` | 成员卡（3:4 图 + NO. + 名 + 说明） | `member` |
 | `ApplicationForm`（client） | 应募表单、校验错误态、提交状态、成功态 | `locale` |
-| `LogoVeil`（client） | logo hover 触发的三角幕（见 §5.1） | — |
+| `LogoVeil`（client） | logo hover 触发的三角幕（见 §5.1） | `open` `onClose` |
+| `ThemeToggle`（client） | 深浅主题切换（见 §14.1） | — |
+| `StudioMap` | 新大阪示意图（见 §14.3） | `labels` |
 
 ### 5.1 LogoVeil：logo 三角幕交互
 
@@ -144,7 +148,7 @@ WithJP 至今只有内部经营后台（登录后可见的紫罗兰浅色体系�
 `check-no-bare-han` 禁止 JSX 里出现汉字（日文汉字同样命中），所以**所有文案必须走 i18n**。
 
 - 命名空间 `site.*`，三语文件 `messages/{zh,en,ja}.json`
-- 列表型内容用数组：`site.news.items[]`（4）、`site.vision.eras[]`（4）、`site.services.items[]`（4）、`site.live.schedule[]`（6）、`site.members.list[]`（12）、`site.ticker.items[]`（5）
+- 列表型内容用数组：`site.news.articles[]`（4 篇，各含导语与 3 段正文）、`site.vision.eras[]`（4）、`site.services.items[]`（4）、`site.live.schedule[]`（6）、`site.members.list[]`（12）、`site.ticker.items[]`（5）
 - `check-i18n` 会按 `key[index]` 展开做三语 parity，因此三语数组必须等长同形
 - ja 用设计稿原文；zh 用设计稿 RECRUIT 段已有的中文 + 补齐其余；en 新写
 - 页面里读数组用 `useTranslations` + `t.raw()`；类型在 `src/lib/site/content.ts` 里声明，避免各页面各自 `as any`
@@ -285,3 +289,39 @@ create table if not exists site_applications (
 单分支 `feat/public-site`，按阶段提交：token 与骨架 → 组件 → 各页面 → 三语文案 → 图片资产 → 表单数据流 → 后台只读页 → 文档与 changelog。
 
 若最终 diff 过大不便审查，在**表单数据流**这条缝上切成两个 PR：PR1 纯展示官网（无数据库改动），PR2 应募表单 + 迁移 + 后台页。两者无相互依赖，PR1 可先合。
+
+## 14. 设计稿 v3 增补（version 1786437924471281）
+
+设计稿在实现过程中更新了三处功能与一处架构，均已落地。
+
+### 14.1 深浅双主题
+
+设计稿把颜色抽成 `--ea-*` 变量层并加了 `[data-theme="light"]` 覆盖。落地对应：
+
+- `--site-*` 已经是变量层，只新增 `:root[data-theme='light']` 覆盖块：canvas `#f3f3f4`、panel `#e7e7ea`、fg `17 17 20`、accent `#0a7078`（亮青 `#25f4ee` 在浅底上对比度只有 1.5:1）、line 系改用 ink 透明度
+- 新增 `--site-on-accent`（强调色实底上的文字）与 `--site-on-hot`（红底上的文字，常量白 —— 浅色主题下 fg 变近黑，压红底读不出来）
+- `data-theme` 打在 `<html>`。后台不读 `--site-*`，因此该属性对内部页面零影响
+- `ThemeToggle`：本地选择 > 系统偏好 > 深色；`THEME_INIT_SCRIPT` 内联在 site layout 顶部，首屏绘制前定主题，避免浅色访客每次先闪一帧黑
+- 设计稿把语言切换改成单键循环（日本語 ⇄ 中文）。我们保留三语分段控件（zh/en/ja 是既定范围），主题键并排放在它右侧，沿用同一描边样式
+
+### 14.2 NEWS 数据化与详情页
+
+- 4 篇文章：`src/lib/site/news.ts` 定义 slug 与配图，文案在 `site.news.articles[]`（三语各 4 篇 × 标题/导语/正文 3 段）
+- slug 用稳定字符串（`moondollz-launch` 等），不用日期也不用下标：日期会改、下标会因插入新文章整体位移，两者都会让已发出的链接失效
+- 路由 `/[locale]/site/news/[slug]`，`generateStaticParams` 预渲染 4 slug × 3 语言 = 12 页；未知 slug 走 `notFound()`
+- 首页三卡与列表行都链到详情，卡片右下角加红色 `READ →`
+- 旧的 `site.news.items` 与 `SiteNewsItem` 类型已删除，避免两份真相
+
+### 14.3 RECRUIT 页 OFFICE 区块
+
+- 左栏：eyebrow + 明朝标题「新大阪駅から徒歩 5 分」+ 说明 + 最寄駅/設備/来訪 三行规格表
+- 右栏：`StudioMap` —— 图纸质感示意图（网格、斜向铁道带 + 虚线轨、纵向道路、直角虚线步行路径、脉冲的 ECHOAMP STUDIO 标记、SHIN-OSAKA AREA 图例、指北针）。**不是真实地图、不放精确地址**：来访完全预约制，详细住所面谈后单独告知
+- 地图有自己的色板 `--site-map-*`（含固定的 `--site-map-accent`），深浅两个主题下都保持深色 —— 它是「屏幕/图纸」构件；跟着主题翻转会让近黑底上的强调色变成深青而看不清
+- `role="img"` + `aria-label`：内部的斜带与虚线对读屏用户没有意义，一句话交代位置关系比逐个念标签有用
+
+### 14.4 落地时修掉的三个自身缺陷
+
+1. **三重描边标题换行**：绝对定位的偏移层按容器宽度排版，容器宽度由白色层决定，偏移 3px 就把最后一个词挤到第二行 → 三层都加 `whitespace-nowrap`
+2. **发丝线网格空格子**：3 项放进 2 栏会空出一格，露出容器底色（18% 白）在黑底上是一块灰方块 → 3 栏用例直接 1 → 3，不走 2 栏中间态
+3. **duotone 占位**：`.site-duotone` 的青色底靠图片 multiply 才成立，没图时只剩一块青实底且占位说明读不出来 → 只在有 `src` 时挂 duotone
+4. **三角幕的收起路径**：只监听 `mousemove` 时，hover logo 后直接滚滚轮（光标不动）会让幕布一直挡半屏 → 补 `scroll` 与 `Escape`

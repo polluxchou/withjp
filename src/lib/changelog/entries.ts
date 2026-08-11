@@ -27,6 +27,25 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-08-11',
+    items: [
+      {
+        kind: 'feat',
+        scope: '对外官网',
+        title: 'EchoAmp 公会官网上线：8 个免登录页面、三语、深浅双主题',
+        details:
+          '公会第一次有了对外网站，挂在 /site 下，不需要登录：首页、NEWS 列表与文章详情、VISION（含 MOONDOLLZ 成员）、TIKTOK LIVE 排班、SERVICES、RECRUIT 募集要项、CONTACT。中文／英文／日文三语可切，深色浅色两套主题可切（记住你的选择，也跟随系统偏好）。视觉是与内部后台完全独立的一套：纯黑（或浅灰）底、零圆角、发丝线网格、压缩体英文标题配明朝体和文标题，主视觉与 12 位成员卡都用上了真实素材。',
+      },
+      {
+        kind: 'feat',
+        scope: '官网应募',
+        title: 'RECRUIT 页可以真的投递了，投递会推站内通知',
+        details:
+          '应募表单落库到新的 site_applications 表，提交后给运营推一条站内通知；侧边栏「创作者 → 官网应募」新增只读列表，能看到时间、姓名、年龄、居住地、联系方式与应募语言。表单比设计稿多要了两项：联系方式（原稿收了信息却联系不上人）和信息使用同意勾选。反垃圾做了三层：隐藏诱饵字段、最短填写时长、同一来源每小时 5 次上限（只存 IP 哈希，不存地址）。',
+      },
+    ],
+  },
+  {
     date: '2026-08-10',
     items: [
       {
