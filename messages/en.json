@@ -2115,35 +2115,6 @@
           "rateLimited": "Too many submissions right now. Please try again shortly.",
           "network": "Could not send. Check your connection and try again."
         }
-      },
-      "office": {
-        "eyebrow": "OFFICE ／ ABOUT THE OFFICE",
-        "title": "Five minutes on foot from Shin-Osaka",
-        "body": "Our office and streaming studio are in the Shin-Osaka area, easy to reach by both shinkansen and subway, so lessons and streams happen in one place. We share the building and room number once an interview is confirmed.",
-        "rows": [
-          {
-            "label": "Nearest station",
-            "value": "Shin-Osaka (JR / subway), 5 min walk"
-          },
-          {
-            "label": "Facilities",
-            "value": "Streaming booths / lesson space / shooting space"
-          },
-          {
-            "label": "Visits",
-            "value": "By appointment only; address shared after the interview"
-          }
-        ],
-        "map": {
-          "station": "Shin-Osaka",
-          "walk": "5 min walk ／ 400m",
-          "studio": "ECHOAMP STUDIO",
-          "areaEn": "SHIN-OSAKA AREA",
-          "areaJp": "Yodogawa-ku, Osaka",
-          "north": "N ↑",
-          "axis": "W ← → E",
-          "alt": "Schematic showing the studio five minutes on foot from Shin-Osaka station"
-        }
       }
     },
     "contact": {
@@ -2185,7 +2156,36 @@
             { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese and Chinese" }
           ]
         }
-      ]
+      ],
+      "office": {
+        "eyebrow": "OFFICE ／ ABOUT THE OFFICE",
+        "title": "Five minutes on foot from Shin-Osaka",
+        "body": "Our office and streaming studio are in the Shin-Osaka area, easy to reach by both shinkansen and subway, so lessons and streams happen in one place. We share the building and room number once an interview is confirmed.",
+        "rows": [
+          {
+            "label": "Nearest station",
+            "value": "Shin-Osaka (JR / subway), 5 min walk"
+          },
+          {
+            "label": "Facilities",
+            "value": "Streaming booths / lesson space / shooting space"
+          },
+          {
+            "label": "Visits",
+            "value": "By appointment only; address shared after the interview"
+          }
+        ],
+        "map": {
+          "station": "Shin-Osaka",
+          "walk": "5 min walk ／ 400m",
+          "studio": "ECHOAMP STUDIO",
+          "areaEn": "SHIN-OSAKA AREA",
+          "areaJp": "Yodogawa-ku, Osaka",
+          "north": "N ↑",
+          "axis": "W ← → E",
+          "alt": "Schematic showing the studio five minutes on foot from Shin-Osaka station"
+        }
+      }
     },
     "theme": {
       "dark": "◐ DARK",
