@@ -311,8 +311,8 @@ export default function ExpenseCategoryChart({
     // here — a real component-API gap, flagged separately in the task report.
     <SegmentedControl
       items={[
-        { value: 'pie', label: t('category.viewPie') },
-        { value: 'sankey', label: t('category.viewSankey') },
+        { value: 'pie', label: t('categoryChart.viewPie') },
+        { value: 'sankey', label: t('categoryChart.viewSankey') },
       ]}
       value={catView}
       onChange={(v) => setCatView(v as 'pie' | 'sankey')}
@@ -461,7 +461,7 @@ export default function ExpenseCategoryChart({
                 <p className="text-micro font-semibold text-ink-400 uppercase tracking-wide mb-2.5 px-1">
                   {selectedCategory
                     ? `${t(`categories.${selectedCategory as ExpenseCategory}`)} · ${t('buyer')}`
-                    : `${t('category.allBuyersLabel')} · ${t('buyer')}`
+                    : `${t('categoryChart.allBuyersLabel')} · ${t('buyer')}`
                   }
                 </p>
                 {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
@@ -476,7 +476,7 @@ export default function ExpenseCategoryChart({
                         <span className="text-xs text-ink-700 truncate">{displayName}</span>
                         {isCrossBorder && (
                           <span
-                            title={t('category.crossBorderTooltip', { amount: fmtCompact(crossBorder) })}
+                            title={t('categoryChart.crossBorderTooltip', { amount: fmtCompact(crossBorder) })}
                             className="flex items-center gap-0.5 text-micro font-medium text-danger-text bg-danger-soft border border-danger-border px-1 py-0.5 rounded whitespace-nowrap"
                           >
                             <Globe className="w-2.5 h-2.5 flex-shrink-0" />

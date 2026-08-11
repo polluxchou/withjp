@@ -12,6 +12,10 @@
 //               (partially_refunded) 尚有未结部分 → warning。
 //   milestone → MilestoneStatus       (src/lib/types/index.ts)
 //   item      → ItemStatus            (src/lib/items/types.ts)
+//   thread    → ThreadStatus          (src/lib/discussions/types.ts) —— 讨论串二态：
+//               open 进行中 → info（与任务/战略节点的"进行中"同色）；resolved
+//               已结束 → success（与任务/工时任务的"已完成"同色，非阻断性正向终态）。
+//               登记于 design-system.md §1.3「讨论」行（PR4 Task 2 补登）。
 import type {
   CreatorStatus,
   TaskStatus,
@@ -20,9 +24,10 @@ import type {
   MilestoneStatus,
 } from '@/lib/types'
 import type { ItemStatus } from '@/lib/items/types'
+import type { ThreadStatus } from '@/lib/discussions/types'
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'violet'
-export type Domain = 'creator' | 'task' | 'work_task' | 'expense' | 'milestone' | 'item'
+export type Domain = 'creator' | 'task' | 'work_task' | 'expense' | 'milestone' | 'item' | 'thread'
 
 interface ToneMap {
   creator: Record<CreatorStatus, Tone>
@@ -31,6 +36,7 @@ interface ToneMap {
   expense: Record<ExpensePaymentStatus, Tone>
   milestone: Record<MilestoneStatus, Tone>
   item: Record<ItemStatus, Tone>
+  thread: Record<ThreadStatus, Tone>
 }
 
 const MAP: ToneMap = {
@@ -46,6 +52,7 @@ const MAP: ToneMap = {
   },
   milestone: { planned: 'neutral', active: 'info', at_risk: 'warning', completed: 'success', missed: 'danger' },
   item: { in_use: 'success', in_storage: 'neutral', under_repair: 'warning', disposed: 'danger' },
+  thread: { open: 'info', resolved: 'success' },
 }
 
 // 调用侧保持宽松 string：外部数据（DB 行、URL 参数等）在编译期未必能收窄到

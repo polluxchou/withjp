@@ -98,6 +98,10 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
+        // 全站唯一一处「focus:outline-none 不配 ring」的合法例外（§4）：
+        // tabIndex={-1} 的面板只作打开时的程序化焦点落点，用户 Tab 不会停在
+        // 它上面，画一圈 ring 反而会在弹窗打开瞬间闪出一整框轮廓。面板内的
+        // 真正可聚焦控件各自带标准 focus 环。
         className={`relative bg-white shadow-pop w-full ${width} max-h-[95vh] sm:max-h-[90vh] flex flex-col rounded-t-card sm:rounded-card focus:outline-none`}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >

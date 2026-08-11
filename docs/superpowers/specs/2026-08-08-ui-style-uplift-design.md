@@ -63,6 +63,8 @@
 
 **防漂移**：新增 `scripts/check-style-tokens.mjs` 挂进 `npm run test:copy`——扫 src 下 `slate-`/`indigo-`/`zinc-`/裸 hex（chart-theme 等白名单除外）。「对新代码生效」的机制 = 基线清单：PR1 时记录存量违规（文件×计数）存入脚本旁的 baseline.json，之后任何 PR 违规数只许减不许增；PR4 存量清零后删除基线，转为零容忍硬门禁。
 
+> **状态（2026-08-11，PR4 Task 6 已落地）**：基线机制按上述计划退役——`scripts/style-tokens-baseline.json` 已删除，`--update-baseline` / `--allow-increase` 已从脚本移除，门禁转为零容忍。清零后剩余例外收进脚本 `WHITELIST`（venue 2D/3D 画布的工程制图色、登录页营销位，另有 chart-theme / globals.css 两处 token 定义处），单行例外仍走 `style-tokens-ignore`。白名单只豁免禁用样式扫描，正向 token 校验（#157）对全库生效。权威表述见 `docs/design-system.md` §7.1。
+
 旧 token 处理：`bg-canvas`/`rounded-card`/`shadow-card` 等重定义为新值（旧代码部分自动继承）；`bg-texture`/`sidebar-frosted` 在 PR3 后删除。
 
 ## 5. 组件规范
