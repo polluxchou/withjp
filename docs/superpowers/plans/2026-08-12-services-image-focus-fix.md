@@ -27,8 +27,8 @@
 Change both expected objects to:
 
 ```ts
-{ src: '/site/services-character.webp', alt: expectedAlts[locale][0], objectPosition: '50% 24%' },
-{ src: '/site/services-expression.webp', alt: expectedAlts[locale][1], objectPosition: '50% 28%' },
+{ src: '/site/services-character.webp', alt: expectedAlts[locale][0], objectPosition: '50% 10%' },
+{ src: '/site/services-expression.webp', alt: expectedAlts[locale][1], objectPosition: '50% 52%' },
 ```
 
 - [ ] **Step 2: Add wiring assertions**
@@ -76,8 +76,8 @@ Replace `SERVICE_MEDIA_PATHS` with:
 
 ```ts
 const SERVICE_MEDIA = [
-  { src: '/site/services-character.webp', objectPosition: '50% 24%' },
-  { src: '/site/services-expression.webp', objectPosition: '50% 28%' },
+  { src: '/site/services-character.webp', objectPosition: '50% 10%' },
+  { src: '/site/services-expression.webp', objectPosition: '50% 52%' },
 ] as const
 ```
 
@@ -172,7 +172,7 @@ Start `npm run dev`, inspect `/ja/site/services` at the default desktop viewport
 - the right card contains a complete row of expression names;
 - desktop remains two columns;
 - mobile remains one column;
-- computed image positions are `50% 24%` and `50% 28%`.
+- computed image positions are `50% 10%` and `50% 52%`.
 
 - [ ] **Step 5: Publish and verify production**
 

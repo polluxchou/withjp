@@ -13,8 +13,8 @@ Services 页面把两张 9:16 竖图放入约 16:9 横向卡片，并统一使�
 
 | 图片 | 焦点 | 目标 |
 | --- | --- | --- |
-| `/site/services-character.webp` | `50% 24%` | 显示人物脸部和上半身 |
-| `/site/services-expression.webp` | `50% 28%` | 完整显示一整行表情及其名称 |
+| `/site/services-character.webp` | `50% 10%` | 显示人物脸部和上半身 |
+| `/site/services-expression.webp` | `50% 52%` | 完整显示一整行表情及其名称 |
 
 ## 实现
 

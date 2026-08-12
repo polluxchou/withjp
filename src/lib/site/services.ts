@@ -1,6 +1,6 @@
 const SERVICE_MEDIA = [
-  { src: '/site/services-character.webp', objectPosition: '50% 24%' },
-  { src: '/site/services-expression.webp', objectPosition: '50% 28%' },
+  { src: '/site/services-character.webp', objectPosition: '50% 10%' },
+  { src: '/site/services-expression.webp', objectPosition: '50% 52%' },
 ] as const
 
 export interface SiteServiceMedia {

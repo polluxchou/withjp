@@ -23,12 +23,12 @@ test('Services media preserves the approved image order and localized alt text',
       {
         src: '/site/services-character.webp',
         alt: expectedAlts[locale][0],
-        objectPosition: '50% 24%',
+        objectPosition: '50% 10%',
       },
       {
         src: '/site/services-expression.webp',
         alt: expectedAlts[locale][1],
-        objectPosition: '50% 28%',
+        objectPosition: '50% 52%',
       },
     ])
   }
