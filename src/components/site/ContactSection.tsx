@@ -59,7 +59,12 @@ export default function ContactSection({ section }: { section: ContactSectionDat
               </dt>
               <dd className="min-w-0 text-[15px] leading-[1.75] md:text-[16px]">
                 {row.href ? (
-                  <a className="break-all transition-colors hover:text-site-accent" href={row.href}>
+                  <a
+                    className="break-all transition-colors hover:text-site-accent"
+                    href={row.href}
+                    target={row.link === 'external' ? '_blank' : undefined}
+                    rel={row.link === 'external' ? 'noreferrer' : undefined}
+                  >
                     {row.value}
                   </a>
                 ) : (

@@ -6,7 +6,7 @@ export interface SiteContactRowCopy {
   label: string
   value: string
   subvalue?: string
-  link?: 'email'
+  link?: 'email' | 'external'
 }
 
 export interface SiteContactBrandCopy {
@@ -49,7 +49,12 @@ export function buildContactSections(copy: SiteContactSectionCopy[]): SiteContac
           : undefined,
     rows: section.rows.map((row) => ({
       ...row,
-      href: row.link === 'email' ? `mailto:${row.value}` : undefined,
+      href:
+        row.link === 'email'
+          ? `mailto:${row.value}`
+          : row.link === 'external'
+            ? row.value
+            : undefined,
     })),
   }))
 }

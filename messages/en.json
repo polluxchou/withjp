@@ -2151,7 +2151,8 @@
             { "label": "Representative", "value": "CHEN HAO" },
             { "label": "Founded / location", "value": "2021年／大阪市浪速区" },
             { "label": "Business", "value": "ライブ配信キャストの採用・オフライン運営" },
-            { "label": "Address", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" }
+            { "label": "Address", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" },
+            { "label": "Website", "value": "https://chi-ron.com/", "link": "external" }
           ]
         },
         {
@@ -2163,17 +2164,18 @@
             { "label": "Representative", "value": "YANG JIANUO" },
             { "label": "Founded / location", "value": "2019年／西宮市" },
             { "label": "Business", "value": "インフルエンサーマーケティング" },
-            { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" }
+            { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
+            { "label": "Website", "value": "https://kikkou.jp/", "link": "external" }
           ]
         },
         {
-          "no": "03", "eyebrow": "FOR CLIENT", "title": "For companies and brands",
-          "body": "For tie-up streams, AIGC film production, music production and suit IP, contact us by email.",
+          "no": "03", "eyebrow": "FOR CLIENT", "title": "For Businesses & Brands",
+          "body": "For music production, mascot costume technology, commercial livestreaming, advertising partnerships, or reports of misconduct and compliance concerns, please contact us by email.",
           "cta": "business@echoamp.jp", "action": "email",
           "rows": [
-            { "label": "Services", "value": "Tie-up streams / AIGC film production / music production / suit IP" },
+            { "label": "Services", "value": "Music production / mascot costume technology / commercial livestreaming / advertising partnerships / misconduct and compliance reports" },
             { "label": "Contact", "value": "business@echoamp.jp", "link": "email" },
-            { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese and Chinese" }
+            { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese & Chinese" }
           ]
         }
       ],
