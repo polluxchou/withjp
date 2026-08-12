@@ -92,6 +92,29 @@ test('Contact sections 01 and 02 expose their company websites in every locale',
   }
 })
 
+test('Contact section 01 carries the Chiron mark and the asset is in public/', () => {
+  const [chiron, partner, client] = buildContactSections(ja.site.contact.sections)
+  assert.equal(chiron.brandLogo, '/site/chiron-logo.webp')
+  // 没有 brand 的段不该凭空拿到图
+  assert.equal(partner.brandLogo, undefined)
+  assert.equal(client.brandLogo, undefined)
+
+  // 路径写死在代码里，文件丢了页面上只会是一块空白，测试兜住这一步
+  const asset = new URL('../../../public/site/chiron-logo.webp', import.meta.url)
+  assert.ok(readFileSync(asset).byteLength > 0)
+})
+
+test('Contact renders the brand mark as a themed mask, keeping the text lockup as fallback', () => {
+  const source = readFileSync(
+    new URL('../../components/site/ContactSection.tsx', import.meta.url),
+    'utf8',
+  )
+  // mask + bg-site-fg 是深浅主题都成立的关键：换成 <img> 就会在深色主题里变成黑底黑字
+  assert.match(source, /maskImage: `url\(\$\{section\.brandLogo\}\)`/)
+  assert.match(source, /className="block h-10 w-24 bg-site-fg"/)
+  assert.match(source, /aria-label=\{`\$\{section\.brand\.primary\} \$\{section\.brand\.secondary\}`\}/)
+})
+
 test('Contact renders external websites in a safe new tab without changing email links', () => {
   const source = readFileSync(
     new URL('../../components/site/ContactSection.tsx', import.meta.url),
