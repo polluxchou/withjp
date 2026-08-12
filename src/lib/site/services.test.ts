@@ -20,8 +20,16 @@ test('Services media preserves the approved image order and localized alt text',
   for (const locale of ['ja', 'zh', 'en'] as const) {
     const media = buildServiceMedia(readMessages(locale).site.services.placeholders)
     assert.deepEqual(media, [
-      { src: '/site/services-character.webp', alt: expectedAlts[locale][0] },
-      { src: '/site/services-expression.webp', alt: expectedAlts[locale][1] },
+      {
+        src: '/site/services-character.webp',
+        alt: expectedAlts[locale][0],
+        objectPosition: '50% 10%',
+      },
+      {
+        src: '/site/services-expression.webp',
+        alt: expectedAlts[locale][1],
+        objectPosition: '50% 52%',
+      },
     ])
   }
 })
@@ -44,5 +52,16 @@ test('Services page renders real media with responsive two-column sizes', () => 
   assert.match(source, /buildServiceMedia\(placeholders\)/)
   assert.match(source, /src=\{media\.src\}/)
   assert.match(source, /alt=\{media\.alt\}/)
+  assert.match(source, /objectPosition=\{media\.objectPosition\}/)
   assert.match(source, /sizes="\(min-width: 640px\) 50vw, 100vw"/)
+})
+
+test('SiteImage applies an optional focal point without changing its default crop mode', () => {
+  const source = readFileSync(
+    new URL('../../components/site/SiteImage.tsx', import.meta.url),
+    'utf8',
+  )
+  assert.match(source, /objectPosition\?: string/)
+  assert.match(source, /style=\{objectPosition \? \{ objectPosition \} : undefined\}/)
+  assert.match(source, /className="object-cover"/)
 })
