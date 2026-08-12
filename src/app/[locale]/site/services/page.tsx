@@ -70,6 +70,7 @@ export default function SiteServicesPage({ params }: { params: { locale: string 
               alt={media.alt}
               placeholder={media.alt}
               sizes="(min-width: 640px) 50vw, 100vw"
+              objectPosition={media.objectPosition}
               className="h-full w-full"
             />
           </div>
