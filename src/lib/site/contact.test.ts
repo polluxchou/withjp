@@ -30,10 +30,35 @@ test('Japanese contact copy preserves the three screenshot sections in order', (
     ],
   )
   assert.equal(sections[0].rows[0].value, 'カイロン株式会社（Chiron Co., Ltd.）')
-  assert.equal(sections[0].rows[1].value, 'CHEN HAO')
   assert.equal(sections[1].rows[0].value, '吉光片羽株式会社')
-  assert.equal(sections[1].rows[1].value, 'YANG JIANUO')
   assert.equal(sections[2].rows[1].value, 'business@echoamp.jp')
+})
+
+test('Contact lists no representative names in any locale', () => {
+  // 两家合作公司的代表姓名已下线：对外页面只留公司主体信息，个人姓名不再公开。
+  for (const messages of [ja, zh, en]) {
+    const names = messages.site.contact.sections.flatMap(({ rows }) =>
+      rows.filter(({ label, value }) => /代表|Representative/.test(label) || /CHEN HAO|YANG JIANUO/.test(value)),
+    )
+    assert.deepEqual(names, [])
+  }
+})
+
+test('Contact section 01 carries the Shin-Osaka address in every locale', () => {
+  for (const [messages, addressLabel] of [
+    [ja, '所在地'],
+    [zh, '所在地'],
+    [en, 'Address'],
+  ] as const) {
+    const address = messages.site.contact.sections[0].rows.find(({ label }) => label === addressLabel)
+    assert.deepEqual(
+      { value: address?.value, subvalue: address?.subvalue },
+      {
+        value: '〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404',
+        subvalue: 'Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003',
+      },
+    )
+  }
 })
 
 test('contact actions become locale-safe internal and external links', () => {
