@@ -1627,6 +1627,7 @@
     "laterDates": "Later",
     "noShotOnDate": "No shot on {date}",
     "noShotUndated": "No undated shot",
+    "addShotOnDate": "Add a shot for {date}",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "prevShot": "Previous shot",
