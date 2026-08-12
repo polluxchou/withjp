@@ -34,12 +34,31 @@ export default function ContactSection({ section }: { section: ContactSectionDat
       <div className="min-w-0 lg:pt-1">
         {(section.partner || section.brand) && (
           <div className="mb-6 flex min-h-12 flex-wrap items-center gap-5">
-            {section.brand && (
-              <div className="bg-site-fg px-3 py-2 text-site-canvas">
-                <div className="font-serif-jp text-[20px] leading-none">{section.brand.primary}</div>
-                <div className="mt-1 text-[8px] tracking-[0.16em]">{section.brand.secondary}</div>
-              </div>
-            )}
+            {section.brand &&
+              (section.brandLogo ? (
+                /* 单色 mark 用 CSS mask 上色，颜色取 bg-site-fg：同一个变量深浅主题
+                   各自翻转，所以一张透明底图就够，不用备反白版本。 */
+                <span
+                  role="img"
+                  aria-label={`${section.brand.primary} ${section.brand.secondary}`}
+                  className="block h-10 w-24 bg-site-fg"
+                  style={{
+                    maskImage: `url(${section.brandLogo})`,
+                    WebkitMaskImage: `url(${section.brandLogo})`,
+                    maskSize: 'contain',
+                    WebkitMaskSize: 'contain',
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskPosition: 'left center',
+                    WebkitMaskPosition: 'left center',
+                  }}
+                />
+              ) : (
+                <div className="bg-site-fg px-3 py-2 text-site-canvas">
+                  <div className="font-serif-jp text-[20px] leading-none">{section.brand.primary}</div>
+                  <div className="mt-1 text-[8px] tracking-[0.16em]">{section.brand.secondary}</div>
+                </div>
+              ))}
             {section.partner && (
               <div className="font-condensed text-[13px] tracking-[0.28em] text-site-fg/48">
                 {section.partner}
