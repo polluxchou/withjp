@@ -1688,7 +1688,7 @@
       "line2": "performers who sing and dance."
     },
     "footer": {
-      "address": "Namba, Chuo-ku, Osaka ／ TikTok LIVE Creator Network\nLive training · AIGC film · Original music",
+      "address": "Shin-Osaka, Yodogawa-ku, Osaka ／ TikTok LIVE Creator Network\nLive training · AIGC film · Original music",
       "visionMembers": "VISION ／ MEMBERS",
       "live": "TIKTOK LIVE",
       "services": "SERVICES",
@@ -2149,10 +2149,9 @@
           "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
           "rows": [
             { "label": "Company", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
-            { "label": "Representative", "value": "CHEN HAO" },
-            { "label": "Founded / location", "value": "2021年／大阪市浪速区" },
+            { "label": "Founded / location", "value": "2021年／大阪市淀川区" },
             { "label": "Business", "value": "ライブ配信キャストの採用・オフライン運営" },
-            { "label": "Address", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" },
+            { "label": "Address", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
             { "label": "Website", "value": "https://chi-ron.com/", "link": "external" }
           ]
         },
@@ -2162,7 +2161,6 @@
           "note": "Contact desk coming soon", "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "Company", "value": "吉光片羽株式会社" },
-            { "label": "Representative", "value": "YANG JIANUO" },
             { "label": "Founded / location", "value": "2019年／西宮市" },
             { "label": "Business", "value": "インフルエンサーマーケティング" },
             { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },

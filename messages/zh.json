@@ -1688,7 +1688,7 @@
       "line2": "能唱能跳的直播者。"
     },
     "footer": {
-      "address": "大阪市中央区难波 ／ TikTok LIVE Creator Network\n直播培训・AIGC 影像・原创曲制作",
+      "address": "大阪市淀川区新大阪 ／ TikTok LIVE Creator Network\n直播培训・AIGC 影像・原创曲制作",
       "visionMembers": "VISION ／ MEMBERS",
       "live": "TIKTOK LIVE",
       "services": "SERVICES",
@@ -2149,10 +2149,9 @@
           "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
           "rows": [
             { "label": "公司名称", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
-            { "label": "代表", "value": "CHEN HAO" },
-            { "label": "成立・所在地", "value": "2021年／大阪市浪速区" },
+            { "label": "成立・所在地", "value": "2021年／大阪市淀川区" },
             { "label": "业务内容", "value": "ライブ配信キャストの採用・オフライン運営" },
-            { "label": "所在地", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" },
+            { "label": "所在地", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
             { "label": "公司官网", "value": "https://chi-ron.com/", "link": "external" }
           ]
         },
@@ -2162,7 +2161,6 @@
           "note": "咨询窗口正在准备中", "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "公司名称", "value": "吉光片羽株式会社" },
-            { "label": "代表", "value": "YANG JIANUO" },
             { "label": "成立・所在地", "value": "2019年／西宮市" },
             { "label": "业务内容", "value": "インフルエンサーマーケティング" },
             { "label": "负责领域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
