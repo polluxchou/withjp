@@ -1627,6 +1627,7 @@
     "laterDates": "更晚",
     "noShotOnDate": "{date} 无截图",
     "noShotUndated": "无未标日期的截图",
+    "addShotOnDate": "为 {date} 添加截图",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "prevShot": "上一张",
