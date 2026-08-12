@@ -2155,7 +2155,8 @@
             { "label": "代表", "value": "CHEN HAO" },
             { "label": "設立・所在地", "value": "2021年／大阪市浪速区" },
             { "label": "事業内容", "value": "ライブ配信キャストの採用・オフライン運営" },
-            { "label": "所在地", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" }
+            { "label": "所在地", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" },
+            { "label": "会社サイト", "value": "https://chi-ron.com/", "link": "external" }
           ]
         },
         {
@@ -2170,18 +2171,19 @@
             { "label": "代表", "value": "YANG JIANUO" },
             { "label": "設立・所在地", "value": "2019年／西宮市" },
             { "label": "事業内容", "value": "インフルエンサーマーケティング" },
-            { "label": "担当領域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" }
+            { "label": "担当領域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
+            { "label": "会社サイト", "value": "https://kikkou.jp/", "link": "external" }
           ]
         },
         {
           "no": "03",
           "eyebrow": "FOR CLIENT",
           "title": "法人・ブランド様へ",
-          "body": "タイアップ配信、AIGC 映像制作、楽曲制作、着ぐるみ IP のご相談はメールで承ります。",
+          "body": "楽曲制作、着ぐるみ技術、商業ライブ配信のご相談、広告事業のご提携、不正行為・コンプライアンスに関する通報をメールで承ります。",
           "cta": "business@echoamp.jp",
           "action": "email",
           "rows": [
-            { "label": "内容", "value": "タイアップ配信／AIGC 映像制作／楽曲制作／着ぐるみ IP" },
+            { "label": "内容", "value": "楽曲制作／着ぐるみ技術／商業ライブ配信／広告事業のご提携／不正行為・コンプライアンスに関する通報" },
             { "label": "連絡先", "value": "business@echoamp.jp", "link": "email" },
             { "label": "対応", "value": "平日 10:00–19:00（JST）／日本語・中国語" }
           ]
