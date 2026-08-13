@@ -33,6 +33,10 @@ const NEWS_IMAGES: Partial<Record<NewsSlug, string>> = {
   'operations-partner-announced': '/site/operations-partner-lockup.webp',
   'first-recruitment-round': '/site/shin-osaka-station.webp',
   'echoamp-launch': '/site/moondollz-silhouettes.webp',
+  // 这条新闻恢复时（见 news.test.ts 的历史）沿用的是它本来就有的配图：
+  // 两位队长的月下关键视觉，资源文件一直都在 public/site/，只是数组重排时
+  // 漏了接线，不是新素材。
+  'moondollz-launch': '/site/moondollz-key.webp',
 }
 
 /** i18n 里一篇文章的形状（site.news.articles[i]）。 */
