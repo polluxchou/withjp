@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   buildArticles,
   findArticle,
@@ -17,7 +18,7 @@ const copy: SiteArticleCopy[] = NEWS_SLUGS.map((slug, i) => ({
   body: ['a', 'b', 'c'],
 }))
 
-test('pairs copy with images and routes in slug order', () => {
+test('pairs copy with routes in slug order; image is optional until a photo is set', () => {
   const articles = buildArticles(copy)
   assert.equal(articles.length, NEWS_SLUGS.length)
   assert.deepEqual(
@@ -25,8 +26,21 @@ test('pairs copy with images and routes in slug order', () => {
     [...NEWS_SLUGS],
   )
   for (const article of articles) {
-    assert.match(article.image, /^\/site\/.+\.webp$/)
+    // 当前一批真实新闻的配图还没到位——只要求「有图时必须是站内 webp 资源」，
+    // 不要求每条都有图，否则这条测试会拦下正常的缺图状态。
+    if (article.image !== undefined) assert.match(article.image, /^\/site\/.+\.webp$/)
     assert.equal(article.href, `/site/news/${article.slug}`)
+  }
+})
+
+test('every configured news image exists in public/', () => {
+  // 路径写死在 NEWS_IMAGES 里，文件丢了页面上只会是一块空白，测试兜住这一步
+  const articles = buildArticles(copy)
+  const withImage = articles.filter((a) => a.image !== undefined)
+  assert.ok(withImage.length > 0)
+  for (const article of withImage) {
+    const asset = new URL(`../../../public${article.image}`, import.meta.url)
+    assert.ok(readFileSync(asset).byteLength > 0, article.image)
   }
 })
 
@@ -37,24 +51,23 @@ test('drops slots that have no copy yet instead of rendering empty cards', () =>
 })
 
 test('finds an article by slug and rejects unknown ones', () => {
-  assert.equal(findArticle(copy, 'moondollz-launch')?.title, 'title moondollz-launch')
+  assert.equal(findArticle(copy, 'operations-partner-announced')?.title, 'title operations-partner-announced')
   assert.equal(findArticle(copy, 'nope'), undefined)
 })
 
 test('isNewsSlug guards the route param', () => {
-  assert.equal(isNewsSlug('osaka-studio-open'), true)
+  assert.equal(isNewsSlug('echoamp-launch'), true)
   assert.equal(isNewsSlug('../../etc/passwd'), false)
 })
 
-test('assigns locale-independent categories in slug order', () => {
+test('assigns locale-independent categories to the current news slugs', () => {
   assert.deepEqual(
     buildArticles(copy).map((article) => article.category),
-    ['live', 'project', 'recruit', 'project'],
+    ['project', 'project', 'recruit', 'project', 'project'],
   )
 })
 
 test('shows the apply action only for the recruit category', () => {
   assert.equal(shouldShowNewsApply('recruit'), true)
-  assert.equal(shouldShowNewsApply('live'), false)
   assert.equal(shouldShowNewsApply('project'), false)
 })

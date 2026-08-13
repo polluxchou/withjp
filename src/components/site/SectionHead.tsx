@@ -25,12 +25,15 @@ export default function SectionHead({
   size?: 'section' | 'page'
   className?: string
 }) {
+  // condensed 标题的 font-semibold / leading 都不能省：Tailwind 的 preflight 把
+  // h1–h6 的 font-weight 与 font-size 重置成 inherit，不写就继承 site layout 的
+  // 400 与 leading-relaxed(1.625)，标题被拉细拉散——设计稿是 600 / 1.12。
   const titleCls =
     titleFont === 'serif'
       ? 'font-serif-jp text-[clamp(24px,3.4vw,52px)] leading-[1.35]'
       : size === 'page'
-        ? 'font-condensed text-[clamp(30px,4vw,56px)] tracking-[0.04em]'
-        : 'font-condensed text-[clamp(28px,3.2vw,44px)] tracking-[0.04em]'
+        ? 'font-condensed text-[clamp(38px,4vw,56px)] font-semibold leading-[1.12] tracking-[0.04em]'
+        : 'font-condensed text-[clamp(32px,3.2vw,44px)] font-semibold leading-[1.12] tracking-[0.04em]'
 
   return (
     <div className={`flex flex-wrap items-end justify-between gap-4 ${className}`}>
