@@ -2027,11 +2027,11 @@
           "time": "14:30–17:30 / 18:30–21:30"
         }
       ],
-      "onAirLabel": "ON AIR NOW",
+      "onAirLabel": "BROADCAST PLATFORM",
       "onAirPlaceholder": "Stream capture (vertical)",
       "onAirAlt": "Stream styling group photo: five streamers in black-and-white uniform looks, holding a microphone and a sceptre on the studio floor",
-      "onAirProgram": "Midnight Princess Chamber",
-      "onAirTime": "Nightly 21:00 — 24:00 ／ Namba studio"
+      "onAirProgram": "A dedicated live stage inside the TikTok app",
+      "onAirTime": "Launch day ／ Shin-Osaka, Osaka"
     },
     "services": {
       "eyebrow": "SERVICES",
