@@ -6,22 +6,23 @@
  * slug 是稳定的路由标识，不用日期也不用下标：日期会改、下标会因插入新文章而
  * 整体位移，两者都会让已经发出去的链接失效。
  */
+// 真实新闻（2026-07-21 起），按发生时间倒序——首页 LATEST 取数组前 3 个，
+// NEWS 列表页不做二次排序，顺序完全由这个数组决定。
 export const NEWS_SLUGS = [
-  'nightly-live-start',
-  'moondollz-launch',
-  'first-gen-audition',
-  'osaka-studio-open',
+  'mc-character-tech-partnership',
+  'operations-partner-announced',
+  'first-recruitment-round',
+  'echoamp-launch',
 ] as const
 
 export type NewsSlug = (typeof NEWS_SLUGS)[number]
 
-/** 每篇文章的主图。与 NEWS_SLUGS 同序。 */
-const NEWS_IMAGES: Record<NewsSlug, string> = {
-  'nightly-live-start': '/site/moondollz-group.webp',
-  'moondollz-launch': '/site/moondollz-key.webp',
-  'first-gen-audition': '/site/card-kano.webp',
-  'osaka-studio-open': '/site/card-shino.webp',
-}
+/**
+ * 每篇文章的主图，与 NEWS_SLUGS 同序。Partial 而不是 Record：这批真实新闻的
+ * 配图还没到位，缺配图的条目留空即可——SiteImage 对缺图有专门的占位框，
+ * 不用拿别的页面的图来顶替。
+ */
+const NEWS_IMAGES: Partial<Record<NewsSlug, string>> = {}
 
 /** i18n 里一篇文章的形状（site.news.articles[i]）。 */
 export interface SiteArticleCopy {
@@ -34,7 +35,7 @@ export interface SiteArticleCopy {
 
 export interface SiteArticle extends SiteArticleCopy {
   slug: NewsSlug
-  image: string
+  image?: string
   href: string
 }
 
