@@ -1868,29 +1868,30 @@
     },
     "vision": {
       "eyebrow": "VISION ／ 2027",
-      "title": "Finding Osaka's most gifted performers who sing and dance.",
-      "lead": "We are not building an anime-styled website. High-chroma color fields, black silhouettes, condensed type set on a slant — we connect that vocabulary back to a real visual inheritance: Dotonbori and Shinsekai. Osaka's own neon noir. That is how EchoAmp looks, and how our streams look.",
+      "title": "Find Osaka's most talented singing and dancing live creators.",
+      "statement": "We believe live streaming is a stage built for a team.",
+      "lead": "EchoAmp brings together people who love music, dance, and performance. Through continuous live shows, they build a style and culture of their own—and find the audience who truly loves the team and wants to grow with them.",
       "imagePlaceholder": "Night view of Dotonbori / Shinsekai",
       "eras": [
         {
-          "value": "1935",
-          "title": "Dotonbori Glico sign",
-          "body": "Dismantled in wartime and rebuilt since; now in its sixth generation. The running man is still Osaka's civic symbol."
+          "value": "1 ALBUM",
+          "title": "Create something that lasts",
+          "body": "Produce at least one team album each year, turning performances born on live streams into music that can live beyond the moment."
         },
         {
-          "value": "1912",
-          "title": "Shinsekai & Tsutenkaku",
-          "body": "Built as a district modelled on Paris and New York. Giant blowfish lanterns and dense Showa neon give it its character."
+          "value": "SHIN-OSAKA",
+          "title": "Where it all begins",
+          "body": "Our professional base for live streaming, training, and content production—and the place where the team's culture takes shape."
         },
         {
-          "value": "50s–70s",
-          "title": "Neon golden age",
-          "body": "Vegas influence made signage bigger and more excessive, fixing the Dotonbori skyline we know today."
+          "value": "13 MEMBERS",
+          "title": "Become a real team",
+          "body": "Bring together around 13 creators within one year to build a shared performance style, team culture, and fan community."
         },
         {
-          "value": "Greater Osaka",
-          "title": "Modern graphics",
-          "body": "Department-store flyers and theatre posters of the late Taisho and early Showa eras already showed mature modern design."
+          "value": "1–3 YEARS",
+          "title": "Grow fast, within a defined chapter",
+          "body": "Each year is one growth cycle. Through continuous live shows and performances, creators build an audience, a body of work, and real stage experience before moving forward on their own."
         }
       ],
       "principles": [
