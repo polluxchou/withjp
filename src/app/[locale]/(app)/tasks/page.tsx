@@ -56,7 +56,7 @@ export default function TasksPage() {
     setAiLoading(true)
     try {
       const url = filter === 'all' ? '/api/tasks' : `/api/tasks?status=${filter}`
-      const res  = await fetch(url)
+      const res  = await fetch(url, { cache: 'no-store' })
       if (!res.ok) {
         console.error('Failed to load tasks:', res.status)
         throw new Error(tCommon('loadFailed'))
@@ -91,15 +91,15 @@ export default function TasksPage() {
       }
 
       const [wt, sal, usr] = await Promise.all([
-        fetch(url).then((r) => {
+        fetch(url, { cache: 'no-store' }).then((r) => {
           if (!r.ok) { console.error('Failed to load work tasks:', r.status); throw new Error(tCommon('loadFailed')) }
           return r.json()
         }),
-        fetch('/api/user-salary?current=true').then((r) => {
+        fetch('/api/user-salary?current=true', { cache: 'no-store' }).then((r) => {
           if (!r.ok) { console.error('Failed to load salaries:', r.status); throw new Error(tCommon('loadFailed')) }
           return r.json()
         }),
-        fetch('/api/users').then((r) => {
+        fetch('/api/users', { cache: 'no-store' }).then((r) => {
           if (!r.ok) { console.error('Failed to load users:', r.status); throw new Error(tCommon('loadFailed')) }
           return r.json()
         }),
