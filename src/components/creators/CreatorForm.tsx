@@ -89,7 +89,7 @@ export default function CreatorForm({ creator, onSuccess, onCancel }: Props) {
     }
 
     loadRelations()
-  }, [])
+  }, [t])
 
   const set = (k: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))

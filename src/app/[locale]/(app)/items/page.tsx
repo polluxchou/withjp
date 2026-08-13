@@ -74,7 +74,13 @@ export default function ItemsPage() {
     setItems((json?.data ?? []) as Item[])
     setLoading(false)
   }
-  useEffect(() => { loadItems() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filters.q, filters.kind, filters.status, filters.venue_item_id, filters.responsible_person])
+  // Deliberately narrower than exhaustive-deps wants: `loadItems` is re-created
+  // every render (plain function declaration), and `filters.floor_id` is applied
+  // client-side below, so neither belongs here — listing them would refetch on
+  // every render / every floor toggle. The five server-side fields are the
+  // complete set that must trigger a refetch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadItems() }, [filters.q, filters.kind, filters.status, filters.venue_item_id, filters.responsible_person])
 
   // 客户端按楼层过滤（floor_id 不发给服务端）
   const zoneIdsByFloor = useMemo(() => {

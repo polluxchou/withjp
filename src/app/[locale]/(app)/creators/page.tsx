@@ -49,7 +49,7 @@ export default function CreatorsPage() {
     } finally {
       setLoading(false)
     }
-  }, [filter])
+  }, [filter, tCommon])
 
   useEffect(() => { load() }, [load])
 

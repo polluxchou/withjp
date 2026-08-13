@@ -121,7 +121,7 @@ export default function CreatorDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, tCommon])
 
   useEffect(() => { load() }, [load])
 
