@@ -1,7 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { buildArticles, findArticle, isNewsSlug, NEWS_SLUGS, type SiteArticleCopy } from './news.ts'
+import {
+  buildArticles,
+  findArticle,
+  isNewsSlug,
+  NEWS_SLUGS,
+  shouldShowNewsApply,
+  type SiteArticleCopy,
+} from './news.ts'
 
 const copy: SiteArticleCopy[] = NEWS_SLUGS.map((slug, i) => ({
   date: `2026.10.0${i + 1}`,
@@ -51,4 +58,16 @@ test('finds an article by slug and rejects unknown ones', () => {
 test('isNewsSlug guards the route param', () => {
   assert.equal(isNewsSlug('echoamp-launch'), true)
   assert.equal(isNewsSlug('../../etc/passwd'), false)
+})
+
+test('assigns locale-independent categories to the current news slugs', () => {
+  assert.deepEqual(
+    buildArticles(copy).map((article) => article.category),
+    ['project', 'project', 'recruit', 'project', 'project'],
+  )
+})
+
+test('shows the apply action only for the recruit category', () => {
+  assert.equal(shouldShowNewsApply('recruit'), true)
+  assert.equal(shouldShowNewsApply('project'), false)
 })

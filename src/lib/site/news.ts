@@ -18,6 +18,8 @@ export const NEWS_SLUGS = [
 
 export type NewsSlug = (typeof NEWS_SLUGS)[number]
 
+export type NewsCategory = 'project' | 'recruit'
+
 /**
  * 每篇文章的主图，与 NEWS_SLUGS 同序。Partial 而不是 Record：还有条目没配图，
  * 留空即可——SiteImage 对缺图有专门的占位框，不用拿别的页面的图来顶替。
@@ -39,6 +41,15 @@ const NEWS_IMAGES: Partial<Record<NewsSlug, string>> = {
   'moondollz-launch': '/site/moondollz-key.webp',
 }
 
+/** 每篇文章不随语言变化的内容分类，用于控制页面行为。 */
+const NEWS_CATEGORIES: Record<NewsSlug, NewsCategory> = {
+  'mc-character-tech-partnership': 'project',
+  'operations-partner-announced': 'project',
+  'first-recruitment-round': 'recruit',
+  'echoamp-launch': 'project',
+  'moondollz-launch': 'project',
+}
+
 /** i18n 里一篇文章的形状（site.news.articles[i]）。 */
 export interface SiteArticleCopy {
   date: string
@@ -51,6 +62,7 @@ export interface SiteArticleCopy {
 export interface SiteArticle extends SiteArticleCopy {
   slug: NewsSlug
   image?: string
+  category: NewsCategory
   href: string
 }
 
@@ -64,10 +76,15 @@ export function buildArticles(copy: SiteArticleCopy[]): SiteArticle[] {
     ...copy[i],
     slug,
     image: NEWS_IMAGES[slug],
+    category: NEWS_CATEGORIES[slug],
     href: `/site/news/${slug}`,
   })).filter((article) => Boolean(article.title))
 }
 
 export function findArticle(copy: SiteArticleCopy[], slug: string): SiteArticle | undefined {
   return buildArticles(copy).find((article) => article.slug === slug)
+}
+
+export function shouldShowNewsApply(category: NewsCategory): boolean {
+  return category === 'recruit'
 }
