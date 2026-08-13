@@ -2027,11 +2027,11 @@
           "time": "14:30–17:30 / 18:30–21:30"
         }
       ],
-      "onAirLabel": "ON AIR NOW",
+      "onAirLabel": "开播平台",
       "onAirPlaceholder": "直播画面截图（竖屏）",
       "onAirAlt": "直播造型合照：五位主播身着黑白制服风服装，手持话筒与权杖立于摄影棚",
-      "onAirProgram": "深夜公主之间",
-      "onAirTime": "每晚 21:00 — 24:00 ／ 难波工作室"
+      "onAirProgram": "专属 TikTok app 的直播舞台",
+      "onAirTime": "开播日 ／ 大阪・新大阪"
     },
     "services": {
       "eyebrow": "SERVICES",
