@@ -105,7 +105,11 @@ const config: Config = {
       },
       animation: {
         // 官网动效。keyframes 定义在 globals.css（reduced-motion 降级也在那里）。
-        'site-ticker': 'site-ticker 38s linear infinite',
+        // 跑马灯这个时长走完的是「一份内容」，不是固定像素，所以观感速度 = 单份宽 / 时长，
+        // 换文案就会变。38s 是配旧文案（单份 1470–1777px，38.7–46.8 px/s）定的；换成更短的
+        // 自述文案后单份只有 1098–1372px，同样 38s 掉到 28.9–36.1 px/s，明显发飘。
+        // 30s 让三语回到 36.6 / 41.9 / 45.7，和旧文案差 5% 内。以后再大改文案长度要连这里一起看。
+        'site-ticker': 'site-ticker 30s linear infinite',
         'site-pulse': 'site-pulse 2s infinite',
         'site-veil': 'site-veil .42s cubic-bezier(.2,.8,.2,1) both',
         'site-veil-in': 'site-veil-in .5s .1s both',
