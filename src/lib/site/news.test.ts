@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { buildArticles, findArticle, isNewsSlug, NEWS_SLUGS, type SiteArticleCopy } from './news.ts'
 
 const copy: SiteArticleCopy[] = NEWS_SLUGS.map((slug, i) => ({
@@ -22,6 +23,17 @@ test('pairs copy with routes in slug order; image is optional until a photo is s
     // 不要求每条都有图，否则这条测试会拦下正常的缺图状态。
     if (article.image !== undefined) assert.match(article.image, /^\/site\/.+\.webp$/)
     assert.equal(article.href, `/site/news/${article.slug}`)
+  }
+})
+
+test('the two configured news images exist in public/', () => {
+  // 路径写死在 NEWS_IMAGES 里，文件丢了页面上只会是一块空白，测试兜住这一步
+  const articles = buildArticles(copy)
+  const withImage = articles.filter((a) => a.image !== undefined)
+  assert.ok(withImage.length > 0)
+  for (const article of withImage) {
+    const asset = new URL(`../../../public${article.image}`, import.meta.url)
+    assert.ok(readFileSync(asset).byteLength > 0, article.image)
   }
 })
 
