@@ -8,37 +8,38 @@ import { format } from 'date-fns/format'
 import Header from '@/components/layout/Header'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import SectionCard from '@/components/ui/SectionCard'
+import ProgressBar from '@/components/ui/ProgressBar'
+import Tag from '@/components/ui/Tag'
+import LoadingState from '@/components/ui/LoadingState'
+import ErrorState from '@/components/ui/ErrorState'
+import EmptyState from '@/components/ui/EmptyState'
+import { toneOf } from '@/lib/ui/status-tone'
 import MilestoneForm from '@/components/milestones/MilestoneForm'
 import {
   MilestoneStatusBadge,
   MilestonePriorityBadge,
   MilestoneTypeBadge,
   MilestoneRiskBadge,
+  MILESTONE_STATUSES,
 } from '@/components/milestones/MilestoneStatusBadge'
 import { ArrowLeft, CheckSquare, Users, Bot, Target, ChevronRight } from 'lucide-react'
 import { AT_RISK_DAYS } from '@/lib/milestones/constants'
-import type { MilestoneDetail, MilestoneStatus, MilestoneLevel, Milestone } from '@/lib/types'
-
-// Status values for the inline selector — labels resolved via t('status.<key>').
-const STATUS_VALUES: MilestoneStatus[] = ['planned', 'active', 'at_risk', 'completed', 'missed']
-
-const TASK_STATUS_COLOR: Record<string, string> = {
-  pending: 'text-amber-600',
-  running: 'text-blue-600',
-  done:    'text-green-600',
-  failed:  'text-red-500',
-}
+import type { MilestoneStatus, MilestoneLevel, MilestoneDetail, Milestone } from '@/lib/types'
 
 // ── Page ──────────────────────────────────────────────────────
 
 export default function MilestoneDetailPage() {
   const t = useTranslations('timeline')
   const tCommon = useTranslations('common')
+  const tTasks = useTranslations('tasks')
+  const tStatus = useTranslations('status')
   const { id }   = useParams<{ id: string }>()
   const router   = useRouter()
 
   const [milestone,  setMilestone]  = useState<MilestoneDetail | null>(null)
   const [loading,    setLoading]    = useState(true)
+  const [loadError,  setLoadError]  = useState<string | null>(null)
   const [showEdit,   setShowEdit]   = useState(false)
   const [statusBusy, setStatusBusy] = useState(false)
   const [executing,  setExecuting]  = useState<string | null>(null)
@@ -48,13 +49,29 @@ export default function MilestoneDetailPage() {
     try {
       const res  = await fetch(`/api/milestones/${id}`)
       const json = await res.json()
-      if (json.data) setMilestone(json.data as MilestoneDetail)
+      // /api/milestones/[id] maps every lookup failure to 404 ("Milestone
+      // not found") — mostly "no such milestone", but also rare system
+      // faults (bad uuid, RLS, DB down) it can't tell apart. With no finer
+      // signal, 404 renders as the plain not-found state below (no retry).
+      // Any other non-ok status (401/403/500/…) is a real error: prefer the
+      // response's own json.error text, falling back to the generic copy
+      // (same split as creators/[id]/page.tsx's own load()).
+      if (!res.ok && res.status !== 404) {
+        console.error('Failed to load milestone:', res.status, json.error)
+        setLoadError(json.error ?? tCommon('loadFailed'))
+        setMilestone(null)
+      } else {
+        setLoadError(null)
+        setMilestone(json.data as MilestoneDetail)
+      }
     } catch (err) {
       console.error('Failed to load milestone:', err)
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
+      setMilestone(null)
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, tCommon])
 
   useEffect(() => { load() }, [load])
 
@@ -98,19 +115,22 @@ export default function MilestoneDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="p-12 text-center text-sm text-zinc-400">{t('detail.loading')}</div>
-    )
-  }
+  if (loading) return <LoadingState />
 
   if (!milestone) {
-    return (
-      <div className="p-12 text-center">
-        <p className="text-sm text-zinc-500 mb-3">{t('detail.notFound')}</p>
-        <Link href="/timeline" className="text-sm text-primary font-medium">{t('detail.back')}</Link>
-      </div>
-    )
+    // loadError only ever comes from a real system failure (non-404
+    // response, or a network/parse exception) — a clean 404 "no such
+    // milestone" has no loadError and gets no retry button, since retrying
+    // a missing record can't succeed (same not-found/error split as
+    // creators/[id]/page.tsx's own load()).
+    return loadError
+      ? <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
+      : (
+        <EmptyState
+          title={t('detail.notFound')}
+          action={<Link href="/timeline" className="text-sm text-primary font-medium hover:text-primary-hover">{t('detail.back')}</Link>}
+        />
+      )
   }
 
   const { task_progress, linked_tasks, linked_creators, involved_agents, children } = milestone
@@ -119,7 +139,7 @@ export default function MilestoneDetailPage() {
     : 0
 
   const daysLeft  = milestone.days_until_target ?? 0
-  const daysColor = daysLeft < 0 ? 'text-red-500' : daysLeft <= AT_RISK_DAYS ? 'text-amber-600' : 'text-zinc-700'
+  const daysColor = daysLeft < 0 ? 'text-danger-text' : daysLeft <= AT_RISK_DAYS ? 'text-warning-text' : 'text-ink-700'
 
   const metric = milestone.success_metric as { name?: string; target?: string; unit?: string }
 
@@ -127,7 +147,7 @@ export default function MilestoneDetailPage() {
     <div className="max-w-5xl">
       {/* Back link */}
       <Link href="/timeline"
-        className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-800 mb-4 transition-colors">
+        className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-900 mb-4 transition-colors">
         <ArrowLeft className="w-4 h-4" /> {t('detail.backLink')}
       </Link>
 
@@ -148,16 +168,19 @@ export default function MilestoneDetailPage() {
         <MilestoneTypeBadge     type={milestone.type} />
         <MilestonePriorityBadge priority={milestone.priority} />
         <MilestoneRiskBadge     risk={milestone.risk_level} />
-        <span className="text-zinc-300">|</span>
-        {/* Status selector */}
+        <span aria-hidden className="w-px h-4 bg-line" />
+        {/* Status selector — any-of-N quick switcher, not a linear
+            state-machine "advance" button (milestones have no nextStatus()),
+            so this stays a row of Tag-backed toggle buttons rather than a
+            single "next stage" CTA. */}
         <div className="flex items-center gap-1">
-          {STATUS_VALUES.map(value => (
+          {MILESTONE_STATUSES.map(value => (
             <button key={value}
               onClick={() => handleStatusChange(value)}
               disabled={statusBusy}
-              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all disabled:opacity-50 ${
+              className={`rounded-btn font-medium transition-all disabled:opacity-50 ${
                 milestone.status === value
-                  ? 'ring-2 ring-offset-1 ring-violet-400 opacity-100'
+                  ? 'ring-2 ring-offset-1 ring-primary opacity-100'
                   : 'opacity-50 hover:opacity-80'
               }`}>
               <MilestoneStatusBadge status={value} size="sm" />
@@ -169,52 +192,53 @@ export default function MilestoneDetailPage() {
       {/* Progress + dates grid */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {/* Task progress */}
-        <div className="col-span-2 bg-white border border-zinc-200 rounded-xl p-4">
+        <div className="col-span-2 bg-surface border border-line rounded-card p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-zinc-500">{t('detail.taskProgress')}</span>
-            <span className="text-xs font-semibold text-zinc-700">
+            <span className="text-xs font-medium text-ink-500">{t('detail.taskProgress')}</span>
+            <span className="text-xs font-semibold text-ink-700">
               {t('detail.taskProgressValue', { done: task_progress.done, total: task_progress.total, pct: progressPct })}
             </span>
           </div>
-          <div className="w-full bg-zinc-100 rounded-full h-2">
-            <div className="bg-violet-500 h-2 rounded-full transition-all"
-              style={{ width: `${progressPct}%` }} />
-          </div>
+          {/* tone="default" pinned explicitly — ProgressBar's own >90%
+              auto-warning heuristic reads as risk, but a milestone that's
+              90%+ done on its tasks is good news, not a warning signal
+              (same rationale as the pipeline funnel bars on the dashboard). */}
+          <ProgressBar value={task_progress.done} max={task_progress.total} label={t('detail.taskProgress')} tone="default" />
         </div>
 
         {/* Days left */}
-        <div className="bg-white border border-zinc-200 rounded-xl p-4 text-center">
-          <div className="text-xs text-zinc-500 mb-1">{t('detail.daysUntilTarget')}</div>
-          <div className={`text-2xl font-bold ${daysColor}`}>
+        <div className="bg-surface border border-line rounded-card p-4 text-center">
+          <div className="text-xs text-ink-500 mb-1">{t('detail.daysUntilTarget')}</div>
+          <div className={`text-2xl font-bold tabular-nums ${daysColor}`}>
             {daysLeft < 0 ? Math.abs(daysLeft) : daysLeft}
           </div>
-          <div className="text-xs text-zinc-400">{daysLeft < 0 ? t('detail.overdue') : t('detail.remaining')}</div>
+          <div className="text-xs text-ink-400">{daysLeft < 0 ? t('detail.overdue') : t('detail.remaining')}</div>
         </div>
 
         {/* Level */}
-        <div className="bg-white border border-zinc-200 rounded-xl p-4 text-center">
-          <div className="text-xs text-zinc-500 mb-1">{t('detail.level')}</div>
-          <div className="text-sm font-semibold text-zinc-700">{t(`form.levelValue.${milestone.level as MilestoneLevel}`)}</div>
+        <div className="bg-surface border border-line rounded-card p-4 text-center">
+          <div className="text-xs text-ink-500 mb-1">{t('detail.level')}</div>
+          <div className="text-sm font-semibold text-ink-700">{t(`form.levelValue.${milestone.level as MilestoneLevel}`)}</div>
         </div>
       </div>
 
       {/* Dates + owner */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white border border-zinc-200 rounded-xl p-4">
-          <div className="text-xs text-zinc-400 mb-1">{t('detail.startDate')}</div>
-          <div className="text-sm font-medium text-zinc-800">
+        <div className="bg-surface border border-line rounded-card p-4">
+          <div className="text-xs text-ink-400 mb-1">{t('detail.startDate')}</div>
+          <div className="text-sm font-medium text-ink-900">
             {format(new Date(milestone.start_date), 'MMM d, yyyy')}
           </div>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-xl p-4">
-          <div className="text-xs text-zinc-400 mb-1">{t('detail.targetDate')}</div>
-          <div className="text-sm font-medium text-zinc-800">
+        <div className="bg-surface border border-line rounded-card p-4">
+          <div className="text-xs text-ink-400 mb-1">{t('detail.targetDate')}</div>
+          <div className="text-sm font-medium text-ink-900">
             {format(new Date(milestone.target_date), 'MMM d, yyyy')}
           </div>
         </div>
-        <div className="bg-white border border-zinc-200 rounded-xl p-4">
-          <div className="text-xs text-zinc-400 mb-1">{t('detail.ownerAgent')}</div>
-          <div className="text-sm font-medium text-zinc-800">
+        <div className="bg-surface border border-line rounded-card p-4">
+          <div className="text-xs text-ink-400 mb-1">{t('detail.ownerAgent')}</div>
+          <div className="text-sm font-medium text-ink-900">
             {milestone.owner_agent
               ? `${milestone.owner_agent.name} (${milestone.owner_agent.role})`
               : '—'}
@@ -224,12 +248,12 @@ export default function MilestoneDetailPage() {
 
       {/* Success metric */}
       {metric?.name && (
-        <div className="bg-primary-soft border border-violet-100 rounded-xl p-4 mb-6">
+        <div className="bg-primary-soft border border-primary-border rounded-card p-4 mb-6">
           <div className="flex items-center gap-2 mb-1">
             <Target className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold text-violet-900">{t('detail.successMetric')}</span>
+            <span className="text-sm font-semibold text-primary-hover">{t('detail.successMetric')}</span>
           </div>
-          <p className="text-sm text-violet-800">
+          <p className="text-sm text-primary-hover">
             {metric.name}
             {metric.target && <> — {t('detail.metricTarget')}<strong>{metric.target}{metric.unit ? ` ${metric.unit}` : ''}</strong></>}
           </p>
@@ -238,110 +262,117 @@ export default function MilestoneDetailPage() {
 
       {/* Notes */}
       {milestone.notes && (
-        <div className="bg-zinc-50 border border-zinc-100 rounded-xl p-4 mb-6">
-          <p className="text-xs font-medium text-zinc-500 mb-1">{t('detail.notes')}</p>
-          <p className="text-sm text-zinc-700 whitespace-pre-wrap">{milestone.notes}</p>
+        <div className="bg-canvas border border-line rounded-card p-4 mb-6">
+          <p className="text-xs font-medium text-ink-500 mb-1">{t('detail.notes')}</p>
+          <p className="text-sm text-ink-700 whitespace-pre-wrap">{milestone.notes}</p>
         </div>
       )}
 
       {/* Involved agents */}
       {involved_agents.length > 0 && (
-        <Section icon={<Bot className="w-4 h-4" />} title={t('detail.involvedAgents')}>
-          <div className="flex flex-wrap gap-2">
-            {involved_agents.map(a => (
-              <span key={a.id}
-                className="inline-flex items-center gap-1.5 bg-zinc-100 text-zinc-700 rounded-full px-3 py-1 text-xs font-medium">
-                <Bot className="w-3 h-3" /> {a.name} <span className="text-zinc-400">({a.role})</span>
-              </span>
-            ))}
-          </div>
-        </Section>
+        <div className="mb-4">
+          <SectionCard icon={<Bot />} title={t('detail.involvedAgents')}>
+            <div className="flex flex-wrap gap-2">
+              {involved_agents.map(a => (
+                <span key={a.id}
+                  className="inline-flex items-center gap-1.5 bg-muted-soft text-muted-text rounded-btn px-3 py-1 text-xs font-medium">
+                  <Bot className="w-3 h-3" /> {a.name} <span className="text-ink-400">({a.role})</span>
+                </span>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
       )}
 
       {/* Linked creators */}
       {linked_creators.length > 0 && (
-        <Section icon={<Users className="w-4 h-4" />} title={t('detail.linkedCreators', { count: linked_creators.length })}>
-          <div className="divide-y divide-zinc-50">
-            {linked_creators.map(c => (
-              <div key={c.id} className="flex items-center justify-between py-2">
-                <div>
-                  <span className="text-sm font-medium text-zinc-800">{c.name}</span>
-                  <span className="text-xs text-zinc-400 ml-2">{c.platform}</span>
+        <div className="mb-4">
+          <SectionCard icon={<Users />} title={t('detail.linkedCreators', { count: linked_creators.length })}>
+            <div className="divide-y divide-line-soft">
+              {linked_creators.map(c => (
+                <div key={c.id} className="flex items-center justify-between py-2">
+                  <div>
+                    <span className="text-sm font-medium text-ink-900">{c.name}</span>
+                    <span className="text-xs text-ink-400 ml-2">{c.platform}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Tag size="sm" tone={toneOf('creator', c.status)} label={tStatus(c.status)} />
+                    <Link href={`/creators/${c.id}`}
+                      className="text-xs text-primary hover:text-primary-hover font-medium">
+                      {t('detail.viewLink')} <ChevronRight className="inline w-3 h-3" />
+                    </Link>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-zinc-400 capitalize">{c.status.replace('_', ' ')}</span>
-                  <Link href={`/creators/${c.id}`}
-                    className="text-xs text-primary hover:text-violet-800 font-medium">
-                    {t('detail.viewLink')} <ChevronRight className="inline w-3 h-3" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
       )}
 
       {/* Linked tasks */}
-      <Section icon={<CheckSquare className="w-4 h-4" />} title={t('detail.linkedTasks', { count: linked_tasks.length })}>
-        {linked_tasks.length === 0 ? (
-          <p className="text-xs text-zinc-400">
-            {t('detail.noLinkedTasks')}
-          </p>
-        ) : (
-          <div className="divide-y divide-zinc-50">
-            {linked_tasks.map(task => (
-              <div key={task.id} className="flex items-center justify-between py-2.5">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-zinc-800 truncate">{task.title}</p>
-                  <p className="text-xs text-zinc-400">
-                    {(task.creator as { name?: string } | null)?.name ?? '—'}
-                    {(task.agent as { name?: string } | null)?.name && (
-                      <> · {(task.agent as { name?: string }).name}</>
+      <div className="mb-4">
+        <SectionCard icon={<CheckSquare />} title={t('detail.linkedTasks', { count: linked_tasks.length })}>
+          {linked_tasks.length === 0 ? (
+            <p className="text-xs text-ink-400">
+              {t('detail.noLinkedTasks')}
+            </p>
+          ) : (
+            <div className="divide-y divide-line-soft">
+              {linked_tasks.map(task => (
+                <div key={task.id} className="flex items-center justify-between py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-ink-900 truncate">{task.title}</p>
+                    <p className="text-xs text-ink-400">
+                      {(task.creator as { name?: string } | null)?.name ?? '—'}
+                      {(task.agent as { name?: string } | null)?.name && (
+                        <> · {(task.agent as { name?: string }).name}</>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+                    <Tag size="sm" tone={toneOf('task', task.status)} label={tTasks(task.status)} />
+                    {task.status === 'pending' && (task.agent as { id?: string } | null)?.id && (
+                      <Button
+                        size="sm"
+                        loading={executing === task.id}
+                        onClick={() => handleExecuteTask(task.id, (task.agent as { id: string }).id)}
+                      >
+                        {executing === task.id ? t('detail.executeRunning') : t('detail.executeBtn')}
+                      </Button>
                     )}
-                  </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-                  <span className={`text-xs font-medium capitalize ${TASK_STATUS_COLOR[task.status] ?? 'text-zinc-500'}`}>
-                    {task.status}
-                  </span>
-                  {task.status === 'pending' && (task.agent as { id?: string } | null)?.id && (
-                    <button
-                      onClick={() => handleExecuteTask(task.id, (task.agent as { id: string }).id)}
-                      disabled={executing === task.id}
-                      className="text-xs px-2 py-1 bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50">
-                      {executing === task.id ? t('detail.executeRunning') : t('detail.executeBtn')}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      </div>
 
       {/* Child milestones */}
       {(children ?? []).length > 0 && (
-        <Section icon={<ChevronRight className="w-4 h-4" />} title={t('detail.subMilestones', { count: children!.length })}>
-          <div className="divide-y divide-zinc-50">
-            {(children as Milestone[]).map(c => (
-              <div key={c.id} className="flex items-center justify-between py-2.5">
-                <div>
-                  <Link href={`/timeline/${c.id}`}
-                    className="text-sm font-medium text-zinc-800 hover:text-primary transition-colors">
-                    {c.title}
-                  </Link>
+        <div className="mb-4">
+          <SectionCard icon={<ChevronRight />} title={t('detail.subMilestones', { count: children!.length })}>
+            <div className="divide-y divide-line-soft">
+              {(children as Milestone[]).map(c => (
+                <div key={c.id} className="flex items-center justify-between py-2.5">
+                  <div>
+                    <Link href={`/timeline/${c.id}`}
+                      className="text-sm font-medium text-ink-900 hover:text-primary transition-colors">
+                      {c.title}
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MilestoneTypeBadge   type={c.type}     size="sm" />
+                    <MilestoneStatusBadge status={c.status} size="sm" />
+                    <span className="text-xs text-ink-400">
+                      {format(new Date(c.target_date), 'MMM d, yyyy')}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <MilestoneTypeBadge   type={c.type}     size="sm" />
-                  <MilestoneStatusBadge status={c.status} size="sm" />
-                  <span className="text-xs text-zinc-400">
-                    {format(new Date(c.target_date), 'MMM d, yyyy')}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
       )}
 
       {/* Edit modal */}
@@ -352,22 +383,6 @@ export default function MilestoneDetailPage() {
           onCancel={() => setShowEdit(false)}
         />
       </Modal>
-    </div>
-  )
-}
-
-// ── Shared section wrapper ────────────────────────────────────
-
-function Section({
-  icon, title, children,
-}: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-4">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-zinc-500">{icon}</span>
-        <h3 className="text-sm font-semibold text-zinc-800">{title}</h3>
-      </div>
-      {children}
     </div>
   )
 }

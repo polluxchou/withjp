@@ -34,13 +34,13 @@ const THUMB_CLS = [
   '[&::-webkit-slider-thumb]:pointer-events-auto',
   '[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5',
   '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white',
-  '[&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-violet-600',
-  '[&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab',
+  '[&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-primary',
+  '[&::-webkit-slider-thumb]:shadow-card [&::-webkit-slider-thumb]:cursor-grab',
   '[&::-moz-range-thumb]:pointer-events-auto',
   '[&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5',
   '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white',
-  '[&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-violet-600',
-  '[&::-moz-range-thumb]:shadow-md [&::-moz-range-thumb]:cursor-grab',
+  '[&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-primary',
+  '[&::-moz-range-thumb]:shadow-card [&::-moz-range-thumb]:cursor-grab',
   '[&::-moz-range-track]:bg-transparent',
 ].join(' ')
 
@@ -135,7 +135,7 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
             </div>
             {bPct - aPct > 12 && (
               <div
-                className="absolute top-0.5 -translate-x-1/2 text-[10px] font-medium text-violet-500 pointer-events-none"
+                className="absolute top-0.5 -translate-x-1/2 text-[10px] font-medium text-primary pointer-events-none"
                 style={{ left: `${(aPct + bPct) / 2}%` }}
               >
                 {tCommon('days', { count: draft.b - draft.a })}
@@ -158,16 +158,18 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
           onTouchStart={(e) => updateActiveByCursor(e.touches[0]?.clientX ?? 0)}
           onTouchMove={(e) => updateActiveByCursor(e.touches[0]?.clientX ?? 0)}
         >
-          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-zinc-200 rounded-full" />
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-line-strong rounded-full" />
 
           {isSingleDay ? (
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-violet-500 rounded-full pointer-events-none ring-2 ring-violet-200"
+              // 单日态圆点：ring-violet-200 halo 换成 RecordRow violet tone 同款
+              // shadow halo 配方（design-system §1.3 状态点 halo 私有任意值阴影）。
+              className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-primary rounded-full pointer-events-none shadow-[0_0_0_3px_var(--primary-soft)]"
               style={{ left: `calc(${aPct}% - 5px)` }}
             />
           ) : (
             <div
-              className="absolute top-1/2 -translate-y-1/2 h-2 bg-violet-500 rounded-full pointer-events-none"
+              className="absolute top-1/2 -translate-y-1/2 h-2 bg-primary rounded-full pointer-events-none"
               style={{ left: `${aPct}%`, width: `${bPct - aPct}%` }}
             />
           )}
@@ -201,8 +203,8 @@ export default function DateRangeSlider({ from, to, onChange, minDate, maxDate }
               className="absolute flex flex-col items-center pointer-events-none"
               style={{ left: `${pct}%`, transform: 'translateX(-50%)' }}
             >
-              <div className="w-px h-2 bg-zinc-300" />
-              <span className="text-[10px] text-zinc-400 mt-0.5 whitespace-nowrap">{label}</span>
+              <div className="w-px h-2 bg-line-strong" />
+              <span className="text-[10px] text-ink-400 mt-0.5 whitespace-nowrap">{label}</span>
             </div>
           )
         })}

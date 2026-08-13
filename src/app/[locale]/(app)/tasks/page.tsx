@@ -4,13 +4,22 @@ import { useState, useEffect, useCallback } from 'react'
 import Header from '@/components/layout/Header'
 import TaskCard from '@/components/tasks/TaskCard'
 import Button from '@/components/ui/Button'
+import Tabs from '@/components/ui/Tabs'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import { Field, Input } from '@/components/ui/Field'
+import { CountChip } from '@/components/ui/FilterChip'
+import LoadingState from '@/components/ui/LoadingState'
+import ErrorState from '@/components/ui/ErrorState'
+import EmptyState from '@/components/ui/EmptyState'
 import WorkloadDayView from '@/components/work-tasks/WorkloadDayView'
 import WorkloadWeekView from '@/components/work-tasks/WorkloadWeekView'
 import WorkloadMonthView from '@/components/work-tasks/WorkloadMonthView'
 import SalaryManager from '@/components/work-tasks/SalaryManager'
-import { Play, RefreshCw, CheckSquare, Calendar, Settings } from 'lucide-react'
+import { Play, RefreshCw, CheckSquare, Settings, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toDateStr } from '@/lib/work-tasks/cost'
+import { toneOf } from '@/lib/ui/status-tone'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import type { Task, TaskStatus, WorkTask, AgentRole } from '@/lib/types'
 
 const STATUS_TABS: (TaskStatus | 'all')[] = ['all', 'pending', 'running', 'done', 'failed']
@@ -20,6 +29,7 @@ export default function TasksPage() {
   // ── Tab A: AI tasks ────────────────────────────────────────────
   const [tasks,      setTasks]      = useState<Task[]>([])
   const [aiLoading,  setAiLoading]  = useState(true)
+  const [aiError,    setAiError]    = useState<string | null>(null)
   const [filter,     setFilter]     = useState<TaskStatus | 'all'>('all')
   const [executing,  setExecuting]  = useState<string | null>(null)
   const t = useTranslations('tasks')
@@ -30,6 +40,7 @@ export default function TasksPage() {
   const [salaryMap,  setSalaryMap]  = useState<Record<string, number>>({})
   const [userMeta,   setUserMeta]   = useState<Record<string, { name: string; user_code: string; role: AgentRole }>>({})
   const [wlLoading,  setWlLoading]  = useState(false)
+  const [wlError,    setWlError]    = useState<string | null>(null)
   const [period,     setPeriod]     = useState<WorkloadPeriod>('day')
   const [dayDate,    setDayDate]    = useState(toDateStr(new Date()))
   const [showSalary, setShowSalary] = useState(false)
@@ -38,15 +49,24 @@ export default function TasksPage() {
   const [mainTab, setMainTab] = useState<'ai' | 'workload'>('workload')
 
   // ── AI tasks load ──────────────────────────────────────────────
+  // Same error-surfacing idiom as creators/pipeline pages (design-system.md
+  // §6.3 三态): a non-ok response or thrown error now reaches aiError/ErrorState
+  // instead of silently resolving to an empty list.
   const loadAI = useCallback(async () => {
     setAiLoading(true)
     try {
       const url = filter === 'all' ? '/api/tasks' : `/api/tasks?status=${filter}`
       const res  = await fetch(url, { cache: 'no-store' })
+      if (!res.ok) {
+        console.error('Failed to load tasks:', res.status)
+        throw new Error(tCommon('loadFailed'))
+      }
       const json = await res.json()
+      setAiError(json.error ?? null)
       setTasks(json.data ?? [])
     } catch (err) {
       console.error('Failed to load tasks:', err)
+      setAiError(err instanceof Error ? err.message : tCommon('loadFailed'))
       setTasks([])
     } finally {
       setAiLoading(false)
@@ -58,6 +78,7 @@ export default function TasksPage() {
   // ── Work tasks load ────────────────────────────────────────────
   const loadWorkloads = useCallback(async () => {
     setWlLoading(true)
+    setWlError(null)
     try {
       // Build date range based on period
       let url = '/api/work-tasks?'
@@ -70,9 +91,18 @@ export default function TasksPage() {
       }
 
       const [wt, sal, usr] = await Promise.all([
-        fetch(url, { cache: 'no-store' }).then((r) => r.json()),
-        fetch('/api/user-salary?current=true', { cache: 'no-store' }).then((r) => r.json()),
-        fetch('/api/users', { cache: 'no-store' }).then((r) => r.json()),
+        fetch(url, { cache: 'no-store' }).then((r) => {
+          if (!r.ok) { console.error('Failed to load work tasks:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
+        fetch('/api/user-salary?current=true', { cache: 'no-store' }).then((r) => {
+          if (!r.ok) { console.error('Failed to load salaries:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
+        fetch('/api/users', { cache: 'no-store' }).then((r) => {
+          if (!r.ok) { console.error('Failed to load users:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
       ])
 
       setWorkTasks(wt.data ?? [])
@@ -92,12 +122,24 @@ export default function TasksPage() {
       setUserMeta(um)
     } catch (err) {
       console.error('Failed to load workloads:', err)
+      setWlError(err instanceof Error ? err.message : tCommon('loadFailed'))
     } finally {
       setWlLoading(false)
     }
   }, [period, dayDate])
 
   useEffect(() => { if (mainTab === 'workload') loadWorkloads() }, [loadWorkloads, mainTab])
+
+  // Close the salary drawer on Escape — lightweight equivalent of Modal's own
+  // Escape handling (design-system.md §6.2), without pulling in its full
+  // portal/focus-trap machinery for what stays a bespoke side drawer (see
+  // the drawer decision note below).
+  useEffect(() => {
+    if (!showSalary) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowSalary(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showSalary])
 
   async function executeTask(taskId: string) {
     setExecuting(taskId)
@@ -117,11 +159,36 @@ export default function TasksPage() {
     failed:  tasks.filter((t) => t.status === 'failed').length,
   }
 
+  const aiState = aiLoading ? (
+    <LoadingState variant="plain" />
+  ) : aiError ? (
+    <ErrorState title={tCommon('errorTitle')} detail={aiError} onRetry={loadAI} />
+  ) : tasks.length === 0 ? (
+    <EmptyState icon={<CheckSquare />} title={t('noTasksInView')} />
+  ) : null
+
+  const workloadState = wlLoading ? (
+    <LoadingState variant="plain" />
+  ) : wlError ? (
+    <ErrorState title={tCommon('errorTitle')} detail={wlError} onRetry={loadWorkloads} />
+  ) : null
+
   return (
     <div>
       <Header
         title={t('title')}
         subtitle={t('subtitle')}
+        tabs={
+          <Tabs
+            label={t('viewTabsLabel')}
+            items={[
+              { value: 'workload', label: t('tabWorkload') },
+              { value: 'ai',       label: t('tabAi') },
+            ]}
+            value={mainTab}
+            onChange={(v) => setMainTab(v as 'ai' | 'workload')}
+          />
+        }
         actions={
           <div className="flex items-center gap-2">
             {mainTab === 'workload' && (
@@ -140,61 +207,25 @@ export default function TasksPage() {
         }
       />
 
-      {/* Main tabs */}
-      <div className="flex items-center gap-1 mb-5 border-b border-zinc-200">
-        {([
-          { key: 'workload', labelKey: 'tabWorkload', icon: Calendar },
-          { key: 'ai',       labelKey: 'tabAi',       icon: CheckSquare },
-        ] as const).map(({ key, labelKey, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setMainTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              mainTab === key
-                ? 'border-primary text-primary'
-                : 'border-transparent text-zinc-500 hover:text-zinc-700'
-            }`}
-          >
-            <Icon className="w-4 h-4" />
-            {t(labelKey)}
-          </button>
-        ))}
-      </div>
-
       {/* ── Tab A: AI Tasks ── */}
       {mainTab === 'ai' && (
         <>
-          {/* Status tabs */}
-          <div className="flex items-center gap-1.5 mb-5">
-            {STATUS_TABS.map((key) => {
-              const count = key === 'all' ? tasks.length : counts[key as TaskStatus]
-              return (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                    filter === key
-                      ? 'bg-primary text-white'
-                      : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
-                  }`}
-                >
-                  {key === 'all' ? tCommon('all') : t(key)}
-                  <span className={`rounded-full px-1.5 py-0.5 text-xs ${filter === key ? 'bg-white/20 text-white' : 'bg-zinc-100 text-zinc-500'}`}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
+          {/* Status filter — same CountChip idiom as expenses/creators pages
+              (design-system.md §6.1 "列表页顶部状态过滤"). */}
+          <div className="flex items-center gap-2 mb-5 flex-wrap">
+            {STATUS_TABS.map((key) => (
+              <CountChip
+                key={key}
+                label={key === 'all' ? tCommon('all') : t(key)}
+                count={key === 'all' ? tasks.length : counts[key as TaskStatus]}
+                tone={key === 'all' ? 'neutral' : toneOf('task', key)}
+                active={filter === key}
+                onClick={() => setFilter(key)}
+              />
+            ))}
           </div>
 
-          {aiLoading ? (
-            <div className="text-center py-12 text-sm text-zinc-400">{tCommon('loading')}</div>
-          ) : tasks.length === 0 ? (
-            <div className="bg-white border border-zinc-200 rounded-xl p-12 text-center">
-              <CheckSquare className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
-              <p className="text-sm text-zinc-400">{t('noTasksInView')}</p>
-            </div>
-          ) : (
+          {aiState ?? (
             <div className="space-y-2">
               {tasks.map((task) => (
                 <div key={task.id}>
@@ -213,8 +244,11 @@ export default function TasksPage() {
                   )}
                   {task.status === 'done' && task.output && (
                     <details className="pl-7 pt-1">
-                      <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-600">{t('viewOutput')}</summary>
-                      <pre className="mt-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg p-3 overflow-auto max-h-48 text-zinc-700">
+                      {/* w-fit + rounded-field 让 focus 环贴着文字而非撑满整行
+                          （<summary> 默认 block）——同 team/page.tsx 的
+                          SUMMARY_CLASS 配方，环本身取自 recipes.ts。 */}
+                      <summary className={`w-fit text-xs text-ink-400 cursor-pointer hover:text-ink-700 rounded-field ${FOCUS_RING}`}>{t('viewOutput')}</summary>
+                      <pre className="mt-2 text-xs font-mono bg-canvas border border-line rounded-field p-3 overflow-auto max-h-48 text-ink-700">
                         {JSON.stringify(task.output, null, 2)}
                       </pre>
                     </details>
@@ -230,36 +264,28 @@ export default function TasksPage() {
       {mainTab === 'workload' && (
         <>
           {/* Period selector + day date picker */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center gap-1 bg-white border border-zinc-200 rounded-lg p-0.5">
-              {(['day', 'week', 'month'] as WorkloadPeriod[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    period === p
-                      ? 'bg-primary text-white shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-700'
-                  }`}
-                >
-                  {p === 'day' ? t('periodDay') : p === 'week' ? t('periodWeek') : t('periodMonth')}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-end gap-3 mb-4">
+            <SegmentedControl
+              items={[
+                { value: 'day',   label: t('periodDay') },
+                { value: 'week',  label: t('periodWeek') },
+                { value: 'month', label: t('periodMonth') },
+              ]}
+              value={period}
+              onChange={(v) => setPeriod(v as WorkloadPeriod)}
+              label={t('periodGroupLabel')}
+            />
 
             {period === 'day' && (
-              <input
-                type="date"
-                value={dayDate}
-                onChange={(e) => setDayDate(e.target.value)}
-                className="border border-zinc-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-              />
+              <div className="w-40">
+                <Field label={t('selectDate')}>
+                  <Input type="date" value={dayDate} onChange={(e) => setDayDate(e.target.value)} />
+                </Field>
+              </div>
             )}
           </div>
 
-          {wlLoading ? (
-            <div className="text-center py-12 text-sm text-zinc-400">{tCommon('loading')}</div>
-          ) : (
+          {workloadState ?? (
             <>
               {period === 'day'   && (
                 <WorkloadDayView
@@ -289,20 +315,45 @@ export default function TasksPage() {
             </>
           )}
 
-          {/* Salary Manager drawer */}
+          {/* Salary Manager drawer — a right-side slide-in panel, not a centered
+              dialog, so it deliberately keeps its own bespoke structure rather
+              than the shared Modal (design-system.md §6.1 lists Modal as
+              "阻断式编辑/确认"; this is closer to the DiscussionPanel-style side
+              context slot). Single outer fixed z-50 container (mirrors
+              Modal.tsx's z-[60] wrapper), backdrop as an absolute-inset-0
+              child, panel as a sibling — backdrop and panel now share one
+              stacking context instead of being two separate top-level fixed
+              elements. That matters because Sidebar's own drawer panel is
+              also z-50 with no breakpoint guard: two separate fixed elements
+              at z-40/z-50 lose to Sidebar's z-50 on the backdrop (so the
+              sidebar stayed clickable through the dim overlay); nested under
+              one z-50 wrapper, the whole drawer paints as a single unit that
+              (being later in the DOM) wins the tie.
+              No aria-modal: it's not backed by a focus trap/inert like Modal
+              provides, so claiming aria-modal would be inaccurate —
+              role="dialog" + aria-label + Escape (handled above) is the
+              honest subset. */}
           {showSalary && (
-            <div className="fixed inset-0 bg-black/40 z-50 flex justify-end" onClick={() => setShowSalary(false)}>
+            <div className="fixed inset-0 z-50">
               <div
-                className="w-full max-w-3xl bg-white h-full overflow-y-auto p-6 shadow-xl"
-                onClick={(e) => e.stopPropagation()}
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setShowSalary(false)}
+                aria-hidden="true"
+              />
+              <div
+                role="dialog"
+                aria-label={t('salaryManagement')}
+                className="absolute inset-y-0 right-0 w-full max-w-3xl bg-surface shadow-pop overflow-y-auto p-6"
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-semibold text-zinc-900">{t('salaryManagement')}</h2>
+                  <h2 className="text-xl font-semibold text-ink-900 tracking-title">{t('salaryManagement')}</h2>
                   <button
+                    type="button"
+                    aria-label={tCommon('close')}
                     onClick={() => setShowSalary(false)}
-                    className="text-zinc-400 hover:text-zinc-700 transition-colors text-sm"
+                    className="flex-none w-9 h-9 rounded-field flex items-center justify-center text-ink-400 hover:text-ink-700 hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                   >
-                    {tCommon('close')}
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
                 <SalaryManager />

@@ -21,11 +21,18 @@
     "singleDay": "1日のみ",
     "days": "{count}日",
     "emptyTitle": "まだ記録がありません",
-    "emptyHint": "最初の1件を追加しましょう"
+    "emptyHint": "最初の1件を追加しましょう",
+    "errorTitle": "エラーが発生しました",
+    "retry": "再試行",
+    "loadFailed": "読み込みに失敗しました。再試行してください",
+    "prev": "前へ",
+    "next": "次へ"
   },
   "nav": {
     "dashboard": "ダッシュボード",
     "creators": "ライバー",
+    "creatorsList": "ライバー一覧",
+    "competitors": "競合モニタリング",
     "pipeline": "パイプライン",
     "timeline": "戦略タイムライン",
     "tasks": "タスク",
@@ -40,11 +47,12 @@
     "config": "設定",
     "profile": "プロフィール",
     "logout": "ログアウト",
-    "appName": "Creator Guild",
+    "appName": "Creator Network",
     "appSubtitle": "AI 運営システム",
-    "costManagement": "Cost Management",
-    "venue": "Venue Layout",
-    "items": "Item Management"
+    "costManagement": "コスト管理",
+    "venue": "会場レイアウト",
+    "items": "備品管理",
+    "recruitApplications": "サイト応募"
   },
   "language": {
     "zh": "中文",
@@ -78,7 +86,6 @@
     "addEntry": "エントリを追加",
     "addEntryModalTitle": "ナレッジエントリを追加",
     "allFilter": "すべて",
-    "loading": "読み込み中...",
     "noEntries": "エントリはまだありません。",
     "selectEntry": "左側のエントリを選択して内容を確認",
     "deletePrompt": "このナレッジを削除しますか？",
@@ -103,6 +110,9 @@
     "inputSchema": "入力スキーマ",
     "outputSchema": "出力スキーマ",
     "viewPrompt": "プロンプトテンプレートを確認",
+    "agentActive": "オンライン",
+    "agentOffline": "オフライン",
+    "noAgents": "エージェントがまだありません",
     "architectureTitle": "エージェントアーキテクチャ",
     "architectureBody": "エージェントは<strong>データ駆動</strong>です — すべての動作はデータベースに保存されたプロンプトテンプレートで定義されます。エグゼキューターは単一の汎用関数です：タスクとライバーを読み込み、ライバーのステータスに基づいて関連ナレッジを取得し、設定ルールを適用し、プロンプトテンプレートをレンダリングし、設定済みモデルを呼び出し、構造化JSONの出力を解析します。各エージェントは独立して<strong>Anthropic</strong>、<strong>OpenAI</strong>、<strong>Gemini</strong>を使用できます — 上部のドロップダウンで設定してください。新しいエージェントを追加するには、データベースに1行挿入するだけでコード変更は不要です。",
     "stats": {
@@ -125,6 +135,7 @@
       "agentsLabel": "エージェント数",
       "activeLabel": "稼働中エージェント",
       "unknownAgent": "不明／停止中のエージェント",
+      "taskCountAria": "タスク {count} 件",
       "noTasks": "タスクなし",
       "noTasksAll": "タスクがまだありません",
       "noCreator": "関連ライバーなし",
@@ -151,6 +162,7 @@
       "clearOwner": "担当者をクリア",
       "rename": "名称変更",
       "delete": "削除",
+      "removeMemberNamed": "{name}を削除",
       "confirmDelete": "削除しますか？",
       "sourceUser": "社員",
       "sourceCreator": "ライバー",
@@ -197,7 +209,8 @@
     "paymentMethodPlaceholder": "例：法人カード",
     "paymentStatus": "支払いステータス *",
     "selectStatus": "ステータスを選択",
-    "addDevice": "機材を追加"
+    "addDevice": "機材を追加",
+    "editDevice": "機材を編集"
   },
   "currency": {
     "switchHint": "固定レートで表示通貨を切り替え（1 USD = 7 CNY；1 CNY = 20 JPY）"
@@ -210,6 +223,7 @@
     "openButtonTooltip": "自然言語で操作 (⌘K)",
     "modalTitle": "一言で操作する",
     "placeholder": "一文で操作してください（v1は支出管理のみ対応）。例：Q3の給与のうちMCはどのくらい / 5月10日の交通費 320元を追加",
+    "sendButtonLabel": "送信",
     "query": {
       "emptyDenom": {
         "title": "比率を計算できません",
@@ -237,6 +251,7 @@
       "sampleHint": "{count} 件のサンプルを返しました。全件絞り込みは支出一覧ページで操作してください。"
     },
     "clarification": {
+      "tableLabel": "候補レコード",
       "dateCol": "日付",
       "nameCol": "名称",
       "amountCol": "金額",
@@ -339,10 +354,7 @@
     "searchCreators": "ライバーを検索...",
     "noCreatorsFound": "ライバーが見つかりません。条件を変えるか、追加してみましょう。",
     "addFirstCreator": "ライバーを追加",
-    "view": "表示",
-    "creator": "ライバー",
     "platform": "プラットフォーム",
-    "status": "ステータス",
     "niche": "ジャンル",
     "followers": "フォロワー数",
     "location": "地域",
@@ -361,7 +373,8 @@
     "timeline": "タイムライン",
     "logRevenue": "収益を記録",
     "noNiche": "ジャンルなし",
-    "creatorNotFound": "ライバーが見つかりません"
+    "creatorNotFound": "ライバーが見つかりません",
+    "listTitle": "ライバー一覧"
   },
   "creatorForm": {
     "nameRequired": "名前とプラットフォームは必須です",
@@ -414,12 +427,24 @@
     "noActivityYet": "アクティビティ記録はまだありません。",
     "viewOutput": "出力を表示",
     "logRevenueCost": "収益とコストを記録",
-    "revenueField": "収益 (¥) *",
-    "costField": "コスト (¥) *",
-    "periodField": "期間 *",
+    "revenueField": "収益 (¥)",
+    "costField": "コスト (¥)",
+    "periodField": "期間",
     "saveRecord": "記録を保存",
     "editCreator": "ライバーを編集",
-    "by": "{actor} が実施"
+    "by": "{actor} が実施",
+    "activityTypes": {
+      "created": "作成済み",
+      "updated": "更新済み",
+      "status_changed": "ステータス変更",
+      "task_created": "タスク作成",
+      "task_completed": "タスク完了",
+      "finance_logged": "財務記録",
+      "note_added": "メモ追加",
+      "contact_updated": "連絡先更新",
+      "profile_updated": "プロフィール更新",
+      "other": "その他"
+    }
   },
   "workspace": {
     "title": "ワークスペース",
@@ -433,6 +458,26 @@
     "messagePlaceholder": "{agent} に送信...（Enterで送信、Shift+Enterで改行）",
     "selectAgentFirst": "まずエージェントを選んでください...",
     "footerNote": "選択したエージェントの部門役割として返答します。契約や重要な意思決定が絡む際は、必ず担当の人間メンバーを必ず交えてください。",
+    "tabAll": "すべて",
+    "tabChats": "チャット",
+    "tabMentions": "メンション",
+    "agentsCount": "AIエージェント · {count}",
+    "aiRole": "AI · {role}",
+    "aiPrefix": "AI · ",
+    "typingIndicator": "{agent}が入力中…",
+    "you": "あなた",
+    "pin": "ピン留め",
+    "unpin": "ピン留め解除",
+    "search": "検索",
+    "members": "メンバー",
+    "more": "その他",
+    "agentActive": "オンライン",
+    "agentOffline": "オフライン",
+    "attachSoon": "添付（近日公開）",
+    "mentionSoon": "メンション（近日公開）",
+    "workflowSoon": "ワークフロー（近日公開）",
+    "sendHint": "送信",
+    "newLineHint": "改行",
     "hints": {
       "bd": "アウトリーチ戦略、ライバーファネル、交渉テクニック、特定の候補ライバーへのアプローチ方法などについて聞けます。",
       "ops": "デビュー準備チェックリスト、配信セットアップ、スケジュール調整、配信前コーディネーションなどについて聞けます。",
@@ -462,6 +507,7 @@
     "createTask": "タスクを作成",
     "duplicateTaskTo": "タスクのコピー先を選択",
     "duplicateConfirm": "<title>{name}</title>をここにコピー：",
+    "targetDateField": "コピー先の日付",
     "confirmDuplicate": "コピーを確認",
     "deleteConfirm": "タスク<title>{name}</title>を削除しますか？削除すると元に戻せません。",
     "emptyDay": "この日のタスクはありません",
@@ -509,7 +555,32 @@
     "status": {
       "done": "完了",
       "doing": "進行中",
-      "planned": "予定"
+      "planned": "予定",
+      "cancelled": "キャンセル"
+    },
+    "taskType": {
+      "fixed": "固定タスク",
+      "adhoc": "臨時タスク"
+    },
+    "department": {
+      "bd": "BD",
+      "ops": "オペレーション",
+      "finance": "財務",
+      "content": "コンテンツ",
+      "growth": "グロース",
+      "legal": "法務",
+      "tech": "テック"
+    },
+    "effort": {
+      "2": "2h（半日）",
+      "4": "4h（半日）",
+      "8": "8h（終日）"
+    },
+    "repeat": {
+      "daily": "毎日",
+      "weekly": "毎週",
+      "biweekly": "隔週",
+      "monthly": "毎月"
     },
     "form": {
       "errTitle": "タスクタイトルは必須です",
@@ -588,7 +659,6 @@
     "subtitle": "会社レベルの戦略マイルストーンと実行計画",
     "newMilestone": "マイルストーンを作成",
     "createFirst": "最初のマイルストーンを作成",
-    "loading": "マイルストーンを読み込み中…",
     "empty": "マイルストーンはまだありません。",
     "deleteConfirm": "このマイルストーンを削除しますか？削除すると元に戻せません。",
     "view": {
@@ -643,11 +713,9 @@
       "seriesCompleted": "完了済み",
       "seriesActive": "開始済み",
       "tooltipMonthMilestones": "今月のマイルストーン",
-      "empty": "データなし",
       "gap": "今日時点で計画では <strong>{planned}</strong> 件完了予定のところ、実際は <strong>{done}</strong> 件完了、<strong>{gap}</strong> 件の差があります。"
     },
     "detail": {
-      "loading": "マイルストーンを読み込み中…",
       "notFound": "マイルストーンが見つかりません。",
       "back": "← タイムラインに戻る",
       "backLink": "戦略タイムライン",
@@ -718,6 +786,30 @@
         "medium": "中",
         "high": "高"
       }
+    },
+    "riskBadge": {
+      "low": "低リスク",
+      "medium": "中リスク",
+      "high": "高リスク"
+    },
+    "typeFilterLabel": "タイプで絞り込む",
+    "nextView": {
+      "heading": "今後{days}日間",
+      "subheading": "日付ごとに今後の戦略マイルストーンを確認できます",
+      "rangeLabel": "表示期間",
+      "rangeOption": "{days}日",
+      "plusDays": "+{days}日",
+      "emptyTitle": "今後{days}日間に戦略マイルストーンはありません",
+      "emptyHint": "90日表示に切り替えるとさらに先の計画を確認できます。",
+      "clusterCount": "{count}件のマイルストーン",
+      "ownerUnassigned": "担当者未定",
+      "clusterHint": "タップして直近のマイルストーンを表示",
+      "toneLabel": {
+        "danger": "高リスク",
+        "warning": "要注意",
+        "success": "完了",
+        "neutral": "計画中"
+      }
     }
   },
   "tasks": {
@@ -732,11 +824,14 @@
     "viewOutput": "構造化出力を表示",
     "tabAi": "AIタスク",
     "tabWorkload": "工数ビュー",
+    "viewTabsLabel": "表示切替",
     "periodDay": "日",
     "periodWeek": "週",
     "periodMonth": "月",
     "salarySettings": "給与設定",
-    "salaryManagement": "給与管理"
+    "salaryManagement": "給与管理",
+    "periodGroupLabel": "表示期間",
+    "selectDate": "日付を選択"
   },
   "expenses": {
     "title": "支出管理",
@@ -749,6 +844,7 @@
     "totalExpense": "総支出",
     "includesFees": "国際送金手数料含む",
     "paid": "支払済み",
+    "pendingPayment": "未払い",
     "budgetPending": "予算/支払待ち",
     "thisMonth": "今月の支出",
     "lastMonth": "先月",
@@ -775,7 +871,11 @@
     "to": "〜",
     "empty": "支出記録はまだありません",
     "addFirst": "最初の支出を追加",
-    "category": {
+    "listTitle": "支出明細",
+    "sortByLabel": "並び替え",
+    "toggleSortDir": "並び順を切り替え",
+    "category": "カテゴリ",
+    "categoryChart": {
       "viewPie": "円グラフ",
       "viewSankey": "サンキー図",
       "crossBorderTooltip": "国際送金コスト {amount}",
@@ -790,6 +890,7 @@
     "paymentMethod": "支払い方法",
     "paymentStatus": "ステータス",
     "deleteMessage": "支出記録「{name}」を削除しますか？この操作は取り消せません。",
+    "viewList": "リスト",
     "categoryShare": "カテゴリ別内訳",
     "cumulativeTrend": "累計トレンド",
     "monthlySummary": "月次サマリー",
@@ -813,8 +914,6 @@
     "crossBorderFeeShort": "国際",
     "crossBorderFeeTooltip": "with-new以外かつ家賃以外の支出に4%の国際送金コスト",
     "effectiveCost": "実質コスト（国際送金含む）",
-    "categoryColumn": "カテゴリ",
-    "discussionsColumn": "ディスカッション",
     "categories": {
       "tangible_asset": "有形資産",
       "salary": "給与コスト",
@@ -926,7 +1025,9 @@
     "finance": "財務",
     "content": "コンテンツ",
     "growth": "グロース",
-    "legal": "法務"
+    "legal": "法務",
+    "tech": "テック",
+    "pmo": "PMO"
   },
   "financeForecast": {
     "pageTitle": "財務予測ダッシュボード",
@@ -967,6 +1068,10 @@
     "stageNameTest": "テスト",
     "chartBreakdown": "損益分解",
     "chartCumulative": "累計",
+    "chartStacked": "積み上げ",
+    "chartLines": "折れ線",
+    "chartIndexed": "指数化",
+    "chartTabsLabel": "グラフ表示の切り替え",
     "noViewHint": "表示できる予測視点がまだありません — 左側から最初の視点を作成してください",
     "noViewEmpty": "表示できる予測視点がまだありません。",
     "noViewGuide": "上部の「視点」メニューから新しい予測シナリオを作成してください。",
@@ -1003,6 +1108,8 @@
     "revenueTitle": "収益予測",
     "ariaCollapse": "折りたたむ",
     "ariaExpand": "展開する",
+    "ariaDeleteRow": "この行を削除",
+    "ariaAddAccountMenu": "アカウント追加メニューを開く",
     "allYear": "年間",
     "copyPrevMonth": "前月をコピー",
     "applyForward": "以降の月に適用",
@@ -1162,9 +1269,9 @@
     "lifecycleFooter": "{stages} テンプレート × {months} ヶ月。",
     "lifecycleSaving": "保存中…",
     "lifecycleSave": "保存",
-    "goToVenue": "Go to Venue Layout",
-    "venueEntryTitle": "Offline Venue Layout",
-    "venueEntryBody": "Manage room renovation, equipment placement, corridors, and safety exits as the spatial view of cost planning."
+    "goToVenue": "会場レイアウトへ",
+    "venueEntryTitle": "オフライン会場レイアウト",
+    "venueEntryBody": "配信ルームの内装、機材の配置、通路や非常口を、コスト計画の空間ビューとして管理します。"
   },
   "config": {
     "tabs": {
@@ -1255,188 +1362,254 @@
       "crossBorderOnly": "国際のみ"
     }
   },
+  "competitors": {
+    "title": "競合モニタリング",
+    "subtitle": "日本の TikTok 団体配信の競合：プロフィール指標・配信スクショ・週次フォロワー推移",
+    "addPlaceholder": "TikTok のプロフィール URL か @handle を貼り付け",
+    "addButton": "競合を追加",
+    "addFailed": "追加に失敗しました",
+    "empty": "まだ競合がありません。TikTok プロフィール URL を貼り付けて開始",
+    "readOnly": "競合の追加・削除は管理者のみ可能です",
+    "colFollowers": "フォロワー",
+    "colLikes": "いいね",
+    "colVideos": "動画",
+    "region": "地域",
+    "verified": "認証済み",
+    "latestOn": "最終取得 {date}",
+    "noData": "取得データがありません",
+    "history": "履歴",
+    "colDate": "日付",
+    "delete": "削除",
+    "deleteConfirm": "この競合とすべての記録を削除しますか？",
+    "deleteShotConfirm": "このスクショを削除しますか？",
+    "actionFailed": "操作に失敗しました",
+    "weeklyFollowers": "フォロワー · 直近4週",
+    "weeklyDelta": "{pct}%/週",
+    "weeklyPointTip": "{date} の週 · {count}",
+    "weeklyEmpty": "フォロワーデータなし",
+    "shotDates": "スクショの日付",
+    "earlierDates": "より古い日付",
+    "laterDates": "より新しい日付",
+    "noShotOnDate": "{date} のスクショなし",
+    "noShotUndated": "日付なしのスクショはありません",
+    "addShotOnDate": "{date} のスクショを追加",
+    "moreShots": "+{count}",
+    "shotIndexOf": "{index} / {total}",
+    "prevShot": "前の画像",
+    "nextShot": "次の画像",
+    "closeShot": "閉じる",
+    "shotDate": "日付",
+    "saveShotDate": "日付を保存",
+    "shotDateInvalid": "日付の形式が不正です",
+    "upload": "アップロード",
+    "orPaste": "貼り付け",
+    "related": "関連アカウント",
+    "independent": "団体メインアカウント",
+    "roleStreamer": "配信者",
+    "selectGroup": "グループを選択",
+    "belongsTo": "所属アカウント",
+    "uploadFailed": "アップロード失敗",
+    "noShots": "スクショはまだありません",
+    "undated": "日付なし",
+    "bio": "プロフィール文",
+    "fieldMembers": "人数",
+    "fieldComposition": "構成",
+    "fieldLaunch": "開始",
+    "fieldMc": "MC",
+    "fieldOnline": "オンライン",
+    "fieldLatestVideos": "最新動画",
+    "openProfile": "プロフィールを開く",
+    "expandProfile": "詳細を開閉",
+    "handlePlaceholder": "@handle または URL",
+    "editHandle": "handle を編集"
+  },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",
-    "title": "Item Management",
-    "subtitle": "Team asset registry — each physical item links a cost and a placement",
-    "add": "Add item",
-    "edit": "Edit item",
-    "empty": "No items yet",
-    "loading": "Loading…",
-    "search": "Search name / code / serial",
-    "colCode": "Code",
-    "colName": "Name",
-    "colKind": "Type",
-    "colCost": "Cost",
-    "colPlacement": "Placement",
-    "colQuantity": "Qty",
-    "colStatus": "Status",
-    "colResponsible": "Owner",
-    "colSerial": "Serial",
+    "title": "備品管理",
+    "subtitle": "チームの資産台帳：各現物備品にコストと配置場所を紐付けます",
+    "add": "備品を追加",
+    "edit": "備品を編集",
+    "empty": "備品はまだありません",
+    "loading": "読み込み中…",
+    "search": "名称 / 番号 / シリアルで検索",
+    "colCode": "番号",
+    "colName": "名称",
+    "colKind": "種別",
+    "colCost": "コスト",
+    "colPlacement": "配置",
+    "colQuantity": "数量",
+    "colStatus": "ステータス",
+    "colResponsible": "担当者",
+    "colSerial": "シリアル",
+    "statTotalItems": "備品総数",
+    "statItemUnit": "点",
+    "statTotalCost": "総コスト",
+    "costOriginalNote": "支出 {price} · {name}",
     "kind": {
-      "physical": "Physical",
-      "virtual": "Virtual"
+      "physical": "現物",
+      "virtual": "バーチャル商品"
     },
     "status": {
-      "in_use": "In use",
-      "in_storage": "In storage",
-      "under_repair": "Under repair",
-      "disposed": "Disposed"
+      "in_use": "使用中",
+      "in_storage": "保管中",
+      "under_repair": "修理中",
+      "disposed": "廃棄済み"
     },
-    "fieldName": "Name *",
-    "fieldKind": "Type *",
-    "fieldExpense": "Linked cost (expense)",
-    "fieldExpenseRequired": "Linked cost (expense) *",
-    "fieldPlacementFloor": "Floor *",
-    "fieldPlacementZone": "Zone *",
-    "fieldQuantity": "Quantity",
-    "fieldStatus": "Status",
-    "fieldResponsible": "Owner",
-    "fieldSerial": "Serial / asset tag",
-    "fieldNotes": "Notes",
-    "fieldStatusNote": "Status-change note",
-    "selectExpense": "Select an expense",
-    "selectFloor": "Select floor",
-    "selectZone": "Select zone",
-    "noVirtualPlacement": "Virtual goods need no placement",
-    "timelineTitle": "Status history",
-    "timelineEmpty": "No status changes",
-    "timelineInitial": "Created",
-    "deletePrompt": "Delete this item? This cannot be undone.",
-    "saveFailed": "Save failed: {message}",
-    "fieldPhoto": "Photo",
-    "uploading": "Uploading…",
-    "removePhoto": "Remove photo",
-    "detailTitle": "物品詳細"
+    "fieldName": "名称 *",
+    "fieldKind": "種別 *",
+    "fieldExpense": "関連コスト（支出）",
+    "fieldExpenseRequired": "関連コスト（支出）*",
+    "fieldItemValue": "取得原価",
+    "fieldItemValueHint": "関連支出より低い場合は実際の計上額を入力できます",
+    "fieldPlacementFloor": "配置フロア *",
+    "fieldPlacementZone": "配置エリア *",
+    "fieldQuantity": "数量",
+    "fieldStatus": "ステータス",
+    "fieldResponsible": "担当者",
+    "fieldSerial": "シリアル / 資産番号",
+    "fieldNotes": "備考",
+    "fieldStatusNote": "ステータス変更メモ",
+    "selectExpense": "支出を選択",
+    "selectFloor": "フロアを選択",
+    "selectZone": "エリアを選択",
+    "noVirtualPlacement": "バーチャル商品は配置場所が不要です",
+    "timelineTitle": "ステータス変更履歴",
+    "timelineEmpty": "変更履歴はありません",
+    "timelineInitial": "作成",
+    "deletePrompt": "この備品を削除しますか？この操作は取り消せません。",
+    "saveFailed": "保存に失敗しました：{message}",
+    "fieldPhoto": "写真",
+    "uploading": "アップロード中…",
+    "removePhoto": "写真を削除",
+    "detailTitle": "備品詳細"
   },
   "venue": {
     "ceilingView": "天井ビュー",
     "hideLabels": "名称を隠す",
     "showLabels": "名称を表示",
-    "title": "Venue Layout",
-    "subtitle": "Canvas-first 2D planning for live equipment, renovation zones, corridors, and safety points.",
-    "loading": "Loading venue…",
-    "loadFailed": "Failed to load venue. Please refresh.",
-    "importLocalPrompt": "Found an older venue layout in this browser. Import it to the cloud?",
-    "importLocal": "Import local layout",
-    "saveFailedToast": "Save failed: {message}",
-    "save": "Save",
-    "saved": "Saved",
-    "autoSaved": "Auto-saved",
-    "saveFailed": "Save failed",
-    "floorSelect": "Select floor",
-    "undo": "Undo",
-    "redo": "Redo",
-    "grid": "Grid",
-    "dimensionRulers": "Dimension rulers",
+    "title": "会場レイアウト",
+    "subtitle": "大阪の配信事業に向けた会場プランニング。配信機材、作業エリア、ネットワーク・水道電気、安全ポイントを管理します。",
+    "loading": "会場を読み込み中…",
+    "loadFailed": "会場の読み込みに失敗しました。再読み込みしてください",
+    "importLocalPrompt": "このブラウザに以前の会場レイアウトが見つかりました。クラウドにインポートしますか？",
+    "importLocal": "ローカルのレイアウトをインポート",
+    "saveFailedToast": "保存に失敗しました：{message}",
+    "save": "保存",
+    "saved": "保存済み",
+    "autoSaved": "自動保存済み",
+    "saveFailed": "保存に失敗しました",
+    "floorSelect": "フロアを選択",
+    "undo": "元に戻す",
+    "redo": "やり直す",
+    "grid": "グリッド",
+    "dimensionRulers": "寸法ルーラー",
     "snapEnabled": "エッジスナップ",
     "mergeAreas": "スペースを結合",
     "unmergeAreas": "スペースを分割",
-    "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out",
-    "exportJson": "Export JSON",
-    "exportImage": "Export image",
-    "currentVenue": "Current venue",
-    "totalSpaceArea": "Total space area",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "exportJson": "JSON をエクスポート",
+    "exportImage": "画像をエクスポート",
+    "currentVenue": "現在の会場",
+    "totalSpaceArea": "スペース総面積",
     "usableSpaceArea": "利用可能面積",
-    "switchVenue": "Switch venue",
-    "newVenue": "New venue",
-    "newVenueName": "New venue",
-    "renameVenue": "Rename venue",
-    "collapseVenuePanel": "Collapse current venue",
-    "expandVenuePanel": "Expand current venue",
-    "collapseInspector": "Collapse inspector",
-    "expandInspector": "Expand inspector",
-    "filterAllComponents": "All components",
-    "filterCount": "{count} types shown",
-    "filterNone": "None shown",
-    "filterShowAll": "Select all",
-    "filterClearAll": "Clear all",
-    "filterEmpty": "No components match the current filter",
-    "areaRank": "#{rank} by area share",
-    "canvasSettings": "Canvas settings",
-    "collapseCanvasSettings": "Collapse canvas settings",
-    "expandCanvasSettings": "Expand canvas settings",
-    "canvasDefaults": "Canvas size",
-    "canvasWidth": "Width (m)",
-    "canvasHeight": "Height (m)",
-    "floorStoreyHeight": "Storey height (m)",
+    "switchVenue": "会場を切り替え",
+    "newVenue": "会場を新規作成",
+    "newVenueName": "新しい会場",
+    "renameVenue": "会場名を変更",
+    "collapseVenuePanel": "現在の会場を折りたたむ",
+    "expandVenuePanel": "現在の会場を展開",
+    "collapseInspector": "プロパティパネルを折りたたむ",
+    "expandInspector": "プロパティパネルを展開",
+    "filterAllComponents": "すべてのコンポーネント",
+    "filterCount": "{count} 種類のコンポーネントを選択中",
+    "filterNone": "表示中のコンポーネントなし",
+    "filterShowAll": "すべて選択",
+    "filterClearAll": "すべて解除",
+    "filterEmpty": "現在のフィルターに一致するコンポーネントはありません",
+    "areaRank": "面積比 第{rank}位",
+    "canvasSettings": "キャンバス設定",
+    "collapseCanvasSettings": "キャンバス設定を折りたたむ",
+    "expandCanvasSettings": "キャンバス設定を展開",
+    "canvasDefaults": "キャンバスサイズ",
+    "canvasWidth": "幅（m）",
+    "canvasHeight": "高さ（m）",
+    "floorStoreyHeight": "階高（m）",
     "mode2d": "2D",
     "mode3d": "3D",
-    "modeSwitchTo2d": "Switch to 2D view",
-    "modeSwitchTo3d": "Switch to 3D view",
-    "mode3dLoading": "Loading 3D view…",
-    "mode3dMobileHint": "3D view works best on a desktop",
-    "transformSelect": "Select",
-    "transformTranslate": "Move",
-    "transformRotate": "Rotate",
-    "transformScale": "Height",
-    "transformResetView": "Reset view",
-    "transformExit3d": "Exit 3D",
-    "backgroundImage": "Floor plan image",
-    "backgroundPlaceholder": "Image URL or base64",
-    "canvasAria": "{floor} venue layout canvas",
-    "railVenues": "Venues",
-    "railAreas": "Areas",
-    "railLibrary": "Library",
-    "railLayers": "Layers",
-    "inspectorTitle": "Inspector",
-    "noSelectionTitle": "No item selected",
-    "noSelectionBody": "Select an item from the canvas or list to edit its name, type, status, position, size, rotation, and note.",
-    "deleteItem": "Delete item",
-    "fieldName": "Name",
-    "fieldType": "Type",
-    "fieldStatus": "Status",
+    "viewModeLabel": "表示モード",
+    "mode3dLoading": "3D ビューを読み込み中…",
+    "mode3dMobileHint": "3D ビューはデスクトップでの利用を推奨します",
+    "transformSelect": "選択",
+    "transformTranslate": "移動",
+    "transformRotate": "回転",
+    "transformScale": "高さ",
+    "transformResetView": "視点をリセット",
+    "transformExit3d": "3D を終了",
+    "backgroundImage": "平面図の下絵",
+    "backgroundPlaceholder": "画像 URL または base64",
+    "canvasAria": "{floor} の会場レイアウトキャンバス",
+    "railVenues": "会場一覧",
+    "railAreas": "エリア一覧",
+    "railLibrary": "オブジェクトライブラリ",
+    "railLayers": "レイヤー",
+    "inspectorTitle": "プロパティ",
+    "noSelectionTitle": "オブジェクト未選択",
+    "noSelectionBody": "キャンバスまたはエリア一覧からオブジェクトを選択すると、名称・種別・ステータス・位置・サイズ・回転・備考を編集できます。",
+    "deleteItem": "オブジェクトを削除",
+    "fieldName": "名称",
+    "fieldType": "種別",
+    "fieldStatus": "ステータス",
     "fieldPlacement": "配置",
-    "fieldRotation": "Rotation",
-    "fieldNote": "Note",
-    "fieldId": "Item ID",
-    "layerOrder": "Layer order",
-    "layerBack": "Send to back",
-    "layerBackward": "Move backward",
-    "layerForward": "Move forward",
-    "layerFront": "Bring to front",
-    "geometry": "Position / Size",
-    "geometryUnit": "Unit: meters",
+    "fieldRotation": "回転",
+    "fieldNote": "備考",
+    "fieldId": "オブジェクト ID",
+    "layerOrder": "レイヤー順序",
+    "layerBack": "最背面へ",
+    "layerBackward": "背面へ移動",
+    "layerForward": "前面へ移動",
+    "layerFront": "最前面へ",
+    "geometry": "位置 / サイズ",
+    "geometryUnit": "単位：m",
     "elevation3d": "3D",
-    "elevation3dUnit": "Unit: meters",
-    "fieldHeight3d": "Height",
-    "fieldElevation": "Elevation",
+    "elevation3dUnit": "単位：m",
+    "fieldHeight3d": "高さ",
+    "fieldElevation": "床からの高さ",
     "fieldThickness": "厚さ",
-    "fieldStoreyHeight": "Storey net height {value}m",
+    "fieldStoreyHeight": "この階の有効高さ {value}m",
     "addTypes": {
-      "equipment": "Equipment",
-      "renovation": "Zone",
-      "area": "Space",
-      "corridor": "Structure",
-      "window": "Window",
+      "equipment": "機材",
+      "renovation": "ゾーン",
+      "area": "スペース",
+      "corridor": "構造",
+      "window": "窓",
       "truss": "トラス",
       "light_grille4": "グリッドライト",
       "light_grille8_stand": "八角グリッド",
       "light_spot": "スポットライト",
       "light_grille4_stand": "グリッド(スタンド)"
     },
-    "addMarker": "Marker",
-    "canvasActions": "Canvas actions",
-    "viewBookmarks": "Saved views",
-    "viewSwitchNext": "Switch to next view",
-    "viewSaveCurrent": "Save current view",
-    "viewBookmarkN": "View {n}",
-    "viewOverwrite": "Overwrite with current view",
-    "viewOverwriteShort": "Set",
-    "viewRemove": "Remove view",
+    "addMarker": "マーカー",
+    "canvasActions": "キャンバス操作",
+    "viewBookmarks": "クイックビュー",
+    "viewSwitchNext": "次のビューに切り替え",
+    "viewSaveCurrent": "現在のビューを保存",
+    "viewBookmarkN": "ビュー {n}",
+    "viewOverwrite": "現在のビューで上書き",
+    "viewOverwriteShort": "上書き",
+    "viewRemove": "このビューを削除",
     "types": {
-      "equipment": "Equipment",
-      "renovation": "Zone",
-      "area": "Space",
-      "corridor": "Structure",
-      "door_inward": "Inward door",
-      "door_outward": "Outward door",
-      "door_sliding": "Sliding door",
-      "fire": "Fire",
-      "power": "Power outlet",
-      "network": "Network port",
-      "window": "Window",
+      "equipment": "機材",
+      "renovation": "ゾーン",
+      "area": "スペース",
+      "corridor": "構造",
+      "door_inward": "内開きドア",
+      "door_outward": "外開きドア",
+      "door_sliding": "引き戸",
+      "fire": "消防",
+      "power": "電源",
+      "network": "ネットワークポート",
+      "window": "窓",
       "truss": "トラス",
       "light_grille4": "グリッドライト",
       "light_grille8_stand": "八角グリッド",
@@ -1444,32 +1617,33 @@
       "light_grille4_stand": "グリッド(スタンド)"
     },
     "markerShort": {
-      "door_inward": "I",
-      "door_outward": "O",
-      "door_sliding": "S",
-      "fire": "F",
-      "power": "P",
-      "network": "N"
+      "door_inward": "内",
+      "door_outward": "外",
+      "door_sliding": "引",
+      "fire": "消",
+      "power": "電",
+      "network": "ネ"
     },
-    "tabShapes": "Spaces",
-    "tabMarkers": "Markers",
-    "tabItems": "Items",
-    "floorItemsEmpty": "No items placed on this floor yet — register one in Item Management.",
-    "floorItemsTotal": "Floor total",
+    "listTabsLabel": "キャンバスオブジェクト一覧",
+    "tabShapes": "スペース",
+    "tabMarkers": "マーカー",
+    "tabItems": "備品",
+    "floorItemsEmpty": "このフロアにはまだ備品がありません。備品管理で登録しましょう。",
+    "floorItemsTotal": "このフロアの合計",
     "statuses": {
-      "planned": "Planned",
-      "in_progress": "In progress",
-      "completed": "Completed",
-      "maintenance": "Needs maintenance"
+      "planned": "計画中",
+      "in_progress": "施工中",
+      "completed": "完了",
+      "maintenance": "要メンテナンス"
     },
     "placements": {
       "ground": "地面",
       "aerial": "空中"
     },
-    "placedItemsTitle": "Items here",
-    "placedItemsEmpty": "No items in this zone",
-    "placedItemsTotal": "Total cost",
-    "manageItems": "Manage items",
+    "placedItemsTitle": "このエリアの備品",
+    "placedItemsEmpty": "このエリアに備品はありません",
+    "placedItemsTotal": "総コスト",
+    "manageItems": "備品管理へ",
     "manageCollaborators": "共同編集者",
     "collaboratorsTitle": "共同編集者を管理",
     "collaboratorsDesc": "この会場を共同編集できるメンバーを選択します。未選択のメンバーは閲覧のみ可能です。",
@@ -1483,5 +1657,601 @@
     "readOnly": "閲覧のみ",
     "readOnlyHint": "この会場の編集権限がありません",
     "addFacility": "設備"
+  },
+  "site": {
+    "meta": {
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
+      "titleTemplate": "%s ｜ EchoAmp OSAKA",
+      "description": "EchoAmp は、大阪を拠点とする TikTok LIVE Creator Network。ダブルキャプテン制を軸に、女性ライバーの募集・育成からダンストレーニング、配信運営、オリジナルコンテンツ制作までを一貫して行う。"
+    },
+    "nav": {
+      "top": "TOP",
+      "news": "NEWS",
+      "vision": "VISION",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "contact": "CONTACT",
+      "recruit": "RECRUIT 応募する",
+      "openMenu": "メニューを開く",
+      "closeMenu": "メニューを閉じる"
+    },
+    "locale": {
+      "ja": "日本語",
+      "zh": "中文",
+      "en": "EN",
+      "toggle": "言語を切り替える",
+      "menuLabel": "言語オプション"
+    },
+    "veil": {
+      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "line1": "大阪で、最も才能ある",
+      "line2": "歌って踊る配信者を見つけ出す。"
+    },
+    "footer": {
+      "address": "大阪市淀川区新大阪 ／ TikTok LIVE Creator Network\n配信トレーニング・AIGC 映像・楽曲制作",
+      "visionMembers": "VISION ／ MEMBERS",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "news": "NEWS",
+      "recruit": "RECRUIT",
+      "contact": "CONTACT",
+      "social": "TIKTOK ／ X ／ LINE",
+      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+    },
+    "ticker": {
+      "items": [
+        "大阪生まれ · 2026",
+        "夜を幕に",
+        "カメラが灯る",
+        "TT LIVE · 毎夜、舞台へ",
+        "響きは、まだ続く"
+      ]
+    },
+    "home": {
+      "eyebrow": "TIKTOK LIVE クリエイターネットワーク",
+      "title1": "大阪で、",
+      "title2": "女性歌唱・ダンス配信グループを育てる。",
+      "tagline": "ECHO FROM OSAKA NIGHT",
+      "lead": "募集、トレーニング、配信、コンテンツ制作。EchoAmp はクリエイターとともに成長します。",
+      "ctaApply": "応募する",
+      "ctaAbout": "EchoAmp について",
+      "heroCaption": "大阪の光を、ライブ配信の中へ。",
+      "heroPlaceholder": "ヒーロー画像／MoonDollz キービジュアル",
+      "stats": [
+        {
+          "value": "2026.09",
+          "label": "第1期メンバー募集"
+        },
+        {
+          "value": "2026.11",
+          "label": "第2期メンバー募集"
+        },
+        {
+          "value": "2027.03",
+          "label": "グループ結成"
+        }
+      ],
+      "newsHead": {
+        "eyebrow": "01 ／ NEWS",
+        "title": "最新情報",
+        "more": "VIEW ALL →"
+      },
+      "visionHead": {
+        "eyebrow": "02 ／ VISION",
+        "title": "チームのステージ",
+        "more": "READ MORE →"
+      },
+      "visionBody": "私たちは、ライブ配信そのものがチームのステージになると考えています。EchoAmp は歌やダンスが好きな人たちを集め、継続的な配信を通じてチームだけのスタイルとカルチャーをつくっていきます。",
+      "visionCards": [
+        {
+          "no": "1枚のアルバム",
+          "title": "チームの作品を残す",
+          "body": "毎年少なくとも1枚、配信のパフォーマンスを作品として残します。"
+        },
+        {
+          "no": "新大阪",
+          "title": "すべてが始まる場所",
+          "body": "配信とトレーニングの拠点。チームのカルチャーがここで生まれます。"
+        },
+        {
+          "no": "13人",
+          "title": "ひとつのチームになる",
+          "body": "1年以内に約13人を集め、チームのスタイルとカルチャーを育てます。"
+        },
+        {
+          "no": "1〜3年",
+          "title": "限られた時間で、全力で成長する",
+          "body": "1年を成長サイクルとして、配信を重ねながら自分の力で進むクリエイターを目指します。"
+        }
+      ],
+      "projectHead": {
+        "eyebrow": "03 ／ PROJECT",
+        "title": "MOONDOLLZ",
+        "sub": "夜の姫たち、夢を連れて。／ 双キャプテン制の歌唱＆ダンスグループ",
+        "more": "MEMBERS →"
+      },
+      "projectPlaceholder": "MOONDOLLZ コンセプトアート（月夜＋和装）",
+      "quote1": "“BORN IN MOONLIGHT.",
+      "quote2": "GLOWING LIKE DOLLS.”",
+      "projectTerms": [
+        {
+          "term": "MOON",
+          "body": "夢幻・夜系・神秘。姫系＋夜メイク＋深夜配信の空気に合う。"
+        },
+        {
+          "term": "DOLLZ",
+          "body": "複数の人形。ひとりひとりが違うスタイルを持つ「団体感」。"
+        },
+        {
+          "term": "-Z",
+          "body": "Y2K・ストリート・サブカルの温度をひとさじ。"
+        }
+      ],
+      "projectNote": "小ユニットごとに人物設定を分けて運営し、大グループとして共同デビュー。配信の影響力を束ねる。",
+      "servicesHead": {
+        "eyebrow": "04 ／ SERVICES",
+        "title": "4つの事業"
+      },
+      "techHead": {
+        "eyebrow": "05 ／ TECHNOLOGY",
+        "title": "着ぐるみ配信技術"
+      },
+      "techBody": "日本国内ではまだ事例の少ない着ぐるみ（皮套人）配信を、モーション連動とリアルタイム演出で運用可能なレベルまで内製化。EchoAmp 独自の差別化領域のひとつです。",
+      "techCta": "技術を見る",
+      "techPlaceholder": "着ぐるみ／モーションキャプチャ現場写真",
+      "bannerEyebrow": "RECRUIT ／ 二次募集",
+      "bannerLine1": "踊れる人、目立ちたい人、",
+      "bannerLine2": "まだ何者でもない人へ。",
+      "bannerCta": "応募要項を見る →"
+    },
+    "news": {
+      "eyebrow": "NEWS",
+      "title": "最新情報",
+      "filters": [
+        "ALL",
+        "RECRUIT",
+        "PROJECT",
+        "LIVE"
+      ],
+      "empty": "このカテゴリの情報はまだありません",
+      "read": "READ →",
+      "back": "← NEWS 一覧へ",
+      "backCta": "NEWS 一覧",
+      "applyCta": "応募する ／ APPLY",
+      "imagePlaceholder": "記事のメイン画像",
+      "articles": [
+        {
+          "date": "2026.08.12",
+          "tag": "PROJECT",
+          "title": "3Dキャラクター技術チーム、EchoAmpのMC向け専用キャラクターを開発へ",
+          "lead": "EchoAmpは、中国のライブ配信領域で豊富な実績を持つ3Dキャラクター技術チームと協業し、MCポジション向けの専用キャラクターと配信システムを開発します。",
+          "body": [
+            "キャラクターデザイン、リアルタイムモーション、音声表現、ライブインタラクションを統合し、MCが一貫したキャラクターとして継続的に配信へ参加できる環境を構築します。今後は、リアルなパフォーマンスとバーチャルキャラクターを組み合わせた新しいライブ表現も検証していきます。"
+          ]
+        },
+        {
+          "date": "2026.08.10",
+          "tag": "PROJECT",
+          "title": "EchoAmp、初の運営パートナーを発表。吉光片羽株式会社と本格的な協業へ",
+          "lead": "EchoAmpは、MCN運営およびクリエイターマネジメントの経験を持つ吉光片羽株式会社と本格的な協業を開始します。",
+          "body": [
+            "メンバー管理、コンテンツ運営、現場オペレーション、クリエイター育成などの領域で連携し、募集・トレーニングから本格的なライブ配信まで、一貫した運営体制を構築していきます。両社の強みを活かしながら、大阪でのチームづくりを進めます。"
+          ]
+        },
+        {
+          "date": "2026.08.01",
+          "tag": "RECRUIT",
+          "title": "EchoAmp、9月中旬より第1期メンバー募集を開始。6名を採用予定",
+          "lead": "EchoAmpは2026年9月中旬より、大阪で第1期メンバーの募集を開始します。初回は6名の女性クリエイターを採用予定です。",
+          "body": [
+            "歌やダンスのスキルに加え、カメラの前での表現力や、継続してライブ配信に取り組む意欲を重視します。選ばれたメンバーは、トレーニング、振付、ライブ配信の実践を重ねながら、最初のチームのスタイルとカルチャーを一緒につくっていきます。"
+          ]
+        },
+        {
+          "date": "2026.07.21",
+          "tag": "PROJECT",
+          "title": "EchoAmp、大阪で始動。歌とダンスを軸とした女性ライブ配信チームを結成へ",
+          "lead": "EchoAmpは、大阪でCreator Networkの運営プロジェクトを正式にスタートしました。",
+          "body": [
+            "歌、ダンス、ライブパフォーマンスを軸に、表現力と可能性を持つ女性クリエイターを発掘し、ひとつのライブ配信チームとして育てていきます。トレーニング、コンテンツ制作、継続的なライブ配信を通じて、チーム独自のスタイル、カルチャー、ファンコミュニティを築いていきます。"
+          ]
+        },
+        {
+          "date": "2026.05.01",
+          "tag": "PROJECT",
+          "title": "EchoAmp、ダブルキャプテン制の歌唱＆ダンスグループ企画始動を発表",
+          "lead": "ダブルキャプテン制の歌唱＆ダンスグループ「MOONDOLLZ」の始動を発表しました。",
+          "body": [
+            "MOON は夢幻・夜・神秘、DOLLZ はひとりひとり異なるスタイルを持つ「団体感」、語尾の Z は Y2K とストリートの温度。三つの語を重ねたグループ名です。",
+            "小ユニットごとに人物設定を分けて運営しながら、大グループとして共同でデビューします。キャプテンは綾月（MOON SIDE）と雪羽（DOLLZ SIDE）の二名。",
+            "メンバーは 10 月・12 月に順次公開予定です。"
+          ]
+        }
+      ]
+    },
+    "vision": {
+      "eyebrow": "VISION ／ 2027",
+      "title": "大阪で、最も才能のある歌って踊る配信者を見つけ出す。",
+      "statement": "私たちは、ライブ配信そのものが、チームのためのステージになり得ると考えています。",
+      "lead": "EchoAmp は、歌やダンス、表現することが好きな人たちを集め、継続的なライブ配信を通じて、そのチームだけのスタイルとカルチャーをつくっていきます。そして、そのチームを本当に好きになり、一緒に成長してくれるファンと出会うことを目指します。",
+      "imagePlaceholder": "道頓堀／新世界の夜景写真",
+      "imageAlt": "大阪の夜景イラスト。高所から見下ろす街並みに、ネオンのビル群と高架道路の光跡が奥へ伸び、中景に灯りのともった展望塔が立つ",
+      "eras": [
+        {
+          "value": "1枚のアルバム",
+          "title": "チームの作品を残す",
+          "body": "毎年少なくとも1枚のチームアルバムを制作し、ライブ配信から生まれたパフォーマンスを、形に残る作品へとつなげます。"
+        },
+        {
+          "value": "新大阪",
+          "title": "すべてが始まる場所",
+          "body": "ライブ配信、トレーニング、コンテンツ制作のための拠点であり、チームのカルチャーが生まれる場所です。"
+        },
+        {
+          "value": "13人",
+          "title": "ひとつのチームになる",
+          "body": "1年以内に約13人のクリエイターを集め、チームならではの表現スタイル、カルチャー、そしてファンコミュニティを育てます。"
+        },
+        {
+          "value": "1〜3年",
+          "title": "限られた時間で、全力で成長する",
+          "body": "1年をひとつの成長サイクルとして、継続的なライブ配信と出演を重ねながら、ファン、作品、ステージ経験を積み、自分の力で次へ進めるライブクリエイターを目指します。"
+        }
+      ],
+      "principles": [
+        {
+          "label": "SPIRIT",
+          "title": "運命を待たないプリンセス",
+          "body": "物語の中で、誰かに選ばれるだけの存在ではない。自ら選び、自ら変わり、自分たちの未来を描いていく。"
+        },
+        {
+          "label": "VOICE",
+          "title": "甘さの中に、鋭さを",
+          "body": "優しさ、孤独、反骨心、そして野心。ありのままの感情を歌声に変え、ステージの力へと変えていく。"
+        },
+        {
+          "label": "IMAGE",
+          "title": "王冠と夜の色",
+          "body": "月明かり、氷、薔薇、そして都市のネオン。異なる個性を持つ 13 人が集まり、夜に輝くひとつのステージをつくる。"
+        }
+      ]
+    },
+    "members": {
+      "eyebrow": "MEMBERS ／ MOONDOLLZ",
+      "title": "MOONDOLLZ",
+      "sub": "双キャプテン制。小ユニットごとに人物設定を分け、大グループとして共同デビュー。",
+      "note": "※ メンバーは 10 月・12 月に順次公開",
+      "placeholder": "MEMBER",
+      "captains": [
+        {
+          "eyebrow": "CAPTAIN 01 ／ MOON SIDE",
+          "name": "AYATSUKI",
+          "jp": "綾月／リーダー",
+          "body": "夜・和・静のユニットを率いる。光を導く月——夢を指し示すリーダー。深夜帯の配信とステージのセンターを担当。"
+        },
+        {
+          "eyebrow": "CAPTAIN 02 ／ DOLLZ SIDE",
+          "name": "YUKIHA",
+          "jp": "雪羽／リーダー",
+          "body": "雪の吐息で透明な痛みを癒す。雪・竹・静寂のユニットを率い、ダンスとバトル系企画を担当。"
+        }
+      ],
+      "unrevealedName": "— 公開前 —",
+      "unrevealedRole": "12月 公開",
+      "list": [
+        {
+          "name": "KANO",
+          "role": "花乃／儚い微笑みの罠"
+        },
+        {
+          "name": "MIKOTO",
+          "role": "美琴／優雅なる刃"
+        },
+        {
+          "name": "LULU",
+          "role": "ルル／弾けるピンクの閃光"
+        },
+        {
+          "name": "CHIYO",
+          "role": "千夜／千の夜に舞う孤星"
+        },
+        {
+          "name": "AKAYA",
+          "role": "綾香／宮廷に咲く強き桜"
+        },
+        {
+          "name": "YUMEKI",
+          "role": "夢綺／幻を織る声"
+        },
+        {
+          "name": "SHINO",
+          "role": "紫乃／高貴で危険な誘惑者"
+        },
+        {
+          "name": "HIMENE",
+          "role": "姫音／音のために生まれた姫"
+        }
+      ]
+    },
+    "live": {
+      "eyebrow": "TIKTOK LIVE",
+      "title": "配信スケジュール",
+      "lead": "トレーニングから配信デビューまで、段階的なプログラムでメンバーの成長を支え、ライブ配信の力を Creator Network の中核へと育てていきます。",
+      "headers": {
+        "day": "DAY",
+        "program": "PROGRAM",
+        "focus": "FOCUS",
+        "time": "TIME"
+      },
+      "schedule": [
+        {
+          "day": "DAY 1–3",
+          "program": "衣装フィッティング・初期スタイル設定",
+          "focus": "STYLE SETUP",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 4–10",
+          "program": "ソロダンス選曲・集中トレーニング",
+          "focus": "DANCE TRAINING",
+          "time": "10:00–18:00"
+        },
+        {
+          "day": "DAY 11–15",
+          "program": "初ステージ設計・配信ルール研修",
+          "focus": "STAGE & LIVE RULES",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 16–20",
+          "program": "宣材撮影・紹介動画制作",
+          "focus": "PHOTO & INTRO VIDEO",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 21–30",
+          "program": "テスト配信（1日3時間）",
+          "focus": "TRIAL LIVE",
+          "time": "14:00–21:00"
+        },
+        {
+          "day": "MONTH 2",
+          "program": "本配信スタート（月曜休み）",
+          "focus": "REGULAR LIVE",
+          "time": "TUE–SUN"
+        },
+        {
+          "day": "TIME SLOT",
+          "program": "1日2枠のライブ配信",
+          "focus": "2 SESSIONS / DAY",
+          "time": "14:30–17:30 / 18:30–21:30"
+        }
+      ],
+      "onAirLabel": "配信プラットフォーム",
+      "onAirPlaceholder": "配信画面キャプチャ（縦型）",
+      "onAirAlt": "配信衣装の集合写真。モノトーンの制服風スタイルの配信者 5 人がマイクとセプターを持ってスタジオに並ぶ",
+      "onAirProgram": "TikTok アプリ内の専用ライブステージ",
+      "onAirTime": "配信開始日 ／ 大阪・新大阪"
+    },
+    "services": {
+      "eyebrow": "SERVICES",
+      "title": "事業内容",
+      "items": [
+        {
+          "no": "01",
+          "code": "S-01",
+          "title": "配信トレーニング",
+          "en": "LIVE TRAINING",
+          "short": "未経験からの発声・カメラワーク・トーク設計・数値運用まで、専属マネージャーが伴走。",
+          "body": "未経験者を対象に、発声・カメラワーク・トーク設計・コメント運用・数値分析までを段階的に指導。専属マネージャーが日次で伴走し、配信枠の設計まで並走する。"
+        },
+        {
+          "no": "02",
+          "code": "S-02",
+          "title": "AIGC アイドル動画",
+          "en": "AIGC IDOL DRAMA",
+          "short": "生成 AI を用いた短編アイドルドラマの企画・制作。配信外の世界観をつくる。",
+          "body": "生成 AI を用いた短編アイドルドラマの企画・脚本・制作。配信の外側に世界観を作り、メンバーの人物設定を映像として蓄積する。"
+        },
+        {
+          "no": "03",
+          "code": "S-03",
+          "title": "専属楽曲制作",
+          "en": "ORIGINAL MUSIC",
+          "short": "グループとソロのオリジナル楽曲を書き下ろし、配信・ステージ双方に供給。",
+          "body": "グループ曲とソロ曲を書き下ろし、配信・ステージ・映像に供給。楽曲を軸にリリースとイベントの年間計画を組む。"
+        },
+        {
+          "no": "04",
+          "code": "S-04",
+          "title": "着ぐるみ配信技術",
+          "en": "SUIT LIVE TECHNOLOGY",
+          "short": "造形・モーション・音声・リアルタイム演出を一体で内製。日本ではまだ事例の少ない差別化領域。",
+          "body": "日本国内ではまだ事例の少ない、着ぐるみを活用したライブ配信のノウハウを社内に蓄積。造形・モーション・音声・リアルタイム演出を一体で運用し、演者の顔出しに依存せず、キャラクター IP を継続的に育てる。EchoAmp 独自の差別化領域のひとつです。"
+        }
+      ],
+      "subItems": [
+        {
+          "no": "04-A",
+          "title": "造形とスーツ設計",
+          "body": "配信で映える輪郭・可動域・視界を前提に設計。長時間配信に耐える通気と重量配分。"
+        },
+        {
+          "no": "04-B",
+          "title": "モーション連動",
+          "body": "演者の動きに追従する表情・発光・エフェクト制御を配信側でリアルタイム合成。"
+        },
+        {
+          "no": "04-C",
+          "title": "IP としての運用",
+          "body": "キャラクターは演者に依存しない資産として、AIGC 映像・楽曲・グッズへ展開。"
+        }
+      ],
+      "placeholders": [
+        "着ぐるみ撮影／制作風景",
+        "モーション連動のテスト画面"
+      ]
+    },
+    "recruit": {
+      "eyebrow": "RECRUIT ／ 募集要項",
+      "title1": "踊れる人、目立ちたい人、",
+      "title2": "まだ何者でもない人へ。",
+      "rows": [
+        {
+          "label": "募集対象",
+          "body": "18〜26 歳前後の女性／大阪・関西在住、または通える方。日本国籍または就労可能な在留資格をお持ちの方。"
+        },
+        {
+          "label": "歓迎する経験",
+          "body": "ダンス（ストリート／チア／バレエ等）、舞台・ステージ経験、大学ダンス部・社会人チーム。未経験でも意欲があれば可。"
+        },
+        {
+          "label": "活動内容",
+          "body": "TikTok LIVE 配信、MOONDOLLZ としてのグループ活動、AIGC 映像出演、楽曲リリース、イベント出演。"
+        },
+        {
+          "label": "待遇",
+          "body": "レッスン費・スタジオ利用は事務所負担。配信収益は規定に基づき分配。衣装・撮影サポートあり。"
+        },
+        {
+          "label": "応募方法",
+          "body": "フォーム送信 → 書類選考 → オンライン面談 → 大阪スタジオでの実技 → 合格・契約。所要 2〜3 週間。"
+        }
+      ],
+      "payEyebrow": "RECRUIT ／ 収益・待遇について",
+      "payTitle": "収益と待遇の考え方",
+      "payCols": [
+        "配信収益は規定に基づき分配。配信時間・実績・グループ活動への参加度に応じて段階的に変わります。",
+        "レッスン費・スタジオ使用料・衣装・撮影は事務所負担。初期費用の負担はありません。",
+        "具体的な金額・契約形態・稼働イメージは、オンライン面談の際に個別にご説明します。"
+      ],
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "お名前",
+        "age": "年齢",
+        "residence": "お住まい",
+        "contact": "ご連絡先",
+        "contactHint": "LINE ID・メール・SNS アカウントのいずれか",
+        "experience": "経験・SNS",
+        "consent": "応募選考の目的で、入力内容を利用することに同意します。",
+        "submit": "送信する",
+        "submitting": "送信中…",
+        "lineNote": "LINE からの応募も受け付けています。@echoamp_osaka",
+        "successTitle": "ご応募ありがとうございます。",
+        "successBody": "内容を確認のうえ、2〜3 週間以内にご連絡します。お急ぎの場合は LINE（@echoamp_osaka）へどうぞ。",
+        "errors": {
+          "required": "入力してください",
+          "tooLong": "文字数が上限を超えています",
+          "outOfRange": "16〜60 の範囲で入力してください",
+          "invalidAge": "半角数字で入力してください",
+          "consent": "同意が必要です",
+          "rateLimited": "送信が集中しています。しばらくしてからお試しください。",
+          "network": "送信に失敗しました。通信環境をご確認ください。"
+        }
+      }
+    },
+    "contact": {
+      "eyebrow": "CONTACT",
+      "title": "お問い合わせ",
+      "sections": [
+        {
+          "no": "01",
+          "eyebrow": "FOR CREATOR",
+          "title": "応募したい方へ",
+          "body": "オーディション、レッスン、活動条件について。採用とオフライン運営はカイロン株式会社が担当します。LINE でのご相談が最短です。",
+          "cta": "LINE で相談する",
+          "action": "recruit",
+          "partner": "運営主体",
+          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "rows": [
+            { "label": "会社名", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
+            { "label": "設立・所在地", "value": "2021年／大阪市淀川区" },
+            { "label": "事業内容", "value": "ライブ配信キャストの採用・オフライン運営" },
+            { "label": "所在地", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
+            { "label": "会社サイト", "value": "https://chi-ron.com/", "link": "external" }
+          ]
+        },
+        {
+          "no": "02",
+          "eyebrow": "FOR COMPANION",
+          "title": "制作・運営パートナー",
+          "body": "ヘアメイク、ロケ撮影、グループ配信の運営研修、AIGC コンテンツ制作を担当するパートナーです。",
+          "note": "お問い合わせ窓口は準備中",
+          "partner": "PRODUCTION PARTNER",
+          "rows": [
+            { "label": "会社名", "value": "吉光片羽株式会社" },
+            { "label": "設立・所在地", "value": "2019年／西宮市" },
+            { "label": "事業内容", "value": "インフルエンサーマーケティング" },
+            { "label": "担当領域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
+            { "label": "会社サイト", "value": "https://kikkou.jp/", "link": "external" }
+          ]
+        },
+        {
+          "no": "03",
+          "eyebrow": "FOR CLIENT",
+          "title": "法人・ブランド様へ",
+          "body": "楽曲制作、着ぐるみ技術、商業ライブ配信のご相談、広告事業のご提携、不正行為・コンプライアンスに関する通報をメールで承ります。",
+          "cta": "business@echoamp.jp",
+          "action": "email",
+          "rows": [
+            { "label": "内容", "value": "楽曲制作／着ぐるみ技術／商業ライブ配信／広告事業のご提携／不正行為・コンプライアンスに関する通報" },
+            { "label": "連絡先", "value": "business@echoamp.jp", "link": "email" },
+            { "label": "対応", "value": "平日 10:00–19:00（JST）／日本語・中国語" }
+          ]
+        }
+      ],
+      "office": {
+        "eyebrow": "OFFICE ／ オフィスについて",
+        "title": "新大阪駅から徒歩 5 分",
+        "body": "オフィスと配信スタジオは新大阪エリアにあります。新幹線・地下鉄いずれからもアクセスしやすく、レッスンと配信を同じ場所で完結できます。建物名・部屋番号は、面談が確定した方に個別にご案内します。",
+        "rows": [
+          {
+            "label": "最寄駅",
+            "value": "JR・地下鉄「新大阪」駅 徒歩 5 分"
+          },
+          {
+            "label": "設備",
+            "value": "配信ブース／レッスンスペース／撮影スペース"
+          },
+          {
+            "label": "来訪",
+            "value": "完全予約制。詳細住所は面談確定後にご案内"
+          }
+        ],
+        "map": {
+          "station": "新大阪駅",
+          "walk": "徒歩 5 分 ／ 400m",
+          "studio": "ECHOAMP STUDIO",
+          "areaEn": "SHIN-OSAKA AREA",
+          "areaJp": "大阪市淀川区・新大阪エリア",
+          "north": "N ↑",
+          "axis": "西 ← → 東",
+          "alt": "新大阪駅から徒歩 5 分の位置関係を示した概略図"
+        }
+      }
+    },
+    "theme": {
+      "dark": "◐ DARK",
+      "light": "◑ LIGHT",
+      "toggle": "テーマを切り替える"
+    }
+  },
+  "recruitApplications": {
+    "title": "サイト応募",
+    "subtitle": "公式サイト RECRUIT フォームからの応募（閲覧のみ）",
+    "totalLabel": "応募総数",
+    "newLabel": "未対応",
+    "todayLabel": "本日",
+    "listTitle": "応募一覧",
+    "empty": "まだ応募はありません",
+    "columns": {
+      "date": "受信",
+      "name": "お名前",
+      "age": "年齢",
+      "residence": "お住まい",
+      "contact": "ご連絡先",
+      "locale": "言語",
+      "experience": "経験・SNS"
+    }
   }
 }

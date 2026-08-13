@@ -1,9 +1,17 @@
 name: copy
 
-# Guards the i18n contract:
-#   * messages/zh.json and messages/en.json must have identical key shape
+# Guards the i18n + design-token contract:
+#   * messages/{zh,en,ja}.json must have identical key shape
+#   * Every t('key') in src/ must resolve to a real message, and every message
+#     should be referenced from somewhere; scripts/check-i18n.mjs enforces this
+#     against scripts/i18n-baseline.json
 #   * No new JSX file may introduce bare Chinese (use useTranslations() instead)
-# Both checks are pure Node scripts and need no extra install beyond the
+#   * No file may introduce slate/indigo/zinc/gray/stone/neutral/bare-hex
+#     styling (see docs/design-system.md); scripts/check-style-tokens.mjs
+#     enforces this with zero tolerance — the migration baseline was retired
+#     on 2026-08-11, exceptions now live in the script's WHITELIST or in
+#     per-line `style-tokens-ignore` comments
+# All checks are pure Node scripts and need no extra install beyond the
 # project's existing devDependencies.
 
 on:
@@ -12,9 +20,14 @@ on:
       - 'src/**/*.tsx'
       - 'src/**/*.jsx'
       - 'src/**/*.ts'
+      - 'src/**/*.css'
       - 'messages/**'
       - 'scripts/check-i18n.mjs'
+      - 'scripts/i18n-baseline.json'
       - 'scripts/check-no-bare-han.mjs'
+      - 'scripts/check-style-tokens.mjs'
+      # 正向校验从这里读已登记 token：只删/改注册项的 PR 也必须触发门禁
+      - 'tailwind.config.ts'
       - 'docs/copy-glossary.md'
       - '.github/workflows/copy.yml'
   push:
@@ -33,8 +46,11 @@ jobs:
 
       - run: npm install --ignore-scripts
 
-      - name: zh/en key parity
+      - name: i18n key parity + source references
         run: npm run test:i18n
 
       - name: No bare Chinese in JSX
         run: npm run test:no-bare-han
+
+      - name: Style tokens
+        run: npm run test:style
