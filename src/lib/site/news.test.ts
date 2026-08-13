@@ -1,6 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildArticles, findArticle, isNewsSlug, NEWS_SLUGS, type SiteArticleCopy } from './news.ts'
+import {
+  buildArticles,
+  findArticle,
+  isNewsSlug,
+  NEWS_SLUGS,
+  shouldShowNewsApply,
+  type SiteArticleCopy,
+} from './news.ts'
 
 const copy: SiteArticleCopy[] = NEWS_SLUGS.map((slug, i) => ({
   date: `2026.10.0${i + 1}`,
@@ -37,4 +44,17 @@ test('finds an article by slug and rejects unknown ones', () => {
 test('isNewsSlug guards the route param', () => {
   assert.equal(isNewsSlug('osaka-studio-open'), true)
   assert.equal(isNewsSlug('../../etc/passwd'), false)
+})
+
+test('assigns locale-independent categories in slug order', () => {
+  assert.deepEqual(
+    buildArticles(copy).map((article) => article.category),
+    ['live', 'project', 'recruit', 'project'],
+  )
+})
+
+test('shows the apply action only for the recruit category', () => {
+  assert.equal(shouldShowNewsApply('recruit'), true)
+  assert.equal(shouldShowNewsApply('live'), false)
+  assert.equal(shouldShowNewsApply('project'), false)
 })
