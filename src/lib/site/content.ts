@@ -50,7 +50,9 @@ export interface SiteSubItem {
 export interface SiteScheduleRow {
   day: string
   program: string
-  cast: string
+  /** 该阶段的重点（STYLE SETUP / DANCE TRAINING …）。原来这一列是出演单元，
+      排期从「每晚节目表」改成「训练到开播的阶段计划」后换成了阶段标签。 */
+  focus: string
   time: string
 }
 

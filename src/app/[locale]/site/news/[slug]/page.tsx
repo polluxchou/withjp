@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { RECRUIT_HREF, SITE_BASE } from '@/lib/site/nav'
-import { findArticle, isNewsSlug, NEWS_SLUGS, type SiteArticleCopy } from '@/lib/site/news'
+import { findArticle, isNewsSlug, NEWS_SLUGS, shouldShowNewsApply, type SiteArticleCopy } from '@/lib/site/news'
 import { locales } from '@/i18n/routing'
 import SiteSection from '@/components/site/SiteSection'
 import SiteImage from '@/components/site/SiteImage'
@@ -75,9 +75,11 @@ export default function SiteArticlePage({ params }: { params: { locale: string; 
       </div>
 
       <div className="mt-12 flex flex-wrap gap-3.5">
-        <SiteButton href={RECRUIT_HREF} variant="hot" size="md">
-          {t('applyCta')}
-        </SiteButton>
+        {shouldShowNewsApply(article.category) && (
+          <SiteButton href={RECRUIT_HREF} variant="hot" size="md">
+            {t('applyCta')}
+          </SiteButton>
+        )}
         <SiteButton href={`${SITE_BASE}/news`} variant="ghost" size="md">
           {t('backCta')}
         </SiteButton>

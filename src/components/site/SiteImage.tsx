@@ -13,6 +13,7 @@ export default function SiteImage({
   duotone = false,
   priority = false,
   sizes = '100vw',
+  objectPosition,
   className = '',
 }: {
   src?: string
@@ -22,6 +23,7 @@ export default function SiteImage({
   duotone?: boolean
   priority?: boolean
   sizes?: string
+  objectPosition?: string
   className?: string
 }) {
   return (
@@ -35,6 +37,7 @@ export default function SiteImage({
           fill
           sizes={sizes}
           priority={priority}
+          style={objectPosition ? { objectPosition } : undefined}
           className="object-cover"
         />
       ) : (

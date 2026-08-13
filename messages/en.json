@@ -1627,6 +1627,7 @@
     "laterDates": "Later",
     "noShotOnDate": "No shot on {date}",
     "noShotUndated": "No undated shot",
+    "addShotOnDate": "Add a shot for {date}",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "prevShot": "Previous shot",
@@ -1687,7 +1688,7 @@
       "line2": "performers who sing and dance."
     },
     "footer": {
-      "address": "Namba, Chuo-ku, Osaka ／ TikTok LIVE Creator Network\nLive training · AIGC film · Original music",
+      "address": "Shin-Osaka, Yodogawa-ku, Osaka ／ TikTok LIVE Creator Network\nLive training · AIGC film · Original music",
       "visionMembers": "VISION ／ MEMBERS",
       "live": "TIKTOK LIVE",
       "services": "SERVICES",
@@ -1699,18 +1700,18 @@
     },
     "ticker": {
       "items": [
-        "DOTONBORI GLICO 1935",
-        "TSUTENKAKU · SHINSEKAI 1912",
-        "NEON GOLDEN AGE 1950–1970",
-        "GREATER OSAKA MODERN GRAPHICS",
-        "MOONDOLLZ PROJECT LAUNCHED"
+        "BORN IN OSAKA · 2026",
+        "NIGHT AS OUR STAGE",
+        "CAMERAS ON",
+        "TT LIVE · EVERY NIGHT",
+        "THE ECHO GOES ON"
       ]
     },
     "home": {
       "eyebrow": "TIKTOK LIVE CREATOR NETWORK",
       "title1": "BUILDING FEMALE SINGING & DANCE",
       "title2": "LIVE GROUPS IN OSAKA.",
-      "tagline": "ECHO FROM OSAKA.",
+      "tagline": "ECHO FROM OSAKA NIGHT",
       "lead": "Recruitment, training, livestreaming, and content production. EchoAmp grows together with its creators.",
       "ctaApply": "APPLY",
       "ctaAbout": "ABOUT ECHOAMP",
@@ -1737,30 +1738,30 @@
       },
       "visionHead": {
         "eyebrow": "02 ／ VISION",
-        "title": "WHY OSAKA",
+        "title": "THE TEAM'S STAGE",
         "more": "READ MORE →"
       },
-      "visionBody": "In Osaka, neon came before anime. The visual language Dotonbori and Shinsekai built after the war — loud, gaudy, nocturnal — is where we start. EchoAmp carries that inheritance into the live-stream frame.",
+      "visionBody": "We believe live streaming is a stage built for a team. EchoAmp brings together people who love music, dance, and performance, building a style and culture of their own through continuous live shows.",
       "visionCards": [
         {
-          "no": "01",
-          "title": "Dotonbori Glico sign",
-          "body": "First installed in 1935, now in its sixth generation. The running man in neon became Osaka's civic symbol 60 years before Bebop."
+          "no": "1 ALBUM",
+          "title": "Create something that lasts",
+          "body": "At least one team album a year, turning livestream performances into lasting work."
         },
         {
-          "no": "02",
-          "title": "Shinsekai & Tsutenkaku",
-          "body": "Built in 1912. Giant blowfish lanterns and dense Showa-era neon shaped the look of a boisterous Osaka."
+          "no": "SHIN-OSAKA",
+          "title": "Where it all begins",
+          "body": "Our live and training base, where the team's culture takes shape."
         },
         {
-          "no": "03",
-          "title": "Neon golden age",
-          "body": "Through the 1950s–70s, Las Vegas influence pushed signage to enormous scale — the template for today's Dotonbori."
+          "no": "13 MEMBERS",
+          "title": "Become a real team",
+          "body": "About 13 creators within a year, building a shared style and culture."
         },
         {
-          "no": "04",
-          "title": "Greater Osaka modern",
-          "body": "Commercial flyers from the late Taisho and early Showa eras already carried fully mature modern graphics."
+          "no": "1–3 YEARS",
+          "title": "Grow fast, within a defined chapter",
+          "body": "One year per growth cycle, building experience through continuous live shows toward independence."
         }
       ],
       "projectHead": {
@@ -1795,7 +1796,7 @@
         "eyebrow": "05 ／ TECHNOLOGY",
         "title": "SUIT LIVE TECHNOLOGY"
       },
-      "techBody": "Costumed-suit (kigurumi) streaming is close to untouched in Japan. We brought it in house to an operable level, with motion linkage and real-time staging. It is EchoAmp's one true differentiator.",
+      "techBody": "Costumed-suit (kigurumi) streaming still has few precedents in Japan. We brought it in house to an operable level, with motion linkage and real-time staging. One of EchoAmp's own differentiators.",
       "techCta": "See the tech",
       "techPlaceholder": "Suit / motion-capture session photo",
       "bannerEyebrow": "RECRUIT ／ SECOND ROUND",
@@ -1820,93 +1821,98 @@
       "imagePlaceholder": "Article hero image",
       "articles": [
         {
-          "date": "2026.10.01",
-          "tag": "LIVE",
-          "title": "Nightly 21:00 streams begin from the Namba studio",
-          "lead": "From 1 October we stream TikTok LIVE every night at 21:00 from our own studio in Namba.",
+          "date": "2026.08.12",
+          "tag": "PROJECT",
+          "title": "3D Avatar Technology Team to Create Dedicated MC Characters for EchoAmp",
+          "lead": "EchoAmp will work with an experienced 3D avatar technology team from China’s live-streaming industry to develop dedicated character solutions for its MC roles.",
           "body": [
-            "Each weekday has a fixed unit and theme, so viewers never have to guess whose slot it is. Monday is MOON UNIT's late-night hour, Tuesday is DOLLZ UNIT's dance format, Wednesday belongs to the suit cast.",
-            "Streams run on the studio's wired setup, with dedicated staff on audio, lighting and camera. Performers only have to think about performing.",
-            "Archives and clips from each slot will be published progressively. See the TIKTOK LIVE page for the full schedule."
+            "The collaboration will integrate character design, real-time motion, voice performance, and live interaction, enabling MCs to appear consistently through distinctive virtual identities. The project will also explore new formats that combine live performers, virtual characters, and real-time streaming."
           ]
         },
         {
-          "date": "2026.09.10",
+          "date": "2026.08.10",
           "tag": "PROJECT",
-          "title": "Girl-group project MOONDOLLZ announced",
+          "title": "EchoAmp Announces Its First Operations Partner, 吉光片羽株式会社",
+          "lead": "EchoAmp will enter into a close partnership with 吉光片羽株式会社, a media company with established experience in MCN operations and creator management.",
+          "body": [
+            "The two companies will collaborate across talent management, content operations, on-site execution, and creator development. EchoAmp will lead the team’s overall brand and direction while combining its capabilities with its partner’s local operational experience in Japan."
+          ]
+        },
+        {
+          "date": "2026.08.01",
+          "tag": "RECRUIT",
+          "title": "EchoAmp to Begin Its First Recruitment Round in Mid-September, Seeking Six Members",
+          "lead": "EchoAmp will begin its first team recruitment round in Osaka in mid-September 2026, with six female creators planned for the initial lineup.",
+          "body": [
+            "Recruitment will focus on singing, dance, on-camera presence, and a strong commitment to live performance. Selected members will take part in training, choreography, and live-streaming practice while helping shape the style and culture of EchoAmp’s first performance team."
+          ]
+        },
+        {
+          "date": "2026.07.21",
+          "tag": "PROJECT",
+          "title": "EchoAmp Launches in Osaka with Plans to Build a Female Singing and Dancing Live Team",
+          "lead": "EchoAmp has officially launched its Creator Network project in Osaka.",
+          "body": [
+            "Centered on singing, dance, and live performance, the project will discover female creators with strong potential and bring them together as a dedicated live-streaming team. Through training, content production, and continuous live shows, EchoAmp aims to build a distinctive team style, culture, and fan community around live streaming as a stage of its own."
+          ]
+        },
+        {
+          "date": "2026.05.01",
+          "tag": "PROJECT",
+          "title": "EchoAmp Announces New Dual-Captain Singing and Dance Group",
           "lead": "We announced MOONDOLLZ, a dual-captain singing and dance group.",
           "body": [
             "MOON is the dreamlike, nocturnal and mysterious; DOLLZ is the sense of a troupe where every member carries her own style; the closing Z is the temperature of Y2K and streetwear. The name stacks all three.",
             "Sub-units are run with distinct character settings while debuting together as one group. The captains are Ayatsuki (MOON SIDE) and Yukiha (DOLLZ SIDE).",
             "Members will be revealed progressively in October and December."
           ]
-        },
-        {
-          "date": "2026.08.28",
-          "tag": "RECRUIT",
-          "title": "First-generation auditions open across Kansai",
-          "lead": "Auditions for our first generation are open to women around 18–26 living in Osaka and the wider Kansai area.",
-          "body": [
-            "We welcome dance backgrounds (street, cheer, ballet and so on), stage experience, and time in university dance clubs or amateur teams. No streaming experience required.",
-            "The process runs form submission → document screening → online interview → a practical session at the Osaka studio → contract, and takes about 2–3 weeks.",
-            "Lessons, studio use, costume and shooting are covered by the agency. Revenue and terms are explained individually at the interview."
-          ]
-        },
-        {
-          "date": "2026.08.10",
-          "tag": "PROJECT",
-          "title": "EchoAmp Osaka office and streaming studio go live",
-          "lead": "We opened an office and streaming studio in the Shin-Osaka area and have started operating from there.",
-          "body": [
-            "Streaming booths, lesson space and a shooting space sit on the same floor, so everything from rehearsal to broadcast happens in one place.",
-            "Five minutes on foot from Shin-Osaka station, easy to reach by both shinkansen and subway.",
-            "Visits are by appointment only. We share the exact address once an interview is confirmed."
-          ]
         }
       ]
     },
     "vision": {
       "eyebrow": "VISION ／ 2027",
-      "title": "Finding Osaka's most gifted performers who sing and dance.",
-      "lead": "We are not building an anime-styled website. High-chroma color fields, black silhouettes, condensed type set on a slant — we connect that vocabulary back to a real visual inheritance: Dotonbori and Shinsekai. Osaka's own neon noir. That is how EchoAmp looks, and how our streams look.",
+      "title": "Find Osaka's most talented singing and dancing live creators.",
+      "statement": "We believe live streaming is a stage built for a team.",
+      "lead": "EchoAmp brings together people who love music, dance, and performance. Through continuous live shows, they build a style and culture of their own—and find the audience who truly loves the team and wants to grow with them.",
       "imagePlaceholder": "Night view of Dotonbori / Shinsekai",
+      "imageAlt": "Illustrated Osaka night skyline seen from above, neon-lit blocks and elevated expressway lights running into the distance, a lit observation tower in the mid-ground",
       "eras": [
         {
-          "value": "1935",
-          "title": "Dotonbori Glico sign",
-          "body": "Dismantled in wartime and rebuilt since; now in its sixth generation. The running man is still Osaka's civic symbol."
+          "value": "1 ALBUM",
+          "title": "Create something that lasts",
+          "body": "Produce at least one team album each year, turning performances born on live streams into music that can live beyond the moment."
         },
         {
-          "value": "1912",
-          "title": "Shinsekai & Tsutenkaku",
-          "body": "Built as a district modelled on Paris and New York. Giant blowfish lanterns and dense Showa neon give it its character."
+          "value": "SHIN-OSAKA",
+          "title": "Where it all begins",
+          "body": "Our professional base for live streaming, training, and content production—and the place where the team's culture takes shape."
         },
         {
-          "value": "50s–70s",
-          "title": "Neon golden age",
-          "body": "Vegas influence made signage bigger and more excessive, fixing the Dotonbori skyline we know today."
+          "value": "13 MEMBERS",
+          "title": "Become a real team",
+          "body": "Bring together around 13 creators within one year to build a shared performance style, team culture, and fan community."
         },
         {
-          "value": "Greater Osaka",
-          "title": "Modern graphics",
-          "body": "Department-store flyers and theatre posters of the late Taisho and early Showa eras already showed mature modern design."
+          "value": "1–3 YEARS",
+          "title": "Grow fast, within a defined chapter",
+          "body": "Each year is one growth cycle. Through continuous live shows and performances, creators build an audience, a body of work, and real stage experience before moving forward on their own."
         }
       ],
       "principles": [
         {
-          "label": "COLOR",
-          "title": "Night navy, steel blue",
-          "body": "Tsutenkaku's night sky as the ground, built with a single accent. No decorative colors added."
+          "label": "SPIRIT",
+          "title": "Princesses Who Don't Wait for Fate",
+          "body": "Not dolls waiting to be chosen in someone else's story. They choose, they change, and they write their own future."
         },
         {
-          "label": "TYPE",
-          "title": "Condensed Latin × Mincho",
-          "body": "Barlow Condensed for headings, Mincho's vertical strokes for Japanese — the tension of signboard lettering."
+          "label": "VOICE",
+          "title": "Sweetness with an Edge",
+          "body": "Tenderness, loneliness, rebellion, and ambition coexist. Real emotions become songs — and power on stage."
         },
         {
           "label": "IMAGE",
-          "title": "Silhouette and duotone",
-          "body": "People read closer to black silhouettes; every photo is dyed in the accent. It suits the suit work too."
+          "title": "Crowns and the Night",
+          "body": "Moonlight, ice, roses, and the glow of the city. Thirteen distinct personalities come together to create one stage made for the night."
         }
       ]
     },
@@ -1970,55 +1976,62 @@
     "live": {
       "eyebrow": "TIKTOK LIVE",
       "title": "STREAM SCHEDULE",
-      "lead": "Live every night from the Namba studio. As a Creator Network, running TikTok LIVE itself sits at the core of our business.",
+      "lead": "From training to going live, we guide each member through a structured development program, making live performance a core capability of our Creator Network.",
       "headers": {
         "day": "DAY",
         "program": "PROGRAM",
-        "cast": "CAST",
+        "focus": "FOCUS",
         "time": "TIME"
       },
       "schedule": [
         {
-          "day": "MON",
-          "program": "Midnight Princess Chamber",
-          "cast": "MOON UNIT",
-          "time": "21:00–24:00"
+          "day": "DAY 1–3",
+          "program": "Fitting & Initial Style Direction",
+          "focus": "STYLE SETUP",
+          "time": "11:00–18:00"
         },
         {
-          "day": "TUE",
-          "program": "DOLLZ Dance Club",
-          "cast": "DOLLZ UNIT",
-          "time": "21:00–23:30"
+          "day": "DAY 4–10",
+          "program": "Solo Dance Selection & Intensive Training",
+          "focus": "DANCE TRAINING",
+          "time": "10:00–18:00"
         },
         {
-          "day": "WED",
-          "program": "Suit Night",
-          "cast": "SUIT CAST",
-          "time": "22:00–24:00"
+          "day": "DAY 11–15",
+          "program": "Debut Stage Design & LIVE Guidelines",
+          "focus": "STAGE & LIVE RULES",
+          "time": "11:00–18:00"
         },
         {
-          "day": "THU",
-          "program": "Rookie Audition Slot",
-          "cast": "TRAINEE",
-          "time": "20:00–22:00"
+          "day": "DAY 16–20",
+          "program": "Profile Shoot & Introduction Video",
+          "focus": "PHOTO & INTRO VIDEO",
+          "time": "11:00–18:00"
         },
         {
-          "day": "FRI",
-          "program": "Namba Neon Song Hour",
-          "cast": "ALL",
-          "time": "21:00–01:00"
+          "day": "DAY 21–30",
+          "program": "Trial LIVE Sessions (3 hrs/day)",
+          "focus": "TRIAL LIVE",
+          "time": "14:00–21:00"
         },
         {
-          "day": "SAT",
-          "program": "MOONDOLLZ Joint Stream",
-          "cast": "ALL",
-          "time": "20:00–24:00"
+          "day": "MONTH 2",
+          "program": "Regular LIVE Begins (Mondays Off)",
+          "focus": "REGULAR LIVE",
+          "time": "TUE–SUN"
+        },
+        {
+          "day": "TIME SLOT",
+          "program": "Two LIVE Sessions per Day",
+          "focus": "2 SESSIONS / DAY",
+          "time": "14:30–17:30 / 18:30–21:30"
         }
       ],
-      "onAirLabel": "ON AIR NOW",
+      "onAirLabel": "BROADCAST PLATFORM",
       "onAirPlaceholder": "Stream capture (vertical)",
-      "onAirProgram": "Midnight Princess Chamber",
-      "onAirTime": "Nightly 21:00 — 24:00 ／ Namba studio"
+      "onAirAlt": "Stream styling group photo: five streamers in black-and-white uniform looks, holding a microphone and a sceptre on the studio floor",
+      "onAirProgram": "A dedicated live stage inside the TikTok app",
+      "onAirTime": "Launch day ／ Shin-Osaka, Osaka"
     },
     "services": {
       "eyebrow": "SERVICES",
@@ -2053,8 +2066,8 @@
           "code": "S-04",
           "title": "Suit live technology",
           "en": "SUIT LIVE TECHNOLOGY",
-          "short": "Fabrication, motion linkage and real-time staging in house — a near-empty field in Japan.",
-          "body": "Costumed-suit (kigurumi) streaming is close to untouched in Japan, and the know-how is ours: fabrication, motion, voice and real-time staging run as one. It removes the performer's face-reveal risk while growing a character IP. EchoAmp's one true differentiator."
+          "short": "Fabrication, motion, voice and real-time staging in house — a field with few precedents in Japan.",
+          "body": "Costumed-suit (kigurumi) streaming still has few precedents in Japan, and we keep that know-how in house: fabrication, motion, voice and real-time staging run as one, so a character IP can grow continuously without depending on the performer's face. One of EchoAmp's own differentiators."
         }
       ],
       "subItems": [
@@ -2148,10 +2161,10 @@
           "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
           "rows": [
             { "label": "Company", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
-            { "label": "Representative", "value": "CHEN HAO" },
-            { "label": "Founded / location", "value": "2021年／大阪市浪速区" },
+            { "label": "Founded / location", "value": "2021年／大阪市淀川区" },
             { "label": "Business", "value": "ライブ配信キャストの採用・オフライン運営" },
-            { "label": "Address", "value": "大阪府大阪市浪速区難波中1丁目11-4 2階", "subvalue": "SEIYU Building 2F, 11-7 Nambanaka, Osaka" }
+            { "label": "Address", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
+            { "label": "Website", "value": "https://chi-ron.com/", "link": "external" }
           ]
         },
         {
@@ -2160,20 +2173,20 @@
           "note": "Contact desk coming soon", "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "Company", "value": "吉光片羽株式会社" },
-            { "label": "Representative", "value": "YANG JIANUO" },
             { "label": "Founded / location", "value": "2019年／西宮市" },
             { "label": "Business", "value": "インフルエンサーマーケティング" },
-            { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" }
+            { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
+            { "label": "Website", "value": "https://kikkou.jp/", "link": "external" }
           ]
         },
         {
-          "no": "03", "eyebrow": "FOR CLIENT", "title": "For companies and brands",
-          "body": "For tie-up streams, AIGC film production, music production and suit IP, contact us by email.",
+          "no": "03", "eyebrow": "FOR CLIENT", "title": "For Businesses & Brands",
+          "body": "For music production, mascot costume technology, commercial livestreaming, advertising partnerships, or reports of misconduct and compliance concerns, please contact us by email.",
           "cta": "business@echoamp.jp", "action": "email",
           "rows": [
-            { "label": "Services", "value": "Tie-up streams / AIGC film production / music production / suit IP" },
+            { "label": "Services", "value": "Music production / mascot costume technology / commercial livestreaming / advertising partnerships / misconduct and compliance reports" },
             { "label": "Contact", "value": "business@echoamp.jp", "link": "email" },
-            { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese and Chinese" }
+            { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese & Chinese" }
           ]
         }
       ],
