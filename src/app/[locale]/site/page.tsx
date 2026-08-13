@@ -238,7 +238,14 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
           </SiteButton>
         </div>
         <div className="relative h-[260px] min-w-0 lg:h-[320px]">
-          <SiteImage placeholder={t('techPlaceholder')} duotone className="h-full w-full" />
+          <SiteImage
+            src="/site/tech-character-expressions.webp"
+            alt={t('techPlaceholder')}
+            placeholder={t('techPlaceholder')}
+            sizes="(min-width: 1024px) 620px, 100vw"
+            duotone
+            className="h-full w-full"
+          />
         </div>
       </SiteSection>
 
