@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
 import type { SiteServiceItem, SiteSubItem } from '@/lib/site/content'
+import { buildServiceMedia } from '@/lib/site/services'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import SiteImage from '@/components/site/SiteImage'
@@ -21,6 +22,7 @@ export default function SiteServicesPage({ params }: { params: { locale: string 
   const items = t.raw('items') as SiteServiceItem[]
   const subItems = t.raw('subItems') as SiteSubItem[]
   const placeholders = t.raw('placeholders') as string[]
+  const mediaItems = buildServiceMedia(placeholders)
 
   return (
     <SiteSection divider={false} className="pb-20 lg:pb-24">
@@ -61,9 +63,16 @@ export default function SiteServicesPage({ params }: { params: { locale: string 
       </div>
 
       <div className="mt-8 grid gap-6 sm:grid-cols-2">
-        {placeholders.map((placeholder) => (
-          <div key={placeholder} className="relative h-[240px] lg:h-[340px]">
-            <SiteImage placeholder={placeholder} className="h-full w-full" />
+        {mediaItems.map((media) => (
+          <div key={media.src} className="relative h-[240px] lg:h-[340px]">
+            <SiteImage
+              src={media.src}
+              alt={media.alt}
+              placeholder={media.alt}
+              sizes="(min-width: 640px) 50vw, 100vw"
+              objectPosition={media.objectPosition}
+              className="h-full w-full"
+            />
           </div>
         ))}
       </div>

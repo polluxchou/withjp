@@ -22,6 +22,12 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
   const tServices = useTranslations('site.services')
   const tTicker = useTranslations('site.ticker')
 
+  const tagline = t('tagline')
+  // 三重描边是给拉丁字母做的：汉字与假名笔画密，3px 错位会和笔画本身撞上糊成
+  // 重影，所以含汉字/假名的 slogan 只渲染单层。
+  // 假名 / CJK 扩展A / CJK 基本区 / CJK 兼容汉字
+  const taglineHasCjk = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(tagline)
+
   const stats = t.raw('stats') as SiteStat[]
   const visionCards = t.raw('visionCards') as SiteVisionCard[]
   const terms = t.raw('projectTerms') as SiteProjectTerm[]
@@ -42,7 +48,9 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
               </span>
             </div>
 
-            <h1 className="mb-2 font-serif-jp text-[clamp(26px,3.2vw,58px)] leading-[1.2] tracking-[0.01em]">
+            {/* 字号上限 48px 而不是更大：h1 的测量宽度被外层 max-w-[1360px] 封在
+                623px，字号继续涨会把英文标题的第二行挤断，单词孤零零掉到第四行。 */}
+            <h1 className="mb-2 font-serif-jp text-[clamp(26px,3.2vw,48px)] leading-[1.2] tracking-[0.01em]">
               {t('title1')}
               <br />
               {t('title2')}
@@ -53,20 +61,24 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
             <div className="relative mb-7 inline-block self-start">
               {/* 偏移层必须 nowrap：绝对定位的子元素按容器宽度排版，容器宽度
                   由下面那层白字决定，偏移 3px 就会把最后一个词挤到第二行。 */}
-              <span
-                aria-hidden
-                className="absolute -left-[3px] top-px hidden whitespace-nowrap font-condensed text-[30px] tracking-[0.16em] text-site-accent sm:block"
-              >
-                {t('tagline')}
-              </span>
-              <span
-                aria-hidden
-                className="absolute -top-px left-[3px] hidden whitespace-nowrap font-condensed text-[30px] tracking-[0.16em] text-site-hot sm:block"
-              >
-                {t('tagline')}
-              </span>
+              {!taglineHasCjk && (
+                <>
+                  <span
+                    aria-hidden
+                    className="absolute -left-[3px] top-px hidden whitespace-nowrap font-condensed text-[30px] tracking-[0.16em] text-site-accent sm:block"
+                  >
+                    {tagline}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="absolute -top-px left-[3px] hidden whitespace-nowrap font-condensed text-[30px] tracking-[0.16em] text-site-hot sm:block"
+                  >
+                    {tagline}
+                  </span>
+                </>
+              )}
               <span className="relative whitespace-nowrap font-condensed text-[22px] tracking-[0.16em] sm:text-[30px]">
-                {t('tagline')}
+                {tagline}
               </span>
             </div>
 
@@ -226,7 +238,14 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
           </SiteButton>
         </div>
         <div className="relative h-[260px] min-w-0 lg:h-[320px]">
-          <SiteImage placeholder={t('techPlaceholder')} duotone className="h-full w-full" />
+          <SiteImage
+            src="/site/tech-character-expressions.webp"
+            alt={t('techPlaceholder')}
+            placeholder={t('techPlaceholder')}
+            sizes="(min-width: 1024px) 620px, 100vw"
+            duotone
+            className="h-full w-full"
+          />
         </div>
       </SiteSection>
 

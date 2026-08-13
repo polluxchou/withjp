@@ -15,7 +15,7 @@ const intlMiddleware = createIntlMiddleware(routing)
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // echoamp.agenova.chat 是官网专用域名。先把它与内部后台隔离，再进入原有的
+  // eacn.agenova.chat 是官网专用域名。先把它与内部后台隔离，再进入原有的
   // i18n / Supabase 会话流程；这样猜中后台页面或 API 路径也只会得到 404。
   const publicSiteRoute = resolvePublicSiteRoute(request.nextUrl.hostname, pathname)
   if (publicSiteRoute) {
