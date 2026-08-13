@@ -5,9 +5,124 @@
 @layer base {
   :root {
     --sidebar-width: 240px;
+
+    /* ink（文字，RGB 三元组，供 alpha 修饰符） */
+    --ink-900: 33 28 51;
+    --ink-700: 61 54 84;
+    --ink-500: 111 104 132;
+    --ink-400: 141 135 161;
+
+    /* 发丝线（带固定透明度，直接用） */
+    --line-soft: rgba(33, 28, 51, 0.05);
+    --line: rgba(33, 28, 51, 0.07);
+    --line-strong: rgba(33, 28, 51, 0.09);
+
+    --surface: #ffffff;
+    --canvas: #faf9fc;
+
+    /* violet 档位 */
+    --primary: 124 58 237;
+    --primary-hover: 109 40 217;
+    --primary-soft: rgba(124, 58, 237, 0.10);
+    --primary-soft-hover: rgba(124, 58, 237, 0.14);
+    --primary-border: rgba(124, 58, 237, 0.35);
+
+    /* 语义色三件套 × 6 tone */
+    --success-text: #067647; --success-soft: rgba(16,185,129,.09); --success-dot: #10b981;
+    --warning-text: #b45309; --warning-soft: rgba(245,158,11,.11); --warning-dot: #f59e0b;
+    --danger-text:  #dc2626; --danger-soft:  rgba(239,68,68,.09);  --danger-dot:  #ef4444;
+    /* danger-dot(#ef4444) 白字对比度仅 3.77:1 不过 AA；危险实底按钮（Button
+       variant=danger）大面积填充改用更深的 danger-strong（4.83:1），dot 只
+       用于状态点/小面积场景，语义上与 danger-text 独立登记，不复用同一 token
+       名（后续两者若分道演进不至互相牵连）。 */
+    --danger-strong: #dc2626;
+    --info-text:    #1d4ed8; --info-soft:    rgba(59,130,246,.09); --info-dot:    #3b82f6;
+    /* 语义色描边（CountChip 35% 透明描边用）：dot token 是固定 hex，不支持
+       /N 透明度修饰符（Task 1 审查结论），故单独登记 rgba 描边变量。 */
+    --success-border: rgba(16,185,129,.35);
+    --warning-border: rgba(245,158,11,.35);
+    --danger-border:  rgba(239,68,68,.35);
+    --info-border:    rgba(59,130,246,.35);
+    /* muted：状态 Tag 的 neutral tone。不占用 neutral 名：Tailwind 内置 neutral-N 灰阶与
+       token 同名会让门禁无法区分合法 token（neutral-soft）与非法灰阶（neutral-200） */
+    --muted-text: #3d3654; --muted-soft: rgba(33, 28, 51, 0.05); --muted-dot: #8d87a1;
+
+    /* 主 CTA 渐变（仅主按钮 / 进度条填充） */
+    --primary-gradient: linear-gradient(135deg, #7c3aed 0%, #9333ea 60%, #a855f7 100%);
+
+    /* Table/RecordRow 行 hover 底色（design-system §6.2）。单独登记而非
+       `bg-primary-soft/20`：primary-soft 是固定透明度 var()，`/N` 修饰符会被
+       Tailwind 静默丢弃且触发 alpha-on-fixed 门禁（Task 1 审查结论）。 */
+    --row-hover: rgba(124, 58, 237, 0.02);
+
+    /* ══ 对外官网（/[locale]/site）专用命名空间 ══
+       官网是与内部后台并列的独立设计面：纯黑底、零圆角、明朝体标题。
+       它与后台紫罗兰浅色体系刻意不共享任何 token，所以整族前缀 site-，
+       改官网不会波及后台，反之亦然。权威说明见
+       docs/superpowers/specs/2026-08-11-echoamp-public-site-design.md §2。 */
+    --site-canvas: #000000;
+    --site-panel: #141414;
+    /* fg 用 RGB 三元组：官网的文字层级全靠前景色透明度分级（/78 正文、/68 卡内
+       说明、/60 次级、/40 页脚），必须支持 Tailwind 的 `/N` 修饰符。也正因为
+       是三元组，浅色主题只要换掉这一个值，整条透明度阶梯自动跟着翻转。 */
+    --site-fg: 255 255 255;
+    --site-accent: #25f4ee;
+    /* 三角幕的实底。和 --site-map-accent 同理：这是一整块满铺的强调色，不是压在
+       画布上的细文字，跟着浅色主题翻成深青会闷成一块脏蓝绿，幕内固定黑字的对比度
+       也从 15.3:1 掉到 3.6:1（13px 小字达不到 AA 的 4.5:1）。设计稿同样把这里写成
+       固定的亮青、不引用 accent 变量。 */
+    --site-veil: #25f4ee;
+    /* 强调色实底之上的文字色（三角幕）。深浅主题都固定为黑色。 */
+    --site-on-accent: #000000;
+    /* hot 是 TikTok 红，深浅两套主题都用同一个值：红底白字在两种底色下都成立。
+       on-hot 也因此是常量白 —— 浅色主题下 fg 变成近黑，压在红底上读不出来。 */
+    --site-hot: #fe2c55;
+    --site-hot-hover: #ff5c7c;
+    --site-on-hot: #ffffff;
+    /* sticky 顶栏的半透明底。单独登记而非 `bg-site-canvas/90`：site-canvas 是
+       固定值 var()，加 `/N` 修饰符 Tailwind 会静默不生成类（design-system §1）。 */
+    --site-header: rgba(0, 0, 0, 0.9);
+    --site-line: rgba(255, 255, 255, 0.18);
+    --site-line-strong: rgba(255, 255, 255, 0.4);
+
+    /* 示意地图（RECRUIT 页 OFFICE 区块）的专用色板。它是一块「屏幕/图纸」
+       质感的构件，深浅两个主题下都保持深色，所以这里的白色透明度是写死的、
+       不跟 --site-fg 翻转。组件里只引用这些变量，不出现裸色值。 */
+    /* 地图自己的强调色固定为亮青：它压在近黑底上，跟着主题翻成深青就看不清了 */
+    --site-map-accent: #25f4ee;
+    --site-map-bg: #0b0b0b;
+    --site-map-road: #1b1b1b;
+    --site-map-band: #161616;
+    --site-map-grid: rgba(255, 255, 255, 0.07);
+    --site-map-line: rgba(255, 255, 255, 0.16);
+    --site-map-edge: rgba(255, 255, 255, 0.3);
+    --site-map-dash: rgba(255, 255, 255, 0.45);
+    --site-map-ink: #ffffff;
+    --site-map-ink-soft: rgba(255, 255, 255, 0.6);
+  }
+
+  /* 浅色主题：只覆盖这几个变量，透明度阶梯、发丝线、组件全部自动跟随。
+     accent 从亮青换成深青——#25f4ee 在浅底上对比度只有 1.5:1，读不出来。 */
+  :root[data-theme='light'] {
+    --site-canvas: #f3f3f4;
+    --site-panel: #e7e7ea;
+    --site-header: rgba(243, 243, 244, 0.92);
+    --site-fg: 17 17 20;
+    --site-accent: #0a7078;
+    --site-line: rgba(17, 17, 20, 0.18);
+    --site-line-strong: rgba(17, 17, 20, 0.4);
   }
   body {
-    @apply bg-canvas text-zinc-900 antialiased;
+    @apply bg-atmosphere text-ink-900 antialiased;
+  }
+
+  /* 官网页面在 body 上盖掉后台的紫晕氛围底。SiteShell 自己是 min-h-screen 的
+     黑底，正常滚动区域看不到 body；但 overscroll 回弹和短页面下方会露出来，
+     所以在 body 层一并换掉。:has() 不支持时退化为「只有 SiteShell 是黑的」，
+     不影响可读性。 */
+  body:has(.site-root) {
+    background-color: var(--site-canvas);
+    background-image: none;
   }
 
   /* iOS Safari auto-zooms when an <input> / <select> / <textarea> with a
@@ -44,19 +159,58 @@
     scrollbar-color: #d4d4d8 transparent;
   }
 
-  /* 风格 B 纹理:顶部主色光晕(不重复) + 极淡点阵网格(平铺)。
-     两层 background-image 必须合并在一个类里,拆成两个类会互相覆盖。 */
-  .bg-texture {
+  /* iOS Safari 不支持 background-attachment: fixed，会按 scroll 渲染，长页面底部的
+     光晕层会滚出视口外不可见——此回退已接受。桌面端 fixed 以视口（而非内容）为锚。 */
+  .bg-atmosphere {
+    background-color: var(--canvas);
     background-image:
-      radial-gradient(ellipse 600px 240px at 50% -60px, rgba(124, 58, 237, 0.12), transparent 70%),
-      radial-gradient(#d4d4d8 0.8px, transparent 0.8px);
-    background-size: 100% 100%, 14px 14px;
-    background-repeat: no-repeat, repeat;
+      radial-gradient(ellipse 900px 480px at 8% -10%, rgba(139, 92, 246, 0.10), transparent 60%),
+      radial-gradient(ellipse 800px 420px at 100% 0%, rgba(236, 72, 153, 0.05), transparent 55%),
+      radial-gradient(ellipse 900px 500px at 90% 110%, rgba(139, 92, 246, 0.07), transparent 60%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
   }
 
-  .sidebar-frosted {
-    background-color: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+  /* 官网图片的 duotone：图片灰度化后与青色底 multiply，暗部留黑、亮部染青。
+     设计稿用的是设计系统自带的 .duotone，这里是等效实现。 */
+  .site-duotone {
+    background-color: var(--site-accent);
+  }
+  .site-duotone img {
+    filter: grayscale(1) contrast(1.1) brightness(0.92);
+    mix-blend-mode: multiply;
+  }
+}
+
+/* ══ 对外官网的动效（不在 @layer 里：keyframes 不参与层叠层解析） ══ */
+/* 跑马灯：位移量 = 恰好一份内容的宽度 = 轨道宽的 1/N（N = Ticker 渲染的份数），
+   这样第 k 份走到第 k-1 份的起点上，循环看不出接缝。N 由 Ticker.tsx 通过
+   --site-ticker-copies 传进来，改份数不用回来改这里；位移距离始终是一份，
+   所以观感速度只由「单份宽 / 时长」决定，跟份数无关（时长见 tailwind.config.ts）。 */
+@keyframes site-ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-100% / var(--site-ticker-copies, 2))); }
+}
+@keyframes site-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+/* logo 三角幕：从左上角的退化尖点扫开成三角形 */
+@keyframes site-veil {
+  from { clip-path: polygon(0 0, 0 0, 0 0); opacity: 0.4; }
+  to   { clip-path: polygon(0 0, 68% 0, 0 96%); opacity: 1; }
+}
+@keyframes site-veil-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 关掉动效偏好下：跑马灯与呼吸点停止，三角幕直接以终态出现（不做扫开） */
+@media (prefers-reduced-motion: reduce) {
+  .site-ticker-track,
+  .site-pulse,
+  .site-veil,
+  .site-veil-body {
+    animation: none !important;
   }
 }

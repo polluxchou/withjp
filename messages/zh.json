@@ -21,11 +21,18 @@
     "singleDay": "单日",
     "days": "{count}天",
     "emptyTitle": "还没有记录",
-    "emptyHint": "添加第一条吧"
+    "emptyHint": "添加第一条吧",
+    "errorTitle": "出错了",
+    "retry": "重试",
+    "loadFailed": "加载失败，请重试",
+    "prev": "上一个",
+    "next": "下一个"
   },
   "nav": {
     "dashboard": "仪表盘",
     "creators": "创作者",
+    "creatorsList": "创作者列表",
+    "competitors": "竞品监测",
     "pipeline": "流程管理",
     "timeline": "战略时间轴",
     "tasks": "任务",
@@ -43,8 +50,9 @@
     "config": "配置",
     "profile": "个人信息",
     "logout": "退出登录",
-    "appName": "Creator Guild",
-    "appSubtitle": "AI 运营系统"
+    "appName": "Creator Network",
+    "appSubtitle": "AI 运营系统",
+    "recruitApplications": "官网应募"
   },
   "language": {
     "zh": "中文",
@@ -78,7 +86,6 @@
     "addEntry": "添加条目",
     "addEntryModalTitle": "添加知识条目",
     "allFilter": "全部",
-    "loading": "加载中...",
     "noEntries": "还没有条目，添加第一条吧。",
     "selectEntry": "点击左侧条目查看内容",
     "deletePrompt": "确定要删除这条知识吗？删了就找不回来了。",
@@ -103,6 +110,9 @@
     "inputSchema": "输入 Schema",
     "outputSchema": "输出 Schema",
     "viewPrompt": "查看 Prompt 模板",
+    "agentActive": "在线",
+    "agentOffline": "离线",
+    "noAgents": "还没有任何代理",
     "architectureTitle": "代理架构",
     "architectureBody": "代理是<strong>数据驱动</strong>的——所有行为由数据库里的 Prompt 模板定义。执行器是单一通用函数：加载任务和创作者、按创作者状态拉取相关知识、套用配置规则、渲染 Prompt 模板、调用配置的模型、解析结构化 JSON 输出。每个代理可独立使用 <strong>Anthropic</strong>、<strong>OpenAI</strong> 或 <strong>Gemini</strong>——通过上方下拉框配置。添加新代理只需在数据库插入一行，无需改代码。",
     "stats": {
@@ -125,6 +135,7 @@
       "agentsLabel": "代理数",
       "activeLabel": "在岗代理",
       "unknownAgent": "未知 / 已停用代理",
+      "taskCountAria": "任务数 {count}",
       "noTasks": "暂无任务",
       "noTasksAll": "还没有任何任务",
       "noCreator": "无关联创作者",
@@ -151,6 +162,7 @@
       "clearOwner": "清除负责人",
       "rename": "重命名",
       "delete": "删除",
+      "removeMemberNamed": "移除 {name}",
       "confirmDelete": "确认删除？",
       "sourceUser": "员工",
       "sourceCreator": "主播",
@@ -197,7 +209,8 @@
     "paymentMethodPlaceholder": "例如 公司卡",
     "paymentStatus": "支付状态 *",
     "selectStatus": "选择状态",
-    "addDevice": "添加设备"
+    "addDevice": "添加设备",
+    "editDevice": "编辑设备"
   },
   "currency": {
     "switchHint": "按固定汇率切换显示币种（1 USD = 7 CNY；1 CNY = 20 JPY）"
@@ -210,6 +223,7 @@
     "openButtonTooltip": "自然语言操作 (⌘K)",
     "modalTitle": "用一句话操作",
     "placeholder": "用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元",
+    "sendButtonLabel": "发送",
     "query": {
       "emptyDenom": {
         "title": "无法计算占比",
@@ -237,6 +251,7 @@
       "sampleHint": "已返回 {count} 条样例。完整筛选请到支出列表页操作。"
     },
     "clarification": {
+      "tableLabel": "候选记录",
       "dateCol": "日期",
       "nameCol": "名称",
       "amountCol": "金额",
@@ -339,10 +354,7 @@
     "searchCreators": "搜索创作者...",
     "noCreatorsFound": "没找到创作者，调整筛选或添加一位吧",
     "addFirstCreator": "添加创作者",
-    "view": "查看",
-    "creator": "创作者",
     "platform": "平台",
-    "status": "状态",
     "niche": "领域",
     "followers": "粉丝数",
     "location": "地区",
@@ -361,7 +373,8 @@
     "timeline": "时间轴",
     "logRevenue": "记录收入",
     "noNiche": "无领域",
-    "creatorNotFound": "未找到创作者"
+    "creatorNotFound": "未找到创作者",
+    "listTitle": "创作者列表"
   },
   "creatorForm": {
     "nameRequired": "姓名和平台不能为空",
@@ -414,12 +427,24 @@
     "noActivityYet": "还没有动态记录。",
     "viewOutput": "查看输出",
     "logRevenueCost": "记录收入和成本",
-    "revenueField": "收入 (¥) *",
-    "costField": "成本 (¥) *",
-    "periodField": "周期 *",
+    "revenueField": "收入 (¥)",
+    "costField": "成本 (¥)",
+    "periodField": "周期",
     "saveRecord": "保存记录",
     "editCreator": "编辑创作者",
-    "by": "由 {actor}"
+    "by": "由 {actor}",
+    "activityTypes": {
+      "created": "已创建",
+      "updated": "已更新",
+      "status_changed": "状态变更",
+      "task_created": "任务已创建",
+      "task_completed": "任务已完成",
+      "finance_logged": "财务已记录",
+      "note_added": "备注已添加",
+      "contact_updated": "联系方式已更新",
+      "profile_updated": "资料已更新",
+      "other": "其他"
+    }
   },
   "workspace": {
     "title": "工作区",
@@ -433,6 +458,26 @@
     "messagePlaceholder": "发送给 {agent}...（Enter 发送，Shift+Enter 换行）",
     "selectAgentFirst": "请先选择一个代理...",
     "footerNote": "回复来自所选代理的部门角色。涉及绑定或关键决策时，请始终让相关人工团队成员参与。",
+    "tabAll": "全部",
+    "tabChats": "会话",
+    "tabMentions": "提及",
+    "agentsCount": "AI 代理 · {count}",
+    "aiRole": "AI · {role}",
+    "aiPrefix": "AI · ",
+    "typingIndicator": "{agent} 正在输入…",
+    "you": "你",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "search": "搜索",
+    "members": "成员",
+    "more": "更多",
+    "agentActive": "在线",
+    "agentOffline": "离线",
+    "attachSoon": "附件（即将上线）",
+    "mentionSoon": "提及（即将上线）",
+    "workflowSoon": "工作流（即将上线）",
+    "sendHint": "发送",
+    "newLineHint": "换行",
     "hints": {
       "bd": "可以询问外联策略、创作者漏斗、谈判技巧，或如何接触某个具体潜在创作者。",
       "ops": "可以询问入驻清单、直播设置、排期安排或开播协调。",
@@ -462,6 +507,7 @@
     "createTask": "创建任务",
     "duplicateTaskTo": "复制任务到",
     "duplicateConfirm": "将<title>{name}</title>复制到：",
+    "targetDateField": "目标日期",
     "confirmDuplicate": "确认复制",
     "deleteConfirm": "确定要删除任务<title>{name}</title>吗？删了就找不回来了。",
     "emptyDay": "今天没有任务",
@@ -509,7 +555,32 @@
     "status": {
       "done": "已完成",
       "doing": "进行中",
-      "planned": "计划中"
+      "planned": "计划中",
+      "cancelled": "已取消"
+    },
+    "taskType": {
+      "fixed": "固定任务",
+      "adhoc": "临时任务"
+    },
+    "department": {
+      "bd": "BD",
+      "ops": "运营",
+      "finance": "财务",
+      "content": "内容",
+      "growth": "增长",
+      "legal": "法务",
+      "tech": "技术"
+    },
+    "effort": {
+      "2": "2h（半天）",
+      "4": "4h（半天）",
+      "8": "8h（全天）"
+    },
+    "repeat": {
+      "daily": "每日",
+      "weekly": "每周",
+      "biweekly": "每两周",
+      "monthly": "每月"
     },
     "form": {
       "errTitle": "任务标题不能为空",
@@ -588,7 +659,6 @@
     "subtitle": "公司级战略节点和对应的执行计划",
     "newMilestone": "新建节点",
     "createFirst": "创建第一个节点",
-    "loading": "正在加载节点…",
     "empty": "还没有节点，先创建一个吧。",
     "deleteConfirm": "确定要删除这个节点吗？删了就找不回来了。",
     "view": {
@@ -643,11 +713,9 @@
       "seriesCompleted": "已完成",
       "seriesActive": "已启动",
       "tooltipMonthMilestones": "本月节点",
-      "empty": "还没有数据",
       "gap": "截至今天，计划应完成 <strong>{planned}</strong> 个节点，实际完成 <strong>{done}</strong> 个，缺口 <strong>{gap}</strong> 个。"
     },
     "detail": {
-      "loading": "正在加载节点…",
       "notFound": "没找到这个节点，可能已被删除。",
       "back": "← 返回时间轴",
       "backLink": "战略时间轴",
@@ -718,6 +786,30 @@
         "medium": "中",
         "high": "高"
       }
+    },
+    "riskBadge": {
+      "low": "低风险",
+      "medium": "中风险",
+      "high": "高风险"
+    },
+    "typeFilterLabel": "按类型筛选",
+    "nextView": {
+      "heading": "接下来 {days} 天",
+      "subheading": "按日期查看即将到来的战略节点",
+      "rangeLabel": "查看范围",
+      "rangeOption": "{days} 天",
+      "plusDays": "+{days} 天",
+      "emptyTitle": "未来 {days} 天暂无战略节点",
+      "emptyHint": "可以切换到 90 天查看更远的规划。",
+      "clusterCount": "{count} 个节点",
+      "ownerUnassigned": "负责人未定",
+      "clusterHint": "点击查看最近节点",
+      "toneLabel": {
+        "danger": "高风险",
+        "warning": "需注意",
+        "success": "已完成",
+        "neutral": "计划中"
+      }
     }
   },
   "tasks": {
@@ -732,11 +824,14 @@
     "viewOutput": "查看结构化输出",
     "tabAi": "AI 任务",
     "tabWorkload": "工时视图",
+    "viewTabsLabel": "视图切换",
     "periodDay": "日",
     "periodWeek": "周",
     "periodMonth": "月",
     "salarySettings": "薪资设置",
-    "salaryManagement": "薪资管理"
+    "salaryManagement": "薪资管理",
+    "periodGroupLabel": "视图周期",
+    "selectDate": "选择日期"
   },
   "expenses": {
     "title": "支出管理",
@@ -749,6 +844,7 @@
     "totalExpense": "总支出",
     "includesFees": "含跨境手续费",
     "paid": "已付款",
+    "pendingPayment": "待付款",
     "budgetPending": "预算/待付款",
     "thisMonth": "本月支出",
     "lastMonth": "上月",
@@ -775,7 +871,11 @@
     "to": "至",
     "empty": "还没有支出记录",
     "addFirst": "添加第一条支出",
-    "category": {
+    "listTitle": "支出明细",
+    "sortByLabel": "排序方式",
+    "toggleSortDir": "切换排序方向",
+    "category": "类别",
+    "categoryChart": {
       "viewPie": "饼图",
       "viewSankey": "流向图",
       "crossBorderTooltip": "跨境转账成本 {amount}",
@@ -790,6 +890,7 @@
     "paymentMethod": "支付方式",
     "paymentStatus": "状态",
     "deleteMessage": "确定要删除支出记录「{name}」吗？删了就找不回来了。",
+    "viewList": "列表",
     "categoryShare": "类别占比",
     "cumulativeTrend": "累计趋势",
     "monthlySummary": "月度汇总",
@@ -813,8 +914,6 @@
     "crossBorderFeeShort": "跨境",
     "crossBorderFeeTooltip": "非 with-new 且非租金支出的 4% 跨境转账成本",
     "effectiveCost": "实际成本（含跨境）",
-    "categoryColumn": "类别",
-    "discussionsColumn": "讨论",
     "categories": {
       "tangible_asset": "有形资产",
       "salary": "薪资成本",
@@ -926,7 +1025,9 @@
     "finance": "财务",
     "content": "内容",
     "growth": "增长",
-    "legal": "法务"
+    "legal": "法务",
+    "tech": "技术",
+    "pmo": "PMO"
   },
   "financeForecast": {
     "pageTitle": "财务预测看板",
@@ -967,6 +1068,10 @@
     "stageNameTest": "测试号",
     "chartBreakdown": "盈亏分解",
     "chartCumulative": "累计",
+    "chartStacked": "堆叠",
+    "chartLines": "折线",
+    "chartIndexed": "指数化",
+    "chartTabsLabel": "图表视图切换",
     "noViewHint": "还没有任何可见的预测视角 — 点击左侧创建第一个",
     "noViewEmpty": "还没有任何可见的预测视角。",
     "noViewGuide": "在上方「视角」菜单里新建一个预测场景即可开始。",
@@ -1006,6 +1111,8 @@
     "revenueTitle": "收入预测",
     "ariaCollapse": "折叠",
     "ariaExpand": "展开",
+    "ariaDeleteRow": "删除该行",
+    "ariaAddAccountMenu": "展开新增账号菜单",
     "allYear": "全年",
     "copyPrevMonth": "复制上月",
     "applyForward": "应用到后续月份",
@@ -1185,6 +1292,10 @@
     "colStatus": "状态",
     "colResponsible": "负责人",
     "colSerial": "序列号",
+    "statTotalItems": "物品总数",
+    "statItemUnit": "件",
+    "statTotalCost": "总成本",
+    "costOriginalNote": "开支 {price} · {name}",
     "kind": {
       "physical": "实物",
       "virtual": "虚拟商品"
@@ -1199,6 +1310,8 @@
     "fieldKind": "类型 *",
     "fieldExpense": "关联成本（支出）",
     "fieldExpenseRequired": "关联成本（支出）*",
+    "fieldItemValue": "资产原值",
+    "fieldItemValueHint": "低于关联支出时可填入实际入账价值",
     "fieldPlacementFloor": "放置楼层 *",
     "fieldPlacementZone": "放置区域 *",
     "fieldQuantity": "数量",
@@ -1274,8 +1387,7 @@
     "floorStoreyHeight": "层高（米）",
     "mode2d": "2D",
     "mode3d": "3D",
-    "modeSwitchTo2d": "切到 2D 视图",
-    "modeSwitchTo3d": "切到 3D 视图",
+    "viewModeLabel": "视图模式",
     "mode3dLoading": "正在加载 3D 视图…",
     "mode3dMobileHint": "3D 视图建议在桌面端使用",
     "transformSelect": "选择",
@@ -1362,6 +1474,7 @@
       "power": "电",
       "network": "网"
     },
+    "listTabsLabel": "画布对象列表",
     "tabShapes": "空间",
     "tabMarkers": "标识",
     "tabItems": "物品",
@@ -1482,6 +1595,653 @@
       "dateRange": "日期 {from} ~ {to}",
       "unpaidOnly": "仅未付",
       "crossBorderOnly": "仅跨境"
+    }
+  },
+  "competitors": {
+    "title": "竞品监测",
+    "subtitle": "日区 TikTok 团播竞品：主页指标 + 直播间截图 + 按周粉丝趋势",
+    "addPlaceholder": "粘贴 TikTok 主页链接或 @handle",
+    "addButton": "添加竞品",
+    "addFailed": "添加失败",
+    "empty": "还没有竞品，粘贴一个 TikTok 主页链接开始",
+    "readOnly": "只有管理员可以增删竞品",
+    "colFollowers": "粉丝",
+    "colLikes": "获赞",
+    "colVideos": "作品",
+    "region": "地区",
+    "verified": "已认证",
+    "latestOn": "最近采集 {date}",
+    "noData": "暂无采集数据",
+    "history": "历史打点",
+    "colDate": "日期",
+    "delete": "删除",
+    "deleteConfirm": "确定删除该竞品及其全部打点？",
+    "deleteShotConfirm": "确定删除这张截图？",
+    "actionFailed": "操作失败",
+    "weeklyFollowers": "粉丝 · 近4周",
+    "weeklyDelta": "{pct}%/周",
+    "weeklyPointTip": "{date} 起 · {count}",
+    "weeklyEmpty": "暂无粉丝数据",
+    "shotDates": "截图日期",
+    "earlierDates": "更早",
+    "laterDates": "更晚",
+    "noShotOnDate": "{date} 无截图",
+    "noShotUndated": "无未标日期的截图",
+    "addShotOnDate": "为 {date} 添加截图",
+    "moreShots": "+{count}",
+    "shotIndexOf": "{index} / {total}",
+    "prevShot": "上一张",
+    "nextShot": "下一张",
+    "closeShot": "关闭",
+    "shotDate": "截图日期",
+    "saveShotDate": "保存日期",
+    "shotDateInvalid": "日期格式不对",
+    "upload": "上传",
+    "orPaste": "或粘贴",
+    "related": "关联主播",
+    "independent": "团播主账号",
+    "roleStreamer": "主播",
+    "selectGroup": "选择团播主账号",
+    "belongsTo": "归属主账号",
+    "uploadFailed": "上传失败",
+    "noShots": "还没有截图",
+    "undated": "未标日期",
+    "bio": "简介",
+    "fieldMembers": "人数",
+    "fieldComposition": "构成",
+    "fieldLaunch": "开团",
+    "fieldMc": "MC",
+    "fieldOnline": "在线",
+    "fieldLatestVideos": "最新视频",
+    "openProfile": "打开主页",
+    "expandProfile": "展开档案",
+    "handlePlaceholder": "@handle 或链接",
+    "editHandle": "编辑 handle"
+  },
+  "site": {
+    "meta": {
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
+      "titleTemplate": "%s ｜ EchoAmp OSAKA",
+      "description": "EchoAmp 是以大阪为据点的 TikTok LIVE Creator Network。以双队长制为核心，招募并培养女子直播创作者，从舞蹈训练、直播运营到原创内容制作全部自有完成。"
+    },
+    "nav": {
+      "top": "TOP",
+      "news": "NEWS",
+      "vision": "VISION",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "contact": "CONTACT",
+      "recruit": "RECRUIT 报名",
+      "openMenu": "打开菜单",
+      "closeMenu": "关闭菜单"
+    },
+    "locale": {
+      "ja": "日本語",
+      "zh": "中文",
+      "en": "EN",
+      "toggle": "切换语言",
+      "menuLabel": "语言选项"
+    },
+    "veil": {
+      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "line1": "在大阪，找出最有才华的",
+      "line2": "能唱能跳的直播者。"
+    },
+    "footer": {
+      "address": "大阪市淀川区新大阪 ／ TikTok LIVE Creator Network\n直播培训・AIGC 影像・原创曲制作",
+      "visionMembers": "VISION ／ MEMBERS",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "news": "NEWS",
+      "recruit": "RECRUIT",
+      "contact": "CONTACT",
+      "social": "TIKTOK ／ X ／ LINE",
+      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+    },
+    "ticker": {
+      "items": [
+        "生于大阪 · 2026",
+        "夜色为幕",
+        "镜头亮起",
+        "TT LIVE · 每夜登场",
+        "回响未止"
+      ]
+    },
+    "home": {
+      "eyebrow": "TIKTOK LIVE 创作者网络",
+      "title1": "在大阪，打造",
+      "title2": "女子唱跳直播团。",
+      "tagline": "ECHO FROM OSAKA NIGHT",
+      "lead": "招募、训练、直播、内容制作。EchoAmp 与创作者一起成长。",
+      "ctaApply": "报名",
+      "ctaAbout": "了解 EchoAmp",
+      "heroCaption": "把大阪的灯火，搬进直播间。",
+      "heroPlaceholder": "主视觉／MoonDollz 关键视觉",
+      "stats": [
+        {
+          "value": "2026.09",
+          "label": "第一期成员招募"
+        },
+        {
+          "value": "2026.11",
+          "label": "第二期成员招募"
+        },
+        {
+          "value": "2027.03",
+          "label": "正式成团"
+        }
+      ],
+      "newsHead": {
+        "eyebrow": "01 ／ NEWS",
+        "title": "最新动态",
+        "more": "VIEW ALL →"
+      },
+      "visionHead": {
+        "eyebrow": "02 ／ VISION",
+        "title": "团队的舞台",
+        "more": "READ MORE →"
+      },
+      "visionBody": "我们相信，直播是一种属于团队的舞台。EchoAmp 想让热爱唱跳表演的人聚在一起，通过持续直播，共同形成属于团队的风格与文化。",
+      "visionCards": [
+        {
+          "no": "1 张专辑",
+          "title": "留下团队的作品",
+          "body": "每年至少一张团队专辑，把直播里的表演留成作品。"
+        },
+        {
+          "no": "新大阪",
+          "title": "一切开始的地方",
+          "body": "直播与训练基地，团队文化在这里成形。"
+        },
+        {
+          "no": "13 人",
+          "title": "成为一个真正的团队",
+          "body": "一年内集结约 13 名创作者，共同形成团队风格与文化。"
+        },
+        {
+          "no": "1–3 年",
+          "title": "有限时间，全力成长",
+          "body": "以一年为周期，持续直播积累经验，成长为独立的创作者。"
+        }
+      ],
+      "projectHead": {
+        "eyebrow": "03 ／ PROJECT",
+        "title": "MOONDOLLZ",
+        "sub": "夜之公主，带着梦而来。／ 双队长制的歌唱与舞蹈团体",
+        "more": "MEMBERS →"
+      },
+      "projectPlaceholder": "MOONDOLLZ 概念图（月夜＋和装）",
+      "quote1": "“BORN IN MOONLIGHT.",
+      "quote2": "GLOWING LIKE DOLLS.”",
+      "projectTerms": [
+        {
+          "term": "MOON",
+          "body": "梦幻・夜系・神秘。契合公主系＋夜妆＋深夜直播的气息。"
+        },
+        {
+          "term": "DOLLZ",
+          "body": "复数的玩偶。每个人都有各自的风格，合起来才有「团体感」。"
+        },
+        {
+          "term": "-Z",
+          "body": "加一勺 Y2K、街头与亚文化的温度。"
+        }
+      ],
+      "projectNote": "按小单元区分人物设定分别运营，再作为大团体共同出道，把直播影响力汇聚起来。",
+      "servicesHead": {
+        "eyebrow": "04 ／ SERVICES",
+        "title": "四条业务线"
+      },
+      "techHead": {
+        "eyebrow": "05 ／ TECHNOLOGY",
+        "title": "皮套直播技术"
+      },
+      "techBody": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把它做到了可运营的水平：动作联动加实时演出，全部自有。这是 EchoAmp 独有的差异化领域之一。",
+      "techCta": "查看技术",
+      "techPlaceholder": "皮套／动作捕捉现场照片",
+      "bannerEyebrow": "RECRUIT ／ 二次招募",
+      "bannerLine1": "给会跳舞的人、想被看见的人，",
+      "bannerLine2": "以及还什么都不是的人。",
+      "bannerCta": "查看招募要项 →"
+    },
+    "news": {
+      "eyebrow": "NEWS",
+      "title": "最新动态",
+      "filters": [
+        "ALL",
+        "RECRUIT",
+        "PROJECT",
+        "LIVE"
+      ],
+      "empty": "该分类下暂无内容",
+      "read": "READ →",
+      "back": "← 返回 NEWS 列表",
+      "backCta": "NEWS 列表",
+      "applyCta": "报名 ／ APPLY",
+      "imagePlaceholder": "文章主图",
+      "articles": [
+        {
+          "date": "2026.08.12",
+          "tag": "PROJECT",
+          "title": "3D 皮套人技术团队将为 EchoAmp MC 岗位打造专属角色服务",
+          "lead": "EchoAmp 将与具备丰富抖音直播项目经验的 3D 皮套人技术团队展开合作，为团队 MC 岗位开发专属角色与直播方案。",
+          "body": [
+            "双方将围绕角色造型、实时动作、声音表现与直播互动进行整合，让 MC 能够以稳定的角色形象持续参与团队直播。未来，该能力也将用于探索真人表演、虚拟角色与实时直播结合的新内容形式。"
+          ]
+        },
+        {
+          "date": "2026.08.10",
+          "tag": "PROJECT",
+          "title": "EchoAmp 公布首批运营合作伙伴，将与吉光片羽株式会社展开深度合作",
+          "lead": "EchoAmp 将与具备成熟 MCN 运营及创作者管理经验的吉光片羽株式会社展开深度合作。",
+          "body": [
+            "双方将围绕成员管理、内容运营、现场执行及创作者成长体系进行协作，共同完善从招募、训练到正式直播的线下运营体系。EchoAmp 将负责团队整体品牌与发展方向，并结合吉光片羽株式会社的本地运营经验，推动大阪唱跳直播团队的长期建设。"
+          ]
+        },
+        {
+          "date": "2026.08.01",
+          "tag": "RECRUIT",
+          "title": "EchoAmp 将于9月中旬启动首轮团队招募，计划招募6名成员",
+          "lead": "EchoAmp 计划于 2026 年 9 月中旬在大阪正式启动第一轮成员招募，首期计划招募 6 名女性创作者。",
+          "body": [
+            "招募将重点关注唱歌、舞蹈、镜头表现力以及持续参与直播的意愿。入选成员将参与统一训练、排舞与直播实践，并作为 EchoAmp 首支唱跳直播团队的核心成员，共同建立团队早期的表演风格与文化。"
+          ]
+        },
+        {
+          "date": "2026.07.21",
+          "tag": "PROJECT",
+          "title": "EchoAmp 项目正式启动，计划在大阪打造唱跳型女子直播团体",
+          "lead": "EchoAmp 正式启动大阪地区的 Creator Network 运营计划。",
+          "body": [
+            "项目将以唱歌、舞蹈与直播表演为核心，寻找具有表现力与成长潜力的女性创作者，并逐步组建稳定的女子直播团队。EchoAmp 希望把直播本身作为一种持续发生的舞台，通过训练、内容制作与长期直播，共同形成属于团队的表演风格、文化与粉丝群体。"
+          ]
+        },
+        {
+          "date": "2026.05.01",
+          "tag": "PROJECT",
+          "title": "EchoAmp 宣布双队长制歌唱与舞蹈团体企划启动",
+          "lead": "我们宣布双队长制的歌唱与舞蹈团体「MOONDOLLZ」正式启动。",
+          "body": [
+            "MOON 是梦幻、夜与神秘；DOLLZ 是每个人各有风格的「团体感」；结尾的 Z 是 Y2K 与街头的温度。团名由这三个词叠成。",
+            "按小单元区分人物设定分别运营，同时作为大团体共同出道。两位队长是绫月（MOON SIDE）与雪羽（DOLLZ SIDE）。",
+            "成员将于 10 月、12 月陆续公开。"
+          ]
+        }
+      ]
+    },
+    "vision": {
+      "eyebrow": "VISION ／ 2027",
+      "title": "在大阪，找到最有才华的唱跳直播创作者。",
+      "statement": "我们相信，直播是一种属于团队的舞台。",
+      "lead": "EchoAmp 希望把热爱唱歌、舞蹈与表演的人聚在一起，通过持续的直播，共同创造属于团队的风格与文化，并找到真正喜欢她们、愿意陪伴团队成长的观众。",
+      "imagePlaceholder": "道顿堀／新世界夜景照片",
+      "imageAlt": "大阪夜色插画：从高处俯瞰的城市夜景，霓虹楼群与高架路灯带向远方延伸，中景一座点亮的观光塔",
+      "eras": [
+        {
+          "value": "1 张专辑",
+          "title": "留下团队的作品",
+          "body": "每年完成至少一张团队专辑，让直播中的表演最终成为可以被留下的作品。"
+        },
+        {
+          "value": "新大阪",
+          "title": "一切开始的地方",
+          "body": "专业直播、训练与内容制作基地，也是团队文化真正形成的地方。"
+        },
+        {
+          "value": "13 人",
+          "title": "成为一个真正的团队",
+          "body": "一年内集结约 13 名创作者，共同形成自己的表演风格、团队文化，以及属于她们的粉丝群体。"
+        },
+        {
+          "value": "1–3 年",
+          "title": "有限时间，全力成长",
+          "body": "以一年为一个成长周期，在持续直播与演出中积累观众、作品和舞台经验，成长为能够独立前行的直播创作者。"
+        }
+      ],
+      "principles": [
+        {
+          "label": "SPIRIT",
+          "title": "不等待命运的公主",
+          "body": "不是童话里的玩偶。主动选择、主动改变，也主动书写自己的未来。"
+        },
+        {
+          "label": "VOICE",
+          "title": "甜美之中，藏着锋芒",
+          "body": "温柔、孤独、叛逆与野心并存。把真实情绪变成歌声，也变成舞台上的力量。"
+        },
+        {
+          "label": "IMAGE",
+          "title": "王冠与夜色",
+          "body": "月光、冰雪、玫瑰与都市霓虹。十三位性格不同的女孩，共同组成属于夜晚的舞台。"
+        }
+      ]
+    },
+    "members": {
+      "eyebrow": "MEMBERS ／ MOONDOLLZ",
+      "title": "MOONDOLLZ",
+      "sub": "双队长制。按小单元区分人物设定，再作为大团体共同出道。",
+      "note": "※ 成员将于 10 月・12 月陆续公开",
+      "placeholder": "MEMBER",
+      "captains": [
+        {
+          "eyebrow": "CAPTAIN 01 ／ MOON SIDE",
+          "name": "AYATSUKI",
+          "jp": "绫月／队长",
+          "body": "带领夜・和・静的单元。引路的月亮——指向梦的队长。负责深夜档直播与舞台中心位。"
+        },
+        {
+          "eyebrow": "CAPTAIN 02 ／ DOLLZ SIDE",
+          "name": "YUKIHA",
+          "jp": "雪羽／队长",
+          "body": "以雪的呼吸治愈透明的疼痛。带领雪・竹・静寂的单元，负责舞蹈与对战类企划。"
+        }
+      ],
+      "unrevealedName": "— 尚未公开 —",
+      "unrevealedRole": "12 月公开",
+      "list": [
+        {
+          "name": "KANO",
+          "role": "花乃／易碎微笑的陷阱"
+        },
+        {
+          "name": "MIKOTO",
+          "role": "美琴／优雅之刃"
+        },
+        {
+          "name": "LULU",
+          "role": "露露／炸开的粉色闪光"
+        },
+        {
+          "name": "CHIYO",
+          "role": "千夜／千夜起舞的孤星"
+        },
+        {
+          "name": "AKAYA",
+          "role": "绫香／宫廷里盛放的强樱"
+        },
+        {
+          "name": "YUMEKI",
+          "role": "梦绮／编织幻象的声音"
+        },
+        {
+          "name": "SHINO",
+          "role": "紫乃／高贵而危险的诱惑者"
+        },
+        {
+          "name": "HIMENE",
+          "role": "姬音／为声音而生的公主"
+        }
+      ]
+    },
+    "live": {
+      "eyebrow": "TIKTOK LIVE",
+      "title": "直播排期",
+      "lead": "从训练到开播，我们以阶段化方式推进成员成长，让直播能力成为 Creator Network 的核心基础。",
+      "headers": {
+        "day": "DAY",
+        "program": "PROGRAM",
+        "focus": "FOCUS",
+        "time": "TIME"
+      },
+      "schedule": [
+        {
+          "day": "DAY 1–3",
+          "program": "试装与初始风格设定",
+          "focus": "STYLE SETUP",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 4–10",
+          "program": "个人舞蹈挑选与集中培训",
+          "focus": "DANCE TRAINING",
+          "time": "10:00–18:00"
+        },
+        {
+          "day": "DAY 11–15",
+          "program": "初舞台设计与直播规则培训",
+          "focus": "STAGE & LIVE RULES",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 16–20",
+          "program": "定妆照与介绍视频拍摄",
+          "focus": "PHOTO & INTRO VIDEO",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 21–30",
+          "program": "试播训练（每日 3 小时）",
+          "focus": "TRIAL LIVE",
+          "time": "14:00–21:00"
+        },
+        {
+          "day": "MONTH 2",
+          "program": "正式开播（周一休息）",
+          "focus": "REGULAR LIVE",
+          "time": "TUE–SUN"
+        },
+        {
+          "day": "TIME SLOT",
+          "program": "每日两档直播",
+          "focus": "2 SESSIONS / DAY",
+          "time": "14:30–17:30 / 18:30–21:30"
+        }
+      ],
+      "onAirLabel": "开播平台",
+      "onAirPlaceholder": "直播画面截图（竖屏）",
+      "onAirAlt": "直播造型合照：五位主播身着黑白制服风服装，手持话筒与权杖立于摄影棚",
+      "onAirProgram": "专属 TikTok app 的直播舞台",
+      "onAirTime": "开播日 ／ 大阪・新大阪"
+    },
+    "services": {
+      "eyebrow": "SERVICES",
+      "title": "业务内容",
+      "items": [
+        {
+          "no": "01",
+          "code": "S-01",
+          "title": "直播培训",
+          "en": "LIVE TRAINING",
+          "short": "从零起步的发声、镜头感、话术设计到数据运营，专属经理全程陪跑。",
+          "body": "面向无经验者，分阶段指导发声、镜头感、话术设计、评论运营与数据分析。专属经理每日陪跑，连直播时段的设计也一起做。"
+        },
+        {
+          "no": "02",
+          "code": "S-02",
+          "title": "AIGC 偶像影像",
+          "en": "AIGC IDOL DRAMA",
+          "short": "用生成式 AI 企划与制作短篇偶像剧，在直播之外建立世界观。",
+          "body": "用生成式 AI 做短篇偶像剧的企划、剧本与制作。在直播之外搭建世界观，把成员的人物设定沉淀成影像资产。"
+        },
+        {
+          "no": "03",
+          "code": "S-03",
+          "title": "专属原创曲",
+          "en": "ORIGINAL MUSIC",
+          "short": "为团体与个人量身写歌，同时供给直播与舞台。",
+          "body": "为团体曲与个人曲量身创作，供给直播、舞台与影像。以歌曲为轴心，编排全年的发行与活动计划。"
+        },
+        {
+          "no": "04",
+          "code": "S-04",
+          "title": "皮套直播技术",
+          "en": "SUIT LIVE TECHNOLOGY",
+          "short": "造型、动作、声音与实时演出一体自有。日本国内案例尚少的差异化领域。",
+          "body": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把这套 know-how 沉淀在公司内部：造型、动作、声音与实时演出一体运营，不依赖演出者露脸，持续培育角色 IP。这是 EchoAmp 独有的差异化领域之一。"
+        }
+      ],
+      "subItems": [
+        {
+          "no": "04-A",
+          "title": "造型与套装设计",
+          "body": "以「在直播里好看」为前提设计轮廓、可动范围与视野，并解决长时间直播的透气与配重。"
+        },
+        {
+          "no": "04-B",
+          "title": "动作联动",
+          "body": "跟随演出者动作的表情、发光与特效控制，在直播端实时合成。"
+        },
+        {
+          "no": "04-C",
+          "title": "作为 IP 运营",
+          "body": "角色是不依赖演出者的资产，可延伸到 AIGC 影像、歌曲与周边。"
+        }
+      ],
+      "placeholders": [
+        "皮套拍摄／制作现场",
+        "动作联动测试画面"
+      ]
+    },
+    "recruit": {
+      "eyebrow": "RECRUIT ／ 招募要项",
+      "title1": "给会跳舞的人、想被看见的人，",
+      "title2": "以及还什么都不是的人。",
+      "rows": [
+        {
+          "label": "招募对象",
+          "body": "18–26 岁女性；居住于大阪・关西或可通勤者。需持有日本国籍或可工作的在留资格。"
+        },
+        {
+          "label": "优先经验",
+          "body": "舞蹈（街舞／啦啦队／芭蕾等）、舞台经验、大学舞蹈部与社会人舞团成员。无经验但有意愿者亦可。"
+        },
+        {
+          "label": "活动内容",
+          "body": "TikTok LIVE 直播、MOONDOLLZ 团体活动、AIGC 影像出演、原创曲发行、线下活动。"
+        },
+        {
+          "label": "待遇",
+          "body": "课程与场地费用由公司承担；直播收益按规定分成；提供服装与拍摄支持。"
+        },
+        {
+          "label": "应征流程",
+          "body": "提交表单 → 资料筛选 → 线上面谈 → 大阪工作室实技 → 录取签约。约需 2–3 周。"
+        }
+      ],
+      "payEyebrow": "RECRUIT ／ 关于收益与待遇",
+      "payTitle": "收益与待遇的思路",
+      "payCols": [
+        "直播收益按规定分成，并会随直播时长、成绩与参与团体活动的程度分档变化。",
+        "课程费、场地费、服装与拍摄由公司承担，不需要你承担初期费用。",
+        "具体金额、合约形式与工作强度，会在线上面谈时单独说明。"
+      ],
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "姓名",
+        "age": "年龄",
+        "residence": "居住地",
+        "contact": "联系方式",
+        "contactHint": "LINE ID、邮箱或社交账号任一",
+        "experience": "经验・社交账号",
+        "consent": "我同意公司为招募选拔目的使用以上信息。",
+        "submit": "提交",
+        "submitting": "提交中…",
+        "lineNote": "也可以通过 LINE 报名：@echoamp_osaka",
+        "successTitle": "感谢你的报名。",
+        "successBody": "我们会在确认内容后于 2–3 周内联系你。如需加急，请直接联系 LINE（@echoamp_osaka）。",
+        "errors": {
+          "required": "请填写",
+          "tooLong": "超出字数上限",
+          "outOfRange": "请填写 16–60 之间的数字",
+          "invalidAge": "请填写半角数字",
+          "consent": "需要你的同意",
+          "rateLimited": "提交过于频繁，请稍后再试。",
+          "network": "提交失败，请检查网络后重试。"
+        }
+      }
+    },
+    "contact": {
+      "eyebrow": "CONTACT",
+      "title": "联系我们",
+      "sections": [
+        {
+          "no": "01", "eyebrow": "FOR CREATOR", "title": "想报名的人",
+          "body": "关于试镜、课程与活动条件。招募及线下运营由 Chiron 株式会社负责，通过 LINE 咨询最快。",
+          "cta": "用 LINE 咨询", "action": "recruit", "partner": "运营主体",
+          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "rows": [
+            { "label": "公司名称", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
+            { "label": "成立・所在地", "value": "2021年／大阪市淀川区" },
+            { "label": "业务内容", "value": "ライブ配信キャストの採用・オフライン運営" },
+            { "label": "所在地", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
+            { "label": "公司官网", "value": "https://chi-ron.com/", "link": "external" }
+          ]
+        },
+        {
+          "no": "02", "eyebrow": "FOR COMPANION", "title": "制作与运营合作伙伴",
+          "body": "负责妆发、外景拍摄、团体直播运营培训和 AIGC 内容制作的合作伙伴。",
+          "note": "咨询窗口正在准备中", "partner": "PRODUCTION PARTNER",
+          "rows": [
+            { "label": "公司名称", "value": "吉光片羽株式会社" },
+            { "label": "成立・所在地", "value": "2019年／西宮市" },
+            { "label": "业务内容", "value": "インフルエンサーマーケティング" },
+            { "label": "负责领域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
+            { "label": "公司官网", "value": "https://kikkou.jp/", "link": "external" }
+          ]
+        },
+        {
+          "no": "03", "eyebrow": "客户合作", "title": "企业及品牌合作",
+          "body": "我们接受有关乐曲制作、皮套人技术、商业直播咨询、广告业务合作，以及不诚信行为与合规投诉的邮件联系。",
+          "cta": "business@echoamp.jp", "action": "email",
+          "rows": [
+            { "label": "内容", "value": "乐曲制作／皮套人技术／商业直播咨询／广告业务合作／不诚信行为与合规投诉" },
+            { "label": "联系方式", "value": "business@echoamp.jp", "link": "email" },
+            { "label": "服务时间", "value": "工作日 10:00–19:00（日本时间）／中文・日文" }
+          ]
+        }
+      ],
+      "office": {
+        "eyebrow": "OFFICE ／ 关于办公室",
+        "title": "距新大阪站步行 5 分钟",
+        "body": "办公室与直播工作室位于新大阪一带，新干线与地铁都方便到达，课程与直播能在同一个地方完成。楼名与房号会在面谈确定后单独告知。",
+        "rows": [
+          {
+            "label": "最近车站",
+            "value": "JR・地铁「新大阪」站 步行 5 分钟"
+          },
+          {
+            "label": "设施",
+            "value": "直播间／课程空间／拍摄空间"
+          },
+          {
+            "label": "来访",
+            "value": "完全预约制，详细地址面谈确定后告知"
+          }
+        ],
+        "map": {
+          "station": "新大阪站",
+          "walk": "步行 5 分 ／ 400m",
+          "studio": "ECHOAMP STUDIO",
+          "areaEn": "SHIN-OSAKA AREA",
+          "areaJp": "大阪市淀川区・新大阪一带",
+          "north": "N ↑",
+          "axis": "西 ← → 东",
+          "alt": "示意图：从新大阪站到工作室步行 5 分钟的位置关系"
+        }
+      }
+    },
+    "theme": {
+      "dark": "◐ DARK",
+      "light": "◑ LIGHT",
+      "toggle": "切换深浅主题"
+    }
+  },
+  "recruitApplications": {
+    "title": "官网应募",
+    "subtitle": "对外官网 RECRUIT 表单的投递记录（只读）",
+    "totalLabel": "投递总数",
+    "newLabel": "待处理",
+    "todayLabel": "今日新增",
+    "listTitle": "投递列表",
+    "empty": "还没有收到投递",
+    "columns": {
+      "date": "时间",
+      "name": "姓名",
+      "age": "年龄",
+      "residence": "居住地",
+      "contact": "联系方式",
+      "locale": "语言",
+      "experience": "经验・社交账号"
     }
   }
 }

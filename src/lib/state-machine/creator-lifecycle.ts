@@ -64,17 +64,9 @@ export const STATUS_LABEL: Record<CreatorStatus, string> = {
   terminated: 'Terminated',
 }
 
-// Tailwind color classes for each status
-export const STATUS_COLOR: Record<CreatorStatus, { bg: string; text: string; dot: string }> = {
-  prospect:   { bg: 'bg-zinc-100',   text: 'text-zinc-700',  dot: 'bg-zinc-400' },
-  contacted:  { bg: 'bg-blue-100',    text: 'text-blue-700',   dot: 'bg-blue-500' },
-  engaged:    { bg: 'bg-cyan-100',    text: 'text-cyan-700',   dot: 'bg-cyan-500' },
-  onboarded:  { bg: 'bg-purple-100',  text: 'text-purple-700', dot: 'bg-purple-500' },
-  live_ready: { bg: 'bg-amber-100',   text: 'text-amber-700',  dot: 'bg-amber-500' },
-  live:       { bg: 'bg-green-100',   text: 'text-green-700',  dot: 'bg-green-500' },
-  monetized:  { bg: 'bg-emerald-100', text: 'text-emerald-700',dot: 'bg-emerald-500' },
-  terminated: { bg: 'bg-rose-100',    text: 'text-rose-700',   dot: 'bg-rose-500' },
-}
+// STATUS_COLOR (hand-rolled Tailwind class table) retired — LifecycleBadge
+// now renders via the shared Tag + toneOf('creator', status) registry
+// (docs/design-system.md §1.3), its sole consumer.
 
 // Which knowledge categories are most relevant per status
 export const STATUS_KNOWLEDGE: Partial<Record<CreatorStatus, string[]>> = {
