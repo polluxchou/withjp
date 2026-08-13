@@ -52,8 +52,18 @@ export default function SiteVisionPage({ params }: { params: { locale: string } 
       </SiteSection>
 
       <SiteSection divider={false} className="pt-0 lg:pt-0">
+        {/* 图位高度不动：桌面 1296×420 是 3.09:1，图本身 2172×724 正好 3:1，
+            object-cover 只切掉上下各几像素。duotone 摘掉，同 ON AIR 图位和首页
+            05 TECHNOLOGY 那次(PR 198 / PR 200)：这张的看点就是霓虹和地平线那道
+            余晖，压成青色单色调等于把它抹平。 */}
         <div className="relative h-[240px] sm:h-[320px] lg:h-[420px]">
-          <SiteImage placeholder={t('imagePlaceholder')} duotone className="h-full w-full" />
+          <SiteImage
+            src="/site/vision-osaka-night.webp"
+            alt={t('imageAlt')}
+            placeholder={t('imagePlaceholder')}
+            sizes="(min-width: 1360px) 1296px, 100vw"
+            className="h-full w-full"
+          />
         </div>
       </SiteSection>
 
