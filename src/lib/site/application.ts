@@ -7,7 +7,7 @@ import { locales, type Locale } from '../../i18n/routing.ts'
  * 应募表单的校验与反垃圾判定。纯函数、无 IO —— 数据库和 HTTP 的部分在
  * src/app/api/site/applications/route.ts 里，这里只回答「这份提交合不合法」。
  *
- * 上限与数据库的 check 约束一致（supabase/migrations/045_site_applications.sql），
+ * 上限与数据库的 check 约束一致（supabase/migrations/20260811183310_site_applications.sql），
  * 两边改必须一起改。
  */
 export const LIMITS = {
