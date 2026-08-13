@@ -15,9 +15,17 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts'
-import { Flag, Globe, Workflow } from 'lucide-react'
+import {
+  Flag, Globe, AlertTriangle,
+  PieChart as PieChartIcon, TrendingUp, CalendarRange,
+} from 'lucide-react'
 import type { Expense, ExpenseCategory, MilestoneStatus, MilestonePriority } from '@/lib/types'
 import ExpenseSankeyChart from './ExpenseSankeyChart'
+import { categoryColor } from './category-color'
+import SectionCard from '@/components/ui/SectionCard'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import Button from '@/components/ui/Button'
+import { AXIS, GRID, TOOLTIP_STYLE, TOOLTIP_LABEL_STYLE } from '@/lib/chart-theme'
 import {
   EXPENSE_CATEGORY_OPTIONS,
   getExpenseCategoryBreakdown,
@@ -31,7 +39,14 @@ import {
 import { useTranslations } from 'next-intl'
 import { useCurrency } from '@/lib/currency'
 
+// Primary view state used to live inside this component as its own pill
+// tablist ('category' | 'trend' | 'monthly'). It is now lifted to the page
+// header's <Tabs> (alongside a fourth 'list' value the page renders itself),
+// so the parent passes the active view down instead of us owning it.
+export type ExpenseChartView = 'category' | 'trend' | 'monthly'
+
 interface Props {
+  view: ExpenseChartView
   expenses: Expense[]
   categoryBreakdownExpenses?: Expense[]
   selectedCategory?: string
@@ -50,10 +65,15 @@ interface MilestoneMarker {
   priority:    MilestonePriority
 }
 
-const PRIORITY_COLOR: Record<MilestonePriority, string> = {
-  high:   '#ef4444',
-  medium: '#f59e0b',
-  low:    '#8b5cf6',
+// Milestone priority → tone triple, replacing the old flat hex map. The
+// legend chip used to build its tinted bg/border by string-concatenating an
+// alpha suffix onto a 6-digit hex (`color + '55'`) — that trick breaks once
+// the base color is a var()/rgb() string, so each priority now carries its
+// own pre-tinted soft/border tokens instead of deriving them at call sites.
+const PRIORITY_TONE: Record<MilestonePriority, { dot: string; soft: string; border: string }> = {
+  high:   { dot: 'var(--danger-dot)',  soft: 'var(--danger-soft)',  border: 'var(--danger-border)' },
+  medium: { dot: 'var(--warning-dot)', soft: 'var(--warning-soft)', border: 'var(--warning-border)' },
+  low:    { dot: 'rgb(var(--primary))', soft: 'var(--primary-soft)', border: 'var(--primary-border)' },
 }
 
 // Map MilestoneStatus snake_case to the camelCase key under timeline.status.
@@ -65,16 +85,6 @@ const TIMELINE_STATUS_KEY: Record<MilestoneStatus, string> = {
   missed:    'missed',
 }
 
-const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
-  tangible_asset:  '#8b5cf6',
-  salary:          '#f59e0b',
-  rent:            '#10b981',
-  travel:          '#3b82f6',
-  office_supplies: '#8b5cf6',
-  cloud_services:  '#ec4899',
-}
-
-type Tab = 'category' | 'trend' | 'monthly'
 type MonthlyView = 'table' | 'chart'
 type MonthlyGran = 'day' | 'month'
 
@@ -112,16 +122,16 @@ function CategoryTooltip({
   if (!item?.category) return null
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-lg shadow-md p-2.5 text-xs min-w-[150px]">
-      <p className="font-semibold text-zinc-700 mb-1.5">{categoryLabel(item.category)}</p>
+    <div className="bg-surface border border-line rounded-field shadow-pop p-2.5 text-xs min-w-[150px]">
+      <p className="font-semibold text-ink-700 mb-1.5">{categoryLabel(item.category)}</p>
       <div className="space-y-1">
         <p className="flex items-center justify-between gap-3">
-          <span className="text-zinc-500">{amountLabel}</span>
-          <span className="font-medium text-zinc-900">{fmt(Number(item.total ?? 0))}</span>
+          <span className="text-ink-500">{amountLabel}</span>
+          <span className="font-medium text-ink-900">{fmt(Number(item.total ?? 0))}</span>
         </p>
         <p className="flex items-center justify-between gap-3">
-          <span className="text-zinc-500">{shareLabel}</span>
-          <span className="font-medium text-zinc-900">{Number(item.pct ?? 0).toFixed(1)}%</span>
+          <span className="text-ink-500">{shareLabel}</span>
+          <span className="font-medium text-ink-900">{Number(item.pct ?? 0).toFixed(1)}%</span>
         </p>
       </div>
     </div>
@@ -136,23 +146,23 @@ function DayTooltip({ active, payload, label, fmt, dayCountAlert }: ChartTooltip
   const count = (payload[0]?.payload?.count as number) ?? 0
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-lg shadow-md p-2.5 text-xs min-w-[140px]">
-      <p className="font-semibold text-zinc-700 mb-1.5">{label}</p>
+    <div className="bg-surface border border-line rounded-field shadow-pop p-2.5 text-xs min-w-[140px]">
+      <p className="font-semibold text-ink-700 mb-1.5">{label}</p>
       <div className="space-y-1">
         {payload.map((p) => (
           <p key={String(p.dataKey)} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-            <span className="text-zinc-500">{p.name}:</span>
-            <span className="font-medium text-zinc-800 ml-auto pl-2">
+            <span className="text-ink-500">{p.name}:</span>
+            <span className="font-medium text-ink-900 ml-auto pl-2">
               {fmt(Number(p.value ?? 0))}
             </span>
           </p>
         ))}
       </div>
       {total >= 100000 && count > 0 && dayCountAlert && (
-        <div className="mt-2 pt-2 border-t border-red-100">
-          <p className="text-red-600 font-semibold flex items-center gap-1">
-            <span>⚠️</span>
+        <div className="mt-2 pt-2 border-t border-danger-border">
+          <p className="text-danger-text font-semibold flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" strokeWidth={1.5} />
             <span>{dayCountAlert(count, fmt(100000, { compact: true }))}</span>
           </p>
         </div>
@@ -162,6 +172,7 @@ function DayTooltip({ active, payload, label, fmt, dayCountAlert }: ChartTooltip
 }
 
 export default function ExpenseCategoryChart({
+  view,
   expenses,
   categoryBreakdownExpenses = expenses,
   selectedCategory = '',
@@ -169,7 +180,6 @@ export default function ExpenseCategoryChart({
   selectedPeriod,
   onPeriodSelect,
 }: Props) {
-  const [tab, setTab]                 = useState<Tab>('category')
   const [catView, setCatView]         = useState<'pie' | 'sankey'>('pie')
   const [granularity, setGranularity] = useState<CostGranularity>('month')
   const [monthlyView, setMonthlyView] = useState<MonthlyView>('table')
@@ -289,486 +299,438 @@ export default function ExpenseCategoryChart({
 
   if (categoryBreakdownExpenses.length === 0) return null
 
-  const TABS: { key: Tab; label: string }[] = [
-    { key: 'category', label: t('categoryShare') },
-    { key: 'trend',    label: t('cumulativeTrend') },
-    { key: 'monthly',  label: t('monthlySummary') },
-  ]
+  // SectionCard chrome (icon/title/secondary controls) driven by the active
+  // view — the primary category/trend/monthly switch itself now lives in the
+  // page header's <Tabs> (see ExpenseChartView).
+  const sectionIcon = view === 'category' ? <PieChartIcon /> : view === 'trend' ? <TrendingUp /> : <CalendarRange />
+  const sectionTitle = view === 'category' ? t('categoryShare') : view === 'trend' ? t('cumulativeTrend') : t('monthlySummary')
+
+  const sectionActions = view === 'category' ? (
+    // NB: SegmentedControl's item `label` is a plain string (no icon slot),
+    // so the small Workflow icon that used to sit next to "流向图" is dropped
+    // here — a real component-API gap, flagged separately in the task report.
+    <SegmentedControl
+      items={[
+        { value: 'pie', label: t('categoryChart.viewPie') },
+        { value: 'sankey', label: t('categoryChart.viewSankey') },
+      ]}
+      value={catView}
+      onChange={(v) => setCatView(v as 'pie' | 'sankey')}
+    />
+  ) : view === 'trend' ? (
+    <SegmentedControl
+      items={(['month', 'quarter', 'year'] as CostGranularity[]).map((g) => ({ value: g, label: t(g) }))}
+      value={granularity}
+      onChange={(v) => setGranularity(v as CostGranularity)}
+    />
+  ) : (
+    <div className="flex items-center gap-2">
+      <SegmentedControl
+        items={[
+          { value: 'table', label: t('tableView') },
+          { value: 'chart', label: t('chartView') },
+        ]}
+        value={monthlyView}
+        onChange={(v) => setMonthlyView(v as MonthlyView)}
+      />
+      {monthlyView === 'chart' && (
+        <>
+          <Button
+            variant={showMilestones ? 'secondary' : 'ghost'}
+            size="sm"
+            disabled={msLoading}
+            title={t('monthly.milestonesTooltip')}
+            onClick={toggleMilestones}
+          >
+            <Flag className="w-3.5 h-3.5" />
+            {msLoading ? t('monthly.milestonesLoading') : t('monthly.milestonesShort')}
+          </Button>
+          <SegmentedControl
+            items={[
+              { value: 'day', label: t('day') },
+              { value: 'month', label: t('month') },
+            ]}
+            value={monthlyGran}
+            onChange={(v) => setMonthlyGran(v as MonthlyGran)}
+          />
+        </>
+      )}
+    </div>
+  )
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-          {TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                tab === key
-                  ? 'bg-white text-zinc-900 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'category' && (
-          <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-            <button
-              onClick={() => setCatView('pie')}
-              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                catView === 'pie' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
-              }`}
-            >
-              {t('category.viewPie')}
-            </button>
-            <button
-              onClick={() => setCatView('sankey')}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                catView === 'sankey' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
-              }`}
-            >
-              <Workflow className="w-3 h-3" />
-              {t('category.viewSankey')}
-            </button>
-          </div>
+    <div className="mb-6">
+      <SectionCard icon={sectionIcon} title={sectionTitle} actions={sectionActions}>
+        {/* ── 类别占比 — Sankey 流向图 ── */}
+        {view === 'category' && catView === 'sankey' && (
+          <ExpenseSankeyChart
+            expenses={categoryBreakdownExpenses}
+            selectedCategory={selectedCategory}
+          />
         )}
 
-        {tab === 'trend' && (
-          <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-            {(['month', 'quarter', 'year'] as CostGranularity[]).map((g) => (
-              <button
-                key={g}
-                onClick={() => setGranularity(g)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  granularity === g ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
-                }`}
-              >
-                {t(g)}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        {/* ── 类别占比 — 饼图 | 主成本分类 | 经办人分类 ── */}
+        {view === 'category' && catView === 'pie' && (
+          <div className="grid gap-x-5 gap-y-4 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,260px)_minmax(160px,240px)]">
 
-      {/* ── Tab 1: 类别占比 — Sankey 流向图 ── */}
-      {tab === 'category' && catView === 'sankey' && (
-        <ExpenseSankeyChart
-          expenses={categoryBreakdownExpenses}
-          selectedCategory={selectedCategory}
-        />
-      )}
-
-      {/* ── Tab 1: 类别占比 — 饼图 | 主成本分类 | 经办人分类 ── */}
-      {tab === 'category' && catView === 'pie' && (
-        <div className="grid gap-x-5 gap-y-4 lg:grid-cols-[minmax(220px,1fr)_minmax(180px,260px)_minmax(160px,240px)]">
-
-          {/* ① 饼图 */}
-          <div className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={breakdown}
-                  dataKey="total"
-                  nameKey="category"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={58}
-                  outerRadius={96}
-                  paddingAngle={2}
-                  onClick={(entry) => {
-                    const category = (entry as { category?: ExpenseCategory; payload?: { category?: ExpenseCategory } }).category
-                      ?? (entry as { payload?: { category?: ExpenseCategory } }).payload?.category
-                    if (category) onCategorySelect?.(category)
-                  }}
-                >
-                  {breakdown.map((item) => {
-                    const active = selectedCategory === item.category
-                    return (
-                      <Cell
-                        key={item.category}
-                        fill={CATEGORY_COLORS[item.category]}
-                        stroke={active ? '#0f172a' : '#ffffff'}
-                        strokeWidth={active ? 3 : 2}
-                        className="cursor-pointer outline-none transition-opacity hover:opacity-80"
-                      />
-                    )
-                  })}
-                </Pie>
-                <Tooltip
-                  content={
-                    <CategoryTooltip
-                      fmt={fmt}
-                      categoryLabel={(category) => t(`categories.${category}`)}
-                      amountLabel={t('amount')}
-                      shareLabel={t('categoryShare')}
-                    />
-                  }
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* ② 主成本分类 */}
-          <div className="space-y-2 self-start border-l border-zinc-100 pl-5">
-            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2.5 px-1">
-              {t('categoryShare')}
-            </p>
-            {breakdown.map((item) => {
-              const active = selectedCategory === item.category
-              return (
-                <button
-                  key={item.category}
-                  type="button"
-                  onClick={() => onCategorySelect?.(item.category)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                    active
-                      ? 'border-zinc-900 bg-zinc-50'
-                      : 'border-transparent hover:border-zinc-200 hover:bg-zinc-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                        style={{ backgroundColor: CATEGORY_COLORS[item.category] }}
-                      />
-                      <span className="text-xs font-medium text-zinc-700 truncate">{t(`categories.${item.category}`)}</span>
-                    </div>
-                    <span className="text-xs font-semibold text-zinc-900 whitespace-nowrap">
-                      {fmtCompact(item.total)}
-                    </span>
-                  </div>
-                  <div className="mt-1 text-xs text-zinc-500">{item.pct.toFixed(1)}%</div>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* ③ 经办人分类 */}
-          {buyerBreakdown.length > 0 && (
-            <div className="space-y-1 self-start border-l border-zinc-100 pl-5">
-              <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2.5 px-1">
-                {selectedCategory
-                  ? `${t(`categories.${selectedCategory as ExpenseCategory}`)} · ${t('buyer')}`
-                  : `${t('category.allBuyersLabel')} · ${t('buyer')}`
-                }
-              </p>
-              {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
-                const isCrossBorder = crossBorder > 0
-                const displayName   = BUYER_DISPLAY[buyer] ?? buyer
-                return (
-                  <div
-                    key={buyer}
-                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-zinc-50"
+            {/* ① 饼图 */}
+            <div className="h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={breakdown}
+                    dataKey="total"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={96}
+                    paddingAngle={2}
+                    onClick={(entry) => {
+                      const category = (entry as { category?: ExpenseCategory; payload?: { category?: ExpenseCategory } }).category
+                        ?? (entry as { payload?: { category?: ExpenseCategory } }).payload?.category
+                      if (category) onCategorySelect?.(category)
+                    }}
                   >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs text-zinc-700 truncate">{displayName}</span>
-                      {isCrossBorder && (
+                    {breakdown.map((item) => {
+                      const active = selectedCategory === item.category
+                      return (
+                        <Cell
+                          key={item.category}
+                          fill={categoryColor(item.category)}
+                          stroke={active ? 'rgb(var(--ink-900))' : 'var(--surface)'}
+                          strokeWidth={active ? 3 : 2}
+                          className="cursor-pointer outline-none transition-opacity hover:opacity-80"
+                        />
+                      )
+                    })}
+                  </Pie>
+                  <Tooltip
+                    content={
+                      <CategoryTooltip
+                        fmt={fmt}
+                        categoryLabel={(category) => t(`categories.${category}`)}
+                        amountLabel={t('amount')}
+                        shareLabel={t('categoryShare')}
+                      />
+                    }
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* ② 主成本分类 */}
+            <div className="space-y-2 self-start border-l border-line pl-5">
+              <p className="text-micro font-semibold text-ink-400 uppercase tracking-wide mb-2.5 px-1">
+                {t('categoryShare')}
+              </p>
+              {breakdown.map((item) => {
+                const active = selectedCategory === item.category
+                return (
+                  <button
+                    key={item.category}
+                    type="button"
+                    onClick={() => onCategorySelect?.(item.category)}
+                    className={`w-full rounded-field border px-3 py-2 text-left transition-colors ${
+                      active
+                        ? 'border-primary-border bg-primary-soft'
+                        : 'border-transparent hover:border-line hover:bg-line-soft'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span
-                          title={t('category.crossBorderTooltip', { amount: fmtCompact(crossBorder) })}
-                          className="flex items-center gap-0.5 text-[10px] font-medium text-rose-500 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded whitespace-nowrap"
-                        >
-                          <Globe className="w-2.5 h-2.5 flex-shrink-0" />
-                          {fmtCompact(crossBorder)}
-                        </span>
-                      )}
+                          className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                          style={{ backgroundColor: categoryColor(item.category) }}
+                        />
+                        <span className="text-xs font-medium text-ink-700 truncate">{t(`categories.${item.category}`)}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-ink-900 whitespace-nowrap">
+                        {fmtCompact(item.total)}
+                      </span>
                     </div>
-                    <span className="text-xs font-semibold text-zinc-900 whitespace-nowrap flex-shrink-0">
-                      {fmtCompact(total)}
-                    </span>
-                  </div>
+                    <div className="mt-1 text-xs text-ink-500">{item.pct.toFixed(1)}%</div>
+                  </button>
                 )
               })}
             </div>
-          )}
-        </div>
-      )}
 
-      {/* ── Tab 2: 累计趋势 ── */}
-      {tab === 'trend' && (
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={timeSeries} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={52} />
-            <Tooltip
-              formatter={(v) => [fmt(Number(v)), '']}
-              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line type="monotone" dataKey="paid"          name={t('paymentStatuses.paid')} stroke="#10b981" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="budgeted"      name={t('paymentStatuses.budgeted')} stroke="#8b5cf6" strokeWidth={2} dot={false} strokeDasharray="4 2" />
-            <Line type="monotone" dataKey="ordered_unpaid" name={t('paymentStatuses.ordered_unpaid')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="4 2" />
-          </LineChart>
-        </ResponsiveContainer>
-      )}
-
-      {/* ── Tab 3: 月度汇总 ── */}
-      {tab === 'monthly' && (
-        <>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-                {(['table', 'chart'] as MonthlyView[]).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setMonthlyView(v)}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                      monthlyView === v ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
-                    }`}
-                  >
-                    {v === 'table' ? t('tableView') : t('chartView')}
-                  </button>
-                ))}
-              </div>
-              {monthlyView === 'chart' && (
-                <button
-                  onClick={toggleMilestones}
-                  disabled={msLoading}
-                  title={t('monthly.milestonesTooltip')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
-                    showMilestones
-                      ? 'bg-primary-soft border-violet-300 text-primary'
-                      : 'bg-white border-zinc-200 text-zinc-500 hover:border-violet-300 hover:text-primary'
-                  }`}
-                >
-                  <Flag className="w-3 h-3" />
-                  {msLoading ? t('monthly.milestonesLoading') : t('monthly.milestonesShort')}
-                </button>
-              )}
-            </div>
-            {monthlyView === 'chart' && (
-              <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-                {(['day', 'month'] as MonthlyGran[]).map((g) => (
-                  <button
-                    key={g}
-                    onClick={() => setMonthlyGran(g)}
-                    className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                      monthlyGran === g ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
-                    }`}
-                  >
-                    {t(g)}
-                  </button>
-                ))}
+            {/* ③ 经办人分类 */}
+            {buyerBreakdown.length > 0 && (
+              <div className="space-y-1 self-start border-l border-line pl-5">
+                <p className="text-micro font-semibold text-ink-400 uppercase tracking-wide mb-2.5 px-1">
+                  {selectedCategory
+                    ? `${t(`categories.${selectedCategory as ExpenseCategory}`)} · ${t('buyer')}`
+                    : `${t('categoryChart.allBuyersLabel')} · ${t('buyer')}`
+                  }
+                </p>
+                {buyerBreakdown.map(({ buyer, total, crossBorder }) => {
+                  const isCrossBorder = crossBorder > 0
+                  const displayName   = BUYER_DISPLAY[buyer] ?? buyer
+                  return (
+                    <div
+                      key={buyer}
+                      className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-field hover:bg-line-soft"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-xs text-ink-700 truncate">{displayName}</span>
+                        {isCrossBorder && (
+                          <span
+                            title={t('categoryChart.crossBorderTooltip', { amount: fmtCompact(crossBorder) })}
+                            className="flex items-center gap-0.5 text-micro font-medium text-danger-text bg-danger-soft border border-danger-border px-1 py-0.5 rounded whitespace-nowrap"
+                          >
+                            <Globe className="w-2.5 h-2.5 flex-shrink-0" />
+                            {fmtCompact(crossBorder)}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-semibold text-ink-900 whitespace-nowrap flex-shrink-0">
+                        {fmtCompact(total)}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
+        )}
 
-          {monthlyView === 'chart' ? (
-            <>
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart
-                  data={chartData}
-                  margin={{ top: 20, right: 24, bottom: 0, left: 0 }}
-                  onMouseMove={(s) => {
-                    // Recharts' state shape varies; activeLabel is the X value of the hovered point
-                    const label = (s as { activeLabel?: string } | undefined)?.activeLabel
-                    setHoveredPeriod(label ?? null)
-                  }}
-                  onMouseLeave={() => setHoveredPeriod(null)}
-                  onClick={(s) => {
-                    const label = (s as { activeLabel?: string } | undefined)?.activeLabel
-                    if (label && onPeriodSelect) onPeriodSelect(label, monthlyGran)
-                  }}
-                  style={onPeriodSelect ? { cursor: 'pointer' } : undefined}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis
-                    dataKey="period"
-                    tick={{ fontSize: 11, fill: '#a1a1aa' }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval="preserveStartEnd"
-                    minTickGap={50}
-                  />
-                  <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtCompact(v)} width={56} />
-                  {monthlyGran === 'day'
-                    ? <Tooltip content={<DayTooltip fmt={fmt} dayCountAlert={(count, max) => t('dayCountAlert', { count, max })} />} />
-                    : <Tooltip formatter={(v) => [fmt(Number(v)), '']} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                  }
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {monthlyGran === 'day' && (
-                    <>
-                      <ReferenceLine
-                        y={30000}
-                        stroke="#f59e0b"
-                        strokeDasharray="4 4"
-                        ifOverflow="extendDomain"
-                        label={{ value: `${t('day')} ${fmtCompact(30000)}`, position: 'insideTopRight', fontSize: 10, fill: '#f59e0b' }}
-                      />
-                      <ReferenceLine
-                        y={100000}
-                        stroke="#ef4444"
-                        strokeDasharray="4 4"
-                        ifOverflow="extendDomain"
-                        label={{ value: `${t('day')} ${fmtCompact(100000)}`, position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }}
-                      />
-                    </>
-                  )}
+        {/* ── 累计趋势 ── */}
+        {view === 'trend' && (
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={timeSeries} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <CartesianGrid {...GRID} />
+              <XAxis dataKey="period" {...AXIS} />
+              <YAxis {...AXIS} tickFormatter={(v) => fmtCompact(v)} width={52} />
+              <Tooltip
+                formatter={(v) => [fmt(Number(v)), '']}
+                contentStyle={TOOLTIP_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
+              />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Line type="monotone" dataKey="paid"          name={t('paymentStatuses.paid')} stroke="var(--success-dot)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="budgeted"      name={t('paymentStatuses.budgeted')} stroke="rgb(var(--primary))" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+              <Line type="monotone" dataKey="ordered_unpaid" name={t('paymentStatuses.ordered_unpaid')} stroke="var(--warning-dot)" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
 
-                  {/* ── Milestone vertical markers ── */}
-                  {showMilestones && (() => {
-                    const periods = chartData.map((d) => d.period)
-                    // Group by snapped period so we can show counts when multiple milestones land on same tick
-                    const grouped = new Map<string, MilestoneMarker[]>()
-                    for (const m of milestones) {
-                      const xVal = nearestPeriod(m.target_date, periods)
-                      if (!xVal) continue
-                      grouped.set(xVal, [...(grouped.get(xVal) ?? []), m])
+        {/* ── 月度汇总 ── */}
+        {view === 'monthly' && (
+          <>
+            {monthlyView === 'chart' ? (
+              <>
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 20, right: 24, bottom: 0, left: 0 }}
+                    onMouseMove={(s) => {
+                      // Recharts' state shape varies; activeLabel is the X value of the hovered point
+                      const label = (s as { activeLabel?: string } | undefined)?.activeLabel
+                      setHoveredPeriod(label ?? null)
+                    }}
+                    onMouseLeave={() => setHoveredPeriod(null)}
+                    onClick={(s) => {
+                      const label = (s as { activeLabel?: string } | undefined)?.activeLabel
+                      if (label && onPeriodSelect) onPeriodSelect(label, monthlyGran)
+                    }}
+                    style={onPeriodSelect ? { cursor: 'pointer' } : undefined}
+                  >
+                    <CartesianGrid {...GRID} />
+                    <XAxis
+                      dataKey="period"
+                      {...AXIS}
+                      interval="preserveStartEnd"
+                      minTickGap={50}
+                    />
+                    <YAxis {...AXIS} tickFormatter={(v) => fmtCompact(v)} width={56} />
+                    {monthlyGran === 'day'
+                      ? <Tooltip content={<DayTooltip fmt={fmt} dayCountAlert={(count, max) => t('dayCountAlert', { count, max })} />} />
+                      : <Tooltip formatter={(v) => [fmt(Number(v)), '']} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
                     }
-                    return Array.from(grouped.entries()).map(([xVal, ms]) => {
-                      // Use highest priority color
-                      const color = ms.some((m) => m.priority === 'high')   ? PRIORITY_COLOR.high
-                                  : ms.some((m) => m.priority === 'medium') ? PRIORITY_COLOR.medium
-                                  : PRIORITY_COLOR.low
-                      const label = ms.length === 1
-                        ? ms[0].title.length > 10 ? ms[0].title.slice(0, 9) + '…' : ms[0].title
-                        : t('monthly.milestonesGroupLabel', { count: ms.length })
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    {monthlyGran === 'day' && (
+                      <>
+                        <ReferenceLine
+                          y={30000}
+                          stroke="var(--warning-dot)"
+                          strokeDasharray="4 4"
+                          ifOverflow="extendDomain"
+                          label={{ value: `${t('day')} ${fmtCompact(30000)}`, position: 'insideTopRight', fontSize: 10, fill: 'var(--warning-dot)' }}
+                        />
+                        <ReferenceLine
+                          y={100000}
+                          stroke="var(--danger-dot)"
+                          strokeDasharray="4 4"
+                          ifOverflow="extendDomain"
+                          label={{ value: `${t('day')} ${fmtCompact(100000)}`, position: 'insideTopRight', fontSize: 10, fill: 'var(--danger-dot)' }}
+                        />
+                      </>
+                    )}
+
+                    {/* ── Milestone vertical markers ── */}
+                    {showMilestones && (() => {
+                      const periods = chartData.map((d) => d.period)
+                      // Group by snapped period so we can show counts when multiple milestones land on same tick
+                      const grouped = new Map<string, MilestoneMarker[]>()
+                      for (const m of milestones) {
+                        const xVal = nearestPeriod(m.target_date, periods)
+                        if (!xVal) continue
+                        grouped.set(xVal, [...(grouped.get(xVal) ?? []), m])
+                      }
+                      return Array.from(grouped.entries()).map(([xVal, ms]) => {
+                        // Use highest priority color
+                        const color = ms.some((m) => m.priority === 'high')   ? PRIORITY_TONE.high.dot
+                                    : ms.some((m) => m.priority === 'medium') ? PRIORITY_TONE.medium.dot
+                                    : PRIORITY_TONE.low.dot
+                        const label = ms.length === 1
+                          ? ms[0].title.length > 10 ? ms[0].title.slice(0, 9) + '…' : ms[0].title
+                          : t('monthly.milestonesGroupLabel', { count: ms.length })
+                        return (
+                          <ReferenceLine
+                            key={xVal}
+                            x={xVal}
+                            stroke={color}
+                            strokeWidth={1.5}
+                            strokeDasharray="4 3"
+                            label={{ value: label, position: 'insideTopLeft', fontSize: 9, fill: color, angle: -60 }}
+                          />
+                        )
+                      })
+                    })()}
+
+                    {/* ── Active-period highlight (from external date filter) ── */}
+                    {selectedPeriod?.from && selectedPeriod.from === selectedPeriod.to && (() => {
+                      // Single-day filter
+                      const key = monthlyGran === 'day' ? selectedPeriod.from : selectedPeriod.from.slice(0, 7)
+                      if (!chartData.some((d) => d.period === key)) return null
                       return (
                         <ReferenceLine
-                          key={xVal}
-                          x={xVal}
-                          stroke={color}
-                          strokeWidth={1.5}
-                          strokeDasharray="4 3"
-                          label={{ value: label, position: 'insideTopLeft', fontSize: 9, fill: color, angle: -60 }}
+                          x={key}
+                          stroke="rgb(var(--primary))"
+                          strokeWidth={2}
+                          ifOverflow="extendDomain"
+                          label={{ value: t('monthly.activePeriodLabel'), position: 'top', fontSize: 9, fill: 'rgb(var(--primary))' }}
                         />
                       )
-                    })
-                  })()}
+                    })()}
 
-                  {/* ── Active-period highlight (from external date filter) ── */}
-                  {selectedPeriod?.from && selectedPeriod.from === selectedPeriod.to && (() => {
-                    // Single-day filter
-                    const key = monthlyGran === 'day' ? selectedPeriod.from : selectedPeriod.from.slice(0, 7)
-                    if (!chartData.some((d) => d.period === key)) return null
-                    return (
-                      <ReferenceLine
-                        x={key}
-                        stroke="#8b5cf6"
-                        strokeWidth={2}
-                        ifOverflow="extendDomain"
-                        label={{ value: t('monthly.activePeriodLabel'), position: 'top', fontSize: 9, fill: '#8b5cf6' }}
-                      />
-                    )
-                  })()}
+                    <Line type="monotone" dataKey="total" name={t('totalExpense')} stroke="rgb(var(--primary))" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="paid"  name={t('paid')}         stroke="var(--success-dot)" strokeWidth={2} dot={false} strokeDasharray="4 2" />
+                  </LineChart>
+                </ResponsiveContainer>
 
-                  <Line type="monotone" dataKey="total" name={t('totalExpense')} stroke="#8b5cf6" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="paid"  name={t('paid')}         stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 2" />
-                </LineChart>
-              </ResponsiveContainer>
-
-              {/* ── Milestone legend (filtered to hovered period) ── */}
-              {showMilestones && milestones.length > 0 && (() => {
-                const periods = chartData.map((d) => d.period)
-                const visible = hoveredPeriod
-                  ? milestones.filter((m) => nearestPeriod(m.target_date, periods) === hoveredPeriod)
-                  : []
-                return (
-                  <div className="mt-3 border-t border-zinc-100 pt-3 min-h-[3rem]">
-                    <p className="text-xs font-medium text-zinc-500 mb-2 flex items-center gap-1">
-                      <Flag className="w-3 h-3" />
-                      <span>{t('monthly.milestonesTooltip')}</span>
-                      {hoveredPeriod && (
-                        <span className="text-zinc-400 font-normal">— {hoveredPeriod}</span>
+                {/* ── Milestone legend (filtered to hovered period) ── */}
+                {showMilestones && milestones.length > 0 && (() => {
+                  const periods = chartData.map((d) => d.period)
+                  const visible = hoveredPeriod
+                    ? milestones.filter((m) => nearestPeriod(m.target_date, periods) === hoveredPeriod)
+                    : []
+                  return (
+                    <div className="mt-3 border-t border-line-soft pt-3 min-h-[3rem]">
+                      <p className="text-xs font-medium text-ink-500 mb-2 flex items-center gap-1">
+                        <Flag className="w-3 h-3" />
+                        <span>{t('monthly.milestonesTooltip')}</span>
+                        {hoveredPeriod && (
+                          <span className="text-ink-400 font-normal">— {hoveredPeriod}</span>
+                        )}
+                      </p>
+                      {!hoveredPeriod ? (
+                        <p className="text-xs text-ink-400">{t('monthly.milestonesHoverHint')}</p>
+                      ) : visible.length === 0 ? (
+                        <p className="text-xs text-ink-400">{t('monthly.noMilestonesForDay')}</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {visible.map((m) => {
+                            const tone = PRIORITY_TONE[m.priority]
+                            return (
+                              <div
+                                key={m.id}
+                                className="flex items-center gap-1.5 px-2 py-1 rounded-field border text-xs"
+                                style={{ borderColor: tone.border, backgroundColor: tone.soft }}
+                              >
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: tone.dot }}
+                                />
+                                <span className="font-medium text-ink-900">{m.title}</span>
+                                <span
+                                  className="px-1 py-0.5 rounded text-xs"
+                                  style={{ color: tone.dot }}
+                                >
+                                  {tTimeline(`status.${TIMELINE_STATUS_KEY[m.status]}`)}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
-                    </p>
-                    {!hoveredPeriod ? (
-                      <p className="text-xs text-zinc-400">{t('monthly.milestonesHoverHint')}</p>
-                    ) : visible.length === 0 ? (
-                      <p className="text-xs text-zinc-400">{t('monthly.noMilestonesForDay')}</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {visible.map((m) => (
-                          <div
-                            key={m.id}
-                            className="flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs"
-                            style={{ borderColor: PRIORITY_COLOR[m.priority] + '55', backgroundColor: PRIORITY_COLOR[m.priority] + '0d' }}
-                          >
-                            <span
-                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: PRIORITY_COLOR[m.priority] }}
-                            />
-                            <span className="font-medium text-zinc-800">{m.title}</span>
-                            <span
-                              className="px-1 py-0.5 rounded text-xs"
-                              style={{ color: PRIORITY_COLOR[m.priority] }}
-                            >
-                              {tTimeline(`status.${TIMELINE_STATUS_KEY[m.status]}`)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-            </>
-          ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-zinc-100">
-                <th className="text-left py-2 pr-4 font-medium text-zinc-500 whitespace-nowrap">{t('monthColumn')}</th>
-                {activeCategories.map((o) => (
-                  <th key={o.value} className="text-right py-2 px-3 font-medium whitespace-nowrap" style={{ color: CATEGORY_COLORS[o.value] }}>
-                    {t(`categories.${o.value}`)}
-                  </th>
+                    </div>
+                  )
+                })()}
+              </>
+            ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-line-soft">
+                  <th className="text-left py-2 pr-4 font-medium text-ink-500 whitespace-nowrap">{t('monthColumn')}</th>
+                  {activeCategories.map((o) => (
+                    <th key={o.value} className="text-right py-2 px-3 font-medium whitespace-nowrap" style={{ color: categoryColor(o.value) }}>
+                      {t(`categories.${o.value}`)}
+                    </th>
+                  ))}
+                  <th className="text-right py-2 px-3 font-semibold text-ink-700 whitespace-nowrap">{t('total')}</th>
+                  <th className="text-right py-2 pl-3 font-medium text-success-text whitespace-nowrap">{t('paid')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlySummary.map((row) => (
+                  <tr key={row.month} className="border-b border-line-soft hover:bg-row-hover transition-colors">
+                    <td className="py-2.5 pr-4 font-medium text-ink-700 whitespace-nowrap">{row.month}</td>
+                    {activeCategories.map((o) => {
+                      const amt = row.byCategory[o.value] ?? 0
+                      return (
+                        <td key={o.value} className="py-2.5 px-3 text-right text-ink-500 whitespace-nowrap">
+                          {amt > 0 ? fmt(amt) : <span className="text-ink-400">—</span>}
+                        </td>
+                      )
+                    })}
+                    <td className="py-2.5 px-3 text-right font-semibold text-ink-900 whitespace-nowrap">
+                      {fmt(row.total)}
+                    </td>
+                    <td className="py-2.5 pl-3 text-right text-success-text whitespace-nowrap">
+                      {row.paid > 0 ? fmt(row.paid) : <span className="text-ink-400">—</span>}
+                    </td>
+                  </tr>
                 ))}
-                <th className="text-right py-2 px-3 font-semibold text-zinc-700 whitespace-nowrap">{t('total')}</th>
-                <th className="text-right py-2 pl-3 font-medium text-green-600 whitespace-nowrap">{t('paid')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {monthlySummary.map((row) => (
-                <tr key={row.month} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
-                  <td className="py-2.5 pr-4 font-medium text-zinc-700 whitespace-nowrap">{row.month}</td>
+              </tbody>
+              {/* Footer: column totals */}
+              <tfoot>
+                <tr className="border-t-2 border-line bg-canvas">
+                  <td className="py-2.5 pr-4 font-semibold text-ink-700">{t('grandTotal')}</td>
                   {activeCategories.map((o) => {
-                    const amt = row.byCategory[o.value] ?? 0
+                    const total = monthlySummary.reduce((s, r) => s + (r.byCategory[o.value] ?? 0), 0)
                     return (
-                      <td key={o.value} className="py-2.5 px-3 text-right text-zinc-600 whitespace-nowrap">
-                        {amt > 0 ? fmt(amt) : <span className="text-zinc-300">—</span>}
+                      <td key={o.value} className="py-2.5 px-3 text-right font-semibold text-ink-700 whitespace-nowrap">
+                        {fmt(total)}
                       </td>
                     )
                   })}
-                  <td className="py-2.5 px-3 text-right font-semibold text-zinc-900 whitespace-nowrap">
-                    {fmt(row.total)}
+                  <td className="py-2.5 px-3 text-right font-bold text-ink-900 whitespace-nowrap">
+                    {fmt(monthlySummary.reduce((s, r) => s + r.total, 0))}
                   </td>
-                  <td className="py-2.5 pl-3 text-right text-green-700 whitespace-nowrap">
-                    {row.paid > 0 ? fmt(row.paid) : <span className="text-zinc-300">—</span>}
+                  <td className="py-2.5 pl-3 text-right font-semibold text-success-text whitespace-nowrap">
+                    {fmt(monthlySummary.reduce((s, r) => s + r.paid, 0))}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            {/* Footer: column totals */}
-            <tfoot>
-              <tr className="border-t-2 border-zinc-200 bg-zinc-50">
-                <td className="py-2.5 pr-4 font-semibold text-zinc-700">{t('grandTotal')}</td>
-                {activeCategories.map((o) => {
-                  const total = monthlySummary.reduce((s, r) => s + (r.byCategory[o.value] ?? 0), 0)
-                  return (
-                    <td key={o.value} className="py-2.5 px-3 text-right font-semibold text-zinc-700 whitespace-nowrap">
-                      {fmt(total)}
-                    </td>
-                  )
-                })}
-                <td className="py-2.5 px-3 text-right font-bold text-zinc-900 whitespace-nowrap">
-                  {fmt(monthlySummary.reduce((s, r) => s + r.total, 0))}
-                </td>
-                <td className="py-2.5 pl-3 text-right font-semibold text-green-700 whitespace-nowrap">
-                  {fmt(monthlySummary.reduce((s, r) => s + r.paid, 0))}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-          )}
-        </>
-      )}
+              </tfoot>
+            </table>
+          </div>
+            )}
+          </>
+        )}
+      </SectionCard>
     </div>
   )
 }

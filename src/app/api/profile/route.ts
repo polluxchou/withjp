@@ -59,8 +59,11 @@ export async function PATCH(req: NextRequest) {
     )
   }
 
-  // Validate role
-  const validRoles: AgentRole[] = ['bd', 'ops', 'finance', 'content', 'growth', 'legal']
+  // Validate role — real-user selectable roles only: the 6 depts + 'tech'
+  // (真人技术岗，对齐 ProfileEditor 的 ROLES 下拉). 'pmo' 刻意不在这里——它是
+  // AI 代理专属角色（PMO Agent 自身的 role），这个校验数组正是拦住真人用户
+  // 把自己 profile.role 改成 pmo 的关口，不能放开。
+  const validRoles: AgentRole[] = ['bd', 'ops', 'finance', 'content', 'growth', 'legal', 'tech']
   if (role && !validRoles.includes(role)) {
     return NextResponse.json(
       { data: null, error: 'Invalid role' },

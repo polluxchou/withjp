@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
+import Button from '@/components/ui/Button'
+import { Field, Select } from '@/components/ui/Field'
+import Tag from '@/components/ui/Tag'
 import type { ModelProvider } from '@/lib/types'
 
 const PROVIDERS: { value: ModelProvider; label: string }[] = [
@@ -102,80 +105,77 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
     }
   }
 
-  const testLabel: Record<TestStatus, string> = {
-    idle:    t('test'),
-    testing: t('testing'),
-    ok:      t('testOk'),
-    fail:    t('testFail'),
-  }
-
-  const testColor: Record<TestStatus, string> = {
-    idle:    'bg-zinc-100 text-zinc-600 hover:bg-zinc-200',
-    testing: 'bg-zinc-100 text-zinc-400',
-    ok:      'bg-green-100 text-green-700',
-    fail:    'bg-red-100 text-red-600',
-  }
-
   const modelOptions = PROVIDER_MODELS[provider] ?? []
 
   return (
-    <div className="mt-3 pt-3 border-t border-zinc-100">
-      <p className="text-xs font-medium text-zinc-500 mb-2">{t('modelConfig')}</p>
+    <div className="mt-3 pt-3 border-t border-line-soft">
+      <p className="text-xs font-medium text-ink-500 mb-2">{t('modelConfig')}</p>
 
-      <div className="flex gap-2 items-end">
+      <div className="flex flex-wrap gap-2 items-end">
         {/* Provider */}
-        <div className="flex-1">
-          <label className="text-xs text-zinc-400 block mb-1">{t('provider')}</label>
-          <select
-            value={provider}
-            onChange={(e) => handleProviderChange(e.target.value as ModelProvider)}
-            className="w-full text-xs border border-zinc-200 rounded-md px-2 py-1.5 bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
-          >
-            {PROVIDERS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
+        <div className="flex-1 min-w-[6.5rem]">
+          <Field label={t('provider')}>
+            <Select
+              size="sm"
+              value={provider}
+              onChange={(e) => handleProviderChange(e.target.value as ModelProvider)}
+            >
+              {PROVIDERS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </Select>
+          </Field>
         </div>
 
         {/* Model */}
-        <div className="flex-1">
-          <label className="text-xs text-zinc-400 block mb-1">{t('model')}</label>
-          <select
-            value={resolvedModel}
-            onChange={(e) => handleModelChange(e.target.value)}
-            className="w-full text-xs border border-zinc-200 rounded-md px-2 py-1.5 bg-white text-zinc-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
-          >
-            {modelOptions.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+        <div className="flex-1 min-w-[6.5rem]">
+          <Field label={t('model')}>
+            <Select
+              size="sm"
+              value={resolvedModel}
+              onChange={(e) => handleModelChange(e.target.value)}
+            >
+              {modelOptions.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </Select>
+          </Field>
         </div>
 
-        {/* Test button */}
-        <button
+        {/* Test button — ghost keeps it below Save in visual weight */}
+        <Button
+          variant="ghost"
+          size="sm"
+          loading={testStatus === 'testing'}
           onClick={handleTest}
-          disabled={testStatus === 'testing'}
           title={t('testTooltip')}
-          className={`text-xs px-2.5 py-1.5 rounded-md whitespace-nowrap transition-colors disabled:opacity-50 ${testColor[testStatus]}`}
         >
-          {testLabel[testStatus]}
-        </button>
+          {testStatus === 'testing' ? t('testing') : t('test')}
+        </Button>
 
-        {/* Save button */}
-        <button
+        {/* Save button — secondary, not primary: this component renders once
+            per agent card (design-system §6.2 "primary 一屏至多一个" — a grid
+            of agent cards would otherwise stack several gradient pills). */}
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={saving}
           onClick={handleSave}
-          disabled={saving}
-          className="text-xs px-3 py-1.5 rounded-md bg-primary text-white hover:bg-primary-hover disabled:opacity-50 whitespace-nowrap"
         >
           {saving ? t('saving') : saved ? t('saved') : t('save')}
-        </button>
+        </Button>
       </div>
 
+      {(testStatus === 'ok' || testStatus === 'fail') && (
+        <div className="mt-1.5">
+          <Tag size="sm" tone={testStatus === 'ok' ? 'success' : 'danger'} label={testStatus === 'ok' ? t('testOk') : t('testFail')} />
+        </div>
+      )}
       {testError && (
-        <p className="text-xs text-red-500 mt-1.5">{testError}</p>
+        <p className="text-xs text-danger-text mt-1.5">{testError}</p>
       )}
       {error && (
-        <p className="text-xs text-red-500 mt-1.5">{error}</p>
+        <p className="text-xs text-danger-text mt-1.5">{error}</p>
       )}
     </div>
   )
