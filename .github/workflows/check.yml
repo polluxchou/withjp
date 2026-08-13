@@ -1,0 +1,42 @@
+name: check
+
+# 类型 / 测试 / Lint 三道通用门禁。
+#
+# 为什么单独一条 workflow 而不是并进 copy.yml：那条按 `paths` 过滤，只在文案与
+# 样式相关文件变动时才跑。这三条必须对**每个** PR 都跑 —— 改 package.json、
+# tsconfig、API route、迁移脚本一样能把仓库搞挂，而那些路径都不在 copy.yml 的
+# 过滤器里。
+#
+# 三条命令在 2026-08-13 的审计里都实测通过（tsc exit 0 / 344 tests pass /
+# 0 lint error），所以加进来是零成本的：它锁住的是现状，不是欠债。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 必须 ≥ 22.6：npm test 用 `node --test --experimental-strip-types`
+          # 直接跑 .ts 测试文件，Node 20 没有这个 flag，降版本会得到一个
+          # 与代码无关、很难看懂的失败。24 是这批测试实测通过的版本。
+          node-version: '24'
+          cache: 'npm'
+
+      # 用 ci 而不是 install：锁文件是唯一事实源，装出来的东西每次都一样。
+      # --ignore-scripts 与 copy.yml 保持一致（本仓没有依赖需要 postinstall）。
+      - run: npm ci --ignore-scripts
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Lint
+        run: npx next lint
