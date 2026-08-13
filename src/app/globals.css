@@ -181,7 +181,7 @@
 /* 跑马灯：位移量 = 恰好一份内容的宽度 = 轨道宽的 1/N（N = Ticker 渲染的份数），
    这样第 k 份走到第 k-1 份的起点上，循环看不出接缝。N 由 Ticker.tsx 通过
    --site-ticker-copies 传进来，改份数不用回来改这里；位移距离始终是一份，
-   所以 38s 的观感速度也跟着 N 保持不变。 */
+   所以观感速度只由「单份宽 / 时长」决定，跟份数无关（时长见 tailwind.config.ts）。 */
 @keyframes site-ticker {
   from { transform: translateX(0); }
   to   { transform: translateX(calc(-100% / var(--site-ticker-copies, 2))); }
