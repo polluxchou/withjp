@@ -25,7 +25,6 @@ import {
   Layers,
   Octagon,
   ListFilter,
-  Lock,
   Map as MapIcon,
   MapPin,
   Monitor,
@@ -45,6 +44,12 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import Header from '@/components/layout/Header'
+import Button from '@/components/ui/Button'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import Tabs from '@/components/ui/Tabs'
+import Tag from '@/components/ui/Tag'
+import { Field, Input, SearchInput } from '@/components/ui/Field'
+import Modal from '@/components/ui/Modal'
 import VenueCanvas from '@/venue/VenueCanvas'
 import Venue3DCanvas from '@/venue/Venue3DCanvas'
 import VenueInspector, { type PlacedItemSummary } from '@/venue/VenueInspector'
@@ -849,7 +854,7 @@ export default function GuildVenuePage() {
             setSaveState('error')
             return
           }
-          ctx.fillStyle = '#ffffff'
+          ctx.fillStyle = '#ffffff' // style-tokens-ignore：canvas 2D 导出底色，非 UI 样式
           ctx.fillRect(0, 0, canvas.width, canvas.height)
           ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
           canvas.toBlob((blob) => {
@@ -884,7 +889,7 @@ export default function GuildVenuePage() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100dvh-4rem)] min-h-[760px] flex items-center justify-center text-sm font-medium text-slate-500">
+      <div className="h-[calc(100dvh-4rem)] min-h-[760px] flex items-center justify-center text-sm font-medium text-ink-500">
         {t('loading')}
       </div>
     )
@@ -907,13 +912,11 @@ export default function GuildVenuePage() {
         subtitle={t('subtitle')}
         actions={
           <div className="flex items-center gap-2">
+            {/* 只读徽标与保存状态同属「状态展示」，统一走 Tag（design-system §6.1），
+                外层 span 只负责承载 title 提示——Tag 契约里没有 title 透传。 */}
             {!canEdit && (
-              <span
-                title={t('readOnlyHint')}
-                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500"
-              >
-                <Lock className="w-3 h-3" />
-                {t('readOnly')}
+              <span title={t('readOnlyHint')} className="inline-flex">
+                <Tag label={t('readOnly')} tone="neutral" />
               </span>
             )}
             <StatusPill state={saveState} />
@@ -922,20 +925,16 @@ export default function GuildVenuePage() {
       />
 
       {localImportLayout && (
-        <div className="mb-2 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="mb-2 flex items-center gap-3 rounded-card border border-warning-border bg-warning-soft px-3 py-2 text-sm text-warning-text">
           <span className="flex-1">{t('importLocalPrompt')}</span>
-          <button
-            type="button"
-            onClick={importLocalLayout}
-            className="h-8 shrink-0 rounded-lg border border-amber-300 bg-white px-3 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
-          >
+          <Button variant="secondary" size="sm" onClick={importLocalLayout} className="shrink-0">
             {t('importLocal')}
-          </button>
+          </Button>
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden flex-1 min-h-0 grid grid-rows-[auto_1fr]">
-        <div className="min-h-14 border-b border-slate-200 px-3 py-2 flex items-center gap-2 overflow-x-auto">
+      <div className="bg-surface border border-line rounded-card overflow-hidden flex-1 min-h-0 grid grid-rows-[auto_1fr]">
+        <div className="min-h-14 border-b border-line px-3 py-2 flex items-center gap-2 overflow-x-auto">
           {canEdit && (
             <>
               {VENUE_SHAPE_TYPE_OPTIONS.map((option) => (
@@ -955,7 +954,7 @@ export default function GuildVenuePage() {
               <AddMenu label={t('addMarker')} icon={MapPin} types={MARKER_MENU_TYPES} onAdd={addItem} />
               <AddMenu label={t('addFacility')} icon={Package} types={FACILITY_MENU_TYPES} onAdd={addItem} />
 
-              <div className="w-px h-6 bg-slate-200 mx-1" />
+              <div className="w-px h-6 bg-line-strong mx-1" />
 
               <ToolbarButton iconOnly icon={Undo2} label={t('undo')} onClick={undo} disabled={history.past.length === 0} />
               <ToolbarButton iconOnly icon={Redo2} label={t('redo')} onClick={redo} disabled={history.future.length === 0} />
@@ -970,15 +969,15 @@ export default function GuildVenuePage() {
           <ToolbarButton iconOnly icon={Ruler} label={t('dimensionRulers')} onClick={() => setShowRulers((value) => !value)} active={showRulers} />
           {viewMode === '2d' && <ToolbarButton iconOnly icon={Magnet} label={t('snapEnabled')} onClick={() => setSnapEnabled((value) => !value)} active={snapEnabled} />}
 
-          <div className="w-px h-6 bg-slate-200 mx-1" />
+          <div className="w-px h-6 bg-line-strong mx-1" />
 
           <ToolbarButton iconOnly icon={ZoomOut} label={t('zoomOut')} onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(2))))} />
-          <span className="min-w-14 text-center text-xs font-semibold text-slate-500">{Math.round(zoom * 100)}%</span>
+          <span className="min-w-14 text-center text-xs font-semibold text-ink-500 tabular-nums">{Math.round(zoom * 100)}%</span>
           <ToolbarButton iconOnly icon={ZoomIn} label={t('zoomIn')} onClick={() => setZoom((value) => Math.min(5.0, Number((value + 0.1).toFixed(2))))} />
 
           {viewMode === '2d' && canEdit && (
             <>
-              <div className="w-px h-6 bg-slate-200 mx-1" />
+              <div className="w-px h-6 bg-line-strong mx-1" />
               <ViewBookmarks
                 bookmarks={viewBookmarks}
                 max={MAX_VENUE_VIEW_BOOKMARKS}
@@ -990,36 +989,18 @@ export default function GuildVenuePage() {
             </>
           )}
 
-          <div className="w-px h-6 bg-slate-200 mx-1" />
-          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setViewMode('2d')}
-              title={t('modeSwitchTo2d')}
-              aria-label={t('modeSwitchTo2d')}
-              aria-pressed={viewMode === '2d'}
-              className={`h-9 px-3 text-xs font-semibold transition-colors ${
-                viewMode === '2d'
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'bg-white text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              {t('mode2d')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('3d')}
-              title={t('modeSwitchTo3d')}
-              aria-label={t('modeSwitchTo3d')}
-              aria-pressed={viewMode === '3d'}
-              className={`h-9 px-3 text-xs font-semibold border-l border-slate-200 transition-colors ${
-                viewMode === '3d'
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'bg-white text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              {t('mode3d')}
-            </button>
+          <div className="w-px h-6 bg-line-strong mx-1" />
+          {/* 2D/3D 是典型的小范围互斥切换（design-system §6.1）→ SegmentedControl。 */}
+          <div className="shrink-0">
+            <SegmentedControl
+              label={t('viewModeLabel')}
+              value={viewMode}
+              onChange={(next) => setViewMode(next as '2d' | '3d')}
+              items={[
+                { value: '2d', label: t('mode2d') },
+                { value: '3d', label: t('mode3d') },
+              ]}
+            />
           </div>
 
           <div className="flex-1" />
@@ -1031,7 +1012,9 @@ export default function GuildVenuePage() {
         >
           <ToolRail activeFloor={activeFloor.name} />
 
-          <div ref={canvasAreaRef} className="relative min-h-0 bg-slate-100 overflow-hidden">
+          {/* 画布区外壳：2D/3D 两种画布都是 h-full，这层底色恒被完全覆盖，
+              画布自身的"桌面灰"由 VenueCanvas / Venue3DCanvas 内部持有（工程语义，不动）。 */}
+          <div ref={canvasAreaRef} className="relative min-h-0 bg-canvas overflow-hidden">
             <FloatingPanel
               layoutName={layout.name}
               floorName={activeFloor.name}
@@ -1096,78 +1079,64 @@ export default function GuildVenuePage() {
               <div className="space-y-4">
                 {canEdit && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-slate-500">{t('canvasSettings')}</p>
+                  <p className="text-xs font-medium text-ink-700">{t('canvasSettings')}</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="block">
-                      <span className="block text-[11px] text-slate-400 mb-1">{t('canvasWidth')}</span>
-                      <input
+                    <Field label={t('canvasWidth')}>
+                      <Input
                         type="number" min="1" step="0.1"
                         value={centimetersToMeters(activeFloor.width)}
                         onChange={(event) => {
                           const value = Number(event.target.value)
                           if (Number.isFinite(value) && value > 0) updateFloorDefaults({ width: metersToCentimeters(value) })
                         }}
-                        aria-label={t('canvasWidth')}
-                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="tabular-nums"
                       />
-                    </label>
-                    <label className="block">
-                      <span className="block text-[11px] text-slate-400 mb-1">{t('canvasHeight')}</span>
-                      <input
+                    </Field>
+                    <Field label={t('canvasHeight')}>
+                      <Input
                         type="number" min="1" step="0.1"
                         value={centimetersToMeters(activeFloor.height)}
                         onChange={(event) => {
                           const value = Number(event.target.value)
                           if (Number.isFinite(value) && value > 0) updateFloorDefaults({ height: metersToCentimeters(value) })
                         }}
-                        aria-label={t('canvasHeight')}
-                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="tabular-nums"
                       />
-                    </label>
-                    <label className="block col-span-2">
-                      <span className="block text-[11px] text-slate-400 mb-1">{t('floorStoreyHeight')}</span>
-                      <input
-                        type="number" min="1" step="0.1"
-                        value={centimetersToMeters(activeFloor.floorHeight)}
-                        onChange={(event) => {
-                          const value = Number(event.target.value)
-                          if (Number.isFinite(value) && value > 0) updateFloorDefaults({ floorHeight: metersToCentimeters(value) })
-                        }}
-                        aria-label={t('floorStoreyHeight')}
-                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </label>
+                    </Field>
+                    <div className="col-span-2">
+                      <Field label={t('floorStoreyHeight')}>
+                        <Input
+                          type="number" min="1" step="0.1"
+                          value={centimetersToMeters(activeFloor.floorHeight)}
+                          onChange={(event) => {
+                            const value = Number(event.target.value)
+                            if (Number.isFinite(value) && value > 0) updateFloorDefaults({ floorHeight: metersToCentimeters(value) })
+                          }}
+                          className="tabular-nums"
+                        />
+                      </Field>
+                    </div>
                   </div>
-                  <label className="block">
-                    <span className="block text-[11px] text-slate-400 mb-1">{t('backgroundImage')}</span>
-                    <input
+                  <Field label={t('backgroundImage')}>
+                    <Input
                       value={activeFloor.backgroundImage ?? ''}
                       onChange={(event) => updateBackgroundImage(event.target.value)}
                       placeholder={t('backgroundPlaceholder')}
-                      className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                  </label>
+                  </Field>
                 </div>
                 )}
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-slate-500">{t('canvasActions')}</p>
+                  <p className="text-xs font-medium text-ink-700">{t('canvasActions')}</p>
                   <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
-                  <button
-                    type="button"
-                    onClick={exportJson}
-                    className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
+                  <Button variant="secondary" onClick={exportJson} className="w-full justify-center">
+                    <Download className="w-4 h-4" strokeWidth={1.5} />
                     {t('exportJson')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={exportPng}
-                    className="w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-                  >
-                    <ImageIcon className="w-4 h-4" />
+                  </Button>
+                  <Button variant="secondary" onClick={exportPng} className="w-full justify-center">
+                    <ImageIcon className="w-4 h-4" strokeWidth={1.5} />
                     {t('exportImage')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             }
@@ -1196,22 +1165,22 @@ function ToolRail({ activeFloor }: { activeFloor: string }) {
   ]
 
   return (
-    <aside className="bg-white border-r border-slate-200 py-3 flex flex-col items-center gap-2">
+    <aside className="bg-surface border-r border-line py-3 flex flex-col items-center gap-2">
       {tools.map(({ key, icon: Icon, label }, index) => (
         <button
           key={key}
           type="button"
           title={label}
           aria-label={label}
-          className={`w-11 h-11 rounded-xl inline-flex items-center justify-center transition-colors ${
-            index === 0 ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+          className={`w-11 h-11 rounded-card inline-flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
+            index === 0 ? 'bg-primary-soft text-primary-hover' : 'text-ink-500 hover:bg-line-soft hover:text-ink-900'
           }`}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="w-5 h-5" strokeWidth={1.5} />
         </button>
       ))}
       <div className="flex-1" />
-      <div className="w-10 min-h-10 rounded-lg bg-slate-100 text-[11px] font-semibold text-slate-500 flex items-center justify-center">
+      <div className="w-10 min-h-10 rounded-field bg-line-soft text-micro font-semibold text-ink-500 flex items-center justify-center">
         {activeFloor}
       </div>
     </aside>
@@ -1312,11 +1281,11 @@ function FloatingPanel({
           title={t('expandVenuePanel')}
           aria-label={t('expandVenuePanel')}
           onClick={() => setCollapsed(false)}
-          className="h-11 max-w-56 rounded-xl border border-slate-200 bg-white/95 px-3 shadow-lg backdrop-blur inline-flex items-center gap-2 text-left text-slate-700 hover:border-indigo-200 hover:text-indigo-700 hover:bg-white transition-colors"
+          className="h-11 max-w-56 rounded-card border border-line bg-white/95 px-3 shadow-pop backdrop-blur inline-flex items-center gap-2 text-left text-ink-700 hover:border-primary-border hover:text-primary-hover hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
         >
-          <PanelLeftOpen className="w-4 h-4 flex-shrink-0" />
+          <PanelLeftOpen className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
           <span className="min-w-0">
-            <span className="block text-xs font-medium text-slate-500">{t('currentVenue')}</span>
+            <span className="block text-xs font-medium text-ink-500">{t('currentVenue')}</span>
             <span className="block truncate text-sm font-semibold">{layoutName} · {floorName}</span>
           </span>
         </button>
@@ -1325,22 +1294,22 @@ function FloatingPanel({
   }
 
   return (
-    <div className="absolute left-4 top-4 z-20 w-72 rounded-xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur">
-      <div className="p-4 border-b border-slate-100 flex items-start gap-3">
+    <div className="absolute left-4 top-4 z-20 w-72 rounded-card border border-line bg-white/95 shadow-pop backdrop-blur">
+      <div className="p-4 border-b border-line-soft flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-slate-500">{t('currentVenue')}</p>
+          <p className="text-xs font-medium text-ink-500">{t('currentVenue')}</p>
           <div ref={venueMenuRef} className="relative mt-1">
             <button
               type="button"
               onClick={() => setVenueMenuOpen((open) => !open)}
               title={t('switchVenue')}
-              className="flex w-full items-center gap-1 rounded-md -mx-1 px-1 text-left hover:bg-slate-100/70 transition-colors"
+              className="flex w-full items-center gap-1 rounded-field -mx-1 px-1 text-left hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
             >
-              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{layoutName} · {floorName}</h2>
-              <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-slate-400 transition-transform ${venueMenuOpen ? 'rotate-180' : ''}`} />
+              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-900">{layoutName} · {floorName}</h2>
+              <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-ink-400 transition-transform ${venueMenuOpen ? 'rotate-180' : ''}`} strokeWidth={1.5} />
             </button>
             {venueMenuOpen && (
-              <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+              <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-card border border-line bg-surface py-1 shadow-pop">
                 {venues.map((venue) => {
                   const isActiveVenue = venue.id === activeVenueId
                   const isEditing = isActiveVenue && renameDraft !== null
@@ -1351,8 +1320,9 @@ function FloatingPanel({
                         // We keep the row in place (no layout shift) and swap
                         // only the label for an input.
                         <div className="flex items-center gap-2 px-3 py-1.5">
-                          <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
-                          <input
+                          <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-ink-400" strokeWidth={1.5} />
+                          <Input
+                            size="sm"
                             autoFocus
                             value={renameDraft ?? ''}
                             onChange={(e) => setRenameDraft(e.target.value)}
@@ -1365,7 +1335,8 @@ function FloatingPanel({
                               }
                             }}
                             onBlur={() => setRenameDraft(null)}
-                            className="flex-1 min-w-0 rounded border border-indigo-300 bg-white px-1.5 py-0.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            aria-label={t('renameVenue')}
+                            className="flex-1 min-w-0"
                           />
                         </div>
                       ) : (
@@ -1377,17 +1348,18 @@ function FloatingPanel({
                             // without re-opening the menu. The menu closes only
                             // when a floor is picked.
                             onClick={() => onSwitchVenue(venue.id)}
-                            className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-1.5 text-left text-xs ${
-                              isActiveVenue ? 'font-semibold text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                            className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+                              isActiveVenue ? 'font-semibold text-ink-900' : 'text-ink-700 hover:bg-line-soft'
                             }`}
                           >
-                            <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
+                            <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-ink-400" strokeWidth={1.5} />
                             <span className="truncate flex-1">{venue.name}</span>
                             {/* Chevron telegraphs "click to drill down" — points
                                 down when this venue's floors are showing below,
                                 right when collapsed. */}
                             <ChevronDown
-                              className={`w-3 h-3 flex-shrink-0 text-slate-400 transition-transform ${
+                              strokeWidth={1.5}
+                              className={`w-3 h-3 flex-shrink-0 text-ink-400 transition-transform ${
                                 isActiveVenue ? '' : '-rotate-90'
                               }`}
                             />
@@ -1401,9 +1373,9 @@ function FloatingPanel({
                               // Hover-visible edit affordance: invisible until the
                               // row (or the icon itself) is hovered, so the menu
                               // looks calm by default.
-                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 w-6 h-6 inline-flex items-center justify-center rounded text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-opacity"
+                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 w-6 h-6 inline-flex items-center justify-center rounded-field text-ink-400 hover:text-primary-hover hover:bg-line-soft transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
                             >
-                              <Edit2 className="w-3 h-3" />
+                              <Edit2 className="w-3 h-3" strokeWidth={1.5} />
                             </button>
                           )}
                         </div>
@@ -1414,8 +1386,8 @@ function FloatingPanel({
                           key={floor.id}
                           type="button"
                           onClick={() => { onSelectFloor(floor.id); setVenueMenuOpen(false) }}
-                          className={`flex w-full items-center gap-2 py-1.5 pl-9 pr-3 text-left text-xs ${
-                            floor.id === selectedFloorId ? 'bg-indigo-50 font-medium text-indigo-700' : 'text-slate-600 hover:bg-slate-50'
+                          className={`flex w-full items-center gap-2 py-1.5 pl-9 pr-3 text-left text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+                            floor.id === selectedFloorId ? 'bg-primary-soft font-medium text-primary-hover' : 'text-ink-700 hover:bg-line-soft'
                           }`}
                         >
                           <span className="truncate">{floor.name}</span>
@@ -1424,22 +1396,22 @@ function FloatingPanel({
                     </div>
                   )
                 })}
-                <div className="my-1 h-px bg-slate-100" />
+                <div className="my-1 h-px bg-line-soft" />
                 <button
                   type="button"
                   onClick={() => { onCreateVenue(); setVenueMenuOpen(false) }}
-                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-indigo-600 hover:bg-slate-50"
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
                   {t('newVenue')}
                 </button>
               </div>
             )}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">
+          <p className="text-micro text-ink-400 mt-1 tabular-nums">
             {t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}
             {totalAreaSqMeters > 0 && (
-              <span className="ml-1 text-slate-500">· {t('usableSpaceArea')} {formatVenueArea(usableAreaSqMeters)}</span>
+              <span className="ml-1 text-ink-500">· {t('usableSpaceArea')} {formatVenueArea(usableAreaSqMeters)}</span>
             )}
           </p>
         </div>
@@ -1450,9 +1422,9 @@ function FloatingPanel({
               title={t('collaboratorsTitle')}
               aria-label={t('collaboratorsTitle')}
               onClick={onManageCollaborators}
-              className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
+              className="w-8 h-8 rounded-field inline-flex items-center justify-center text-ink-500 hover:bg-line-soft hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
             >
-              <Users className="w-4 h-4" />
+              <Users className="w-4 h-4" strokeWidth={1.5} />
             </button>
           )}
           <button
@@ -1460,31 +1432,27 @@ function FloatingPanel({
             title={t('collapseVenuePanel')}
             aria-label={t('collapseVenuePanel')}
             onClick={() => setCollapsed(true)}
-            className="w-8 h-8 rounded-lg inline-flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-indigo-700 transition-colors"
+            className="w-8 h-8 rounded-field inline-flex items-center justify-center text-ink-500 hover:bg-line-soft hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
           >
-            <PanelLeftClose className="w-4 h-4" />
+            <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
       </div>
-      <div className="flex gap-1 border-b border-slate-100 px-2 pt-2">
-        {([
-          ['shapes', t('tabShapes'), shapeCount],
-          ['markers', t('tabMarkers'), markerCount],
-          ['items', t('tabItems'), floorItems.length],
-        ] as const).map(([key, tabLabel, count]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setListTab(key)}
-            className={`flex-1 rounded-t-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              listTab === key
-                ? 'bg-indigo-50 text-indigo-700'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-            }`}
-          >
-            {tabLabel} <span className="text-[10px] opacity-70">{count}</span>
-          </button>
-        ))}
+      {/* 列表范围切换（空间 / 标识 / 物品）走共享 Tabs（design-system §6.1）；
+          计数并入 label 文本，Tabs 契约里 label 是纯字符串。
+          保留 px-3：FloatingPanel 自身就是容器（头部 p-4、列表 p-2），tab 文字
+          顶到卡片边框比发丝线短一截更难看，内衬与上下两块对齐优先。 */}
+      <div className="px-3 pt-2">
+        <Tabs
+          label={t('listTabsLabel')}
+          value={listTab}
+          onChange={(next) => setListTab(next as 'shapes' | 'markers' | 'items')}
+          items={[
+            { value: 'shapes', label: `${t('tabShapes')} ${shapeCount}` },
+            { value: 'markers', label: `${t('tabMarkers')} ${markerCount}` },
+            { value: 'items', label: `${t('tabItems')} ${floorItems.length}` },
+          ]}
+        />
       </div>
       <div className="max-h-[calc(100dvh-24rem)] min-h-72 overflow-auto p-2">
         {listTab === 'items' ? (
@@ -1494,34 +1462,34 @@ function FloatingPanel({
           // bottom as a sticky-feeling summary row.
           <>
             {floorItems.length === 0 && (
-              <p className="px-3 py-6 text-center text-xs text-slate-400">{t('floorItemsEmpty')}</p>
+              <p className="px-3 py-6 text-center text-xs text-ink-400">{t('floorItemsEmpty')}</p>
             )}
             {floorItems.length > 0 && floorItems.map((it) => (
               <a
                 key={it.id}
                 href={`/items/${it.id}`}
-                className="w-full flex items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors text-slate-600 hover:bg-slate-50"
+                className="w-full flex items-start gap-2 rounded-field px-2.5 py-2 text-left transition-colors text-ink-700 hover:bg-line-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
               >
-                <Package className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <Package className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.5} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium truncate">{it.name}</span>
-                  <span className="block text-[11px] text-slate-400 truncate">
+                  <span className="block text-micro text-ink-400 truncate">
                     {it.item_code}
                     {it.quantity > 1 && ` · ×${it.quantity}`}
                     {it.zoneName && ` · ${it.zoneName}`}
                   </span>
                 </span>
                 {it.cost > 0 && (
-                  <span className="text-[11px] font-medium text-slate-500 tabular-nums whitespace-nowrap mt-0.5">
+                  <span className="text-micro font-medium text-ink-500 font-mono tabular-nums whitespace-nowrap mt-0.5">
                     ¥{Math.round(it.cost).toLocaleString('zh-CN')}
                   </span>
                 )}
               </a>
             ))}
             {floorItems.length > 0 && (
-              <div className="mt-2 flex items-center justify-between border-t border-slate-100 px-3 py-2 text-xs">
-                <span className="text-slate-500">{t('floorItemsTotal')}</span>
-                <span className="font-semibold text-slate-700 tabular-nums">
+              <div className="mt-2 flex items-center justify-between border-t border-line-soft px-3 py-2 text-xs">
+                <span className="text-ink-500">{t('floorItemsTotal')}</span>
+                <span className="font-semibold text-ink-700 font-mono tabular-nums">
                   ¥{Math.round(floorItemsTotalCost).toLocaleString('zh-CN')}
                 </span>
               </div>
@@ -1530,7 +1498,7 @@ function FloatingPanel({
         ) : (
           <>
             {listItems.length === 0 && (
-              <p className="px-3 py-6 text-center text-xs text-slate-400">{t('filterEmpty')}</p>
+              <p className="px-3 py-6 text-center text-xs text-ink-400">{t('filterEmpty')}</p>
             )}
             {listItems.map((item) => {
               const Icon = TOOL_ICON[item.type]
@@ -1551,14 +1519,14 @@ function FloatingPanel({
                   ref={active ? activeListItemRef : null}
                   type="button"
                   onClick={() => onSelect(item.id)}
-                  className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                    active ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'
+                  className={`w-full flex items-center gap-2 rounded-field px-2.5 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+                    active ? 'bg-primary-soft text-primary-hover' : 'text-ink-700 hover:bg-line-soft'
                   }`}
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <Icon className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium truncate">{resolveVenueItemName(item.name, item.id, locale, nameTranslations)}</span>
-                    <span className={`block text-[11px] truncate ${isTopArea ? 'font-semibold text-slate-600' : 'text-slate-400'}`}>
+                    <span className={`block text-micro truncate tabular-nums ${isTopArea ? 'font-semibold text-ink-700' : 'text-ink-400'}`}>
                       {isMarker ? (
                         t(`types.${item.type}`)
                       ) : (
@@ -1640,27 +1608,27 @@ function ViewBookmarks({
           onClick={onAdd}
           title={t('viewSaveCurrent')}
           aria-label={t('viewSaveCurrent')}
-          className="h-9 shrink-0 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-400 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+          className="h-8 shrink-0 inline-flex items-center gap-1 rounded-field border border-dashed border-line-strong bg-surface px-2.5 text-xs font-semibold text-ink-400 hover:border-primary-border hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
         >
-          <Bookmark className="w-4 h-4 flex-shrink-0" />
-          <Plus className="w-3 h-3 flex-shrink-0" />
+          <Bookmark className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+          <Plus className="w-3 h-3 flex-shrink-0" strokeWidth={1.5} />
         </button>
       </div>
     )
   }
 
   return (
-    <div ref={ref} className="flex-shrink-0 inline-flex rounded-lg border border-indigo-200 overflow-hidden">
+    <div ref={ref} className="flex-shrink-0 inline-flex rounded-field border border-primary-border overflow-hidden">
       {/* Main: one-click switch to the next saved view. */}
       <button
         type="button"
         onClick={cycle}
         title={t('viewSwitchNext')}
         aria-label={t('viewSwitchNext')}
-        className="h-9 inline-flex items-center gap-1.5 bg-indigo-50 px-2.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
+        className="h-8 inline-flex items-center gap-1.5 bg-primary-soft px-2.5 text-xs font-semibold text-primary-hover hover:bg-primary-soft-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
       >
-        <Bookmark className="w-4 h-4 flex-shrink-0" />
-        <span>{safeActive + 1}</span>
+        <Bookmark className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+        <span className="tabular-nums">{safeActive + 1}</span>
       </button>
       {/* Chevron: open the manage menu (switch to a specific view / overwrite / remove / add). */}
       <button
@@ -1669,24 +1637,24 @@ function ViewBookmarks({
         onClick={openMenu}
         title={t('viewBookmarks')}
         aria-label={t('viewBookmarks')}
-        className="h-9 inline-flex items-center justify-center border-l border-indigo-200 bg-indigo-50 px-1.5 text-indigo-700 hover:bg-indigo-100 transition-colors"
+        className="h-8 inline-flex items-center justify-center border-l border-primary-border bg-primary-soft px-1.5 text-primary-hover hover:bg-primary-soft-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
       >
-        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown strokeWidth={1.5} className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && menuPos && count > 0 && (
         <div
           style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-          className="z-50 min-w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          className="z-40 min-w-44 rounded-card border border-line bg-surface py-1 shadow-pop"
         >
           {bookmarks.map((_, index) => (
-            <div key={index} className="flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-50">
+            <div key={index} className="flex items-center gap-1 px-2 py-1 rounded-field hover:bg-line-soft transition-colors">
               <button
                 type="button"
                 onClick={() => {
                   goTo(index)
                   setOpen(false)
                 }}
-                className={`flex-1 text-left text-xs font-medium ${index === safeActive ? 'text-indigo-700' : 'text-slate-700'}`}
+                className={`flex-1 text-left text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${index === safeActive ? 'text-primary-hover' : 'text-ink-700'}`}
               >
                 {t('viewBookmarkN', { n: index + 1 })}
               </button>
@@ -1694,7 +1662,7 @@ function ViewBookmarks({
                 type="button"
                 onClick={() => onOverwrite(index)}
                 title={t('viewOverwrite')}
-                className="px-1.5 py-0.5 text-[10px] font-medium text-slate-400 hover:text-indigo-600"
+                className="px-1.5 py-0.5 text-micro font-medium text-ink-400 hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
               >
                 {t('viewOverwriteShort')}
               </button>
@@ -1702,21 +1670,22 @@ function ViewBookmarks({
                 type="button"
                 onClick={() => onRemove(index)}
                 title={t('viewRemove')}
-                className="text-slate-400 hover:text-red-600"
+                aria-label={t('viewRemove')}
+                className="text-ink-400 hover:text-danger-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3.5 h-3.5" strokeWidth={1.5} />
               </button>
             </div>
           ))}
           {count < max && (
             <>
-              <div className="my-1 h-px bg-slate-100" />
+              <div className="my-1 h-px bg-line-soft" />
               <button
                 type="button"
                 onClick={() => onAdd()}
-                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-indigo-600 hover:bg-slate-50"
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
                 {t('viewSaveCurrent')}
               </button>
             </>
@@ -1767,16 +1736,16 @@ function AddMenu({
         ref={buttonRef}
         type="button"
         onClick={toggleOpen}
-        className="h-9 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+        className="h-8 inline-flex items-center gap-1.5 rounded-field border border-line-strong bg-surface px-3 text-sm font-medium text-ink-700 hover:border-primary-border hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
       >
-        <TriggerIcon className="w-4 h-4 flex-shrink-0" />
+        <TriggerIcon className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
         <span className="whitespace-nowrap">{label}</span>
-        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown strokeWidth={1.5} className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && menuPos && (
         <div
           style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-          className="z-50 min-w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          className="z-40 min-w-40 rounded-card border border-line bg-surface py-1 shadow-pop"
         >
           {types.map((type) => {
             const Icon = TOOL_ICON[type]
@@ -1788,9 +1757,9 @@ function AddMenu({
                   onAdd(type)
                   setOpen(false)
                 }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-700 hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
               >
-                <Icon className="w-3.5 h-3.5 text-slate-400" />
+                <Icon className="w-3.5 h-3.5 text-ink-400" strokeWidth={1.5} />
                 <span>{t(`types.${type}`)}</span>
               </button>
             )
@@ -1855,19 +1824,19 @@ function TypeFilter({
         ref={buttonRef}
         type="button"
         onClick={toggleOpen}
-        className={`h-9 inline-flex items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors ${
+        className={`h-8 inline-flex items-center gap-1.5 rounded-field border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
           fullWidth ? 'w-full justify-between' : ''
         } ${
           allSelected
-            ? 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700'
-            : 'border-indigo-200 bg-indigo-50 text-indigo-700'
+            ? 'border-line-strong bg-surface text-ink-700 hover:border-primary-border hover:text-primary-hover'
+            : 'border-primary-border bg-primary-soft text-primary-hover'
         }`}
       >
         <span className="inline-flex items-center gap-1.5 min-w-0">
-          <ListFilter className="w-4 h-4 flex-shrink-0" />
+          <ListFilter className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
           <span className="whitespace-nowrap">{summary}</span>
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown strokeWidth={1.5} className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && menuPos && (
         <div
@@ -1880,17 +1849,17 @@ function TypeFilter({
             maxHeight: `calc(100vh - ${menuPos.top + 16}px)`,
             overflowY: 'auto',
           }}
-          className="z-50 min-w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          className="z-40 min-w-44 rounded-card border border-line bg-surface py-1 shadow-pop"
         >
           <button
             type="button"
             onClick={() => onChange(ALL_VENUE_TYPES)}
             disabled={allSelected}
-            className="w-full px-3 py-1.5 text-left text-xs font-medium text-indigo-600 hover:bg-slate-50 disabled:text-slate-300 disabled:hover:bg-transparent"
+            className="w-full px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-line-soft transition-colors disabled:text-ink-400 disabled:opacity-50 disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
           >
             {t('filterShowAll')}
           </button>
-          <div className="my-1 h-px bg-slate-100" />
+          <div className="my-1 h-px bg-line-soft" />
           {VENUE_ITEM_TYPE_OPTIONS.map((option) => {
             const Icon = TOOL_ICON[option.value]
             const checked = visibleSet.has(option.value)
@@ -1898,16 +1867,16 @@ function TypeFilter({
             return (
               <label
                 key={option.value}
-                className={`flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 ${lockedLast ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs text-ink-700 hover:bg-line-soft transition-colors ${lockedLast ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
               >
                 <input
                   type="checkbox"
                   checked={checked}
                   disabled={lockedLast}
                   onChange={() => toggle(option.value)}
-                  className="accent-indigo-600"
+                  className="accent-primary"
                 />
-                <Icon className="w-3.5 h-3.5 text-slate-400" />
+                <Icon className="w-3.5 h-3.5 text-ink-400" strokeWidth={1.5} />
                 <span>{t(`types.${option.value}`)}</span>
               </label>
             )
@@ -1944,17 +1913,19 @@ function ToolbarButton({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className={`h-9 shrink-0 inline-flex items-center justify-center rounded-lg border text-xs font-semibold leading-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-        iconOnly ? 'w-9' : 'gap-1.5 px-3'
+      // h-8 = §3 控件高度默认档 32px。iconOnly 的方形也取 32×32（正好落在
+      // §4 点击目标下限），整条工具栏因此与 SegmentedControl 同高。
+      className={`h-8 shrink-0 inline-flex items-center justify-center rounded-field border text-xs font-semibold leading-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
+        iconOnly ? 'w-8' : 'gap-1.5 px-3'
       } ${
         primary
-          ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+          ? 'border-ink-900 bg-ink-900 text-white hover:bg-ink-700'
           : active
-            ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
-            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700'
+            ? 'border-primary-border bg-primary-soft text-primary-hover'
+            : 'border-line-strong bg-surface text-ink-700 hover:border-primary-border hover:text-primary-hover'
       }`}
     >
-      <Icon className="w-4 h-4 shrink-0" />
+      <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
       {!iconOnly && <span className="hidden whitespace-nowrap xl:inline">{label}</span>}
     </button>
   )
@@ -1963,13 +1934,9 @@ function ToolbarButton({
 function StatusPill({ state }: { state: SaveState }) {
   const t = useTranslations('venue')
   if (state === 'idle') return null
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-      state === 'saved' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
-    }`}>
-      {state === 'saved' ? t('autoSaved') : t('saveFailed')}
-    </span>
-  )
+  return state === 'saved'
+    ? <Tag label={t('autoSaved')} tone="success" />
+    : <Tag label={t('saveFailed')} tone="danger" />
 }
 
 // Owner / admin tool: pick which system users may co-edit this venue. The list
@@ -2037,92 +2004,67 @@ function CollaboratorsModal({ venueId, onClose }: { venueId: string; onClose: ()
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-5">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold text-slate-900">{t('collaboratorsTitle')}</h2>
-            <p className="mt-1 text-xs text-slate-500">{t('collaboratorsDesc')}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('collaboratorsCancel')}
-            className="w-8 h-8 shrink-0 rounded-lg inline-flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="px-5 pt-4">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t('collaboratorsSearch')}
-            className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div className="min-h-40 flex-1 overflow-auto px-3 py-3">
-          {loading ? (
-            <p className="px-2 py-6 text-center text-sm text-slate-400">{t('collaboratorsLoading')}</p>
-          ) : filtered.length === 0 ? (
-            <p className="px-2 py-6 text-center text-sm text-slate-400">{t('collaboratorsEmpty')}</p>
-          ) : (
-            filtered.map((user) => (
-              <label
-                key={user.id}
-                className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-slate-50"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(user.id)}
-                  onChange={() => toggle(user.id)}
-                  className="accent-indigo-600"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-slate-700">{user.name}</span>
-                  {user.email && <span className="block truncate text-xs text-slate-400">{user.email}</span>}
-                </span>
-              </label>
-            ))
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 p-4">
-          <span className="text-xs text-slate-400">
+    <Modal
+      open
+      onClose={onClose}
+      title={t('collaboratorsTitle')}
+      width="max-w-md"
+      footer={
+        <>
+          {/* mr-auto 把计数/错误推到左端——Modal footer 本身是 justify-end。 */}
+          <span className="mr-auto text-xs text-ink-400">
             {error ? (
-              <span className="text-red-600">{t('collaboratorsError')}</span>
+              <span className="text-danger-text">{t('collaboratorsError')}</span>
             ) : (
               t('collaboratorsCount', { count: selected.size })
             )}
           </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-9 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              {t('collaboratorsCancel')}
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving || loading}
-              className="h-9 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-            >
-              {t('collaboratorsSave')}
-            </button>
-          </div>
-        </div>
+          <Button variant="ghost" onClick={onClose}>
+            {t('collaboratorsCancel')}
+          </Button>
+          <Button onClick={save} disabled={saving || loading} loading={saving}>
+            {t('collaboratorsSave')}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-xs text-ink-500">{t('collaboratorsDesc')}</p>
+
+      <div className="mt-3">
+        <SearchInput
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t('collaboratorsSearch')}
+          aria-label={t('collaboratorsSearch')}
+        />
       </div>
-    </div>
+
+      <div className="min-h-40 mt-3">
+        {loading ? (
+          <p className="px-2 py-6 text-center text-sm text-ink-400">{t('collaboratorsLoading')}</p>
+        ) : filtered.length === 0 ? (
+          <p className="px-2 py-6 text-center text-sm text-ink-400">{t('collaboratorsEmpty')}</p>
+        ) : (
+          filtered.map((user) => (
+            <label
+              key={user.id}
+              className="flex cursor-pointer items-center gap-3 rounded-field px-2.5 py-2 hover:bg-line-soft transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(user.id)}
+                onChange={() => toggle(user.id)}
+                className="accent-primary"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-ink-700">{user.name}</span>
+                {user.email && <span className="block truncate text-xs text-ink-400">{user.email}</span>}
+              </span>
+            </label>
+          ))
+        )}
+      </div>
+    </Modal>
   )
 }
 

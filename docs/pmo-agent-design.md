@@ -2,7 +2,7 @@
 
 > 状态：Draft v0.1 · 2026-05-01
 > 目标读者：WithJP 工程团队
-> 关联里程碑：「运营工作流研发 — Creator Guild OS」(target 2026-10-31)
+> 关联里程碑：「运营工作流研发 — Creator Network OS」(target 2026-10-31)
 
 ---
 

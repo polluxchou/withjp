@@ -9,12 +9,23 @@ import TaskCard from '@/components/tasks/TaskCard'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import CreatorForm from '@/components/creators/CreatorForm'
+import { Field, Input, Textarea } from '@/components/ui/Field'
+import SectionCard from '@/components/ui/SectionCard'
+import Tabs from '@/components/ui/Tabs'
+import { Stat, StatBand } from '@/components/ui/Stat'
+import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
+import EmptyState from '@/components/ui/EmptyState'
+import ErrorState from '@/components/ui/ErrorState'
+import LoadingState from '@/components/ui/LoadingState'
+import Tag from '@/components/ui/Tag'
+import { toneOf, type Tone } from '@/lib/ui/status-tone'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import {
   ArrowLeft, ChevronRight, Play, DollarSign,
-  TrendingUp, Activity, Clock, Edit,
+  Clock, Edit, Info, GitBranch,
 } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
-import type { Creator, Task, Finance, LifecycleTransition, CreatorActivityLog } from '@/lib/types'
+import type { Creator, Task, Finance, LifecycleTransition, CreatorActivityLog, ActivityType } from '@/lib/types'
 import {
   nextStatus, ALL_STATUSES,
 } from '@/lib/state-machine/creator-lifecycle'
@@ -30,10 +41,46 @@ interface CreatorDetail extends Creator {
   activity_logs: CreatorActivityLog[]
 }
 
+// Activity-log entries are categorical event types, not a lifecycle status —
+// kept as a small local tone map (same idiom as ExpenseCategory's dedicated
+// category-color.ts) rather than folded into the shared status-tone.ts
+// domain table, which is reserved for actual state-machine status enums
+// (docs/design-system.md §1.3).
+//
+// The label rendered alongside this tone comes from
+// messages/{zh,en,ja}.json's `creatorDetail.activityTypes.*` — unlike this
+// Record<ActivityType, Tone>, that lookup is a plain string key with no
+// compile-time exhaustiveness check. Adding a new ActivityType value means
+// updating both: this map (TS will already force that) AND all three
+// activityTypes.* locale files (nothing will force that).
+const ACTIVITY_TONE: Record<ActivityType, Tone> = {
+  created:         'success',
+  updated:         'info',
+  status_changed:  'violet',
+  task_created:    'violet',
+  task_completed:  'success',
+  finance_logged:  'warning',
+  note_added:      'neutral',
+  contact_updated: 'info',
+  profile_updated: 'info',
+  other:           'neutral',
+}
+
+// Mirrors the small Tone→dot-class lookup every Tag-adjacent component keeps
+// locally (Tag.tsx's own DOT record, RecordRow.tsx's DOT record) — needed as
+// its own map here because this dot sits absolutely-positioned on the
+// timeline rail rather than inline next to text, so Tag's own dot variant
+// doesn't apply directly.
+const ACTIVITY_DOT: Record<Tone, string> = {
+  success: 'bg-success-dot', warning: 'bg-warning-dot', danger: 'bg-danger-dot',
+  info: 'bg-info-dot', neutral: 'bg-muted-dot', violet: 'bg-primary',
+}
+
 export default function CreatorDetailPage() {
   const { id }    = useParams<{ id: string }>()
   const [data,    setData]    = useState<CreatorDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [transitioning, setTransitioning] = useState(false)
   const [executing, setExecuting]         = useState<string | null>(null)
   const [showFinance, setShowFinance]     = useState(false)
@@ -53,9 +100,24 @@ export default function CreatorDetailPage() {
     try {
       const res  = await fetch(`/api/creators/${id}`)
       const json = await res.json()
-      setData(json.data)
+      // /api/creators/[id] maps every creators-query error to 404 — mostly
+      // "no such creator", but also rare system faults (bad uuid, RLS, DB
+      // down) it can't tell apart. With no finer signal, 404 renders as the
+      // plain not-found state below (no retry). Any other non-ok status
+      // (401/403/500/…) is a real error: prefer the response's own
+      // json.error text, falling back to the generic copy.
+      if (!res.ok && res.status !== 404) {
+        console.error('Failed to load creator:', res.status, json.error)
+        setLoadError(json.error ?? tCommon('loadFailed'))
+        setData(null)
+      } else {
+        setLoadError(null)
+        setData(json.data)
+      }
     } catch (err) {
       console.error('Failed to load creator:', err)
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
+      setData(null)
     } finally {
       setLoading(false)
     }
@@ -106,8 +168,16 @@ export default function CreatorDetailPage() {
     await load()
   }
 
-  if (loading) return <div className="p-12 text-center text-sm text-zinc-400">{tCommon('loading')}</div>
-  if (!data)   return <div className="p-12 text-center text-sm text-red-500">{tCreators('creatorNotFound')}</div>
+  if (loading) return <LoadingState />
+  if (!data) {
+    // loadError only ever comes from a real system failure (network/parse
+    // exception, or a non-404 error status) — see load() above. A clean
+    // 404 (creator genuinely doesn't exist) has no loadError and gets no
+    // retry button, since retrying a missing record can't succeed.
+    return loadError
+      ? <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
+      : <ErrorState title={tCreators('creatorNotFound')} />
+  }
 
   const next = nextStatus(data.status)
   const totalRevenue = data.finance.reduce((s, f) => s + Number(f.revenue), 0)
@@ -122,26 +192,31 @@ export default function CreatorDetailPage() {
   return (
     <div>
       {/* Back + header */}
-      <Link href="/creators" className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 mb-4">
+      <Link href="/creators" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-900 mb-4">
         <ArrowLeft className="w-4 h-4" /> {tCreators('title')}
       </Link>
 
       <Header
         title={
-          <div className="flex items-center gap-2">
-            <span>{data.name}</span>
+          // Header renders `title` inside an <h1 className="... truncate">
+          // — a block-level div here would be invalid inside that truncate
+          // flow (PR1 review note). span + min-w-0 keeps it inline-flex, and
+          // truncate moves onto the name's own span so the external-link
+          // icon never gets squeezed.
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <span className="truncate">{data.name}</span>
             {platformUrl && (
               <a
                 href={platformUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:text-violet-800 transition-colors"
+                className="flex-none text-primary hover:text-primary-hover transition-colors"
                 title={t('visitPlatform', { platform: data.platform })}
               >
                 <ExternalLink className="w-5 h-5" />
               </a>
             )}
-          </div>
+          </span>
         }
         subtitle={`${data.platform} · ${data.profile?.niche ?? tCreators('noNiche')} · ${data.profile?.followers != null ? fmtCompact(data.profile.followers, locale) : '—'} ${tCreators('followers')}`}
         actions={
@@ -165,102 +240,101 @@ export default function CreatorDetailPage() {
 
       {/* Finance KPIs */}
       {data.finance.length > 0 && (
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          {[
-            { label: t('revenue'),  value: `¥${fmtCompact(totalRevenue, locale)}`,   color: 'text-emerald-600' },
-            { label: t('cost'),     value: `¥${fmtCompact(totalCost, locale)}`,      color: 'text-red-500' },
-            { label: t('profit'),   value: `¥${fmtCompact(totalProfit, locale)}`,    color: totalProfit >= 0 ? 'text-emerald-600' : 'text-red-500' },
-            { label: t('avgROI'),   value: avgROI != null ? `${avgROI.toFixed(1)}%` : '—', color: (avgROI ?? 0) >= 0 ? 'text-emerald-600' : 'text-red-500' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white border border-zinc-200 rounded-xl p-4">
-              <p className="text-xs text-zinc-500 font-medium">{label}</p>
-              <p className={`text-xl font-bold mt-1 ${color}`}>{value}</p>
-            </div>
-          ))}
+        <div className="mb-6">
+          <StatBand>
+            <Stat label={t('revenue')} value={`¥${fmtCompact(totalRevenue, locale)}`} />
+            {/* cost is a positive spend amount, not a negative value — §2
+                "负值用 danger text" doesn't apply here, so this stays the
+                default ink tone (deliberate change from an earlier
+                always-red rendering; see PR description). */}
+            <Stat label={t('cost')} value={`¥${fmtCompact(totalCost, locale)}`} />
+            <Stat label={t('profit')} value={`¥${fmtCompact(totalProfit, locale)}`} tone={totalProfit >= 0 ? 'default' : 'danger'} />
+            <Stat label={t('avgROI')} value={avgROI != null ? `${avgROI.toFixed(1)}%` : '—'} tone={(avgROI ?? 0) >= 0 ? 'default' : 'danger'} />
+          </StatBand>
         </div>
       )}
 
       {/* Info grid */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white border border-zinc-200 rounded-xl p-4 col-span-2">
-          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">{tCreators('profile')}</h3>
-          <dl className="grid grid-cols-3 gap-3 text-sm">
-            <div>
-              <dt className="text-xs text-zinc-400">{tCreators('platform')}</dt>
-              <dd className="font-medium text-zinc-900 truncate">
-                {platformUrl ? (
-                  <a
-                    href={platformUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:text-violet-800 inline-flex items-center gap-1"
-                  >
-                    {data.platform}
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                ) : (
-                  data.platform
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-400">{tCreators('broadcastAccount')}</dt>
-              <dd className="font-medium text-zinc-900 truncate">
-                {data.broadcast_account ? (
-                  data.broadcast_account.account_url ? (
+        <div className="col-span-2">
+          <SectionCard icon={<Info />} title={tCreators('profile')}>
+            <dl className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <dt className="text-xs text-ink-400">{tCreators('platform')}</dt>
+                <dd className="font-medium text-ink-900 truncate">
+                  {platformUrl ? (
                     <a
-                      href={data.broadcast_account.account_url}
+                      href={platformUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary hover:text-violet-800 inline-flex items-center gap-1"
+                      className="text-primary hover:text-primary-hover inline-flex items-center gap-1"
                     >
-                      {data.broadcast_account.name}
+                      {data.platform}
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   ) : (
-                    data.broadcast_account.name
-                  )
-                ) : '—'}
-              </dd>
-              {data.broadcast_account && (
-                <p className="text-xs text-zinc-400 truncate">{data.broadcast_account.account_handle}</p>
-              )}
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-400">{tCreators('operator')}</dt>
-              <dd className="font-medium text-zinc-900 truncate">{data.operator_user?.name ?? '—'}</dd>
-              {data.operator_user && (
-                <p className="text-xs text-zinc-400 truncate">
-                  {data.operator_user.user_code}{data.operator_user.email ? ` · ${data.operator_user.email}` : ''}
-                </p>
-              )}
-            </div>
-            {[
-              [tCreators('niche'),        data.profile?.niche ?? '—'],
-              [tCreators('followers'),    data.profile?.followers != null ? fmtCompact(data.profile.followers, locale) : '—'],
-              [tCreators('avgViews'),     data.profile?.avg_views  != null ? fmtCompact(data.profile.avg_views, locale)  : '—'],
-              [tCreators('location'),     data.profile?.location ?? '—'],
-              [tCreators('email'),        data.contact_info?.email ?? '—'],
-              [tCreators('wechat'),       data.contact_info?.wechat ?? '—'],
-              [tCreators('added'),        format(new Date(data.created_at), 'MMM d, yyyy')],
-            ].map(([k, v]) => (
-              <div key={k as string}>
-                <dt className="text-xs text-zinc-400">{k as string}</dt>
-                <dd className="font-medium text-zinc-900 truncate">{v as string}</dd>
+                    data.platform
+                  )}
+                </dd>
               </div>
-            ))}
-          </dl>
-          {data.notes && (
-            <div className="mt-3 pt-3 border-t border-zinc-100">
-              <p className="text-xs text-zinc-400 mb-1">{tCreators('notes')}</p>
-              <p className="text-sm text-zinc-600">{data.notes}</p>
-            </div>
-          )}
+              <div>
+                <dt className="text-xs text-ink-400">{tCreators('broadcastAccount')}</dt>
+                <dd className="font-medium text-ink-900 truncate">
+                  {data.broadcast_account ? (
+                    data.broadcast_account.account_url ? (
+                      <a
+                        href={data.broadcast_account.account_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:text-primary-hover inline-flex items-center gap-1"
+                      >
+                        {data.broadcast_account.name}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      data.broadcast_account.name
+                    )
+                  ) : '—'}
+                </dd>
+                {data.broadcast_account && (
+                  <p className="text-xs text-ink-400 truncate">{data.broadcast_account.account_handle}</p>
+                )}
+              </div>
+              <div>
+                <dt className="text-xs text-ink-400">{tCreators('operator')}</dt>
+                <dd className="font-medium text-ink-900 truncate">{data.operator_user?.name ?? '—'}</dd>
+                {data.operator_user && (
+                  <p className="text-xs text-ink-400 truncate">
+                    {data.operator_user.user_code}{data.operator_user.email ? ` · ${data.operator_user.email}` : ''}
+                  </p>
+                )}
+              </div>
+              {[
+                [tCreators('niche'),        data.profile?.niche ?? '—'],
+                [tCreators('followers'),    data.profile?.followers != null ? fmtCompact(data.profile.followers, locale) : '—'],
+                [tCreators('avgViews'),     data.profile?.avg_views  != null ? fmtCompact(data.profile.avg_views, locale)  : '—'],
+                [tCreators('location'),     data.profile?.location ?? '—'],
+                [tCreators('email'),        data.contact_info?.email ?? '—'],
+                [tCreators('wechat'),       data.contact_info?.wechat ?? '—'],
+                [tCreators('added'),        format(new Date(data.created_at), 'MMM d, yyyy')],
+              ].map(([k, v]) => (
+                <div key={k as string}>
+                  <dt className="text-xs text-ink-400">{k as string}</dt>
+                  <dd className="font-medium text-ink-900 truncate">{v as string}</dd>
+                </div>
+              ))}
+            </dl>
+            {data.notes && (
+              <div className="mt-3 pt-3 border-t border-line-soft">
+                <p className="text-xs text-ink-400 mb-1">{tCreators('notes')}</p>
+                <p className="text-sm text-ink-700">{data.notes}</p>
+              </div>
+            )}
+          </SectionCard>
         </div>
 
         {/* Lifecycle progress */}
-        <div className="bg-white border border-zinc-200 rounded-xl p-4">
-          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">{tCreators('lifecycle')}</h3>
+        <SectionCard icon={<GitBranch />} title={tCreators('lifecycle')}>
           <div className="space-y-2">
             {ALL_STATUSES.map((s, i) => {
               const statusIdx   = ALL_STATUSES.indexOf(data.status)
@@ -269,68 +343,69 @@ export default function CreatorDetailPage() {
               const isPending   = i > statusIdx
               return (
                 <div key={s} className="flex items-center gap-2.5">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold
-                    ${isCompleted ? 'bg-primary text-white' : isCurrent ? 'bg-primary-soft text-primary ring-2 ring-primary' : 'bg-zinc-100 text-zinc-400'}`}>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-none text-xs font-bold
+                    ${isCompleted ? 'bg-primary text-white' : isCurrent ? 'bg-primary-soft text-primary ring-2 ring-primary' : 'bg-muted-soft text-ink-400'}`}>
                     {isCompleted ? '✓' : i + 1}
                   </div>
-                  <span className={`text-xs font-medium ${isCurrent ? 'text-primary' : isPending ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                  <span className={`text-xs font-medium ${isCurrent ? 'text-primary' : isPending ? 'text-ink-400' : 'text-ink-700'}`}>
                     {tStatus(s)}
                   </span>
                 </div>
               )
             })}
           </div>
-        </div>
+        </SectionCard>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-4 border-b border-zinc-200">
-        {(['tasks', 'finance', 'timeline', 'activity'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors capitalize ${
-              tab === t ? 'border-primary text-primary' : 'border-transparent text-zinc-500 hover:text-zinc-900'
-            }`}>
-            {t === 'tasks' ? `${tCreators('tasks')} (${data.tasks.length})` :
-             t === 'finance' ? `${tCreators('finance')} (${data.finance.length})` :
-             t === 'activity' ? `${tCreators('activity')} (${data.activity_logs?.length || 0})` :
-             tCreators('timeline')}
-          </button>
-        ))}
+      <div className="mb-4">
+        <Tabs
+          items={[
+            { value: 'tasks',    label: `${tCreators('tasks')} (${data.tasks.length})` },
+            { value: 'finance',  label: `${tCreators('finance')} (${data.finance.length})` },
+            { value: 'timeline', label: tCreators('timeline') },
+            { value: 'activity', label: `${tCreators('activity')} (${data.activity_logs?.length || 0})` },
+          ]}
+          value={tab}
+          onChange={(v) => setTab(v as typeof tab)}
+        />
       </div>
 
       {/* Tasks tab */}
       {tab === 'tasks' && (
         <div className="space-y-3">
-          {data.tasks.length === 0 && (
-            <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center text-sm text-zinc-400">
-              {t('noTasksYet')}
-            </div>
+          {data.tasks.length === 0 ? (
+            <EmptyState title={t('noTasksYet')} />
+          ) : (
+            data.tasks.map((task) => (
+              <div key={task.id} className="space-y-2">
+                <TaskCard task={task} />
+                {task.status === 'pending' && (
+                  <div className="pl-7">
+                    <Button
+                      size="sm"
+                      loading={executing === task.id}
+                      onClick={() => executeTask(task.id)}
+                    >
+                      <Play className="w-3 h-3" />
+                      {tCommon('run')} {task.agent?.name ?? tTasks('agent')}
+                    </Button>
+                  </div>
+                )}
+                {task.status === 'done' && task.output && (
+                  <details className="pl-7">
+                    {/* w-fit + rounded-field 让 focus 环贴着文字而非撑满整行
+                        （<summary> 默认 block）——同 team/page.tsx 的
+                        SUMMARY_CLASS 配方，环本身取自 recipes.ts。 */}
+                    <summary className={`w-fit text-xs text-ink-400 cursor-pointer hover:text-ink-700 rounded-field ${FOCUS_RING}`}>{t('viewOutput')}</summary>
+                    <pre className="mt-2 text-xs bg-canvas border border-line rounded-field p-3 overflow-auto max-h-60 text-ink-700">
+                      {JSON.stringify(task.output, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            ))
           )}
-          {data.tasks.map((task) => (
-            <div key={task.id} className="space-y-2">
-              <TaskCard task={task} />
-              {task.status === 'pending' && (
-                <div className="pl-7">
-                  <Button
-                    size="sm"
-                    loading={executing === task.id}
-                    onClick={() => executeTask(task.id)}
-                  >
-                    <Play className="w-3 h-3" />
-                    {tCommon('run')} {task.agent?.name ?? tTasks('agent')}
-                  </Button>
-                </div>
-              )}
-              {task.status === 'done' && task.output && (
-                <details className="pl-7">
-                  <summary className="text-xs text-zinc-400 cursor-pointer hover:text-zinc-600">{t('viewOutput')}</summary>
-                  <pre className="mt-2 text-xs bg-zinc-50 border border-zinc-200 rounded-lg p-3 overflow-auto max-h-60 text-zinc-700">
-                    {JSON.stringify(task.output, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </div>
-          ))}
         </div>
       )}
 
@@ -343,67 +418,69 @@ export default function CreatorDetailPage() {
             </Button>
           </div>
           {data.finance.length === 0 ? (
-            <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center text-sm text-zinc-400">
-              {t('noFinanceYet')}
-            </div>
+            <EmptyState title={t('noFinanceYet')} />
           ) : (
-            <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-100 bg-zinc-50">
-                    {[tExpenses('period'), t('revenue'), t('cost'), t('profit'), 'ROI', tCreators('notes')].map((h) => (
-                      <th key={h} className="text-left px-5 py-3 text-xs font-medium text-zinc-500">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
+            <SectionCard padding="none">
+              <Table label={tCreators('finance')}>
+                <THead>
+                  <Tr>
+                    <Th>{tExpenses('period')}</Th>
+                    <Th align="right">{t('revenue')}</Th>
+                    <Th align="right">{t('cost')}</Th>
+                    <Th align="right">{t('profit')}</Th>
+                    <Th align="right">ROI</Th>
+                    <Th>{tCreators('notes')}</Th>
+                  </Tr>
+                </THead>
+                <TBody>
                   {data.finance.map((f) => (
-                    <tr key={f.id} className="border-b border-zinc-50">
-                      <td className="px-5 py-3 font-medium">{f.period}</td>
-                      <td className="px-5 py-3 text-emerald-600">¥{fmtCompact(Number(f.revenue), locale)}</td>
-                      <td className="px-5 py-3 text-red-500">¥{fmtCompact(Number(f.cost), locale)}</td>
-                      <td className={`px-5 py-3 font-medium ${Number(f.profit) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        ¥{fmtCompact(Number(f.profit), locale)}
-                      </td>
-                      <td className={`px-5 py-3 font-medium ${Number(f.roi) >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {Number(f.roi).toFixed(1)}%
-                      </td>
-                      <td className="px-5 py-3 text-zinc-400">{f.notes ?? '—'}</td>
-                    </tr>
+                    <Tr key={f.id}>
+                      <Td className="font-medium text-ink-900">{f.period}</Td>
+                      <Td align="right" numeric>{`¥${fmtCompact(Number(f.revenue), locale)}`}</Td>
+                      {/* cost is a positive spend amount, not a negative
+                          value — §2 "负值用 danger text" doesn't apply;
+                          deliberate change from an earlier always-red cell. */}
+                      <Td align="right" numeric>{`¥${fmtCompact(Number(f.cost), locale)}`}</Td>
+                      <Td align="right" className={`tabular-nums font-medium ${Number(f.profit) >= 0 ? 'text-ink-900' : 'text-danger-text'}`}>
+                        {`¥${fmtCompact(Number(f.profit), locale)}`}
+                      </Td>
+                      <Td align="right" className={`tabular-nums font-medium ${Number(f.roi) >= 0 ? 'text-ink-900' : 'text-danger-text'}`}>
+                        {`${Number(f.roi).toFixed(1)}%`}
+                      </Td>
+                      <Td className="text-ink-400">{f.notes ?? '—'}</Td>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TBody>
+              </Table>
+            </SectionCard>
           )}
         </div>
       )}
 
       {/* Timeline tab */}
       {tab === 'timeline' && (
-        <div className="space-y-0">
+        <div>
           {data.transitions.length === 0 ? (
-            <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center text-sm text-zinc-400">
-              {t('noTransitionsYet')}
-            </div>
+            <EmptyState title={t('noTransitionsYet')} />
           ) : (
             <div className="relative pl-6">
-              <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-zinc-200" />
+              <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-line" />
               {data.transitions.map((transition) => (
                 <div key={transition.id} className="relative mb-4">
-                  <div className="absolute -left-4 top-1 w-3 h-3 rounded-full bg-primary border-2 border-white" />
-                  <div className="bg-white border border-zinc-200 rounded-xl p-4">
+                  <div className="absolute -left-4 top-1 w-3 h-3 rounded-full bg-primary border-2 border-surface" />
+                  <div className="bg-surface border border-line rounded-card p-4">
                     <div className="flex items-center gap-2 text-sm">
                       <LifecycleBadge status={transition.from_status} size="sm" />
-                      <ChevronRight className="w-4 h-4 text-zinc-400" />
+                      <ChevronRight className="w-4 h-4 text-ink-400" />
                       <LifecycleBadge status={transition.to_status} size="sm" />
                     </div>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-zinc-400">
+                    <div className="flex items-center gap-3 mt-2 text-xs text-ink-400">
                       <Clock className="w-3 h-3" />
                       {format(new Date(transition.triggered_at), 'MMM d, yyyy HH:mm')}
                       <span>·</span>
                       <span>{t('by', { actor: transition.triggered_by })}</span>
                     </div>
-                    {transition.notes && <p className="text-xs text-zinc-500 mt-1">{transition.notes}</p>}
+                    {transition.notes && <p className="text-xs text-ink-500 mt-1">{transition.notes}</p>}
                   </div>
                 </div>
               ))}
@@ -414,45 +491,35 @@ export default function CreatorDetailPage() {
 
       {/* Activity Log tab */}
       {tab === 'activity' && (
-        <div className="space-y-0">
+        <div>
           {!data.activity_logs || data.activity_logs.length === 0 ? (
-            <div className="bg-white border border-zinc-200 rounded-xl p-8 text-center text-sm text-zinc-400">
-              {t('noActivityYet')}
-            </div>
+            <EmptyState title={t('noActivityYet')} />
           ) : (
             <div className="relative pl-6">
-              <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-zinc-200" />
+              <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-line" />
               {data.activity_logs.map((log) => {
-                const activityColors: Record<string, string> = {
-                  created: 'bg-green-600',
-                  updated: 'bg-blue-600',
-                  status_changed: 'bg-primary',
-                  task_created: 'bg-purple-600',
-                  task_completed: 'bg-emerald-600',
-                  finance_logged: 'bg-amber-600',
-                  note_added: 'bg-zinc-600',
-                  contact_updated: 'bg-cyan-600',
-                  profile_updated: 'bg-blue-600',
-                  other: 'bg-gray-600',
-                }
-                const dotColor = activityColors[log.activity_type] || 'bg-zinc-600'
-
+                const tone = ACTIVITY_TONE[log.activity_type]
                 return (
                   <div key={log.id} className="relative mb-4">
-                    <div className={`absolute -left-4 top-1 w-3 h-3 rounded-full ${dotColor} border-2 border-white`} />
-                    <div className="bg-white border border-zinc-200 rounded-xl p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="text-sm font-medium text-zinc-900">{log.title}</h4>
+                    <div className={`absolute -left-4 top-1 w-3 h-3 rounded-full border-2 border-surface ${ACTIVITY_DOT[tone]}`} />
+                    <div className="bg-surface border border-line rounded-card p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-ink-900">{log.title}</h4>
                           {log.description && (
-                            <p className="text-sm text-zinc-600 mt-1">{log.description}</p>
+                            <p className="text-sm text-ink-700 mt-1">{log.description}</p>
                           )}
                         </div>
-                        <span className="text-xs px-2 py-1 rounded-full bg-zinc-100 text-zinc-600 ml-3">
-                          {log.activity_type.replace(/_/g, ' ')}
-                        </span>
+                        {/* flex-none — Tag itself has no className prop, so
+                            the wrapping div carries it (same idiom as
+                            TaskCard.tsx's own agent Tag), preventing it from
+                            shrinking/wrapping as a bare flex child next to
+                            the title/description column above. */}
+                        <div className="flex-none">
+                          <Tag size="sm" tone={tone} label={t(`activityTypes.${log.activity_type}`)} />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-zinc-400">
+                      <div className="flex items-center gap-3 mt-2 text-xs text-ink-400">
                         <Clock className="w-3 h-3" />
                         {format(new Date(log.created_at), 'MMM d, yyyy HH:mm')}
                         <span>·</span>
@@ -471,35 +538,35 @@ export default function CreatorDetailPage() {
       <Modal open={showFinance} onClose={() => setShowFinance(false)} title={t('logRevenueCost')}>
         <form onSubmit={submitFinance} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('revenueField')}</label>
-              <input type="number" value={financeForm.revenue}
+            <Field label={t('revenueField')} required>
+              <Input
+                type="number" value={financeForm.revenue}
                 onChange={(e) => setFinanceForm((f) => ({ ...f, revenue: e.target.value }))}
-                placeholder="80000" required
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-zinc-700 mb-1">{t('costField')}</label>
-              <input type="number" value={financeForm.cost}
+                placeholder="80000"
+              />
+            </Field>
+            <Field label={t('costField')} required>
+              <Input
+                type="number" value={financeForm.cost}
                 onChange={(e) => setFinanceForm((f) => ({ ...f, cost: e.target.value }))}
-                placeholder="20000" required
-                className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-            </div>
+                placeholder="20000"
+              />
+            </Field>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1">{t('periodField')}</label>
-            <input value={financeForm.period}
+          <Field label={t('periodField')} required>
+            <Input
+              value={financeForm.period}
               onChange={(e) => setFinanceForm((f) => ({ ...f, period: e.target.value }))}
-              placeholder="2024-Q2 or 2024-05" required
-              className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 mb-1">{tCreators('notes')}</label>
-            <textarea value={financeForm.notes}
+              placeholder="2024-Q2 or 2024-05"
+            />
+          </Field>
+          <Field label={tCreators('notes')}>
+            <Textarea
+              value={financeForm.notes}
               onChange={(e) => setFinanceForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={2} placeholder={tCommon('none')}
-              className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none" />
-          </div>
+              placeholder={tCommon('none')}
+            />
+          </Field>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={() => setShowFinance(false)}>{tCommon('cancel')}</Button>
             <Button type="submit">{t('saveRecord')}</Button>

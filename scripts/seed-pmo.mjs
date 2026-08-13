@@ -54,7 +54,7 @@ const milestones = [
     notes:          '设备成本已在设备管理模块追踪',
   },
   {
-    title:          '运营工作流研发 — Creator Guild OS',
+    title:          '运营工作流研发 — Creator Network OS',
     description:    '开发公会管理工作台，包含 PMO Agent、出勤管理、收入结算、Line 集成等核心模块。',
     type:           'campaign',
     level:          'company',

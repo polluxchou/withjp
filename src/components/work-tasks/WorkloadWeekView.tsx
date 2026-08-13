@@ -5,10 +5,13 @@ import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import Tag from '@/components/ui/Tag'
+import EmptyState from '@/components/ui/EmptyState'
+import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
+import { toneOf } from '@/lib/ui/status-tone'
 import WorkTaskForm from './WorkTaskForm'
 import {
-  DEPARTMENT_LABELS,
-  utilisationColor,
+  utilisationTone,
   buildUserWorkloads,
   toDateStr,
   getWeekDates,
@@ -30,6 +33,7 @@ function fmtRmb(v: number) {
 
 export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh }: Props) {
   const t = useTranslations('workTasks')
+  const tCommon = useTranslations('common')
   const DAY_LABELS = t.raw('weekdays') as string[]
   const [refDate,  setRefDate]  = useState(new Date())
   const [creating, setCreating] = useState<string | null>(null)   // date string
@@ -96,136 +100,122 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
     .sort((a, b) => weekHours(b.id) - weekHours(a.id))
 
   const today = toDateStr(new Date())
+  const colCount = 1 + weekDates.length + 2  // name + weekdays + totalH + cost
 
   return (
     <div>
       {/* Week navigation */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevWeek} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors">
+        <Button variant="ghost" size="sm" onClick={prevWeek} aria-label={tCommon('prev')}>
           <ChevronLeft className="w-5 h-5" />
-        </button>
-        <span className="text-sm font-semibold text-zinc-700">{weekLabel}</span>
-        <button onClick={nextWeek} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-colors">
+        </Button>
+        <span className="text-sm font-semibold text-ink-700">{weekLabel}</span>
+        <Button variant="ghost" size="sm" onClick={nextWeek} aria-label={tCommon('next')}>
           <ChevronRight className="w-5 h-5" />
-        </button>
+        </Button>
       </div>
 
-      {/* Grid */}
-      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-        {/* Header row */}
-        <div className="grid border-b border-zinc-200" style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}>
-          <div className="px-3 py-2 text-xs font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-100">{t('table.member')}</div>
-          {weekDates.map((d, i) => {
-            const ds = toDateStr(d)
-            const isToday = ds === today
-            return (
-              <div
-                key={ds}
-                className={`px-2 py-2 text-center border-r border-zinc-100 ${isToday ? 'bg-primary-soft' : 'bg-zinc-50'}`}
-              >
-                <p className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-zinc-600'}`}>{DAY_LABELS[i]}</p>
-                <p className={`text-xs ${isToday ? 'text-violet-400' : 'text-zinc-400'}`}>
-                  {d.getMonth() + 1}/{d.getDate()}
-                </p>
-              </div>
-            )
-          })}
-          <div className="px-2 py-2 text-center text-xs font-medium text-zinc-500 bg-zinc-50 border-r border-zinc-100">{t('table.totalHoursCol')}</div>
-          <div className="px-2 py-2 text-center text-xs font-medium text-zinc-500 bg-zinc-50">{t('table.labourCostCol')}</div>
-        </div>
-
-        {/* User rows */}
-        {sortedUsers.length === 0 ? (
-          <div className="py-12 text-center text-sm text-zinc-400">{t('emptyWeek')}</div>
-        ) : (
-          sortedUsers.map((u) => (
-            <div
-              key={u.id}
-              className="grid border-b border-zinc-100 last:border-b-0"
-              style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}
-            >
-              {/* Name */}
-              <div className="flex items-center gap-2 px-3 py-2 border-r border-zinc-100">
-                <div className="w-6 h-6 rounded-full bg-primary-soft flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
-                  {u.name.slice(0, 1).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-zinc-900 truncate">{u.name}</p>
-                  <p className="text-xs text-zinc-400">{DEPARTMENT_LABELS[u.department as AgentRole]}</p>
-                </div>
-              </div>
-
-              {/* Day cells */}
-              {weekStrs.map((ds) => {
-                const h    = hoursForUserDay(u.id, ds)
-                const dayTasks = tasksForUserDay(u.id, ds)
-                const isToday  = ds === today
-                return (
-                  <div
-                    key={ds}
-                    onClick={() => dayTasks.length > 0 && setDetail({ user: u.name, date: ds, tasks: dayTasks })}
-                    className={`px-1 py-1.5 border-r border-zinc-100 flex flex-col items-center justify-center gap-0.5 transition-colors
-                      ${isToday ? 'bg-primary-soft/50' : ''}
-                      ${dayTasks.length > 0 ? 'cursor-pointer hover:bg-zinc-50' : ''}`}
-                  >
-                    {h > 0 ? (
-                      <>
-                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${utilisationColor(h)}`}>
-                          {h}h
-                        </span>
-                        <span className="text-xs text-zinc-400">{t('summary.tasksItem', { count: dayTasks.length })}</span>
-                      </>
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-zinc-100" />
-                    )}
-                  </div>
-                )
-              })}
-
-              {/* Total hours */}
-              <div className="flex items-center justify-center border-r border-zinc-100">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${utilisationColor(weekHours(u.id) / 5)}`}>
-                  {weekHours(u.id)}h
-                </span>
-              </div>
-
-              {/* Weekly cost */}
-              <div className="flex items-center justify-center">
-                <span className="text-xs text-zinc-600">{fmtRmb(weekCost(u.id))}</span>
-              </div>
-            </div>
-          ))
-        )}
-
-        {/* Footer: daily totals */}
-        {sortedUsers.length > 0 && (
-          <div
-            className="grid bg-zinc-50 border-t border-zinc-200"
-            style={{ gridTemplateColumns: '160px repeat(7, 1fr) 80px 80px' }}
-          >
-            <div className="px-3 py-2 text-xs font-medium text-zinc-500 border-r border-zinc-100">{t('table.dayTotal')}</div>
-            {weekStrs.map((ds) => {
-              const totalH = sortedUsers.reduce((s, u) => s + hoursForUserDay(u.id, ds), 0)
+      {/* Grid — member × day matrix, multi-column numeric comparison
+          (design-system.md §6.1) so it goes through the Table primitive
+          rather than a hand-rolled CSS grid. Tfoot has no shared primitive
+          yet (Table.tsx only exports Table/THead/TBody/Th/Tr/Td) so the
+          totals row below is a plain <tfoot> styled directly with tokens. */}
+      <div className="bg-surface border border-line rounded-card overflow-hidden">
+        <Table minWidth={720} label={weekLabel}>
+          <THead>
+            <Th style={{ width: 160 }}>{t('table.member')}</Th>
+            {weekDates.map((d, i) => {
+              const ds = toDateStr(d)
+              const isToday = ds === today
               return (
-                <div key={ds} className="px-1 py-2 text-center border-r border-zinc-100">
-                  {totalH > 0 && (
-                    <span className="text-xs font-medium text-zinc-600">{totalH}h</span>
-                  )}
-                </div>
+                <Th key={ds} align="center" className={isToday ? 'bg-primary-soft' : ''}>
+                  <div className={isToday ? 'text-primary' : ''}>{DAY_LABELS[i]}</div>
+                  <div className={`font-normal ${isToday ? 'text-primary/70' : 'text-ink-400'}`}>
+                    {d.getMonth() + 1}/{d.getDate()}
+                  </div>
+                </Th>
               )
             })}
-            <div className="px-2 py-2 text-center">
-              <span className="text-xs font-semibold text-zinc-700">
-                {sortedUsers.reduce((s, u) => s + weekHours(u.id), 0)}h
-              </span>
-            </div>
-            <div className="px-2 py-2 text-center">
-              <span className="text-xs font-semibold text-zinc-700">
-                {fmtRmb(sortedUsers.reduce((s, u) => s + weekCost(u.id), 0))}
-              </span>
-            </div>
-          </div>
-        )}
+            <Th align="center" style={{ width: 80 }}>{t('table.totalHoursCol')}</Th>
+            <Th align="center" style={{ width: 96 }}>{t('table.labourCostCol')}</Th>
+          </THead>
+          <TBody>
+            {sortedUsers.length === 0 ? (
+              <Tr>
+                <Td colSpan={colCount}><EmptyState title={t('emptyWeek')} /></Td>
+              </Tr>
+            ) : (
+              sortedUsers.map((u) => (
+                <Tr key={u.id}>
+                  {/* Name */}
+                  <Td>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-6 h-6 rounded-full bg-primary-soft flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
+                        {u.name.slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-ink-900 truncate">{u.name}</p>
+                        <p className="text-xs text-ink-400">{t(`department.${u.department}`)}</p>
+                      </div>
+                    </div>
+                  </Td>
+
+                  {/* Day cells */}
+                  {weekStrs.map((ds) => {
+                    const h    = hoursForUserDay(u.id, ds)
+                    const dayTasks = tasksForUserDay(u.id, ds)
+                    const isToday  = ds === today
+                    return (
+                      <Td key={ds} align="center" className={isToday ? 'bg-primary-soft' : ''}>
+                        {h > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => dayTasks.length > 0 && setDetail({ user: u.name, date: ds, tasks: dayTasks })}
+                            className="inline-flex flex-col items-center gap-0.5 rounded-field px-1 py-0.5 hover:bg-row-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+                          >
+                            <Tag variant="soft" size="sm" tone={utilisationTone(h)} label={`${h}h`} />
+                            <span className="text-xs text-ink-400">{t('summary.tasksItem', { count: dayTasks.length })}</span>
+                          </button>
+                        ) : (
+                          <span aria-hidden className="inline-block w-2 h-2 rounded-full bg-line-soft" />
+                        )}
+                      </Td>
+                    )
+                  })}
+
+                  {/* Total hours */}
+                  <Td align="center">
+                    <Tag variant="soft" size="sm" tone={utilisationTone(weekHours(u.id) / 5)} label={`${weekHours(u.id)}h`} />
+                  </Td>
+
+                  {/* Weekly cost */}
+                  <Td align="center" numeric>{fmtRmb(weekCost(u.id))}</Td>
+                </Tr>
+              ))
+            )}
+          </TBody>
+          {sortedUsers.length > 0 && (
+            <tfoot>
+              <tr className="bg-canvas border-t border-line">
+                <td className="px-3 py-2 text-xs font-medium text-ink-500">{t('table.dayTotal')}</td>
+                {weekStrs.map((ds) => {
+                  const totalH = sortedUsers.reduce((s, u) => s + hoursForUserDay(u.id, ds), 0)
+                  return (
+                    <td key={ds} className="px-1 py-2 text-center text-xs font-medium text-ink-500 tabular-nums">
+                      {totalH > 0 ? `${totalH}h` : ''}
+                    </td>
+                  )
+                })}
+                <td className="px-2 py-2 text-center text-xs font-semibold text-ink-700 tabular-nums">
+                  {sortedUsers.reduce((s, u) => s + weekHours(u.id), 0)}h
+                </td>
+                <td className="px-2 py-2 text-center text-xs font-semibold text-ink-700 tabular-nums">
+                  {fmtRmb(sortedUsers.reduce((s, u) => s + weekCost(u.id), 0))}
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </Table>
       </div>
 
       {/* Quick add row */}
@@ -236,7 +226,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
             <button
               key={ds}
               onClick={() => setCreating(ds)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-dashed border-zinc-300 text-zinc-400 hover:border-violet-400 hover:text-primary transition-colors"
+              className="text-xs px-3 py-1.5 rounded-field border border-dashed border-line-strong text-ink-400 hover:border-primary-border hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
             >
               {t('table.addToDay', { month: d.getMonth() + 1, day: d.getDate() })}
             </button>
@@ -253,14 +243,14 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
         {detail && (
           <div className="space-y-2">
             {detail.tasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-2 px-3 py-2 bg-zinc-50 rounded-lg">
-                <span className="text-xs font-medium text-zinc-600 flex-1">{task.title}</span>
-                <span className="text-xs text-zinc-400">{task.effort_hours}h</span>
-                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                  task.status === 'done'  ? 'bg-green-100 text-green-700' :
-                  task.status === 'doing' ? 'bg-blue-100 text-blue-700' :
-                                            'bg-zinc-100 text-zinc-600'
-                }`}>{task.status === 'done' ? t('status.done') : task.status === 'doing' ? t('status.doing') : t('status.planned')}</span>
+              <div key={task.id} className="flex items-center gap-2 px-3 py-2 bg-canvas rounded-field">
+                <span className="text-xs font-medium text-ink-700 flex-1">{task.title}</span>
+                <span className="text-xs text-ink-400 tabular-nums">{task.effort_hours}h</span>
+                <Tag
+                  size="sm"
+                  tone={toneOf('work_task', task.status)}
+                  label={t(`status.${task.status}`)}
+                />
               </div>
             ))}
           </div>

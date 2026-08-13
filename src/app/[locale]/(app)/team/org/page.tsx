@@ -5,6 +5,7 @@ import { authGuard } from '@/lib/auth/guard'
 import { redirect } from 'next/navigation'
 import { getOrgSnapshot } from '@/lib/org/service'
 import Header from '@/components/layout/Header'
+import EmptyState from '@/components/ui/EmptyState'
 import OrgView from '@/components/org/OrgView'
 
 export default async function OrgPage() {
@@ -21,9 +22,7 @@ export default async function OrgPage() {
     <div>
       <Header title={t('org.title')} subtitle={t('org.subtitle')} />
       {!snapshot ? (
-        <div className="bg-white border border-zinc-200 rounded-xl p-10 text-center text-sm text-zinc-400">
-          {t('org.empty')}
-        </div>
+        <EmptyState title={t('org.empty')} />
       ) : (
         <OrgView initial={snapshot} />
       )}
