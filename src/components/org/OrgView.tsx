@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import Badge from '@/components/ui/Badge'
+import { Briefcase, Plus, Users, X } from 'lucide-react'
+import SectionCard from '@/components/ui/SectionCard'
+import Tag from '@/components/ui/Tag'
 import Modal from '@/components/ui/Modal'
 import {
   applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
@@ -26,6 +28,11 @@ function refOf(person: PersonOption | null) {
   }
 }
 
+// Small "+ label" text-link idiom shared by every add-affordance in this
+// view (add task / add item / add member) — same visual weight as the
+// edit/delete row actions next to it, no Button chrome.
+const ADD_LINK_CLASS = 'mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover'
+
 export default function OrgView({ initial }: { initial: OrgSnapshot }) {
   const t = useTranslations('team')
   const [snapshot, setSnapshot] = useState<OrgSnapshot>(initial)
@@ -45,11 +52,13 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
       })
       const json = await res.json().catch(() => null)
       if (!res.ok) {
+        console.error('Org write failed:', path, method, res.status, json?.error)
         window.alert(t('org.saveFailed') + (json?.error ? `: ${json.error}` : ` (${res.status})`))
         return null
       }
       return (json?.data as { id: string }) ?? null
     } catch (e) {
+      console.error('Org write failed:', path, method, e)
       window.alert(t('org.saveFailed') + `: ${e instanceof Error ? e.message : String(e)}`)
       return null
     }
@@ -112,95 +121,123 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
 
   return (
     <div className="space-y-5">
-      {!canEdit && <p className="text-xs text-zinc-400">{t('org.readonlyHint')}</p>}
+      {!canEdit && <p className="text-xs text-ink-400">{t('org.readonlyHint')}</p>}
 
       <div className="space-y-4">
         {snapshot.businesses.map((b) => (
-          <div key={b.id} className="bg-white border border-zinc-200 rounded-xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-semibold text-zinc-900">{b.name}</div>
+          <SectionCard
+            key={b.id}
+            icon={<Briefcase />}
+            title={b.name}
+            actions={
               <button
                 type="button"
                 disabled={!canEdit}
                 onClick={() => setPicker({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => setBusinessOwner(b.id, p) })}
-                className={`text-xs ${canEdit ? 'text-primary hover:underline' : 'text-zinc-500 cursor-default'}`}
+                className={`truncate max-w-[12rem] text-xs ${canEdit ? 'text-primary hover:text-primary-hover' : 'text-ink-500 cursor-default'}`}
               >
                 {t('org.owner')}：{b.owner_name ?? t('org.noOwner')}
               </button>
-            </div>
-
-            <div className="space-y-3">
+            }
+          >
+            {/* Task groups separated by hairlines rather than nested cards —
+                flattens what used to be card-in-card-in-card (business → task
+                box → item box) down to one SectionCard per business. */}
+            <div className="divide-y divide-line-soft">
               {b.tasks.map((task) => (
-                <div key={task.id} className="border border-zinc-100 rounded-lg p-3">
+                <div key={task.id} className="py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="font-medium text-sm text-zinc-800">{task.name}</div>
+                    <div className="font-medium text-sm text-ink-900 min-w-0 truncate">{task.name}</div>
                     {canEdit && (
-                      <div className="flex gap-2 text-xs">
-                        <button className="text-primary hover:underline" onClick={() => editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
-                        <button className="text-zinc-400 hover:text-rose-600" onClick={() => deleteTask(task.id)}>{t('org.delete')}</button>
+                      <div className="flex gap-3 text-xs flex-none">
+                        <button type="button" className="text-primary hover:text-primary-hover" onClick={() => editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
+                        <button type="button" className="text-ink-400 hover:text-danger-text" onClick={() => deleteTask(task.id)}>{t('org.delete')}</button>
                       </div>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {task.position_ids.length === 0
-                      ? <span className="text-xs text-zinc-400">{t('org.empty')}</span>
-                      : task.position_ids.map((pid) => <Badge key={pid} label={posName(pid)} color="indigo" size="sm" />)}
+                      ? <span className="text-xs text-ink-400">{t('org.empty')}</span>
+                      : task.position_ids.map((pid) => <Tag key={pid} size="sm" tone="neutral" label={posName(pid)} />)}
                   </div>
-                  <ul className="mt-3 space-y-1.5">
+                  <ul className="mt-3 divide-y divide-line-soft">
                     {task.items.map((it) => (
-                      <li key={it.id} className="flex items-center justify-between text-sm border border-zinc-100 rounded-md px-2.5 py-1.5">
-                        <span className="text-zinc-700">{it.name}</span>
-                        <span className="flex items-center gap-2">
+                      <li key={it.id} className="flex items-center justify-between gap-2 text-sm py-1.5">
+                        <span className="min-w-0 truncate text-ink-700">{it.name}</span>
+                        <span className="flex items-center gap-2 flex-none">
                           <button
                             type="button"
                             disabled={!canEdit}
                             onClick={() => setPicker({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => setItemOwner(it.id, p) })}
-                            className={`text-[11px] ${canEdit ? 'text-primary hover:underline' : 'text-zinc-400 cursor-default'}`}
+                            className={`text-xs ${canEdit ? 'text-primary hover:text-primary-hover' : 'text-ink-500 cursor-default'}`}
                           >
                             {it.owner_name ?? t('org.noOwner')}
                           </button>
-                          {canEdit && <button className="text-[11px] text-zinc-400 hover:text-rose-600" onClick={() => deleteItem(it.id)}>{t('org.delete')}</button>}
+                          {canEdit && <button type="button" className="text-xs text-ink-400 hover:text-danger-text" onClick={() => deleteItem(it.id)}>{t('org.delete')}</button>}
                         </span>
                       </li>
                     ))}
                   </ul>
                   {canEdit && (
-                    <button className="mt-2 text-xs text-primary hover:underline" onClick={() => addItem(task.id)}>+ {t('org.addItem')}</button>
+                    <button type="button" className={ADD_LINK_CLASS} onClick={() => addItem(task.id)}>
+                      <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addItem')}
+                    </button>
                   )}
                 </div>
               ))}
             </div>
 
             {canEdit && (
-              <button className="mt-3 text-xs text-primary hover:underline" onClick={() => addTask(b.id)}>+ {t('org.addTask')}</button>
+              <button type="button" className={ADD_LINK_CLASS} onClick={() => addTask(b.id)}>
+                <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addTask')}
+              </button>
             )}
-          </div>
+          </SectionCard>
         ))}
       </div>
 
-      <div className="bg-white border border-zinc-200 rounded-xl p-5">
-        <p className="text-xs font-medium text-zinc-500 mb-3">{t('org.positionsTitle')}</p>
+      <SectionCard icon={<Users />} title={t('org.positionsTitle')}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {snapshot.positions.map((p) => (
-            <div key={p.id} className="border border-zinc-100 rounded-lg p-3">
-              <div className="font-medium text-sm text-zinc-800">{p.name}</div>
-              {p.description && <div className="text-[11px] text-zinc-400 mb-1">{p.description}</div>}
+            <div key={p.id} className="border border-line rounded-field p-3">
+              <div className="font-medium text-sm text-ink-900">{p.name}</div>
+              {p.description && <div className="text-micro text-ink-400 mb-1">{p.description}</div>}
               <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                {p.members.length === 0 && <span className="text-xs text-zinc-400">{t('org.empty')}</span>}
-                {p.members.map((m) => (
-                  <span key={m.id} className="inline-flex items-center gap-1">
-                    <Badge label={m.display_name || (m.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser'))} color={m.member_type === 'creator' ? 'amber' : 'teal'} size="sm" />
-                    {canEdit && <button className="text-[10px] text-zinc-400 hover:text-rose-600" onClick={() => removeMember(p.id, m.id)}>×</button>}
-                  </span>
-                ))}
+                {p.members.length === 0 && <span className="text-xs text-ink-400">{t('org.empty')}</span>}
+                {p.members.map((m) => {
+                  const memberLabel = m.display_name || (m.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser'))
+                  return (
+                    <span key={m.id} className="inline-flex items-center gap-1">
+                      <Tag size="sm" tone={m.member_type === 'creator' ? 'violet' : 'neutral'} label={memberLabel} />
+                      {canEdit && (
+                        <button
+                          type="button"
+                          aria-label={t('org.removeMemberNamed', { name: memberLabel })}
+                          onClick={() => removeMember(p.id, m.id)}
+                          // Split-axis padding: px-1.5 -mx-1.5 widens the click target to
+                          // 25px, py-1 -my-1 only to 21px — deliberately less on the vertical
+                          // axis than the horizontal, so the target doesn't grow into the
+                          // gap-1.5 (6px) row spacing and overlap a neighboring member pill
+                          // above/below when this Tag+× wraps onto a new line. §4's 32px
+                          // floor is not reachable here without that overlap.
+                          className="px-1.5 -mx-1.5 py-1 -my-1 text-ink-400 hover:text-danger-text rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
+                        >
+                          <X className="w-[13px] h-[13px]" strokeWidth={1.5} />
+                        </button>
+                      )}
+                    </span>
+                  )
+                })}
               </div>
               {canEdit && (
-                <button className="mt-2 text-xs text-primary hover:underline" onClick={() => setPicker({ title: t('org.addMember'), allowClear: false, onSelect: (person) => { if (person) addMember(p.id, person) } })}>+ {t('org.addMember')}</button>
+                <button type="button" className={ADD_LINK_CLASS} onClick={() => setPicker({ title: t('org.addMember'), allowClear: false, onSelect: (person) => { if (person) addMember(p.id, person) } })}>
+                  <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addMember')}
+                </button>
               )}
             </div>
           ))}
         </div>
-      </div>
+      </SectionCard>
 
       {picker && (
         <Modal open onClose={() => setPicker(null)} title={picker.title}>
@@ -209,7 +246,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
               <button
                 type="button"
                 onClick={() => { picker.onSelect(null); setPicker(null) }}
-                className="w-full text-left flex items-center px-3 py-2.5 rounded-lg border border-zinc-100 text-sm text-zinc-500 hover:bg-zinc-50 hover:border-zinc-200 transition-colors"
+                className="w-full text-left flex items-center px-3 py-2.5 rounded-field border border-line text-sm text-ink-500 hover:bg-line-soft hover:border-line-strong transition-colors"
               >
                 {t('org.clearOwner')}
               </button>
@@ -219,18 +256,18 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                 key={`${p.member_type}:${p.id}`}
                 type="button"
                 onClick={() => { picker.onSelect(p); setPicker(null) }}
-                className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border border-zinc-100 text-sm text-zinc-700 hover:bg-zinc-50 hover:border-zinc-200 transition-colors"
+                className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-field border border-line text-sm text-ink-700 hover:bg-line-soft hover:border-line-strong transition-colors"
               >
-                <Badge
-                  label={p.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser')}
-                  color={p.member_type === 'creator' ? 'amber' : 'teal'}
+                <Tag
                   size="sm"
+                  tone={p.member_type === 'creator' ? 'violet' : 'neutral'}
+                  label={p.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser')}
                 />
-                <span className="font-medium text-zinc-800">{p.name}</span>
+                <span className="font-medium text-ink-900">{p.name}</span>
               </button>
             ))}
             {snapshot.people.length === 0 && (
-              <p className="py-6 text-center text-sm text-zinc-400">{t('org.empty')}</p>
+              <p className="py-6 text-center text-sm text-ink-400">{t('org.empty')}</p>
             )}
           </div>
         </Modal>
