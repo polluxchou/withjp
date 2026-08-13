@@ -10,7 +10,7 @@ const copy: SiteArticleCopy[] = NEWS_SLUGS.map((slug, i) => ({
   body: ['a', 'b', 'c'],
 }))
 
-test('pairs copy with images and routes in slug order', () => {
+test('pairs copy with routes in slug order; image is optional until a photo is set', () => {
   const articles = buildArticles(copy)
   assert.equal(articles.length, NEWS_SLUGS.length)
   assert.deepEqual(
@@ -18,7 +18,9 @@ test('pairs copy with images and routes in slug order', () => {
     [...NEWS_SLUGS],
   )
   for (const article of articles) {
-    assert.match(article.image, /^\/site\/.+\.webp$/)
+    // 当前一批真实新闻的配图还没到位——只要求「有图时必须是站内 webp 资源」，
+    // 不要求每条都有图，否则这条测试会拦下正常的缺图状态。
+    if (article.image !== undefined) assert.match(article.image, /^\/site\/.+\.webp$/)
     assert.equal(article.href, `/site/news/${article.slug}`)
   }
 })
@@ -30,11 +32,11 @@ test('drops slots that have no copy yet instead of rendering empty cards', () =>
 })
 
 test('finds an article by slug and rejects unknown ones', () => {
-  assert.equal(findArticle(copy, 'moondollz-launch')?.title, 'title moondollz-launch')
+  assert.equal(findArticle(copy, 'operations-partner-announced')?.title, 'title operations-partner-announced')
   assert.equal(findArticle(copy, 'nope'), undefined)
 })
 
 test('isNewsSlug guards the route param', () => {
-  assert.equal(isNewsSlug('osaka-studio-open'), true)
+  assert.equal(isNewsSlug('echoamp-launch'), true)
   assert.equal(isNewsSlug('../../etc/passwd'), false)
 })
