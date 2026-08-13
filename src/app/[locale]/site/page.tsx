@@ -243,7 +243,6 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
             alt={t('techPlaceholder')}
             placeholder={t('techPlaceholder')}
             sizes="(min-width: 1024px) 620px, 100vw"
-            duotone
             className="h-full w-full"
           />
         </div>
