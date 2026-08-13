@@ -1738,30 +1738,30 @@
       },
       "visionHead": {
         "eyebrow": "02 ／ VISION",
-        "title": "WHY OSAKA",
+        "title": "THE TEAM'S STAGE",
         "more": "READ MORE →"
       },
-      "visionBody": "In Osaka, neon came before anime. The visual language Dotonbori and Shinsekai built after the war — loud, gaudy, nocturnal — is where we start. EchoAmp carries that inheritance into the live-stream frame.",
+      "visionBody": "We believe live streaming is a stage built for a team. EchoAmp brings together people who love music, dance, and performance, building a style and culture of their own through continuous live shows.",
       "visionCards": [
         {
-          "no": "01",
-          "title": "Dotonbori Glico sign",
-          "body": "First installed in 1935, now in its sixth generation. The running man in neon became Osaka's civic symbol 60 years before Bebop."
+          "no": "1 ALBUM",
+          "title": "Create something that lasts",
+          "body": "At least one team album a year, turning livestream performances into lasting work."
         },
         {
-          "no": "02",
-          "title": "Shinsekai & Tsutenkaku",
-          "body": "Built in 1912. Giant blowfish lanterns and dense Showa-era neon shaped the look of a boisterous Osaka."
+          "no": "SHIN-OSAKA",
+          "title": "Where it all begins",
+          "body": "Our live and training base, where the team's culture takes shape."
         },
         {
-          "no": "03",
-          "title": "Neon golden age",
-          "body": "Through the 1950s–70s, Las Vegas influence pushed signage to enormous scale — the template for today's Dotonbori."
+          "no": "13 MEMBERS",
+          "title": "Become a real team",
+          "body": "About 13 creators within a year, building a shared style and culture."
         },
         {
-          "no": "04",
-          "title": "Greater Osaka modern",
-          "body": "Commercial flyers from the late Taisho and early Showa eras already carried fully mature modern graphics."
+          "no": "1–3 YEARS",
+          "title": "Grow fast, within a defined chapter",
+          "body": "One year per growth cycle, building experience through continuous live shows toward independence."
         }
       ],
       "projectHead": {
