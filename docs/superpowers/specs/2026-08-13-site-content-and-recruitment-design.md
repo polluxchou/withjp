@@ -65,16 +65,14 @@
 -- ============================================================
 
 alter table site_applications
-  -- default 'creator' 用于回填历史行；回填完立刻 drop default，
-  -- 否则表单少传 kind 会静默记成主播应募。
+  -- expand 阶段保留 default：旧版本服务仍在运行时，少传 kind 的历史请求
+  -- 必须继续按主播应募落库；contract 阶段再由另一条迁移删除这个 default。
   add column if not exists kind text not null default 'creator'
     check (kind in ('creator', 'photographer', 'makeup', 'group_live_ops')),
   add column if not exists email text
     check (email is null or char_length(email) between 3 and 254),
   add column if not exists commute_mode text
     check (commute_mode is null or commute_mode in ('subway', 'bicycle', 'walk', 'car'));
-
-alter table site_applications alter column kind drop default;
 
 -- 员工类应募没有年龄；居住位置对员工类是选填（附件标注「选题」）
 alter table site_applications alter column age       drop not null;
@@ -92,6 +90,20 @@ create index if not exists idx_site_applications_kind_created
   on site_applications (kind, created_at desc);
 ```
 
+047 只做 expand，不删除 `kind` 的 default。这样旧服务与新服务并行期间，旧表单仍能成功写入，
+历史行也会回填为 `creator`。等新服务已经部署、旧实例排空，并确认历史回填与新旧接口写入均只产生
+四种合法 `kind` 后，再执行后续迁移 050：
+
+```sql
+-- Migration 050: site_applications kind contract
+-- 只有满足 §9 交付前的上线判据后才能执行；它会让漏传 kind 的新请求直接失败。
+alter table site_applications
+  alter column kind drop default;
+```
+
+050 不改变列的 `not null` 和 check 约束，只移除兼容旧服务的默认值；执行前必须确认所有仍可能写入
+`site_applications` 的实例都已部署 Task 3 的新 service，并且回填查询与线上写入监控没有发现空值或未知 kind。
+
 > 现有的 `age between 16 and 60`、`residence` 长度上限等 check 保持不变 —— 它们在
 > 列为 NULL 时自动为真，不需要改。
 
@@ -104,7 +116,7 @@ create index if not exists idx_site_applications_kind_created
 
 ```sql
 -- ── 新闻 ──────────────────────────────────────────────────────
-create table site_news (
+create table if not exists site_news (
   id           uuid primary key default gen_random_uuid(),
   -- slug 是稳定路由标识，发出去的链接不能因为改标题或插入新文章而失效
   -- （沿用 src/lib/site/news.ts 原有的理由）
@@ -142,15 +154,16 @@ create table site_news (
 );
 
 -- 列表排序：置顶优先，其次发布日倒序。官网只查已发布的，故 is_published 进索引首位
-create index idx_site_news_order
+create index if not exists idx_site_news_order
   on site_news (is_published, is_pinned desc, published_on desc);
 
+drop trigger if exists site_news_updated_at on site_news;
 create trigger site_news_updated_at
   before update on site_news
   for each row execute function update_updated_at();
 
 -- ── 成员 ──────────────────────────────────────────────────────
-create table site_members (
+create table if not exists site_members (
   id  uuid primary key default gen_random_uuid(),
   -- MOONDOLLZ 共 12 卡位（原 MEMBER_SLOTS 常量），编号即卡位
   no  smallint not null unique check (no between 1 and 12),
@@ -181,6 +194,7 @@ create table site_members (
   )
 );
 
+drop trigger if exists site_members_updated_at on site_members;
 create trigger site_members_updated_at
   before update on site_members
   for each row execute function update_updated_at();
@@ -289,21 +303,38 @@ POST   /api/site/upload            图片上传（news 主图 / 成员照片）
 
 ### 5.3 权限（新约定）
 
-这三块内容一改就对公网可见，误操作代价高于内部数据。因此**所有写操作要求
-`is_admin` 或 `role = 'ops'`**，读列表沿用现状（登录即可）。
+这三块内容一改就对公网可见，误操作代价高于内部数据。读写分开：
+
+| 操作 | 要求 | 理由 |
+|---|---|---|
+| 读列表（`GET`） | **登录即可** | 与后台其余页面一致；侧边栏「官网内容」入口对所有登录用户可见，点进去能看但改不了 |
+| 写（`POST` / `PATCH` / `DELETE`） | **仅 `is_admin`** | 见下 |
 
 ```ts
 // src/lib/auth/site-content.ts
-export function canEditSiteContent(actor: ActorProfile | null): boolean
+export function canEditSiteContent(actor: SiteContentActor | null): boolean {
+  if (!actor) return false
+  return actor.is_admin
+}
 ```
 
+复用现有 `getActorProfile()`（`src/lib/auth/actor.ts`，需补 select `role`，为将来放开留位）。
 这与仓库现状（后台绝大多数 route 只判登录）不一致，是**刻意引入的新约定** ——
 审计 P0-4 指出的方向就是这个，这三个新 route 不该再往旧坑里加一层。
-复用现有 `getActorProfile()`（`src/lib/auth/actor.ts`）。
 
-> 已知缺口：`/api/profile` 目前允许任何人把自己的 `role` 改成 `ops`，所以
-> `role = 'ops'` 这一支现在可以被自助绕过。这条已登记在审计行动项 2，
-> 与本设计并行修；在它修好之前，实际有效的门是 `is_admin`。
+> **为什么只认 `is_admin`，不认 `role = 'ops'`。** 本文初稿写的是
+> `is_admin || role === 'ops'`，那是错的，而且比「有个已知缺口」严重得多：
+> `/api/profile` 的 GET 在用户没有 profile 行时会**自动建档并写死
+> `role: 'ops'`**（`src/app/api/profile/route.ts:29`）。也就是说
+> **`ops` 是每个新用户的默认角色，不是被授予的权限**；把它写进权限判定，
+> 等于对所有登录用户开放官网内容的编辑与删除。PATCH 允许用户自选 role
+> 只是第二条绕过路径 —— 就算堵上，默认建档这条仍然成立。
+>
+> 放开 `ops` 的前提有两条，缺一不可：① 建档默认角色改成最小权限而非 `ops`；
+> ② `role` 改为仅管理员可分配。两条都做到之前，`ops` 在权限判定里没有意义。
+
+**读写分离的连带要求**：导航入口对所有登录用户可见，所以后台页面必须在
+非管理员视角下**隐藏或禁用写操作控件**，而不是让人点了才拿到 403。
 
 ### 5.4 图片上传
 
@@ -364,17 +395,57 @@ section.action === 'staff-recruit' ? STAFF_RECRUIT_HREF : ...
 官网侧的查询一律带 `where is_published`。`generateStaticParams` 同样只返回已发布的
 slug —— 已下架文章的详情页应当 404，而不是仍能被旧链接直接打开。
 
-后台保存成功后调用 `revalidatePath()`，覆盖上面四类路径 × 三个 locale。
-**下架也要 revalidate** —— 忘了这一步，下架的文章会在静态页上继续挂着，
+后台保存成功后，按 `zh`、`en`、`ja` 逐一调用 `revalidatePath()`，传入官网页面对应的**内部源路径**，
+不要传动态模式，也不要依赖官网域名 rewrite 在失效时再次运行。具体失效集合是：
+
+- 新闻新建、编辑、置顶、上下架、删除：`/${locale}/site`、`/${locale}/site/news`，以及受影响的
+  `/${locale}/site/news/${slug}`；
+- 成员配置：`/${locale}/site`、`/${locale}/site/vision`。
+
+**下架也要逐 locale 失效** —— 忘了详情页这一步，下架的文章会在静态页上继续挂着，
 这正是「下架」最不能出错的地方。
 
 **ISR 失败可见性**（选 ISR 时接受的代价，必须配兜底）：
-`revalidatePath` 静默失败会表现为「后台改了、线上没变」，很难查。因此：
+`revalidatePath` 只负责把已有产物标记为 stale，真正重建发生在下一次访问；写接口无法捕获那次
+后续重建是否成功。因此：
 
 1. 后台列表显示每行的 `updated_at`（「最后保存于」）。
 2. 保存成功后的反馈里给出官网对应页面的直达链接，让编辑者一键自查。
-3. revalidate 抛错时**不吞异常** —— 保存成功但 revalidate 失败要在 UI 上明确提示
-   「已保存，但线上刷新失败，请重试或联系技术」，而不是一个绿色的「保存成功」。
+3. 写接口只报告“失效标记已提交”，并记录 actor、变更对象、locale 和路径；页面下一次访问时
+   若重建失败，由 Next.js 的错误日志与监控告警发现。后台提供“打开官网页面”链接供编辑者自查，
+   运维手册记录缓存未更新时的重试和回滚步骤。不要声称写接口能同步捕获后续重建失败。
+
+### 6.1 远程图片的 Next.js 配置
+
+后台上传返回的是部署环境 `NEXT_PUBLIC_SUPABASE_URL` 对应 host 下的
+`/storage/v1/object/public/site-media/...`。
+`SiteImage` 使用 `next/image`，所以除了 CSP，还必须在 `next.config.mjs` 配置精确的远程主机和路径；
+否则 Next.js 会拒绝渲染新图片。使用部署环境的 `NEXT_PUBLIC_SUPABASE_URL` 推导实际 host，避免放开
+任意 Supabase 项目：
+
+```js
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL is required')
+const supabaseHost = new URL(supabaseUrl).hostname
+```
+
+将下面这个属性加入现有 `nextConfig` 对象；不要再声明第二个 `nextConfig`：
+
+```js
+images: {
+  remotePatterns: [
+    {
+      protocol: 'https',
+      hostname: supabaseHost,
+      port: '',
+      pathname: '/storage/v1/object/public/site-media/**',
+    },
+  },
+},
+```
+
+实现后必须用真实 `getPublicUrl()` 返回的 URL 渲染新闻和成员图片，并在 production build/start
+环境验证请求成功；仅检查 CSP 或使用本地 `/site/*.webp` 不能证明这条配置有效。
 
 `src/lib/site/news.ts` 现有的 `NEWS_SLUGS` / `NEWS_IMAGES` / `buildArticles` 与
 `src/lib/site/content.ts` 的 `buildMembers` / `MEMBER_IMAGES` 相应删除或改为从库数据构造；
@@ -497,12 +568,13 @@ slug —— 已下架文章的详情页应当 404，而不是仍能被旧链接�
 | `buildContactSections` | `action: 'staff-recruit'` 映射出正确的 `ctaHref` |
 | 成员卡位构造 | 12 个卡位补齐；未公开卡位回退占位文案 |
 | `upload-image` | 类型/大小校验；扩展名净化 |
-| `canEditSiteContent` | admin / ops / 其他角色 / 未登录 |
+| `canEditSiteContent` | admin 通过；**ops 必须被拒**（它是默认角色，见 §5.3）；其他角色、未登录均被拒 |
 
 **API route 与权限判定目前全仓 0 测试**（审计发现）。本设计**不承诺**补齐这一层，
 但 `canEditSiteContent` 是纯函数，必须有测试 —— 新引入的权限约定不能没有测试守着。
 
-迁移 047/048 按 046 的做法，在一次性 Postgres 容器上实跑验证（含幂等重跑）后才算完成。
+迁移 047/048/049 按 046 的做法，在一次性 Postgres 容器上实跑验证（含幂等重跑）后才算完成；050
+必须在 §3.1 规定的 expand → deploy → contract 判据满足后单独执行，不能与 047 同批运行。
 
 ---
 
@@ -514,8 +586,10 @@ slug —— 已下架文章的详情页应当 404，而不是仍能被旧链接�
    「三语等价完整版本」在数据库内容这部分事实上不再成立。`docs/public-site.md` §2.2
    要同步改口径。
 3. **无草稿态、无发布审核** —— 保存即上线。误发只能靠再改一次修正。
-4. **`role = 'ops'` 可被自助绕过**（见 §5.3），在 `/api/profile` 修好前实际只有
-   `is_admin` 有效。
+4. **写权限只有 `is_admin` 一档，粒度偏粗** —— 运营要发新闻就得是管理员。这不是
+   疏漏而是当前唯一诚实的选择：`ops` 是自动建档的默认角色（§5.3），在角色授予
+   机制可信之前，任何基于 `role` 的放宽都等于不设防。代价是发稿要找管理员，
+   直到 §5.3 列的那两个前提做完。
 5. **本设计让 withjp 离「冻结待退役」更远** —— 这是已知的、被业务方接受的取舍
    （审计 §6-1、§6-2）。
 

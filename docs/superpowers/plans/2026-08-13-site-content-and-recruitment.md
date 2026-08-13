@@ -38,6 +38,7 @@
 | `supabase/migrations/047_site_applications_kinds.sql` | `site_applications` 加 `kind`/`email`/`commute_mode` + 按 kind 的 check |
 | `supabase/migrations/048_site_content.sql` | `site_news` / `site_members` 两张表 + RLS |
 | `supabase/migrations/049_site_media_bucket.sql` | `site-media` 公开桶 |
+| `supabase/migrations/050_site_applications_kinds_contract.sql` | 新服务稳定后移除 `kind` 的兼容 default |
 | `scripts/seed-site-content.mjs` | 把现有 4 篇新闻、8 位成员从 i18n 搬进库（幂等） |
 | `src/lib/site/i18n-content.ts` (+`.test.ts`) | `pickLocaleText` 三语回退纯函数 |
 | `src/lib/storage/upload-image.ts` (+`.test.ts`) | 图片上传共享 helper（三个 route 复用） |
@@ -67,6 +68,7 @@
 | `src/app/[locale]/(app)/recruit-applications/page.tsx` | 加 tab |
 | `src/components/layout/Sidebar.tsx` | 加「官网内容」分组 |
 | `src/app/api/items/photo/route.ts`、`competitors/upload/route.ts` | 改用共享 helper |
+| `next.config.mjs` | 配置 `site-media` 的 Next Image 远程来源 |
 | `messages/{zh,en,ja}.json`、`scripts/i18n-baseline.json` | 删内容 key、加 UI 文案 |
 | `package.json` | 注册 6 个新测试文件 |
 | `docs/public-site.md`、`docs/design-system.md` | 同步口径与组件登记 |
@@ -95,16 +97,14 @@
 -- ============================================================
 
 alter table site_applications
-  -- default 'creator' 用于回填历史行；回填完立刻 drop default，
-  -- 否则表单少传 kind 会静默记成主播应募。
+  -- expand 阶段保留 default：旧版本服务仍在运行时，少传 kind 的请求
+  -- 继续按主播应募落库；contract 阶段再由迁移 050 删除这个 default。
   add column if not exists kind text not null default 'creator'
     check (kind in ('creator', 'photographer', 'makeup', 'group_live_ops')),
   add column if not exists email text
     check (email is null or char_length(email) between 3 and 254),
   add column if not exists commute_mode text
     check (commute_mode is null or commute_mode in ('subway', 'bicycle', 'walk', 'car'));
-
-alter table site_applications alter column kind drop default;
 
 -- 员工类应募没有年龄；居住位置对员工类是选填
 alter table site_applications alter column age       drop not null;
@@ -152,13 +152,16 @@ insert into site_applications (name, age, residence, contact, locale)
 SQL
 ```
 
-- [ ] **Step 3: 应用迁移，验证回填与约束**
+- [ ] **Step 3: 应用迁移，验证回填、约束与兼容 default**
 
 ```bash
 docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/047_site_applications_kinds.sql
 docker exec -i m047 psql -U postgres -qtA <<'SQL'
 \set ON_ERROR_STOP off
 select '历史行 kind=' || kind from site_applications;
+select 'kind default=' || coalesce(column_default, '<none>')
+  from information_schema.columns
+  where table_name = 'site_applications' and column_name = 'kind';
 \echo '--- 员工类缺 email：期望被拒 ---'
 insert into site_applications (kind,name,contact,locale,commute_mode) values ('makeup','A','x','ja','subway');
 \echo '--- 员工类完整：期望成功 ---'
@@ -168,9 +171,10 @@ insert into site_applications (kind,name,contact,locale,residence) values ('crea
 SQL
 ```
 
-Expected：历史行 `kind=creator`；第一条与第三条被 check 拒绝；第二条 OK。
+Expected：历史行 `kind=creator`；`kind` 的 default 仍为 `'creator'`；第一条与第三条被 check
+拒绝；第二条 OK。
 
-- [ ] **Step 4: 验幂等 + 销毁容器**
+- [ ] **Step 4: 验 047 幂等 + 销毁容器**
 
 ```bash
 docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/047_site_applications_kinds.sql && echo "重跑 OK"
@@ -183,6 +187,37 @@ docker rm -f m047
 git add supabase/migrations/047_site_applications_kinds.sql
 git commit -m "feat(db): site_applications 扩展出其他招募三类"
 ```
+
+- [ ] **Step 5: 部署新服务并满足 contract 判据**
+
+先部署 Task 3 的新 service 和公开表单，使所有新请求显式写入 `kind`。只有同时满足以下条件，
+才能执行下一步；任一条件不满足都必须继续保留 default：
+
+1. 生产环境所有仍可能写入 `site_applications` 的实例都已部署新 service，旧实例已排空并下线；
+2. 历史行已确认全部为 `kind = 'creator'`，且 `kind` 没有 NULL 或约束外的值；
+3. 通过访问日志/指标确认新旧 API 在观察窗口内都显式写入四种合法 kind，未出现依赖 default 的请求；
+4. 已验证 creator 与三类 staff 的完整请求都能成功落库，缺少 `kind` 的请求在 contract 后应明确失败。
+
+- [ ] **Step 6: 迁移 050 —— contract 阶段移除兼容 default**
+
+**Files:** Create `supabase/migrations/050_site_applications_kinds_contract.sql`
+
+```sql
+-- Migration 050: site_applications kind contract
+-- 仅在 Task 1 Step 5 的全部判据满足后执行。
+alter table site_applications
+  alter column kind drop default;
+```
+
+应用并检查：
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/050_site_applications_kinds_contract.sql
+psql "$DATABASE_URL" -Atc "select column_default from information_schema.columns where table_name='site_applications' and column_name='kind'"
+```
+
+Expected：查询返回空行；`kind` 的 `NOT NULL`、允许值 check 和按 kind 的字段 check 保持不变。
+050 不得与 047 同批执行，也不得在旧 service 仍可能接收流量时执行。
 
 ---
 
@@ -656,10 +691,42 @@ values ('site-media', 'site-media', true)
 on conflict (id) do nothing;
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: 配置 Next Image 的远程来源**
+
+修改 `next.config.mjs`：在现有 `nextConfig` 对象中加入 `images.remotePatterns`。host 必须从部署环境
+的 `NEXT_PUBLIC_SUPABASE_URL` 推导，不能用 `*.supabase.co` 放开所有项目；路径必须限制到本次新桶：
+
+```js
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL is required')
+const supabaseHost = new URL(supabaseUrl).hostname
+```
+
+将下面这个属性加入现有 `nextConfig` 对象；不要再声明第二个 `nextConfig`：
+
+```js
+images: {
+  remotePatterns: [
+    {
+      protocol: 'https',
+      hostname: supabaseHost,
+      port: '',
+      pathname: '/storage/v1/object/public/site-media/**',
+    },
+  },
+},
+```
+
+提交前用真实 Supabase 项目的 `getPublicUrl()` 结果检查 hostname 和 pathname；在 production build/start
+环境写入一条新闻图片和一张成员图片，访问官网页面确认两者都由 `next/image` 成功渲染。只验证 CSP 或
+使用仓库内 `/site/*.webp` 不算通过。
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add -A
+git add src/lib/storage/upload-image.ts src/lib/storage/upload-image.test.ts \
+  src/app/api/items/photo/route.ts src/app/api/competitors/upload/route.ts \
+  src/app/api/site/upload/route.ts supabase/migrations/049_site_media_bucket.sql next.config.mjs
 git commit -m "refactor(storage): 抽出图片上传 helper 并新增 site-media 桶"
 ```
 
@@ -687,8 +754,11 @@ import { canEditSiteContent } from './site-content.ts'
 test('admin 可编辑', () => {
   assert.equal(canEditSiteContent({ id: 'a', is_admin: true, role: 'bd' }), true)
 })
-test('ops 可编辑', () => {
-  assert.equal(canEditSiteContent({ id: 'b', is_admin: false, role: 'ops' }), true)
+// 下面这条是本函数存在的全部意义，不要因为「看起来 ops 该能管内容」就改掉它：
+// /api/profile 的 GET 会给没有 profile 行的用户自动建档并写死 role: 'ops'
+// （src/app/api/profile/route.ts:29）。ops 是默认角色，不是被授予的权限。
+test('ops 不可编辑 —— 它是每个新用户的默认角色', () => {
+  assert.equal(canEditSiteContent({ id: 'b', is_admin: false, role: 'ops' }), false)
 })
 test('其他角色不可编辑', () => {
   assert.equal(canEditSiteContent({ id: 'c', is_admin: false, role: 'bd' }), false)
@@ -713,22 +783,38 @@ export interface SiteContentActor {
 }
 
 /**
- * 官网内容一改就对公网可见，误操作代价高于内部数据，因此收到 admin/ops。
+ * 官网内容一改就对公网可见，误操作代价高于内部数据，因此写操作只认 is_admin。
  *
- * 已知缺口：/api/profile 目前允许任何人把自己的 role 改成 ops，所以 ops 这一支
- * 现在可被自助绕过（审计行动项 2 在修）。在那之前实际有效的门是 is_admin。
+ * 为什么不认 role === 'ops'：/api/profile 的 GET 在用户没有 profile 行时会自动
+ * 建档并写死 role: 'ops'（src/app/api/profile/route.ts:29）——ops 是每个新用户的
+ * 默认角色，不是被授予的权限。把它写进判定等于对所有登录用户开放。PATCH 允许
+ * 用户自选 role 只是第二条绕过路径，堵上它也不改变默认建档这条。
+ *
+ * 放开 ops 的前提有两条，缺一不可：① 建档默认角色改成最小权限；② role 改为
+ * 仅管理员可分配。参数里保留 role 字段是为那一天留位，现在不参与判定。
  */
 export function canEditSiteContent(actor: SiteContentActor | null): boolean {
   if (!actor) return false
-  return actor.is_admin || actor.role === 'ops'
+  return actor.is_admin
 }
 ```
 
 `src/lib/auth/actor.ts`：`getActorProfile` 的 select 从 `'id, is_admin'` 改为 `'id, is_admin, role'`，`ActorProfile` 接口加 `role: string | null`，return 加 `role: data.role ?? null`。
 
-- [ ] **Step 4: 写迁移 048**
+- [ ] **Step 4: 写迁移 048（所有 DDL 可重跑）**
 
-按规格 §3.2 与 §3.3 全文照抄：`site_news`（含 `is_published boolean not null default true`、索引 `(is_published, is_pinned desc, published_on desc)`、`updated_at` 触发器）、`site_members`（12 卡位 check、`site_members_revealed_fields` 约束）；两表 RLS 按 `drop policy if exists` → `create policy ... for select to authenticated using (true)` → `revoke all ... from anon, authenticated` → `grant select ... to authenticated` 的顺序。
+按规格 §3.2 与 §3.3 全文照抄：`site_news`（含 `is_published boolean not null default true`、索引
+`(is_published, is_pinned desc, published_on desc)`、`updated_at` 触发器）、`site_members`
+（12 卡位 check、`site_members_revealed_fields` 约束）；两表 RLS 按 `drop policy if exists` →
+`create policy ... for select to authenticated using (true)` → `revoke all ... from anon, authenticated`
+→ `grant select ... to authenticated` 的顺序。
+
+DDL 必须使用以下幂等形式，不能恢复成裸语句：把两张完整表定义的开头分别写成
+`create table if not exists site_news (` 和 `create table if not exists site_members (`；新闻索引使用
+`create index if not exists idx_site_news_order on site_news (is_published, is_pinned desc, published_on desc)`；
+两个 trigger 都先执行 `drop trigger if exists site_news_updated_at on site_news`、
+`drop trigger if exists site_members_updated_at on site_members`，再执行现有的 `create trigger`。
+提交的迁移文件必须保留规格 §3.2 的全部列、check 和外键。
 
 - [ ] **Step 5: 容器验证（含幂等）**
 
@@ -752,7 +838,8 @@ docker exec -i m048 psql -U postgres -qtA -c "
 docker rm -f m048
 ```
 
-Expected：anon 零行；authenticated 两张表各只有 `SELECT`（**特别确认没有 TRUNCATE** —— 它不受 RLS 约束，是 046 实跑时抓到的坑）
+Expected：第二次应用输出 `重跑 OK`；anon 零行；authenticated 两张表各只有 `SELECT`
+（**特别确认没有 TRUNCATE** —— 它不受 RLS 约束，是 046 实跑时抓到的坑）。
 
 - [ ] **Step 6: 注册测试 + Commit**
 
@@ -897,9 +984,33 @@ Expected: PASS
 
 - [ ] **Step 5: API route**
 
-四个方法都先 `authGuard()` → `getActorProfile()` → `canEditSiteContent()`，不通过返回 403。
+**读写分开**（规格 §5.3）：
+- `GET` 只需 `authGuard()` —— 登录即可读列表，与侧边栏入口对所有登录用户可见保持一致。
+- `POST` / `PATCH` / `DELETE` 走 `authGuard()` → `getActorProfile()` → `canEditSiteContent()`，
+  不通过返回 403。
+
 `PATCH` 支持部分字段（含 `is_pinned` / `is_published`）。
-**每个写方法成功后调 `revalidatePath`**，覆盖 `/[locale]`、`/[locale]/site/news`、`/[locale]/site/news/[slug]` × 三个 locale；revalidate 抛错**不吞**，作为响应里的 `warning` 字段回传（规格 §6 的失败可见性要求）。
+**每个写方法成功后逐一失效三个 locale 的内部源路径**，不要使用动态路由模式，也不要依赖官网域名
+rewrite：
+
+```ts
+import { revalidatePath } from 'next/cache'
+
+const SITE_LOCALES = ['zh', 'en', 'ja'] as const
+
+function revalidateNewsPages(slug: string): void {
+  for (const locale of SITE_LOCALES) {
+    revalidatePath(`/${locale}/site`)
+    revalidatePath(`/${locale}/site/news`)
+    revalidatePath(`/${locale}/site/news/${slug}`)
+  }
+}
+```
+
+新建、编辑、置顶、上下架和删除都调用该函数；删除前先读取 slug，避免删除后无法构造详情路径。
+`revalidatePath` 只是把已有产物标记为 stale，重建发生在下一次访问，写接口不能同步捕获后续重建
+是否成功。接口响应只表示“保存成功、失效标记已提交”，同时记录 actor、slug、locale 和路径；
+后台提供官网直达链接，生产日志/监控负责发现下一次访问时的重建错误。
 错误一律返回稳定错误码，不回传 `error.message`。
 
 - [ ] **Step 6: `ImageUploadField` 组件 + 登记**
@@ -911,6 +1022,11 @@ Expected: PASS
 
 `site-content/news/page.tsx`：`Header`(title+sub+actions) → `StatBand` → `SectionCard` + `RecordRow × n`；行内切置顶与上下架；已下架整行降调 + `Tag`；删除走 `Modal` + `danger` Button + 一句话说明不可逆；编辑用页内 `SectionCard` + `Field` 单列，zh/en 段默认折叠。三态齐全。
 `Sidebar.tsx` 的 `NAV` 加「官网内容」分组（`{ href: '/site-content/news', key: 'siteNews', icon: Newspaper }`），放在「创作者」组之后。
+
+**非管理员视角**：入口对所有登录用户可见、列表可读，但**写操作控件必须隐藏或禁用**
+（新建按钮、置顶/上下架开关、删除、编辑表单）—— 不要让人点了才拿到 403。
+页面从 `getActorProfile()` 拿 `is_admin` 决定渲染，与 API 侧的 `canEditSiteContent`
+用同一个判据，避免两处规则漂移。
 
 - [ ] **Step 8: 全量校验 + Commit**
 
@@ -971,7 +1087,22 @@ git add -A && git commit -m "feat(site): 新闻改为读库 + ISR"
 
 - [ ] **Step 1: API**
 
-`GET` 返回 12 个卡位（按 `no` 升序）；`PATCH /[no]` 改单个卡位。权限判定同 Task 9。写成功后 `revalidatePath('/[locale]/site/vision')` × 三个 locale，revalidate 错误不吞、作为 `warning` 回传。
+`GET` 返回 12 个卡位（按 `no` 升序），登录即可；`PATCH /[no]` 改单个卡位，仅 `is_admin`。
+读写分开的判定与 Task 9 一致。写成功后
+逐一失效三个 locale 的内部源路径：
+
+```ts
+import { revalidatePath } from 'next/cache'
+
+for (const locale of ['zh', 'en', 'ja'] as const) {
+  revalidatePath(`/${locale}/site`)
+  revalidatePath(`/${locale}/site/vision`)
+}
+```
+
+不要使用动态路由模式，也不要把官网域名的 rewrite 路径当成失效路径。`revalidatePath` 只提交 stale
+标记，重建发生在下一次访问；接口响应只表示标记已提交，
+并记录 actor、卡位编号、locale 和路径。重建错误由生产日志/监控发现，后台提供官网直达链接供自查。
 
 - [ ] **Step 2: 后台页**
 
@@ -1043,7 +1174,8 @@ git add -A && git commit -m "feat(site): 成员网格改为读库 + ISR"
 ## 交付前检查清单
 
 - [ ] `npx tsc --noEmit` / `npm test` / `npm run test:copy` 全绿
-- [ ] 三个迁移（047/048/049）都在一次性容器上跑过，且**重跑一次不报错**
+- [ ] 迁移 047/048/049 都在一次性容器上跑过，且**重跑一次不报错**；迁移 050 只在 Task 1
+      Step 5 的 contract 判据满足后执行，并单独验证 default 已移除
 - [ ] `site_news` / `site_members` 上 anon 零权限、authenticated 只有 SELECT（**确认没有 TRUNCATE**）
 - [ ] 搬迁脚本跑过两次，行数不变（news=4、members=12）
 - [ ] 官网三语切换下 news 列表/详情、vision 成员网格渲染正确
