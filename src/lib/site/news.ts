@@ -13,6 +13,7 @@ export const NEWS_SLUGS = [
   'operations-partner-announced',
   'first-recruitment-round',
   'echoamp-launch',
+  'moondollz-launch',
 ] as const
 
 export type NewsSlug = (typeof NEWS_SLUGS)[number]
@@ -30,6 +31,8 @@ export type NewsSlug = (typeof NEWS_SLUGS)[number]
 const NEWS_IMAGES: Partial<Record<NewsSlug, string>> = {
   'mc-character-tech-partnership': '/site/mc-character-expressions.webp',
   'operations-partner-announced': '/site/operations-partner-lockup.webp',
+  'first-recruitment-round': '/site/shin-osaka-station.webp',
+  'echoamp-launch': '/site/moondollz-silhouettes.webp',
 }
 
 /** i18n 里一篇文章的形状（site.news.articles[i]）。 */

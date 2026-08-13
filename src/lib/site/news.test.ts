@@ -26,7 +26,7 @@ test('pairs copy with routes in slug order; image is optional until a photo is s
   }
 })
 
-test('the two configured news images exist in public/', () => {
+test('every configured news image exists in public/', () => {
   // 路径写死在 NEWS_IMAGES 里，文件丢了页面上只会是一块空白，测试兜住这一步
   const articles = buildArticles(copy)
   const withImage = articles.filter((a) => a.image !== undefined)
