@@ -16,7 +16,8 @@
 
 以下约束对**每一个任务**都生效，任务里不再重复：
 
-1. **新增测试文件必须加进 `package.json` 的 `test` 脚本**。该脚本是逐个文件枚举的（现有 45 个），不加进去测试永远不跑，CI 也不会发现。
+1. **新增测试文件必须加进 `package.json` 的 `test` 脚本**。该脚本是逐个文件枚举的（现有 45 个）；
+   本轮新增的纯函数测试和 `site-content-api.integration.test.ts` 都要登记，不加进去测试永远不跑，CI 也不会发现。
 2. **测试里用相对路径 + `.ts` 后缀导入**（如 `../../i18n/routing.ts`），不能用 `@/` 别名——`node --test` 直接跑 TS 时不认 tsconfig 的 paths。
 3. **JSX 里禁止裸中文**（`scripts/check-no-bare-han.mjs`）。所有面向用户的文案走 `useTranslations()` / `getTranslations()`。
 4. **样式 token 零容忍**（`scripts/check-style-tokens.mjs`）：禁 `slate/indigo/zinc/gray/stone/neutral` 数字阶灰、裸 hex、固定透明度 token 带 `/N`、`text-base`。正向校验对全库生效——用到的色阶必须真实登记在 `tailwind.config.ts`（`text-ink-600` 会失败，ink 只登记了 900/700/500/400）。
@@ -39,7 +40,8 @@
 | `supabase/migrations/048_site_content.sql` | `site_news` / `site_members` 两张表 + RLS |
 | `supabase/migrations/049_site_media_bucket.sql` | `site-media` 公开桶 |
 | `supabase/migrations/050_site_applications_kinds_contract.sql` | 新服务稳定后移除 `kind` 的兼容 default |
-| `scripts/seed-site-content.mjs` | 把现有 4 篇新闻、8 位成员从 i18n 搬进库（幂等） |
+| `scripts/seed-site-content.mjs` | 把静态 fixture 中的 4 篇新闻、8 位成员搬进库（幂等） |
+| `scripts/site-content-seed-data.mjs` | 与 UI i18n/展示常量解耦的新闻、成员静态 seed fixture |
 | `src/lib/site/i18n-content.ts` (+`.test.ts`) | `pickLocaleText` 三语回退纯函数 |
 | `src/lib/storage/upload-image.ts` (+`.test.ts`) | 图片上传共享 helper（三个 route 复用） |
 | `src/lib/auth/site-content.ts` (+`.test.ts`) | `canEditSiteContent` 权限纯函数 |
@@ -157,18 +159,28 @@ SQL
 ```bash
 docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/047_site_applications_kinds.sql
 docker exec -i m047 psql -U postgres -qtA <<'SQL'
-\set ON_ERROR_STOP off
 select '历史行 kind=' || kind from site_applications;
 select 'kind default=' || coalesce(column_default, '<none>')
   from information_schema.columns
   where table_name = 'site_applications' and column_name = 'kind';
-\echo '--- 员工类缺 email：期望被拒 ---'
-insert into site_applications (kind,name,contact,locale,commute_mode) values ('makeup','A','x','ja','subway');
-\echo '--- 员工类完整：期望成功 ---'
-insert into site_applications (kind,name,contact,locale,email,commute_mode) values ('makeup','B','x','ja','b@e.com','subway') returning 'OK';
-\echo '--- 主播类缺 age：期望被拒 ---'
-insert into site_applications (kind,name,contact,locale,residence) values ('creator','C','x','ja','大阪');
 SQL
+if docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+  "insert into site_applications (kind,name,contact,locale,commute_mode)
+   values ('makeup','A','x','ja','subway');"; then
+  echo 'ERROR: staff row without email was accepted' >&2; exit 1
+else
+  echo 'OK: staff row without email rejected'
+fi
+docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+  "insert into site_applications (kind,name,contact,locale,email,commute_mode)
+   values ('makeup','B','x','ja','b@e.com','subway');"
+if docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+  "insert into site_applications (kind,name,contact,locale,residence)
+   values ('creator','C','x','ja','大阪');"; then
+  echo 'ERROR: creator row without age was accepted' >&2; exit 1
+else
+  echo 'OK: creator row without age rejected'
+fi
 ```
 
 Expected：历史行 `kind=creator`；`kind` 的 default 仍为 `'creator'`；第一条与第三条被 check
@@ -452,6 +464,11 @@ test('staff-recruit 映射到员工招募页', () => {
 })
 ```
 
+同时修改现有 `contact.test.ts` 的 locale-safe action 测试：把
+`assert.equal(sections[1].ctaHref, undefined)` 改为
+`assert.equal(sections[1].ctaHref, '/site/recruit/staff')`。这不是新增断言，而是更新
+staff CTA 后必然改变的既有行为；必须与 contact 实现同一提交完成。
+
 - [ ] **Step 6: 改 i18n —— 删占位、加 CTA 与表单文案**
 
 三语文件同改：`site.contact.sections[1]` 删掉 `note`（zh「咨询窗口正在准备中」／ja「お問い合わせ窓口は準備中」），加 `cta` 与 `"action": "staff-recruit"`。
@@ -499,6 +516,11 @@ git add -A && git commit -m "feat(site): 其他招募表单与投递链路"
 `?tab=creator|staff`（**`staff` 是 UI 分组，不是 kind 取值**——它查的是后三个 kind 的合集）。
 用 `Header` 的 `tabs` prop 渲染切换，**不要自造按钮组**（design-system §6.3 列表页模式）。
 列表从现有表格改为 `RecordRow`（§6.1：记录浏览为主、每行有身份）；职能用 `Tag`，tone 走 §1.3 状态映射表。
+同步修改现有 `ApplicationRow`：`age: number | null`、`residence: string | null`，加入
+`kind`、`email: string | null`、`commute_mode: string | null`。creator 行显示年龄与居住地；staff
+行不显示年龄，年龄/居住地/邮箱/通勤方式的 NULL 或空串统一用三语 i18n 的
+`recruitApplications.notProvided`（值为 `—`）显示，禁止直接渲染 `null`。查询结果和统计必须
+使用这个新类型，避免把数据库 NULL 强制 cast 成旧的非空类型。
 `StatBand` 的三个统计按当前 tab 统计。
 三态齐全：`LoadingState` / `EmptyState`（带引导）/ `ErrorState`（带重试）。
 
@@ -507,7 +529,7 @@ git add -A && git commit -m "feat(site): 其他招募表单与投递链路"
 ```ts
 const tab = searchParams.tab === 'staff' ? 'staff' : 'creator'
 let q = db.from('site_applications')
-  .select('id, kind, name, age, residence, contact, email, commute_mode, locale, status, created_at')
+  .select('id, kind, name, age, residence, contact, email, commute_mode, experience, locale, status, created_at')
   .order('created_at', { ascending: false })
   .limit(200)
 q = tab === 'creator' ? q.eq('kind', 'creator') : q.neq('kind', 'creator')
@@ -515,7 +537,8 @@ q = tab === 'creator' ? q.eq('kind', 'creator') : q.neq('kind', 'creator')
 
 - [ ] **Step 2: 补 i18n**
 
-`recruitApplications.*` 加两个 tab 标签、员工列的表头、三个职能与四种通勤方式的显示名。三语同改。
+`recruitApplications.*` 加两个 tab 标签、员工列的表头、三个职能与四种通勤方式的显示名，
+以及 `notProvided`（三语显示 `—` 或等价本地化文案）。三语同改。
 
 - [ ] **Step 3: 校验 + Commit**
 
@@ -815,6 +838,10 @@ DDL 必须使用以下幂等形式，不能恢复成裸语句：把两张完整�
 两个 trigger 都先执行 `drop trigger if exists site_news_updated_at on site_news`、
 `drop trigger if exists site_members_updated_at on site_members`，再执行现有的 `create trigger`。
 提交的迁移文件必须保留规格 §3.2 的全部列、check 和外键。
+其中 `site_members` 的两个业务约束必须原样落地：已公开行要求
+`nullif(btrim(name), '')`、`nullif(btrim(photo_url), '')`、`nullif(btrim(specialty_ja), '')`
+全部非空；未公开行要求 `expected_reveal_on is not null`。API 也要在 trim 后执行同样校验，
+因为数据库 check 是最后防线，不应让空白文本绕过它。
 
 - [ ] **Step 5: 容器验证（含幂等）**
 
@@ -835,6 +862,20 @@ docker exec -i m048 psql -U postgres -qtA -c "
   from information_schema.role_table_grants
   where grantee in ('anon','authenticated') and table_name in ('site_news','site_members')
   group by grantee, table_name;"
+if docker exec -i m048 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+  "insert into site_members (no, is_revealed, name, photo_url, specialty_ja, expected_reveal_on)
+   values (12, true, ' ', '/p.webp', 'ok', '2026-12-01');"; then
+  echo 'ERROR: revealed blank name was accepted' >&2; exit 1
+else
+  echo 'OK: revealed blank name rejected'
+fi
+if docker exec -i m048 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+  "insert into site_members (no, is_revealed, name, photo_url, specialty_ja)
+   values (11, false, null, null, null);"; then
+  echo 'ERROR: unrevealed null schedule was accepted' >&2; exit 1
+else
+  echo 'OK: unrevealed null schedule rejected'
+fi
 docker rm -f m048
 ```
 
@@ -855,37 +896,64 @@ git add -A && git commit -m "feat(db): 官网内容表与编辑权限"
 
 **Files:**
 - Create: `scripts/seed-site-content.mjs`
+- Create: `scripts/site-content-seed-data.mjs`
 
 **Interfaces:**
 - Consumes: `site_news` / `site_members`（Task 7）
 
-- [ ] **Step 1: 干跑验证拆分规则（先于写脚本）**
+- [ ] **Step 1: 建立与 UI 解耦的 fixture 和按 locale 的拆分规则**
 
 ```bash
-node -e "
-const l = require('./messages/ja.json').site.members.list;
-console.log(l.map(e => JSON.stringify({ name: e.name, ja: e.role.split('／')[0], sp: e.role.split('／')[1] })).join('\n'));
+node --input-type=module -e "
+import { MEMBER_SEED } from './scripts/site-content-seed-data.mjs'
+const splitters = {
+  ja: value => value.split('／'),
+  zh: value => value.split('／'),
+  en: value => value.split(/\s+\/\s+/),
+}
+for (const [locale, split] of Object.entries(splitters)) {
+  for (const row of MEMBER_SEED) {
+    const parts = split(row.role[locale])
+    if (parts.length !== 2 || parts.some(part => !part.trim())) process.exit(1)
+    console.log(locale, row.no, JSON.stringify(parts))
+  }
+}
 "
 ```
 
-Expected：8 条全部拆出两段，形如 `{"name":"KANO","ja":"花乃","sp":"儚い微笑みの罠"}`。
-**若有任何一条拆不出两段，停下来问，不要猜。**
+`site-content-seed-data.mjs` 必须自包含地导出规格 §3.4 的完整 `NEWS_SEED` 与 `MEMBER_SEED`：
+`NEWS_SEED` 每项包含 slug、图片路径、published_on、tag，以及四篇文章的完整 ja/zh/en
+`title`、`lead`、`body`；`MEMBER_SEED` 包含 8 个成员的 `no`、罗马字 `name`、图片路径和 ja/zh/en
+原始 role。不得从 `messages/*.json`、`src/lib/site/news.ts` 或 `content.ts` 导入；后续删除 UI key
+或私有常量不会影响 seed。ja/zh 的 role 用全角 `／`，en 用 ASCII `/`，三种解析规则必须分别
+写在脚本中。任何一条不能恰好拆成两段都要以非零码停止，不能猜测或继续写库。
 
 - [ ] **Step 2: 写脚本**
 
-读 `messages/{ja,zh,en}.json`，用 `SUPABASE_SERVICE_ROLE_KEY` 写库，幂等（新闻按 `slug` upsert、成员按 `no` upsert）。
+读 `site-content-seed-data.mjs` 的 fixture，用 `SUPABASE_SERVICE_ROLE_KEY` 写库，幂等（新闻按
+`slug` upsert、成员按 `no` upsert）。脚本只从 fixture 读取图片和原始内容，不依赖任何私有展示常量。
 
-- 新闻：`NEWS_SLUGS` 四个 slug；`date` `"2026.10.01"` → `published_on` `"2026-10-01"`（`.replaceAll('.', '-')`）；`body: string[]` → `body_ja` 用 `\n\n` 连接；`image_url` 取 `news.ts` 里 `NEWS_IMAGES` 的现有路径；`tag` 直接取 i18n 的 `tag`（已是 `RECRUIT|PROJECT|LIVE`）；`is_published = true`。
-- 成员：`site.members.list` 8 条按下标 → `no = i + 1`、`is_revealed = true`；`role` 按全角 `／` 拆成 `name_ja` 与 `specialty_*`；`name` 取 `entry.name`；`photo_url` 取 `MEMBER_IMAGES[i]`；9–12 号建 `is_revealed = false` 的空行。
+- 新闻：fixture 四个 slug；日期 `"2026.10.01"` → `published_on` `"2026-10-01"`
+  （`.replaceAll('.', '-')`）；`body: string[]` → `body_*` 用 `\n\n` 连接；tag 必须是
+  `RECRUIT|PROJECT|LIVE`；`is_published = true`。
+- 成员：fixture 的 8 条写入 `is_revealed = true`；分别用 ja/zh/en splitter 生成
+  `name_ja`、`name_en`、`specialty_ja`、`specialty_zh`、`specialty_en`；9–12 号写入
+  `is_revealed = false`、`expected_reveal_on = '2026-12-01'`，不能写 NULL。
+
+写入前用 fixture 生成完整的 12 行 expected rows，写入后立即 select 回读并做深比较：8 个已公开行
+的 `name_ja`、`name_en` 和三种 `specialty_*` 必须逐字段相等，9–12 行必须是未公开且日期正确；
+任意差异、空字符串、错误分隔或图片路径不在 fixture 中都以非零码退出。这样断言验证的是解析结果，
+不是简单复述 seed 数组本身。
 
 - [ ] **Step 3: 对本地/测试库跑两次，确认幂等**
 
-Expected：第二次跑完 `select count(*) from site_news` = 4、`site_members` = 12，与第一次相同。
+Expected：第二次跑完 `select count(*) from site_news` = 4、`site_members` = 12，与第一次相同；
+并再次通过上述 12 行逐字段断言。
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add scripts/seed-site-content.mjs
+git add scripts/seed-site-content.mjs scripts/site-content-seed-data.mjs
 git commit -m "chore(site): 现有新闻与成员的一次性搬迁脚本"
 ```
 
@@ -896,6 +964,7 @@ git commit -m "chore(site): 现有新闻与成员的一次性搬迁脚本"
 **Files:**
 - Create: `src/app/api/site/news/route.ts`、`src/app/api/site/news/[id]/route.ts`
 - Create: `src/lib/site/news-sort.ts`、`src/lib/site/news-sort.test.ts`
+- Create: `src/app/api/site/site-content-api.integration.test.ts`
 - Create: `src/components/ui/ImageUploadField.tsx`
 - Create: `src/app/[locale]/(app)/site-content/news/page.tsx`
 - Modify: `src/components/layout/Sidebar.tsx`、`messages/{zh,en,ja}.json`、`package.json`、`docs/design-system.md`
@@ -1013,25 +1082,75 @@ function revalidateNewsPages(slug: string): void {
 后台提供官网直达链接，生产日志/监控负责发现下一次访问时的重建错误。
 错误一律返回稳定错误码，不回传 `error.message`。
 
-- [ ] **Step 6: `ImageUploadField` 组件 + 登记**
+**Step 6: 先定义 API schema 和字段白名单**
+
+仓库已有 `zod`，用它解析 JSON；禁止把 `body` 直接 spread 到 Supabase。所有文本字段先
+`trim()`，必填字段 trim 后为空则返回字段错误；选填文本 trim 后为空统一转为 `null`；日期、URL、
+slug、tag、布尔值和枚举分别校验，校验规则与 048 的 check 一致。
+
+- news create 只允许 `slug`、`tag`、`published_on`、`is_pinned`、`is_published`、`image_url`、
+  `title_ja/zh/en`、`lead_ja/zh/en`、`body_ja/zh/en`；ja 的 title/lead/body 必填，slug 新建后
+  不可修改；`is_pinned` 缺省为 `false`、`is_published` 缺省为 `true`；
+- news patch 只允许上述字段中的可编辑字段，客户端传入的 `created_by_user_id`、
+  `updated_by_user_id`、`id`、`created_at`、`updated_at` 一律拒绝或忽略；`is_published` 只有
+  通过 `is_admin` 写权限检查的 PATCH 才能改变，非管理员不能靠请求体伪造发布状态；
+- members patch 只允许 `is_revealed`、`photo_url`、`name`、`name_ja`、`name_en`、
+  `specialty_ja/zh/en`、`expected_reveal_on`；`no` 只取路由参数，不从 body 接受；
+- create 时 `created_by_user_id` 与 `updated_by_user_id` 都由服务端写 `actor.id`；patch 保留
+  原 `created_by_user_id`，只把 `updated_by_user_id` 写成当前 `actor.id`。客户端传入伪造 UUID
+  必须被拒绝或丢弃，并由测试证明数据库中没有该 UUID。
+
+这里的“拒绝或忽略”必须在实现中选一种并固定；推荐对未知字段返回 400，便于发现客户端误传，
+对审计字段也返回稳定的 `forbidden_field`，不要静默接受后再写入。
+
+- [ ] **Step 7: API 集成测试**
+
+测试文件使用 `node:test`，通过真实 `Request` 调用 route handler；实现时把 route 的业务处理抽成
+接收 `{ authGuard, getActorProfile, db, revalidatePath }` 的 handler factory，再由 production route
+绑定真实依赖、测试用例绑定 fake context。这样测试的是 HTTP 状态、解析、
+数据库写入和失效调用的组合，不是单独测试 `canEditSiteContent`。固定以下用例：
+
+1. 未登录 `GET` 返回 401；未登录 `POST/PATCH/DELETE` 也分别返回 401；
+2. 已登录但 `is_admin=false` 的用户：GET 返回 200；任何写请求返回 403，尝试提交
+   `is_published: true` 后数据库原值不变；
+3. `is_admin=true` 的用户可创建新闻，返回 201，写入的两个审计字段均为该 actor.id；
+4. 管理员 PATCH 下架新闻成功；请求同时携带攻击者的 `created_by_user_id` /
+   `updated_by_user_id`，返回 400（或稳定忽略结果），数据库不出现攻击者 UUID；
+5. PATCH 传入未知字段、slug 修改、必填字段全空白分别返回 400，数据库没有部分更新；
+6. 管理员 PATCH 已公开成员时，空白 `name`、`photo_url` 或 `specialty_ja` 返回 400；未公开成员
+   缺少 `expected_reveal_on` 也返回 400；数据库中不出现不完整卡位；
+7. 下架后调用官网详情 loader/production 页面请求，详情返回 404；同时断言三个 locale 的
+   列表、首页、详情内部源路径都被记录为 stale。
+
+若采用黑盒验证，使用 `next build && next start` 启动临时端口，向测试数据库写入 fixture，
+通过测试用户 cookie 执行上述请求，再 fetch `/${locale}/site/news/${slug}` 验证 404；不能只断言
+helper 返回值。
+
+- [ ] **Step 8: `ImageUploadField` 组件 + 登记**
 
 `src/components/ui/ImageUploadField.tsx`，props：`value: string | null` `onChange(url: string): void` `label: string` `hint?: string` `error?: string`。用后台 token（violet/mauve），内部用 `Field` 包裹，上传打 `/api/site/upload`。
 **同 PR 在 `docs/design-system.md` §6.2 登记它的 props 契约**（§6 准入流程要求）。
 
-- [ ] **Step 7: 后台列表页 + 侧边栏**
+- [ ] **Step 9: 后台列表页 + 侧边栏**
 
 `site-content/news/page.tsx`：`Header`(title+sub+actions) → `StatBand` → `SectionCard` + `RecordRow × n`；行内切置顶与上下架；已下架整行降调 + `Tag`；删除走 `Modal` + `danger` Button + 一句话说明不可逆；编辑用页内 `SectionCard` + `Field` 单列，zh/en 段默认折叠。三态齐全。
-`Sidebar.tsx` 的 `NAV` 加「官网内容」分组（`{ href: '/site-content/news', key: 'siteNews', icon: Newspaper }`），放在「创作者」组之后。
+`Sidebar.tsx` 的 `NAV` 加「官网内容」分组，放在「创作者」组之后：引入实际存在的新闻和成员
+图标（例如 `Newspaper`、`UsersRound`），加入 `siteContent` 一级 key 及两个 child key。
+因为 `NAV_ACCENT` 的类型是 `Record<TopNavKey, Accent>`，必须同时补
+`siteContent: 'violet'`（以及需要的 `siteNews`/`siteMembers` 子项色板）；否则 TypeScript 会因
+缺少一级 key 编译失败。三语 `messages/{zh,en,ja}.json` 的 `nav` namespace 同步加入
+`siteContent`、`siteNews`、`siteMembers`，不能只添加 NAV 结构。
 
 **非管理员视角**：入口对所有登录用户可见、列表可读，但**写操作控件必须隐藏或禁用**
 （新建按钮、置顶/上下架开关、删除、编辑表单）—— 不要让人点了才拿到 403。
 页面从 `getActorProfile()` 拿 `is_admin` 决定渲染，与 API 侧的 `canEditSiteContent`
 用同一个判据，避免两处规则漂移。
 
-- [ ] **Step 8: 全量校验 + Commit**
+- [ ] **Step 10: 全量校验 + Commit**
 
 ```bash
-npx tsc --noEmit && npm test && npm run test:copy
+# 将 site-content-api.integration.test.ts 注册进 package.json 的 test 清单。
+npx tsc --noEmit && npm test && node --test --experimental-strip-types src/app/api/site/site-content-api.integration.test.ts && npm run test:copy
 git add -A && git commit -m "feat(admin): 新闻后台管理"
 ```
 
@@ -1058,7 +1177,12 @@ git add -A && git commit -m "feat(admin): 新闻后台管理"
 
 - [ ] **Step 3: 先验证读库正常，再删 key**
 
-**顺序是硬的**：确认官网三个页面在三语下都渲染正确之后，才从 `messages/{zh,en,ja}.json` 删 `site.news.articles[]`。反过来就是上线即丢内容。
+**顺序是硬的**：确认官网三个页面在三语下都渲染正确之后，才从 `messages/{zh,en,ja}.json`
+删 `site.news.articles[]`。先把 seed 所需的新闻内容放入 `site-content-seed-data.mjs`，再删 UI key；
+反过来就是上线即丢内容。`check-i18n` 对“定义但未引用”的 key 只打印 `console.warn`，不会因此 exit(1)。
+真正会失败的是源码引用不存在的 key（`overBaseline`）或 baseline 记录了不存在的文件（zombie）；
+删除后运行 `npm run test:copy`，必要时执行
+`node scripts/check-i18n.mjs --update-baseline`，不要把 warning 当作删除前置条件。
 
 - [ ] **Step 4: 更新 baseline + 文档**
 
@@ -1103,12 +1227,20 @@ for (const locale of ['zh', 'en', 'ja'] as const) {
 不要使用动态路由模式，也不要把官网域名的 rewrite 路径当成失效路径。`revalidatePath` 只提交 stale
 标记，重建发生在下一次访问；接口响应只表示标记已提交，
 并记录 actor、卡位编号、locale 和路径。重建错误由生产日志/监控发现，后台提供官网直达链接供自查。
+PATCH 先 trim 并把现有行与部分请求合并，再执行 schema：已公开时 `name`、`photo_url`、
+`specialty_ja` 三者不得为空白；未公开时合并后的有效行必须有 `expected_reveal_on`。空白选填的
+中英文 specialty 统一写 NULL，不能把空白当作有效翻译；不能因为请求只改照片就误报已有日期缺失。
+后台表单也要在客户端提前提示，但服务端 400 与数据库 check 必须同时保留。
 
 - [ ] **Step 2: 后台页**
 
 12 卡位网格。**先用 `SectionCard` + 现有原语拼**；拼不出来才新建组件，新建就要登记 design-system §6.2。点开单卡编辑用 `Modal` + `Field`（design-system §6.3 表单模式）；未公开卡位只需填 `expected_reveal_on`。三态齐全。
 
 - [ ] **Step 3: 侧边栏加「成员」入口 + i18n 三语**
+
+这里是在 Task 9 已建立的「官网内容」一级分组下补 `siteMembers` child，不再新建一级 NAV；
+确认 `NAV_ACCENT` 的 `siteContent` 已登记，三语 `nav.siteMembers` 已登记，避免重复分组或再次
+触发 `Record<TopNavKey, Accent>` 缺键。
 
 - [ ] **Step 4: 校验 + Commit**
 
@@ -1133,10 +1265,20 @@ git add -A && git commit -m "feat(admin): 成员卡位后台配置"
 
 ```ts
 test('12 个卡位补齐，未公开卡位显示占位', () => {
-  const rows = [{ no: 1, is_revealed: true, name: 'KANO', name_ja: '花乃', name_en: null,
-                  specialty_ja: '罠', specialty_zh: null, specialty_en: null,
-                  photo_url: '/p.webp', expected_reveal_on: null }]
-  const members = buildMembers(rows, 'ja', '— 公開前 —')
+  type MemberRow = {
+    no: number; is_revealed: boolean; name: string | null; name_ja: string | null; name_en: string | null
+    specialty_ja: string | null; specialty_zh: string | null; specialty_en: string | null
+    photo_url: string | null; expected_reveal_on: string | null
+  }
+  const emptyRow = (no: number): MemberRow => ({
+    no, is_revealed: false, name: null, name_ja: null, name_en: null,
+    specialty_ja: null, specialty_zh: null, specialty_en: null,
+    photo_url: null, expected_reveal_on: '2026-12-01',
+  })
+  const rows: MemberRow[] = Array.from({ length: 12 }, (_, i) => emptyRow(i + 1))
+  rows[0] = { ...rows[0], is_revealed: true, name: 'KANO', name_ja: '花乃',
+    specialty_ja: '罠', photo_url: '/p.webp' }
+  const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
   assert.equal(members.length, 12)
   assert.equal(members[0].name, 'KANO')
   assert.equal(members[0].image, '/p.webp')
@@ -1147,20 +1289,38 @@ test('未公开卡位用该行的预计公开时间，而不是全局写死的�
   const rows = [{ no: 9, is_revealed: false, name: null, name_ja: null, name_en: null,
                   specialty_ja: null, specialty_zh: null, specialty_en: null,
                   photo_url: null, expected_reveal_on: '2026-12-01' }]
-  const members = buildMembers(rows, 'ja', '— 公開前 —')
+  const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
   assert.equal(members[8].role, '2026-12')
+})
+
+test('未公开卡位日期为空时显示明确 fallback，而不是空字符串', () => {
+  const rows = [{ no: 9, is_revealed: false, name: null, name_ja: null, name_en: null,
+                  specialty_ja: null, specialty_zh: null, specialty_en: null,
+                  photo_url: null, expected_reveal_on: null }]
+  const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
+  assert.equal(members[8].role, '— 公开时间未定 —')
 })
 ```
 
 - [ ] **Step 2: 跑测试确认失败** → **Step 3: 改 `content.ts`**
 
-`buildMembers` 改签名为 `(rows, locale, unrevealedName)`，消费库行；`MEMBER_SLOTS = 12` 保留（它是 `site_members.no` check 的上界，两处必须一致）；删 `MEMBER_IMAGES`；已公开卡位的 `role` 由 `pickLocaleText` 取 specialty，未公开卡位的 `role` 由 `expected_reveal_on` 格式化为 `YYYY-MM`（替代写死的 `unrevealedRole`）。
+`buildMembers` 改签名为 `(rows, locale, unrevealedName, unrevealedScheduleUnknown)`，消费库行；
+`MEMBER_SLOTS = 12` 保留（它是 `site_members.no` check 的上界，两处必须一致）；删 `MEMBER_IMAGES`；
+已公开卡位的 `role` 由 `pickLocaleText` 取 specialty，未公开卡位的 `role` 由
+`expected_reveal_on` 格式化为 `YYYY-MM`（替代写死的 `unrevealedRole`）。如果读到 NULL，role 必须
+使用 `unrevealedScheduleUnknown`，例如三语对应「公开时间未定」，不能返回空字符串。正常 seed 的
+9–12 行都带 `2026-12-01`，fallback 只处理异常历史数据。
 
 - [ ] **Step 4: 跑测试确认通过 + vision 页改读库 + ISR**
 
 - [ ] **Step 5: 验证渲染正确后再删 key**
 
-三语下确认成员网格渲染正确，然后删 `site.members.list`、`site.members.note`、`site.members.unrevealedRole`；**保留** `unrevealedName`、`captains` 与其余 UI 标签。更新 baseline。
+三语下确认成员网格渲染正确，并确认 seed 已不再依赖 UI messages 后，再删
+`site.members.list`、`site.members.note`、`site.members.unrevealedRole`；新增并保留
+`site.members.unrevealedScheduleUnknown`、`unrevealedName`、`captains` 与其余 UI 标签。
+未使用 key 只会让 `check-i18n` 输出 warning；删除后运行 `npm run test:copy`，真正需要修复的是
+源码引用不存在 key 的 `overBaseline` 或 baseline zombie，必要时执行
+`node scripts/check-i18n.mjs --update-baseline`。更新 baseline 后再进行全量校验。
 
 - [ ] **Step 6: 全量校验 + Commit**
 
@@ -1178,6 +1338,11 @@ git add -A && git commit -m "feat(site): 成员网格改为读库 + ISR"
       Step 5 的 contract 判据满足后执行，并单独验证 default 已移除
 - [ ] `site_news` / `site_members` 上 anon 零权限、authenticated 只有 SELECT（**确认没有 TRUNCATE**）
 - [ ] 搬迁脚本跑过两次，行数不变（news=4、members=12）
+- [ ] 搬迁脚本回读断言通过：8 个已公开行的 `name_ja`、`name_en`、三种 `specialty_*` 精确匹配，
+      9–12 行均为未公开且 `expected_reveal_on = '2026-12-01'`
+- [ ] 048 的已公开空白字段、未公开 NULL 日期负例均由“命令意外成功即失败”的脚本拦截
+- [ ] 内容 API 集成测试覆盖 401/403/管理员成功、白名单与审计字段、下架详情 404；普通登录用户
+      的后台写控件隐藏或禁用
 - [ ] 官网三语切换下 news 列表/详情、vision 成员网格渲染正确
 - [ ] **`https://eacn.agenova.chat/recruit/staff` 能打开** —— 这是 `PUBLIC_PAGE_RE` 那条改动的唯一真实验证点，内部域名与本地都测不出来
 - [ ] 后台改一条新闻 → 官网对应页面在 ISR 后可见；下架 → 官网列表消失、详情 404
