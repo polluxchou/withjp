@@ -4,8 +4,8 @@ import './globals.css'
 import { defaultLocale, isLocale } from '@/i18n/routing'
 
 export const metadata: Metadata = {
-  title: 'Creator Guild OS',
-  description: 'AI-powered operating system for live-streaming creator guilds',
+  title: 'Creator Network OS',
+  description: 'AI-powered operating system for live-streaming creator networks',
 }
 
 export const viewport: Viewport = {

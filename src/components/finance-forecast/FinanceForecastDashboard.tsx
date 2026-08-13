@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { InputHTMLAttributes, ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { useCurrency } from '@/lib/currency'
 import {
@@ -21,6 +21,11 @@ import {
 } from 'recharts'
 import { Plus, RotateCcw, Copy, Trash2, ChevronDown, ArrowUpRight, ChevronRight, Lock, Map as MapIcon } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import Modal from '@/components/ui/Modal'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import Tag from '@/components/ui/Tag'
+import { Field, Input, Select } from '@/components/ui/Field'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 import { Link } from '@/i18n/navigation'
 import {
   FORECAST_ACCOUNT_TYPES,
@@ -41,19 +46,49 @@ import {
   LIFECYCLE_STARTING_STAGES,
   type LifecycleStartingStage,
   type LifecycleTemplateSet,
-} from '@/lib/finance-forecast/lifecycle'
+} from '@/lib/finance-forecast/lifecycle-template'
 import { planLifecycleApplication } from '@/lib/finance-forecast/lifecycle-apply'
+import { AXIS, GRID, TOOLTIP_STYLE, TOOLTIP_LABEL_STYLE, seriesColor, areaFill } from '@/lib/chart-theme'
 
-const ACCOUNT_TYPE_COLORS: Record<ForecastAccountType, string> = {
-  key:     '#8b5cf6',
-  mature:  '#10b981',
-  growing: '#3b82f6',
-  newbie:  '#f59e0b',
-  test:    '#ec4899',
-  other:   '#71717a',
-}
+// ForecastAccountType（重点号/成熟号/成长期/新号/测试号/其他）不是 design-system
+// §1.3 已登记的"创作者生命周期"枚举（那组是 潜在客户/已联系/已互动/已入驻/准备
+// 直播/直播中/已变现/已解约，站点、数量都不同），二者不是同一枚举，不能直接照搬
+// 语义 tone——这里按纯系列色处理，取值沿用各类型原有色相位（key 紫 · growing 蓝 ·
+// mature 绿 · newbie 橙 · test 粉 · other 灰）映射到 CHART_SERIES 对应位。
+const ACCOUNT_TYPE_INDEX = {
+  key:     0,
+  growing: 1,
+  mature:  2,
+  newbie:  3,
+  test:    4,
+  other:   5,
+} satisfies Record<ForecastAccountType, number>
+
+const accountTypeColor = (type: ForecastAccountType): string => seriesColor(ACCOUNT_TYPE_INDEX[type])
+
+// 累计利润面积图的渐变（§1.5 areaFill 14%→0 工厂）；只依赖静态系列色，模块级算一次即可。
+const CUM_PROFIT_FILL = areaFill('ffd-cum-profit', seriesColor(0))
 
 const CHART_TAB_KEYS = ['breakdown', 'cumulative', 'stacked', 'lines', 'indexed'] as const
+
+// 本文件复用的裸样式组合：都写成完整类名字面量（不做 `text-${x}` 式拼接），
+// Tailwind JIT 才能从源码里静态提取到——拼接出来的类名扫不到会静默失效。
+// focus 环走 @/lib/ui/recipes 的 FOCUS_RING（§4 唯一登记处）。
+// 月份/全年/视角这类互斥药丸：条目数远超 SegmentedControl 适用的「小范围互斥」
+// （12 个月 + 全年），保留药丸行形态，只把配色换成 token。
+const PILL_BASE = 'rounded-field border text-xs font-semibold transition-colors'
+const PILL_ACTIVE = 'bg-primary text-white border-primary shadow-card'
+const PILL_IDLE = 'bg-surface text-ink-700 border-line-strong hover:border-primary-border hover:text-primary'
+// 表格上方的行级动作按钮（复制上月/顺延/清空）
+const TOOL_BTN = 'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-field border border-line-strong bg-surface text-xs font-medium text-ink-700 hover:border-primary-border hover:text-primary transition-colors'
+// 只读输入：Input 自带的 disabled: 样式对 readOnly 不生效，而 readOnly 又必须
+// 保留（用户仍要能选中复制月度备注/账号名）。用 `read-only:` 变体补灰底与弱化
+// 文字——伪类选择器特异性高于基础类，不受 Tailwind 生成顺序影响（同
+// VenueInspector 的既有做法）。
+const READONLY_INPUT = 'read-only:bg-canvas read-only:text-ink-500 read-only:cursor-not-allowed'
+// 表头（design-system §6.2：表头 xs / ink-400）
+const TH_LEFT = 'text-left px-4 py-3 text-xs font-medium text-ink-400'
+const TH_RIGHT = 'text-right px-4 py-3 text-xs font-medium text-ink-400'
 
 type ChartMode = typeof CHART_TAB_KEYS[number]
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -124,7 +159,9 @@ export default function FinanceForecastDashboard({
   const prevByYearRef = useRef<Record<number, ForecastMonthInput[]>>(initialByYear)
   const prevViewIdRef = useRef<string | null>(defaultViewId)
 
-  const months = byYear[selectedYear] ?? []
+  // Memoised so the `?? []` fallback doesn't hand a fresh array to the
+  // `summary` memo below on every render.
+  const months = useMemo(() => byYear[selectedYear] ?? [], [byYear, selectedYear])
   const summary = useMemo(() => summarizeForecast(months), [months])
   const safeSelectedMonth = Math.min(Math.max(0, selectedMonth), Math.max(0, summary.months.length - 1))
   const selected = summary.months[safeSelectedMonth]
@@ -371,14 +408,10 @@ export default function FinanceForecastDashboard({
     })
   }
 
-  const yearlyProfitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
-  const selectedProfitColor = selected && selected.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
-
-  const selectedCumulativeProfit = cumulativeData[safeSelectedMonth]?.cum_profit ?? 0
-  const selectedCumulativeProfitColor = selectedCumulativeProfit >= 0 ? 'text-emerald-700' : 'text-red-600'
-  const monthMarginColor = !selected || selected.margin_pct === null
-    ? 'text-zinc-400'
-    : selected.margin_pct >= 0 ? 'text-emerald-700' : 'text-red-600'
+  // 盈利/亏损配色走 §1.3 语义 token（success 登记了「盈利」、danger 登记了「负值」），
+  // 不再用 emerald/red 裸阶。
+  const yearlyProfitColor = summary.yearly_profit_usd >= 0 ? 'text-success-text' : 'text-danger-text'
+  const selectedProfitColor = selected && selected.profit_usd >= 0 ? 'text-success-text' : 'text-danger-text'
 
   useEffect(() => {
     mountedRef.current = true
@@ -602,10 +635,12 @@ export default function FinanceForecastDashboard({
   const chartTabLabels: Record<ChartMode, string> = {
     breakdown:  t('chartBreakdown'),
     cumulative: t('chartCumulative'),
-    stacked:    'Stacked',
-    lines:      'Lines',
-    indexed:    'Indexed',
+    stacked:    t('chartStacked'),
+    lines:      t('chartLines'),
+    indexed:    t('chartIndexed'),
   }
+
+  const chartTabItems = CHART_TAB_KEYS.map((key) => ({ value: key, label: chartTabLabels[key] }))
 
   return (
     <>
@@ -613,18 +648,18 @@ export default function FinanceForecastDashboard({
         <>
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             {viewMenu}
-            <span className="text-sm text-zinc-400">{t('noViewHint')}</span>
+            <span className="text-sm text-ink-400">{t('noViewHint')}</span>
           </div>
-          <div className="bg-white border border-dashed border-zinc-300 rounded-xl p-10 text-center">
-            <p className="text-sm text-zinc-500 mb-2">{t('noViewEmpty')}</p>
-            <p className="text-xs text-zinc-400">{t('noViewGuide')}</p>
+          <div className="bg-surface border border-dashed border-line-strong rounded-card p-10 text-center">
+            <p className="text-sm text-ink-500 mb-2">{t('noViewEmpty')}</p>
+            <p className="text-xs text-ink-400">{t('noViewGuide')}</p>
           </div>
         </>
       ) : (<>
 
       {!canEditActive && (
-        <div className="mb-4 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
-          <Lock className="w-3.5 h-3.5" />
+        <div className="mb-4 px-4 py-2.5 rounded-field bg-warning-soft border border-warning-border text-xs text-warning-text flex items-center gap-2">
+          <Lock className="w-3.5 h-3.5" strokeWidth={1.5} />
           {t('readOnlyBanner', {
             owner: activeView.owner_id === null ? t('readOnlySystem') : activeView.owner_name ?? t('readOnlyOther'),
           })}
@@ -690,13 +725,13 @@ export default function FinanceForecastDashboard({
                   label={t('kpiYearMargin', { year: selectedYear })}
                   value={`${Math.round(yearMarginPct)}%`}
                   sub={t('kpiYearMarginSub')}
-                  valueClassName={yearMarginPct >= 0 ? 'text-emerald-700' : 'text-red-600'}
+                  valueClassName={yearMarginPct >= 0 ? 'text-success-text' : 'text-danger-text'}
                 />
                 <KpiCard
                   label={t('kpiBreakeven')}
                   value={breakevenMonth ? (monthLabels[parseInt(breakevenMonth.slice(5), 10) - 1] ?? breakevenMonth.slice(5)) : '—'}
                   sub={breakevenMonth ? t('kpiBreakevenPositive') : t('kpiBreakevenNegative')}
-                  valueClassName={breakevenMonth ? 'text-emerald-700' : 'text-zinc-400'}
+                  valueClassName={breakevenMonth ? 'text-success-text' : 'text-ink-400'}
                 />
                 <KpiCard
                   label={t('kpiMonthMargin')}
@@ -731,7 +766,7 @@ export default function FinanceForecastDashboard({
                   label={t('kpiMonthCumProfit')}
                   value={fmtForecast(monthCumProfit)}
                   sub={selected ? t('kpiMonthCumProfitSub', { month: selected.month }) : ''}
-                  valueClassName={monthCumProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}
+                  valueClassName={monthCumProfit >= 0 ? 'text-success-text' : 'text-danger-text'}
                 />
                 <KpiCard
                   label={t('kpiMonthUntilBreakeven')}
@@ -753,10 +788,10 @@ export default function FinanceForecastDashboard({
                   }
                   valueClassName={
                     monthsUntilBreakeven === null
-                      ? 'text-zinc-400'
+                      ? 'text-ink-400'
                       : monthsUntilBreakeven <= 0
-                        ? 'text-emerald-700'
-                        : 'text-zinc-900'
+                        ? 'text-success-text'
+                        : 'text-ink-900'
                   }
                 />
                 <KpiCard
@@ -771,22 +806,28 @@ export default function FinanceForecastDashboard({
 
           <CostPlanningLinks />
 
-          <section className="bg-white border border-zinc-200 rounded-xl overflow-hidden mb-4">
-            <div className={`flex items-center justify-between gap-4 px-5 py-3.5 ${inputOpen ? 'border-b border-zinc-100' : ''}`}>
+          <section className="bg-surface border border-line rounded-card shadow-card overflow-hidden mb-4">
+            <div className={`flex items-center justify-between gap-4 px-5 py-3.5 ${inputOpen ? 'border-b border-line-soft' : ''}`}>
               <div className="flex items-center gap-2 min-w-0">
+                {/* 刻意不套 §2 区块标题配方（lg/600/tracking-section）：这行不是
+                    普通卡头，而是整个编辑面板的"当前年·当前月"定位锚——年份与
+                    月份是用户在月份药丸行上反复切换的对象，需要比同屏其它卡头
+                    更强的展示层级，故用 xl/700/tracking-title（§2 二级页头档）
+                    并把月份染主色。同屏兄弟卡头（图表卡/贡献卡/年度图表卡）保持
+                    lg/600/tracking-section 不变。 */}
                 <h2 className="flex items-baseline gap-1.5 shrink-0">
-                  <span className="text-xl font-bold text-zinc-900 tabular-nums tracking-tight">
+                  <span className="text-xl font-bold text-ink-900 tabular-nums tracking-title">
                     {selected?.month.slice(0, 4) ?? selectedYear}
                   </span>
                   {!showYearView && (
                     <>
-                      <span className="text-xl font-bold text-zinc-300">·</span>
-                      <span className="text-xl font-bold text-primary tabular-nums tracking-tight">
+                      <span aria-hidden className="text-xl font-bold text-ink-400">·</span>
+                      <span className="text-xl font-bold text-primary tabular-nums tracking-title">
                         {selectedMonthLabel}
                       </span>
                     </>
                   )}
-                  <span className="text-sm font-medium text-zinc-500 ml-1.5">{t('revenueTitle')}</span>
+                  <span className="text-sm font-medium text-ink-500 ml-1.5">{t('revenueTitle')}</span>
                 </h2>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -803,9 +844,9 @@ export default function FinanceForecastDashboard({
                   type="button"
                   onClick={() => setInputOpen((o) => !o)}
                   aria-label={inputOpen ? t('ariaCollapse') : t('ariaExpand')}
-                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
+                  className={`p-1.5 rounded-field text-ink-400 hover:text-ink-700 hover:bg-line-soft transition-colors ${FOCUS_RING}`}
                 >
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${inputOpen ? '' : '-rotate-90'}`} />
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${inputOpen ? '' : '-rotate-90'}`} strokeWidth={1.5} />
                 </button>
               </div>
             </div>
@@ -825,11 +866,7 @@ export default function FinanceForecastDashboard({
                               key={month.month}
                               type="button"
                               onClick={() => { setShowYearView(false); setSelectedMonth(index) }}
-                              className={`min-w-[2.25rem] px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-                                active
-                                  ? 'bg-primary text-white border-primary shadow-sm'
-                                  : 'bg-white text-zinc-600 border-zinc-200 hover:border-violet-300 hover:text-primary'
-                              }`}
+                              className={`min-w-[2.25rem] px-2.5 py-1.5 ${PILL_BASE} ${FOCUS_RING} ${active ? PILL_ACTIVE : PILL_IDLE}`}
                             >
                               {label}
                             </button>
@@ -839,11 +876,7 @@ export default function FinanceForecastDashboard({
                       <button
                         type="button"
                         onClick={() => setShowYearView((v) => !v)}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-                          showYearView
-                            ? 'bg-primary text-white border-primary shadow-sm'
-                            : 'bg-white text-zinc-600 border-zinc-200 hover:border-violet-300 hover:text-primary'
-                        }`}
+                        className={`px-3 py-1.5 ${PILL_BASE} ${FOCUS_RING} ${showYearView ? PILL_ACTIVE : PILL_IDLE}`}
                       >
                         {t('allYear')}
                       </button>
@@ -855,23 +888,23 @@ export default function FinanceForecastDashboard({
                           type="button"
                           onClick={copyPreviousMonth}
                           disabled={safeSelectedMonth === 0}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-600 hover:border-violet-300 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          className={`${TOOL_BTN} ${FOCUS_RING} disabled:opacity-40 disabled:cursor-not-allowed`}
                         >
-                          <Copy className="w-3 h-3" /> {t('copyPrevMonth')}
+                          <Copy className="w-3 h-3" strokeWidth={1.5} /> {t('copyPrevMonth')}
                         </button>
                         <button
                           type="button"
                           onClick={applyForward}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-600 hover:border-violet-300 hover:text-primary transition-colors"
+                          className={`${TOOL_BTN} ${FOCUS_RING}`}
                         >
-                          <Copy className="w-3 h-3" /> {t('applyForward')}
+                          <Copy className="w-3 h-3" strokeWidth={1.5} /> {t('applyForward')}
                         </button>
                         <button
                           type="button"
                           onClick={clearMonth}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-xs font-medium text-zinc-500 hover:border-rose-300 hover:text-rose-600 transition-colors"
+                          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-field border border-line-strong bg-surface text-xs font-medium text-ink-500 hover:border-danger-border hover:text-danger-text transition-colors ${FOCUS_RING}`}
                         >
-                          <RotateCcw className="w-3 h-3" /> {t('clearMonth')}
+                          <RotateCcw className="w-3 h-3" strokeWidth={1.5} /> {t('clearMonth')}
                         </button>
                       </div>
                     )}
@@ -886,22 +919,15 @@ export default function FinanceForecastDashboard({
                         disabled={!canEditActive}
                       />
                     </Field>
-                    <Field label={t('budgetSyncLabel')}>
-                      <input
-                        value={fmtForecast(selectedRaw.budget_cost_usd)}
-                        readOnly
-                        className="w-full min-h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500"
-                      />
-                      <div className="text-xs text-primary font-medium mt-1">{t('budgetSyncNote')}</div>
+                    <Field label={t('budgetSyncLabel')} hint={t('budgetSyncNote')}>
+                      <Input value={fmtForecast(selectedRaw.budget_cost_usd)} readOnly className={READONLY_INPUT} />
                     </Field>
                     <Field label={t('noteLabel')}>
-                      <input
+                      <Input
                         value={selectedRaw.note ?? ''}
                         onChange={(event) => updateSelectedMonth({ note: event.target.value })}
                         readOnly={!canEditActive}
-                        className={!canEditActive
-                          ? 'w-full min-h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500'
-                          : 'w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'}
+                        className={READONLY_INPUT}
                       />
                     </Field>
                   </div>}
@@ -911,49 +937,55 @@ export default function FinanceForecastDashboard({
                   <YearSummaryTable months={summary.months} onSelectMonth={(index) => { setShowYearView(false); setSelectedMonth(index) }} monthLabels={monthLabels} />
                 ) : (
                   <>
+                    {/* 递延：未迁 Table 原语。blocker 不是样式而是交互契约——
+                        本表每格都是可编辑控件、且末列有行删除按钮，迁移本身可行；
+                        真正卡住的是下面 YearSummaryTable 的整行点击（<tr onClick>），
+                        Tr 契约明确不提供 onClick（<tr> 无原生键盘可达性），要迁就
+                        得先把"点整行选月份"改造成行内 Link/button，属交互重设计而非
+                        换皮。两张表同属本文件，一起迁才不会出现"半边 Table 原语 +
+                        半边手写"的混用（§6）。 */}
                     <div className="overflow-x-auto">
                   <table className="w-full text-sm min-w-[1120px]">
                     <thead>
-                      <tr className="border-y border-zinc-100 bg-zinc-50">
-                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colAccount')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colType')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colLiveDays')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colAvgHours')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colRevPerMin')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colShareRatio')}</th>
-                        <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('colMonthRevenue')}</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('colStatus')}</th>
+                      <tr className="border-y border-line bg-canvas">
+                        <th className={TH_LEFT}>{t('colAccount')}</th>
+                        <th className={TH_LEFT}>{t('colType')}</th>
+                        <th className={TH_LEFT}>{t('colLiveDays')}</th>
+                        <th className={TH_LEFT}>{t('colAvgHours')}</th>
+                        <th className={TH_LEFT}>{t('colRevPerMin')}</th>
+                        <th className={TH_LEFT}>{t('colShareRatio')}</th>
+                        <th className={TH_RIGHT}>{t('colMonthRevenue')}</th>
+                        <th className={TH_LEFT}>{t('colStatus')}</th>
                         <th />
                       </tr>
                     </thead>
                     <tbody>
                       {(!selectedRaw || selectedRaw.rows.length === 0) ? (
                         <tr>
-                          <td colSpan={9} className="px-4 py-10 text-center text-sm text-zinc-400">
+                          <td colSpan={9} className="px-4 py-10 text-center text-sm text-ink-400">
                             {t('emptyMonth')}
                           </td>
                         </tr>
                       ) : calculatedRows.map((row, index) => (
-                        <tr key={row.id} className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors">
+                        <tr key={row.id} className="border-b border-line-soft hover:bg-row-hover transition-colors">
                           <td className="px-4 py-3">
-                            <input
+                            <Input
                               value={row.account_name}
                               onChange={(event) => updateRow(index, { account_name: event.target.value })}
                               readOnly={!canEditActive}
-                              className={!canEditActive ? `${INPUT_CLASS} bg-zinc-50 text-zinc-500 cursor-not-allowed` : INPUT_CLASS}
+                              className={READONLY_INPUT}
                             />
                           </td>
                           <td className="px-4 py-3">
-                            <select
+                            <Select
                               value={row.account_type}
                               onChange={(event) => updateRow(index, { account_type: event.target.value as ForecastAccountType })}
                               disabled={!canEditActive}
-                              className={!canEditActive ? `${INPUT_CLASS} bg-zinc-50 text-zinc-500 cursor-not-allowed` : INPUT_CLASS}
                             >
                               {FORECAST_ACCOUNT_TYPES.map((type) => (
                                 <option key={type} value={type}>{accountTypeLabels[type]}</option>
                               ))}
-                            </select>
+                            </Select>
                           </td>
                           <td className="px-4 py-3">
                             <NumberInput disabled={!canEditActive} value={row.live_days} onChange={(live_days) => updateRow(index, { live_days })} max={31} />
@@ -967,18 +999,18 @@ export default function FinanceForecastDashboard({
                           <td className="px-4 py-3">
                             <NumberInput disabled={!canEditActive} value={row.share_ratio_pct} onChange={(share_ratio_pct) => updateRow(index, { share_ratio_pct })} step={0.1} max={100} />
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-zinc-900 whitespace-nowrap tabular-nums bg-zinc-50/70 border-l border-zinc-100">{fmtForecast(row.monthly_revenue_usd)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-ink-900 whitespace-nowrap tabular-nums bg-canvas border-l border-line-soft">{fmtForecast(row.monthly_revenue_usd)}</td>
                           <td className="px-4 py-3">
                             <StatusBadge revenue={row.monthly_revenue_usd} />
                           </td>
                           <td className="px-4 py-3 text-right">
                             {canEditActive && (<button
                               type="button"
-                              aria-label="Delete row"
+                              aria-label={t('ariaDeleteRow')}
                               onClick={() => deleteRow(index)}
-                              className="inline-flex items-center text-xs font-medium text-red-500 hover:text-red-700"
+                              className={`inline-flex items-center rounded-field p-1 text-xs font-medium text-ink-400 hover:text-danger-text transition-colors ${FOCUS_RING}`}
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
                             </button>)}
                           </td>
                         </tr>
@@ -987,7 +1019,7 @@ export default function FinanceForecastDashboard({
                   </table>
                 </div>
 
-                    <div className="m-5 rounded-xl border border-dashed border-violet-200 bg-primary-soft/60 px-4 py-3 text-sm text-violet-800">
+                    <div className="m-5 rounded-card border border-dashed border-primary-border bg-primary-soft px-4 py-3 text-sm text-primary-hover">
                       {t('formula')}
                     </div>
                   </>
@@ -997,11 +1029,11 @@ export default function FinanceForecastDashboard({
           </section>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="bg-white border border-zinc-200 rounded-xl p-5">
+            <div className="bg-surface border border-line rounded-card shadow-card p-5">
               <div className="flex items-center justify-between gap-3 mb-4">
-                <div>
-                  <h2 className="text-sm font-semibold text-zinc-900">{t('chartTitle', { year: selectedYear })}</h2>
-                  <p className="text-xs text-zinc-500 mt-0.5">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-ink-900 tracking-section truncate">{t('chartTitle', { year: selectedYear })}</h2>
+                  <p className="text-xs text-ink-500 mt-0.5">
                     {chartMode === 'breakdown'
                       ? t('chartDescBreakdown')
                       : chartMode === 'cumulative'
@@ -1009,36 +1041,23 @@ export default function FinanceForecastDashboard({
                       : t('chartDescOther')}
                   </p>
                 </div>
-                <div className="flex gap-1 bg-zinc-100 rounded-lg p-0.5">
-                  {CHART_TAB_KEYS.map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setChartMode(key)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        chartMode === key ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-                      }`}
-                    >
-                      {chartTabLabels[key]}
-                    </button>
-                  ))}
-                </div>
+                {/* 5 项互斥切换 = design-system §6.1 的 SegmentedControl 场景；
+                    原来那圈灰底 + 白色激活块本就是它的手写复刻。 */}
+                <SegmentedControl
+                  items={chartTabItems}
+                  value={chartMode}
+                  onChange={(v) => setChartMode(v as ChartMode)}
+                  label={t('chartTabsLabel')}
+                />
               </div>
 
               <ResponsiveContainer width="100%" height={340}>
                 {chartMode === 'breakdown' ? (
                   <ComposedChart data={breakdownData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: '#a1a1aa' }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={fmtForecastCompact}
-                      width={56}
-                    />
+                    <CartesianGrid {...GRID} />
+                    <XAxis dataKey="label" {...AXIS} />
+                    <YAxis {...AXIS} tickFormatter={fmtForecastCompact} width={56} />
                     <Tooltip
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
                       content={(props) => {
                         const { active, payload, label } = props as unknown as {
                           active?: boolean
@@ -1047,21 +1066,21 @@ export default function FinanceForecastDashboard({
                         }
                         if (!active || !payload || payload.length === 0) return null
                         const { revenue, cost, profit } = payload[0].payload
-                        const profitColor = profit >= 0 ? '#10b981' : '#e11d48'
+                        const profitColor = profit >= 0 ? 'var(--success-dot)' : 'var(--danger-dot)'
                         const profitWord  = profit >= 0 ? t('tooltipProfit') : t('tooltipLoss')
                         return (
-                          <div className="bg-white border border-zinc-200 rounded-lg shadow-md p-2.5 text-xs min-w-[180px]">
-                            <p className="font-semibold text-zinc-700 mb-1.5">{label}</p>
+                          <div className="bg-surface border border-line rounded-field shadow-pop p-2.5 text-xs min-w-[180px]">
+                            <p className="font-semibold text-ink-700 mb-1.5">{label}</p>
                             <p className="flex items-center justify-between gap-3">
-                              <span className="text-zinc-500">{t('tooltipRevenue')}</span>
-                              <span className="font-medium text-zinc-900 tabular-nums">{fmtForecast(revenue)}</span>
+                              <span className="text-ink-500">{t('tooltipRevenue')}</span>
+                              <span className="font-medium text-ink-900 tabular-nums">{fmtForecast(revenue)}</span>
                             </p>
                             <p className="flex items-center justify-between gap-3">
-                              <span className="text-zinc-500">{t('tooltipCost')}</span>
-                              <span className="font-medium text-zinc-900 tabular-nums">{fmtForecast(cost)}</span>
+                              <span className="text-ink-500">{t('tooltipCost')}</span>
+                              <span className="font-medium text-ink-900 tabular-nums">{fmtForecast(cost)}</span>
                             </p>
-                            <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-zinc-100">
-                              <span className="text-zinc-500">{profitWord}</span>
+                            <p className="flex items-center justify-between gap-3 mt-1 pt-1 border-t border-line-soft">
+                              <span className="text-ink-500">{profitWord}</span>
                               <span className="font-bold tabular-nums" style={{ color: profitColor }}>
                                 {fmtForecast(profit)}
                               </span>
@@ -1071,25 +1090,25 @@ export default function FinanceForecastDashboard({
                       }}
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
-                    <Bar dataKey="revenue" name={t('legendRevenue')} fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                    <Bar dataKey="cost"    name={t('legendCost')}    fill="#a1a1aa" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <ReferenceLine y={0} stroke="rgb(var(--ink-400) / 0.4)" strokeDasharray="2 4" />
+                    <Bar dataKey="revenue" name={t('legendRevenue')} fill={seriesColor(2)} radius={[4, 4, 0, 0]} maxBarSize={32} />
+                    <Bar dataKey="cost"    name={t('legendCost')}    fill={seriesColor(5)} radius={[4, 4, 0, 0]} maxBarSize={32} />
                     <Line
                       type="monotone"
                       dataKey="profit"
                       name={t('legendProfitLine')}
-                      stroke="#8b5cf6"
-                      strokeWidth={2.5}
-                      dot={{ fill: '#8b5cf6', r: 3 }}
+                      stroke={seriesColor(0)}
+                      strokeWidth={2}
+                      dot={{ fill: seriesColor(0), r: 3 }}
                       activeDot={{ r: 5 }}
                     />
                   </ComposedChart>
                 ) : chartMode === 'stacked' ? (
                   <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
-                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <CartesianGrid {...GRID} />
+                    <XAxis dataKey="label" {...AXIS} />
+                    <YAxis {...AXIS} tickFormatter={fmtForecastCompact} width={56} />
+                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
                       <Area
@@ -1098,54 +1117,61 @@ export default function FinanceForecastDashboard({
                         dataKey={type}
                         name={accountTypeLabels[type]}
                         stackId="forecast"
-                        stroke={ACCOUNT_TYPE_COLORS[type]}
-                        fill={ACCOUNT_TYPE_COLORS[type]}
+                        stroke={accountTypeColor(type)}
+                        fill={accountTypeColor(type)}
                         fillOpacity={0.72}
                       />
                     ))}
-                    <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-                    <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                    {/* NB: 6 个账户类型面积已用满 CHART_SERIES 全部 6 色，actual/budget
+                        这两条叠加参考线不可避免与其中两个类型撞色（mature/newbie 原本
+                        就分别是绿/橙——迁移前就是这个撞色，不是本次引入的新问题）；
+                        用不同 strokeDasharray 保持二者仍可辨识，未额外造新 hex。 */}
+                    <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="var(--success-dot)" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                    <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="var(--warning-dot)" strokeWidth={2} dot={false} strokeDasharray="5 4" />
                   </ComposedChart>
                 ) : chartMode === 'cumulative' ? (
                   <ComposedChart data={cumulativeData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} tickFormatter={fmtForecastCompact} width={56} />
-                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <defs>
+                      <linearGradient id={CUM_PROFIT_FILL.id} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={CUM_PROFIT_FILL.from} />
+                        <stop offset="100%" stopColor={CUM_PROFIT_FILL.to} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid {...GRID} />
+                    <XAxis dataKey="label" {...AXIS} />
+                    <YAxis {...AXIS} tickFormatter={fmtForecastCompact} width={56} />
+                    <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <ReferenceLine y={0} stroke="#cbd5e1" strokeDasharray="2 4" />
+                    <ReferenceLine y={0} stroke="rgb(var(--ink-400) / 0.4)" strokeDasharray="2 4" />
                     {breakevenIndex >= 0 && (
                       <ReferenceLine
                         x={cumulativeData[breakevenIndex].label}
-                        stroke="#10b981"
+                        stroke="var(--success-dot)"
                         strokeDasharray="4 4"
-                        label={{ value: t('breakevenLabel', { month: cumulativeData[breakevenIndex].label }), position: 'top', fontSize: 11, fill: '#10b981' }}
+                        label={{ value: t('breakevenLabel', { month: cumulativeData[breakevenIndex].label }), position: 'top', fontSize: 11, fill: 'var(--success-dot)' }}
                       />
                     )}
                     <Area
                       type="monotone"
                       dataKey="cum_profit"
                       name={t('legendCumProfit')}
-                      stroke="#8b5cf6"
-                      fill="#8b5cf6"
-                      fillOpacity={0.18}
+                      stroke={seriesColor(0)}
+                      fill={`url(#${CUM_PROFIT_FILL.id})`}
                       strokeWidth={2}
                     />
-                    <Line type="monotone" dataKey="cum_revenue" name={t('legendCumRevenue')} stroke="#10b981" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="cum_cost"    name={t('legendCumCost')}    stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                    <Line type="monotone" dataKey="cum_revenue" name={t('legendCumRevenue')} stroke={seriesColor(2)} strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="cum_cost"    name={t('legendCumCost')}    stroke={seriesColor(3)} strokeWidth={2} dot={false} strokeDasharray="5 4" />
                   </ComposedChart>
                 ) : (
                   <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+                    <CartesianGrid {...GRID} />
+                    <XAxis dataKey="label" {...AXIS} />
                     <YAxis
-                      tick={{ fontSize: 11, fill: '#a1a1aa' }}
-                      axisLine={false}
-                      tickLine={false}
+                      {...AXIS}
                       tickFormatter={chartMode === 'indexed' ? (v) => `${Number(v).toFixed(0)}` : fmtForecastCompact}
                       width={56}
                     />
-                    <Tooltip formatter={(value) => chartMode === 'indexed' ? Number(value).toFixed(0) : fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                    <Tooltip formatter={(value) => chartMode === 'indexed' ? Number(value).toFixed(0) : fmtForecast(Number(value))} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {FORECAST_ACCOUNT_TYPES.map((type) => (
                       <Line
@@ -1153,15 +1179,15 @@ export default function FinanceForecastDashboard({
                         type="monotone"
                         dataKey={type}
                         name={accountTypeLabels[type]}
-                        stroke={ACCOUNT_TYPE_COLORS[type]}
+                        stroke={accountTypeColor(type)}
                         strokeWidth={2}
                         dot={false}
                       />
                     ))}
                     {chartMode === 'lines' && (
                       <>
-                        <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="#10b981" strokeWidth={2} dot={false} strokeDasharray="4 4" />
-                        <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 4" />
+                        <Line type="monotone" dataKey="actual" name={t('legendActual')} stroke="var(--success-dot)" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="budget" name={t('legendBudget')} stroke="var(--warning-dot)" strokeWidth={2} dot={false} strokeDasharray="5 4" />
                       </>
                     )}
                   </LineChart>
@@ -1169,22 +1195,22 @@ export default function FinanceForecastDashboard({
               </ResponsiveContainer>
             </div>
 
-            <aside className="bg-white border border-zinc-200 rounded-xl p-5">
+            <aside className="bg-surface border border-line rounded-card shadow-card p-5">
               <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-sm font-semibold text-zinc-900">{t('typeContribTitle', { year: selectedYear })}</h2>
-                  <p className="text-xs text-zinc-500 mt-0.5">{t('typeContribSub')}</p>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold text-ink-900 tracking-section truncate">{t('typeContribTitle', { year: selectedYear })}</h2>
+                  <p className="text-xs text-ink-500 mt-0.5">{t('typeContribSub')}</p>
                 </div>
               </div>
               <div className="space-y-1">
                 {FORECAST_ACCOUNT_TYPES.map((type) => (
-                  <div key={type} className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 border-b border-zinc-50 last:border-0">
-                    <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: ACCOUNT_TYPE_COLORS[type] }} />
+                  <div key={type} className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-2 py-2.5 border-b border-line-soft last:border-0">
+                    <span aria-hidden className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: accountTypeColor(type) }} />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-zinc-700">{accountTypeLabels[type]}</div>
-                      <div className="text-xs text-zinc-400">{accountTypeNotes[type]}</div>
+                      <div className="text-xs font-semibold text-ink-700">{accountTypeLabels[type]}</div>
+                      <div className="text-xs text-ink-400">{accountTypeNotes[type]}</div>
                     </div>
-                    <div className="text-xs font-semibold text-zinc-900">{fmtForecast(summary.by_account_type[type] || 0)}</div>
+                    <div className="text-xs font-semibold text-ink-900 tabular-nums">{fmtForecast(summary.by_account_type[type] || 0)}</div>
                   </div>
                 ))}
               </div>
@@ -1266,70 +1292,83 @@ function AddFromTemplateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4">
-      <div className="bg-white rounded-xl border border-zinc-200 shadow-xl w-full max-w-lg p-5">
-        <h2 className="text-base font-bold text-zinc-900 mb-1">{t('templateModalTitle')}</h2>
-        <p className="text-xs text-zinc-500 mb-4">
-          {t('templateModalDesc', {
-            startLabel,
-            startYear: horizonYears[0],
-            endYear:   horizonYears[horizonYears.length - 1],
-          })}
-        </p>
+    // 阻断式创建流程 → 共享 Modal（design-system §6.1）：Escape/焦点圈定/portal/
+    // 移动端底部弹出都由 Modal 兜底，不再手写 fixed inset-0 遮罩。
+    // 原来的 autoFocus 一并去掉：Modal 打开时会把焦点收进面板本身，子元素的
+    // autoFocus 必然被覆盖，留着只会误导读者。
+    <Modal
+      open
+      onClose={onCancel}
+      title={t('templateModalTitle')}
+      width="max-w-lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onCancel}>{t('templateCancel')}</Button>
+          <Button onClick={() => canConfirm && onConfirm(stage, name)} disabled={!canConfirm}>
+            <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('templateCreate')}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-xs text-ink-500 mb-4">
+        {t('templateModalDesc', {
+          startLabel,
+          startYear: horizonYears[0],
+          endYear:   horizonYears[horizonYears.length - 1],
+        })}
+      </p>
 
-        <label className="block mb-3">
-          <span className="block text-xs font-medium text-zinc-700 mb-1">{t('templateAccountLabel')}</span>
-          <input
-            autoFocus
+      <div className="mb-3">
+        <Field label={t('templateAccountLabel')}>
+          <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t('templateAccountPlaceholder')}
-            className="w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
           />
-        </label>
-
-        <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-zinc-700">{t('templateStageLabel')}</span>
-          <button
-            type="button"
-            onClick={onOpenEditor}
-            className="text-[11px] text-primary hover:text-primary-hover"
-          >
-            {t('templateEditLink')}
-          </button>
-        </div>
-        <div className="grid grid-cols-1 gap-1.5 mb-4">
-          {LIFECYCLE_STARTING_STAGES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStage(s)}
-              className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors text-left ${
-                s === stage
-                  ? 'bg-primary-soft border-violet-300 text-primary'
-                  : 'bg-white border-zinc-200 text-zinc-700 hover:border-violet-300'
-              }`}
-            >
-              <span>{t('templateStageFrom', { stage: stageLabels[s] })}</span>
-              <span className="text-[10px] font-normal text-zinc-400 tabular-nums">{describeTemplate(s)}</span>
-            </button>
-          ))}
-        </div>
-
-        {!lifecycleSet && (
-          <p className="text-[11px] text-amber-600 mb-3">
-            {t('templateLoading')}<button type="button" onClick={onOpenEditor} className="underline mx-1">{t('templateEditInline')}</button>{t('templateLoadingSuffix')}
-          </p>
-        )}
-
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onCancel}>{t('templateCancel')}</Button>
-          <Button size="sm" onClick={() => canConfirm && onConfirm(stage, name)} disabled={!canConfirm}>
-            <Plus className="w-3.5 h-3.5" /> {t('templateCreate')}
-          </Button>
-        </div>
+        </Field>
       </div>
-    </div>
+
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-ink-700">{t('templateStageLabel')}</span>
+        <button
+          type="button"
+          onClick={onOpenEditor}
+          className={`text-micro text-primary hover:text-primary-hover rounded-field px-1 ${FOCUS_RING}`}
+        >
+          {t('templateEditLink')}
+        </button>
+      </div>
+      {/* 起始阶段是「选项 + 右侧说明」的纵向单选列表，不是 SegmentedControl
+          那种等宽互斥条，保留本地形态只换配色 token。
+          语义用 role="group" + aria-pressed（与 SegmentedControl.tsx 一致），
+          不用 radiogroup/radio：APG 的 radiogroup 要求方向键在选项间移动焦点
+          且组内只有一个 tab stop，这里没实现那套键盘契约，挂了 role 反而是
+          对辅助技术撒谎——普通按钮的 Tab 逐项可达是诚实且可用的形态。 */}
+      <div role="group" aria-label={t('templateStageLabel')} className="grid grid-cols-1 gap-1.5 mb-4">
+        {LIFECYCLE_STARTING_STAGES.map((s) => (
+          <button
+            key={s}
+            type="button"
+            aria-pressed={s === stage}
+            onClick={() => setStage(s)}
+            className={`flex items-center justify-between gap-3 px-3 py-2 rounded-field border text-xs font-semibold transition-colors text-left ${FOCUS_RING} ${
+              s === stage
+                ? 'bg-primary-soft border-primary-border text-primary'
+                : 'bg-surface border-line-strong text-ink-700 hover:border-primary-border'
+            }`}
+          >
+            <span>{t('templateStageFrom', { stage: stageLabels[s] })}</span>
+            <span className="text-micro font-normal text-ink-400 tabular-nums">{describeTemplate(s)}</span>
+          </button>
+        ))}
+      </div>
+
+      {!lifecycleSet && (
+        <p className="text-micro text-warning-text">
+          {t('templateLoading')}<button type="button" onClick={onOpenEditor} className={`underline mx-1 rounded-field ${FOCUS_RING}`}>{t('templateEditInline')}</button>{t('templateLoadingSuffix')}
+        </p>
+      )}
+    </Modal>
   )
 }
 
@@ -1367,7 +1406,7 @@ function ViewModeToolbar({
     : saveStatus === 'saved'  ? savedLabel
     : saveStatus === 'error'  ? errorLabel
     : ''
-  const statusClass = loading ? 'text-zinc-500' : saveStatusClass(saveStatus)
+  const statusClass = loading ? 'text-ink-500' : saveStatusClass(saveStatus)
 
   return (
     <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -1447,22 +1486,18 @@ function ViewScopeSelector({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-          open
-            ? 'bg-primary text-white border-primary shadow-sm'
-            : 'bg-white text-zinc-700 border-zinc-200 hover:border-violet-300 hover:text-primary'
-        }`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 ${PILL_BASE} ${FOCUS_RING} ${open ? PILL_ACTIVE : PILL_IDLE}`}
       >
-        <span className="text-[10px] font-medium uppercase tracking-wider opacity-80">{t('viewLabel')}</span>
+        <span className="text-micro font-medium uppercase tracking-wider opacity-80">{t('viewLabel')}</span>
         <span className="tabular-nums">{triggerLabel}</span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} strokeWidth={1.5} />
       </button>
 
       {open && (
         <div
           ref={popoverRef}
           role="menu"
-          className="absolute top-full left-0 mt-2 min-w-[180px] bg-white border border-zinc-200 rounded-xl shadow-xl z-40 p-1"
+          className="absolute top-full left-0 mt-2 min-w-[180px] bg-surface border border-line rounded-card shadow-pop z-40 p-1"
         >
           <ScopeOption
             label={t('annualView')}
@@ -1470,7 +1505,7 @@ function ViewScopeSelector({
             active={viewMode === 'annual'}
             onClick={pickAnnual}
           />
-          <div className="my-1 border-t border-zinc-100" />
+          <div className="my-1 border-t border-line-soft" />
           {years.map((year) => (
             <ScopeOption
               key={year}
@@ -1503,14 +1538,15 @@ function ScopeOption({
       role="menuitemradio"
       aria-checked={active}
       onClick={onClick}
-      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-between gap-3 ${
+      // ring-inset：选项在 p-1 的窄弹层里，外扩 offset 环会被面板边缘裁掉（§4 第二配方 ③）
+      className={`w-full text-left px-3 py-2 rounded-field text-xs font-semibold transition-colors flex items-center justify-between gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
         active
           ? 'bg-primary-soft text-primary'
-          : 'text-zinc-700 hover:bg-zinc-50'
+          : 'text-ink-700 hover:bg-line-soft'
       }`}
     >
       <span className="tabular-nums">{label}</span>
-      <span className={`text-[10px] font-normal ${active ? 'text-violet-500' : 'text-zinc-400'}`}>{sub}</span>
+      <span className={`text-micro font-normal ${active ? 'text-primary' : 'text-ink-400'}`}>{sub}</span>
     </button>
   )
 }
@@ -1539,8 +1575,8 @@ function AnnualOverview({
   const USD_TO_CNY = 7
   const fmtForecast        = (usd: number) => fmtCurrency(usd * USD_TO_CNY, { compact: true })
   const fmtForecastCompact = fmtForecast
-  const aggregateProfitColor = aggregate.profit >= 0 ? 'text-emerald-700' : 'text-red-600'
-  const aggregateMarginColor = aggregate.margin >= 0 ? 'text-emerald-700' : 'text-red-600'
+  const aggregateProfitColor = aggregate.profit >= 0 ? 'text-success-text' : 'text-danger-text'
+  const aggregateMarginColor = aggregate.margin >= 0 ? 'text-success-text' : 'text-danger-text'
 
   return (
     <>
@@ -1581,7 +1617,7 @@ function AnnualOverview({
           const margin = summary.yearly_forecast_usd > 0
             ? (summary.yearly_profit_usd / summary.yearly_forecast_usd) * 100
             : 0
-          const profitColor = summary.yearly_profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
+          const profitColor = summary.yearly_profit_usd >= 0 ? 'text-success-text' : 'text-danger-text'
           const isCurrent = year === anchorYear
 
           let cumProfit = 0
@@ -1604,22 +1640,18 @@ function AnnualOverview({
               key={year}
               type="button"
               onClick={() => onDrillDown(year)}
-              className="w-full text-left bg-white border border-zinc-200 rounded-xl p-5 hover:border-violet-300 hover:shadow-sm transition-all group"
+              className={`w-full text-left bg-surface border border-line rounded-card shadow-card p-5 hover:border-primary-border transition-colors group ${FOCUS_RING}`}
             >
               <div className="flex items-baseline justify-between mb-4">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold tabular-nums text-zinc-900">{year}</span>
-                  {isCurrent && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary-soft text-primary">
-                      {t('currentYearBadge')}
-                    </span>
-                  )}
-                  <span className="text-xs text-zinc-400 ml-1">
+                  <span className="text-2xl font-bold tabular-nums tracking-kpi text-ink-900">{year}</span>
+                  {isCurrent && <Tag label={t('currentYearBadge')} tone="violet" size="sm" />}
+                  <span className="text-xs text-ink-400 ml-1">
                     {t('configuredMonths', { count: configuredMonths })}
                   </span>
                 </div>
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
-                  {t('editMonthly')} <ChevronRight className="w-3.5 h-3.5" />
+                  {t('editMonthly')} <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.5} />
                 </span>
               </div>
 
@@ -1631,7 +1663,7 @@ function AnnualOverview({
                 <YearStat
                   label={t('annualMarginBreakeven')}
                   value={`${Math.round(margin)}%${breakevenLabel}`}
-                  valueClassName={margin >= 0 ? 'text-emerald-700' : 'text-red-600'}
+                  valueClassName={margin >= 0 ? 'text-success-text' : 'text-danger-text'}
                 />
               </div>
             </button>
@@ -1639,20 +1671,20 @@ function AnnualOverview({
         })}
       </div>
 
-      <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-4">
-        <h2 className="text-sm font-semibold text-zinc-900 mb-1">{t('annualChartTitle')}</h2>
-        <p className="text-xs text-zinc-500 mb-4">{t('annualChartSub')}</p>
+      <div className="bg-surface border border-line rounded-card shadow-card p-5 mb-4">
+        <h2 className="text-lg font-semibold text-ink-900 tracking-section mb-1">{t('annualChartTitle')}</h2>
+        <p className="text-xs text-ink-500 mb-4">{t('annualChartSub')}</p>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#71717a' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtForecastCompact} tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} width={56} />
-            <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+            <CartesianGrid {...GRID} />
+            <XAxis dataKey="year" {...AXIS} />
+            <YAxis {...AXIS} tickFormatter={fmtForecastCompact} width={56} />
+            <Tooltip formatter={(value) => fmtForecast(Number(value))} contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="forecast" name={t('chartForecast')} fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="actual"   name={t('chartActual')}   fill="#10b981" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="budget"   name={t('chartBudget')}   fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="profit"   name={t('chartProfit')}   fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="forecast" name={t('chartForecast')} fill={seriesColor(0)} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="actual"   name={t('chartActual')}   fill={seriesColor(2)} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="budget"   name={t('chartBudget')}   fill={seriesColor(3)} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="profit"   name={t('chartProfit')}   fill={seriesColor(1)} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -1663,7 +1695,7 @@ function AnnualOverview({
 function YearStat({
   label,
   value,
-  valueClassName = 'text-zinc-900',
+  valueClassName = 'text-ink-900',
 }: {
   label: string
   value: string
@@ -1671,10 +1703,10 @@ function YearStat({
 }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] sm:text-xs text-zinc-500 font-medium uppercase tracking-wide truncate" title={label}>
+      <p className="text-micro sm:text-xs text-ink-500 font-medium uppercase tracking-wide truncate" title={label}>
         {label}
       </p>
-      <p className={`text-base sm:text-lg font-bold tabular-nums truncate mt-0.5 ${valueClassName}`} title={value}>
+      <p className={`text-md sm:text-lg font-bold tabular-nums truncate mt-0.5 ${valueClassName}`} title={value}>
         {value}
       </p>
     </div>
@@ -1705,53 +1737,56 @@ function YearSummaryTable({
 
   if (configured.length === 0) {
     return (
-      <div className="px-5 pb-8 pt-2 text-center text-sm text-zinc-400">
+      <div className="px-5 pb-8 pt-2 text-center text-sm text-ink-400">
         {t('yearTableEmpty')}
       </div>
     )
   }
 
   return (
+    // 递延：未迁 Table 原语——下面的 <tr onClick> 是"点整行跳到该月"的主交互，
+    // 而 Tr 契约不提供 onClick（§6.2：行级点击须由 RecordRow 或行内 Link/button
+    // 承载）。迁移需要先重设计这段交互，超出本轮换皮范围。
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-y border-zinc-100 bg-zinc-50">
-            <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColMonth')}</th>
-            <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColAccounts')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColForecast')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColActual')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColBudget')}</th>
-            <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">{t('yearColProfit')}</th>
+          <tr className="border-y border-line bg-canvas">
+            <th className={TH_LEFT}>{t('yearColMonth')}</th>
+            <th className={TH_LEFT}>{t('yearColAccounts')}</th>
+            <th className={TH_RIGHT}>{t('yearColForecast')}</th>
+            <th className={TH_RIGHT}>{t('yearColActual')}</th>
+            <th className={TH_RIGHT}>{t('yearColBudget')}</th>
+            <th className={TH_RIGHT}>{t('yearColProfit')}</th>
           </tr>
         </thead>
         <tbody>
           {configured.map((m) => {
-            const profitColor = m.profit_usd >= 0 ? 'text-emerald-700' : 'text-red-600'
+            const profitColor = m.profit_usd >= 0 ? 'text-success-text' : 'text-danger-text'
             const monthNum = parseInt(m.month.slice(5), 10) - 1
             const monthLabel = monthLabels[monthNum] ?? m.month.slice(5)
             return (
               <tr
                 key={m.month}
-                className="border-b border-zinc-50 hover:bg-zinc-50 transition-colors cursor-pointer"
+                className="border-b border-line-soft hover:bg-row-hover transition-colors cursor-pointer"
                 onClick={() => onSelectMonth(m.index)}
                 title={t('yearClickHint')}
               >
-                <td className="px-4 py-3 font-semibold text-zinc-900 tabular-nums">
+                <td className="px-4 py-3 font-semibold text-ink-900 tabular-nums">
                   {monthLabel}
                   {m.note && (
-                    <span className="ml-2 text-xs font-normal text-zinc-400">{m.note}</span>
+                    <span className="ml-2 text-xs font-normal text-ink-400">{m.note}</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-zinc-500">
+                <td className="px-4 py-3 text-ink-500">
                   {m.rows.map((r) => r.account_name).join('、')}
                 </td>
-                <td className="px-4 py-3 text-right font-semibold text-zinc-900 tabular-nums">
+                <td className="px-4 py-3 text-right font-semibold text-ink-900 tabular-nums">
                   {fmtForecast(m.forecast_revenue_usd)}
                 </td>
-                <td className="px-4 py-3 text-right text-zinc-500 tabular-nums">
+                <td className="px-4 py-3 text-right text-ink-500 tabular-nums">
                   {m.actual_revenue_usd > 0 ? fmtForecast(m.actual_revenue_usd) : '—'}
                 </td>
-                <td className="px-4 py-3 text-right text-zinc-500 tabular-nums">
+                <td className="px-4 py-3 text-right text-ink-500 tabular-nums">
                   {fmtForecast(m.budget_cost_usd)}
                 </td>
                 <td className={`px-4 py-3 text-right font-semibold tabular-nums ${profitColor}`}>
@@ -1762,21 +1797,21 @@ function YearSummaryTable({
           })}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-zinc-200 bg-zinc-50">
-            <td className="px-4 py-3 text-xs font-bold text-zinc-700 uppercase tracking-wide">
+          <tr className="border-t-2 border-line bg-canvas">
+            <td className="px-4 py-3 text-xs font-bold text-ink-700 uppercase tracking-wide">
               {t('yearTotal')}
             </td>
-            <td className="px-4 py-3 text-xs text-zinc-400">{t('yearTotalMonths', { count: configured.length })}</td>
-            <td className="px-4 py-3 text-right font-bold text-zinc-900 tabular-nums text-base">
+            <td className="px-4 py-3 text-xs text-ink-400">{t('yearTotalMonths', { count: configured.length })}</td>
+            <td className="px-4 py-3 text-right font-bold text-ink-900 tabular-nums text-md">
               {fmtForecast(totalForecast)}
             </td>
-            <td className="px-4 py-3 text-right font-bold text-zinc-700 tabular-nums">
+            <td className="px-4 py-3 text-right font-bold text-ink-700 tabular-nums">
               {totalActual > 0 ? fmtForecast(totalActual) : '—'}
             </td>
-            <td className="px-4 py-3 text-right font-bold text-zinc-700 tabular-nums">
+            <td className="px-4 py-3 text-right font-bold text-ink-700 tabular-nums">
               {fmtForecast(totalBudget)}
             </td>
-            <td className={`px-4 py-3 text-right font-bold tabular-nums text-base ${totalProfit >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+            <td className={`px-4 py-3 text-right font-bold tabular-nums text-md ${totalProfit >= 0 ? 'text-success-text' : 'text-danger-text'}`}>
               {fmtForecast(totalProfit)}
             </td>
           </tr>
@@ -1823,9 +1858,9 @@ function hasForecastInputs(months: ForecastMonthInput[]): boolean {
 }
 
 function saveStatusClass(status: SaveStatus): string {
-  if (status === 'saved') return 'text-emerald-600'
-  if (status === 'error') return 'text-red-500'
-  if (status === 'saving') return 'text-zinc-500'
+  if (status === 'saved') return 'text-success-text'
+  if (status === 'error') return 'text-danger-text'
+  if (status === 'saving') return 'text-ink-500'
   return 'text-transparent'
 }
 
@@ -1833,7 +1868,7 @@ function KpiCard({
   label,
   value,
   sub,
-  valueClassName = 'text-zinc-900',
+  valueClassName = 'text-ink-900',
   onClick,
   active,
   linkTo,
@@ -1855,12 +1890,18 @@ function KpiCard({
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={interactive ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
-      className={`relative bg-white rounded-xl border p-4 sm:p-5 transition-all select-none ${
-        interactive ? 'cursor-pointer hover:shadow-sm' : ''
+      // 本文件里带 onClick 的 KPI 卡只有一种用途：折叠/展开下方输入面板，
+      // active 就是展开态，故直接映射 aria-expanded。若将来出现非 disclosure
+      // 语义的可点 KPI 卡，需要改成由调用方声明。
+      aria-expanded={interactive ? Boolean(active) : undefined}
+      // 激活态只留 border-primary-border + shadow-card（外加箭头转向与主色），
+      // 不再叠 ring：ring 这一轨让给 §4 的 focus 环，两者共用会互相覆盖。
+      className={`relative bg-surface rounded-card border p-4 sm:p-5 transition-colors select-none ${
+        interactive ? `cursor-pointer ${FOCUS_RING}` : ''
       } ${
         active
-          ? 'border-violet-400 ring-2 ring-violet-50 shadow-sm'
-          : interactive ? 'border-zinc-200 hover:border-violet-200' : 'border-zinc-200'
+          ? 'border-primary-border shadow-card'
+          : interactive ? 'border-line hover:border-primary-border' : 'border-line'
       }`}
     >
       {linkTo && (
@@ -1869,30 +1910,32 @@ function KpiCard({
           title={linkLabel}
           aria-label={linkLabel}
           onClick={(e) => e.stopPropagation()}
-          className="absolute top-2 right-2 z-10 inline-flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-primary hover:bg-primary-soft transition-colors"
+          className={`absolute top-2 right-2 z-10 inline-flex items-center justify-center w-7 h-7 rounded-icon text-ink-400 hover:text-primary hover:bg-primary-soft transition-colors ${FOCUS_RING}`}
         >
-          <ArrowUpRight className="w-4 h-4" />
+          <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
         </Link>
       )}
       {interactive && !linkTo && (
         <ChevronDown
-          className={`absolute top-3 right-3 w-4 h-4 transition-transform duration-200 ${active ? 'text-violet-500 rotate-0' : 'text-zinc-400 -rotate-90'}`}
+          aria-hidden
+          strokeWidth={1.5}
+          className={`absolute top-3 right-3 w-4 h-4 transition-transform duration-200 ${active ? 'text-primary rotate-0' : 'text-ink-400 -rotate-90'}`}
         />
       )}
 
       <p
-        className={`text-[10px] sm:text-xs text-zinc-500 font-medium uppercase tracking-wide truncate ${interactive || linkTo ? 'pr-6' : ''}`}
+        className={`text-micro sm:text-xs text-ink-500 font-medium uppercase tracking-wide truncate ${interactive || linkTo ? 'pr-6' : ''}`}
         title={label}
       >
         {label}
       </p>
       <p
         title={value}
-        className={`text-lg lg:text-xl xl:text-2xl font-bold mt-1 tabular-nums truncate ${valueClassName}`}
+        className={`text-lg lg:text-xl xl:text-2xl font-bold mt-1 tabular-nums tracking-kpi truncate ${valueClassName}`}
       >
         {value}
       </p>
-      <p className="text-[10px] sm:text-xs text-zinc-400 mt-1 truncate" title={sub}>{sub}</p>
+      <p className="text-micro sm:text-xs text-ink-400 mt-1 truncate" title={sub}>{sub}</p>
     </div>
   )
 }
@@ -1900,44 +1943,40 @@ function KpiCard({
 function CostPlanningLinks() {
   const t = useTranslations('financeForecast')
   return (
-    <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    // 品牌软底 callout（§1.2 primary-soft 10% tinted，未做大面积彩色填充）
+    <div className="mb-4 rounded-card border border-primary-border bg-primary-soft px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex items-center gap-3">
-        <span className="w-9 h-9 rounded-lg bg-white text-indigo-600 border border-indigo-100 inline-flex items-center justify-center flex-shrink-0">
-          <MapIcon className="w-4 h-4" />
+        <span aria-hidden className="w-9 h-9 rounded-icon bg-surface text-primary inline-flex items-center justify-center flex-shrink-0">
+          <MapIcon className="w-4 h-4" strokeWidth={1.5} />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-slate-900">{t('venueEntryTitle')}</span>
-          <span className="block text-xs text-slate-500 truncate">{t('venueEntryBody')}</span>
+          <span className="block text-sm font-semibold text-ink-900">{t('venueEntryTitle')}</span>
+          <span className="block text-xs text-ink-500 truncate">{t('venueEntryBody')}</span>
         </span>
       </div>
       <Link
         href="/guild-venue"
-        className="inline-flex items-center justify-center gap-1.5 h-9 rounded-lg border border-indigo-200 bg-white px-3 text-sm font-medium text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50 transition-colors flex-shrink-0"
+        className={`inline-flex items-center justify-center gap-1.5 h-8 rounded-btn border border-primary-border bg-surface px-4 text-sm font-medium text-primary-hover hover:bg-primary-soft-hover transition-colors flex-shrink-0 ${FOCUS_RING}`}
       >
-        {t('goToVenue')} <ArrowUpRight className="w-4 h-4" />
+        {t('goToVenue')} <ArrowUpRight className="w-4 h-4" strokeWidth={1.5} />
       </Link>
     </div>
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function SideStat({ label, value, valueClassName = 'text-ink-900' }: { label: string; value: string; valueClassName?: string }) {
   return (
-    <label className="block">
-      <span className="block text-xs font-medium text-zinc-700 mb-1">{label}</span>
-      {children}
-    </label>
-  )
-}
-
-function SideStat({ label, value, valueClassName = 'text-zinc-900' }: { label: string; value: string; valueClassName?: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-zinc-200 pb-3">
-      <span className="text-xs text-zinc-500">{label}</span>
-      <strong className={`text-lg ${valueClassName}`}>{value}</strong>
+    <div className="flex items-baseline justify-between gap-3 border-b border-dashed border-line-strong pb-3">
+      <span className="text-xs text-ink-500">{label}</span>
+      <strong className={`text-lg tabular-nums ${valueClassName}`}>{value}</strong>
     </div>
   )
 }
 
+// 数字输入：取值/钳位/草稿态行为原样保留，只把裸 input 换成共享 Input。
+// `...rest` 必须整体透传：共享 Field 通过 cloneElement 往子元素上注入
+// id / aria-describedby / aria-invalid / required，中间隔着这个包装组件时
+// 不透传就会被整组吞掉——label 点击对不上焦点、hint 与错误也读不出来。
 function NumberInput({
   value,
   onChange,
@@ -1945,6 +1984,7 @@ function NumberInput({
   min = 0,
   max,
   disabled,
+  ...rest
 }: {
   value: number
   onChange: (value: number) => void
@@ -1952,7 +1992,7 @@ function NumberInput({
   min?: number
   max?: number
   disabled?: boolean
-}) {
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'step' | 'min' | 'max' | 'disabled' | 'size'>) {
   const format = (v: number) => (Number.isFinite(v) ? String(v) : '')
   const [draft, setDraft] = useState(() => format(value))
   const [focused, setFocused] = useState(false)
@@ -1989,7 +2029,8 @@ function NumberInput({
   }
 
   return (
-    <input
+    <Input
+      {...rest}
       type="text"
       inputMode={step < 1 ? 'decimal' : 'numeric'}
       pattern="[0-9]*\.?[0-9]*"
@@ -2000,9 +2041,7 @@ function NumberInput({
       onWheel={(event) => event.currentTarget.blur()}
       onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
       readOnly={disabled}
-      className={disabled
-        ? `${INPUT_CLASS} bg-zinc-50 text-zinc-500 cursor-not-allowed`
-        : INPUT_CLASS}
+      className={`tabular-nums ${READONLY_INPUT}`}
     />
   )
 }
@@ -2037,40 +2076,42 @@ function AddAccountMenu({
       <button
         type="button"
         onClick={() => { onAddTemplate(); setOpen(false) }}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition-colors"
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-field bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition-colors ${FOCUS_RING}`}
       >
-        <Plus className="w-3.5 h-3.5" /> {t('addFromTemplate')}
+        <Plus className="w-3.5 h-3.5" strokeWidth={1.5} /> {t('addFromTemplate')}
       </button>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex items-center px-1.5 py-1.5 rounded-r-lg bg-primary text-white border-l border-violet-500 hover:bg-primary-hover transition-colors"
+        aria-label={t('ariaAddAccountMenu')}
+        className={`inline-flex items-center px-1.5 py-1.5 rounded-r-field bg-primary text-white border-l border-primary-hover hover:bg-primary-hover transition-colors ${FOCUS_RING}`}
       >
-        <ChevronDown className="w-3.5 h-3.5" />
+        <ChevronDown aria-hidden className="w-3.5 h-3.5" strokeWidth={1.5} />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1 z-20 min-w-[10rem] bg-white border border-zinc-200 rounded-lg shadow-lg overflow-hidden"
+          // z-40 = §3 层级表的「下拉/popover」档（原来的 z-20 不在表内）
+          className="absolute right-0 top-full mt-1 z-40 min-w-[10rem] bg-surface border border-line rounded-card shadow-pop overflow-hidden"
         >
           <button
             type="button"
             role="menuitem"
             onClick={() => { onAddTemplate(); setOpen(false) }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 text-left"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink-700 hover:bg-line-soft text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
           >
-            <Plus className="w-3.5 h-3.5 text-primary" /> {t('addFromTemplate')}
+            <Plus className="w-3.5 h-3.5 text-primary" strokeWidth={1.5} /> {t('addFromTemplate')}
           </button>
           <button
             type="button"
             role="menuitem"
             onClick={() => { onAddBlank(); setOpen(false) }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 text-left border-t border-zinc-100"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink-700 hover:bg-line-soft text-left border-t border-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
           >
-            <Plus className="w-3.5 h-3.5 text-zinc-400" /> {t('addBlank')}
+            <Plus className="w-3.5 h-3.5 text-ink-400" strokeWidth={1.5} /> {t('addBlank')}
           </button>
         </div>
       )}
@@ -2078,15 +2119,12 @@ function AddAccountMenu({
   )
 }
 
+// 收入档 → tone 映射登记在 design-system §1.3 状态枚举表（财务预测账号收入档）。
 function StatusBadge({ revenue }: { revenue: number }) {
   const t = useTranslations('financeForecast')
-  if (revenue >= 8000) {
-    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{t('statusPriority')}</span>
-  }
-  if (revenue >= 3500) {
-    return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-primary-soft text-primary">{t('statusStable')}</span>
-  }
-  return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">{t('statusWatch')}</span>
+  if (revenue >= 8000) return <Tag label={t('statusPriority')} tone="success" size="sm" />
+  if (revenue >= 3500) return <Tag label={t('statusStable')} tone="violet" size="sm" />
+  return <Tag label={t('statusWatch')} tone="warning" size="sm" />
 }
 
 function buildBreakdownData(months: ReturnType<typeof summarizeForecast>['months']) {
@@ -2144,5 +2182,3 @@ function buildChartData(months: ReturnType<typeof summarizeForecast>['months'], 
   })
 }
 
-
-const INPUT_CLASS = 'w-full min-h-9 rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'

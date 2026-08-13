@@ -455,9 +455,14 @@ function VenueCanvas(
         scrollerRef.current = node
         if (scrollRef) scrollRef.current = node
       }}
+      // 【工程制图配色·成套】桌面灰 bg-slate-200：与下方纸面白 bg-white、
+      // 边框 border-slate-300、SVG 网格 #e2e8f0/#cbd5e1 是同一套「图纸摊在桌面上」
+      // 的明度阶梯（design-system 门禁白名单内，spec §6「画布语义色不动」）。
+      // 要调整须整套一起重定，勿单边改其中一处。
       className="relative h-full min-h-[560px] overflow-auto bg-slate-200"
     >
       <div className="grid min-h-full min-w-full place-items-center p-4">
+        {/* 纸面：bg-white + border-slate-300 + shadow-sm 与上方桌面灰成套，勿单边改 */}
         <div className="shadow-sm" style={{ width: fit.width, height: fit.height }}>
           <svg
             ref={setRefs}
@@ -465,6 +470,7 @@ function VenueCanvas(
             width={fit.width}
             height={fit.height}
             overflow="visible"
+            // 纸面白 + 边框：与容器桌面灰 bg-slate-200、下方网格 #e2e8f0/#cbd5e1 成套，勿单边改
             className="block bg-white border border-slate-300"
             role="img"
             aria-label={t('canvasAria', { floor: floor.name })}
@@ -474,6 +480,7 @@ function VenueCanvas(
             onPointerLeave={() => { setDrag(null); setDragPositions({}); setAlignmentGuides([]); setPan(null) }}
             onPointerDown={() => onSelectItems([])}
           >
+            {/* 网格细线/粗线：与桌面灰 bg-slate-200、纸面白成套的明度阶梯，勿单边改 */}
             <defs>
               <pattern id="venue-grid" width="24" height="24" patternUnits="userSpaceOnUse">
                 <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e2e8f0" strokeWidth="1" />

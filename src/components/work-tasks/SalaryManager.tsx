@@ -5,8 +5,13 @@ import { useTranslations } from 'next-intl'
 import { Plus, Trash2, Edit2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import { Field, Input, Select } from '@/components/ui/Field'
+import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
+import Tag from '@/components/ui/Tag'
+import EmptyState from '@/components/ui/EmptyState'
+import LoadingState from '@/components/ui/LoadingState'
+import ErrorState from '@/components/ui/ErrorState'
 import type { AgentRole } from '@/lib/types'
-import { DEPARTMENT_LABELS } from '@/lib/work-tasks/cost'
 
 interface SalaryRecord {
   id:             string
@@ -31,10 +36,12 @@ function fmtRmb(v: number) {
 
 export default function SalaryManager() {
   const t = useTranslations('workTasks.salary')
+  const tWorkTasks = useTranslations('workTasks')
   const tCommon = useTranslations('common')
   const [records,  setRecords]  = useState<SalaryRecord[]>([])
   const [users,    setUsers]    = useState<UserOption[]>([])
   const [loading,  setLoading]  = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [editing,  setEditing]  = useState<SalaryRecord | null>(null)
   const [deleting, setDeleting] = useState<SalaryRecord | null>(null)
@@ -52,15 +59,31 @@ export default function SalaryManager() {
 
   async function load() {
     setLoading(true)
-    const [sr, ur] = await Promise.all([
-      fetch('/api/user-salary').then((r) => r.json()),
-      fetch('/api/users').then((r) => r.json()),
-    ])
-    setRecords(sr.data ?? [])
-    setUsers(ur.data ?? [])
-    setLoading(false)
+    setLoadError(null)
+    try {
+      const [sr, ur] = await Promise.all([
+        fetch('/api/user-salary').then((r) => {
+          if (!r.ok) { console.error('Failed to load salary records:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
+        fetch('/api/users').then((r) => {
+          if (!r.ok) { console.error('Failed to load users:', r.status); throw new Error(tCommon('loadFailed')) }
+          return r.json()
+        }),
+      ])
+      setRecords(sr.data ?? [])
+      setUsers(ur.data ?? [])
+    } catch (err) {
+      console.error('Failed to load salary records:', err)
+      setLoadError(err instanceof Error ? err.message : tCommon('loadFailed'))
+    } finally {
+      setLoading(false)
+    }
   }
 
+  // Mount-once load: `load` is a plain function declaration re-created every
+  // render, so listing it would turn this into a per-render refetch loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [])
 
   function openCreate() {
@@ -132,23 +155,13 @@ export default function SalaryManager() {
     load()
   }
 
-  // Group by user
-  const byUser = new Map<string, SalaryRecord[]>()
-  for (const r of records) {
-    const prev = byUser.get(r.user_id) ?? []
-    byUser.set(r.user_id, [...prev, r])
-  }
-
-  const INPUT = 'w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500'
-  const LABEL = 'block text-xs font-medium text-zinc-700 mb-1'
-
   return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-zinc-900">{t('title')}</h3>
-          <p className="text-xs text-zinc-500 mt-0.5">{t('subtitle')}</p>
+          <h3 className="text-sm font-semibold text-ink-900">{t('title')}</h3>
+          <p className="text-xs text-ink-500 mt-0.5">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={openCreate}>
           <Plus className="w-3.5 h-3.5" /> {t('addRecord')}
@@ -157,74 +170,70 @@ export default function SalaryManager() {
 
       {/* Table */}
       {loading ? (
-        <div className="py-8 text-center text-sm text-zinc-400">{tCommon('loading')}</div>
+        <LoadingState variant="plain" />
+      ) : loadError ? (
+        <ErrorState title={tCommon('errorTitle')} detail={loadError} onRetry={load} />
       ) : records.length === 0 ? (
-        <div className="py-12 text-center bg-white border border-zinc-200 rounded-xl">
-          <p className="text-sm text-zinc-400">{t('empty')}</p>
-          <p className="text-xs text-zinc-300 mt-1">{t('emptyHint')}</p>
-        </div>
+        <EmptyState title={t('empty')} hint={t('emptyHint')} />
       ) : (
-        <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-zinc-50 border-b border-zinc-200">
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableEmployee')}</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableDepartment')}</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium text-zinc-500">{t('tableMonthly')}</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableEffectiveFrom')}</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableEffectiveTo')}</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium text-zinc-500">{t('tableNotes')}</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium text-zinc-500">{t('tableActions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
+        <div className="bg-surface border border-line rounded-card overflow-hidden">
+          <Table label={t('title')}>
+            <THead>
+              <Th>{t('tableEmployee')}</Th>
+              <Th>{t('tableDepartment')}</Th>
+              <Th align="right">{t('tableMonthly')}</Th>
+              <Th>{t('tableEffectiveFrom')}</Th>
+              <Th>{t('tableEffectiveTo')}</Th>
+              <Th>{t('tableNotes')}</Th>
+              <Th align="right">{t('tableActions')}</Th>
+            </THead>
+            <TBody>
               {records.map((r) => {
                 const isCurrent = !r.effective_to
+                // Hoisted once per row and applied to every Td (including
+                // actions, which the ternary-per-cell version had missed) —
+                // a lapsed salary record should read as dimmed end-to-end,
+                // not have its edit/delete buttons stay at full opacity.
+                const dim = isCurrent ? '' : 'opacity-60'
                 return (
-                  <tr key={r.id} className={`hover:bg-zinc-50 transition-colors ${isCurrent ? '' : 'opacity-60'}`}>
-                    <td className="px-4 py-2.5">
+                  <Tr key={r.id}>
+                    <Td className={dim}>
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-primary-soft flex items-center justify-center text-xs font-bold text-primary">
                           {r.user.name.slice(0, 1).toUpperCase()}
                         </div>
-                        <span className="font-medium text-zinc-900">{r.user.name}</span>
-                        {isCurrent && (
-                          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">{t('current')}</span>
-                        )}
+                        <span className="font-medium text-ink-900">{r.user.name}</span>
+                        {isCurrent && <Tag size="sm" tone="success" label={t('current')} />}
                       </div>
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-600">
-                      {DEPARTMENT_LABELS[r.user.role]}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-zinc-900">
-                      {fmtRmb(r.monthly_salary)}
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-600">{r.effective_from}</td>
-                    <td className="px-4 py-2.5 text-zinc-400">{r.effective_to ?? '—'}</td>
-                    <td className="px-4 py-2.5 text-zinc-400 max-w-[160px] truncate">{r.notes ?? '—'}</td>
-                    <td className="px-4 py-2.5">
+                    </Td>
+                    <Td className={dim}>{tWorkTasks(`department.${r.user.role}`)}</Td>
+                    <Td align="right" numeric className={dim}>{fmtRmb(r.monthly_salary)}</Td>
+                    <Td className={dim}>{r.effective_from}</Td>
+                    <Td className={`text-ink-400 ${dim}`}>{r.effective_to ?? '—'}</Td>
+                    <Td className={`text-ink-400 max-w-[160px] truncate ${dim}`}>{r.notes ?? '—'}</Td>
+                    <Td align="right" className={dim}>
                       <div className="flex justify-end gap-1">
-                        <button
+                        <Button
+                          variant="ghost" size="sm"
+                          aria-label={t('editTooltip')} title={t('editTooltip')}
                           onClick={() => openEdit(r)}
-                          className="p-1 text-zinc-400 hover:text-zinc-700 transition-colors"
-                          title={t('editTooltip')}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          aria-label={t('deleteTooltip')} title={t('deleteTooltip')}
                           onClick={() => setDeleting(r)}
-                          className="p-1 text-zinc-400 hover:text-red-600 transition-colors"
-                          title={t('deleteTooltip')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 )
               })}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         </div>
       )}
 
@@ -236,67 +245,57 @@ export default function SalaryManager() {
       >
         <div className="space-y-4">
           {formError && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</div>
+            <div className="text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">{formError}</div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={LABEL}>{t('employeeField')}</label>
-              <select
+            <Field label={t('employeeField')}>
+              <Select
                 value={form.user_id}
                 onChange={(e) => setForm((f) => ({ ...f, user_id: e.target.value }))}
-                className={INPUT}
                 disabled={!!editing}
               >
                 <option value="">{t('employeeSelect')}</option>
                 {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} ({DEPARTMENT_LABELS[u.role]})</option>
+                  <option key={u.id} value={u.id}>{u.name} ({tWorkTasks(`department.${u.role}`)})</option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className={LABEL}>{t('monthlyField')}</label>
-              <input
+              </Select>
+            </Field>
+            <Field label={t('monthlyField')}>
+              <Input
                 type="number"
                 min={0}
                 value={form.monthly_salary}
                 onChange={(e) => setForm((f) => ({ ...f, monthly_salary: e.target.value }))}
                 placeholder={t('monthlyPlaceholder')}
-                className={INPUT}
               />
-            </div>
+            </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={LABEL}>{t('effectiveFromField')}</label>
-              <input
+            <Field label={t('effectiveFromField')}>
+              <Input
                 type="date"
                 value={form.effective_from}
                 onChange={(e) => setForm((f) => ({ ...f, effective_from: e.target.value }))}
-                className={INPUT}
               />
-            </div>
-            <div>
-              <label className={LABEL}>{t('effectiveToField')}</label>
-              <input
+            </Field>
+            <Field label={t('effectiveToField')}>
+              <Input
                 type="date"
                 value={form.effective_to}
                 onChange={(e) => setForm((f) => ({ ...f, effective_to: e.target.value }))}
-                className={INPUT}
               />
-            </div>
+            </Field>
           </div>
 
-          <div>
-            <label className={LABEL}>{t('notesField')}</label>
-            <input
+          <Field label={t('notesField')}>
+            <Input
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               placeholder={t('notesPlaceholder')}
-              className={INPUT}
             />
-          </div>
+          </Field>
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => { setCreating(false); setEditing(null) }}>{tCommon('cancel')}</Button>
@@ -311,7 +310,7 @@ export default function SalaryManager() {
       <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
         {deleting && (
           <div className="space-y-4">
-            <p className="text-sm text-zinc-700">
+            <p className="text-sm text-ink-700">
               {t.rich('deleteConfirm', {
                 name: deleting.user.name,
                 from: deleting.effective_from,

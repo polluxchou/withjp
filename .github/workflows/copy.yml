@@ -1,10 +1,22 @@
 name: copy
 
-# Guards the i18n contract:
-#   * messages/zh.json and messages/en.json must have identical key shape
+# Guards the i18n + design-token contract:
+#   * messages/{zh,en,ja}.json must have identical key shape
+#   * Every t('key') in src/ must resolve to a real message, and every message
+#     should be referenced from somewhere; scripts/check-i18n.mjs enforces this
+#     against scripts/i18n-baseline.json
 #   * No new JSX file may introduce bare Chinese (use useTranslations() instead)
-# Both checks are pure Node scripts and need no extra install beyond the
-# project's existing devDependencies.
+#   * No file may introduce slate/indigo/zinc/gray/stone/neutral/bare-hex
+#     styling (see docs/design-system.md); scripts/check-style-tokens.mjs
+#     enforces this with zero tolerance — the migration baseline was retired
+#     on 2026-08-11, exceptions now live in the script's WHITELIST or in
+#     per-line `style-tokens-ignore` comments
+#   * react-hooks/exhaustive-deps is an error (not a warning) and `next lint`
+#     runs with --max-warnings=0, so stale-closure bugs like PR #166 fail the
+#     build instead of scrolling past as ignorable output; intentional
+#     narrow dep arrays need a per-line eslint-disable with a written reason
+# Everything but the ESLint step is a pure Node script; all of them need no
+# extra install beyond the project's existing devDependencies.
 
 on:
   pull_request:
@@ -12,10 +24,16 @@ on:
       - 'src/**/*.tsx'
       - 'src/**/*.jsx'
       - 'src/**/*.ts'
+      - 'src/**/*.css'
       - 'messages/**'
       - 'scripts/check-i18n.mjs'
+      - 'scripts/i18n-baseline.json'
       - 'scripts/check-no-bare-han.mjs'
+      - 'scripts/check-style-tokens.mjs'
+      # 正向校验从这里读已登记 token：只删/改注册项的 PR 也必须触发门禁
+      - 'tailwind.config.ts'
       - 'docs/copy-glossary.md'
+      - '.eslintrc.json'
       - '.github/workflows/copy.yml'
   push:
     branches: [main]
@@ -33,8 +51,14 @@ jobs:
 
       - run: npm install --ignore-scripts
 
-      - name: zh/en key parity
+      - name: i18n key parity + source references
         run: npm run test:i18n
 
       - name: No bare Chinese in JSX
         run: npm run test:no-bare-han
+
+      - name: Style tokens
+        run: npm run test:style
+
+      - name: ESLint (React hook deps, zero tolerance)
+        run: npm run test:lint

@@ -38,7 +38,7 @@ export default function LanguageSwitcher({ collapsed = false }: Props) {
       <button
         onClick={() => setIsOpen(!isOpen)}
         title={collapsed ? t('switchLanguage') : undefined}
-        className={`flex items-center rounded-lg text-sm text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors w-full ${
+        className={`flex items-center rounded-field text-sm text-ink-500 hover:text-ink-900 hover:bg-line-soft transition-colors w-full ${
           collapsed ? 'justify-center px-2 py-2' : 'gap-2 px-3 py-2'
         }`}
       >
@@ -52,15 +52,15 @@ export default function LanguageSwitcher({ collapsed = false }: Props) {
       </button>
 
       {isOpen && (
-        <div className={`absolute bottom-full mb-2 bg-white border border-zinc-200 rounded-lg shadow-card-hover overflow-hidden ${
+        <div className={`absolute bottom-full mb-2 bg-surface border border-line rounded-field shadow-pop overflow-hidden ${
           collapsed ? 'left-full ml-2 w-32' : 'left-0 w-full'
         }`}>
           {languages.map((lang) => (
             <button
               key={lang.code}
               onClick={() => handleLanguageChange(lang.code)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm w-full hover:bg-zinc-100 transition-colors ${
-                locale === lang.code ? 'bg-primary-soft text-primary' : 'text-zinc-700'
+              className={`flex items-center gap-2 px-3 py-2 text-sm w-full hover:bg-line-soft transition-colors ${
+                locale === lang.code ? 'bg-primary-soft text-primary' : 'text-ink-700'
               }`}
             >
               <span>{lang.flag}</span>

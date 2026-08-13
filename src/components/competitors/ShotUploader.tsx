@@ -4,31 +4,31 @@
 import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
-import { compressImage } from './compressImage'
+import { todayLocal } from '@/lib/competitors/localDate'
+import { imageFromClipboard, uploadShot } from '@/lib/competitors/uploadShot'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 
-export default function ShotUploader({ competitorId, onDone, compact = false }: { competitorId: string; onDone: () => void; compact?: boolean }) {
+/**
+ * 相册标题行的上传控件：默认今天，日期可改。
+ *
+ * 默认值刻意固定为今天而不是当前选中的那一列——每天例行截图上传是主流程,
+ * 而选中列默认是"轴上最新有图的那天",往往是昨天或更早,跟着它会把今天的图
+ * 悄悄放进旧列。要补某一天的图,走日期网格里那一天空格子上的 + 入口,
+ * 日期由所在列决定,不会填错。
+ */
+export default function ShotUploader({ competitorId, onDone }: { competitorId: string; onDone: () => void }) {
   const t = useTranslations('competitors')
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [shotOn, setShotOn] = useState(todayLocal)
 
-  const onPick = async (file: File) => {
+  const send = async (file: File) => {
     setBusy(true)
     setError(null)
     try {
-      const compressed = await compressImage(file)
-      const form = new FormData()
-      form.append('file', compressed)
-      const up = await fetch('/api/competitors/upload', { method: 'POST', body: form })
-      const upJson = await up.json().catch(() => ({ error: 'parse' }))
-      if (!up.ok || upJson.error) { setError(t('uploadFailed')); return }
-      const today = new Date().toISOString().slice(0, 10)
-      const res = await fetch(`/api/competitors/${competitorId}/shots`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_url: upJson.data.url, shot_on: today }),
-      })
-      if (!res.ok) { setError(t('uploadFailed')); return }
+      const failed = await uploadShot(competitorId, file, shotOn || null)
+      if (failed) { setError(t('uploadFailed')); return }
       onDone()
     } catch {
       setError(t('uploadFailed'))
@@ -37,44 +37,46 @@ export default function ShotUploader({ competitorId, onDone, compact = false }: 
     }
   }
 
-  const onPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    if (busy) return
-    const items = e.clipboardData?.items
-    if (!items) return
-    for (const it of Array.from(items)) {
-      if (it.type.startsWith('image/')) {
-        const file = it.getAsFile()
-        if (file) { e.preventDefault(); onPick(file); return }
-      }
-    }
-  }
-
   return (
     <div
       tabIndex={0}
-      onPaste={onPaste}
+      onPaste={(e) => {
+        if (busy) return
+        const file = imageFromClipboard(e.clipboardData?.items)
+        if (file) { e.preventDefault(); send(file) }
+      }}
       aria-label={t('upload')}
-      title={t('orPaste')}
-      className={`flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-zinc-300 text-zinc-400 outline-none focus:border-sky-400 focus:text-sky-500 ${compact ? 'h-32 w-[72px]' : 'h-[46vh] w-[26vh] min-h-[300px] min-w-[169px]'}`}
+      // focus-within 提示"可以往这儿粘"(粘贴事件从内部控件冒泡上来);
+      // FOCUS_RING 负责整块自身获得焦点时的可见环。
+      className={`flex shrink-0 items-center gap-1.5 rounded-field border border-dashed border-line-strong px-1.5 py-1 focus-within:border-primary-border ${FOCUS_RING}`}
     >
+      <input
+        type="date"
+        value={shotOn}
+        max={todayLocal()}
+        onChange={(e) => setShotOn(e.target.value)}
+        aria-label={t('shotDate')}
+        className="rounded-field border border-line px-1 py-0.5 text-[11px] text-ink-700"
+      />
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="flex flex-col items-center gap-1 text-[11px] disabled:opacity-50"
+        className={`flex items-center gap-1 rounded-field text-[11px] text-ink-500 hover:text-ink-900 disabled:opacity-50 ${FOCUS_RING}`}
       >
-        <Upload size={compact ? 14 : 18} />
+        <Upload size={13} strokeWidth={1.5} />
         {t('upload')}
       </button>
-      {!compact && <span className="text-[9px] text-zinc-400">{t('orPaste')}</span>}
+      {/* 可见的粘贴提示:上一版只留在 title 里,等于把这个入口做没了 */}
+      <span className="text-[10px] text-ink-400">{t('orPaste')}</span>
       <input
         ref={inputRef}
         type="file"
         accept="image/png,image/jpeg,image/webp,image/gif"
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = '' }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) send(f); e.target.value = '' }}
       />
-      {error && <span className="px-1 text-center text-[9px] text-red-600">{error}</span>}
+      {error && <span className="text-[10px] text-danger-text">{error}</span>}
     </div>
   )
 }

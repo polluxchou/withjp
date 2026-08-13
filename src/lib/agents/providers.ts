@@ -8,7 +8,7 @@ export interface ChatMessage {
 }
 
 const STRUCTURED_SYSTEM_PROMPT =
-  'You are a specialized AI agent in a creator guild operating system. Always respond with valid JSON only — no markdown, no explanation outside the JSON.'
+  'You are a specialized AI agent in a creator network operating system. Always respond with valid JSON only — no markdown, no explanation outside the JSON.'
 
 // ── Structured JSON output (used by task executor) ───────────
 

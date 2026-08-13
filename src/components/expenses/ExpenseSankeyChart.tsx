@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl'
 import type { Expense, ExpenseCategory } from '@/lib/types'
 import { EXPENSE_CATEGORY_LABELS, crossBorderFee, effectiveCost } from '@/lib/expenses/costs'
 import { useCurrency } from '@/lib/currency'
+import { CHART_SERIES } from '@/lib/chart-theme'
+import { categoryColor, CATEGORY_INDEX } from './category-color'
 
 // ── Layout constants ──────────────────────────────────────────────
 // SVG_W matches typical content-area width so scale factor ≈ 1 and
@@ -22,14 +24,14 @@ const CX  = (SX1 + TX0) / 2          // bezier control-point x
 const CROSS_BORDER_BUYERS = new Set(['chenhao', 'xiaoshou'])
 const BUYER_DISPLAY: Record<string, string> = { chenhao: '陈昊', xiaoshou: '小兽' }
 
-const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
-  tangible_asset:  '#8b5cf6',
-  salary:          '#f59e0b',
-  rent:            '#10b981',
-  travel:          '#3b82f6',
-  office_supplies: '#8b5cf6',
-  cloud_services:  '#ec4899',
-}
+// Non-category node/text colors, referenced via CSS custom properties
+// (design-system.md §1.3 semantic tokens) instead of raw hex — evergreen
+// browsers resolve var()/rgb(var()) in both inline styles and SVG
+// presentation attributes (fill/stroke), which is all this file uses them for.
+const DANGER_DOT = 'var(--danger-dot)'   // cross-border buyer accent (extra cost)
+const INK_900    = 'rgb(var(--ink-900))' // tooltip value text (max contrast)
+const INK_700    = 'rgb(var(--ink-700))' // solid neutral node/label
+const INK_400    = 'rgb(var(--ink-400))' // dimmed node/label
 
 // ── Types ─────────────────────────────────────────────────────────
 interface SankeyNode {
@@ -96,8 +98,14 @@ function computeLayout(
   let yAcc = 0
   const catNodes: SankeyNode[] = catEntries.map(([cat, val]) => {
     const h    = scale(val)
+    // Unknown category (dirty/legacy data outside the current 6-value enum)
+    // gets an explicit fallback to the *last* CHART_SERIES color rather than
+    // silently falling through categoryColor()'s default-to-index-0 — index 0
+    // already belongs to tangible_asset, so a silent fallback would collide
+    // with a real category instead of reading as "other/unrecognized".
+    const known = Object.hasOwn(CATEGORY_INDEX, cat)
     const node = { id: cat, label: EXPENSE_CATEGORY_LABELS[cat as ExpenseCategory] ?? cat,
-                   value: val, color: CATEGORY_COLORS[cat as ExpenseCategory] ?? '#a1a1aa',
+                   value: val, color: known ? categoryColor(cat as ExpenseCategory) : CHART_SERIES[CHART_SERIES.length - 1],
                    y0: yAcc, y1: yAcc + h, col: 0 as const }
     yAcc += h + NODE_GAP
     return node
@@ -109,7 +117,7 @@ function computeLayout(
   const buyerNodes: SankeyNode[] = buyerEntries.map(([buyer, { total, crossBorder }]) => {
     const h    = scale(total)
     const node = { id: buyer, label: BUYER_DISPLAY[buyer] ?? buyer,
-                   value: total, color: crossBorder > 0 ? '#f43f5e' : '#a1a1aa',
+                   value: total, color: crossBorder > 0 ? DANGER_DOT : INK_400,
                    y0: yAcc, y1: yAcc + h, col: 1 as const }
     yAcc += h + NODE_GAP
     return node
@@ -234,7 +242,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
             <text
               x={LABEL_W - 5} y={(n.y0 + n.y1) / 2}
               textAnchor="end" dominantBaseline="middle"
-              fontSize={8} fill={dimmed ? '#cbd5e1' : '#475569'}
+              fontSize={8} fill={dimmed ? INK_400 : INK_700}
               style={{ transition: 'fill 120ms' }}
             >
               {n.label}
@@ -267,7 +275,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
             <rect
               x={TX0} y={n.y0}
               width={NODE_W} height={Math.max(n.y1 - n.y0, 2)}
-              rx={2} fill={isCB ? '#f43f5e' : '#71717a'}
+              rx={2} fill={isCB ? DANGER_DOT : INK_700}
               opacity={dimmed ? 0.25 : 1}
               style={{ transition: 'opacity 120ms' }}
             />
@@ -275,7 +283,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
               x={TX0 + NODE_W + 5} y={(n.y0 + n.y1) / 2}
               textAnchor="start" dominantBaseline="middle"
               fontSize={8}
-              fill={dimmed ? '#cbd5e1' : isCB ? '#f43f5e' : '#475569'}
+              fill={dimmed ? INK_400 : isCB ? DANGER_DOT : INK_700}
               fontWeight={isCB ? 600 : 400}
               style={{ transition: 'fill 120ms' }}
             >
@@ -286,7 +294,7 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
               <text
                 x={TX0 - 4} y={(n.y0 + n.y1) / 2}
                 textAnchor="end" dominantBaseline="middle"
-                fontSize={7.5} fill={isCB ? '#f43f5e' : '#71717a'} fontWeight={600}
+                fontSize={7.5} fill={isCB ? DANGER_DOT : INK_700} fontWeight={600}
               >
                 {fmtC(n.value)}
               </text>
@@ -310,21 +318,21 @@ export default function ExpenseSankeyChart({ expenses, selectedCategory }: Props
               x={mx - bw / 2} y={my - bh / 2}
               width={bw} height={bh}
               rx={5}
-              fill="white" stroke="#e2e8f0" strokeWidth={1}
+              fill="var(--surface)" stroke="var(--line)" strokeWidth={1}
               style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,.12))' }}
             />
             <text x={mx} y={my - (hasCB ? 9 : 2)}
               textAnchor="middle" dominantBaseline="middle"
-              fontSize={9} fill="#1e293b" fontWeight={600}
+              fontSize={9} fill={INK_900} fontWeight={600}
             >
               {fmtC(l.value)}
             </text>
             {hasCB && (
               <text x={mx} y={my + 10}
                 textAnchor="middle" dominantBaseline="middle"
-                fontSize={7.5} fill="#f43f5e"
+                fontSize={7.5} fill={DANGER_DOT}
               >
-                {t('category.crossBorderBadge', { amount: fmtC(l.crossBorder) })}
+                {t('categoryChart.crossBorderBadge', { amount: fmtC(l.crossBorder) })}
               </text>
             )}
           </g>
