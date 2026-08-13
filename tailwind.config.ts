@@ -50,6 +50,8 @@ const config: Config = {
           header: 'var(--site-header)',
           fg: 'rgb(var(--site-fg) / <alpha-value>)',
           accent: 'var(--site-accent)',
+          // 三角幕专用：固定亮青，不随主题翻转（理由见 globals.css 的 --site-veil）
+          veil: 'var(--site-veil)',
           'on-accent': 'var(--site-on-accent)',
           hot: 'var(--site-hot)',
           'hot-hover': 'var(--site-hot-hover)',
