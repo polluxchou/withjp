@@ -1975,49 +1975,55 @@
     "live": {
       "eyebrow": "TIKTOK LIVE",
       "title": "直播排期",
-      "lead": "每晚从难波工作室直播。作为 Creator Network，我们把 TikTok LIVE 的运营本身放在业务核心。",
+      "lead": "从训练到开播，我们以阶段化方式推进成员成长，让直播能力成为 Creator Network 的核心基础。",
       "headers": {
         "day": "DAY",
         "program": "PROGRAM",
-        "cast": "CAST",
+        "focus": "FOCUS",
         "time": "TIME"
       },
       "schedule": [
         {
-          "day": "MON",
-          "program": "深夜公主之间",
-          "cast": "MOON UNIT",
-          "time": "21:00–24:00"
+          "day": "DAY 1–3",
+          "program": "试装与初始风格设定",
+          "focus": "STYLE SETUP",
+          "time": "11:00–18:00"
         },
         {
-          "day": "TUE",
-          "program": "DOLLZ 舞蹈部",
-          "cast": "DOLLZ UNIT",
-          "time": "21:00–23:30"
+          "day": "DAY 4–10",
+          "program": "个人舞蹈挑选与集中培训",
+          "focus": "DANCE TRAINING",
+          "time": "10:00–18:00"
         },
         {
-          "day": "WED",
-          "program": "皮套之夜",
-          "cast": "SUIT CAST",
-          "time": "22:00–24:00"
+          "day": "DAY 11–15",
+          "program": "初舞台设计与直播规则培训",
+          "focus": "STAGE & LIVE RULES",
+          "time": "11:00–18:00"
         },
         {
-          "day": "THU",
-          "program": "新人直播试镜档",
-          "cast": "TRAINEE",
-          "time": "20:00–22:00"
+          "day": "DAY 16–20",
+          "program": "定妆照与介绍视频拍摄",
+          "focus": "PHOTO & INTRO VIDEO",
+          "time": "11:00–18:00"
         },
         {
-          "day": "FRI",
-          "program": "难波霓虹歌房",
-          "cast": "ALL",
-          "time": "21:00–01:00"
+          "day": "DAY 21–30",
+          "program": "试播训练（每日 3 小时）",
+          "focus": "TRIAL LIVE",
+          "time": "14:00–21:00"
         },
         {
-          "day": "SAT",
-          "program": "MOONDOLLZ 联合直播",
-          "cast": "ALL",
-          "time": "20:00–24:00"
+          "day": "MONTH 2",
+          "program": "正式开播（周一休息）",
+          "focus": "REGULAR LIVE",
+          "time": "TUE–SUN"
+        },
+        {
+          "day": "TIME SLOT",
+          "program": "每日两档直播",
+          "focus": "2 SESSIONS / DAY",
+          "time": "14:30–17:30 / 18:30–21:30"
         }
       ],
       "onAirLabel": "ON AIR NOW",

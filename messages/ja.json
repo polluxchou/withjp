@@ -1975,49 +1975,55 @@
     "live": {
       "eyebrow": "TIKTOK LIVE",
       "title": "配信スケジュール",
-      "lead": "難波スタジオから毎晩生配信。Creator Network として、TikTok LIVE の運営そのものを事業の中核に置く。",
+      "lead": "トレーニングから配信デビューまで、段階的なプログラムでメンバーの成長を支え、ライブ配信の力を Creator Network の中核へと育てていきます。",
       "headers": {
         "day": "DAY",
         "program": "PROGRAM",
-        "cast": "CAST",
+        "focus": "FOCUS",
         "time": "TIME"
       },
       "schedule": [
         {
-          "day": "MON",
-          "program": "深夜の姫の間",
-          "cast": "MOON UNIT",
-          "time": "21:00–24:00"
+          "day": "DAY 1–3",
+          "program": "衣装フィッティング・初期スタイル設定",
+          "focus": "STYLE SETUP",
+          "time": "11:00–18:00"
         },
         {
-          "day": "TUE",
-          "program": "DOLLZ ダンス部",
-          "cast": "DOLLZ UNIT",
-          "time": "21:00–23:30"
+          "day": "DAY 4–10",
+          "program": "ソロダンス選曲・集中トレーニング",
+          "focus": "DANCE TRAINING",
+          "time": "10:00–18:00"
         },
         {
-          "day": "WED",
-          "program": "着ぐるみナイト",
-          "cast": "SUIT CAST",
-          "time": "22:00–24:00"
+          "day": "DAY 11–15",
+          "program": "初ステージ設計・配信ルール研修",
+          "focus": "STAGE & LIVE RULES",
+          "time": "11:00–18:00"
         },
         {
-          "day": "THU",
-          "program": "新人配信オーディション枠",
-          "cast": "TRAINEE",
-          "time": "20:00–22:00"
+          "day": "DAY 16–20",
+          "program": "宣材撮影・紹介動画制作",
+          "focus": "PHOTO & INTRO VIDEO",
+          "time": "11:00–18:00"
         },
         {
-          "day": "FRI",
-          "program": "難波ネオン歌枠",
-          "cast": "ALL",
-          "time": "21:00–01:00"
+          "day": "DAY 21–30",
+          "program": "テスト配信（1日3時間）",
+          "focus": "TRIAL LIVE",
+          "time": "14:00–21:00"
         },
         {
-          "day": "SAT",
-          "program": "MOONDOLLZ 合同配信",
-          "cast": "ALL",
-          "time": "20:00–24:00"
+          "day": "MONTH 2",
+          "program": "本配信スタート（月曜休み）",
+          "focus": "REGULAR LIVE",
+          "time": "TUE–SUN"
+        },
+        {
+          "day": "TIME SLOT",
+          "program": "1日2枠のライブ配信",
+          "focus": "2 SESSIONS / DAY",
+          "time": "14:30–17:30 / 18:30–21:30"
         }
       ],
       "onAirLabel": "ON AIR NOW",

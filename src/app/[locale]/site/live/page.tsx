@@ -22,7 +22,7 @@ export default function SiteLivePage({ params }: { params: { locale: string } })
   setRequestLocale(params.locale)
   const t = useTranslations('site.live')
   const schedule = t.raw('schedule') as SiteScheduleRow[]
-  const headers = t.raw('headers') as { day: string; program: string; cast: string; time: string }
+  const headers = t.raw('headers') as { day: string; program: string; focus: string; time: string }
 
   return (
     <SiteSection divider={false} className="pb-20 lg:pb-24">

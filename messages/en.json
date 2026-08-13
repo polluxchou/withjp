@@ -1975,49 +1975,55 @@
     "live": {
       "eyebrow": "TIKTOK LIVE",
       "title": "STREAM SCHEDULE",
-      "lead": "Live every night from the Namba studio. As a Creator Network, running TikTok LIVE itself sits at the core of our business.",
+      "lead": "From training to going live, we guide each member through a structured development program, making live performance a core capability of our Creator Network.",
       "headers": {
         "day": "DAY",
         "program": "PROGRAM",
-        "cast": "CAST",
+        "focus": "FOCUS",
         "time": "TIME"
       },
       "schedule": [
         {
-          "day": "MON",
-          "program": "Midnight Princess Chamber",
-          "cast": "MOON UNIT",
-          "time": "21:00–24:00"
+          "day": "DAY 1–3",
+          "program": "Fitting & Initial Style Direction",
+          "focus": "STYLE SETUP",
+          "time": "11:00–18:00"
         },
         {
-          "day": "TUE",
-          "program": "DOLLZ Dance Club",
-          "cast": "DOLLZ UNIT",
-          "time": "21:00–23:30"
+          "day": "DAY 4–10",
+          "program": "Solo Dance Selection & Intensive Training",
+          "focus": "DANCE TRAINING",
+          "time": "10:00–18:00"
         },
         {
-          "day": "WED",
-          "program": "Suit Night",
-          "cast": "SUIT CAST",
-          "time": "22:00–24:00"
+          "day": "DAY 11–15",
+          "program": "Debut Stage Design & LIVE Guidelines",
+          "focus": "STAGE & LIVE RULES",
+          "time": "11:00–18:00"
         },
         {
-          "day": "THU",
-          "program": "Rookie Audition Slot",
-          "cast": "TRAINEE",
-          "time": "20:00–22:00"
+          "day": "DAY 16–20",
+          "program": "Profile Shoot & Introduction Video",
+          "focus": "PHOTO & INTRO VIDEO",
+          "time": "11:00–18:00"
         },
         {
-          "day": "FRI",
-          "program": "Namba Neon Song Hour",
-          "cast": "ALL",
-          "time": "21:00–01:00"
+          "day": "DAY 21–30",
+          "program": "Trial LIVE Sessions (3 hrs/day)",
+          "focus": "TRIAL LIVE",
+          "time": "14:00–21:00"
         },
         {
-          "day": "SAT",
-          "program": "MOONDOLLZ Joint Stream",
-          "cast": "ALL",
-          "time": "20:00–24:00"
+          "day": "MONTH 2",
+          "program": "Regular LIVE Begins (Mondays Off)",
+          "focus": "REGULAR LIVE",
+          "time": "TUE–SUN"
+        },
+        {
+          "day": "TIME SLOT",
+          "program": "Two LIVE Sessions per Day",
+          "focus": "2 SESSIONS / DAY",
+          "time": "14:30–17:30 / 18:30–21:30"
         }
       ],
       "onAirLabel": "ON AIR NOW",
