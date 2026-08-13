@@ -324,4 +324,8 @@ create table if not exists site_applications (
 1. **三重描边标题换行**：绝对定位的偏移层按容器宽度排版，容器宽度由白色层决定，偏移 3px 就把最后一个词挤到第二行 → 三层都加 `whitespace-nowrap`
 2. **发丝线网格空格子**：3 项放进 2 栏会空出一格，露出容器底色（18% 白）在黑底上是一块灰方块 → 3 栏用例直接 1 → 3，不走 2 栏中间态
 3. **duotone 占位**：`.site-duotone` 的青色底靠图片 multiply 才成立，没图时只剩一块青实底且占位说明读不出来 → 只在有 `src` 时挂 duotone
+
+   > **给 duotone 图位配图的人注意（2026-08-13 记）**：`mix-blend-mode: multiply` 配 `next/image` 的懒加载有个渲染坑 —— 图片异步解码换入时，Chromium 有时不让已经画好的混合层跟着重新合成，视觉上会一直停在**纯青色实底**，看起来像"图没放上去"。判断方法：图片数据其实是好的（`img.naturalWidth` 正常、拿离屏 canvas 采样像素能取到正常明暗），拿掉 Next.js 用纯静态页面复刻同一套 CSS 也渲染正确 —— 所以别去怀疑素材、裁切或 `object-fit`。对症的办法是给 `.site-duotone` 加 `isolation: isolate`（让这层从首次绘制起就是确定的混合组），实测有效。
+   >
+   > 当时没把这个修复合进来：首页 05 的那张图最终改成了直接摘掉 duotone 走全彩（#198），`.site-duotone` 变成零使用处，修复上线即无从验证，属于无对象的改动。**`live` 页的 ON AIR 图位与 `vision` 页的主图位这两处已经传了 `duotone`、只差一个 `src`**，谁将来给它们配上图就会踩到 —— 届时把 `isolation: isolate` 加回去，并在真实页面上（不要只看 dev server 截图）当场确认效果。
 4. **三角幕的收起路径**：只监听 `mousemove` 时，hover logo 后直接滚滚轮（光标不动）会让幕布一直挡半屏 → 补 `scroll` 与 `Escape`
