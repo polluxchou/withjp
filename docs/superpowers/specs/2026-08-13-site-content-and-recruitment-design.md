@@ -37,7 +37,7 @@
    （入口挂在 CONTACT 页 §02「制作与运营合作伙伴」，见 §5.5）
 2. `site_news` 表 + 后台 CRUD + 置顶 + 单图上传；官网 NEWS 列表/详情改为读库
 3. `site_members` 表 + 后台配置；官网 VISION 页成员网格改为读库
-4. 现有 4 篇新闻、8 位成员从 i18n 搬进库（幂等脚本）
+4. 现有 4 篇新闻、8 位成员从稳定 seed fixture 搬进库（幂等脚本；fixture 初始值来自现有 i18n）
 5. 上传 route 去重（新增第三个上传口之前先抽共享 helper）
 
 ### 不做
@@ -188,9 +188,17 @@ create table if not exists site_members (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
 
-  -- 已公开的卡位必须有名字和照片，否则官网会渲染出一张空卡
+  -- 已公开的卡位必须有名字、照片和日文特长，否则官网会渲染出不完整卡片
   constraint site_members_revealed_fields check (
-    not is_revealed or (name is not null and photo_url is not null)
+    not is_revealed or (
+      nullif(btrim(name), '') is not null
+      and nullif(btrim(photo_url), '') is not null
+      and nullif(btrim(specialty_ja), '') is not null
+    )
+  ),
+  -- 未公开卡位必须有预计日期；否则官网只能渲染出没有提示的空卡位。
+  constraint site_members_unrevealed_schedule check (
+    is_revealed or expected_reveal_on is not null
   )
 );
 
@@ -231,20 +239,87 @@ grant select on public.site_members to authenticated;
 
 ### 3.4 数据搬迁脚本
 
-`scripts/seed-site-content.mjs` —— 一次性、幂等，读 `messages/{ja,zh,en}.json` 写库。
-**不放进迁移**：迁移不该依赖前端文案文件。
+`scripts/seed-site-content.mjs` —— 一次性、幂等，使用脚本内稳定的 seed fixture 写库。
+**不从 `messages/*.json` 或 `src/lib/site/{news,content}.ts` 导入 seed 数据**：前端文案和展示常量
+会在本次迁移后删除或改形，seed 不能依赖它们。
 
-- 新闻：按 `NEWS_SLUGS` 的四个 slug upsert；`date`（`2026.10.01`）→ `published_on`
-  （ISO `YYYY-MM-DD`）；`body: string[]` → 用 `\n\n` 连接成 `body_*`；图片沿用
-  `news.ts` 里 `NEWS_IMAGES` 的现有 `/site/*.webp` 路径，先不搬进存储桶（已经是仓库里
-  的静态资源，能用）。
-- 成员：`site.members.list` 的 8 条按下标 → `no = i + 1`，`is_revealed = true`；
-  现有 `role` 字段形如 `花乃／儚い微笑みの罠`，按**全角 `／`** 拆成
-  `name_ja` 与 `specialty_*`；`name` 取原 `name`（`KANO`）；照片沿用 `MEMBER_IMAGES` 的路径。
-  9–12 号卡位建成 `is_revealed = false` 的空行，`expected_reveal_on` 由运营在后台补
-  （现在 i18n 写死的 `"12月 公開"` 即其初值）。
+- 新闻：fixture 固定四个 slug、图片路径和日期；`date`（`2026.10.01`）→ `published_on`
+  （ISO `YYYY-MM-DD`）；`body: string[]` → 用 `\n\n` 连接成 `body_*`；图片继续使用仓库已有的
+  `/site/*.webp` 路径，先不搬进存储桶。
+- 成员：fixture 固定 8 个 `no`、罗马字 `name`、照片路径以及三语原始 role。解析规则必须按
+  locale 分开：ja/zh 用全角 `／`，en 用 `/\s+\/\s+/`（兼容 ASCII 两侧空格）。左段分别写入
+  `name_ja` / `name_en`，右段分别写入 `specialty_ja` / `specialty_zh` / `specialty_en`；
+  不得用同一条全角分隔规则处理三语。9–12 号卡位建成 `is_revealed = false`，并明确写入
+  `expected_reveal_on = '2026-12-01'`，保留现有 i18n「12月公开」的初始语义。
 
-**顺序是硬的**：先跑脚本搬迁 → 验证官网读库正常 → 再从 `messages/*.json` 删 key。
+脚本在 upsert 前后都必须断言 12 行的规范化结果：8 个已公开行的
+`name_ja`、`name_en`、`specialty_ja`、`specialty_zh`、`specialty_en` 与 fixture 完全相等，
+9–12 行的 `is_revealed = false` 且日期为 `2026-12-01`；任何分隔符缺失、空值或错位都以非零码退出，
+不能继续写入部分数据。fixture 至少包含以下可执行的分割断言：
+
+```js
+const splitters = {
+  ja: (value) => value.split('／'),
+  zh: (value) => value.split('／'),
+  en: (value) => value.split(/\s+\/\s+/),
+}
+for (const [locale, split] of Object.entries(splitters)) {
+  for (const row of MEMBER_SEED) {
+    const parts = split(row.role[locale])
+    if (parts.length !== 2 || parts.some((part) => !part.trim())) {
+      throw new Error(`invalid member role fixture: ${locale}/${row.name}`)
+    }
+  }
+}
+```
+
+`MEMBER_SEED` 与 `NEWS_SEED` 必须定义在脚本自身（或同目录的专用静态 fixture 模块）中，
+包含所有图片路径和原始三语值；不能引用被 Task 10/12 删除的 `NEWS_IMAGES`、`MEMBER_IMAGES`。
+
+fixture 的初始内容固定如下；它是迁移输入，不是运行时 UI 文案：
+
+```js
+export const NEWS_SEED = [
+  { slug: 'nightly-live-start', image_url: '/site/moondollz-group.webp' },
+  { slug: 'moondollz-launch', image_url: '/site/moondollz-key.webp' },
+  { slug: 'first-gen-audition', image_url: '/site/card-kano.webp' },
+  { slug: 'osaka-studio-open', image_url: '/site/card-shino.webp' },
+]
+
+export const MEMBER_SEED = [
+  { no: 1, name: 'KANO', photo_url: '/site/card-kano.webp', role: {
+    ja: '花乃／儚い微笑みの罠', zh: '花乃／易碎微笑的陷阱', en: 'Kano / The trap of a fragile smile',
+  }},
+  { no: 2, name: 'MIKOTO', photo_url: '/site/card-mikoto.webp', role: {
+    ja: '美琴／優雅なる刃', zh: '美琴／优雅之刃', en: 'Mikoto / The graceful blade',
+  }},
+  { no: 3, name: 'LULU', photo_url: '/site/card-lulu.webp', role: {
+    ja: 'ルル／弾けるピンクの閃光', zh: '露露／炸开的粉色闪光', en: 'Lulu / A burst of pink light',
+  }},
+  { no: 4, name: 'CHIYO', photo_url: '/site/card-chiyo.webp', role: {
+    ja: '千夜／千の夜に舞う孤星', zh: '千夜／千夜起舞的孤星', en: 'Chiyo / Lone star dancing a thousand nights',
+  }},
+  { no: 5, name: 'AKAYA', photo_url: '/site/card-akaya.webp', role: {
+    ja: '綾香／宮廷に咲く強き桜', zh: '绫香／宫廷里盛放的强樱', en: 'Akaya / Strong cherry blossom of the court',
+  }},
+  { no: 6, name: 'YUMEKI', photo_url: '/site/card-yumeki.webp', role: {
+    ja: '夢綺／幻を織る声', zh: '梦绮／编织幻象的声音', en: 'Yumeki / The voice that weaves illusions',
+  }},
+  { no: 7, name: 'SHINO', photo_url: '/site/card-shino.webp', role: {
+    ja: '紫乃／高貴で危険な誘惑者', zh: '紫乃／高贵而危险的诱惑者', en: 'Shino / Noble and dangerous temptress',
+  }},
+  { no: 8, name: 'HIMENE', photo_url: '/site/card-himene.webp', role: {
+    ja: '姫音／音のために生まれた姫', zh: '姬音／为声音而生的公主', en: 'Himene / A princess born for sound',
+  }},
+]
+```
+
+`NEWS_SEED` 的每一项还必须包含 `published_on`、`tag` 和完整的
+`copy: { ja: { title, lead, body }, zh: { ... }, en: { ... } }`；四篇文章的正文与三语值在
+fixture 中完整保存，不能在 seed 运行时再回读已准备删除的 `messages.site.news.articles`。
+上面的四个 slug/图片映射必须与这些完整 copy 使用同一个数组项，不能依赖下标拼接另一份来源。
+
+**顺序是硬的**：先跑脚本搬迁 → 验证官网读库正常 → 再从 `messages/*.json` 删除已经被数据库替代的 key。
 反过来就是上线即丢内容。
 
 ---
@@ -297,6 +372,32 @@ PATCH  /api/site/members/[no]      配置某个卡位
 
 POST   /api/site/upload            图片上传（news 主图 / 成员照片）
 ```
+
+**内容 API 不得把请求体直接 spread 进 Supabase。** 仓库已有 `zod`，新增 route 应用显式 schema
+解析并在解析前后做 `trim`：所有必填文本先 `String(value).trim()`，空白结果拒绝；选填文本的空白
+统一转为 `null`；URL、slug、tag、日期、布尔值和枚举分别按数据库约束验证。客户端不可提交或覆盖
+审计字段。
+
+新闻 create 的允许字段只有：
+`slug`、`tag`、`published_on`、`is_pinned`、`is_published`、`image_url`、
+`title_ja`/`title_zh`/`title_en`、`lead_ja`/`lead_zh`/`lead_en`、
+`body_ja`/`body_zh`/`body_en`。其中 `slug`、`tag`、`published_on`、`title_ja`、`lead_ja`、
+`body_ja` 必填；`is_pinned` 缺省为 `false`、`is_published` 缺省为 `true`；zh/en 文本及
+`image_url` 为空时写 `null`。
+
+新闻 patch 允许上述字段，但 `slug` 新建后不可改；`is_published` 只能在通过 `is_admin` 写权限
+检查后由该白名单字段修改，不能由未授权客户端绕过权限伪造“已发布”状态。
+
+成员 patch 的允许字段只有：`is_revealed`、`photo_url`、`name`、`name_ja`、`name_en`、
+`specialty_ja`、`specialty_zh`、`specialty_en`、`expected_reveal_on`；路由参数 `[no]` 决定卡位，
+不能从请求体接受或修改 `no`、`id`、创建时间或更新时间。已公开卡位的三个 required 值经 trim 后
+必须非空，未公开卡位必须有 `expected_reveal_on`；patch 要把现有行与部分请求合并后再校验，不能
+因为请求只改照片就误把已有日期当成缺失。空值规则与 048 的 check 保持一致。
+
+服务端审计赋值固定如下：create 忽略或拒绝客户端的 `created_by_user_id` /
+`updated_by_user_id`，从通过权限检查的 `actor.id` 写入两者；patch 永远保留原
+`created_by_user_id`，只把 `updated_by_user_id` 写成当前 `actor.id`。响应测试必须证明客户端提交
+伪造 UUID 不会进入数据库。
 
 **不做草稿态**：附件没提，YAGNI。写进库即上线（配合 §6 的 revalidate）。
 成员只有 PATCH，没有增删 —— 12 个卡位由 seed 建好，是固定的。
@@ -371,6 +472,9 @@ section.action === 'staff-recruit' ? STAFF_RECRUIT_HREF : ...
 `ContactSection.tsx` 的按钮 variant 现在是
 `section.action === 'recruit' ? 'hot' : 'ghost'` —— 新入口走 `ghost`，与主招募入口
 （`hot`）拉开主次，符合它是次要通道的定位。
+现有 `src/lib/site/contact.test.ts` 的 contact action 断言必须同步更新：
+`sections[1].ctaHref` 从 `undefined` 改为 `/site/recruit/staff`，再保留新增的
+`staff-recruit` 映射测试；否则新 CTA 会让旧测试先于功能验证失败。
 
 **表单页**：`/site/recruit/staff`，复用 RECRUIT 页的版式与 `ApplicationForm` 的三层防护，
 字段按 §5.1 的员工类分支。
@@ -450,13 +554,17 @@ images: {
 `src/lib/site/news.ts` 现有的 `NEWS_SLUGS` / `NEWS_IMAGES` / `buildArticles` 与
 `src/lib/site/content.ts` 的 `buildMembers` / `MEMBER_IMAGES` 相应删除或改为从库数据构造；
 `MEMBER_SLOTS = 12` 保留（它现在是 `site_members.no` 的 check 上界，两处要一致）。
+成员构造规则必须与数据库约束双重防守：未公开卡位用 `expected_reveal_on` 格式化为 `YYYY-MM`；
+若历史脏数据仍返回 NULL，官网显示三语 UI key `site.members.unrevealedScheduleUnknown`
+（例如「公开时间未定」），绝不输出空字符串。正常 seed 的 9–12 号卡位不会触发这个 fallback，
+因为它们都写入 `2026-12-01`。
 
 ---
 
 ## 7. i18n 门禁的连带改动
 
-内容进库后，这些 key 必须从 `messages/{zh,en,ja}.json` **删除**，否则
-`scripts/check-i18n.mjs` 会判定「定义了但没被引用」：
+内容进库后，这些 key 应从 `messages/{zh,en,ja}.json` 删除，但**未使用 key 目前只会
+`console.warn`，不会让 `check-i18n` 退出失败**：
 
 - `site.news.articles[]`（4 篇）
 - `site.members.list`（8 位）
@@ -474,8 +582,15 @@ images: {
 - 后台三个页面的界面文案（三语），含「置顶」「下架 / 上架」「最后保存于」
 - 官网员工招募表单的字段标签：邮箱 / 希望参与职能（三选一）/ 通勤方式（地铁·自行车·步行·开车）
 - CONTACT §02 的 CTA 文案（替换掉被删的 `note`）
+- 官网成员未公开且日期缺失时的 fallback 文案 `site.members.unrevealedScheduleUnknown`
 
 `scripts/i18n-baseline.json` 需同步更新。
+
+`check-i18n` 真正会以 exit code 1 阻断的是：源码引用了不存在的 message key（`overBaseline`），
+以及 baseline 记录了已不存在的文件（zombie baseline）。正确顺序是：先完成迁移、seed、数据库读库
+与替代 UI 逻辑，验证三语页面，再删除旧 key；随后运行 `npm run test:copy`，必要时用
+`node scripts/check-i18n.mjs --update-baseline` 更新 baseline。seed 需要的稳定内容必须先移到
+脚本自身的 fixture，不能继续依赖准备删除的 UI messages。
 
 ---
 
@@ -491,6 +606,10 @@ images: {
 > 叫 `staff` 的 kind 而去数据库里加它。列表里用一列显示具体职能。
 主播 tab 的列不变；员工 tab 的列：姓名 / 职能 / 联系方式 / 邮箱 / 居住位置 / 通勤方式 / 时间。
 统计条（总数 / 新增 / 今日）按当前 tab 统计。
+现有 `ApplicationRow` 的 `age` 必须改为 `number | null`、`residence` 改为 `string | null`，并加入
+`kind`、`email`、`commute_mode`。主播列中 NULL 用本地化的 `notProvided`（例如 `—`）显示；
+员工列中年龄不展示，居住位置/邮箱/通勤方式为空时同样显示 `notProvided`，不能把 NULL 直接插入
+JSX 或格式化成字符串 `null`。查询和统计都必须按当前 tab 的 kind 集合执行。
 
 ### 8.2 新增侧边栏分组「官网内容」
 
@@ -504,6 +623,10 @@ images: {
 ```
 
 放在「创作者」组之后 —— 与同为官网来源的「官网应募」相邻。
+实现时必须同时完成四件事：从 `lucide-react` 引入实际使用的新闻/成员图标；给一级 key
+`siteContent` 在 `NAV_ACCENT: Record<TopNavKey, Accent>` 中登记色板；给两个子 key 登记需要的
+accent（若不使用继承）；三语 `nav` namespace 增加 `siteContent`、`siteNews`、`siteMembers`。
+漏掉一级色板会直接触发 TypeScript 编译错误，漏掉图标或 i18n 则会留下运行时空白导航。
 
 ### 8.3 页面
 
@@ -566,12 +689,16 @@ images: {
 | slug 校验 | 合法/非法 slug 形状 |
 | `resolvePublicSiteRoute` | `/recruit/staff` 在官网域名下被放行（现有 `domain-routing.test.ts` 补一条）|
 | `buildContactSections` | `action: 'staff-recruit'` 映射出正确的 `ctaHref` |
-| 成员卡位构造 | 12 个卡位补齐；未公开卡位回退占位文案 |
+| 成员卡位构造 | 12 个卡位补齐；未公开卡位按日期显示；日期异常时显示 `unrevealedScheduleUnknown` |
 | `upload-image` | 类型/大小校验；扩展名净化 |
 | `canEditSiteContent` | admin 通过；**ops 必须被拒**（它是默认角色，见 §5.3）；其他角色、未登录均被拒 |
 
-**API route 与权限判定目前全仓 0 测试**（审计发现）。本设计**不承诺**补齐这一层，
-但 `canEditSiteContent` 是纯函数，必须有测试 —— 新引入的权限约定不能没有测试守着。
+**API route 与权限判定目前全仓 0 测试**（审计发现）。本设计补上内容 API 的集成测试：未登录
+返回 401、普通登录用户 GET 成功但写操作 403、管理员写入成功、未知字段/空白必填字段被拒、
+客户端不能伪造 `is_published` 或审计字段、下架后的官网详情返回 404。`canEditSiteContent` 的
+纯函数测试仍保留，权限和 HTTP 行为不能只靠其中一层覆盖。为使 `node:test` 能构造真实
+`Request` 又不连生产 Supabase，route 应把业务处理抽成可注入 `{ authGuard, getActorProfile, db,
+revalidatePath }` 的 handler factory，production route 绑定真实依赖，测试绑定隔离的 fake context。
 
 迁移 047/048/049 按 046 的做法，在一次性 Postgres 容器上实跑验证（含幂等重跑）后才算完成；050
 必须在 §3.1 规定的 expand → deploy → contract 判据满足后单独执行，不能与 047 同批运行。
