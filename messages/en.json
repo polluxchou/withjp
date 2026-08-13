@@ -51,7 +51,8 @@
     "profile": "Profile",
     "logout": "Logout",
     "appName": "Creator Network",
-    "appSubtitle": "AI Operating System"
+    "appSubtitle": "AI Operating System",
+    "recruitApplications": "Site applications"
   },
   "language": {
     "zh": "中文",
@@ -1621,8 +1622,20 @@
     "weeklyDelta": "{pct}%/wk",
     "weeklyPointTip": "Week of {date} · {count}",
     "weeklyEmpty": "No follower data",
-    "viewAll": "View all {count}",
-    "collapse": "Collapse",
+    "shotDates": "Shot dates",
+    "earlierDates": "Earlier",
+    "laterDates": "Later",
+    "noShotOnDate": "No shot on {date}",
+    "noShotUndated": "No undated shot",
+    "addShotOnDate": "Add a shot for {date}",
+    "moreShots": "+{count}",
+    "shotIndexOf": "{index} / {total}",
+    "prevShot": "Previous shot",
+    "nextShot": "Next shot",
+    "closeShot": "Close",
+    "shotDate": "Shot date",
+    "saveShotDate": "Save date",
+    "shotDateInvalid": "Invalid date format",
     "upload": "Upload",
     "orPaste": "or paste",
     "related": "Related",
@@ -1633,7 +1646,6 @@
     "uploadFailed": "Upload failed",
     "noShots": "No screenshots yet",
     "undated": "Undated",
-    "shotPreview": "Screenshot preview",
     "bio": "Bio",
     "fieldMembers": "Members",
     "fieldComposition": "Type",
@@ -1645,5 +1657,591 @@
     "expandProfile": "Toggle dossier",
     "handlePlaceholder": "@handle or URL",
     "editHandle": "Edit handle"
+  },
+  "site": {
+    "meta": {
+      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
+      "titleTemplate": "%s ｜ EchoAmp OSAKA",
+      "description": "EchoAmp is an Osaka-based TikTok LIVE Creator Network. Through our dual-captain system, we recruit and develop female live creators — from dance training to livestream operations and original content production."
+    },
+    "nav": {
+      "top": "TOP",
+      "news": "NEWS",
+      "vision": "VISION",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "contact": "CONTACT",
+      "recruit": "RECRUIT / APPLY",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu"
+    },
+    "locale": {
+      "ja": "日本語",
+      "zh": "中文",
+      "en": "EN",
+      "toggle": "Switch language",
+      "menuLabel": "Language options"
+    },
+    "veil": {
+      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "line1": "Finding Osaka's most gifted",
+      "line2": "performers who sing and dance."
+    },
+    "footer": {
+      "address": "Shin-Osaka, Yodogawa-ku, Osaka ／ TikTok LIVE Creator Network\nLive training · AIGC film · Original music",
+      "visionMembers": "VISION ／ MEMBERS",
+      "live": "TIKTOK LIVE",
+      "services": "SERVICES",
+      "news": "NEWS",
+      "recruit": "RECRUIT",
+      "contact": "CONTACT",
+      "social": "TIKTOK ／ X ／ LINE",
+      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+    },
+    "ticker": {
+      "items": [
+        "BORN IN OSAKA · 2026",
+        "NIGHT AS OUR STAGE",
+        "CAMERAS ON",
+        "TT LIVE · EVERY NIGHT",
+        "THE ECHO GOES ON"
+      ]
+    },
+    "home": {
+      "eyebrow": "TIKTOK LIVE CREATOR NETWORK",
+      "title1": "BUILDING FEMALE SINGING & DANCE",
+      "title2": "LIVE GROUPS IN OSAKA.",
+      "tagline": "ECHO FROM OSAKA NIGHT",
+      "lead": "Recruitment, training, livestreaming, and content production. EchoAmp grows together with its creators.",
+      "ctaApply": "APPLY",
+      "ctaAbout": "ABOUT ECHOAMP",
+      "heroCaption": "BRING THE LIGHTS OF OSAKA INTO LIVE.",
+      "heroPlaceholder": "Hero image / MoonDollz key visual",
+      "stats": [
+        {
+          "value": "SEP 2026",
+          "label": "FIRST MEMBER RECRUITMENT"
+        },
+        {
+          "value": "NOV 2026",
+          "label": "SECOND MEMBER RECRUITMENT"
+        },
+        {
+          "value": "MAR 2027",
+          "label": "GROUP FORMATION"
+        }
+      ],
+      "newsHead": {
+        "eyebrow": "01 ／ NEWS",
+        "title": "LATEST",
+        "more": "VIEW ALL →"
+      },
+      "visionHead": {
+        "eyebrow": "02 ／ VISION",
+        "title": "THE TEAM'S STAGE",
+        "more": "READ MORE →"
+      },
+      "visionBody": "We believe live streaming is a stage built for a team. EchoAmp brings together people who love music, dance, and performance, building a style and culture of their own through continuous live shows.",
+      "visionCards": [
+        {
+          "no": "1 ALBUM",
+          "title": "Create something that lasts",
+          "body": "At least one team album a year, turning livestream performances into lasting work."
+        },
+        {
+          "no": "SHIN-OSAKA",
+          "title": "Where it all begins",
+          "body": "Our live and training base, where the team's culture takes shape."
+        },
+        {
+          "no": "13 MEMBERS",
+          "title": "Become a real team",
+          "body": "About 13 creators within a year, building a shared style and culture."
+        },
+        {
+          "no": "1–3 YEARS",
+          "title": "Grow fast, within a defined chapter",
+          "body": "One year per growth cycle, building experience through continuous live shows toward independence."
+        }
+      ],
+      "projectHead": {
+        "eyebrow": "03 ／ PROJECT",
+        "title": "MOONDOLLZ",
+        "sub": "Princesses of the night, carrying dreams. ／ A dual-captain singing and dance group",
+        "more": "MEMBERS →"
+      },
+      "projectPlaceholder": "MOONDOLLZ concept art (moonlit night + wafuku)",
+      "quote1": "“BORN IN MOONLIGHT.",
+      "quote2": "GLOWING LIKE DOLLS.”",
+      "projectTerms": [
+        {
+          "term": "MOON",
+          "body": "Dreamlike, nocturnal, mysterious — a fit for princess styling, night makeup and late-night streams."
+        },
+        {
+          "term": "DOLLZ",
+          "body": "Dolls, plural. Each member carries her own style; together they read as a troupe."
+        },
+        {
+          "term": "-Z",
+          "body": "A spoonful of Y2K, streetwear and subculture."
+        }
+      ],
+      "projectNote": "Sub-units are run with distinct character settings, then debut together as one large group so the streaming reach compounds.",
+      "servicesHead": {
+        "eyebrow": "04 ／ SERVICES",
+        "title": "FOUR BUSINESS LINES"
+      },
+      "techHead": {
+        "eyebrow": "05 ／ TECHNOLOGY",
+        "title": "SUIT LIVE TECHNOLOGY"
+      },
+      "techBody": "Costumed-suit (kigurumi) streaming still has few precedents in Japan. We brought it in house to an operable level, with motion linkage and real-time staging. One of EchoAmp's own differentiators.",
+      "techCta": "See the tech",
+      "techPlaceholder": "Suit / motion-capture session photo",
+      "bannerEyebrow": "RECRUIT ／ SECOND ROUND",
+      "bannerLine1": "For those who can dance, those who want to be seen,",
+      "bannerLine2": "and those who are still nobody.",
+      "bannerCta": "See requirements →"
+    },
+    "news": {
+      "eyebrow": "NEWS",
+      "title": "LATEST",
+      "filters": [
+        "ALL",
+        "RECRUIT",
+        "PROJECT",
+        "LIVE"
+      ],
+      "empty": "Nothing in this category yet",
+      "read": "READ →",
+      "back": "← Back to NEWS",
+      "backCta": "All NEWS",
+      "applyCta": "APPLY NOW",
+      "imagePlaceholder": "Article hero image",
+      "articles": [
+        {
+          "date": "2026.08.12",
+          "tag": "PROJECT",
+          "title": "3D Avatar Technology Team to Create Dedicated MC Characters for EchoAmp",
+          "lead": "EchoAmp will work with an experienced 3D avatar technology team from China’s live-streaming industry to develop dedicated character solutions for its MC roles.",
+          "body": [
+            "The collaboration will integrate character design, real-time motion, voice performance, and live interaction, enabling MCs to appear consistently through distinctive virtual identities. The project will also explore new formats that combine live performers, virtual characters, and real-time streaming."
+          ]
+        },
+        {
+          "date": "2026.08.10",
+          "tag": "PROJECT",
+          "title": "EchoAmp Announces Its First Operations Partner, 吉光片羽株式会社",
+          "lead": "EchoAmp will enter into a close partnership with 吉光片羽株式会社, a media company with established experience in MCN operations and creator management.",
+          "body": [
+            "The two companies will collaborate across talent management, content operations, on-site execution, and creator development. EchoAmp will lead the team’s overall brand and direction while combining its capabilities with its partner’s local operational experience in Japan."
+          ]
+        },
+        {
+          "date": "2026.08.01",
+          "tag": "RECRUIT",
+          "title": "EchoAmp to Begin Its First Recruitment Round in Mid-September, Seeking Six Members",
+          "lead": "EchoAmp will begin its first team recruitment round in Osaka in mid-September 2026, with six female creators planned for the initial lineup.",
+          "body": [
+            "Recruitment will focus on singing, dance, on-camera presence, and a strong commitment to live performance. Selected members will take part in training, choreography, and live-streaming practice while helping shape the style and culture of EchoAmp’s first performance team."
+          ]
+        },
+        {
+          "date": "2026.07.21",
+          "tag": "PROJECT",
+          "title": "EchoAmp Launches in Osaka with Plans to Build a Female Singing and Dancing Live Team",
+          "lead": "EchoAmp has officially launched its Creator Network project in Osaka.",
+          "body": [
+            "Centered on singing, dance, and live performance, the project will discover female creators with strong potential and bring them together as a dedicated live-streaming team. Through training, content production, and continuous live shows, EchoAmp aims to build a distinctive team style, culture, and fan community around live streaming as a stage of its own."
+          ]
+        },
+        {
+          "date": "2026.05.01",
+          "tag": "PROJECT",
+          "title": "EchoAmp Announces New Dual-Captain Singing and Dance Group",
+          "lead": "We announced MOONDOLLZ, a dual-captain singing and dance group.",
+          "body": [
+            "MOON is the dreamlike, nocturnal and mysterious; DOLLZ is the sense of a troupe where every member carries her own style; the closing Z is the temperature of Y2K and streetwear. The name stacks all three.",
+            "Sub-units are run with distinct character settings while debuting together as one group. The captains are Ayatsuki (MOON SIDE) and Yukiha (DOLLZ SIDE).",
+            "Members will be revealed progressively in October and December."
+          ]
+        }
+      ]
+    },
+    "vision": {
+      "eyebrow": "VISION ／ 2027",
+      "title": "Find Osaka's most talented singing and dancing live creators.",
+      "statement": "We believe live streaming is a stage built for a team.",
+      "lead": "EchoAmp brings together people who love music, dance, and performance. Through continuous live shows, they build a style and culture of their own—and find the audience who truly loves the team and wants to grow with them.",
+      "imagePlaceholder": "Night view of Dotonbori / Shinsekai",
+      "imageAlt": "Illustrated Osaka night skyline seen from above, neon-lit blocks and elevated expressway lights running into the distance, a lit observation tower in the mid-ground",
+      "eras": [
+        {
+          "value": "1 ALBUM",
+          "title": "Create something that lasts",
+          "body": "Produce at least one team album each year, turning performances born on live streams into music that can live beyond the moment."
+        },
+        {
+          "value": "SHIN-OSAKA",
+          "title": "Where it all begins",
+          "body": "Our professional base for live streaming, training, and content production—and the place where the team's culture takes shape."
+        },
+        {
+          "value": "13 MEMBERS",
+          "title": "Become a real team",
+          "body": "Bring together around 13 creators within one year to build a shared performance style, team culture, and fan community."
+        },
+        {
+          "value": "1–3 YEARS",
+          "title": "Grow fast, within a defined chapter",
+          "body": "Each year is one growth cycle. Through continuous live shows and performances, creators build an audience, a body of work, and real stage experience before moving forward on their own."
+        }
+      ],
+      "principles": [
+        {
+          "label": "SPIRIT",
+          "title": "Princesses Who Don't Wait for Fate",
+          "body": "Not dolls waiting to be chosen in someone else's story. They choose, they change, and they write their own future."
+        },
+        {
+          "label": "VOICE",
+          "title": "Sweetness with an Edge",
+          "body": "Tenderness, loneliness, rebellion, and ambition coexist. Real emotions become songs — and power on stage."
+        },
+        {
+          "label": "IMAGE",
+          "title": "Crowns and the Night",
+          "body": "Moonlight, ice, roses, and the glow of the city. Thirteen distinct personalities come together to create one stage made for the night."
+        }
+      ]
+    },
+    "members": {
+      "eyebrow": "MEMBERS ／ MOONDOLLZ",
+      "title": "MOONDOLLZ",
+      "sub": "Two captains. Sub-units carry distinct character settings, then debut together as one group.",
+      "note": "* Members revealed progressively in October and December",
+      "placeholder": "MEMBER",
+      "captains": [
+        {
+          "eyebrow": "CAPTAIN 01 ／ MOON SIDE",
+          "name": "AYATSUKI",
+          "jp": "Ayatsuki / Leader",
+          "body": "Leads the night–wa–stillness unit. The moon that guides the light, the leader who points at the dream. Anchors late-night streams and center stage."
+        },
+        {
+          "eyebrow": "CAPTAIN 02 ／ DOLLZ SIDE",
+          "name": "YUKIHA",
+          "jp": "Yukiha / Leader",
+          "body": "Heals transparent pain with a breath of snow. Leads the snow–bamboo–silence unit; owns dance and battle-format shows."
+        }
+      ],
+      "unrevealedName": "— NOT YET REVEALED —",
+      "unrevealedRole": "Revealed in December",
+      "list": [
+        {
+          "name": "KANO",
+          "role": "Kano / The trap of a fragile smile"
+        },
+        {
+          "name": "MIKOTO",
+          "role": "Mikoto / The graceful blade"
+        },
+        {
+          "name": "LULU",
+          "role": "Lulu / A burst of pink light"
+        },
+        {
+          "name": "CHIYO",
+          "role": "Chiyo / Lone star dancing a thousand nights"
+        },
+        {
+          "name": "AKAYA",
+          "role": "Akaya / Strong cherry blossom of the court"
+        },
+        {
+          "name": "YUMEKI",
+          "role": "Yumeki / The voice that weaves illusions"
+        },
+        {
+          "name": "SHINO",
+          "role": "Shino / Noble and dangerous temptress"
+        },
+        {
+          "name": "HIMENE",
+          "role": "Himene / A princess born for sound"
+        }
+      ]
+    },
+    "live": {
+      "eyebrow": "TIKTOK LIVE",
+      "title": "STREAM SCHEDULE",
+      "lead": "From training to going live, we guide each member through a structured development program, making live performance a core capability of our Creator Network.",
+      "headers": {
+        "day": "DAY",
+        "program": "PROGRAM",
+        "focus": "FOCUS",
+        "time": "TIME"
+      },
+      "schedule": [
+        {
+          "day": "DAY 1–3",
+          "program": "Fitting & Initial Style Direction",
+          "focus": "STYLE SETUP",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 4–10",
+          "program": "Solo Dance Selection & Intensive Training",
+          "focus": "DANCE TRAINING",
+          "time": "10:00–18:00"
+        },
+        {
+          "day": "DAY 11–15",
+          "program": "Debut Stage Design & LIVE Guidelines",
+          "focus": "STAGE & LIVE RULES",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 16–20",
+          "program": "Profile Shoot & Introduction Video",
+          "focus": "PHOTO & INTRO VIDEO",
+          "time": "11:00–18:00"
+        },
+        {
+          "day": "DAY 21–30",
+          "program": "Trial LIVE Sessions (3 hrs/day)",
+          "focus": "TRIAL LIVE",
+          "time": "14:00–21:00"
+        },
+        {
+          "day": "MONTH 2",
+          "program": "Regular LIVE Begins (Mondays Off)",
+          "focus": "REGULAR LIVE",
+          "time": "TUE–SUN"
+        },
+        {
+          "day": "TIME SLOT",
+          "program": "Two LIVE Sessions per Day",
+          "focus": "2 SESSIONS / DAY",
+          "time": "14:30–17:30 / 18:30–21:30"
+        }
+      ],
+      "onAirLabel": "BROADCAST PLATFORM",
+      "onAirPlaceholder": "Stream capture (vertical)",
+      "onAirAlt": "Stream styling group photo: five streamers in black-and-white uniform looks, holding a microphone and a sceptre on the studio floor",
+      "onAirProgram": "A dedicated live stage inside the TikTok app",
+      "onAirTime": "Launch day ／ Shin-Osaka, Osaka"
+    },
+    "services": {
+      "eyebrow": "SERVICES",
+      "title": "WHAT WE DO",
+      "items": [
+        {
+          "no": "01",
+          "code": "S-01",
+          "title": "Live-streaming training",
+          "en": "LIVE TRAINING",
+          "short": "From zero: voice, camera work, talk design and metrics — a dedicated manager runs alongside you.",
+          "body": "Built for people with no experience: voice, camera work, talk design, comment handling and metrics, taught in stages. A dedicated manager works with you daily, down to planning your stream slots."
+        },
+        {
+          "no": "02",
+          "code": "S-02",
+          "title": "AIGC idol drama",
+          "en": "AIGC IDOL DRAMA",
+          "short": "Short-form idol drama planned and produced with generative AI, building a world outside the stream.",
+          "body": "Planning, writing and production of short idol dramas using generative AI. It builds a world beyond the stream and banks each member's character setting as footage."
+        },
+        {
+          "no": "03",
+          "code": "S-03",
+          "title": "Original music",
+          "en": "ORIGINAL MUSIC",
+          "short": "Group and solo songs written to order, supplied to both streams and stages.",
+          "body": "Group and solo songs written to order and supplied to streams, stages and film. The annual release and event calendar is built around the music."
+        },
+        {
+          "no": "04",
+          "code": "S-04",
+          "title": "Suit live technology",
+          "en": "SUIT LIVE TECHNOLOGY",
+          "short": "Fabrication, motion, voice and real-time staging in house — a field with few precedents in Japan.",
+          "body": "Costumed-suit (kigurumi) streaming still has few precedents in Japan, and we keep that know-how in house: fabrication, motion, voice and real-time staging run as one, so a character IP can grow continuously without depending on the performer's face. One of EchoAmp's own differentiators."
+        }
+      ],
+      "subItems": [
+        {
+          "no": "04-A",
+          "title": "Fabrication and suit design",
+          "body": "Designed for how it reads on stream — silhouette, range of motion, field of view — plus airflow and weight balance for long sessions."
+        },
+        {
+          "no": "04-B",
+          "title": "Motion linkage",
+          "body": "Expression, glow and effect control that follow the performer, composited live on the streaming side."
+        },
+        {
+          "no": "04-C",
+          "title": "Running it as IP",
+          "body": "The character is an asset independent of any performer, extensible to AIGC film, music and merchandise."
+        }
+      ],
+      "placeholders": [
+        "Suit shoot / production floor",
+        "Motion linkage test screen"
+      ]
+    },
+    "recruit": {
+      "eyebrow": "RECRUIT ／ REQUIREMENTS",
+      "title1": "For those who can dance, those who want to be seen,",
+      "title2": "and those who are still nobody.",
+      "rows": [
+        {
+          "label": "Who we seek",
+          "body": "Women around 18–26, living in Osaka/Kansai or able to commute. Japanese nationality or a residence status permitting work."
+        },
+        {
+          "label": "Welcome experience",
+          "body": "Dance (street, cheer, ballet and so on), stage experience, university dance clubs or amateur teams. No experience is fine if the drive is there."
+        },
+        {
+          "label": "Activities",
+          "body": "TikTok LIVE streams, group activity as MOONDOLLZ, appearing in AIGC film, music releases and live events."
+        },
+        {
+          "label": "Terms",
+          "body": "Lessons and studio use are covered by the agency. Stream revenue is shared per our published terms. Costume and shooting support included."
+        },
+        {
+          "label": "How to apply",
+          "body": "Submit the form → document screening → online interview → practical session at the Osaka studio → offer and contract. Around 2–3 weeks."
+        }
+      ],
+      "payEyebrow": "RECRUIT ／ REVENUE AND TERMS",
+      "payTitle": "How we think about revenue and terms",
+      "payCols": [
+        "Stream revenue is shared per our published terms, tiered by hours streamed, results and participation in group activity.",
+        "Lessons, studio, costume and shooting are covered by the agency. There are no upfront costs for you.",
+        "Exact figures, contract form and expected workload are explained individually during the online interview."
+      ],
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "Name",
+        "age": "Age",
+        "residence": "Where you live",
+        "contact": "How to reach you",
+        "contactHint": "LINE ID, email or a social account",
+        "experience": "Experience / socials",
+        "consent": "I agree that the information above may be used for recruitment screening.",
+        "submit": "Submit",
+        "submitting": "Sending…",
+        "lineNote": "You can also apply via LINE: @echoamp_osaka",
+        "successTitle": "Thank you for applying.",
+        "successBody": "We will review your entry and get back to you within 2–3 weeks. If it is urgent, reach us on LINE (@echoamp_osaka).",
+        "errors": {
+          "required": "Required",
+          "tooLong": "Too long",
+          "outOfRange": "Enter a number between 16 and 60",
+          "invalidAge": "Digits only",
+          "consent": "Your consent is required",
+          "rateLimited": "Too many submissions right now. Please try again shortly.",
+          "network": "Could not send. Check your connection and try again."
+        }
+      }
+    },
+    "contact": {
+      "eyebrow": "CONTACT",
+      "title": "GET IN TOUCH",
+      "sections": [
+        {
+          "no": "01", "eyebrow": "FOR CREATOR", "title": "For applicants",
+          "body": "For auditions, lessons and activity terms. Chiron handles recruiting and offline operations; LINE is the fastest way to reach us.",
+          "cta": "Ask us on LINE", "action": "recruit", "partner": "Operating Entity",
+          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "rows": [
+            { "label": "Company", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
+            { "label": "Founded / location", "value": "2021年／大阪市淀川区" },
+            { "label": "Business", "value": "ライブ配信キャストの採用・オフライン運営" },
+            { "label": "Address", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
+            { "label": "Website", "value": "https://chi-ron.com/", "link": "external" }
+          ]
+        },
+        {
+          "no": "02", "eyebrow": "FOR COMPANION", "title": "Production & operations partner",
+          "body": "Our partner for hair and makeup, location shoots, group-stream operations training and AIGC content production.",
+          "note": "Contact desk coming soon", "partner": "PRODUCTION PARTNER",
+          "rows": [
+            { "label": "Company", "value": "吉光片羽株式会社" },
+            { "label": "Founded / location", "value": "2019年／西宮市" },
+            { "label": "Business", "value": "インフルエンサーマーケティング" },
+            { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
+            { "label": "Website", "value": "https://kikkou.jp/", "link": "external" }
+          ]
+        },
+        {
+          "no": "03", "eyebrow": "FOR CLIENT", "title": "For Businesses & Brands",
+          "body": "For music production, mascot costume technology, commercial livestreaming, advertising partnerships, or reports of misconduct and compliance concerns, please contact us by email.",
+          "cta": "business@echoamp.jp", "action": "email",
+          "rows": [
+            { "label": "Services", "value": "Music production / mascot costume technology / commercial livestreaming / advertising partnerships / misconduct and compliance reports" },
+            { "label": "Contact", "value": "business@echoamp.jp", "link": "email" },
+            { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese & Chinese" }
+          ]
+        }
+      ],
+      "office": {
+        "eyebrow": "OFFICE ／ ABOUT THE OFFICE",
+        "title": "Five minutes on foot from Shin-Osaka",
+        "body": "Our office and streaming studio are in the Shin-Osaka area, easy to reach by both shinkansen and subway, so lessons and streams happen in one place. We share the building and room number once an interview is confirmed.",
+        "rows": [
+          {
+            "label": "Nearest station",
+            "value": "Shin-Osaka (JR / subway), 5 min walk"
+          },
+          {
+            "label": "Facilities",
+            "value": "Streaming booths / lesson space / shooting space"
+          },
+          {
+            "label": "Visits",
+            "value": "By appointment only; address shared after the interview"
+          }
+        ],
+        "map": {
+          "station": "Shin-Osaka",
+          "walk": "5 min walk ／ 400m",
+          "studio": "ECHOAMP STUDIO",
+          "areaEn": "SHIN-OSAKA AREA",
+          "areaJp": "Yodogawa-ku, Osaka",
+          "north": "N ↑",
+          "axis": "W ← → E",
+          "alt": "Schematic showing the studio five minutes on foot from Shin-Osaka station"
+        }
+      }
+    },
+    "theme": {
+      "dark": "◐ DARK",
+      "light": "◑ LIGHT",
+      "toggle": "Switch theme"
+    }
+  },
+  "recruitApplications": {
+    "title": "Site applications",
+    "subtitle": "Entries from the public site's RECRUIT form (read-only)",
+    "totalLabel": "Total",
+    "newLabel": "Unhandled",
+    "todayLabel": "Today",
+    "listTitle": "Entries",
+    "empty": "No applications yet",
+    "columns": {
+      "date": "Received",
+      "name": "Name",
+      "age": "Age",
+      "residence": "Lives in",
+      "contact": "Contact",
+      "locale": "Language",
+      "experience": "Experience / socials"
+    }
   }
 }

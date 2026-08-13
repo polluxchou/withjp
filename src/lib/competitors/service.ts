@@ -1,6 +1,7 @@
 // src/lib/competitors/service.ts
 import { createServerClient } from '@/lib/supabase/server'
 import { assembleBoard, parseHandleFromUrl } from './assemble'
+import { isValidShotDate } from './shotGrid'
 import type { Competitor, CompetitorSnapshot, CompetitorShot, CompetitorBoard, CompetitorPlatform } from './types'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
@@ -167,8 +168,11 @@ export interface ShotInput {
   sort_order?: number
 }
 
+const SHOT_ON_HINT = 'shot_on must be a real calendar date in YYYY-MM-DD (1900-2999), or null to clear'
+
 export async function addShot(competitorId: string, input: ShotInput): Promise<ServiceResult<CompetitorShot>> {
   if (!input?.image_url) return err('invalid_input', 'image_url required')
+  if (!isValidShotDate(input.shot_on)) return err('invalid_input', SHOT_ON_HINT)
   const db = createServerClient()
   const { data, error } = await db
     .from('competitor_shots')
@@ -189,6 +193,8 @@ export async function updateShot(
   shotId: string,
   fields: { shot_on?: string | null; tag?: string | null; caption?: string; sort_order?: number },
 ): Promise<ServiceResult<{ id: string }>> {
+  if (!fields || typeof fields !== 'object') return err('invalid_input', 'body must be an object')
+  if (!isValidShotDate(fields.shot_on)) return err('invalid_input', SHOT_ON_HINT)
   const patch: Record<string, unknown> = {}
   for (const k of ['shot_on', 'tag', 'caption', 'sort_order'] as const) {
     if (fields[k] !== undefined) patch[k] = fields[k]
