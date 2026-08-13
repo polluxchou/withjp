@@ -22,9 +22,13 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
   const tServices = useTranslations('site.services')
   const tTicker = useTranslations('site.ticker')
 
+  // slogan 是品牌锁定文字，三语共用同一句欧文（页脚版权行里也是同一句）：设计稿
+  // 这一行的气质全靠 Barlow Condensed 的三重错位，本地化成汉字短句会同时丢掉字族
+  // 和错位效果，只剩一句和正文没有区别的和文。
   const tagline = t('tagline')
   // 三重描边是给拉丁字母做的：汉字与假名笔画密，3px 错位会和笔画本身撞上糊成
-  // 重影，所以含汉字/假名的 slogan 只渲染单层。
+  // 重影，所以含汉字/假名的 slogan 只渲染单层。三语文案现在都是欧文，这条是文案
+  // 又被本地化回汉字时的兜底，别当死代码删掉。
   // 假名 / CJK 扩展A / CJK 基本区 / CJK 兼容汉字
   const taglineHasCjk = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(tagline)
 
