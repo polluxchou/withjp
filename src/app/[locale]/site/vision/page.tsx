@@ -80,7 +80,7 @@ export default function SiteVisionPage({ params }: { params: { locale: string } 
         </HairlineGrid>
       </SiteSection>
 
-      {/* ══ 设计原则 ══ */}
+      {/* ══ 团体性格：SPIRIT ／ VOICE ／ IMAGE ══ */}
       <div className="border-y border-site-line bg-site-panel">
         <div className="mx-auto grid max-w-[1360px] gap-10 px-6 py-14 md:px-8 lg:grid-cols-3 lg:gap-14 lg:py-[72px]">
           {principles.map((p) => (
