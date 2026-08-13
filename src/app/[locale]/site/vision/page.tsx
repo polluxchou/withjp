@@ -46,7 +46,9 @@ export default function SiteVisionPage({ params }: { params: { locale: string } 
         <h1 className="mt-3.5 max-w-[900px] font-serif-jp text-[clamp(26px,3.4vw,52px)] leading-[1.35]">
           {t('title')}
         </h1>
-        <p className="mt-6 max-w-[760px] text-[17px] leading-[2.1] text-site-fg/78">{t('lead')}</p>
+        {/* 信念句单独成段：它是宣言的第二层，和下面的说明段落挤在一个 <p> 里会读丢。 */}
+        <p className="mt-6 max-w-[760px] font-serif-jp text-[19px] leading-[1.9]">{t('statement')}</p>
+        <p className="mt-4 max-w-[760px] text-[17px] leading-[2.1] text-site-fg/78">{t('lead')}</p>
       </SiteSection>
 
       <SiteSection divider={false} className="pt-0 lg:pt-0">
