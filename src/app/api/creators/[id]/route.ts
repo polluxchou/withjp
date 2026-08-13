@@ -15,7 +15,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
   const [creatorRes, tasksRes, financeRes, transitionsRes, activityLogsRes] = await Promise.all([
     db.from('creators')
-      .select('*, broadcast_account:broadcast_accounts(*), operator_user:users(id,name,email,user_code,role)')
+      .select('*, broadcast_account:broadcast_accounts(*), operator_user:users!creators_operator_user_id_fkey(id,name,email,user_code,role)')
       .eq('id', params.id)
       .single(),
     db.from('tasks').select('*, agent:agents(id,name,role)').eq('creator_id', params.id).order('created_at', { ascending: false }),
@@ -93,7 +93,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     .from('creators')
     .update(normalizedUpdates)
     .eq('id', params.id)
-    .select('*, broadcast_account:broadcast_accounts(*), operator_user:users(id,name,email,user_code,role)')
+    .select('*, broadcast_account:broadcast_accounts(*), operator_user:users!creators_operator_user_id_fkey(id,name,email,user_code,role)')
     .single()
 
   if (error) {

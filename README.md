@@ -1,6 +1,6 @@
-# Creator Guild AI OS
+# Creator Network AI OS
 
-A Next.js + TypeScript + Supabase AI operating system for managing a live-streaming creator guild.
+A Next.js + TypeScript + Supabase AI operating system for managing a live-streaming creator network.
 
 ## Setup
 

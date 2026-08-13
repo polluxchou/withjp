@@ -17,6 +17,7 @@ import {
   getDeviceCostTimeSeries,
   type DeviceCostGranularity,
 } from '@/lib/devices/costs'
+import { AXIS, GRID, TOOLTIP_STYLE, TOOLTIP_LABEL_STYLE } from '@/lib/chart-theme'
 
 interface Props {
   devices: Device[]
@@ -24,10 +25,13 @@ interface Props {
 
 const GRANULARITY_VALUES: DeviceCostGranularity[] = ['month', 'quarter', 'year']
 
+// DevicePaymentStatus 与 ExpensePaymentStatus 同构（design-system §1.3 已登记
+// 该映射，"直接用 expense 域"），沿用 ExpenseCategoryChart trend 视图同款三色：
+// paid success · ordered_unpaid warning · budgeted primary（基准线，非语义色）。
 const SERIES_KEYS = [
-  { key: 'budgeted',       color: '#a1a1aa' }, // zinc-400
-  { key: 'ordered_unpaid', color: '#f59e0b' }, // amber-500
-  { key: 'paid',           color: '#10b981' }, // emerald-500
+  { key: 'budgeted',       color: 'rgb(var(--primary))' },
+  { key: 'ordered_unpaid', color: 'var(--warning-dot)' },
+  { key: 'paid',           color: 'var(--success-dot)' },
 ] as const
 
 function fmtRmbShort(v: number): string {
@@ -53,13 +57,13 @@ export default function DeviceCostChart({ devices }: Props) {
   const hasData = data.length > 0
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl p-4 mb-6">
+    <div className="bg-surface border border-line rounded-xl p-4 mb-6">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-zinc-900">{t('chartTitle')}</h3>
-          <p className="text-xs text-zinc-500 mt-0.5">{t('chartSubtitle')}</p>
+          <h3 className="text-sm font-semibold text-ink-900">{t('chartTitle')}</h3>
+          <p className="text-xs text-ink-500 mt-0.5">{t('chartSubtitle')}</p>
         </div>
-        <div className="inline-flex rounded-lg border border-zinc-200 p-0.5 bg-zinc-50">
+        <div className="inline-flex rounded-lg border border-line p-0.5 bg-canvas">
           {GRANULARITY_VALUES.map((value) => {
             const active = value === granularity
             return (
@@ -68,8 +72,8 @@ export default function DeviceCostChart({ devices }: Props) {
                 onClick={() => setGranularity(value)}
                 className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                   active
-                    ? 'bg-white text-zinc-900 shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-700'
+                    ? 'bg-surface text-ink-900 shadow-sm'
+                    : 'text-ink-500 hover:text-ink-700'
                 }`}
               >
                 {tExpenses(value)}
@@ -91,29 +95,13 @@ export default function DeviceCostChart({ devices }: Props) {
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-              <XAxis
-                dataKey="period"
-                tick={{ fontSize: 11, fill: '#71717a' }}
-                tickLine={false}
-                axisLine={{ stroke: '#e2e8f0' }}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#71717a' }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={fmtRmbShort}
-                width={60}
-              />
+              <CartesianGrid {...GRID} />
+              <XAxis dataKey="period" {...AXIS} />
+              <YAxis {...AXIS} tickFormatter={fmtRmbShort} width={60} />
               <Tooltip
                 formatter={(value, name) => [fmtRmbFull(Number(value) || 0), String(name)]}
-                labelStyle={{ color: '#0f172a', fontWeight: 600, fontSize: 12 }}
-                contentStyle={{
-                  borderRadius: 8,
-                  border: '1px solid #e2e8f0',
-                  fontSize: 12,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                }}
+                contentStyle={TOOLTIP_STYLE}
+                labelStyle={TOOLTIP_LABEL_STYLE}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
               {SERIES_KEYS.map((s) => (
@@ -132,7 +120,7 @@ export default function DeviceCostChart({ devices }: Props) {
           </ResponsiveContainer>
         </div>
       ) : (
-        <div className="h-72 flex items-center justify-center text-sm text-zinc-400">
+        <div className="h-72 flex items-center justify-center text-sm text-ink-400">
           {t('chartEmpty')}
         </div>
       )}

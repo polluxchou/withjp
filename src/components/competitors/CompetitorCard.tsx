@@ -2,25 +2,29 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import ShotAlbum from './ShotAlbum'
 import { formatCount } from '@/lib/competitors/metrics'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
+import { FOCUS_RING } from '@/lib/ui/recipes'
+import Tag from '@/components/ui/Tag'
 
 function Field({ label, value }: { label: string; value: string | null }) {
   if (!value) return null
   return (
     <div className="flex gap-2">
-      <span className="w-16 shrink-0 text-zinc-500">{label}</span>
-      <span className="text-zinc-700">{value}</span>
+      <span className="w-16 shrink-0 text-ink-500">{label}</span>
+      <span className="text-ink-700 tabular-nums">{value}</span>
     </div>
   )
 }
 
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, nested = false,
+  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
+  dateWindow, selectedDate, nested = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -29,9 +33,12 @@ export default function CompetitorCard({
   parentOptions: { id: string; label: string }[]
   onAssignParent: (id: string, parentId: string | null) => void
   onUpdateHandle: (id: string, raw: string) => void
+  dateWindow: string[]
+  selectedDate: string | null
   nested?: boolean
 }) {
   const t = useTranslations('competitors')
+  const tCommon = useTranslations('common')
   const [open, setOpen] = useState(false)
   const [relOpen, setRelOpen] = useState(false)
   const [editingHandle, setEditingHandle] = useState(false)
@@ -42,16 +49,21 @@ export default function CompetitorCard({
   const isStreamer = !!c.parent_id
   const showAsStreamer = isStreamer || pendingStreamer
   const name = c.latest?.display_name ?? c.display_name ?? c.handle
-  const statLine = [
-    `${t('colVideos')} ${formatCount(c.latest?.videos ?? null)}`,
+  // 视频数是本行唯一的"指标"，单独包一层 tabular-nums；其余分段是纯文本，
+  // 不需要数字对齐，继续走字符串拼接（design-system §2 数字规则）。
+  const statParts: ReactNode[] = [
+    <span key="videos">{t('colVideos')} <span className="tabular-nums">{formatCount(c.latest?.videos ?? null)}</span></span>,
     c.composition ?? null,
     c.online_note ? `${t('fieldOnline')} ${c.online_note}` : null,
     c.latest ? t('latestOn', { date: c.latest.captured_on }) : null,
-  ].filter(Boolean).join(' · ')
+  ].filter((part) => part != null && part !== '')
 
   const shell = nested
-    ? 'rounded-lg border border-zinc-100 bg-zinc-50 p-3'
-    : 'rounded-xl border border-zinc-200 bg-white p-4'
+    // 子卡不能有自己的边框和横向内边距:那会让它的内容盒比父卡窄 26px,
+    // 同比例的 1fr_3fr 落进去,列宽就对不上了(实测第 5 列偏 21px)。
+    // 层级感改用 ring —— box-shadow 不参与盒模型,拿不走一个像素的宽度。
+    ? 'rounded-field bg-muted-soft py-3 ring-1 ring-inset ring-line'
+    : 'rounded-card border border-line bg-surface p-4'
 
   return (
     <div className={shell}>
@@ -60,14 +72,16 @@ export default function CompetitorCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={c.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-xs font-medium text-sky-700">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-soft text-xs font-medium text-primary-hover">
             {name.slice(0, 2).toUpperCase()}
           </div>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="truncate font-medium">{name}</span>
-            {c.latest?.verified && <BadgeCheck size={15} className="shrink-0 text-sky-500" />}
+            {c.latest?.verified && (
+              <BadgeCheck size={15} strokeWidth={1.5} role="img" aria-label={t('verified')} className="shrink-0 text-primary" />
+            )}
             {editingHandle ? (
               <span className="flex items-center gap-1">
                 <input
@@ -78,29 +92,45 @@ export default function CompetitorCard({
                     if (e.key === 'Enter') { onUpdateHandle(c.id, handleInput); setEditingHandle(false) }
                     if (e.key === 'Escape') setEditingHandle(false)
                   }}
-                  placeholder="@handle 或链接"
-                  className="w-40 rounded border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700"
+                  placeholder={t('handlePlaceholder')}
+                  className={`w-40 rounded-field border border-line-strong px-1.5 py-0.5 text-xs text-ink-700 ${FOCUS_RING}`}
                 />
-                <button onClick={() => { onUpdateHandle(c.id, handleInput); setEditingHandle(false) }} className="text-sky-600 hover:text-sky-800"><Check size={13} /></button>
-                <button onClick={() => setEditingHandle(false)} className="text-zinc-400 hover:text-zinc-700"><X size={13} /></button>
+                <button
+                  onClick={() => { onUpdateHandle(c.id, handleInput); setEditingHandle(false) }}
+                  aria-label={tCommon('save')}
+                  className={`rounded-field text-primary hover:text-primary-hover ${FOCUS_RING}`}
+                >
+                  <Check size={13} strokeWidth={1.5} />
+                </button>
+                <button
+                  onClick={() => setEditingHandle(false)}
+                  aria-label={tCommon('cancel')}
+                  className={`rounded-field text-ink-400 hover:text-ink-700 ${FOCUS_RING}`}
+                >
+                  <X size={13} strokeWidth={1.5} />
+                </button>
               </span>
             ) : (
               <span className="flex items-center gap-0.5">
-                <span className="text-xs text-zinc-500">@{c.handle}</span>
+                <span className="text-xs text-ink-500">@{c.handle}</span>
                 {canEdit && (
                   <button
                     onClick={() => { setHandleInput(c.handle); setEditingHandle(true) }}
-                    className="text-zinc-400 hover:text-zinc-700"
-                    aria-label="编辑 handle"
+                    className={`rounded-field text-ink-400 hover:text-ink-700 ${FOCUS_RING}`}
+                    aria-label={t('editHandle')}
                   >
-                    <Pencil size={13} />
+                    <Pencil size={13} strokeWidth={1.5} />
                   </button>
                 )}
               </span>
             )}
-            <span className="rounded-full bg-sky-50 px-1.5 py-0.5 text-[11px] text-sky-700">{c.region}</span>
+            <Tag label={c.region} tone="violet" size="sm" />
           </div>
-          <div className="mt-0.5 truncate text-xs text-zinc-500">{statLine}</div>
+          <div className="mt-0.5 truncate text-xs text-ink-500">
+            {statParts.map((part, i) => (
+              <span key={i}>{i > 0 ? ' · ' : ''}{part}</span>
+            ))}
+          </div>
         </div>
         {canEdit && c.related.length === 0 ? (
           <div className="flex items-center gap-1">
@@ -114,7 +144,7 @@ export default function CompetitorCard({
                   setPendingStreamer(true)
                 }
               }}
-              className="rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-600"
+              className={`rounded-field border border-line-strong px-1.5 py-1 text-xs text-ink-700 ${FOCUS_RING}`}
             >
               <option value="group">{t('independent')}</option>
               <option value="streamer">{t('roleStreamer')}</option>
@@ -123,7 +153,7 @@ export default function CompetitorCard({
               <select
                 value={c.parent_id ?? ''}
                 onChange={(e) => { if (e.target.value) onAssignParent(c.id, e.target.value) }}
-                className="rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-600"
+                className={`rounded-field border border-line-strong px-1.5 py-1 text-xs text-ink-700 ${FOCUS_RING}`}
               >
                 <option value="">{t('selectGroup')}</option>
                 {parentOptions.filter((p) => p.id !== c.id).map((p) => (
@@ -133,47 +163,47 @@ export default function CompetitorCard({
             )}
           </div>
         ) : c.related.length === 0 ? (
-          <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-500">
-            {c.parent_id ? t('roleStreamer') : t('independent')}
-          </span>
+          <Tag label={c.parent_id ? t('roleStreamer') : t('independent')} tone="neutral" size="sm" />
         ) : null}
-        <a href={c.profile_url} target="_blank" rel="noreferrer" aria-label={t('openProfile')} className="text-zinc-400 hover:text-zinc-700">
-          <ExternalLink size={16} />
+        <a href={c.profile_url} target="_blank" rel="noreferrer" aria-label={t('openProfile')} className={`rounded-field text-ink-400 hover:text-ink-700 ${FOCUS_RING}`}>
+          <ExternalLink size={16} strokeWidth={1.5} />
         </a>
-        <button onClick={() => setOpen((v) => !v)} aria-label={t('expandProfile')} className="text-zinc-400 hover:text-zinc-700">
-          {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        <button onClick={() => setOpen((v) => !v)} aria-label={t('expandProfile')} className={`rounded-field text-ink-400 hover:text-ink-700 ${FOCUS_RING}`}>
+          {open ? <ChevronDown size={18} strokeWidth={1.5} /> : <ChevronRight size={18} strokeWidth={1.5} />}
         </button>
         {canEdit && (
-          <button onClick={() => onDeleteId(c.id)} aria-label={t('delete')} className="text-zinc-400 hover:text-red-600">
-            <Trash2 size={16} />
+          <button onClick={() => onDeleteId(c.id)} aria-label={t('delete')} className={`rounded-field text-ink-400 hover:text-danger-text ${FOCUS_RING}`}>
+            <Trash2 size={16} strokeWidth={1.5} />
           </button>
         )}
       </div>
 
-      {nested ? (
-        <div className="space-y-2">
-          <WeeklyFollowersCurve weekly={c.weekly} compact />
-          <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} compact />
-        </div>
-      ) : (
-        <div className="grid grid-cols-[1fr_3fr] gap-3 max-md:grid-cols-1">
-          <WeeklyFollowersCurve weekly={c.weekly} />
-          <ShotAlbum competitorId={c.id} shots={c.shots} canEdit={canEdit} onChanged={onChanged} />
-        </div>
-      )}
+      {/* 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开 */}
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1">
+        <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
+        <ShotAlbum
+          competitorId={c.id}
+          shots={c.shots}
+          canEdit={canEdit}
+          onChanged={onChanged}
+          dateWindow={dateWindow}
+          selectedDate={selectedDate}
+        />
+      </div>
 
       {c.related.length > 0 && (
-        <div className="mt-3 border-t border-zinc-100 pt-3">
+        <div className="mt-3 border-t border-line-soft pt-3">
           <button
             type="button"
             onClick={() => setRelOpen((v) => !v)}
-            className="flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-900"
+            className={`flex items-center gap-1 rounded-field text-xs text-ink-700 hover:text-ink-900 ${FOCUS_RING}`}
           >
-            {relOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            {t('related')} ({c.related.length})
+            {relOpen ? <ChevronDown size={14} strokeWidth={1.5} /> : <ChevronRight size={14} strokeWidth={1.5} />}
+            {t('related')} (<span className="tabular-nums">{c.related.length}</span>)
           </button>
+          {/* 子卡容器不能有 pl-3:横向平移会让子卡的列对不上父卡的列 */}
           {relOpen && (
-            <div className="mt-2 space-y-2 border-l-2 border-zinc-100 pl-3">
+            <div className="mt-2 space-y-2">
               {c.related.map((child) => (
                 <CompetitorCard
                   key={child.id}
@@ -184,6 +214,8 @@ export default function CompetitorCard({
                   parentOptions={parentOptions}
                   onAssignParent={onAssignParent}
                   onUpdateHandle={onUpdateHandle}
+                  dateWindow={dateWindow}
+                  selectedDate={selectedDate}
                   nested
                 />
               ))}
@@ -193,7 +225,7 @@ export default function CompetitorCard({
       )}
 
       {open && (
-        <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3 text-xs">
+        <div className="mt-3 space-y-2 border-t border-line-soft pt-3 text-xs">
           <Field label={t('fieldMembers')} value={c.member_count != null ? String(c.member_count) : null} />
           <Field label={t('fieldComposition')} value={c.composition} />
           <Field label={t('fieldLaunch')} value={[c.launch_city, c.launched_on].filter(Boolean).join(' · ') || null} />
@@ -202,18 +234,18 @@ export default function CompetitorCard({
           <Field label={t('region')} value={c.latest?.region ?? null} />
           <Field label={t('bio')} value={c.latest?.bio ?? null} />
           {c.latest_videos?.length ? (
-            <div className="flex flex-wrap gap-2 text-sky-600">
-              <span className="text-zinc-500">{t('fieldLatestVideos')}:</span>
+            <div className="flex flex-wrap gap-2 text-primary">
+              <span className="text-ink-500">{t('fieldLatestVideos')}:</span>
               {c.latest_videos.map((v, i) => (
-                <a key={i} href={v.url} target="_blank" rel="noreferrer" className="hover:underline">#{i + 1}</a>
+                <a key={i} href={v.url} target="_blank" rel="noreferrer" className={`rounded-field hover:text-primary-hover hover:underline ${FOCUS_RING}`}>#{i + 1}</a>
               ))}
             </div>
           ) : null}
 
           {c.history.length > 0 && (
             <table className="mt-2 w-full max-w-xl text-xs" aria-label={t('history')}>
-              <caption className="mb-1 text-left font-medium text-zinc-500">{t('history')}</caption>
-              <thead className="text-zinc-500">
+              <caption className="mb-1 text-left font-medium text-ink-500">{t('history')}</caption>
+              <thead className="text-ink-400">
                 <tr>
                   <th className="py-1 text-left font-normal">{t('colDate')}</th>
                   <th className="py-1 text-right font-normal">{t('colFollowers')}</th>
@@ -223,11 +255,11 @@ export default function CompetitorCard({
               </thead>
               <tbody>
                 {c.history.slice().reverse().map((h) => (
-                  <tr key={h.captured_on} className="border-t border-zinc-100">
-                    <td className="py-1">{h.captured_on}</td>
-                    <td className="py-1 text-right">{formatCount(h.followers)}</td>
-                    <td className="py-1 text-right">{formatCount(h.likes)}</td>
-                    <td className="py-1 text-right">{formatCount(h.videos)}</td>
+                  <tr key={h.captured_on} className="border-t border-line-soft">
+                    <td className="py-1 text-ink-700">{h.captured_on}</td>
+                    <td className="py-1 text-right tabular-nums font-medium text-ink-900">{formatCount(h.followers)}</td>
+                    <td className="py-1 text-right tabular-nums font-medium text-ink-900">{formatCount(h.likes)}</td>
+                    <td className="py-1 text-right tabular-nums font-medium text-ink-900">{formatCount(h.videos)}</td>
                   </tr>
                 ))}
               </tbody>
