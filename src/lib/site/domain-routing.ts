@@ -7,10 +7,19 @@ export const PUBLIC_SITE_HOSTS = ['eacn.agenova.chat'] as const
 /** 规范域名（生成绝对链接、文档引用时用这个）。 */
 export const PUBLIC_SITE_HOST = PUBLIC_SITE_HOSTS[0]
 
-const DEFAULT_PUBLIC_LOCALE = 'ja'
-const PUBLIC_LOCALES = ['zh', 'en', 'ja'] as const
+/**
+ * 对外官网的语言顺序：日文 → 英文 → 中文。站开在日本、面向日本创作者，日文是
+ * 第一语言，所以它排第一、也是默认语言（日文页面走无前缀路径 /vision，中英才带
+ * /zh、/en）。语言切换器也按这个顺序列。
+ *
+ * 内部后台是另一套（`i18n/routing` 里 zh 优先，团队自己用），两边不共用顺序 ——
+ * 改这里不会动到后台。
+ */
+export const PUBLIC_SITE_LOCALES = ['ja', 'en', 'zh'] as const
 
-type PublicLocale = (typeof PUBLIC_LOCALES)[number]
+const DEFAULT_PUBLIC_LOCALE = PUBLIC_SITE_LOCALES[0]
+
+type PublicLocale = (typeof PUBLIC_SITE_LOCALES)[number]
 
 export type PublicSiteRoute =
   | { kind: 'passthrough' }

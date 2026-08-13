@@ -1,4 +1,5 @@
-import { locales, type Locale } from '../../i18n/routing.ts'
+import { type Locale } from '../../i18n/routing.ts'
+import { PUBLIC_SITE_LOCALES } from './domain-routing.ts'
 
 export interface LocaleMenuOption {
   locale: Locale
@@ -8,8 +9,9 @@ export interface LocaleMenuOption {
 export type LocaleMenuEvent = 'toggle' | 'outside' | 'escape' | 'select'
 export type LocaleMenuKey = 'ArrowDown' | 'ArrowUp' | 'Home' | 'End' | 'Escape'
 
+/** 切换器按官网自己的语言顺序（日 → 英 → 中）排，不跟后台的 routing 顺序。 */
 export function buildLocaleMenuOptions(current: string): LocaleMenuOption[] {
-  return locales.map((locale) => ({ locale, active: locale === current }))
+  return PUBLIC_SITE_LOCALES.map((locale) => ({ locale, active: locale === current }))
 }
 
 export function nextLocaleMenuOpen(open: boolean, event: LocaleMenuEvent): boolean {
