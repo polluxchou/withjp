@@ -39,8 +39,20 @@ export default function SiteLivePage({ params }: { params: { locale: string } })
               {t('onAirLabel')}
             </span>
           </div>
-          <div className="relative mb-5 h-[300px] border border-site-line-strong">
-            <SiteImage placeholder={t('onAirPlaceholder')} duotone className="h-full w-full" />
+          {/* 图位按图本身的竖构图给比例，不再是占位期的 h-[300px] 横盒子 ——
+              竖屏合照塞进横盒子会被 object-cover 裁成中间一条，脸全在框外。
+              max-w 是必要的：撑满卡片宽度时这张 9:16 会算出 778px 高，ON AIR 卡
+              比左边排期表高出近 400px；截到 288px 后两列落在 567 / 658，同时更像
+              一块竖屏直播画面。duotone 一并摘掉，同 05 TECHNOLOGY(#198)：真实
+              照片压青色会吃掉妆造和服装的颜色。 */}
+          <div className="relative mx-auto mb-5 aspect-[1080/1768] w-full max-w-[288px] border border-site-line-strong">
+            <SiteImage
+              src="/site/live-onair-group.webp"
+              alt={t('onAirAlt')}
+              placeholder={t('onAirPlaceholder')}
+              sizes="288px"
+              className="h-full w-full"
+            />
           </div>
           <div className="font-serif-jp text-[20px]">{t('onAirProgram')}</div>
           <div className="mt-1.5 text-[14px] text-site-fg/60">{t('onAirTime')}</div>
