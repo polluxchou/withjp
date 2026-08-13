@@ -9,6 +9,7 @@
     "lint": "next lint",
     "test:i18n": "node scripts/check-i18n.mjs",
     "test:no-bare-han": "node scripts/check-no-bare-han.mjs",
+    "test:migrations": "node scripts/check-migrations.mjs",
     "test:style": "node scripts/check-style-tokens.mjs",
     "test:lint": "next lint --max-warnings=0",
     "test:copy": "npm run test:i18n && npm run test:no-bare-han && npm run test:style && npm run test:lint",
