@@ -112,7 +112,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | 文件 | 职责 | 测试 |
 | --- | --- | --- |
 | `metrics.ts` | `parseCount("1.2M"→1200000)` / `formatCount(n→"1.2M")`（零 import，脚本+视图共用） | `metrics.test.ts` |
-| `chart.ts` | `buildSparklinePoints(values,w,h)` → polyline 几何 | `chart.test.ts` |
+| `chart.ts` | `buildWeeklyCurve(weekly)` → 0–100 百分比点集 + polyline 几何（含日期刻度） | `chart.test.ts` |
 | `weekly.ts` | `weekStartOf(date)`（ISO 周一）/ `bucketFollowersByWeek(history)`（每周取最后一次快照，空值跳过） | `weekly.test.ts` |
 | `mentions.ts` | `extractMentionedHandles(bio, self)` 提取 bio 里 @ 的 handle（排除自身/邮箱域名/去尾点/大小写去重/上限20） | `mentions.test.ts` |
 | `assemble.ts` | `parseHandleFromUrl` + `assembleBoard(competitors,snapshots,shots,canEdit)`：组装 latest/history/weekly/shots，并做**父子嵌套**（`parent_id` 空→顶层，非空→挂到父的 `related`；悬空 parent_id 回退顶层） | `assemble.test.ts` |
@@ -145,8 +145,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
   - **子账号（nested，`compact`）**：紧凑堆叠——纤细一行粉丝曲线 + **小图**截图。
 - `ShotAlbum`：截图相册。折叠态换行网格（大图约「上下 2 张≈一屏」/ 小图更密）；「查看全部」展开为按 ISO 周分组网格；lightbox 放大；每图删除；`compact` 小图模式。
 - `ShotUploader`：上传格。点击选图或 ⌘V 粘贴（`compressImage` 客户端压缩后上传）；`compact` 小尺寸。
-- `WeeklyFollowersCurve`：近 4 周粉丝曲线（复用 `chart.buildSparklinePoints`）；`compact` 纤细一行。
-- `Sparkline`：保留（原 mini 折线基础组件）。
+- `WeeklyFollowersCurve`：近 4 周粉丝曲线（复用 `chart.buildWeeklyCurve`）；`compact` 纤细一行。
 - `compressImage.ts`：canvas 缩到长边 ≤1280 + 转 WebP(q0.82)，压不小则回退原图、GIF 跳过——降低 Supabase 存储 / 出网流量。
 
 导航：侧栏「创作者」分组下 `/creators`（创作者列表）+ `/competitors`（竞品监测）。

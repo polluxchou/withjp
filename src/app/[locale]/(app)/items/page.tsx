@@ -2,14 +2,26 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus } from 'lucide-react'
+import { Plus, Package, Pencil, Trash2 } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import ItemForm from '@/components/items/ItemForm'
 import ItemDetail from '@/components/items/ItemDetail'
+import Button from '@/components/ui/Button'
+import { SearchInput, Select, Input } from '@/components/ui/Field'
+import { Stat, StatBand } from '@/components/ui/Stat'
+import SectionCard from '@/components/ui/SectionCard'
+import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
+import Tag from '@/components/ui/Tag'
+import LoadingState from '@/components/ui/LoadingState'
+import EmptyState from '@/components/ui/EmptyState'
+import { toneOf } from '@/lib/ui/status-tone'
 import { ITEM_KINDS, ITEM_STATUSES, type Item, type ItemStatusLog } from '@/lib/items/types'
 import { EMPTY_ITEM_FILTERS, itemFiltersToParams, type ItemFilters } from '@/lib/items/filter-types'
 import type { Expense } from '@/lib/types'
 import type { VenueLayout } from '@/venue/layoutData'
+
+// 表格列数（编号/名称/类型/成本/位置/数量/状态/负责人/操作），三态提示行 colSpan 用。
+const COL_COUNT = 9
 
 export default function ItemsPage() {
   const t = useTranslations('items')
@@ -62,7 +74,13 @@ export default function ItemsPage() {
     setItems((json?.data ?? []) as Item[])
     setLoading(false)
   }
-  useEffect(() => { loadItems() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filters.q, filters.kind, filters.status, filters.venue_item_id, filters.responsible_person])
+  // Deliberately narrower than exhaustive-deps wants: `loadItems` is re-created
+  // every render (plain function declaration), and `filters.floor_id` is applied
+  // client-side below, so neither belongs here — listing them would refetch on
+  // every render / every floor toggle. The five server-side fields are the
+  // complete set that must trigger a refetch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadItems() }, [filters.q, filters.kind, filters.status, filters.venue_item_id, filters.responsible_person])
 
   // 客户端按楼层过滤（floor_id 不发给服务端）
   const zoneIdsByFloor = useMemo(() => {
@@ -120,99 +138,136 @@ export default function ItemsPage() {
 
   return (
     <div>
-      <Header title={t('title')} subtitle={t('subtitle')} actions={
-        <button onClick={openCreate} className="inline-flex items-center gap-1.5 h-9 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700">
-          <Plus className="w-4 h-4" /> {t('add')}
-        </button>
-      } />
-
-      {/* 筛选 */}
-      <div className="mb-3 flex flex-wrap gap-2">
-        <input className={filterCls + ' w-48'} placeholder={t('search')} value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} />
-        <select className={filterCls} value={filters.kind} onChange={(e) => setFilters({ ...filters, kind: e.target.value as ItemFilters['kind'] })}>
-          <option value="">{t('colKind')}</option>
-          {ITEM_KINDS.map((k) => <option key={k} value={k}>{t(`kind.${k}`)}</option>)}
-        </select>
-        <select className={filterCls} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
-          <option value="">{t('colStatus')}</option>
-          {ITEM_STATUSES.map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
-        </select>
-        <select className={filterCls} value={filters.floor_id} onChange={(e) => setFilters({ ...filters, floor_id: e.target.value })}>
-          <option value="">{t('colPlacement')}</option>
-          {(layout?.floors ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-        </select>
-        <input className={filterCls + ' w-36'} placeholder={t('colResponsible')} value={filters.responsible_person} onChange={(e) => setFilters({ ...filters, responsible_person: e.target.value })} />
-      </div>
+      <Header
+        title={t('title')}
+        subtitle={t('subtitle')}
+        search={
+          <div className="w-56">
+            <SearchInput
+              value={filters.q}
+              onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+              placeholder={t('search')}
+            />
+          </div>
+        }
+        actions={
+          <Button size="lg" onClick={openCreate}>
+            <Plus className="w-4 h-4" /> {t('add')}
+          </Button>
+        }
+      />
 
       {/* 统计 */}
-      <div className="mb-3 flex gap-4">
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 flex items-baseline gap-2">
-          <span className="text-xs text-slate-500">{t('statTotalItems')}</span>
-          <span className="text-sm font-semibold text-slate-900">{visibleItems.length}<span className="text-xs font-normal text-slate-500 ml-0.5">{t('statItemUnit')}</span></span>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 flex items-baseline gap-2">
-          <span className="text-xs text-slate-500">{t('statTotalCost')}</span>
-          <span className="text-sm font-semibold text-slate-900">¥{totalCost.toLocaleString('zh-CN')}</span>
-        </div>
+      <StatBand>
+        <Stat
+          label={t('statTotalItems')}
+          value={<>{visibleItems.length}<span className="text-xs font-normal text-ink-500 ml-1">{t('statItemUnit')}</span></>}
+        />
+        <Stat
+          label={t('statTotalCost')}
+          value={`¥${totalCost.toLocaleString('zh-CN')}`}
+        />
+      </StatBand>
+
+      {/* 筛选 */}
+      <div className="my-3 flex flex-wrap gap-2 sm:gap-3 bg-surface border border-line rounded-card p-3 sm:p-4">
+        <Select
+          value={filters.kind}
+          onChange={(e) => setFilters({ ...filters, kind: e.target.value as ItemFilters['kind'] })}
+          className="w-full sm:w-36"
+        >
+          <option value="">{t('colKind')}</option>
+          {ITEM_KINDS.map((k) => <option key={k} value={k}>{t(`kind.${k}`)}</option>)}
+        </Select>
+        <Select
+          value={filters.status}
+          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          className="w-full sm:w-36"
+        >
+          <option value="">{t('colStatus')}</option>
+          {ITEM_STATUSES.map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
+        </Select>
+        <Select
+          value={filters.floor_id}
+          onChange={(e) => setFilters({ ...filters, floor_id: e.target.value })}
+          className="w-full sm:w-40"
+        >
+          <option value="">{t('colPlacement')}</option>
+          {(layout?.floors ?? []).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </Select>
+        <Input
+          value={filters.responsible_person}
+          onChange={(e) => setFilters({ ...filters, responsible_person: e.target.value })}
+          placeholder={t('colResponsible')}
+          className="w-full sm:w-36"
+        />
       </div>
 
       {/* 表格 */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs text-slate-500">
-            <tr>
-              <th className="px-3 py-2">{t('colCode')}</th>
-              <th className="px-3 py-2">{t('colName')}</th>
-              <th className="px-3 py-2">{t('colKind')}</th>
-              <th className="px-3 py-2">{t('colCost')}</th>
-              <th className="px-3 py-2">{t('colPlacement')}</th>
-              <th className="px-3 py-2">{t('colQuantity')}</th>
-              <th className="px-3 py-2">{t('colStatus')}</th>
-              <th className="px-3 py-2">{t('colResponsible')}</th>
-              <th className="px-3 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
+      <SectionCard padding="none">
+        <Table label={t('title')}>
+          <THead>
+            <Th>{t('colCode')}</Th>
+            <Th>{t('colName')}</Th>
+            <Th>{t('colKind')}</Th>
+            <Th align="right">{t('colCost')}</Th>
+            <Th>{t('colPlacement')}</Th>
+            <Th align="right">{t('colQuantity')}</Th>
+            <Th>{t('colStatus')}</Th>
+            <Th>{t('colResponsible')}</Th>
+            <Th />
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-slate-400">{t('loading')}</td></tr>
+              <Tr><Td colSpan={COL_COUNT}><LoadingState variant="plain" /></Td></Tr>
             ) : visibleItems.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-slate-400">{t('empty')}</td></tr>
+              <Tr><Td colSpan={COL_COUNT}><EmptyState icon={<Package />} title={t('empty')} /></Td></Tr>
             ) : visibleItems.map((it) => {
               const ex = it.expense_id ? expenseById[it.expense_id] : null
               const zone = it.placement_venue_item_id ? zoneById[it.placement_venue_item_id] : null
               return (
-                <tr key={it.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono text-xs">
-                    <button className="text-indigo-600 hover:underline" onClick={() => openDetail(it)}>{it.item_code}</button>
-                  </td>
-                  <td className="px-3 py-2">
-                    <button className="text-left text-slate-900 hover:text-indigo-600 hover:underline" onClick={() => openDetail(it)}>{it.name}</button>
-                  </td>
-                  <td className="px-3 py-2">{t(`kind.${it.kind}`)}</td>
-                  <td className="px-3 py-2">
+                <Tr key={it.id}>
+                  <Td>
+                    <button type="button" className="font-mono text-xs text-primary hover:underline" onClick={() => openDetail(it)}>
+                      {it.item_code}
+                    </button>
+                  </Td>
+                  <Td>
+                    <button type="button" className="text-left text-ink-900 hover:text-primary-hover hover:underline" onClick={() => openDetail(it)}>
+                      {it.name}
+                    </button>
+                  </Td>
+                  <Td>{t(`kind.${it.kind}`)}</Td>
+                  <Td align="right" numeric>
                     {ex ? (
                       <span>
                         ¥{(it.item_value != null ? it.item_value : Number(ex.total_price)).toLocaleString('zh-CN')}
                         {it.item_value != null && it.item_value < Number(ex.total_price) && (
-                          <span className="ml-1 text-xs text-slate-400 line-through">¥{Number(ex.total_price).toLocaleString('zh-CN')}</span>
+                          <span className="ml-1 text-xs font-normal text-ink-400 line-through">¥{Number(ex.total_price).toLocaleString('zh-CN')}</span>
                         )}
                       </span>
                     ) : '—'}
-                  </td>
-                  <td className="px-3 py-2">{zone ? `${zone.floor} · ${zone.zone}` : '—'}</td>
-                  <td className="px-3 py-2">{it.quantity}</td>
-                  <td className="px-3 py-2">{t(`status.${it.status}`)}</td>
-                  <td className="px-3 py-2">{it.responsible_person ?? '—'}</td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <button className="text-indigo-600 hover:underline mr-3" onClick={() => openEdit(it)}>{tCommon('edit')}</button>
-                    <button className="text-red-500 hover:underline" onClick={() => remove(it)}>{tCommon('delete')}</button>
-                  </td>
-                </tr>
+                  </Td>
+                  <Td>{zone ? `${zone.floor} · ${zone.zone}` : '—'}</Td>
+                  <Td align="right" numeric>{it.quantity}</Td>
+                  <Td><Tag size="sm" tone={toneOf('item', it.status)} label={t(`status.${it.status}`)} /></Td>
+                  <Td>{it.responsible_person ?? '—'}</Td>
+                  <Td align="right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="sm" aria-label={tCommon('edit')} title={tCommon('edit')} onClick={() => openEdit(it)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" aria-label={tCommon('delete')} title={tCommon('delete')} onClick={() => remove(it)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </Td>
+                </Tr>
               )
             })}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </SectionCard>
 
       <ItemForm
         open={formOpen}
@@ -236,5 +291,3 @@ export default function ItemsPage() {
     </div>
   )
 }
-
-const filterCls = 'h-9 rounded-lg border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'

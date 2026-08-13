@@ -132,5 +132,9 @@ select tablename, policyname from pg_policies where schemaname = 'public';
 | 042_competitor_monitoring.sql | 20260723103402_competitor_monitoring.sql |
 | 043_competitor_dossier.sql | 20260729163344_competitor_dossier.sql |
 | 044_competitor_parent.sql | 20260729173015_competitor_parent.sql |
+| 045_site_applications.sql | 20260811183310_site_applications.sql |
+| 046_enable_rls_venue_items.sql | 20260812111104_enable_rls_venue_items.sql |
+| 047_enable_rls_langgraph_checkpoints.sql | 20260812111105_enable_rls_langgraph_checkpoints.sql |
 
-（同一 git 提交里加入的多个文件时间戳相同，按原编号顺序逐个 +1 秒保证唯一，如 001–010。）
+（同一 git 提交里加入的多个文件时间戳相同，按原编号顺序逐个 +1 秒保证唯一，如 001–010，
+以及本表末尾的 046/047——两者同属一个提交，按原编号顺序把 047 顺延一秒。）

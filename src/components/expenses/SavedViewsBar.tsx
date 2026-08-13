@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Bookmark, X, Plus, Loader2 } from 'lucide-react'
+import { FilterChip } from '@/components/ui/FilterChip'
+import Button from '@/components/ui/Button'
 import {
   type Filters,
   EMPTY_FILTERS,
@@ -189,7 +191,7 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
 
   if (!hydrated) {
     return (
-      <div className="h-9 flex items-center gap-2 text-xs text-zinc-400">
+      <div className="h-9 flex items-center gap-2 text-xs text-ink-400">
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
         <span>{t('loading')}</span>
       </div>
@@ -198,62 +200,39 @@ export default function SavedViewsBar({ currentFilters, onApply }: Props) {
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <Bookmark className="w-3.5 h-3.5 text-zinc-400 mr-0.5" />
+      <Bookmark className="w-3.5 h-3.5 text-ink-400 mr-0.5" strokeWidth={1.5} />
 
-      <button
-        type="button"
-        onClick={() => onApply(EMPTY_FILTERS)}
-        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-          emptyActive
-            ? 'bg-primary text-white border border-primary'
-            : 'bg-white border border-zinc-200 text-zinc-600 hover:border-violet-300 hover:text-primary'
-        }`}
-      >
-        {tCommon('all')}
-      </button>
+      <FilterChip label={tCommon('all')} set={emptyActive} onClick={() => onApply(EMPTY_FILTERS)} />
 
+      {/* FilterChip's built-in onClear slot only renders while `set` is true
+          (it's meant for "clear the currently-applied filter"), but every
+          saved view needs to stay deletable even while a different view is
+          active — so delete is a separate ghost Button next to the chip
+          rather than forced into that slot. Component-API gap, flagged in
+          the migration report. */}
       {views.map((v) => {
         const active = activeViewId === v.id
         return (
-          <span
-            key={v.id}
-            className={`group inline-flex items-center rounded-lg text-xs font-medium border transition-colors ${
-              active
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white border-zinc-200 text-zinc-600 hover:border-violet-300 hover:text-primary'
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => onApply(v.filters)}
-              className="pl-3 pr-1.5 py-1"
-            >
-              {v.name}
-            </button>
-            <button
-              type="button"
-              onClick={() => deleteView(v.id)}
+          <div key={v.id} className="flex items-center gap-0.5">
+            <FilterChip label={v.name} set={active} onClick={() => onApply(v.filters)} />
+            <Button
+              variant="ghost"
+              size="sm"
               disabled={busy}
+              aria-label={t('deleteTooltip')}
               title={t('deleteTooltip')}
-              className={`pr-2 pl-0.5 py-1 rounded-r-lg transition-colors disabled:opacity-50 ${
-                active ? 'hover:bg-primary-hover' : 'text-zinc-300 hover:text-rose-600'
-              }`}
+              onClick={() => deleteView(v.id)}
             >
               <X className="w-3 h-3" />
-            </button>
-          </span>
+            </Button>
+          </div>
         )
       })}
 
       {canSave && (
-        <button
-          type="button"
-          onClick={createView}
-          disabled={busy}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border border-dashed border-violet-300 text-primary hover:bg-primary-soft transition-colors disabled:opacity-50"
-        >
+        <Button variant="secondary" size="sm" disabled={busy} onClick={createView}>
           {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} {t('saveCurrent')}
-        </button>
+        </Button>
       )}
     </div>
   )

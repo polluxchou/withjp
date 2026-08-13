@@ -2,7 +2,10 @@
 
 import { useTranslations } from 'next-intl'
 import Modal from '@/components/ui/Modal'
-import type { Expense, ExpenseCategory, ExpensePaymentStatus } from '@/lib/types'
+import Button from '@/components/ui/Button'
+import Tag from '@/components/ui/Tag'
+import { toneOf } from '@/lib/ui/status-tone'
+import type { Expense } from '@/lib/types'
 import {
   categoryHasQuantity,
   categoryHasPeriod,
@@ -18,22 +21,10 @@ interface Props {
   onClose: () => void
 }
 
-const STATUS_COLOR: Record<ExpensePaymentStatus, string> = {
-  budgeted:           'bg-zinc-100 text-zinc-600',
-  ordered_unpaid:     'bg-amber-100 text-amber-700',
-  paid:               'bg-green-100 text-green-700',
-  refunded:           'bg-red-100 text-red-600',
-  partially_refunded: 'bg-orange-100 text-orange-700',
-}
-
-const CATEGORY_COLOR: Record<ExpenseCategory, string> = {
-  tangible_asset:  'bg-primary-soft text-primary',
-  salary:          'bg-amber-100 text-amber-700',
-  rent:            'bg-emerald-100 text-emerald-700',
-  travel:          'bg-blue-100 text-blue-700',
-  office_supplies: 'bg-purple-100 text-purple-700',
-  cloud_services:  'bg-pink-100 text-pink-700',
-}
+// This is a read-only record viewer (label/value pairs), not a form — there
+// are no input/select/textarea controls here to migrate to Field/Input/
+// Select/Textarea. Only the status/category pills (STATUS_COLOR/
+// CATEGORY_COLOR, now removed) and the footer close button are in scope.
 
 function fmtDateTime(iso: string) {
   const d = new Date(iso)
@@ -60,19 +51,25 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
   const showLocation = categoryHasLocation(cat)
 
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="grid grid-cols-3 gap-4 py-2 border-b border-zinc-100 last:border-b-0">
-      <div className="text-xs text-zinc-500 font-medium pt-0.5">{label}</div>
-      <div className="col-span-2 text-sm text-zinc-900 break-words">{children}</div>
+    <div className="grid grid-cols-3 gap-4 py-2 border-b border-line-soft last:border-b-0">
+      <div className="text-xs text-ink-500 font-medium pt-0.5">{label}</div>
+      <div className="col-span-2 text-sm text-ink-900 break-words">{children}</div>
     </div>
   )
 
   return (
-    <Modal open={!!expense} onClose={onClose} title={t('details')} width="max-w-2xl">
+    <Modal
+      open={!!expense}
+      onClose={onClose}
+      title={t('details')}
+      width="max-w-2xl"
+      footer={<Button variant="secondary" onClick={onClose}>{tCommon('close')}</Button>}
+    >
       <div className="space-y-0">
+        {/* Category isn't a status enum (no toneOf registration) — plain text
+            keeps it from implying a semantic color it doesn't have. */}
         <Row label={t('category')}>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${CATEGORY_COLOR[cat]}`}>
-            {t(`categories.${cat}`)}
-          </span>
+          <span className="font-medium">{t(`categories.${cat}`)}</span>
         </Row>
 
         <Row label={t('name')}>
@@ -93,10 +90,10 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
         {crossBorderFee(expense) > 0 && (
           <>
             <Row label={t('crossBorderFee', { rate: `${(CROSS_BORDER_FEE_RATE * 100).toFixed(0)}%` })}>
-              <span className="text-amber-700">+{fmtRmb(crossBorderFee(expense))}</span>
+              <span className="text-warning-text">+{fmtRmb(crossBorderFee(expense))}</span>
             </Row>
             <Row label={t('effectiveCost')}>
-              <span className="font-semibold text-zinc-900">{fmtRmb(effectiveCost(expense))}</span>
+              <span className="font-semibold text-ink-900">{fmtRmb(effectiveCost(expense))}</span>
             </Row>
           </>
         )}
@@ -104,59 +101,48 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
         <Row label={t('date')}>{expense.expense_date}</Row>
 
         {showPeriod && (
-          <Row label={t('period')}>{expense.period || <span className="text-zinc-400">—</span>}</Row>
+          <Row label={t('period')}>{expense.period || <span className="text-ink-400">—</span>}</Row>
         )}
 
         <Row label={t('purpose')}>
-          {expense.purpose || <span className="text-zinc-400">—</span>}
+          {expense.purpose || <span className="text-ink-400">—</span>}
         </Row>
 
         {showLocation && (
           <Row label={t('location')}>
-            {expense.location || <span className="text-zinc-400">—</span>}
+            {expense.location || <span className="text-ink-400">—</span>}
           </Row>
         )}
 
         <Row label={cat === 'salary' ? tForm('assignedPerson') : t('user')}>
-          {expense.user_name || <span className="text-zinc-400">—</span>}
+          {expense.user_name || <span className="text-ink-400">—</span>}
         </Row>
 
         <Row label={t('buyer')}>
-          {expense.buyer_name || <span className="text-zinc-400">—</span>}
+          {expense.buyer_name || <span className="text-ink-400">—</span>}
         </Row>
 
         <Row label={t('paymentMethod')}>
           {expense.payment_method
             ? t(`paymentMethods.${expense.payment_method}`)
             : expense.payment_method_legacy
-              ? <span className="text-amber-600 text-xs">{expense.payment_method_legacy}</span>
-              : <span className="text-zinc-400">—</span>}
+              ? <span className="text-warning-text text-xs">{expense.payment_method_legacy}</span>
+              : <span className="text-ink-400">—</span>}
         </Row>
 
         <Row label={t('paymentStatus')}>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[expense.payment_status]}`}>
-            {t(`paymentStatuses.${expense.payment_status}`)}
-          </span>
+          <Tag tone={toneOf('expense', expense.payment_status)} label={t(`paymentStatuses.${expense.payment_status}`)} />
         </Row>
 
         <Row label={t('notes')}>
           {expense.notes
             ? <span className="whitespace-pre-wrap">{expense.notes}</span>
-            : <span className="text-zinc-400">—</span>}
+            : <span className="text-ink-400">—</span>}
         </Row>
 
         <Row label={t('createdAt')}>
-          <span className="text-zinc-500">{fmtDateTime(expense.created_at)}</span>
+          <span className="text-ink-500">{fmtDateTime(expense.created_at)}</span>
         </Row>
-      </div>
-
-      <div className="flex justify-end pt-4">
-        <button
-          onClick={onClose}
-          className="px-3 py-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
-        >
-          {tCommon('close')}
-        </button>
       </div>
     </Modal>
   )

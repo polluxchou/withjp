@@ -14,35 +14,42 @@ import {
   CornerDownLeft,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { SearchInput } from '@/components/ui/Field'
+import { ACCENT_CHIP, type Accent } from '@/lib/ui/accent'
 import type { Agent, Conversation, ConversationMessage } from '@/lib/types'
 
 // ── Department display metadata ────────────────────────────────
 
-const DEPT_META: Record<string, { color: string; initials: string }> = {
-  bd:      { color: '#3b82f6', initials: 'BD' },
-  ops:     { color: '#a855f7', initials: 'OP' },
-  finance: { color: '#10b981', initials: 'FI' },
-  content: { color: '#ec4899', initials: 'CO' },
-  growth:  { color: '#f59e0b', initials: 'GR' },
-  legal:   { color: '#475569', initials: 'LG' },
-}
+type DeptRole = 'bd' | 'ops' | 'finance' | 'content' | 'growth' | 'legal'
 
-const KNOWN_ROLES = ['bd', 'ops', 'finance', 'content', 'growth', 'legal'] as const
+// 部门唯一登记表：initials（头像缩写）+ accent（design-system §1.4 六色板，
+// 取色对齐旧版硬编码色相：bd 蓝 / ops 紫 / finance 绿 / content 粉 /
+// growth 琥珀 / legal 灰）。`satisfies` 强制六个 DeptRole 全部覆盖（漏登记
+// 编译期报错），替代此前 DEPT_ACCENT/DEPT_META/KNOWN_ROLES 三张各自维护、
+// 互相脱节的手写表。
+const DEPT = {
+  bd:      { initials: 'BD', accent: 'blue' },
+  ops:     { initials: 'OP', accent: 'violet' },
+  finance: { initials: 'FI', accent: 'green' },
+  content: { initials: 'CO', accent: 'pink' },
+  growth:  { initials: 'GR', accent: 'amber' },
+  legal:   { initials: 'LG', accent: 'mauve' },
+} satisfies Record<DeptRole, { initials: string; accent: Accent }>
 
-function isKnownRole(role: string): role is typeof KNOWN_ROLES[number] {
+const KNOWN_ROLES = Object.keys(DEPT) as DeptRole[]
+
+function isKnownRole(role: string): role is DeptRole {
   return (KNOWN_ROLES as readonly string[]).includes(role)
 }
 
 function AgentAvatar({ role, size = 'md' }: { role: string; size?: 'sm' | 'md' | 'lg' }) {
-  const meta = DEPT_META[role] ?? { color: '#8b5cf6', initials: '??' }
-  const dim  = size === 'sm' ? 28 : size === 'lg' ? 36 : 32
-  const font = size === 'sm' ? 11 : size === 'lg' ? 13 : 12
+  const dept = isKnownRole(role) ? DEPT[role] : undefined
+  const initials = dept?.initials ?? '??'
+  const accent = dept?.accent ?? 'violet'
+  const dim = size === 'sm' ? 'w-7 h-7 text-micro' : size === 'lg' ? 'w-9 h-9 text-sm' : 'w-8 h-8 text-xs'
   return (
-    <div
-      className="rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0"
-      style={{ width: dim, height: dim, fontSize: font, background: meta.color, letterSpacing: '-0.02em' }}
-    >
-      {meta.initials}
+    <div className={`rounded-full flex items-center justify-center font-semibold flex-shrink-0 ${dim} ${ACCENT_CHIP[accent]}`}>
+      {initials}
     </div>
   )
 }
@@ -233,24 +240,27 @@ export default function WorkspacePage() {
   }, [messages])
 
   // ── Render ─────────────────────────────────────────────────
+  // Height calc mirrors `main-content`'s own responsive vertical padding
+  // (src/app/[locale]/(app)/layout.tsx + globals.css `.main-content` rule):
+  // <640px → pt calc(env(safe-area-inset-top,0px) + 4rem) (mobile hamburger
+  // clearance, plus the notch/Dynamic Island inset — root layout sets
+  // viewportFit:'cover') + pb-4 1rem = 5rem + safe-area-inset-top;
+  // 640-767px → sm:p-6 1.5rem × 2 = 3rem; ≥768px → md:p-8 2rem × 2 = 4rem
+  // (neither of those two carries the safe-area term).
+  // Keep in sync if that padding rule ever changes.
   return (
-    <div
-      className="flex h-[calc(100vh-64px)] -my-8 -mx-8"
-      style={{ background: '#fbfbfb', color: '#18181b', fontFamily: "'Geist', system-ui, -apple-system, sans-serif" }}
-    >
+    <div className="flex h-[calc(100dvh-5rem-env(safe-area-inset-top,0px))] sm:h-[calc(100dvh-3rem)] md:h-[calc(100dvh-4rem)] bg-surface border border-line rounded-card shadow-card overflow-hidden">
       {/* ── ThreadList (agent inbox) ── */}
-      <aside
-        className="w-72 flex flex-col flex-shrink-0 bg-white"
-        style={{ borderRight: '1px solid #ececec' }}
-      >
+      <aside className="w-72 flex flex-col flex-shrink-0 border-r border-line-soft">
         {/* Inbox header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <span className="text-[13px] font-semibold tracking-tight text-zinc-900">{t('title')}</span>
+          <span className="text-sm font-semibold tracking-tight text-ink-900">{t('title')}</span>
           <button
             disabled={!selectedAgent}
             onClick={startNewChat}
             title={t('newChat')}
-            className="w-6 h-6 grid place-items-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors"
+            aria-label={t('newChat')}
+            className="w-6 h-6 grid place-items-center rounded-field text-ink-500 hover:bg-line-soft hover:text-ink-900 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -258,49 +268,37 @@ export default function WorkspacePage() {
 
         {/* Search */}
         <div className="mx-3 mb-2">
-          <div
-            className="flex items-center gap-2 px-2.5 h-7 rounded-md text-[11px] text-zinc-500"
-            style={{ background: '#fafafa', border: '1px solid #ececec' }}
-          >
-            <Search className="w-3 h-3" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('subtitle')}
-              className="flex-1 bg-transparent outline-none text-[11px] placeholder-zinc-400 text-zinc-900"
-            />
-          </div>
+          <SearchInput
+            size="sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('subtitle')}
+          />
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 px-3 pb-2 text-[11px]">
-          <span
-            className="px-2 py-1 rounded-md text-zinc-900 font-medium flex items-center gap-1.5"
-            style={{ background: '#f4f4f5' }}
-          >
-            All
-            <span
-              className="px-1 rounded text-[10px] text-zinc-500"
-              style={{ background: '#ffffff', border: '1px solid #ececec', fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-            >
+        <div className="flex items-center gap-1 px-3 pb-2 text-xs">
+          <span className="px-2 py-1 rounded-field bg-muted-soft text-ink-900 font-medium flex items-center gap-1.5">
+            {t('tabAll')}
+            <span className="px-1 rounded text-micro text-ink-500 bg-surface border border-line font-mono">
               {agents.length}
             </span>
           </span>
-          <span className="px-2 py-1 rounded-md text-zinc-500">Chats</span>
-          <span className="px-2 py-1 rounded-md text-zinc-500">Mentions</span>
+          <span className="px-2 py-1 rounded-field text-ink-500">{t('tabChats')}</span>
+          <span className="px-2 py-1 rounded-field text-ink-500">{t('tabMentions')}</span>
         </div>
 
         {/* Thread list */}
         <nav className="flex-1 overflow-y-auto px-1.5 pb-4">
           {loadingAgents ? (
             <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-4 h-4 animate-spin text-zinc-300" />
+              <Loader2 className="w-4 h-4 animate-spin text-ink-400" />
             </div>
           ) : (
             <>
-              <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+              <div className="px-3 pt-2 pb-1 text-micro uppercase tracking-wider text-ink-400 flex items-center gap-1.5">
                 <Sparkles className="w-2.5 h-2.5" />
-                <span>AI Agents · {filteredAgents.length}</span>
+                <span>{t('agentsCount', { count: filteredAgents.length })}</span>
               </div>
               {filteredAgents.map((agent) => {
                 const isActive = selectedAgent?.id === agent.id
@@ -308,30 +306,27 @@ export default function WorkspacePage() {
                   <button
                     key={agent.id}
                     onClick={() => selectAgent(agent)}
-                    className={`relative w-full flex items-start gap-2.5 px-3 py-2 text-left rounded-md transition-colors ${
-                      isActive ? 'bg-zinc-100' : 'hover:bg-zinc-50'
+                    className={`relative w-full flex items-start gap-2.5 px-3 py-2 text-left rounded-field transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+                      isActive ? 'bg-primary-soft' : 'hover:bg-line-soft'
                     }`}
                   >
                     <AgentAvatar role={agent.role} size="sm" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
-                        <div className="text-[13px] font-medium truncate text-zinc-900 leading-tight">
+                        <div className="text-sm font-medium truncate text-ink-900 leading-tight">
                           {agent.name.split(' ')[0]}
                         </div>
-                        <div
-                          className="ml-auto text-[10px] text-zinc-400 flex-shrink-0"
-                          style={{ fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-                        >
+                        <div className="ml-auto text-micro text-ink-400 flex-shrink-0 font-mono">
                           {roleLabel(agent.role)}
                         </div>
                       </div>
-                      <div className="text-[11px] text-zinc-500 mt-0.5 truncate leading-snug">
-                        <span className="text-zinc-700 font-medium">AI · </span>
+                      <div className="text-xs text-ink-500 mt-0.5 truncate leading-snug">
+                        <span className="text-ink-700 font-medium">{t('aiPrefix')}</span>
                         {agent.responsibility}
                       </div>
                     </div>
                     {!agent.is_active && (
-                      <span className="absolute right-3 top-2 text-[10px] text-zinc-300">{t('offline')}</span>
+                      <span className="absolute right-3 top-2 text-micro text-ink-400">{t('offline')}</span>
                     )}
                   </button>
                 )
@@ -346,52 +341,42 @@ export default function WorkspacePage() {
         {selectedAgent ? (
           <GroupHeader agent={selectedAgent} roleLabel={roleLabel} />
         ) : (
-          <div
-            className="flex items-center gap-2 px-6 h-14 bg-white"
-            style={{ borderBottom: '1px solid #ececec' }}
-          >
-            <MessageSquare className="w-4 h-4 text-zinc-300" />
-            <span className="text-[13px] text-zinc-400">{t('selectAgent')}</span>
+          <div className="flex items-center gap-2 px-6 h-14 border-b border-line-soft">
+            <MessageSquare className="w-4 h-4 text-ink-400" />
+            <span className="text-sm text-ink-500">{t('selectAgent')}</span>
           </div>
         )}
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto" style={{ background: '#fbfbfb' }}>
+        <div className="flex-1 overflow-y-auto bg-canvas">
           <div className="max-w-3xl mx-auto px-6 py-6">
             {!selectedAgent && (
               <div className="flex flex-col items-center justify-center text-center pt-16">
                 <div className="grid grid-cols-3 gap-3 mb-6 w-full max-w-md">
-                  {Object.entries(DEPT_META).map(([role, { color, initials }]) => (
-                    <div
-                      key={role}
-                      className="bg-white p-4 text-center"
-                      style={{ border: '1px solid #ececec', borderRadius: 10 }}
-                    >
-                      <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs mx-auto mb-2"
-                        style={{ background: color }}
-                      >
-                        {initials}
+                  {KNOWN_ROLES.map((role) => (
+                    <div key={role} className="bg-surface p-4 text-center rounded-field border border-line">
+                      <div className="flex justify-center mb-2">
+                        <AgentAvatar role={role} size="lg" />
                       </div>
-                      <div className="text-[11px] font-medium text-zinc-700">{roleLabel(role)}</div>
+                      <div className="text-xs font-medium text-ink-700">{roleLabel(role)}</div>
                     </div>
                   ))}
                 </div>
-                <p className="text-[12px] text-zinc-400">{t('chooseAgent')}</p>
+                <p className="text-xs text-ink-500">{t('chooseAgent')}</p>
               </div>
             )}
 
             {selectedAgent && loadingMessages && (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-4 h-4 animate-spin text-zinc-300" />
+                <Loader2 className="w-4 h-4 animate-spin text-ink-400" />
               </div>
             )}
 
             {selectedAgent && !loadingMessages && messages.length === 0 && (
               <div className="flex flex-col items-center justify-center text-center pt-16">
                 <AgentAvatar role={selectedAgent.role} size="lg" />
-                <div className="mt-3 text-[14px] font-medium text-zinc-900">{selectedAgent.name}</div>
-                <div className="text-[12px] text-zinc-500 mt-1 max-w-sm leading-relaxed">
+                <div className="mt-3 text-md font-medium text-ink-900">{selectedAgent.name}</div>
+                <div className="text-xs text-ink-500 mt-1 max-w-sm leading-relaxed">
                   {isKnownRole(selectedAgent.role) ? t(`hints.${selectedAgent.role}`) : t('hints.default')}
                 </div>
               </div>
@@ -405,7 +390,6 @@ export default function WorkspacePage() {
                   agent={selectedAgent}
                   showHead={showHead}
                   roleLabel={roleLabel}
-                  youLabel={t('agentFallback')}
                 />
               ))}
 
@@ -413,11 +397,11 @@ export default function WorkspacePage() {
                 <div className="flex items-start gap-3 px-2 pt-2">
                   <AgentAvatar role={selectedAgent.role} size="sm" />
                   <div className="flex items-center gap-1 py-2">
-                    <span className="w-1 h-1 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1 h-1 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1 h-1 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-                    <span className="ml-2 text-[11px] text-zinc-400">
-                      {selectedAgent.name.split(' ')[0]} typing…
+                    <span className="w-1 h-1 rounded-full bg-ink-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 rounded-full bg-ink-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 rounded-full bg-ink-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="ml-2 text-xs text-ink-400">
+                      {t('typingIndicator', { agent: selectedAgent.name.split(' ')[0] })}
                     </span>
                   </div>
                 </div>
@@ -430,18 +414,17 @@ export default function WorkspacePage() {
 
         {/* Error */}
         {error && (
-          <div className="mx-6 mb-2 px-3 py-2 text-[12px] text-red-600 bg-red-50 rounded-md" style={{ border: '1px solid #fecaca' }}>
+          <div className="mx-6 mb-2 px-3 py-2 text-xs text-danger-text bg-danger-soft border border-danger-border rounded-field">
             {error}
           </div>
         )}
 
         {/* Composer */}
-        <div className="flex-shrink-0 px-6 pb-5 pt-2" style={{ background: '#fbfbfb' }}>
+        <div className="flex-shrink-0 px-6 pb-5 pt-2 bg-canvas">
           <div className="max-w-3xl mx-auto">
             <form
               onSubmit={sendMessage}
-              className="bg-white rounded-xl transition-all focus-within:shadow-sm"
-              style={{ border: '1px solid #ececec' }}
+              className="bg-surface rounded-field border border-line-strong transition-all focus-within:shadow-card"
             >
               <textarea
                 ref={inputRef}
@@ -455,70 +438,41 @@ export default function WorkspacePage() {
                 }
                 disabled={!selectedAgent || sending}
                 rows={1}
-                className="w-full px-4 pt-3 pb-1 text-[13px] text-zinc-900 placeholder-zinc-400 resize-none focus:outline-none disabled:opacity-50 max-h-40 overflow-y-auto bg-transparent leading-relaxed"
-                style={{ minHeight: '28px' }}
+                // 焦点环用 ring-inset：这个 textarea 与 <form> 自身的圆角描边之间没有
+                // 外部留白可画标准 offset 环（design-system §4 例外①「全出血容器」），
+                // offset 环会在顶/左/右三边越出 <form> 的 rounded-field 描边。
+                className="w-full px-4 pt-3 pb-1 text-sm text-ink-900 placeholder:text-ink-400 resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset disabled:opacity-50 max-h-40 min-h-[28px] overflow-y-auto bg-transparent leading-relaxed"
               />
               <div className="flex items-center gap-1 px-2 pb-2 pt-1">
-                <button
-                  type="button"
-                  disabled
-                  className="w-7 h-7 grid place-items-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-                  title="Attach (coming soon)"
-                >
+                <ComposerIconBtn title={t('attachSoon')}>
                   <Plus className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="w-7 h-7 grid place-items-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-                  title="Mention (coming soon)"
-                >
-                  <span
-                    className="text-[13px] font-semibold leading-none"
-                    style={{ fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-                  >
-                    @
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="w-7 h-7 grid place-items-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-                  title="Workflow (coming soon)"
-                >
-                  <span
-                    className="text-[13px] font-semibold leading-none"
-                    style={{ fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-                  >
-                    /
-                  </span>
-                </button>
-                <span className="ml-2 text-[11px] text-zinc-400 hidden sm:inline-flex items-center gap-1.5">
-                  <kbd
-                    className="inline-flex items-center justify-center px-1 h-4 text-[10px] text-zinc-500 rounded"
-                    style={{ background: '#fafafa', border: '1px solid #ececec', fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-                  >
+                </ComposerIconBtn>
+                <ComposerIconBtn title={t('mentionSoon')}>
+                  <span className="text-md font-semibold leading-none font-mono">@</span>
+                </ComposerIconBtn>
+                <ComposerIconBtn title={t('workflowSoon')}>
+                  <span className="text-md font-semibold leading-none font-mono">/</span>
+                </ComposerIconBtn>
+                <span className="ml-2 text-xs text-ink-400 hidden sm:inline-flex items-center gap-1.5">
+                  <kbd className="inline-flex items-center justify-center px-1 h-4 text-micro text-ink-500 rounded bg-canvas border border-line font-mono">
                     <CornerDownLeft className="w-2.5 h-2.5" />
                   </kbd>
-                  send
-                  <kbd
-                    className="inline-flex items-center justify-center px-1 h-4 text-[10px] text-zinc-500 rounded"
-                    style={{ background: '#fafafa', border: '1px solid #ececec', fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-                  >
+                  {t('sendHint')}
+                  <kbd className="inline-flex items-center justify-center px-1 h-4 text-micro text-ink-500 rounded bg-canvas border border-line font-mono">
                     ⇧↵
                   </kbd>
-                  new line
+                  {t('newLineHint')}
                 </span>
                 <button
                   type="submit"
                   disabled={!selectedAgent || !input.trim() || sending}
-                  className="ml-auto w-8 h-7 grid place-items-center rounded-md bg-zinc-900 text-white hover:bg-zinc-800 disabled:bg-zinc-200 disabled:text-zinc-400 disabled:cursor-not-allowed transition-colors"
+                  className="ml-auto w-8 h-7 grid place-items-center rounded-field bg-ink-900 text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
                 >
                   {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </form>
-            <p className="text-[11px] text-zinc-400 text-center mt-2 leading-snug">
+            <p className="text-xs text-ink-400 text-center mt-2 leading-snug">
               {t('footerNote')}
             </p>
           </div>
@@ -531,45 +485,43 @@ export default function WorkspacePage() {
 // ── Group header (chat header) ─────────────────────────────────
 
 function GroupHeader({ agent, roleLabel }: { agent: Agent; roleLabel: (r: string) => string }) {
+  const t = useTranslations('workspace')
   const [pinned, setPinned] = useState(false)
   return (
-    <div
-      className="flex items-center gap-3 px-6 h-14 bg-white flex-shrink-0"
-      style={{ borderBottom: '1px solid #ececec' }}
-    >
+    <div className="flex items-center gap-3 px-6 h-14 flex-shrink-0 border-b border-line-soft">
       <AgentAvatar role={agent.role} size="lg" />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-[14px] font-semibold text-zinc-900 truncate">{agent.name}</span>
-          {pinned && <Pin className="w-3 h-3 text-zinc-400" />}
+          <span className="text-md font-semibold text-ink-900 truncate">{agent.name}</span>
+          {pinned && <Pin className="w-3 h-3 text-ink-400" />}
         </div>
-        <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+        <div className="flex items-center gap-2 text-xs text-ink-500">
           <span className="inline-flex items-center gap-1">
-            <Sparkles className="w-2.5 h-2.5 text-violet-700" />
-            <span style={{ color: '#6d28d9' }}>AI · {roleLabel(agent.role)}</span>
+            <Sparkles className="w-2.5 h-2.5 text-primary" />
+            <span className="text-primary-hover">{t('aiRole', { role: roleLabel(agent.role) })}</span>
           </span>
-          <span className="text-zinc-300">·</span>
+          <span className="text-ink-400">·</span>
           <span className="inline-flex items-center gap-1.5">
-            <span className={`w-1.5 h-1.5 rounded-full ${agent.is_active ? 'bg-emerald-500' : 'bg-zinc-300'}`} />
-            <span>{agent.is_active ? 'Active' : 'Offline'}</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${agent.is_active ? 'bg-success-dot' : 'bg-muted-dot'}`} />
+            <span>{agent.is_active ? t('agentActive') : t('agentOffline')}</span>
           </span>
         </div>
       </div>
       <div className="ml-auto flex items-center gap-1">
         <HeaderIconBtn
           active={pinned}
-          title={pinned ? 'Unpin' : 'Pin'}
+          title={pinned ? t('unpin') : t('pin')}
           onClick={() => setPinned((p) => !p)}
         >
           <Pin className="w-3.5 h-3.5" />
         </HeaderIconBtn>
-        <HeaderIconBtn title="Search">
+        <HeaderIconBtn title={t('search')}>
           <Search className="w-3.5 h-3.5" />
         </HeaderIconBtn>
-        <HeaderIconBtn title="Members">
+        <HeaderIconBtn title={t('members')}>
           <Users className="w-3.5 h-3.5" />
         </HeaderIconBtn>
-        <HeaderIconBtn title="More">
+        <HeaderIconBtn title={t('more')}>
           <MoreHorizontal className="w-3.5 h-3.5" />
         </HeaderIconBtn>
       </div>
@@ -592,10 +544,27 @@ function HeaderIconBtn({
     <button
       type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
-      className={`w-7 h-7 grid place-items-center rounded-md transition-colors ${
-        active ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+      className={`w-7 h-7 grid place-items-center rounded-field transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
+        active ? 'bg-primary-soft text-primary-hover' : 'text-ink-500 hover:bg-line-soft hover:text-ink-900'
       }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// 三个组合内尚未上线的按钮（附件/提及/工作流）共享同一套图标按钮外观，
+// 且恒为 disabled——直接把 disabled 收进组件里，避免三处重复 155 字符 className。
+function ComposerIconBtn({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      disabled
+      title={title}
+      aria-label={title}
+      className="w-7 h-7 grid place-items-center rounded-field text-ink-400 hover:bg-line-soft hover:text-ink-900 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
     >
       {children}
     </button>
@@ -609,24 +578,20 @@ function FCMessage({
   agent,
   showHead,
   roleLabel,
-  youLabel,
 }: {
   message: ConversationMessage
   agent: Agent | null
   showHead: boolean
   roleLabel: (r: string) => string
-  youLabel: string
 }) {
+  const t = useTranslations('workspace')
   const isUser = message.sender_type === 'user'
   const author = isUser
-    ? { name: 'You', role: 'me' }
-    : { name: agent?.name ?? youLabel, role: agent?.role ?? '' }
+    ? { name: t('you'), role: 'me' }
+    : { name: agent?.name ?? t('agentFallback'), role: agent?.role ?? '' }
 
   const avatar = isUser ? (
-    <div
-      className="rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0"
-      style={{ width: 28, height: 28, fontSize: 11, background: '#18181b' }}
-    >
+    <div className="rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 w-7 h-7 text-micro bg-ink-900">
       ME
     </div>
   ) : (
@@ -635,36 +600,30 @@ function FCMessage({
 
   return (
     <div
-      className={`flex items-start gap-3 px-2 ${showHead ? 'pt-4' : 'pt-0.5'} pb-0.5 hover:bg-zinc-50/60 rounded`}
+      className={`flex items-start gap-3 px-2 ${showHead ? 'pt-4' : 'pt-0.5'} pb-0.5 hover:bg-line-soft rounded-field`}
     >
       {showHead ? (
         avatar
       ) : (
-        <div style={{ width: 28, height: 28, flexShrink: 0 }} />
+        <div className="w-7 h-7 flex-shrink-0" />
       )}
       <div className="min-w-0 flex-1">
         {showHead && (
           <div className="flex items-baseline gap-2 mb-0.5">
-            <span className={`text-[13px] font-semibold ${isUser ? 'text-zinc-900' : ''}`} style={isUser ? undefined : { color: '#6d28d9' }}>
+            <span className={`text-sm font-semibold ${isUser ? 'text-ink-900' : 'text-primary-hover'}`}>
               {author.name}
             </span>
             {!isUser && agent && (
-              <span
-                className="text-[10px] text-zinc-400"
-                style={{ fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-              >
-                AI · {roleLabel(agent.role)}
+              <span className="text-micro text-ink-400 font-mono">
+                {t('aiRole', { role: roleLabel(agent.role) })}
               </span>
             )}
-            <span
-              className="text-[10px] text-zinc-400"
-              style={{ fontFamily: "'Geist Mono', ui-monospace, monospace" }}
-            >
+            <span className="text-micro text-ink-400 font-mono">
               {formatTime(message.created_at)}
             </span>
           </div>
         )}
-        <div className="text-[13px] text-zinc-800 leading-relaxed whitespace-pre-wrap break-words">
+        <div className="text-sm text-ink-900 leading-relaxed whitespace-pre-wrap break-words">
           {message.content}
         </div>
       </div>

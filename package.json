@@ -1,5 +1,5 @@
 {
-  "name": "creator-guild-os",
+  "name": "creator-network-os",
   "version": "0.1.1",
   "private": true,
   "scripts": {
@@ -10,8 +10,11 @@
     "test:i18n": "node scripts/check-i18n.mjs",
     "test:no-bare-han": "node scripts/check-no-bare-han.mjs",
     "test:migrations": "node scripts/check-migrations.mjs",
-    "test:copy": "npm run test:i18n && npm run test:no-bare-han",
-    "test": "node --test --experimental-strip-types src/lib/supabase/errors.test.ts src/lib/creators/platforms.test.ts src/lib/users/user-code.test.ts src/lib/devices/costs.test.ts src/lib/views/session.test.ts src/lib/activity/activity-events.test.ts src/lib/expenses/category-filter.test.ts src/lib/expenses/costs.test.ts src/lib/intent/events.test.ts src/lib/finance-forecast/calculations.test.ts src/lib/finance-forecast/save-queue.test.ts src/lib/finance-forecast/year.test.ts src/lib/finance-forecast/views.test.ts src/lib/finance-forecast/lifecycle-apply.test.ts src/lib/middleware-assets.test.ts src/lib/middleware-matcher.test.ts src/lib/milestones/next-timeline.test.ts src/lib/discussions/subject.test.ts src/lib/discussions/permissions.test.ts src/lib/currency/server-boundary.test.ts src/lib/notifications/service.test.ts src/venue/layoutData.test.ts src/lib/venue/layout-sync.test.ts src/lib/items/validation.test.ts src/lib/venue/translate.test.ts src/lib/org/tree.test.ts src/lib/work-tasks/org-link.test.ts src/lib/competitors/metrics.test.ts src/lib/competitors/chart.test.ts src/lib/competitors/assemble.test.ts src/lib/competitors/weekly.test.ts src/lib/competitors/mentions.test.ts"
+    "test:style": "node scripts/check-style-tokens.mjs",
+    "test:lint": "next lint --max-warnings=0",
+    "test:copy": "npm run test:i18n && npm run test:no-bare-han && npm run test:style && npm run test:lint",
+    "audit:rls": "node scripts/audit-rls.mjs",
+    "test": "node --test --experimental-strip-types src/lib/supabase/errors.test.ts src/lib/creators/platforms.test.ts src/lib/users/user-code.test.ts src/lib/devices/costs.test.ts src/lib/views/session.test.ts src/lib/activity/activity-events.test.ts src/lib/expenses/category-filter.test.ts src/lib/expenses/costs.test.ts src/lib/intent/events.test.ts src/lib/finance-forecast/calculations.test.ts src/lib/finance-forecast/save-queue.test.ts src/lib/finance-forecast/year.test.ts src/lib/finance-forecast/views.test.ts src/lib/finance-forecast/lifecycle-apply.test.ts src/lib/finance-forecast/server-boundary.test.ts src/lib/middleware-assets.test.ts src/lib/middleware-matcher.test.ts src/lib/milestones/next-timeline.test.ts src/lib/discussions/subject.test.ts src/lib/discussions/permissions.test.ts src/lib/currency/server-boundary.test.ts src/lib/notifications/service.test.ts src/lib/notifications/poll.test.ts src/venue/layoutData.test.ts src/lib/venue/layout-sync.test.ts src/lib/items/validation.test.ts src/lib/venue/translate.test.ts src/lib/org/tree.test.ts src/lib/work-tasks/org-link.test.ts src/lib/competitors/metrics.test.ts src/lib/competitors/chart.test.ts src/lib/competitors/assemble.test.ts src/lib/competitors/weekly.test.ts src/lib/competitors/mentions.test.ts src/lib/competitors/shotGrid.test.ts src/lib/chart-theme.test.ts src/lib/ui/status-tone.test.ts src/components/expenses/category-color.test.ts src/lib/site/application.test.ts src/lib/site/domain-routing.test.ts src/lib/site/nav.test.ts src/lib/site/news.test.ts src/lib/site/contact.test.ts src/lib/site/services.test.ts src/lib/site/locale-menu.test.ts src/lib/site/veil-theme.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

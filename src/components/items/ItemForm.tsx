@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
+import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import { ITEM_KINDS, ITEM_STATUSES, type Item, type ItemKind, type ItemStatus, type ItemStatusLog } from '@/lib/items/types'
 import { EXPENSE_USER_OPTIONS } from '@/lib/expenses/costs'
 import type { Expense } from '@/lib/types'
@@ -145,165 +148,156 @@ export default function ItemForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-base font-semibold text-slate-900 mb-4">{item ? t('edit') : t('add')}</h2>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={item ? t('edit') : t('add')}
+      width="max-w-lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>{tCommon('cancel')}</Button>
+          <Button loading={saving} onClick={submit}>{tCommon('save')}</Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Field label={t('fieldName')}>
+          <Input value={value.name} onChange={(e) => setValue({ ...value, name: e.target.value })} />
+        </Field>
 
-        <div className="space-y-3">
-          <Field label={t('fieldName')}>
-            <input className={inputCls} value={value.name} onChange={(e) => setValue({ ...value, name: e.target.value })} />
+        <Field label={t('fieldKind')}>
+          <Select value={value.kind} onChange={(e) => setValue({ ...value, kind: e.target.value as ItemKind })}>
+            {ITEM_KINDS.map((k) => <option key={k} value={k}>{t(`kind.${k}`)}</option>)}
+          </Select>
+        </Field>
+
+        <Field label={isPhysical ? t('fieldExpenseRequired') : t('fieldExpense')}>
+          <Select value={value.expense_id ?? ''} onChange={(e) => setValue({ ...value, expense_id: e.target.value || null, item_value: null })}>
+            <option value="">{t('selectExpense')}</option>
+            {expenses.map((ex) => (
+              <option key={ex.id} value={ex.id}>{ex.item_name} · ¥{ex.total_price} · {ex.expense_date}</option>
+            ))}
+          </Select>
+        </Field>
+
+        {selectedExpense && (
+          <Field label={t('fieldItemValue')} hint={t('fieldItemValueHint')}>
+            <Input
+              type="number"
+              min={0.01}
+              max={expensePrice ?? undefined}
+              step={0.01}
+              placeholder={expensePrice != null ? t('fieldItemValuePlaceholder', { price: expensePrice.toLocaleString('zh-CN') }) : ''}
+              value={value.item_value ?? ''}
+              onChange={(e) => {
+                const v = e.target.value === '' ? null : Math.min(Number(e.target.value), expensePrice ?? Infinity)
+                setValue({ ...value, item_value: v })
+              }}
+            />
           </Field>
+        )}
 
-          <Field label={t('fieldKind')}>
-            <select className={inputCls} value={value.kind} onChange={(e) => setValue({ ...value, kind: e.target.value as ItemKind })}>
-              {ITEM_KINDS.map((k) => <option key={k} value={k}>{t(`kind.${k}`)}</option>)}
-            </select>
-          </Field>
-
-          <Field label={isPhysical ? t('fieldExpenseRequired') : t('fieldExpense')}>
-            <select className={inputCls} value={value.expense_id ?? ''} onChange={(e) => setValue({ ...value, expense_id: e.target.value || null, item_value: null })}>
-              <option value="">{t('selectExpense')}</option>
-              {expenses.map((ex) => (
-                <option key={ex.id} value={ex.id}>{ex.item_name} · ¥{ex.total_price} · {ex.expense_date}</option>
-              ))}
-            </select>
-          </Field>
-
-          {selectedExpense && (
-            <Field label={t('fieldItemValue')}>
-              <div className="space-y-1">
-                <input
-                  type="number"
-                  min={0.01}
-                  max={expensePrice ?? undefined}
-                  step={0.01}
-                  className={inputCls}
-                  placeholder={expensePrice != null ? t('fieldItemValuePlaceholder', { price: expensePrice.toLocaleString('zh-CN') }) : ''}
-                  value={value.item_value ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value === '' ? null : Math.min(Number(e.target.value), expensePrice ?? Infinity)
-                    setValue({ ...value, item_value: v })
-                  }}
-                />
-                <p className="text-xs text-slate-400">{t('fieldItemValueHint')}</p>
-              </div>
-            </Field>
-          )}
-
-          {isPhysical ? (
-            <div className="grid grid-cols-2 gap-3">
-              <Field label={t('fieldPlacementFloor')}>
-                <select className={inputCls} value={floorId} onChange={(e) => { setFloorId(e.target.value); setValue({ ...value, placement_venue_item_id: null }) }}>
-                  <option value="">{t('selectFloor')}</option>
-                  {floors.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </select>
-              </Field>
-              <Field label={t('fieldPlacementZone')}>
-                <select className={inputCls} value={value.placement_venue_item_id ?? ''} onChange={(e) => setValue({ ...value, placement_venue_item_id: e.target.value || null })} disabled={!floorId}>
-                  <option value="">{t('selectZone')}</option>
-                  {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
-                </select>
-              </Field>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400">{t('noVirtualPlacement')}</p>
-          )}
-
+        {isPhysical ? (
           <div className="grid grid-cols-2 gap-3">
-            <Field label={t('fieldQuantity')}>
-              <input type="number" min={1} className={inputCls} value={value.quantity} onChange={(e) => setValue({ ...value, quantity: Number(e.target.value) || 1 })} />
+            <Field label={t('fieldPlacementFloor')}>
+              <Select value={floorId} onChange={(e) => { setFloorId(e.target.value); setValue({ ...value, placement_venue_item_id: null }) }}>
+                <option value="">{t('selectFloor')}</option>
+                {floors.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </Select>
             </Field>
-            <Field label={t('fieldStatus')}>
-              <select className={inputCls} value={value.status} onChange={(e) => setValue({ ...value, status: e.target.value as ItemStatus })}>
-                {ITEM_STATUSES.map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
-              </select>
+            <Field label={t('fieldPlacementZone')}>
+              <Select value={value.placement_venue_item_id ?? ''} onChange={(e) => setValue({ ...value, placement_venue_item_id: e.target.value || null })} disabled={!floorId}>
+                <option value="">{t('selectZone')}</option>
+                {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+              </Select>
             </Field>
           </div>
+        ) : (
+          <p className="text-xs text-ink-400">{t('noVirtualPlacement')}</p>
+        )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t('fieldResponsible')}>
-              <select className={inputCls} value={value.responsible_person} onChange={(e) => setValue({ ...value, responsible_person: e.target.value })}>
-                <option value=""></option>
-                {EXPENSE_USER_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </Field>
-            <Field label={t('fieldSerial')}>
-              <input className={inputCls} value={value.serial_number} onChange={(e) => setValue({ ...value, serial_number: e.target.value })} />
-            </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('fieldQuantity')}>
+            <Input type="number" min={1} value={value.quantity} onChange={(e) => setValue({ ...value, quantity: Number(e.target.value) || 1 })} />
+          </Field>
+          <Field label={t('fieldStatus')}>
+            <Select value={value.status} onChange={(e) => setValue({ ...value, status: e.target.value as ItemStatus })}>
+              {ITEM_STATUSES.map((s) => <option key={s} value={s}>{t(`status.${s}`)}</option>)}
+            </Select>
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('fieldResponsible')}>
+            <Select value={value.responsible_person} onChange={(e) => setValue({ ...value, responsible_person: e.target.value })}>
+              <option value=""></option>
+              {EXPENSE_USER_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+            </Select>
+          </Field>
+          <Field label={t('fieldSerial')}>
+            <Input value={value.serial_number} onChange={(e) => setValue({ ...value, serial_number: e.target.value })} />
+          </Field>
+        </div>
+
+        <Field label={t('fieldNotes')}>
+          <Textarea rows={2} value={value.notes} onChange={(e) => setValue({ ...value, notes: e.target.value })} />
+        </Field>
+
+        <Field label={t('fieldPhoto')}>
+          <div className="flex items-center gap-3">
+            {value.photo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={value.photo_url} alt="" className="w-14 h-14 rounded-field object-cover border border-line" />
+            )}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="text-xs"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f) }}
+            />
+            {uploading && <span className="text-xs text-ink-400">{t('uploading')}</span>}
+            {value.photo_url && (
+              <button type="button" className="text-xs text-danger-text hover:underline" onClick={() => setValue((v) => ({ ...v, photo_url: null }))}>
+                {t('removePhoto')}
+              </button>
+            )}
           </div>
+        </Field>
 
-          <Field label={t('fieldNotes')}>
-            <textarea className={inputCls} rows={2} value={value.notes} onChange={(e) => setValue({ ...value, notes: e.target.value })} />
+        {item && (
+          <Field label={t('fieldStatusNote')}>
+            <Input value={value.status_note} onChange={(e) => setValue({ ...value, status_note: e.target.value })} />
           </Field>
+        )}
 
-          <Field label={t('fieldPhoto')}>
-            <div className="flex items-center gap-3">
-              {value.photo_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={value.photo_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-slate-200" />
-              )}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="text-xs"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f) }}
-              />
-              {uploading && <span className="text-xs text-slate-400">{t('uploading')}</span>}
-              {value.photo_url && (
-                <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => setValue((v) => ({ ...v, photo_url: null }))}>
-                  {t('removePhoto')}
-                </button>
-              )}
-            </div>
-          </Field>
+        {item && (
+          <div className="rounded-field border border-line p-3">
+            <div className="text-xs font-semibold text-ink-700 mb-2">{t('timelineTitle')}</div>
+            {statusLogs.length === 0 ? (
+              <div className="text-xs text-ink-400">{t('timelineEmpty')}</div>
+            ) : (
+              <ul className="space-y-1.5">
+                {statusLogs.map((log) => (
+                  <li key={log.id} className="text-xs text-ink-700 flex gap-2">
+                    <span className="text-ink-400 shrink-0">{new Date(log.changed_at).toLocaleString('zh-CN')}</span>
+                    <span>
+                      {log.from_status ? `${t(`status.${log.from_status}`)} → ` : `${t('timelineInitial')} → `}
+                      {t(`status.${log.to_status}`)}
+                      {log.note ? ` · ${log.note}` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
-          {item && (
-            <Field label={t('fieldStatusNote')}>
-              <input className={inputCls} value={value.status_note} onChange={(e) => setValue({ ...value, status_note: e.target.value })} />
-            </Field>
-          )}
-
-          {item && (
-            <div className="rounded-lg border border-slate-200 p-3">
-              <div className="text-xs font-semibold text-slate-700 mb-2">{t('timelineTitle')}</div>
-              {statusLogs.length === 0 ? (
-                <div className="text-xs text-slate-400">{t('timelineEmpty')}</div>
-              ) : (
-                <ul className="space-y-1.5">
-                  {statusLogs.map((log) => (
-                    <li key={log.id} className="text-xs text-slate-600 flex gap-2">
-                      <span className="text-slate-400 shrink-0">{new Date(log.changed_at).toLocaleString('zh-CN')}</span>
-                      <span>
-                        {log.from_status ? `${t(`status.${log.from_status}`)} → ` : `${t('timelineInitial')} → `}
-                        {t(`status.${log.to_status}`)}
-                        {log.note ? ` · ${log.note}` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {error && <p className="text-xs text-red-600">{error}</p>}
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button className="h-9 rounded-lg border border-slate-200 px-4 text-sm text-slate-600 hover:bg-slate-50" onClick={onClose} disabled={saving}>{tCommon('cancel')}</button>
-          <button className="h-9 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50" onClick={submit} disabled={saving}>{tCommon('save')}</button>
-        </div>
+        {error && (
+          <div className="text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">
+            {error}
+          </div>
+        )}
       </div>
-    </div>
-  )
-}
-
-const inputCls = 'w-full h-9 rounded-lg border border-slate-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="block text-xs font-medium text-slate-700 mb-1">{label}</span>
-      {children}
-    </label>
+    </Modal>
   )
 }
