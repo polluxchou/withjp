@@ -15,12 +15,14 @@ export const NEWS_SLUGS = [
 
 export type NewsSlug = (typeof NEWS_SLUGS)[number]
 
-/** 每篇文章的主图。与 NEWS_SLUGS 同序。 */
-const NEWS_IMAGES: Record<NewsSlug, string> = {
-  'nightly-live-start': '/site/moondollz-group.webp',
-  'moondollz-launch': '/site/moondollz-key.webp',
-  'first-gen-audition': '/site/card-kano.webp',
-  'osaka-studio-open': '/site/card-shino.webp',
+export type NewsCategory = 'live' | 'project' | 'recruit'
+
+/** 每篇文章不随语言变化的元数据。 */
+const NEWS_METADATA: Record<NewsSlug, { image: string; category: NewsCategory }> = {
+  'nightly-live-start': { image: '/site/moondollz-group.webp', category: 'live' },
+  'moondollz-launch': { image: '/site/moondollz-key.webp', category: 'project' },
+  'first-gen-audition': { image: '/site/card-kano.webp', category: 'recruit' },
+  'osaka-studio-open': { image: '/site/card-shino.webp', category: 'project' },
 }
 
 /** i18n 里一篇文章的形状（site.news.articles[i]）。 */
@@ -35,6 +37,7 @@ export interface SiteArticleCopy {
 export interface SiteArticle extends SiteArticleCopy {
   slug: NewsSlug
   image: string
+  category: NewsCategory
   href: string
 }
 
@@ -47,11 +50,15 @@ export function buildArticles(copy: SiteArticleCopy[]): SiteArticle[] {
   return NEWS_SLUGS.map((slug, i) => ({
     ...copy[i],
     slug,
-    image: NEWS_IMAGES[slug],
+    ...NEWS_METADATA[slug],
     href: `/site/news/${slug}`,
   })).filter((article) => Boolean(article.title))
 }
 
 export function findArticle(copy: SiteArticleCopy[], slug: string): SiteArticle | undefined {
   return buildArticles(copy).find((article) => article.slug === slug)
+}
+
+export function shouldShowNewsApply(category: NewsCategory): boolean {
+  return category === 'recruit'
 }

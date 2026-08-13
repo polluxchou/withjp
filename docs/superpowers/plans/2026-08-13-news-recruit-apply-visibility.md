@@ -17,7 +17,7 @@
 - Modify: `src/lib/site/news.ts`
 - Modify: `src/app/[locale]/site/news/[slug]/page.tsx`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Update the module imports so the test can probe the not-yet-existing predicate without causing an import error, then add these tests:
 
@@ -42,7 +42,7 @@ test('shows the apply action only for the recruit category', () => {
 })
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -52,7 +52,7 @@ node --test --experimental-strip-types src/lib/site/news.test.ts
 
 Expected: the new category and apply-visibility tests fail because categories and `shouldShowNewsApply` do not exist yet; the original four tests continue to pass.
 
-- [ ] **Step 3: Add minimal category metadata and predicate**
+- [x] **Step 3: Add minimal category metadata and predicate**
 
 In `src/lib/site/news.ts`, replace the image-only map with typed metadata:
 
@@ -75,7 +75,7 @@ export function shouldShowNewsApply(category: NewsCategory): boolean {
 }
 ```
 
-- [ ] **Step 4: Render the apply button conditionally**
+- [x] **Step 4: Render the apply button conditionally**
 
 Import `shouldShowNewsApply` in `src/app/[locale]/site/news/[slug]/page.tsx` and change only the existing apply button block to:
 
@@ -89,7 +89,7 @@ Import `shouldShowNewsApply` in `src/app/[locale]/site/news/[slug]/page.tsx` and
 
 Leave the back-to-news button outside the condition.
 
-- [ ] **Step 5: Run focused tests and verify GREEN**
+- [x] **Step 5: Run focused tests and verify GREEN**
 
 Run:
 
@@ -99,7 +99,7 @@ node --test --experimental-strip-types src/lib/site/news.test.ts
 
 Expected: all six news tests pass with zero failures.
 
-- [ ] **Step 6: Run full verification**
+- [x] **Step 6: Run full verification**
 
 Run:
 
@@ -111,7 +111,7 @@ git diff --check
 
 Expected: 300 tests pass, the production build exits 0, and the diff check prints no errors.
 
-- [ ] **Step 7: Commit the implementation**
+- [x] **Step 7: Commit the implementation**
 
 ```bash
 git add src/lib/site/news.test.ts src/lib/site/news.ts 'src/app/[locale]/site/news/[slug]/page.tsx'
