@@ -43,8 +43,8 @@ export default function SiteLivePage({ params }: { params: { locale: string } })
               竖屏合照塞进横盒子会被 object-cover 裁成中间一条，脸全在框外。
               max-w 是必要的：撑满卡片宽度时这张 9:16 会算出 778px 高，ON AIR 卡
               比左边排期表高出近 400px；截到 288px 后两列落在 567 / 658，同时更像
-              一块竖屏直播画面。duotone 一并摘掉，同 05 TECHNOLOGY(#198)：真实
-              照片压青色会吃掉妆造和服装的颜色。 */}
+              一块竖屏直播画面。duotone 一并摘掉，同首页 05 TECHNOLOGY 那次(PR 198)：
+              真实照片压青色会吃掉妆造和服装的颜色。 */}
           <div className="relative mx-auto mb-5 aspect-[1080/1768] w-full max-w-[288px] border border-site-line-strong">
             <SiteImage
               src="/site/live-onair-group.webp"
