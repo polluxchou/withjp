@@ -8,6 +8,38 @@
 
 ---
 
+---
+
+## ⚠️ 重要更正（2026-08-14）：本次审计基于一份落后 30 个提交的工作副本
+
+**审计全程没有 `git fetch`。** 当时看到的 `main [behind 2]` 是陈旧的远端追踪引用，
+真实差距是 30+ 个提交。因此下面两条结论**在写下的那一刻就已经不成立**：
+
+| 原结论 | 实际状态 |
+|---|---|
+| **P0-3** `venue_items` 完全没有 RLS | **上游已修**：`20260812111104_enable_rls_venue_items.sql` |
+| **D-1** 迁移编号重复（011/016/018/022/033/038/042），无应用记录 | **上游已修**：2026-08-08 起全部改为时间戳命名，新增 `supabase/migrations/README.md` 与 CI 门禁 `.github/workflows/migrations.yml` |
+
+D-1 那条尤其要更正语气：我把它写成「切换日最容易出事的一条」，而上游 README 记载
+**这件事已经出过事并被根治** —— `022_intent_audit.sql` 与 `027_notifications.sql`
+确实因重复编号漏应用，直接导致线上 `/api/notifications` 500。
+
+同样已被上游覆盖的还有：§4「CI 只跑 copy 门禁」—— `copy.yml` 现已包含
+「ESLint (React hook deps, zero tolerance)」（#171）；另有 `52f7485` 补开了
+LangGraph checkpointer 表的 RLS 并加了 RLS 巡检脚本。
+
+**未被上游修复、仍然成立的**：P0-1 / P0-2（`users` 与 `broadcast_accounts` 的策略
+仍是 `using (true)` 且无 `to authenticated` —— 匿名仍可读全员名册与邮箱）、
+`user_salary` 仍挂在通用的 authenticated_only 策略上、P0-4（route 只判登录）、
+以及「清空表权限不受 RLS 约束」这条容器实跑发现。修复见
+`supabase/migrations/20260814074006_rls_users_broadcast_accounts_salary.sql`。
+
+**方法论教训（比上面两条更重要）**：审计一个活跃仓库之前必须先 `git fetch` 并
+确认基线。否则会把已修的问题报成现存问题 —— 这不只是浪费，它会让报告里**真正
+还开着的那几条**跟着一起失去可信度。本文其余结论均未重新对照最新 `origin/main` 复核。
+
+---
+
 ## 0. 一句话结论
 
 代码质量本身是好的（类型全绿、344 测试全绿、i18n/设计 token 有 CI 门禁、文档写得比多数团队认真），**但授权体系几乎不存在**：`service_role` 让 RLS 在全部 70 个 API 路径上失效，兜底的 RLS 策略又写成了"只要登录就全放行"，其中两张表连 `to authenticated` 都漏了 —— 拿到公开 anon key 的**任何人**可以读全员名册。与此同时，被 tt-agent 决策 20 判定为"冻结待退役"的这个仓库，过去 12 天新增了 198 个 commit 和一整条对外业务线，**冻结没有被执行**，而所有"接受该风险到切换日"的结论都建立在"马上就废弃"这个前提上。
