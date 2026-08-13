@@ -1821,47 +1821,39 @@
       "imagePlaceholder": "Article hero image",
       "articles": [
         {
-          "date": "2026.10.01",
-          "tag": "LIVE",
-          "title": "Nightly 21:00 streams begin from the Namba studio",
-          "lead": "From 1 October we stream TikTok LIVE every night at 21:00 from our own studio in Namba.",
-          "body": [
-            "Each weekday has a fixed unit and theme, so viewers never have to guess whose slot it is. Monday is MOON UNIT's late-night hour, Tuesday is DOLLZ UNIT's dance format, Wednesday belongs to the suit cast.",
-            "Streams run on the studio's wired setup, with dedicated staff on audio, lighting and camera. Performers only have to think about performing.",
-            "Archives and clips from each slot will be published progressively. See the TIKTOK LIVE page for the full schedule."
-          ]
-        },
-        {
-          "date": "2026.09.10",
+          "date": "2026.08.12",
           "tag": "PROJECT",
-          "title": "Girl-group project MOONDOLLZ announced",
-          "lead": "We announced MOONDOLLZ, a dual-captain singing and dance group.",
+          "title": "3D Avatar Technology Team to Create Dedicated MC Characters for EchoAmp",
+          "lead": "EchoAmp will work with an experienced 3D avatar technology team from China’s live-streaming industry to develop dedicated character solutions for its MC roles.",
           "body": [
-            "MOON is the dreamlike, nocturnal and mysterious; DOLLZ is the sense of a troupe where every member carries her own style; the closing Z is the temperature of Y2K and streetwear. The name stacks all three.",
-            "Sub-units are run with distinct character settings while debuting together as one group. The captains are Ayatsuki (MOON SIDE) and Yukiha (DOLLZ SIDE).",
-            "Members will be revealed progressively in October and December."
-          ]
-        },
-        {
-          "date": "2026.08.28",
-          "tag": "RECRUIT",
-          "title": "First-generation auditions open across Kansai",
-          "lead": "Auditions for our first generation are open to women around 18–26 living in Osaka and the wider Kansai area.",
-          "body": [
-            "We welcome dance backgrounds (street, cheer, ballet and so on), stage experience, and time in university dance clubs or amateur teams. No streaming experience required.",
-            "The process runs form submission → document screening → online interview → a practical session at the Osaka studio → contract, and takes about 2–3 weeks.",
-            "Lessons, studio use, costume and shooting are covered by the agency. Revenue and terms are explained individually at the interview."
+            "The collaboration will integrate character design, real-time motion, voice performance, and live interaction, enabling MCs to appear consistently through distinctive virtual identities. The project will also explore new formats that combine live performers, virtual characters, and real-time streaming."
           ]
         },
         {
           "date": "2026.08.10",
           "tag": "PROJECT",
-          "title": "EchoAmp Osaka office and streaming studio go live",
-          "lead": "We opened an office and streaming studio in the Shin-Osaka area and have started operating from there.",
+          "title": "EchoAmp Announces Its First Operations Partner, 吉光片羽株式会社",
+          "lead": "EchoAmp will enter into a close partnership with 吉光片羽株式会社, a media company with established experience in MCN operations and creator management.",
           "body": [
-            "Streaming booths, lesson space and a shooting space sit on the same floor, so everything from rehearsal to broadcast happens in one place.",
-            "Five minutes on foot from Shin-Osaka station, easy to reach by both shinkansen and subway.",
-            "Visits are by appointment only. We share the exact address once an interview is confirmed."
+            "The two companies will collaborate across talent management, content operations, on-site execution, and creator development. EchoAmp will lead the team’s overall brand and direction while combining its capabilities with its partner’s local operational experience in Japan."
+          ]
+        },
+        {
+          "date": "2026.08.01",
+          "tag": "RECRUIT",
+          "title": "EchoAmp to Begin Its First Recruitment Round in Mid-September, Seeking Six Members",
+          "lead": "EchoAmp will begin its first team recruitment round in Osaka in mid-September 2026, with six female creators planned for the initial lineup.",
+          "body": [
+            "Recruitment will focus on singing, dance, on-camera presence, and a strong commitment to live performance. Selected members will take part in training, choreography, and live-streaming practice while helping shape the style and culture of EchoAmp’s first performance team."
+          ]
+        },
+        {
+          "date": "2026.07.21",
+          "tag": "PROJECT",
+          "title": "EchoAmp Launches in Osaka with Plans to Build a Female Singing and Dancing Live Team",
+          "lead": "EchoAmp has officially launched its Creator Network project in Osaka.",
+          "body": [
+            "Centered on singing, dance, and live performance, the project will discover female creators with strong potential and bring them together as a dedicated live-streaming team. Through training, content production, and continuous live shows, EchoAmp aims to build a distinctive team style, culture, and fan community around live streaming as a stage of its own."
           ]
         }
       ]
