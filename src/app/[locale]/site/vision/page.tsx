@@ -46,12 +46,24 @@ export default function SiteVisionPage({ params }: { params: { locale: string } 
         <h1 className="mt-3.5 max-w-[900px] font-serif-jp text-[clamp(26px,3.4vw,52px)] leading-[1.35]">
           {t('title')}
         </h1>
-        <p className="mt-6 max-w-[760px] text-[17px] leading-[2.1] text-site-fg/78">{t('lead')}</p>
+        {/* 信念句单独成段：它是宣言的第二层，和下面的说明段落挤在一个 <p> 里会读丢。 */}
+        <p className="mt-6 max-w-[760px] font-serif-jp text-[19px] leading-[1.9]">{t('statement')}</p>
+        <p className="mt-4 max-w-[760px] text-[17px] leading-[2.1] text-site-fg/78">{t('lead')}</p>
       </SiteSection>
 
       <SiteSection divider={false} className="pt-0 lg:pt-0">
+        {/* 图位高度不动：桌面 1296×420 是 3.09:1，图本身 2172×724 正好 3:1，
+            object-cover 只切掉上下各几像素。duotone 摘掉，同 ON AIR 图位和首页
+            05 TECHNOLOGY 那次(PR 198 / PR 200)：这张的看点就是霓虹和地平线那道
+            余晖，压成青色单色调等于把它抹平。 */}
         <div className="relative h-[240px] sm:h-[320px] lg:h-[420px]">
-          <SiteImage placeholder={t('imagePlaceholder')} duotone className="h-full w-full" />
+          <SiteImage
+            src="/site/vision-osaka-night.webp"
+            alt={t('imageAlt')}
+            placeholder={t('imagePlaceholder')}
+            sizes="(min-width: 1360px) 1296px, 100vw"
+            className="h-full w-full"
+          />
         </div>
       </SiteSection>
 
@@ -68,7 +80,7 @@ export default function SiteVisionPage({ params }: { params: { locale: string } 
         </HairlineGrid>
       </SiteSection>
 
-      {/* ══ 设计原则 ══ */}
+      {/* ══ 团体性格：SPIRIT ／ VOICE ／ IMAGE ══ */}
       <div className="border-y border-site-line bg-site-panel">
         <div className="mx-auto grid max-w-[1360px] gap-10 px-6 py-14 md:px-8 lg:grid-cols-3 lg:gap-14 lg:py-[72px]">
           {principles.map((p) => (

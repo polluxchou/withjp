@@ -67,7 +67,12 @@
        是三元组，浅色主题只要换掉这一个值，整条透明度阶梯自动跟着翻转。 */
     --site-fg: 255 255 255;
     --site-accent: #25f4ee;
-    /* 强调色实底之上的文字色（三角幕）。深色主题下 accent 是亮青，字得是黑的 */
+    /* 三角幕的实底。和 --site-map-accent 同理：这是一整块满铺的强调色，不是压在
+       画布上的细文字，跟着浅色主题翻成深青会闷成一块脏蓝绿，幕内固定黑字的对比度
+       也从 15.3:1 掉到 3.6:1（13px 小字达不到 AA 的 4.5:1）。设计稿同样把这里写成
+       固定的亮青、不引用 accent 变量。 */
+    --site-veil: #25f4ee;
+    /* 强调色实底之上的文字色（三角幕）。深浅主题都固定为黑色。 */
     --site-on-accent: #000000;
     /* hot 是 TikTok 红，深浅两套主题都用同一个值：红底白字在两种底色下都成立。
        on-hot 也因此是常量白 —— 浅色主题下 fg 变成近黑，压在红底上读不出来。 */
@@ -104,7 +109,6 @@
     --site-header: rgba(243, 243, 244, 0.92);
     --site-fg: 17 17 20;
     --site-accent: #0a7078;
-    --site-on-accent: #ffffff;
     --site-line: rgba(17, 17, 20, 0.18);
     --site-line-strong: rgba(17, 17, 20, 0.4);
   }
@@ -179,9 +183,13 @@
 }
 
 /* ══ 对外官网的动效（不在 @layer 里：keyframes 不参与层叠层解析） ══ */
+/* 跑马灯：位移量 = 恰好一份内容的宽度 = 轨道宽的 1/N（N = Ticker 渲染的份数），
+   这样第 k 份走到第 k-1 份的起点上，循环看不出接缝。N 由 Ticker.tsx 通过
+   --site-ticker-copies 传进来，改份数不用回来改这里；位移距离始终是一份，
+   所以观感速度只由「单份宽 / 时长」决定，跟份数无关（时长见 tailwind.config.ts）。 */
 @keyframes site-ticker {
   from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
+  to   { transform: translateX(calc(-100% / var(--site-ticker-copies, 2))); }
 }
 @keyframes site-pulse {
   0%, 100% { opacity: 1; }

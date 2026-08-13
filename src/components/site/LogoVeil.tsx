@@ -50,7 +50,7 @@ export default function LogoVeil({ open, onClose }: { open: boolean; onClose: ()
     // 读屏用户不需要在导航区听到它。
     <div
       aria-hidden
-      className="site-veil pointer-events-none fixed inset-0 z-[60] animate-site-veil bg-site-accent"
+      className="site-veil pointer-events-none fixed inset-0 z-[60] animate-site-veil bg-site-veil"
       style={{ clipPath: CLIP }}
     >
       <div className="site-veil-body max-w-[520px] animate-site-veil-in pl-14 pr-8 pt-[104px]">

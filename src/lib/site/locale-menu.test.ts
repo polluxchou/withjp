@@ -5,11 +5,18 @@ import {
   nextLocaleMenuIndex,
   nextLocaleMenuOpen,
 } from './locale-menu.ts'
+import { locales } from '../../i18n/routing.ts'
 
-test('locale menu keeps routing order and marks exactly the current locale', () => {
-  const options = buildLocaleMenuOptions('ja')
-  assert.deepEqual(options.map(({ locale }) => locale), ['zh', 'en', 'ja'])
+test('locale menu lists 日 → 英 → 中 and marks exactly the current locale', () => {
+  const options = buildLocaleMenuOptions('zh')
+  assert.deepEqual(options.map(({ locale }) => locale), ['ja', 'en', 'zh'])
   assert.deepEqual(options.map(({ active }) => active), [false, false, true])
+})
+
+// 官网的顺序是自己的：后台的 routing 里 zh 排第一，切换器不能跟着它走。
+test('locale menu does not follow the backoffice routing order', () => {
+  assert.notDeepEqual(buildLocaleMenuOptions('ja').map(({ locale }) => locale), [...locales])
+  assert.equal(buildLocaleMenuOptions('ja')[0].locale, 'ja')
 })
 
 test('an unknown current locale does not invent an active option', () => {
