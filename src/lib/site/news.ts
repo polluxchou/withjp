@@ -18,11 +18,19 @@ export const NEWS_SLUGS = [
 export type NewsSlug = (typeof NEWS_SLUGS)[number]
 
 /**
- * 每篇文章的主图，与 NEWS_SLUGS 同序。Partial 而不是 Record：这批真实新闻的
- * 配图还没到位，缺配图的条目留空即可——SiteImage 对缺图有专门的占位框，
- * 不用拿别的页面的图来顶替。
+ * 每篇文章的主图，与 NEWS_SLUGS 同序。Partial 而不是 Record：还有条目没配图，
+ * 留空即可——SiteImage 对缺图有专门的占位框，不用拿别的页面的图来顶替。
+ *
+ * mc-character-tech-partnership 用的是一张 3×3 表情参考图（喜怒哀楽…），
+ * 竖版九宫格。文章详情页的图位是横版通栏盒子，SiteImage 默认居中裁切
+ * （object-position: center）——九宫格总高恰好三等分，居中裁切后视口稳定落在
+ * 中间一行（楽しさ／むくれる／驚き），首尾两行（含最下一格的敏感向词条）
+ * 都在裁切区外，任何断点下都不会露出来，不用手工再抠一张单独的图。
  */
-const NEWS_IMAGES: Partial<Record<NewsSlug, string>> = {}
+const NEWS_IMAGES: Partial<Record<NewsSlug, string>> = {
+  'mc-character-tech-partnership': '/site/mc-character-expressions.webp',
+  'operations-partner-announced': '/site/operations-partner-lockup.webp',
+}
 
 /** i18n 里一篇文章的形状（site.news.articles[i]）。 */
 export interface SiteArticleCopy {
