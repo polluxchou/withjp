@@ -325,6 +325,14 @@ export default function Sidebar() {
     return () => { document.body.style.overflow = prev }
   }, [mobileOpen, isMobile])
 
+  // On mobile, ignore the desktop `collapsed` setting so the drawer
+  // always slides in fully expanded. Declared above the sync effect below so
+  // it can sit in that effect's dependency array (which is evaluated during
+  // render, unlike the effect body).
+  const effectiveCollapsed = isMobile ? false : collapsed
+  const effectiveWidth     = effectiveCollapsed ? COLLAPSED_W : EXPANDED_W
+  const showLabel          = !effectiveCollapsed
+
   // Sync CSS var + persistence whenever collapsed changes (after hydration).
   // On mobile we force the var to 0 so the main content sits flush against
   // the viewport edge while the drawer is hidden off-canvas.
@@ -333,13 +341,7 @@ export default function Sidebar() {
     const desktopWidth = effectiveCollapsed ? COLLAPSED_W : EXPANDED_W
     document.documentElement.style.setProperty('--sidebar-width', isMobile ? '0px' : desktopWidth)
     localStorage.setItem(LS_KEY, effectiveCollapsed ? '1' : '0')
-  }, [collapsed, hydrated, isMobile])
-
-  // On mobile, ignore the desktop `collapsed` setting so the drawer
-  // always slides in fully expanded.
-  const effectiveCollapsed = isMobile ? false : collapsed
-  const effectiveWidth     = effectiveCollapsed ? COLLAPSED_W : EXPANDED_W
-  const showLabel          = !effectiveCollapsed
+  }, [effectiveCollapsed, hydrated, isMobile])
 
   // `exact` matches the pathname exactly — needed when one nav href is a prefix
   // of a sibling (e.g. /team vs /team/assignments) so both don't light up.

@@ -287,12 +287,17 @@ export default function ExpensesPage() {
                      : ym
         return { ym, first, last, label }
       })
-  }, [availableMonths])
+  }, [availableMonths, t])
 
   // If filters.date_from/to exactly span a whole month, surface that
   // month as the "active month" for KPI highlighting + popover state.
+  // Read the two fields off `filters` directly rather than destructuring the
+  // whole object: exhaustive-deps can't see through a destructure and would
+  // demand the entire `filters` object, which changes on every unrelated
+  // filter edit and would recompute this on every keystroke.
   const activeMonth = useMemo(() => {
-    const { date_from, date_to } = filters
+    const date_from = filters.date_from
+    const date_to = filters.date_to
     if (!date_from || !date_to) return null
     const fromYM = date_from.slice(0, 7)
     if (fromYM !== date_to.slice(0, 7)) return null

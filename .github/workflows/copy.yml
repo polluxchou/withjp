@@ -11,8 +11,12 @@ name: copy
 #     enforces this with zero tolerance — the migration baseline was retired
 #     on 2026-08-11, exceptions now live in the script's WHITELIST or in
 #     per-line `style-tokens-ignore` comments
-# All checks are pure Node scripts and need no extra install beyond the
-# project's existing devDependencies.
+#   * react-hooks/exhaustive-deps is an error (not a warning) and `next lint`
+#     runs with --max-warnings=0, so stale-closure bugs like PR #166 fail the
+#     build instead of scrolling past as ignorable output; intentional
+#     narrow dep arrays need a per-line eslint-disable with a written reason
+# Everything but the ESLint step is a pure Node script; all of them need no
+# extra install beyond the project's existing devDependencies.
 
 on:
   pull_request:
@@ -29,6 +33,7 @@ on:
       # 正向校验从这里读已登记 token：只删/改注册项的 PR 也必须触发门禁
       - 'tailwind.config.ts'
       - 'docs/copy-glossary.md'
+      - '.eslintrc.json'
       - '.github/workflows/copy.yml'
   push:
     branches: [main]
@@ -54,3 +59,6 @@ jobs:
 
       - name: Style tokens
         run: npm run test:style
+
+      - name: ESLint (React hook deps, zero tolerance)
+        run: npm run test:lint
