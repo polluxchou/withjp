@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { COMMUTE_MODES, type ApplicationFields, type CommuteMode, type FieldError } from '@/lib/site/application'
+import { checkStaffRequiredChoices } from './staff-application-form'
 import BlueprintFrame from './BlueprintFrame'
 import SiteButton from './SiteButton'
 
@@ -38,6 +39,21 @@ export default function StaffApplicationForm() {
     setFormError(null)
 
     const data = new FormData(event.currentTarget)
+
+    // kind 决定投递走哪条招募线，两个 radio 组都不预选（见
+    // staff-application-form.ts 顶部注释）：不选就提交要在这里当场拦下并把
+    // 错误画出来，不能指望服务端——服务端把「没传 kind」静默按 creator 处理，
+    // 而这个表单没有 age 字段，会以用户看不见的 fields.age = 'required' 失败。
+    const requiredChoiceErrors = checkStaffRequiredChoices({
+      kind: data.get('kind'),
+      commuteMode: data.get('commuteMode'),
+    })
+    if (Object.keys(requiredChoiceErrors).length > 0) {
+      setFields(requiredChoiceErrors)
+      setStatus('idle')
+      return
+    }
+
     const payload = {
       kind: data.get('kind') as StaffKind,
       name: data.get('name'),
@@ -96,10 +112,10 @@ export default function StaffApplicationForm() {
       </div>
       <form onSubmit={onSubmit} noValidate className="grid gap-4">
         <Field label={t('name')} error={fields.name} t={t}>
-          <input name="name" maxLength={60} className={FIELD_CLS} />
+          <input name="name" maxLength={30} className={FIELD_CLS} />
         </Field>
         <Field label={t('contact')} hint={t('contactHint')} error={fields.contact} t={t}>
-          <input name="contact" maxLength={200} className={FIELD_CLS} />
+          <input name="contact" maxLength={120} className={FIELD_CLS} />
         </Field>
         <Field label={t('email')} error={fields.email} t={t}>
           <input name="email" type="email" maxLength={254} className={FIELD_CLS} />
@@ -107,18 +123,12 @@ export default function StaffApplicationForm() {
 
         <Field label={t('kind')} error={fields.kind} t={t}>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {STAFF_KINDS.map((kind, i) => (
+            {STAFF_KINDS.map((kind) => (
               <label
                 key={kind}
                 className="flex cursor-pointer items-center gap-2 text-[14px] text-site-fg/86"
               >
-                <input
-                  type="radio"
-                  name="kind"
-                  value={kind}
-                  defaultChecked={i === 0}
-                  className="accent-site-accent"
-                />
+                <input type="radio" name="kind" value={kind} className="accent-site-accent" />
                 {t(`kindOptions.${kind}`)}
               </label>
             ))}
@@ -131,18 +141,12 @@ export default function StaffApplicationForm() {
 
         <Field label={t('commuteMode')} error={fields.commuteMode} t={t}>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            {COMMUTE_MODES.map((mode, i) => (
+            {COMMUTE_MODES.map((mode) => (
               <label
                 key={mode}
                 className="flex cursor-pointer items-center gap-2 text-[14px] text-site-fg/86"
               >
-                <input
-                  type="radio"
-                  name="commuteMode"
-                  value={mode}
-                  defaultChecked={i === 0}
-                  className="accent-site-accent"
-                />
+                <input type="radio" name="commuteMode" value={mode} className="accent-site-accent" />
                 {t(`commuteModeOptions.${mode}`)}
               </label>
             ))}
