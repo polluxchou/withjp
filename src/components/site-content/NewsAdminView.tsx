@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Plus, Pencil, Trash2, Pin, PinOff, Eye, EyeOff, ExternalLink, Newspaper } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import SectionCard from '@/components/ui/SectionCard'
@@ -17,6 +17,7 @@ import NewsForm from './NewsForm'
 import type { NewsRow } from '@/lib/site/news-service.ts'
 import { PUBLIC_SITE_HOST } from '@/lib/site/domain-routing.ts'
 import { siteContentErrorMessage } from './form-errors'
+import { formatSavedAt } from './format'
 
 const NEWS_ENDPOINT = '/api/site/news'
 
@@ -32,6 +33,7 @@ type ViewMode = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; row: New
 export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations('siteNews')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
 
   const [rows, setRows] = useState<NewsRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -182,6 +184,7 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
                     { text: row.published_on, mono: true },
                     { text: t(`category.${row.category}`) },
                     { text: t(`tag.${row.tag}`) },
+                    { text: tCommon('lastSaved', { time: formatSavedAt(row.updated_at, locale) }) },
                   ]}
                   tags={
                     <div className="flex items-center gap-1.5 flex-none">

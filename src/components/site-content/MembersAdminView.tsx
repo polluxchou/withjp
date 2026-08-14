@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Pencil, ImageOff, ExternalLink, Users } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import SectionCard from '@/components/ui/SectionCard'
@@ -13,6 +13,7 @@ import ErrorState from '@/components/ui/ErrorState'
 import MemberEditForm from './MemberEditForm'
 import type { MemberRow } from '@/lib/site/members-service.ts'
 import { PUBLIC_SITE_HOST } from '@/lib/site/domain-routing.ts'
+import { formatSavedAt } from './format'
 
 const MEMBERS_ENDPOINT = '/api/site/members'
 
@@ -30,6 +31,7 @@ function publicVisionUrl(): string {
 export default function MembersAdminView({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations('siteMembers')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
 
   const [rows, setRows] = useState<MemberRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -121,6 +123,10 @@ export default function MembersAdminView({ isAdmin }: { isAdmin: boolean }) {
                       : t('expectedRevealUnset')}
                   </div>
                 )}
+
+                <div className="text-micro text-ink-400 truncate">
+                  {tCommon('lastSaved', { time: formatSavedAt(row.updated_at, locale) })}
+                </div>
 
                 {isAdmin && (
                   <Button variant="secondary" size="sm" onClick={() => setEditing(row)}>

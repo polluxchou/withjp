@@ -27,7 +27,8 @@
     "loadFailed": "読み込みに失敗しました。再試行してください",
     "prev": "前へ",
     "next": "次へ",
-    "uploadImage": "画像をアップロード"
+    "uploadImage": "画像をアップロード",
+    "lastSaved": "最終保存：{time}"
   },
   "nav": {
     "dashboard": "ダッシュボード",

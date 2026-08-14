@@ -27,7 +27,8 @@
     "loadFailed": "Failed to load. Please retry.",
     "prev": "Previous",
     "next": "Next",
-    "uploadImage": "Upload Image"
+    "uploadImage": "Upload Image",
+    "lastSaved": "Last saved {time}"
   },
   "nav": {
     "dashboard": "Dashboard",
