@@ -251,7 +251,7 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 | 命令 | 覆盖 |
 |---|---|
-| `npm test` | 432 个单测，含官网的校验/反垃圾/IP 哈希/导航激活/文章模型（库行 → SiteArticle）/成员模型（库行 → SiteMember，含降级，见 `content.test.ts`）/联系分区/语言菜单 |
+| `npm test` | 433 个单测，含官网的校验/反垃圾/IP 哈希/导航激活/文章模型（库行 → SiteArticle）/成员模型（库行 → SiteMember，含降级，见 `content.test.ts`）/联系分区/语言菜单 |
 | `npm run test:copy` | 三语 key parity + JSX 无裸汉字 + 样式 token 合法性 |
 | `npx tsc --noEmit` | 类型 |
 | `npx next build` | 全站预渲染（官网 8 类页面 × 3 语言）；NEWS 详情页 `generateStaticParams` 需要能连上 `site_news`（2026-08-14 起，见 §2.4）——本地/CI 没有可用的 Supabase 连接时会退化为 0 篇预生成而不是构建失败，生产构建仍需要 `SUPABASE_SERVICE_ROLE_KEY` 在构建期可用 |
