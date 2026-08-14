@@ -2293,13 +2293,7 @@
       "car": "自驾"
     },
     "columns": {
-      "date": "时间",
-      "name": "姓名",
       "age": "年龄",
-      "residence": "居住地",
-      "contact": "联系方式",
-      "locale": "语言",
-      "experience": "经验・社交账号",
       "email": "邮箱",
       "commuteMode": "通勤方式"
     }

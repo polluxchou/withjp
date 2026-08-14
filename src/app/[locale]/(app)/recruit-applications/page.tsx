@@ -47,6 +47,7 @@ async function getApplications(tab: ApplicationTab): Promise<{ applications: App
     .limit(200)
   query = tab === 'creator' ? query.eq('kind', 'creator') : query.neq('kind', 'creator')
   const { data, error } = await query
+  if (error) console.error('Failed to load applications:', error)
   return { applications: (data ?? []) as ApplicationRow[], error: Boolean(error) }
 }
 
@@ -54,16 +55,19 @@ function formatDate(iso: string): string {
   return iso.slice(0, 16).replace('T', ' ')
 }
 
-// RecordRow 的 meta 项只接受 {icon?, text, mono?} —— icon 本身是纯装饰
-// （无文字不可读），这里用 title 属性把字段含义挂上去，图标 hover/长按即可
-// 看到对应的列名（原表格 <th> 的等效物，迁到 RecordRow 后改走这条路）。
-// RecordRow 的 [&>svg] 尺寸/透明度选择器只认直接子元素，多包一层 span 会
-// 让图标失去那份样式，所以这里在 wrapper 自己身上重新声明同一套规则。
-function labeledIcon(label: string, icon: JSX.Element): JSX.Element {
+// 大多数 meta 图标只是紧挨着的可见文本的装饰性重复（日期格式、邮箱格式、
+// 地名本身已经自解释），不需要额外的可访问名——真正有歧义的是裸数字
+// （年龄）：脱离视觉图标语境时,「24」读不出它是年龄。这里只给这类字段配
+// sr-only 文本,而不是给每个图标都套一层 title（title 是 hover-only、
+// 屏幕阅读器支持不稳定、触屏/键盘都摸不到，只是把 <th> 表头文字换个壳)。
+// Fragment 不产生 DOM 节点，<svg> 仍是 RecordRow 那个 [&>svg] 尺寸选择器的
+// 直接子元素，不需要额外包一层 span 重声明样式。
+function metaIconWithLabel(icon: JSX.Element, label: string): JSX.Element {
   return (
-    <span title={label} className="inline-flex [&>svg]:w-[13px] [&>svg]:h-[13px] [&>svg]:flex-none [&>svg]:opacity-75">
+    <>
       {icon}
-    </span>
+      <span className="sr-only">{label}</span>
+    </>
   )
 }
 
@@ -124,29 +128,32 @@ export default async function RecruitApplicationsPage({
               <RecordRow
                 key={application.id}
                 title={application.name}
-                who={<span title={t('columns.contact')}>{application.contact}</span>}
+                who={application.contact}
                 meta={
                   application.kind === 'creator'
                     ? [
-                        { icon: labeledIcon(t('columns.date'), <Calendar />), text: formatDate(application.created_at) },
+                        { icon: <Calendar />, text: formatDate(application.created_at) },
                         {
-                          icon: labeledIcon(t('columns.age'), <Cake />),
+                          icon: metaIconWithLabel(<Cake />, t('columns.age')),
                           mono: true,
                           text: application.age !== null ? String(application.age) : notProvided,
                         },
-                        { icon: labeledIcon(t('columns.residence'), <MapPin />), text: application.residence || notProvided },
-                        { icon: labeledIcon(t('columns.experience'), <FileText />), text: application.experience || notProvided },
+                        { icon: <MapPin />, text: application.residence || notProvided },
+                        { icon: <FileText />, text: application.experience || notProvided },
                       ]
                     : [
-                        { icon: labeledIcon(t('columns.date'), <Calendar />), text: formatDate(application.created_at) },
-                        { icon: labeledIcon(t('columns.email'), <Mail />), text: application.email || notProvided },
+                        { icon: <Calendar />, text: formatDate(application.created_at) },
                         {
-                          icon: labeledIcon(t('columns.commuteMode'), <Navigation />),
+                          icon: metaIconWithLabel(<Mail />, t('columns.email')),
+                          text: application.email || notProvided,
+                        },
+                        {
+                          icon: metaIconWithLabel(<Navigation />, t('columns.commuteMode')),
                           text: application.commute_mode
                             ? t(`commuteModes.${application.commute_mode}`)
                             : notProvided,
                         },
-                        { icon: labeledIcon(t('columns.experience'), <FileText />), text: application.experience || notProvided },
+                        { icon: <FileText />, text: application.experience || notProvided },
                       ]
                 }
                 tags={
@@ -156,9 +163,7 @@ export default async function RecruitApplicationsPage({
                       tone={toneOf('application_kind', application.kind)}
                       label={t(`kinds.${application.kind}`)}
                     />
-                    <span title={t('columns.locale')}>
-                      <Tag size="sm" tone="neutral" label={application.locale.toUpperCase()} />
-                    </span>
+                    <Tag size="sm" tone="neutral" label={application.locale.toUpperCase()} />
                   </div>
                 }
               />

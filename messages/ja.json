@@ -2304,13 +2304,7 @@
       "car": "車"
     },
     "columns": {
-      "date": "受信",
-      "name": "お名前",
       "age": "年齢",
-      "residence": "お住まい",
-      "contact": "ご連絡先",
-      "locale": "言語",
-      "experience": "経験・SNS",
       "email": "メール",
       "commuteMode": "通勤手段"
     }
