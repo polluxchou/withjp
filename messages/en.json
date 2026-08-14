@@ -2268,11 +2268,30 @@
   "recruitApplications": {
     "title": "Site applications",
     "subtitle": "Entries from the public site's RECRUIT form (read-only)",
+    "tabsLabel": "Application category",
+    "tabs": {
+      "creator": "Creators",
+      "staff": "Staff roles"
+    },
     "totalLabel": "Total",
     "newLabel": "Unhandled",
     "todayLabel": "Today",
     "listTitle": "Entries",
     "empty": "No applications yet",
+    "emptyHint": "New submissions from the public recruitment page will appear here automatically",
+    "notProvided": "—",
+    "kinds": {
+      "creator": "Creator",
+      "photographer": "Photographer",
+      "makeup": "Makeup artist",
+      "group_live_ops": "Group-live ops"
+    },
+    "commuteModes": {
+      "subway": "Subway",
+      "bicycle": "Bicycle",
+      "walk": "Walk",
+      "car": "Car"
+    },
     "columns": {
       "date": "Received",
       "name": "Name",
@@ -2280,7 +2299,9 @@
       "residence": "Lives in",
       "contact": "Contact",
       "locale": "Language",
-      "experience": "Experience / socials"
+      "experience": "Experience / socials",
+      "email": "Email",
+      "commuteMode": "Commute"
     }
   }
 }
