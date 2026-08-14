@@ -24,9 +24,24 @@ async function fetchPublishedArticles(locale: Locale): Promise<SiteArticle[]> {
     .select('slug, tag, category, published_on, is_pinned, is_published, image_url, title_ja, title_zh, title_en, lead_ja, lead_zh, lead_en, body_ja, body_zh, body_en')
     .eq('is_published', true)
 
-  return articlesFromListQuery(locale, { data, error }, (queryError) => {
+  const articles = articlesFromListQuery(locale, { data, error }, (queryError) => {
     console.error('[site/news] site_news query failed, degrading to empty list', queryError)
   })
+
+  // 查询本身成功（error 是 null）但一行已发布新闻都没查到——onQueryError 不会
+  // 触发。这个状态本身很可疑：迁移建好表之后，scripts/seed-site-content.mjs
+  // 是唯一的写入口，漏跑这一步会让 NEWS 列表页无声退化成"暂无内容"，且不会
+  // 让 CI 或构建日志留下任何信号。
+  if (!error && articles.length === 0) {
+    console.warn(
+      '[site/news] BUILD-TIME/RUNTIME DEGRADATION: site_news query succeeded but returned 0 published rows — ' +
+        'this usually means the one-time content migration (scripts/seed-site-content.mjs) has not been run ' +
+        'against this database yet, not that there is genuinely no news. See docs/public-site.md §5 before ' +
+        'assuming this is expected.',
+    )
+  }
+
+  return articles
 }
 
 export async function generateMetadata({

@@ -35,6 +35,21 @@ async function fetchLatestArticles(locale: Locale): Promise<SiteArticle[]> {
   const articles = articlesFromListQuery(locale, { data, error }, (queryError) => {
     console.error('[site] site_news query failed, degrading to no LATEST section', queryError)
   })
+
+  // 查询本身成功（error 是 null）但一行已发布新闻都没查到——onQueryError 不会
+  // 触发,因为这不是一次查询故障。但这个状态本身很可疑:迁移建好表之后,
+  // scripts/seed-site-content.mjs 是唯一的写入口,如果部署顺序漏了这一步
+  // （或漏了部署这一步),官网会无声无息地退化成"没有 LATEST 区块",而 CI/
+  // 构建日志里不会有任何一行 console.error 提示这件事发生过。
+  if (!error && articles.length === 0) {
+    console.warn(
+      '[site] BUILD-TIME/RUNTIME DEGRADATION: site_news query succeeded but returned 0 published rows — ' +
+        'this usually means the one-time content migration (scripts/seed-site-content.mjs) has not been run ' +
+        'against this database yet, not that there is genuinely no news. See docs/public-site.md §5 before ' +
+        'assuming this is expected.',
+    )
+  }
+
   return articles.slice(0, 3)
 }
 

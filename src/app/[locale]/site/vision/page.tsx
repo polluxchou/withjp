@@ -38,6 +38,21 @@ async function fetchMembers(
   const db = createServerClient()
   const { data, error } = await db.from('site_members').select(MEMBER_COLUMNS)
 
+  // 查询本身成功（error 是 null）但一行都没查到——onQueryError 不会触发,因为
+  // 这不是查询故障。但 site_members 在稳定状态下永远应该有 12 行（12 个卡位
+  // 由 seed 建好,后续只有 PATCH,没有增删),0 行是比新闻侧更强的信号:几乎
+  // 只可能是迁移建好表之后 scripts/seed-site-content.mjs 没跑过。漏了这一步,
+  // MEMBERS 网格会无声退化成 12 张"未公开"占位卡（membersFromQuery 对空数组
+  // 的正常降级行为),8 位已公开成员看起来集体消失,而不会有任何 console.error。
+  if (!error && (data ?? []).length === 0) {
+    console.warn(
+      '[site/vision] BUILD-TIME/RUNTIME DEGRADATION: site_members query succeeded but returned 0 rows — ' +
+        'this usually means the one-time content migration (scripts/seed-site-content.mjs) has not been run ' +
+        'against this database yet. The MEMBERS grid will silently render all 12 cards as "unrevealed" instead ' +
+        'of failing loudly. See docs/public-site.md §5 before assuming this is expected.',
+    )
+  }
+
   return membersFromQuery(
     locale,
     { data, error },
