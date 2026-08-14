@@ -73,6 +73,7 @@
 | 财务预测视角 | 公开 success · 私有 neutral · 归属徽章 neutral |
 | 财务预测年份卡 | 本年 violet（`AnnualOverview` 年份卡的「本年」标记） |
 | 讨论 | 进行中 open info · 已结束 resolved success（PR4 Task 2 登记：与任务/战略节点的"进行中"、任务/工时任务的"已完成"同色系，非阻断性正向终态） |
+| 应募职能（site_applications.kind） | 主播 creator violet · 摄影师 photographer info · 化妆师 makeup warning · 团播运营 group_live_ops success（Task 4 登记：官网应募页 RecordRow 的职能 Tag，区分投递角色而非生命周期状态，独立于"创作者生命周期"域） |
 
 > DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 待 PR2/PR3 迁移对应界面时登记。
 

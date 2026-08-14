@@ -2279,11 +2279,30 @@
   "recruitApplications": {
     "title": "サイト応募",
     "subtitle": "公式サイト RECRUIT フォームからの応募（閲覧のみ）",
+    "tabsLabel": "応募カテゴリ",
+    "tabs": {
+      "creator": "配信者",
+      "staff": "スタッフ職種"
+    },
     "totalLabel": "応募総数",
     "newLabel": "未対応",
     "todayLabel": "本日",
     "listTitle": "応募一覧",
     "empty": "まだ応募はありません",
+    "emptyHint": "公開の応募ページに新しい応募があると、ここに自動的に表示されます",
+    "notProvided": "—",
+    "kinds": {
+      "creator": "配信者",
+      "photographer": "カメラマン",
+      "makeup": "ヘアメイク",
+      "group_live_ops": "グループ配信運営"
+    },
+    "commuteModes": {
+      "subway": "電車",
+      "bicycle": "自転車",
+      "walk": "徒歩",
+      "car": "車"
+    },
     "columns": {
       "date": "受信",
       "name": "お名前",
@@ -2291,7 +2310,9 @@
       "residence": "お住まい",
       "contact": "ご連絡先",
       "locale": "言語",
-      "experience": "経験・SNS"
+      "experience": "経験・SNS",
+      "email": "メール",
+      "commuteMode": "通勤手段"
     }
   }
 }

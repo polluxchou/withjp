@@ -2268,11 +2268,30 @@
   "recruitApplications": {
     "title": "官网应募",
     "subtitle": "对外官网 RECRUIT 表单的投递记录（只读）",
+    "tabsLabel": "投递分类",
+    "tabs": {
+      "creator": "主播投递",
+      "staff": "职能投递"
+    },
     "totalLabel": "投递总数",
     "newLabel": "待处理",
     "todayLabel": "今日新增",
     "listTitle": "投递列表",
     "empty": "还没有收到投递",
+    "emptyHint": "公开招募页收到新的投递后会自动显示在这里",
+    "notProvided": "—",
+    "kinds": {
+      "creator": "主播",
+      "photographer": "摄影师",
+      "makeup": "化妆师",
+      "group_live_ops": "团播运营"
+    },
+    "commuteModes": {
+      "subway": "地铁",
+      "bicycle": "自行车",
+      "walk": "步行",
+      "car": "自驾"
+    },
     "columns": {
       "date": "时间",
       "name": "姓名",
@@ -2280,7 +2299,9 @@
       "residence": "居住地",
       "contact": "联系方式",
       "locale": "语言",
-      "experience": "经验・社交账号"
+      "experience": "经验・社交账号",
+      "email": "邮箱",
+      "commuteMode": "通勤方式"
     }
   }
 }
