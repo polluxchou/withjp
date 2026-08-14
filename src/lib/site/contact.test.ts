@@ -44,26 +44,22 @@ test('Contact lists no representative names in any locale', () => {
   }
 })
 
+// 地址行每种语言只给本语言的写法，不叠 subvalue 副行 —— 以前是三语共用日文原址
+// 再叠一行罗马字，等于中文页上根本没有中文。断言里显式写上 subvalue: undefined
+// 就是防止双语又被叠回来。段 02 的西宮地址同理，见下一条。
 test('Contact section 01 carries the Shin-Osaka address in every locale', () => {
-  for (const [messages, addressLabel] of [
-    [ja, '所在地'],
-    [zh, '所在地'],
-    [en, 'Address'],
+  for (const [messages, addressLabel, expected] of [
+    [ja, '所在地', '〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404'],
+    [zh, '所在地', '〒532-0003 大阪府大阪市淀川区宫原2丁目12-14 Lions Mansion 新大阪第5 404室'],
+    [en, 'Address', 'Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003'],
   ] as const) {
     const address = messages.site.contact.sections[0].rows.find(({ label }) => label === addressLabel)
-    assert.deepEqual(
-      { value: address?.value, subvalue: address?.subvalue },
-      {
-        value: '〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404',
-        subvalue: 'Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003',
-      },
-    )
+    assert.deepEqual({ value: address?.value, subvalue: address?.subvalue }, { value: expected, subvalue: undefined })
   }
 })
 
 // 段 02 是另一家公司（吉光片羽／西宮市），地址与段 01 的新大阪不能混。
-// 与段 01 不同，这一行每种语言只给本语言的写法、不叠罗马字副行 —— 断言里显式
-// 写上 subvalue: undefined，就是防止有人「顺手对齐段 01」把双语又叠回来。
+// 规则同段 01：每种语言只给本语言的写法，不叠 subvalue。
 test('Contact section 02 carries the Nishinomiya address in every locale', () => {
   for (const [messages, addressLabel, expected] of [
     [ja, '所在地', '〒662-0073 兵庫県西宮市松風町2-5-106号室'],
