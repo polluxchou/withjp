@@ -5,9 +5,15 @@
 // 两张表（Task 7 已建好）。只从 fixture 读取内容与图片路径，不 import 任何
 // UI 层的私有展示常量。
 //
-// 幂等：新闻按 slug upsert，成员按 no upsert，可重复运行。
+// 这是一次性前置步骤（Task 8），不是幂等的定期任务：`upsert(onConflict)` 全列
+// 覆盖，回读断言比对的又是同一份硬编码 fixture（NEWS_SEED/MEMBER_SEED），所以
+// 上线后重跑会静默把运营在后台做的编辑（下架的文章重新上线、公开的成员打回
+// 未公开、姓名照片清空……）覆盖回 seed 时的初始状态，还会打印 `Done.` 正常
+// 退出——没有任何报错信号。这正是评审 Important 2 指出的问题：本脚本现在默认
+// 拒绝在目标表已有数据时执行，除非显式传 `--force`（仍然不建议——上线后需要
+// 重新灌内容应该走后台 CRUD，不是这个脚本）。
 //
-// Run: node --env-file=.env.local scripts/seed-site-content.mjs
+// 上线后不要重跑。Run: node --env-file=.env.local scripts/seed-site-content.mjs
 
 import { createClient } from '@supabase/supabase-js'
 import {
@@ -16,6 +22,8 @@ import {
   UNREVEALED_MEMBER_NOS,
   UNREVEALED_EXPECTED_REVEAL_ON,
 } from './site-content-seed-data.mjs'
+
+const FORCE = process.argv.includes('--force')
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -26,7 +34,43 @@ if (!url || !key) {
   process.exit(1)
 }
 
+// 写入前先亮出连的是哪个项目——`node --env-file` 不会覆盖已经 export 过的同名
+// shell 变量，误把 --env-file 指向的库当成生产库（或反过来）是现实风险，而
+// 这个脚本此前从头到尾不打印它连的是哪个 host。
+console.log(`Target Supabase project: ${new URL(url).host}`)
+
 const supabase = createClient(url, key)
+
+/**
+ * 目标表非空时的重跑守卫。任一表已有行就拒绝执行——不区分"只有新闻脏了"
+ * 还是"只有成员脏了"，因为两张表在同一次 run() 里先后写入，允许跑一半
+ * 没有意义。`--force` 才能跳过，且跳过前仍打一条警告说明风险。
+ */
+async function guardAgainstRerun() {
+  const [{ count: newsCount, error: newsErr }, { count: memberCount, error: memberErr }] = await Promise.all([
+    supabase.from('site_news').select('*', { count: 'exact', head: true }),
+    supabase.from('site_members').select('*', { count: 'exact', head: true }),
+  ])
+  if (newsErr || memberErr) {
+    console.error('FATAL: 检查 site_news/site_members 是否已有数据时失败:', newsErr?.message ?? memberErr?.message)
+    process.exit(1)
+  }
+
+  const dirty = (newsCount ?? 0) > 0 || (memberCount ?? 0) > 0
+  if (!dirty) return
+
+  if (!FORCE) {
+    console.error(
+      `FATAL: site_news 现有 ${newsCount} 行、site_members 现有 ${memberCount} 行——本脚本不是幂等的定期任务，\n` +
+        '而是一次性内容搬迁脚本：upsert 会用写死的 fixture 全列覆盖已有行，运营在后台做的任何编辑\n' +
+        '（下架的文章重新上线、已公开的成员被打回未公开且姓名/照片清空、updated_at 被触发器抹掉……）\n' +
+        '都会被静默覆盖且退出码为 0。如果你确定要用 fixture 覆盖现有数据（例如刚建表、这些行本来\n' +
+        '就是上一次 seed 留下的），加 --force 显式跳过这条检查；否则请改用后台 CRUD 编辑内容。',
+    )
+    process.exit(1)
+  }
+  console.warn(`WARN: --force 已传入，将覆盖 site_news 现有 ${newsCount} 行、site_members 现有 ${memberCount} 行。`)
+}
 
 // ── 三语拆分规则 ──────────────────────────────────────────────
 //
@@ -218,7 +262,11 @@ function assertMembersRoundTrip(expectedRows, actualRows) {
 }
 
 async function run() {
-  console.log('── Step 1: 验证三语拆分规则 ──')
+  console.log('── Step 0: 检查目标表是否已有数据（重跑守卫） ──')
+  await guardAgainstRerun()
+  console.log('  OK: 可以继续')
+
+  console.log('\n── Step 1: 验证三语拆分规则 ──')
   assertAllRolesSplitCleanly()
   console.log(`  OK: ${MEMBER_SEED.length} 个成员 × 3 种 locale 均恰好拆成两段`)
 
