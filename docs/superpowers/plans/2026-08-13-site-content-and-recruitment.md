@@ -1350,6 +1350,17 @@ git add -A && git commit -m "feat(site): 成员网格改为读库 + ISR"
 
 ## 交付前检查清单
 
+- [ ] **【不可跳过】部署 Task 10 之前，必须对生产 Supabase 手动执行一次
+      `node --env-file=.env.local scripts/seed-site-content.mjs`**（指向生产项目的
+      `.env.local`），并验证 `select count(*) from site_news;` = 5。
+      `messages/*.json` 的 `site.news.articles[]` 已经删除、官网只读库，
+      seed 脚本目前**没有**任何 CI/CD 或 Vercel 钩子会自动跑它——如果这一步被跳过，
+      `eacn.agenova.chat` 上线后 NEWS 列表会清空、首页 LATEST 三格消失、5 篇文章
+      详情页全部 404，且没有回退路径（详见 `docs/public-site.md` §5）
+- [ ] **部署后确认**：`https://eacn.agenova.chat/news/echoamp-launch`（任一已发布 slug）
+      首次访问返回的是静态预渲染产物，不是 `generateStaticParams` 连不上库退化出来的
+      逐请求动态渲染（后者不会让构建失败、CI 也不会报警，只有 `next build` 日志里的
+      `BUILD-TIME DEGRADATION` 警告会提示，详见 `docs/public-site.md` §5）
 - [ ] `npx tsc --noEmit` / `npm test` / `npm run test:copy` 全绿
 - [ ] `20260814112722_site_applications_kinds.sql`、`20260814112723_site_content.sql`、
       `20260814112724_site_media_bucket.sql` 都在一次性容器上跑过，且**重跑一次不报错**；

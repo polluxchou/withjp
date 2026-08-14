@@ -2,8 +2,7 @@ import type { Metadata } from 'next'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
 import type { Locale } from '@/i18n/routing'
 import { createServerClient } from '@/lib/supabase/server'
-import { sortNews } from '@/lib/site/news-sort'
-import { buildArticles, type SiteNewsRow } from '@/lib/site/news'
+import { articlesFromListQuery, type SiteArticle } from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import NewsFilter from '@/components/site/NewsFilter'
@@ -14,16 +13,20 @@ import NewsFilter from '@/components/site/NewsFilter'
 // 这里不重复实现失效逻辑。
 export const revalidate = false
 
-async function fetchPublishedArticles(locale: Locale) {
+// 查询失败时不抛错——之前的实现会让整个 NEWS 列表页 500，这与「数据库故障不影响
+// 官网可读」的口径（docs/public-site.md §2.4）相悖。降级为空列表（NewsFilter 的
+// emptyLabel 会顶上），真实故障通过 console.error 留痕，避免和"目前确实没有已
+// 发布文章"混为一谈。
+async function fetchPublishedArticles(locale: Locale): Promise<SiteArticle[]> {
   const db = createServerClient()
   const { data, error } = await db
     .from('site_news')
     .select('slug, tag, category, published_on, is_pinned, is_published, image_url, title_ja, title_zh, title_en, lead_ja, lead_zh, lead_en, body_ja, body_zh, body_en')
     .eq('is_published', true)
 
-  if (error) throw new Error(`[site/news] failed to load site_news: ${error.message}`)
-
-  return buildArticles(locale, sortNews((data ?? []) as SiteNewsRow[]))
+  return articlesFromListQuery(locale, { data, error }, (queryError) => {
+    console.error('[site/news] site_news query failed, degrading to empty list', queryError)
+  })
 }
 
 export async function generateMetadata({

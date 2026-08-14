@@ -6,7 +6,7 @@ import type { Locale } from '@/i18n/routing'
 import { locales } from '@/i18n/routing'
 import { createServerClient } from '@/lib/supabase/server'
 import { RECRUIT_HREF, SITE_BASE } from '@/lib/site/nav'
-import { buildArticle, isNewsSlug, shouldShowNewsApply, type SiteArticle, type SiteNewsRow } from '@/lib/site/news'
+import { articleFromSingleQuery, isNewsSlug, shouldShowNewsApply, type SiteArticle } from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SiteImage from '@/components/site/SiteImage'
 import SiteButton from '@/components/site/SiteButton'
@@ -21,6 +21,13 @@ export const revalidate = false
 
 // 下架文章的详情页必须 404，而不是旧链接还能打开——所以「已发布」是查询本身的
 // 一部分（`is_published = true`），不是在拿到行之后再用应用层逻辑挑一次。
+//
+// 查不到行（下架/未知 slug，PostgREST 错误码 PGRST116）与真实查询故障
+// （网络、鉴权、语法……）都会让这个函数返回 undefined、页面走 404——这是可以
+// 接受的降级——但两者不能在日志里长得一样：真实故障通过 console.error 上报，
+// 正常的"查不到"不上报，否则每次访问一篇下架文章都会污染错误日志。判断逻辑在
+// articleFromSingleQuery（news.ts）里，这样"出错该不该上报"能脱离 next dev
+// server 单独用 node:test 验证。
 async function fetchPublishedArticle(locale: Locale, slug: string): Promise<SiteArticle | undefined> {
   const db = createServerClient()
   const { data, error } = await db
@@ -30,8 +37,9 @@ async function fetchPublishedArticle(locale: Locale, slug: string): Promise<Site
     .eq('is_published', true)
     .single()
 
-  if (error || !data) return undefined
-  return buildArticle(locale, data as SiteNewsRow)
+  return articleFromSingleQuery(locale, { data, error }, (queryError) => {
+    console.error('[site/news/[slug]] site_news query failed', { slug, locale, queryError })
+  })
 }
 
 export async function generateStaticParams() {
@@ -43,9 +51,21 @@ export async function generateStaticParams() {
     return locales.flatMap((locale) => slugs.map((slug) => ({ locale, slug })))
   } catch (error) {
     // 构建期查不到库不应该拖垮整站构建——退化成「不预生成任何一篇」，请求时
-    // 仍会走下面的动态渲染路径（dynamicParams 默认 true），只是失去了预渲染的
-    // 首字节速度。真正的失败信号是这条 warn，不是让 next build 直接崩掉。
-    console.warn('[site/news/[slug]] generateStaticParams failed to reach site_news, falling back to dynamic rendering', error)
+    // 仍会走下面的动态渲染路径（dynamicParams 默认 true），页面本身还能正常
+    // 服务，只是失去了预渲染的首字节速度。
+    //
+    // 但这个降级是静默的：next build 不会因此变红，CI 也不会报警——生产构建期
+    // 一旦连不上库，NEWS 详情页会整体从"静态预渲染"退化成"每次请求动态渲染"，
+    // 没有任何机制会告诉任何人这件事发生过。这条 warn 是目前唯一的信号，所以
+    // 措辞必须显眼；部署后必须人工确认一次详情页确实是静态生成的
+    // （docs/public-site.md §5 的上线前置检查清单）。
+    console.warn(
+      '[site/news/[slug]] BUILD-TIME DEGRADATION: generateStaticParams could not reach site_news — ' +
+        'NEWS detail pages will fall back to per-request dynamic rendering instead of static generation. ' +
+        'This does NOT fail the build and will NOT show up in CI. Verify after every deploy that NEWS detail ' +
+        'pages are actually statically generated (see docs/public-site.md §5).',
+      error,
+    )
     return []
   }
 }
