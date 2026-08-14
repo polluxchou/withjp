@@ -81,8 +81,14 @@ create table if not exists site_members (
   photo_url   text,
   -- 罗马字名（KANO / MIKOTO…），不分语言，卡片主标题
   name        text check (char_length(name) <= 40),
-  -- 附件：姓名（日文、英文、特长说明）
+  -- 附件：姓名（日文、中文、英文、特长说明）
+  --
+  -- name_zh 不能省：多数成员 zh 名字和 ja 是同一个词的繁简变体（可以借用
+  -- name_ja），但 3 号 LULU 是例外——ja 用片假名音译「ルル」，zh 用汉字
+  -- 「露露」，是两种不同的书写形式，不是同一字的简繁差异。省掉这一列会让
+  -- 「露露」这个当前 zh 用户看到的名字在搬迁后永久丢失。
   name_ja     text check (char_length(name_ja) <= 40),
+  name_zh     text check (char_length(name_zh) <= 40),
   name_en     text check (char_length(name_en) <= 40),
   specialty_ja text check (char_length(specialty_ja) <= 60),
   specialty_zh text check (char_length(specialty_zh) <= 60),

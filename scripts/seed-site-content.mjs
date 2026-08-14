@@ -88,7 +88,10 @@ function buildNewsRow(item) {
 
 function buildRevealedMemberRow(item) {
   const [nameJa, specialtyJa] = splitRole('ja', item.no, item.role.ja)
-  const [, specialtyZh] = splitRole('zh', item.no, item.role.zh)
+  // zh 的左段（名字）不能丢：多数成员与 ja 是同一个词的繁简变体，但 3 号
+  // LULU 的 zh「露露」（汉字）与 ja「ルル」（片假名音译）是不同的写法，
+  // 只留 ja 会把「露露」永久丢弃——这正是 name_zh 这一列存在的理由。
+  const [nameZh, specialtyZh] = splitRole('zh', item.no, item.role.zh)
   const [nameEn, specialtyEn] = splitRole('en', item.no, item.role.en)
 
   return {
@@ -97,6 +100,7 @@ function buildRevealedMemberRow(item) {
     photo_url: item.photoUrl,
     name: item.name,
     name_ja: nameJa,
+    name_zh: nameZh,
     name_en: nameEn,
     specialty_ja: specialtyJa,
     specialty_zh: specialtyZh,
@@ -112,6 +116,7 @@ function buildUnrevealedMemberRow(no) {
     photo_url: null,
     name: null,
     name_ja: null,
+    name_zh: null,
     name_en: null,
     specialty_ja: null,
     specialty_zh: null,
@@ -178,6 +183,7 @@ function assertMembersRoundTrip(expectedRows, actualRows) {
     'photo_url',
     'name',
     'name_ja',
+    'name_zh',
     'name_en',
     'specialty_ja',
     'specialty_zh',
