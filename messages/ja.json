@@ -26,7 +26,8 @@
     "retry": "再試行",
     "loadFailed": "読み込みに失敗しました。再試行してください",
     "prev": "前へ",
-    "next": "次へ"
+    "next": "次へ",
+    "uploadImage": "画像をアップロード"
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -52,7 +53,8 @@
     "costManagement": "コスト管理",
     "venue": "会場レイアウト",
     "items": "備品管理",
-    "recruitApplications": "サイト応募"
+    "recruitApplications": "サイト応募",
+    "siteContent": "サイトコンテンツ"
   },
   "language": {
     "zh": "中文",
@@ -2201,13 +2203,33 @@
           "cta": "LINE で相談する",
           "action": "recruit",
           "partner": "運営主体",
-          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "brand": {
+            "primary": "Chiron",
+            "secondary": "カイロン株式会社"
+          },
           "rows": [
-            { "label": "会社名", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
-            { "label": "設立・所在地", "value": "2021年／大阪市淀川区" },
-            { "label": "事業内容", "value": "ライブ配信キャストの採用・オフライン運営" },
-            { "label": "所在地", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
-            { "label": "会社サイト", "value": "https://chi-ron.com/", "link": "external" }
+            {
+              "label": "会社名",
+              "value": "カイロン株式会社（Chiron Co., Ltd.）"
+            },
+            {
+              "label": "設立・所在地",
+              "value": "2021年／大阪市淀川区"
+            },
+            {
+              "label": "事業内容",
+              "value": "ライブ配信キャストの採用・オフライン運営"
+            },
+            {
+              "label": "所在地",
+              "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404",
+              "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003"
+            },
+            {
+              "label": "会社サイト",
+              "value": "https://chi-ron.com/",
+              "link": "external"
+            }
           ]
         },
         {
@@ -2219,11 +2241,27 @@
           "action": "staff-recruit",
           "partner": "PRODUCTION PARTNER",
           "rows": [
-            { "label": "会社名", "value": "吉光片羽株式会社" },
-            { "label": "設立・所在地", "value": "2019年／西宮市" },
-            { "label": "事業内容", "value": "インフルエンサーマーケティング" },
-            { "label": "担当領域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
-            { "label": "会社サイト", "value": "https://kikkou.jp/", "link": "external" }
+            {
+              "label": "会社名",
+              "value": "吉光片羽株式会社"
+            },
+            {
+              "label": "設立・所在地",
+              "value": "2019年／西宮市"
+            },
+            {
+              "label": "事業内容",
+              "value": "インフルエンサーマーケティング"
+            },
+            {
+              "label": "担当領域",
+              "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作"
+            },
+            {
+              "label": "会社サイト",
+              "value": "https://kikkou.jp/",
+              "link": "external"
+            }
           ]
         },
         {
@@ -2234,9 +2272,19 @@
           "cta": "business@echoamp.jp",
           "action": "email",
           "rows": [
-            { "label": "内容", "value": "楽曲制作／着ぐるみ技術／商業ライブ配信／広告事業のご提携／不正行為・コンプライアンスに関する通報" },
-            { "label": "連絡先", "value": "business@echoamp.jp", "link": "email" },
-            { "label": "対応", "value": "平日 10:00–19:00（JST）／日本語・中国語" }
+            {
+              "label": "内容",
+              "value": "楽曲制作／着ぐるみ技術／商業ライブ配信／広告事業のご提携／不正行為・コンプライアンスに関する通報"
+            },
+            {
+              "label": "連絡先",
+              "value": "business@echoamp.jp",
+              "link": "email"
+            },
+            {
+              "label": "対応",
+              "value": "平日 10:00–19:00（JST）／日本語・中国語"
+            }
           ]
         }
       ],
@@ -2307,6 +2355,63 @@
       "age": "年齢",
       "email": "メール",
       "commuteMode": "通勤手段"
+    }
+  },
+  "siteNews": {
+    "title": "サイトコンテンツ・ニュース",
+    "subtitle": "公式サイトのニュース一覧を管理：ピン留め・公開状態・三言語コンテンツ",
+    "listTitle": "ニュース一覧",
+    "add": "新規ニュース",
+    "addTitle": "新規ニュース",
+    "editTitle": "ニュースを編集",
+    "formSubtitle": "日本語は必須。中国語・英語が未入力の場合、サイトでは日本語にフォールバックします",
+    "empty": "ニュースはまだありません",
+    "emptyHint": "最初のニュースを作成しましょう",
+    "statTotal": "ニュース総数",
+    "statPublished": "公開中",
+    "statUnpublished": "非公開",
+    "pinnedTag": "ピン留め",
+    "unpublishedTag": "非公開",
+    "viewOnSite": "サイトで見る",
+    "actionPin": "ピン留め",
+    "actionUnpin": "ピン留め解除",
+    "actionPublish": "公開する",
+    "actionUnpublish": "非公開にする",
+    "deleteTitle": "ニュースを削除",
+    "deleteWarning": "この操作は取り消せません。「{title}」はデータベースから完全に削除されます。",
+    "fieldSlug": "スラッグ",
+    "fieldSlugImmutable": "作成後は変更できません",
+    "fieldCategory": "カテゴリー",
+    "fieldCategoryHint": "記事末尾の応募ボタンの表示を左右します。右側のタグとは別の項目です",
+    "fieldTag": "タグ",
+    "fieldPublishedOn": "公開日",
+    "fieldPinned": "ピン留め表示",
+    "fieldPublished": "すぐに公開",
+    "fieldImage": "メイン画像",
+    "fieldImageHint": "空欄の場合、サイトではプレースホルダーが表示されます",
+    "fieldTitle": "タイトル",
+    "fieldLead": "リード文",
+    "fieldBody": "本文",
+    "sectionJa": "日本語コンテンツ（必須）",
+    "sectionZh": "中国語コンテンツ（任意・展開して編集）",
+    "sectionEn": "英語コンテンツ（任意・展開して編集）",
+    "category": {
+      "project": "プロジェクト",
+      "recruit": "採用"
+    },
+    "tag": {
+      "RECRUIT": "採用",
+      "PROJECT": "プロジェクト",
+      "LIVE": "ライブ"
+    },
+    "errors": {
+      "forbidden": "この操作を行う権限がありません",
+      "forbidden_field": "クライアントから指定できないフィールドが含まれています",
+      "validation": "入力内容を確認してください",
+      "invalid_json": "リクエストの形式が正しくありません",
+      "not_found": "対象のレコードが存在しないか、既に削除されています",
+      "db_error": "サーバーエラーです。しばらくしてから再度お試しください",
+      "unknown": "保存に失敗しました。しばらくしてから再度お試しください"
     }
   }
 }
