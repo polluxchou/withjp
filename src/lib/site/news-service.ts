@@ -100,9 +100,27 @@ function isValidCalendarDate(value: string): boolean {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d
 }
 
-// image_url 只接受站内绝对路径或 http(s) URL——它最终会被当成 <img>/next/image
-// 的 src 使用，拒绝 javascript: 等其他 scheme。
-const IMAGE_URL_RE = /^(\/|https?:\/\/)/
+// image_url 只接受站内绝对路径，或本环境 Supabase storage 的公开前缀——不能像
+// 之前那样放行任意 https 主机（`/^(\/|https?:\/\/)/`）：next.config.mjs 的
+// remotePatterns 只登记了同一个 Supabase host + /storage/v1/object/public/
+// site-media/**，next/image 在渲染期遇到不匹配的 URL 会直接 throw。一篇文章的
+// image_url 填了外部域名，/site 与 /site/news 三语页面就会全部 500——后台是纯
+// 上传所以概率不高，但这是 API 契约允许的公开可见故障。前缀从
+// NEXT_PUBLIC_SUPABASE_URL 推导，与 remotePatterns 保持同源，不复述一遍 host。
+const SUPABASE_IMAGE_PREFIX = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) return null
+  try {
+    return `${new URL(url).origin}/storage/v1/object/public/site-media/`
+  } catch {
+    return null
+  }
+})()
+
+function isAllowedImageUrl(value: string): boolean {
+  if (value.startsWith('/') && !value.startsWith('//')) return true
+  return SUPABASE_IMAGE_PREFIX !== null && value.startsWith(SUPABASE_IMAGE_PREFIX)
+}
 
 function requiredText(max: number) {
   return z.string()
@@ -143,7 +161,7 @@ function imageUrlField() {
       return trimmed === '' ? null : trimmed
     })
     .refine((v) => v === null || v.length <= 2048, { message: 'too_long' })
-    .refine((v) => v === null || IMAGE_URL_RE.test(v), { message: 'invalid_image_url' })
+    .refine((v) => v === null || isAllowedImageUrl(v), { message: 'invalid_image_url' })
     .optional()
 }
 

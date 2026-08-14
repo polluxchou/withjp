@@ -86,9 +86,25 @@ function isValidCalendarDate(value: string): boolean {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d
 }
 
-// photo_url 只接受站内绝对路径或 http(s) URL——同 news-service.ts 的 image_url，
-// 它最终会被当成 <img> 的 src 使用，拒绝 javascript: 等其他 scheme。
-const PHOTO_URL_RE = /^(\/|https?:\/\/)/
+// photo_url 只接受站内绝对路径，或本环境 Supabase storage 的公开前缀——同
+// news-service.ts 的 image_url，不能放行任意 https 主机，否则 next/image 会在
+// remotePatterns 不匹配时于渲染期直接 throw。两个文件目前各自持有一份同样的
+// 收紧逻辑（评审 Important 3 明确指出：等评审建议的"抽共享模块"那一轮再合并，
+// 这一轮不做超出范围的重构）。
+const SUPABASE_IMAGE_PREFIX = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) return null
+  try {
+    return `${new URL(url).origin}/storage/v1/object/public/site-media/`
+  } catch {
+    return null
+  }
+})()
+
+function isAllowedImageUrl(value: string): boolean {
+  if (value.startsWith('/') && !value.startsWith('//')) return true
+  return SUPABASE_IMAGE_PREFIX !== null && value.startsWith(SUPABASE_IMAGE_PREFIX)
+}
 
 // 选填文本：trim 后为空一律转 null。`.optional()` 必须放在整条链的最尾——
 // 这是 Task 9 news-service.ts 里 optionalText() 踩过并修好的坑，这里的字段
@@ -113,7 +129,7 @@ function photoUrlField() {
       return trimmed === '' ? null : trimmed
     })
     .refine((v) => v === null || v.length <= 2048, { message: 'too_long' })
-    .refine((v) => v === null || PHOTO_URL_RE.test(v), { message: 'invalid_image_url' })
+    .refine((v) => v === null || isAllowedImageUrl(v), { message: 'invalid_image_url' })
     .optional()
 }
 
