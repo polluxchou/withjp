@@ -1,17 +1,30 @@
 name: check
 
-# 类型检查与单元测试两道通用门禁。
+# 类型检查、单元测试、生产构建三道通用门禁。
 #
 # 为什么单独一条 workflow 而不是并进 copy.yml：那条按 `paths` 过滤，只在文案与
-# 样式相关文件变动时才跑。这两条必须对**每个** PR 都跑 —— 改 package.json、
+# 样式相关文件变动时才跑。这三条必须对**每个** PR 都跑 —— 改 package.json、
 # tsconfig、API route、迁移脚本一样能把仓库搞挂，而那些路径都不在 copy.yml 的
 # 过滤器里。
 #
 # **刻意不含 ESLint**：copy.yml 已有「ESLint (React hook deps, zero tolerance)」
 # 步骤（#171），这里再跑一次只是重复消耗 CI 时间。
 #
-# 两条命令实测通过（tsc exit 0 / 344 tests pass），加进来是零成本的：
-# 它锁住的是现状，不是欠债。
+# 三条命令实测通过（tsc exit 0 / 449 tests pass / next build exit 0），加进来
+# 是零成本的：它锁住的是现状，不是欠债。
+#
+# **构建步骤需要占位环境变量**（评审 Important：next build 补 CI 门禁）：
+#   - NEXT_PUBLIC_SUPABASE_URL 是公开信息（打进客户端 bundle 的那种），占位值
+#     不会泄露任何真实凭据；next.config.mjs 在 `NEXT_PHASE=phase-production-build`
+#     且这个变量缺失/不合法时会 throw（上一轮加的门禁：生产构建缺少 Supabase
+#     远程图片源配置直接失败），不给这个变量 `next build` 会立刻挂在这个 throw
+#     上，而不是挂在别处——所以必须是一个能被 `new URL()` 解析的合法 URL。
+#   - SUPABASE_SERVICE_ROLE_KEY 用假值即可：`createServerClient()` 构建期会被
+#     预渲染（generateStaticParams、site_news/site_members 查询）调用，但 CI
+#     runner 连不上这个假 host，请求会以网络错误收场——这条分支本来就是本分支
+#     刻意做的优雅降级（console.warn/console.error 留痕，不让构建失败），已经
+#     本地用同样的占位变量验证过 `next build` exit 0。
+#   - NEXT_PUBLIC_SUPABASE_ANON_KEY 同理是公开信息，占位值即可。
 on:
   pull_request:
   push:
@@ -20,6 +33,10 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL:      https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY:     placeholder-service-role-key
     steps:
       - uses: actions/checkout@v4
 
@@ -40,3 +57,6 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+      - name: Production build
+        run: npx next build
