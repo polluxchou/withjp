@@ -139,3 +139,52 @@ test('hashes IPs deterministically and salt-dependently', () => {
   // 原始 IP 不得出现在结果里 —— 我们存的是限流用的指纹，不是可回溯的地址
   assert.equal(a.includes('203'), false)
 })
+
+test('员工类：邮箱与通勤方式必填，不需要年龄', () => {
+  const r = validateApplication({
+    kind: 'makeup', name: '花子', contact: '090', email: 'a@b.com',
+    commuteMode: 'subway', consent: true, locale: 'ja',
+  })
+  assert.equal(r.ok, true)
+  if (r.ok) {
+    assert.equal(r.value.kind, 'makeup')
+    assert.equal(r.value.age, null)
+    assert.equal(r.value.email, 'a@b.com')
+  }
+})
+
+test('员工类：缺邮箱与通勤方式各报一个字段错', () => {
+  const r = validateApplication({
+    kind: 'photographer', name: '太郎', contact: '090', consent: true, locale: 'ja',
+  })
+  assert.equal(r.ok, false)
+  if (!r.ok) {
+    assert.equal(r.fields.email, 'required')
+    assert.equal(r.fields.commuteMode, 'required')
+  }
+})
+
+test('员工类：邮箱格式非法', () => {
+  const r = validateApplication({
+    kind: 'makeup', name: '花子', contact: '090', email: 'not-an-email',
+    commuteMode: 'walk', consent: true, locale: 'ja',
+  })
+  assert.equal(r.ok, false)
+  if (!r.ok) assert.equal(r.fields.email, 'invalidEmail')
+})
+
+test('未知 kind 被拒', () => {
+  const r = validateApplication({
+    kind: 'ceo', name: '花子', contact: '090', consent: true, locale: 'ja',
+  })
+  assert.equal(r.ok, false)
+  if (!r.ok) assert.equal(r.fields.kind, 'required')
+})
+
+test('不传 kind 时按主播类处理（向后兼容在飞的旧表单）', () => {
+  const r = validateApplication({
+    name: '花子', age: '22', residence: '大阪', contact: '090', consent: true, locale: 'ja',
+  })
+  assert.equal(r.ok, true)
+  if (r.ok) assert.equal(r.value.kind, 'creator')
+})
