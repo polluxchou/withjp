@@ -7,7 +7,18 @@ import Button from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import ImageUploadField from '@/components/ui/ImageUploadField'
 import type { MemberRow } from '@/lib/site/members-service.ts'
-import { formatFieldErrors, siteContentErrorMessage } from './form-errors'
+import { MEMBER_FIELD_ERROR_CODES, fieldErrorMessage, formatFieldErrors, siteContentErrorMessage } from './form-errors'
+
+// photo_url 的字段级错误单独展示在 ImageUploadField 旁边（下面
+// fieldMessage()），不重复出现在底部的汇总文案里——同 NewsForm 的
+// INLINE_FIELD_KEYS 理由。
+const INLINE_FIELD_KEYS = ['photo_url']
+
+function omitInlineFields(fields: Record<string, string> | undefined): Record<string, string> | undefined {
+  if (!fields) return fields
+  const rest = Object.fromEntries(Object.entries(fields).filter(([k]) => !INLINE_FIELD_KEYS.includes(k)))
+  return Object.keys(rest).length > 0 ? rest : undefined
+}
 
 const MEMBERS_ENDPOINT = '/api/site/members'
 
@@ -60,19 +71,28 @@ export default function MemberEditForm({
 }) {
   const t = useTranslations('siteMembers')
   const tCommon = useTranslations('common')
+  const tFieldErrors = useTranslations('siteMembers.fieldErrors')
   const [value, setValue] = useState<FormValue>(() => toFormValue(row))
   const [zhOpen, setZhOpen] = useState(false)
   const [enOpen, setEnOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string> | null>(null)
 
   function errorMessage(code: string): string {
     return siteContentErrorMessage(t, code, ['invalid_no'])
   }
 
+  /** photo_url 的 Field 旁边展示的字段级错误——已翻译，不是原始码。 */
+  function fieldMessage(key: string): string | undefined {
+    const code = fieldErrors?.[key]
+    return code ? fieldErrorMessage(tFieldErrors, code, MEMBER_FIELD_ERROR_CODES) : undefined
+  }
+
   async function submit() {
     setSaving(true)
     setError(null)
+    setFieldErrors(null)
     const payload: Record<string, unknown> = {
       is_revealed: value.is_revealed,
       expected_reveal_on: value.expected_reveal_on || null,
@@ -94,7 +114,8 @@ export default function MemberEditForm({
       })
       const json = (await res.json()) as { error?: string; fields?: Record<string, string> }
       if (!res.ok) {
-        const detail = formatFieldErrors(json.fields)
+        setFieldErrors(json.fields ?? null)
+        const detail = formatFieldErrors(tFieldErrors, MEMBER_FIELD_ERROR_CODES, omitInlineFields(json.fields))
         setError(detail ? `${errorMessage(json.error ?? 'unknown')}（${detail}）` : errorMessage(json.error ?? 'unknown'))
         return
       }
@@ -138,6 +159,7 @@ export default function MemberEditForm({
             label={t('fieldPhoto')}
             hint={t('fieldPhotoHint')}
             value={value.photo_url}
+            error={fieldMessage('photo_url')}
             onChange={(url) => setValue({ ...value, photo_url: url || null })}
           />
           <Field label={t('fieldNameJa')}>

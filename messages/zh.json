@@ -28,7 +28,16 @@
     "prev": "上一个",
     "next": "下一个",
     "uploadImage": "上传图片",
-    "lastSaved": "最后保存于 {time}"
+    "lastSaved": "最后保存于 {time}",
+    "uploadErrors": {
+      "forbidden": "没有权限执行此操作",
+      "invalid_form_data": "上传数据格式有误",
+      "file_required": "请选择要上传的文件",
+      "invalid_type": "仅支持 PNG/JPEG/WebP/GIF 图片",
+      "file_too_large": "图片不能超过 5MB",
+      "upload_failed": "上传失败，请稍后重试",
+      "unknown": "上传失败，请稍后重试"
+    }
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -2331,6 +2340,16 @@
       "not_found": "记录不存在或已被删除",
       "db_error": "服务器出错，请稍后重试",
       "unknown": "保存失败，请稍后重试"
+    },
+    "fieldErrors": {
+      "required": "此字段为必填项",
+      "too_long": "内容超出长度限制",
+      "invalid_slug": "格式不正确：仅允许小写字母、数字与连字符",
+      "invalid_date": "日期格式不正确",
+      "invalid_image_url": "图片地址不受支持",
+      "duplicate": "已被使用，请换一个",
+      "invalid": "填写内容不符合要求",
+      "empty_patch": "没有检测到需要保存的更改"
     }
   },
   "siteMembers": {
@@ -2373,6 +2392,15 @@
       "not_found": "记录不存在或已被删除",
       "db_error": "服务器出错，请稍后重试",
       "unknown": "保存失败，请稍后重试"
+    },
+    "fieldErrors": {
+      "too_long": "内容超出长度限制",
+      "invalid_date": "日期格式不正确",
+      "invalid_image_url": "图片地址不受支持",
+      "invalid": "填写内容不符合要求",
+      "required_when_revealed": "已公开卡位必须填写此项",
+      "required_when_unrevealed": "未公开卡位必须填写此项",
+      "empty_patch": "没有检测到需要保存的更改"
     }
   }
 }

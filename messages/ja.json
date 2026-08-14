@@ -28,7 +28,16 @@
     "prev": "前へ",
     "next": "次へ",
     "uploadImage": "画像をアップロード",
-    "lastSaved": "最終保存：{time}"
+    "lastSaved": "最終保存：{time}",
+    "uploadErrors": {
+      "forbidden": "この操作を行う権限がありません",
+      "invalid_form_data": "アップロードデータの形式が正しくありません",
+      "file_required": "アップロードするファイルを選択してください",
+      "invalid_type": "PNG/JPEG/WebP/GIF 画像のみ対応しています",
+      "file_too_large": "画像は 5MB 以下にしてください",
+      "upload_failed": "アップロードに失敗しました。しばらくしてから再度お試しください",
+      "unknown": "アップロードに失敗しました。しばらくしてから再度お試しください"
+    }
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -2331,6 +2340,16 @@
       "not_found": "対象のレコードが存在しないか、既に削除されています",
       "db_error": "サーバーエラーです。しばらくしてから再度お試しください",
       "unknown": "保存に失敗しました。しばらくしてから再度お試しください"
+    },
+    "fieldErrors": {
+      "required": "この項目は必須です",
+      "too_long": "文字数の上限を超えています",
+      "invalid_slug": "形式が正しくありません（半角小文字・数字・ハイフンのみ使用可）",
+      "invalid_date": "日付の形式が正しくありません",
+      "invalid_image_url": "この画像アドレスは対応していません",
+      "duplicate": "既に使用されています。別の値にしてください",
+      "invalid": "入力内容が要件を満たしていません",
+      "empty_patch": "保存する変更が検出されませんでした"
     }
   },
   "siteMembers": {
@@ -2373,6 +2392,15 @@
       "not_found": "対象のレコードが存在しないか、既に削除されています",
       "db_error": "サーバーエラーです。しばらくしてから再度お試しください",
       "unknown": "保存に失敗しました。しばらくしてから再度お試しください"
+    },
+    "fieldErrors": {
+      "too_long": "文字数の上限を超えています",
+      "invalid_date": "日付の形式が正しくありません",
+      "invalid_image_url": "この画像アドレスは対応していません",
+      "invalid": "入力内容が要件を満たしていません",
+      "required_when_revealed": "公開済みの枠には必須です",
+      "required_when_unrevealed": "未公開の枠には必須です",
+      "empty_patch": "保存する変更が検出されませんでした"
     }
   }
 }
