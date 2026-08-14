@@ -1875,7 +1875,6 @@
       "eyebrow": "MEMBERS ／ MOONDOLLZ",
       "title": "MOONDOLLZ",
       "sub": "双队长制。按小单元区分人物设定，再作为大团体共同出道。",
-      "note": "※ 成员将于 10 月・12 月陆续公开",
       "placeholder": "MEMBER",
       "captains": [
         {
@@ -1892,41 +1891,7 @@
         }
       ],
       "unrevealedName": "— 尚未公开 —",
-      "unrevealedRole": "12 月公开",
-      "list": [
-        {
-          "name": "KANO",
-          "role": "花乃／易碎微笑的陷阱"
-        },
-        {
-          "name": "MIKOTO",
-          "role": "美琴／优雅之刃"
-        },
-        {
-          "name": "LULU",
-          "role": "露露／炸开的粉色闪光"
-        },
-        {
-          "name": "CHIYO",
-          "role": "千夜／千夜起舞的孤星"
-        },
-        {
-          "name": "AKAYA",
-          "role": "绫香／宫廷里盛放的强樱"
-        },
-        {
-          "name": "YUMEKI",
-          "role": "梦绮／编织幻象的声音"
-        },
-        {
-          "name": "SHINO",
-          "role": "紫乃／高贵而危险的诱惑者"
-        },
-        {
-          "name": "HIMENE",
-          "role": "姬音／为声音而生的公主"
-        }
-      ]
+      "unrevealedScheduleUnknown": "— 公开时间未定 —"
     },
     "live": {
       "eyebrow": "TIKTOK LIVE",

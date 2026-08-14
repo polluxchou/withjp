@@ -1875,7 +1875,6 @@
       "eyebrow": "MEMBERS ／ MOONDOLLZ",
       "title": "MOONDOLLZ",
       "sub": "Two captains. Sub-units carry distinct character settings, then debut together as one group.",
-      "note": "* Members revealed progressively in October and December",
       "placeholder": "MEMBER",
       "captains": [
         {
@@ -1892,41 +1891,7 @@
         }
       ],
       "unrevealedName": "— NOT YET REVEALED —",
-      "unrevealedRole": "Revealed in December",
-      "list": [
-        {
-          "name": "KANO",
-          "role": "Kano / The trap of a fragile smile"
-        },
-        {
-          "name": "MIKOTO",
-          "role": "Mikoto / The graceful blade"
-        },
-        {
-          "name": "LULU",
-          "role": "Lulu / A burst of pink light"
-        },
-        {
-          "name": "CHIYO",
-          "role": "Chiyo / Lone star dancing a thousand nights"
-        },
-        {
-          "name": "AKAYA",
-          "role": "Akaya / Strong cherry blossom of the court"
-        },
-        {
-          "name": "YUMEKI",
-          "role": "Yumeki / The voice that weaves illusions"
-        },
-        {
-          "name": "SHINO",
-          "role": "Shino / Noble and dangerous temptress"
-        },
-        {
-          "name": "HIMENE",
-          "role": "Himene / A princess born for sound"
-        }
-      ]
+      "unrevealedScheduleUnknown": "— Reveal date TBD —"
     },
     "live": {
       "eyebrow": "TIKTOK LIVE",
