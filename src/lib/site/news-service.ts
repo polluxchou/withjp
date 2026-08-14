@@ -224,6 +224,14 @@ export function createNewsCreateHandler(deps: NewsRouteDeps) {
     }
 
     const { data, error } = await deps.db.from('site_news').insert(insertRow).select().single()
+    // 23505 = Postgres 唯一约束冲突。slug 是管理员手打的，NewsCreateSchema
+    // 只校验形状不校验唯一性（迁移里的 `unique` 约束才是唯一真相源）——这是
+    // 本分支最可能出现的生产 500（评审 Important），改成 409 +
+    // fields.slug='duplicate'，让管理员知道是"这个 slug 已经被用过"而不是
+    // 笼统的"服务器出错"。
+    if (error?.code === '23505') {
+      return { status: 409, body: { data: null, error: 'validation', fields: { slug: 'duplicate' } } }
+    }
     if (error || !data) return { status: 500, body: { data: null, error: 'db_error' } }
 
     const row = data as NewsRow
