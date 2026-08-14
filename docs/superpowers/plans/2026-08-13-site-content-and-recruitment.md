@@ -1350,17 +1350,32 @@ git add -A && git commit -m "feat(site): 成员网格改为读库 + ISR"
 
 ## 交付前检查清单
 
+- [ ] **【不可跳过】部署前先确认迁移已应用到目标 Supabase 项目**：本仓没有
+      `schema_migrations` 台账，「代码先于迁移」和下一条「代码先于 seed」是同一类
+      风险，不能只堵后者。跑 `select to_regclass('public.site_news'),
+      to_regclass('public.site_members');`，两者都非 NULL 才说明表已建好。
 - [ ] **【不可跳过】部署 Task 10 之前，必须对生产 Supabase 手动执行一次
       `node --env-file=.env.local scripts/seed-site-content.mjs`**（指向生产项目的
-      `.env.local`），并验证 `select count(*) from site_news;` = 5。
+      `.env.local`），并验证 `select count(*) from site_news;` = 5、
+      `select count(*) from site_members;` = 12。
       `messages/*.json` 的 `site.news.articles[]` 已经删除、官网只读库，
       seed 脚本目前**没有**任何 CI/CD 或 Vercel 钩子会自动跑它——如果这一步被跳过，
       `eacn.agenova.chat` 上线后 NEWS 列表会清空、首页 LATEST 三格消失、5 篇文章
-      详情页全部 404，且没有回退路径（详见 `docs/public-site.md` §5）
+      详情页全部 404，且没有回退路径（详见 `docs/public-site.md` §5）。
+      **这是一次性步骤，上线后不要重跑**：脚本现在会在目标表非空时拒绝执行并
+      要求显式传 `--force`，因为重跑会用 fixture 静默覆盖运营在后台做过的编辑。
+      如果部署已经上线、之后才发现漏跑了 seed：**光补跑这个脚本不够**——
+      `revalidate = false` 下页面只在首次渲染时查一次库，之后无限期只读缓存，
+      不会因为库里数据变了就自动重新查询。补跑 seed 之后必须**重新部署一次
+      生产构建**（或对任意一条新闻/成员卡位做一次后台保存触发
+      `revalidateNewsPages`/`revalidateMemberPages`），仅仅对页面发一次请求
+      不会触发任何重新渲染。
 - [ ] **部署后确认**：`https://eacn.agenova.chat/news/echoamp-launch`（任一已发布 slug）
       首次访问返回的是静态预渲染产物，不是 `generateStaticParams` 连不上库退化出来的
       逐请求动态渲染（后者不会让构建失败、CI 也不会报警，只有 `next build` 日志里的
-      `BUILD-TIME DEGRADATION` 警告会提示，详见 `docs/public-site.md` §5）
+      `BUILD-TIME DEGRADATION` 警告会提示，详见 `docs/public-site.md` §5）。
+      **不能靠 `x-vercel-cache` 响应头判断**：退化成动态渲染后首次 `MISS`、之后
+      同样一路 `HIT`，与真正静态预渲染的响应头序列完全一样，无法靠这个区分。
 - [ ] `npx tsc --noEmit` / `npm test` / `npm run test:copy` 全绿
 - [ ] `20260814112722_site_applications_kinds.sql`、`20260814112723_site_content.sql`、
       `20260814112724_site_media_bucket.sql` 都在一次性容器上跑过，且**重跑一次不报错**；
@@ -1373,7 +1388,9 @@ git add -A && git commit -m "feat(site): 成员网格改为读库 + ISR"
 - [ ] `20260814112723_site_content.sql` 的已公开空白字段、未公开 NULL 日期负例均由“命令意外成功即失败”的脚本拦截
 - [ ] 内容 API 集成测试覆盖 401/403/管理员成功、白名单与审计字段、下架详情 404；普通登录用户
       的后台写控件隐藏或禁用
-- [ ] 官网三语切换下 news 列表/详情、vision 成员网格渲染正确
+- [ ] 官网三语（ja/zh/en）切换下逐一确认：首页 LATEST 三格、`/news` 列表、
+      NEWS 详情、VISION 成员网格均渲染真实内容——四处是各自独立的降级路径，
+      核对了 VISION 不代表 NEWS 列表/首页 LATEST 也正常，反之亦然
 - [ ] **`https://eacn.agenova.chat/recruit/staff` 能打开** —— 这是 `PUBLIC_PAGE_RE` 那条改动的唯一真实验证点，内部域名与本地都测不出来
 - [ ] 后台改一条新闻 → 官网对应页面在 ISR 后可见；下架 → 官网列表消失、详情 404
 - [ ] `docs/public-site.md` 的 §2.2 / §2.4 / §2.5 已同步
