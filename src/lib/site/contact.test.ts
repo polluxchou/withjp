@@ -64,10 +64,18 @@ test('Contact section 01 carries the Shin-Osaka address in every locale', () => 
 test('contact actions become locale-safe internal and external links', () => {
   const sections = buildContactSections(ja.site.contact.sections)
   assert.equal(sections[0].ctaHref, '/site/recruit')
-  assert.equal(sections[1].ctaHref, undefined)
+  assert.equal(sections[1].ctaHref, '/site/recruit/staff')
   assert.equal(sections[2].ctaHref, 'mailto:business@echoamp.jp')
   assert.equal(sections[2].rows[1].href, 'mailto:business@echoamp.jp')
   assert.deepEqual(sections.map(({ id }) => id), ['contact-01', 'contact-02', 'contact-03'])
+})
+
+test('staff-recruit 映射到员工招募页', () => {
+  const [s] = buildContactSections([
+    { no: '02', eyebrow: 'FOR COMPANION', title: 't', body: 'b',
+      cta: 'c', action: 'staff-recruit', rows: [] },
+  ])
+  assert.equal(s.ctaHref, '/site/recruit/staff')
 })
 
 test('Contact sections 01 and 02 expose their company websites in every locale', () => {

@@ -70,6 +70,16 @@ test('allows public site media that is evaluated by middleware', () => {
   })
 })
 
+test('官网域名放行员工招募子路径', () => {
+  const r = resolvePublicSiteRoute('eacn.agenova.chat', '/recruit/staff')
+  assert.equal(r?.kind, 'rewrite')
+  if (r?.kind === 'rewrite') assert.equal(r.pathname, '/ja/site/recruit/staff')
+})
+
+test('recruit 下的未知子路径仍然 404', () => {
+  assert.equal(resolvePublicSiteRoute('eacn.agenova.chat', '/recruit/nope')?.kind, 'not_found')
+})
+
 test('rejects admin pages and unknown public sections on the EchoAmp host', () => {
   assert.deepEqual(resolvePublicSiteRoute('eacn.agenova.chat', '/zh/creators'), {
     kind: 'not_found',
