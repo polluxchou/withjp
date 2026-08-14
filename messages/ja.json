@@ -2167,7 +2167,7 @@
             { "label": "会社名", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
             { "label": "設立・所在地", "value": "2021年／大阪市淀川区" },
             { "label": "事業内容", "value": "ライブ配信キャストの採用・オフライン運営" },
-            { "label": "所在地", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
+            { "label": "所在地", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404" },
             { "label": "会社サイト", "value": "https://chi-ron.com/", "link": "external" }
           ]
         },
