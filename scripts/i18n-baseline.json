@@ -1,7 +1,5 @@
 {
-  "missing": {
-    "src/components/expenses/ExpenseDetailModal.tsx": 1
-  },
+  "missing": {},
   "unused": [
     "auth.email",
     "auth.password",
@@ -12,7 +10,6 @@
     "competitors.belongsTo",
     "competitors.noData",
     "competitors.readOnly",
-    "competitors.verified",
     "dashboard.title",
     "discussions.filterDescribe.all",
     "discussions.filterDescribe.buyerName",
@@ -24,6 +21,8 @@
     "discussions.filterDescribe.period",
     "discussions.filterDescribe.unpaidOnly",
     "discussions.filterDescribe.userName",
+    "discussions.panel.loading",
+    "discussions.thread.loading",
     "items.loading",
     "pipeline.monetized",
     "profile.selectRole",

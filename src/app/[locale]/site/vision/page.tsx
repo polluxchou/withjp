@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
+import type { Locale } from '@/i18n/routing'
+import { createServerClient } from '@/lib/supabase/server'
 import {
-  buildMembers,
+  membersFromQuery,
   type SiteCaptain,
   type SiteEra,
-  type SiteMemberEntry,
+  type SiteMember,
   type SitePrinciple,
 } from '@/lib/site/content'
 import SiteSection from '@/components/site/SiteSection'
@@ -14,6 +15,38 @@ import SiteImage from '@/components/site/SiteImage'
 import MemberCard from '@/components/site/MemberCard'
 
 const CAPTAIN_IMAGES = ['/site/ayatsuki-portrait.webp', '/site/yukiha-portrait.webp']
+
+const MEMBER_COLUMNS =
+  'no, is_revealed, photo_url, name, name_ja, name_zh, name_en, specialty_ja, specialty_zh, specialty_en, expected_reveal_on'
+
+// 内容来自 site_members 表（Task 12 起），不再是构建时写死的静态文案，所以这个
+// 页面靠 ISR 缓存：`revalidate = false` 表示无限期缓存、只经由后台写接口的
+// revalidatePath 按需失效（src/lib/site/members-service.ts 的
+// revalidateMemberPages），这里不重复实现失效逻辑。
+export const revalidate = false
+
+// 查询失败时不抛错——否则会让整个 VISION 页（连带宣言/年代/团体性格一起）500，
+// 这与「数据库故障不影响官网可读」的口径（docs/public-site.md §2.4）相悖。
+// 降级为 12 个「未公开」占位卡位（membersFromQuery 内部决策，测试见
+// content.test.ts），真实故障通过 console.error 留痕，避免和「目前确实还没
+// 公开任何成员」这种正常状态混为一谈。
+async function fetchMembers(
+  locale: Locale,
+  unrevealedName: string,
+  unrevealedScheduleUnknown: string,
+): Promise<SiteMember[]> {
+  const db = createServerClient()
+  const { data, error } = await db.from('site_members').select(MEMBER_COLUMNS)
+
+  return membersFromQuery(
+    locale,
+    { data, error },
+    { unrevealedName, unrevealedScheduleUnknown },
+    (queryError) => {
+      console.error('[site/vision] site_members query failed, degrading to 12 unrevealed placeholders', queryError)
+    },
+  )
+}
 
 export async function generateMetadata({
   params,
@@ -24,18 +57,18 @@ export async function generateMetadata({
   return { title: t('eyebrow') }
 }
 
-export default function SiteVisionPage({ params }: { params: { locale: string } }) {
+export default async function SiteVisionPage({ params }: { params: { locale: string } }) {
   setRequestLocale(params.locale)
-  const t = useTranslations('site.vision')
-  const tm = useTranslations('site.members')
+  const t = await getTranslations('site.vision')
+  const tm = await getTranslations('site.members')
 
   const eras = t.raw('eras') as SiteEra[]
   const principles = t.raw('principles') as SitePrinciple[]
   const captains = tm.raw('captains') as SiteCaptain[]
-  const members = buildMembers(
-    tm.raw('list') as SiteMemberEntry[],
+  const members = await fetchMembers(
+    params.locale as Locale,
     tm('unrevealedName'),
-    tm('unrevealedRole'),
+    tm('unrevealedScheduleUnknown'),
   )
 
   return (
@@ -97,8 +130,7 @@ export default function SiteVisionPage({ params }: { params: { locale: string } 
       <SiteSection divider={false} className="pb-20 lg:pb-24">
         <div className="font-condensed text-[12px] tracking-[0.3em] text-site-accent">{tm('eyebrow')}</div>
         <h2 className="mt-1.5 font-condensed text-[clamp(34px,4vw,56px)] tracking-[0.05em]">{tm('title')}</h2>
-        <p className="mt-1.5 font-serif-jp text-[18px] text-site-fg/70">{tm('sub')}</p>
-        <p className="mb-9 mt-3 text-[13px] tracking-[0.06em] text-site-accent">{tm('note')}</p>
+        <p className="mb-9 mt-1.5 font-serif-jp text-[18px] text-site-fg/70">{tm('sub')}</p>
 
         <HairlineGrid cols={2} className="mb-12">
           {captains.map((captain, i) => (
