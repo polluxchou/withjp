@@ -52,6 +52,13 @@ export async function submitApplication(
     if ((count ?? 0) >= RATE_LIMIT_PER_HOUR) return { data: null, error: 'rate_limited' }
   }
 
+  // TODO(task-3): value 已含 kind/email/commuteMode（见 application.ts），这里仍按旧字段落库——
+  // 员工类提交（kind: 'photographer' | 'makeup' | 'group_live_ops'）会被
+  // site_applications_creator_fields 约束拒绝：insert 不写 kind（DB 走 default 'creator'），
+  // 而 value.age/value.residence 对这三类是 null，触发该约束，稳定返回 500。
+  // src/app/api/site/applications/route.ts 是全站唯一不过 authGuard 的公开写接口，把整个
+  // 请求体原样传给 validateApplication(body)，所以任何人直接带 kind: 'photographer' 调用该
+  // API 即可复现。落库前必须补齐 kind/email/commute_mode 三个新字段，并按 kind 分流写入。
   const { data, error } = await db
     .from('site_applications')
     .insert({
