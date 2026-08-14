@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 // 相对路径 + .ts 后缀：node --test 直接跑 TS 时不认 tsconfig 的 `@/` 别名
 // （仓库既有测试模块同样用相对导入）。
 import { locales, type Locale } from '../../i18n/routing.ts'
@@ -180,10 +179,6 @@ export function isBotSubmission(input: { hp?: unknown; elapsedMs?: unknown }): b
   return elapsed < LIMITS.minElapsedMs
 }
 
-/**
- * IP 的限流指纹。存哈希而不是原始 IP：我们要的是「同一来源一小时内提交了
- * 几次」，不需要知道来源是谁，也不该把访客地址留在库里。
- */
-export function hashIp(ip: string, salt: string): string {
-  return createHash('sha256').update(`${salt}:${ip}`).digest('hex')
-}
+// hashIp() 搬到 ./application-ip-hash.ts 了（评审：next build 补 CI 门禁时
+// 发现 node:crypto 混进了这个文件，被客户端组件一起打进浏览器 bundle,
+// 见那个文件顶部的注释）。

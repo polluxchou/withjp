@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications/create'
-import { hashIp, type ApplicationValue } from './application'
+import type { ApplicationValue } from './application'
+import { hashIp } from './application-ip-hash'
 
 /**
  * 应募投递的服务端部分：限流、落库、通知 ops。校验与反垃圾判定在
