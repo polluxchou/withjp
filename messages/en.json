@@ -2176,6 +2176,7 @@
             { "label": "Founded / location", "value": "2019年／西宮市" },
             { "label": "Business", "value": "インフルエンサーマーケティング" },
             { "label": "Coverage", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
+            { "label": "Address", "value": "Room 106, 2-5 Matsukazecho, Nishinomiya, Hyogo 662-0073" },
             { "label": "Website", "value": "https://kikkou.jp/", "link": "external" }
           ]
         },
