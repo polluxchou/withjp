@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  articleFromSingleQuery,
+  articlesFromListQuery,
   buildArticle,
   buildArticles,
   findArticle,
@@ -115,4 +117,56 @@ test('isNewsSlug 校验 slug 形状（与数据库 check 约束一致），拒�
 test('shows the apply action only for the recruit category', () => {
   assert.equal(shouldShowNewsApply('recruit'), true)
   assert.equal(shouldShowNewsApply('project'), false)
+})
+
+// ── 查询失败时的降级行为（评审 Important 2）──────────────────────────────
+// 列表页/首页不该因为一次数据库故障整页 500；这里不起真的 HTTP 服务器，
+// 只是把「supabase-js 查询返回的 { data, error } 长什么样」摆出来喂给
+// articlesFromListQuery / articleFromSingleQuery，断言它们的降级决策。
+
+test('articlesFromListQuery：查询成功时排序+转换正常返回', () => {
+  const rows = [
+    row({ slug: 'a', is_pinned: false, published_on: '2026-01-01' }),
+    row({ slug: 'b', is_pinned: true, published_on: '2026-01-01' }),
+  ]
+  const onQueryError = () => assert.fail('不应该被调用')
+  const articles = articlesFromListQuery('ja', { data: rows, error: null }, onQueryError)
+  assert.deepEqual(articles.map((a) => a.slug), ['b', 'a']) // 置顶优先
+})
+
+test('articlesFromListQuery：查询出错时降级为空数组，且必须上报 error（不能沉默）', () => {
+  let reported: unknown = null
+  const error = { code: '500', message: 'connection refused' }
+  const articles = articlesFromListQuery('ja', { data: null, error }, (e) => {
+    reported = e
+  })
+  assert.deepEqual(articles, [])
+  assert.deepEqual(reported, error)
+})
+
+test('articleFromSingleQuery：命中已发布行时正常返回，不上报', () => {
+  const r = row({ slug: 'echoamp-launch' })
+  const onQueryError = () => assert.fail('不应该被调用')
+  const article = articleFromSingleQuery('ja', { data: r, error: null }, onQueryError)
+  assert.equal(article?.slug, 'echoamp-launch')
+})
+
+test('articleFromSingleQuery：PGRST116（查不到/已下架）不当故障上报，仍返回 undefined（页面走 404）', () => {
+  const onQueryError = () => assert.fail('PGRST116 不应该被当作故障上报')
+  const article = articleFromSingleQuery(
+    'ja',
+    { data: null, error: { code: 'PGRST116', message: 'no rows' } },
+    onQueryError,
+  )
+  assert.equal(article, undefined)
+})
+
+test('articleFromSingleQuery：非 PGRST116 的真实故障必须上报，不能和"正常查不到"长得一样', () => {
+  let reported: unknown = null
+  const error = { code: '503', message: 'service unavailable' }
+  const article = articleFromSingleQuery('ja', { data: null, error }, (e) => {
+    reported = e
+  })
+  assert.equal(article, undefined)
+  assert.deepEqual(reported, error)
 })

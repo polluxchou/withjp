@@ -2,10 +2,9 @@ import { setRequestLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import type { Locale } from '@/i18n/routing'
 import { createServerClient } from '@/lib/supabase/server'
-import { sortNews } from '@/lib/site/news-sort'
 import { SITE_BASE, RECRUIT_HREF } from '@/lib/site/nav'
 import type { SiteProjectTerm, SiteServiceItem, SiteStat, SiteVisionCard } from '@/lib/site/content'
-import { buildArticles, type SiteNewsRow } from '@/lib/site/news'
+import { articlesFromListQuery, type SiteArticle } from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import HairlineGrid, { GridCell } from '@/components/site/HairlineGrid'
@@ -22,16 +21,21 @@ import { NewsCard } from '@/components/site/NewsRow'
 // 重复实现失效逻辑。
 export const revalidate = false
 
-async function fetchLatestArticles(locale: Locale) {
+// 查询失败时不抛错——之前的实现会让整个首页（hero/vision/services 等与新闻无关
+// 的区块）500，这与「数据库故障不影响官网可读」的口径（docs/public-site.md
+// §2.4）相悖。降级为空数组，组件里据此跳过 LATEST 整个区块；真实故障通过
+// console.error 留痕，避免和"目前确实没有已发布文章"混为一谈。
+async function fetchLatestArticles(locale: Locale): Promise<SiteArticle[]> {
   const db = createServerClient()
   const { data, error } = await db
     .from('site_news')
     .select('slug, tag, category, published_on, is_pinned, is_published, image_url, title_ja, title_zh, title_en, lead_ja, lead_zh, lead_en, body_ja, body_zh, body_en')
     .eq('is_published', true)
 
-  if (error) throw new Error(`[site] failed to load site_news: ${error.message}`)
-
-  return buildArticles(locale, sortNews((data ?? []) as SiteNewsRow[])).slice(0, 3)
+  const articles = articlesFromListQuery(locale, { data, error }, (queryError) => {
+    console.error('[site] site_news query failed, degrading to no LATEST section', queryError)
+  })
+  return articles.slice(0, 3)
 }
 
 export default async function SiteTopPage({ params }: { params: { locale: string } }) {
@@ -140,22 +144,27 @@ export default async function SiteTopPage({ params }: { params: { locale: string
       <Ticker items={ticker} />
 
       {/* ══ 01 NEWS ══ */}
-      <SiteSection>
-        <SectionHead
-          eyebrow={t('newsHead.eyebrow')}
-          title={t('newsHead.title')}
-          moreHref={`${SITE_BASE}/news`}
-          moreLabel={t('newsHead.more')}
-          className="mb-8"
-        />
-        <HairlineGrid cols={3}>
-          {news.map((article) => (
-            <GridCell key={article.slug} hover>
-              <NewsCard article={article} readLabel={tNews('read')} />
-            </GridCell>
-          ))}
-        </HairlineGrid>
-      </SiteSection>
+      {/* site_news 查询失败时 news 是空数组（见 fetchLatestArticles 的降级注释）——
+          整个区块跳过而不是渲染一个空的三栏网格：没有内容时"不出现"比"出现但
+          是空的"更像是页面本身设计如此，而不是一处故障。 */}
+      {news.length > 0 && (
+        <SiteSection>
+          <SectionHead
+            eyebrow={t('newsHead.eyebrow')}
+            title={t('newsHead.title')}
+            moreHref={`${SITE_BASE}/news`}
+            moreLabel={t('newsHead.more')}
+            className="mb-8"
+          />
+          <HairlineGrid cols={3}>
+            {news.map((article) => (
+              <GridCell key={article.slug} hover>
+                <NewsCard article={article} readLabel={tNews('read')} />
+              </GridCell>
+            ))}
+          </HairlineGrid>
+        </SiteSection>
+      )}
 
       {/* ══ 02 VISION ══ */}
       <SiteSection className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start lg:gap-16">

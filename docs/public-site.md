@@ -70,7 +70,8 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 ### 2.4 非功能需求
 
 - **免登录**：middleware 放行 `/site`，公网可直达
-- **ISR**（2026-08-14 起，NEWS 三页由「静态优先」改为 ISR）：`site_news` 页面（TOP 的 LATEST 三格、NEWS 列表、NEWS 详情）设 `export const revalidate = false`——首次访问渲染后无限期缓存，后台改动通过 `revalidatePath` 按需失效（`src/lib/site/news-service.ts` 的 `revalidateNewsPages`），不是每次请求都查库。详情页 `generateStaticParams` 在构建期查一次已发布 slug 做预渲染；查不到库时不让整个 `next build` 失败，退化为「不预生成、请求时动态渲染」（见页面里的 `try/catch` 与 warn）。其余页面（VISION/TIKTOK LIVE/SERVICES/RECRUIT/CONTACT）仍是纯 i18n 静态预渲染，不受此影响
+- **ISR**（2026-08-14 起，NEWS 三页由「静态优先」改为 ISR）：`site_news` 页面（TOP 的 LATEST 三格、NEWS 列表、NEWS 详情）设 `export const revalidate = false`——首次访问渲染后无限期缓存，后台改动通过 `revalidatePath` 按需失效（`src/lib/site/news-service.ts` 的 `revalidateNewsPages`），不是每次请求都查库。详情页 `generateStaticParams` 在构建期查一次已发布 slug 做预渲染；查不到库时不让整个 `next build` 失败，退化为「不预生成、请求时动态渲染」（见页面里的 `try/catch` 与 warn，以及 §5 的部署后确认步骤）。其余页面（VISION/TIKTOK LIVE/SERVICES/RECRUIT/CONTACT）仍是纯 i18n 静态预渲染，不受此影响
+- **数据库故障不影响官网可读**（这条口径本来就有，Task 10 起 NEWS 三页读库后重新核对过）：`site_news` 查询失败时，NEWS 列表页降级为空列表（沿用「该分类下暂无内容」的展示态）、首页跳过整个 LATEST 区块、详情页当查不到处理（404）——三处都不会让页面整体 500，但也不会静默：真实查询故障统一走 `console.error` 上报（`src/lib/site/news.ts` 的 `articlesFromListQuery`/`articleFromSingleQuery`），与「文章确实不存在/已下架」区分开，不能在日志里长得一样
 - **响应式三档**：≥1024 照设计稿、768–1023 降列、<768 单栏 + 抽屉
 - **可访问性**：装饰性图层 `aria-hidden`、示意图 `role="img"` + 说明、遵循 `prefers-reduced-motion`、强调色在两套主题下都保证正文对比度（浅色主题把亮青换成深青）
 - **隐私最小化**：只收招募必需字段；不存原始 IP（只存加盐哈希，用途仅限限流）；收集前必须明示同意
@@ -161,6 +162,8 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 - **下架**：`is_published = false` 的文章不出现在列表/首页，详情页直接 404（不是软删，内容还在库里）
 - **三语回退**：`ja` 必填（数据库 check 约束），`zh`/`en` 缺失时 `pickLocaleText` 回退到 `ja`——比 i18n 数组的「三语等长同形」宽松，配合 §2.2 的口径调整
 - **ISR**：见 §2.4
+- **查询失败的降级**：`src/lib/site/news.ts` 的 `articlesFromListQuery`/`articleFromSingleQuery` 把「查询结果（含 error）→ 该渲染什么」这层决策从页面组件里拆出来——纯函数、不做 IO，所以能用 `node:test` 直接断言降级行为，不用起 next dev server。页面组件只负责发起查询、把 `{ data, error }` 交给这两个函数、并在 `onQueryError` 回调里做真正的 `console.error`（带上文件名前缀和 slug/locale 等上下文）。`.single()` 查询命中 PostgREST 错误码 `PGRST116`（无行/多行）时不算故障，不上报——那是「查不到/已下架」的正常路径
+- **上线前置**：见 §5
 
 ### 3.6.1 内容模型：从占位稿到真实资料（2026-08-13）
 
@@ -257,6 +260,13 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 > 部署踩过一次坑：#199 合并时 GitHub 正在发生 500/502 故障，发给 Vercel 的 webhook 丢了，代码进了 main 但**没有生成生产部署**。判断方法是比对 `gh api repos/…/deployments` 里最新 Production 的 ref 与 `origin/main` 的 HEAD，别只看 CI 绿灯。注意 Vercel 的 **Redeploy 是重放那一条部署对应的旧 commit**，治不了这种情况；要么在界面上新建部署并指定 `main`，要么推一个提交触发 webhook。后来被 #200 的合并自然带过去了。Git 集成本身没断。
 
+**部署 NEWS 改读库这一轮（Task 10）前的硬性前置条件（不可跳过、没有回退路径）**：
+
+1. **必须先对生产 Supabase 手动跑一次内容搬迁脚本**：`node --env-file=.env.local scripts/seed-site-content.mjs`（`.env.local` 指向生产项目）。`messages/{zh,en,ja}.json` 的 `site.news.articles[]` 已经在 Task 10 删除，官网 NEWS 三个位置（列表、详情、首页 LATEST）现在只读 `site_news` 表——这个表目前**没有任何 CI/CD 或 Vercel 钩子会自动写入**，仓库里搜过 `.github/workflows/*.yml`、`vercel.json`、`package.json` scripts 均确认这一点。
+   - **验证方式**：跑完脚本后执行 `select count(*) from site_news;`，应为 `5`；再抽查一条 `select slug, category, is_published from site_news order by published_on desc;`，确认 5 个 slug、category 与 §3.6.2 描述的一致。
+   - **如果跳过这一步就部署**：`eacn.agenova.chat` 上线后 NEWS 列表清空、首页 LATEST 三格消失、5 篇文章详情页全部返回 404，且**没有任何自动回退机制**——静态文案已经删除，唯一的恢复路径就是事后再手动跑这个脚本。
+2. **部署后必须确认 NEWS 详情页确实是静态预渲染的**，不是 `generateStaticParams`（`src/app/[locale]/site/news/[slug]/page.tsx`）连不上库时静默退化出来的逐请求动态渲染——这条退化**不会让构建失败、不会让 CI 变红**，唯一的信号是构建日志里前缀为 `BUILD-TIME DEGRADATION` 的 `console.warn`。检查方法：部署后看一次该次生产构建的日志有没有这行；或直接访问任一已发布 slug（如 `https://eacn.agenova.chat/news/echoamp-launch`）观察响应是否命中 CDN 缓存（`x-vercel-cache: HIT`/`STALE`，而不是每次都是 `MISS`）。
+
 **上线前需要产品侧确认**（仍未全部关闭）：
 
 1. **联系方式的真实性** —— CONTACT 与 RECRUIT 里的邮箱域名、LINE ID 都是照设计稿落的字符串，未核实归属；若域名不属于公司，等于把访客引向不存在的联系方式
@@ -269,4 +279,4 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 - 顶部跑马灯（`site.ticker.items`）仍是大阪霓虹年代的内容（道顿堀 GLICO 1935 等），而首页与 VISION 的主叙事已经换成团队愿景。它是独立的装饰性数据，不属于任何一个区块 —— VISION 页的三栏已在 #205 换成团体性格（SPIRIT／VOICE／IMAGE），跑马灯是这轮剩下的最后一处旧叙事
 - ON AIR 面板标签旁的脉冲圆点原本配「ON AIR NOW」表示直播中，现在标签是「开播平台」而正式开播在 MONTH 2 —— 经确认**保留为装饰**（它在设计语言里也是视觉母题）
 
-**后续可做**：robots/sitemap、把 NEWS/成员/排期搬到数据库做成后台可编辑、应募状态流转。
+**后续可做**：robots/sitemap、把排期搬到数据库做成后台可编辑（NEWS 已在 Task 9/10 做完，成员见 Task 11/12）、应募状态流转。
