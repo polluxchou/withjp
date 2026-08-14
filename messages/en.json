@@ -2293,13 +2293,7 @@
       "car": "Car"
     },
     "columns": {
-      "date": "Received",
-      "name": "Name",
       "age": "Age",
-      "residence": "Lives in",
-      "contact": "Contact",
-      "locale": "Language",
-      "experience": "Experience / socials",
       "email": "Email",
       "commuteMode": "Commute"
     }
