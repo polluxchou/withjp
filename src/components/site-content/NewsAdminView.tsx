@@ -16,6 +16,7 @@ import ErrorState from '@/components/ui/ErrorState'
 import NewsForm from './NewsForm'
 import type { NewsRow } from '@/lib/site/news-service.ts'
 import { PUBLIC_SITE_HOST } from '@/lib/site/domain-routing.ts'
+import { siteContentErrorMessage } from './form-errors'
 
 const NEWS_ENDPOINT = '/api/site/news'
 
@@ -25,10 +26,6 @@ const NEWS_ENDPOINT = '/api/site/news'
 function publicNewsUrl(slug: string): string {
   return `https://${PUBLIC_SITE_HOST}/news/${slug}`
 }
-
-/** 与 NewsForm.tsx 的 errorMessage() 同一套已知错误码——toggle/delete 走的是
- * 同一组 PATCH/DELETE 接口，错误码形状与表单提交完全一致。 */
-const KNOWN_ERROR_CODES = ['forbidden', 'forbidden_field', 'validation', 'invalid_json', 'not_found', 'db_error']
 
 type ViewMode = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; row: NewsRow }
 
@@ -47,7 +44,7 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   function errorMessage(code: string): string {
-    return KNOWN_ERROR_CODES.includes(code) ? t(`errors.${code}`) : t('errors.unknown')
+    return siteContentErrorMessage(t, code)
   }
 
   async function load() {

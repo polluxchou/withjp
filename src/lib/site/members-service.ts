@@ -23,19 +23,28 @@
 import { z } from 'zod'
 import { canEditSiteContent, type SiteContentActor } from '../auth/site-content.ts'
 import { PUBLIC_SITE_LOCALES } from './domain-routing.ts'
+import {
+  imageUrlField,
+  isValidCalendarDate,
+  optionalText,
+  parseJsonBody,
+  rejectForbiddenFields,
+  zodFieldErrors,
+  type AuthResult,
+  type HandlerResult,
+  type SiteContentQueryBuilder,
+  type SiteContentQueryResult,
+} from './site-content-shared.ts'
 
 // ── 与真实 Supabase 客户端的最小契约（同 news-service.ts 的理由：类型上收窄,
-// 运行时仍是真实 supabase 客户端）──────────────────────────────────────────
-export interface MemberQueryResult {
-  data: unknown
-  error: { message?: string } | null
-}
+// 运行时仍是真实 supabase 客户端）。data/error 形状与 select/eq/single 三个
+// 方法与 news-service.ts 逐字节相同，收在 SiteContentQueryBuilder 里
+// extends；update 是这里唯一需要的写方法（没有 insert/delete——12 个卡位由
+// seed 建好,只有 PATCH）。──────────────────────────────────────────────────
+export type MemberQueryResult = SiteContentQueryResult
 
-export interface MemberQueryBuilder extends PromiseLike<MemberQueryResult> {
-  select(columns?: string): MemberQueryBuilder
+export interface MemberQueryBuilder extends SiteContentQueryBuilder<MemberQueryBuilder> {
   update(row: Record<string, unknown>): MemberQueryBuilder
-  eq(column: string, value: unknown): MemberQueryBuilder
-  single(): MemberQueryBuilder
 }
 
 export interface MemberDb {
@@ -61,7 +70,7 @@ export interface MemberRow {
   updated_at: string
 }
 
-export type AuthResult = { ok: true; user: { id: string } } | { ok: false; status: 401 }
+export type { AuthResult, HandlerResult }
 
 export interface MemberRouteDeps {
   authGuard: () => Promise<AuthResult>
@@ -70,68 +79,14 @@ export interface MemberRouteDeps {
   revalidatePath: (path: string) => void
 }
 
-export interface HandlerResult {
-  status: number
-  body: unknown
-}
-
 // ── 字段白名单（zod）——模式与 news-service.ts 一致 ──────────────────────
 const MAX = { name: 40, specialty: 60 } as const
 
-const DATE_SHAPE_RE = /^\d{4}-\d{2}-\d{2}$/
-function isValidCalendarDate(value: string): boolean {
-  if (!DATE_SHAPE_RE.test(value)) return false
-  const [y, m, d] = value.split('-').map(Number)
-  const date = new Date(Date.UTC(y, m - 1, d))
-  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d
-}
-
-// photo_url 只接受站内绝对路径，或本环境 Supabase storage 的公开前缀——同
-// news-service.ts 的 image_url，不能放行任意 https 主机，否则 next/image 会在
-// remotePatterns 不匹配时于渲染期直接 throw。两个文件目前各自持有一份同样的
-// 收紧逻辑（评审 Important 3 明确指出：等评审建议的"抽共享模块"那一轮再合并，
-// 这一轮不做超出范围的重构）。
-const SUPABASE_IMAGE_PREFIX = (() => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!url) return null
-  try {
-    return `${new URL(url).origin}/storage/v1/object/public/site-media/`
-  } catch {
-    return null
-  }
-})()
-
-function isAllowedImageUrl(value: string): boolean {
-  if (value.startsWith('/') && !value.startsWith('//')) return true
-  return SUPABASE_IMAGE_PREFIX !== null && value.startsWith(SUPABASE_IMAGE_PREFIX)
-}
-
-// 选填文本：trim 后为空一律转 null。`.optional()` 必须放在整条链的最尾——
-// 这是 Task 9 news-service.ts 里 optionalText() 踩过并修好的坑，这里的字段
-// 全是可选字段，坑对这里影响更大（news 至少还有必填字段兜底部分场景，成员的
-// PATCH 一个字段没提到的其它字段全靠这个位置才不会被静默清空）。
-function optionalText(max: number) {
-  return z.string().nullable()
-    .transform((v) => {
-      if (v == null) return null
-      const trimmed = v.trim()
-      return trimmed === '' ? null : trimmed
-    })
-    .refine((v) => v === null || v.length <= max, { message: 'too_long' })
-    .optional()
-}
-
-function photoUrlField() {
-  return z.string().nullable()
-    .transform((v) => {
-      if (v == null) return null
-      const trimmed = v.trim()
-      return trimmed === '' ? null : trimmed
-    })
-    .refine((v) => v === null || v.length <= 2048, { message: 'too_long' })
-    .refine((v) => v === null || isAllowedImageUrl(v), { message: 'invalid_image_url' })
-    .optional()
-}
+// isValidCalendarDate/optionalText/imageUrlField（photo_url 白名单，与
+// next.config.mjs 的 remotePatterns 对齐）现在收在 site-content-shared.ts，
+// 与 news-service.ts 共用同一份实现（评审 Important：抽共享模块），不再各自
+// 持有一份拷贝——photo_url 用的就是共享的 imageUrlField()，字段名本身由下面
+// MemberPatchSchema 的 key 决定，函数内部不关心叫 image_url 还是 photo_url。
 
 function expectedRevealOnField() {
   return z.string().nullable()
@@ -145,7 +100,7 @@ function expectedRevealOnField() {
 // 的"未知字段"分支（那样只会得到笼统的 'invalid'，不是 'forbidden_field'）。
 export const MemberPatchSchema = z.object({
   is_revealed: z.boolean().optional(),
-  photo_url: photoUrlField(),
+  photo_url: imageUrlField(),
   name: optionalText(MAX.name),
   name_ja: optionalText(MAX.name),
   name_zh: optionalText(MAX.name),
@@ -162,23 +117,9 @@ const FORBIDDEN_FIELDS = new Set([
   'id', 'no', 'created_by_user_id', 'updated_by_user_id', 'created_at', 'updated_at',
 ])
 
-function rejectForbiddenFields(body: Record<string, unknown>): HandlerResult | null {
-  const hit = Object.keys(body).find((k) => FORBIDDEN_FIELDS.has(k))
-  if (!hit) return null
-  return { status: 400, body: { data: null, error: 'forbidden_field' } }
-}
-
-// zod 的默认错误文案跟随版本变化，只有我们自己用 .refine() 显式传入的
-// message（code: 'custom'）当作字段级稳定错误码回传，其余折叠成 'invalid'。
-function zodFieldErrors(error: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const issue of error.issues) {
-    const key = issue.path.length > 0 ? issue.path.join('.') : '_root'
-    if (key in out) continue
-    out[key] = issue.code === 'custom' ? issue.message : 'invalid'
-  }
-  return out
-}
+// rejectForbiddenFields()/zodFieldErrors() 现在收在 site-content-shared.ts，
+// 与 news-service.ts 共用同一份实现；这里只保留 FORBIDDEN_FIELDS 集合
+// 本身——members 比 news 多一个 `no`。
 
 // ── 跨字段业务校验：依赖"现有行 + 本次 patch"合并后的有效值,不是单看 patch
 // 本身——不能因为请求只改照片就误报已有日期缺失（brief 原文）。────────────
@@ -219,19 +160,6 @@ export function revalidateMemberPages(
   }
 }
 
-async function parseJsonBody(req: Request): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; result: HandlerResult }> {
-  let raw: unknown
-  try {
-    raw = await req.json()
-  } catch {
-    return { ok: false, result: { status: 400, body: { data: null, error: 'invalid_json' } } }
-  }
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    return { ok: false, result: { status: 400, body: { data: null, error: 'invalid_json' } } }
-  }
-  return { ok: true, value: raw as Record<string, unknown> }
-}
-
 // ── GET /api/site/members —— 读不分权限，登录即可，按 no 升序返回 12 个卡位 ──
 export function createMemberListHandler(deps: MemberRouteDeps) {
   return async function handleList(): Promise<HandlerResult> {
@@ -265,7 +193,7 @@ export function createMemberPatchHandler(deps: MemberRouteDeps) {
     const parsedBody = await parseJsonBody(req)
     if (!parsedBody.ok) return parsedBody.result
 
-    const forbidden = rejectForbiddenFields(parsedBody.value)
+    const forbidden = rejectForbiddenFields(parsedBody.value, FORBIDDEN_FIELDS)
     if (forbidden) return forbidden
 
     const parsed = MemberPatchSchema.safeParse(parsedBody.value)
@@ -281,7 +209,7 @@ export function createMemberPatchHandler(deps: MemberRouteDeps) {
     const existingRow = existing as MemberRow
 
     // 浅合并：只有 parsed.data 里实际出现的 key 覆盖现有值，没提到的 key
-    // 保留原值——这依赖 optionalText()/photoUrlField() 等的 `.optional()`
+    // 保留原值——这依赖 optionalText()/imageUrlField() 等的 `.optional()`
     // 位于链尾，未提及字段根本不会作为 key 出现在 parsed.data 里。
     const effective: EffectiveMemberFields = {
       is_revealed: existingRow.is_revealed,

@@ -14,6 +14,18 @@ import { z } from 'zod'
 import { canEditSiteContent, type SiteContentActor } from '../auth/site-content.ts'
 import { PUBLIC_SITE_LOCALES } from './domain-routing.ts'
 import { isValidNewsSlug, sortNews } from './news-sort.ts'
+import {
+  imageUrlField,
+  isValidCalendarDate,
+  optionalText,
+  parseJsonBody,
+  rejectForbiddenFields,
+  zodFieldErrors,
+  type AuthResult,
+  type HandlerResult,
+  type SiteContentQueryBuilder,
+  type SiteContentQueryResult,
+} from './site-content-shared.ts'
 
 // ── 与真实 Supabase 客户端的最小契约 ──────────────────────────────────
 //
@@ -23,19 +35,16 @@ import { isValidNewsSlug, sortNews } from './news-sort.ts'
 // 那套类型，这里的最小接口反而会因为泛型形状对不上而编译失败。这个接口只
 // 声明本文件实际调用到的方法形状，运行时仍然是真实的 supabase 客户端——
 // 类型上收窄，行为上不收窄。测试文件里的 fake db 直接实现这个接口，不需要
-// 强制类型转换。
-export interface NewsQueryResult {
-  data: unknown
-  error: { message?: string } | null
-}
+// 强制类型转换。data/error 形状与 select/eq/single 三个方法与
+// members-service.ts 逐字节相同，收在 SiteContentQueryBuilder 里
+// extends；insert/update/delete 是 news 独有的（members 只有 update），
+// 留在这里。
+export type NewsQueryResult = SiteContentQueryResult
 
-export interface NewsQueryBuilder extends PromiseLike<NewsQueryResult> {
-  select(columns?: string): NewsQueryBuilder
+export interface NewsQueryBuilder extends SiteContentQueryBuilder<NewsQueryBuilder> {
   insert(row: Record<string, unknown>): NewsQueryBuilder
   update(row: Record<string, unknown>): NewsQueryBuilder
   delete(): NewsQueryBuilder
-  eq(column: string, value: unknown): NewsQueryBuilder
-  single(): NewsQueryBuilder
 }
 
 export interface NewsDb {
@@ -66,19 +75,16 @@ export interface NewsRow {
   updated_at: string
 }
 
-// ── 鉴权结果：平铺对象，不携带 NextResponse ────────────────────────────
-export type AuthResult = { ok: true; user: { id: string } } | { ok: false; status: 401 }
+// ── 鉴权结果：平铺对象，不携带 NextResponse（与 members-service.ts 逐字节
+// 相同，定义收在 site-content-shared.ts，这里只 re-export 供路由文件/测试
+// 沿用既有的导入路径）────────────────────────────────────────────────────
+export type { AuthResult, HandlerResult }
 
 export interface NewsRouteDeps {
   authGuard: () => Promise<AuthResult>
   getActorProfile: (userId: string) => Promise<SiteContentActor | null>
   db: NewsDb
   revalidatePath: (path: string) => void
-}
-
-export interface HandlerResult {
-  status: number
-  body: unknown
 }
 
 // ── 字段白名单（zod）───────────────────────────────────────────────────
@@ -92,77 +98,15 @@ const NEWS_TAGS = ['RECRUIT', 'PROJECT', 'LIVE'] as const
 const NEWS_CATEGORIES = ['project', 'recruit'] as const
 const MAX = { title: 120, lead: 300, body: 8000 } as const
 
-const DATE_SHAPE_RE = /^\d{4}-\d{2}-\d{2}$/
-function isValidCalendarDate(value: string): boolean {
-  if (!DATE_SHAPE_RE.test(value)) return false
-  const [y, m, d] = value.split('-').map(Number)
-  const date = new Date(Date.UTC(y, m - 1, d))
-  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d
-}
-
-// image_url 只接受站内绝对路径，或本环境 Supabase storage 的公开前缀——不能像
-// 之前那样放行任意 https 主机（`/^(\/|https?:\/\/)/`）：next.config.mjs 的
-// remotePatterns 只登记了同一个 Supabase host + /storage/v1/object/public/
-// site-media/**，next/image 在渲染期遇到不匹配的 URL 会直接 throw。一篇文章的
-// image_url 填了外部域名，/site 与 /site/news 三语页面就会全部 500——后台是纯
-// 上传所以概率不高，但这是 API 契约允许的公开可见故障。前缀从
-// NEXT_PUBLIC_SUPABASE_URL 推导，与 remotePatterns 保持同源，不复述一遍 host。
-const SUPABASE_IMAGE_PREFIX = (() => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!url) return null
-  try {
-    return `${new URL(url).origin}/storage/v1/object/public/site-media/`
-  } catch {
-    return null
-  }
-})()
-
-function isAllowedImageUrl(value: string): boolean {
-  if (value.startsWith('/') && !value.startsWith('//')) return true
-  return SUPABASE_IMAGE_PREFIX !== null && value.startsWith(SUPABASE_IMAGE_PREFIX)
-}
+// isValidCalendarDate/optionalText/imageUrlField（image_url 白名单，与
+// next.config.mjs 的 remotePatterns 对齐）现在收在 site-content-shared.ts，
+// 与 members-service.ts 共用同一份实现，不再各自持有一份拷贝。
 
 function requiredText(max: number) {
   return z.string()
     .transform((s) => s.trim())
     .refine((s) => s.length > 0, { message: 'required' })
     .refine((s) => s.length <= max, { message: 'too_long' })
-}
-
-// 选填文本：trim 后为空一律转 null（不是空字符串），呼应 pickLocaleText 把
-// 空串等同 null 处理的契约（src/lib/site/i18n-content.ts）。
-//
-// `.optional()` 必须放在整条链的最后（transform/refine 之后），不能放在
-// z.string() 后面就完事——如果放在前面，zod 对象解析器就不认得「这个键是
-// 可选的」，即使请求体完全没带这个键，也会把 undefined 喂给 transform 得到
-// null，再把 `key: null` 写回解析结果里。PATCH 场景下这会把「没提到这个
-// 字段」和「显式把它清空」混为一谈：管理员只想切换 is_published，结果连
-// title_zh/lead_en/image_url 这些没碰过的字段全被解析成 null，一次 PATCH
-// 就把已有的中英文内容和主图全部抹掉。加过 z.optional().transform() 的写法
-// 曾经在这里，写完立刻用一个独立脚本验证过会复现这个问题，才改成现在这样。
-function optionalText(max: number) {
-  return z.string().nullable()
-    .transform((v) => {
-      if (v == null) return null
-      const trimmed = v.trim()
-      return trimmed === '' ? null : trimmed
-    })
-    .refine((v) => v === null || v.length <= max, { message: 'too_long' })
-    .optional()
-}
-
-// image_url 的空白统一写为 null，表示缺图，由官网占位框显示；不做「从别的
-// 新闻借一张图」的兜底。`.optional()` 位置的理由同 optionalText()。
-function imageUrlField() {
-  return z.string().nullable()
-    .transform((v) => {
-      if (v == null) return null
-      const trimmed = v.trim()
-      return trimmed === '' ? null : trimmed
-    })
-    .refine((v) => v === null || v.length <= 2048, { message: 'too_long' })
-    .refine((v) => v === null || isAllowedImageUrl(v), { message: 'invalid_image_url' })
-    .optional()
 }
 
 const slugField = z.string().refine((s) => isValidNewsSlug(s), { message: 'invalid_slug' })
@@ -216,24 +160,9 @@ const FORBIDDEN_FIELDS = new Set([
   'id', 'created_by_user_id', 'updated_by_user_id', 'created_at', 'updated_at',
 ])
 
-function rejectForbiddenFields(body: Record<string, unknown>): HandlerResult | null {
-  const hit = Object.keys(body).find((k) => FORBIDDEN_FIELDS.has(k))
-  if (!hit) return null
-  return { status: 400, body: { data: null, error: 'forbidden_field' } }
-}
-
-// zod 的默认错误文案跟随版本变化，不是稳定契约；只有我们自己用 .refine()
-// 显式传入的 message（code: 'custom'）才当作字段级稳定错误码回传，其余 zod
-// 内建错误（未知字段、类型不对、枚举值非法……）一律折叠成 'invalid'。
-function zodFieldErrors(error: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const issue of error.issues) {
-    const key = issue.path.length > 0 ? issue.path.join('.') : '_root'
-    if (key in out) continue
-    out[key] = issue.code === 'custom' ? issue.message : 'invalid'
-  }
-  return out
-}
+// rejectForbiddenFields()/zodFieldErrors() 现在收在 site-content-shared.ts，
+// 与 members-service.ts 共用同一份实现；这里只保留 FORBIDDEN_FIELDS 集合
+// 本身——news 与 members 的禁区字段不同（members 多一个 `no`）。
 
 // ── 失效：逐 locale 枚举内部源路径,不用动态路由模式 ──────────────────────
 //
@@ -251,19 +180,6 @@ export function revalidateNewsPages(
       console.info('[site-news] revalidate', { actorId: ctx.actorId, slug: ctx.slug, locale, path })
     }
   }
-}
-
-async function parseJsonBody(req: Request): Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; result: HandlerResult }> {
-  let raw: unknown
-  try {
-    raw = await req.json()
-  } catch {
-    return { ok: false, result: { status: 400, body: { data: null, error: 'invalid_json' } } }
-  }
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    return { ok: false, result: { status: 400, body: { data: null, error: 'invalid_json' } } }
-  }
-  return { ok: true, value: raw as Record<string, unknown> }
 }
 
 // ── GET /api/site/news —— 读不分权限，登录即可 ─────────────────────────
@@ -293,7 +209,7 @@ export function createNewsCreateHandler(deps: NewsRouteDeps) {
     const parsedBody = await parseJsonBody(req)
     if (!parsedBody.ok) return parsedBody.result
 
-    const forbidden = rejectForbiddenFields(parsedBody.value)
+    const forbidden = rejectForbiddenFields(parsedBody.value, FORBIDDEN_FIELDS)
     if (forbidden) return forbidden
 
     const parsed = NewsCreateSchema.safeParse(parsedBody.value)
@@ -330,7 +246,7 @@ export function createNewsPatchHandler(deps: NewsRouteDeps) {
     const parsedBody = await parseJsonBody(req)
     if (!parsedBody.ok) return parsedBody.result
 
-    const forbidden = rejectForbiddenFields(parsedBody.value)
+    const forbidden = rejectForbiddenFields(parsedBody.value, FORBIDDEN_FIELDS)
     if (forbidden) return forbidden
 
     const parsed = NewsPatchSchema.safeParse(parsedBody.value)

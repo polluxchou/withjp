@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import ImageUploadField from '@/components/ui/ImageUploadField'
 import type { MemberRow } from '@/lib/site/members-service.ts'
+import { formatFieldErrors, siteContentErrorMessage } from './form-errors'
 
 const MEMBERS_ENDPOINT = '/api/site/members'
 
@@ -38,15 +39,6 @@ function toFormValue(row: MemberRow): FormValue {
   }
 }
 
-/** 错误响应里的 fields 是稳定字段码（required_when_revealed/too_long/...），
- * 不是自然语言——同 NewsForm 的 formatFieldErrors，只是平铺展示方便定位问题。 */
-function formatFieldErrors(fields: Record<string, string> | undefined): string | null {
-  if (!fields) return null
-  const entries = Object.entries(fields)
-  if (entries.length === 0) return null
-  return entries.map(([k, v]) => `${k}: ${v}`).join('；')
-}
-
 /**
  * 单个成员卡位的编辑表单。渲染在 Modal 内部（design-system §6.1"阻断式
  * 编辑"用 Modal），所以这里不再套一层 SectionCard——Modal 本身已经提供了
@@ -75,8 +67,7 @@ export default function MemberEditForm({
   const [error, setError] = useState<string | null>(null)
 
   function errorMessage(code: string): string {
-    const known = ['forbidden', 'forbidden_field', 'validation', 'invalid_json', 'invalid_no', 'not_found', 'db_error']
-    return known.includes(code) ? t(`errors.${code}`) : t('errors.unknown')
+    return siteContentErrorMessage(t, code, ['invalid_no'])
   }
 
   async function submit() {

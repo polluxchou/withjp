@@ -20,6 +20,15 @@ export type NewsTag = 'RECRUIT' | 'PROJECT' | 'LIVE'
 export type NewsCategory = 'project' | 'recruit'
 
 /**
+ * 渲染官网所需的 site_news 列清单，供三处查询（首页 LATEST、NEWS 列表页、
+ * NEWS 详情页）共用同一份字符串（评审风险：加一列漏改一处 → PostgREST 报错
+ * → 走优雅降级 → 空页面，无告警）。vision/page.tsx 的 MEMBER_COLUMNS 只在
+ * 一处使用，不需要抽；这里三处都要用同一份列清单，必须只有一个事实源。
+ */
+export const NEWS_COLUMNS =
+  'slug, tag, category, published_on, is_pinned, is_published, image_url, title_ja, title_zh, title_en, lead_ja, lead_zh, lead_en, body_ja, body_zh, body_en'
+
+/**
  * 渲染官网所需的 site_news 列集合（渲染视角，不含 id/created_at 等审计列——
  * 那些是后台 CRUD 的关注点，见 `src/lib/site/news-service.ts` 的 NewsRow）。
  */
