@@ -2150,6 +2150,45 @@
         }
       }
     },
+    "recruitStaff": {
+      "eyebrow": "STAFF RECRUIT ／ OPENINGS",
+      "title": "For those behind the lens, behind the makeup, and behind the live-stream operations.",
+      "lead": "We're recruiting photographers, makeup artists, and group-stream operators — submit your details below.",
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "Name",
+        "contact": "Contact",
+        "contactHint": "LINE ID, email, or a social handle",
+        "email": "Email",
+        "kind": "Role you'd like to join",
+        "kindOptions": {
+          "photographer": "Photographer",
+          "makeup": "Makeup artist",
+          "group_live_ops": "Group-stream operations"
+        },
+        "residence": "Location (optional)",
+        "commuteMode": "Commute",
+        "commuteModeOptions": {
+          "subway": "Train",
+          "bicycle": "Bicycle",
+          "walk": "On foot",
+          "car": "Car"
+        },
+        "consent": "I agree that the company may use the information above for recruitment purposes.",
+        "submit": "Submit",
+        "submitting": "Submitting…",
+        "successTitle": "Thanks for applying.",
+        "successBody": "We'll review your submission and get back to you soon.",
+        "errors": {
+          "required": "Required",
+          "tooLong": "Too long",
+          "invalidEmail": "Enter a valid email address",
+          "consent": "Your consent is required",
+          "rateLimited": "Too many submissions right now. Please try again shortly.",
+          "network": "Could not send. Check your connection and try again."
+        }
+      }
+    },
     "contact": {
       "eyebrow": "CONTACT",
       "title": "GET IN TOUCH",
@@ -2170,7 +2209,7 @@
         {
           "no": "02", "eyebrow": "FOR COMPANION", "title": "Production & operations partner",
           "body": "Our partner for hair and makeup, location shoots, group-stream operations training and AIGC content production.",
-          "note": "Contact desk coming soon", "partner": "PRODUCTION PARTNER",
+          "cta": "See staff openings", "action": "staff-recruit", "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "Company", "value": "吉光片羽株式会社" },
             { "label": "Founded / location", "value": "2019年／西宮市" },

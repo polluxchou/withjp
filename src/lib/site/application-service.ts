@@ -52,21 +52,17 @@ export async function submitApplication(
     if ((count ?? 0) >= RATE_LIMIT_PER_HOUR) return { data: null, error: 'rate_limited' }
   }
 
-  // TODO(task-3): value 已含 kind/email/commuteMode（见 application.ts），这里仍按旧字段落库——
-  // 员工类提交（kind: 'photographer' | 'makeup' | 'group_live_ops'）会被
-  // site_applications_creator_fields 约束拒绝：insert 不写 kind（DB 走 default 'creator'），
-  // 而 value.age/value.residence 对这三类是 null，触发该约束，稳定返回 500。
-  // src/app/api/site/applications/route.ts 是全站唯一不过 authGuard 的公开写接口，把整个
-  // 请求体原样传给 validateApplication(body)，所以任何人直接带 kind: 'photographer' 调用该
-  // API 即可复现。落库前必须补齐 kind/email/commute_mode 三个新字段，并按 kind 分流写入。
   const { data, error } = await db
     .from('site_applications')
     .insert({
+      kind: value.kind,
       name: value.name,
       age: value.age,
       residence: value.residence,
       contact: value.contact,
       experience: value.experience,
+      email: value.email,
+      commute_mode: value.commuteMode,
       locale: value.locale,
       ip_hash,
       user_agent: meta.userAgent?.slice(0, 400) ?? null,
@@ -94,6 +90,15 @@ async function notifyOps(id: string, value: ApplicationValue): Promise<void> {
     targets = everyone ?? []
   }
 
+  // creator 类走 age／residence；其余三类（photographer/makeup/group_live_ops）
+  // 这两列都可能是 null，`${value.age} ／ ${value.residence}` 会稳定渲染成
+  // `null ／ null`，所以按 kind 分支——非 creator 用 kind 本身替掉 age，
+  // residence 缺省时兜底成 '-'。
+  const detail =
+    value.kind === 'creator'
+      ? `${value.age} ／ ${value.residence}`
+      : `${value.kind} ／ ${value.residence ?? '-'}`
+
   await Promise.all(
     targets.map((user: { id: string }) =>
       createNotification({
@@ -103,7 +108,7 @@ async function notifyOps(id: string, value: ApplicationValue): Promise<void> {
         // 徽标，新类型没有徽标，靠标题本身说清是什么。联系方式不进通知，
         // 要看就去后台页面 —— 个人信息少一处流转。
         title: `RECRUIT ／ ${value.name}`,
-        body: `${value.age} ／ ${value.residence}`,
+        body: detail,
         entity_type: 'site_application',
         entity_id: id,
         action_url: '/recruit-applications',

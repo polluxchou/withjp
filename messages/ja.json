@@ -2150,6 +2150,45 @@
         }
       }
     },
+    "recruitStaff": {
+      "eyebrow": "STAFF RECRUIT ／ スタッフ募集",
+      "title": "撮影を担う人、メイクを担う人、配信運営を支える人へ。",
+      "lead": "フォトグラファー、ヘアメイク、グループ配信運営の募集窓口です。以下よりご応募ください。",
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "お名前",
+        "contact": "連絡先",
+        "contactHint": "LINE ID・メール・SNS のいずれか",
+        "email": "メールアドレス",
+        "kind": "希望する職種",
+        "kindOptions": {
+          "photographer": "フォトグラファー",
+          "makeup": "ヘアメイク",
+          "group_live_ops": "グループ配信運営"
+        },
+        "residence": "居住地（任意）",
+        "commuteMode": "通勤手段",
+        "commuteModeOptions": {
+          "subway": "電車",
+          "bicycle": "自転車",
+          "walk": "徒歩",
+          "car": "車"
+        },
+        "consent": "上記情報を採用選考の目的で利用することに同意します。",
+        "submit": "送信",
+        "submitting": "送信中…",
+        "successTitle": "ご応募ありがとうございます。",
+        "successBody": "内容確認のうえ、追ってご連絡いたします。",
+        "errors": {
+          "required": "入力してください",
+          "tooLong": "文字数が上限を超えています",
+          "invalidEmail": "正しいメールアドレスを入力してください",
+          "consent": "同意が必要です",
+          "rateLimited": "送信が集中しています。しばらくしてからお試しください。",
+          "network": "送信に失敗しました。通信環境をご確認ください。"
+        }
+      }
+    },
     "contact": {
       "eyebrow": "CONTACT",
       "title": "お問い合わせ",
@@ -2176,7 +2215,8 @@
           "eyebrow": "FOR COMPANION",
           "title": "制作・運営パートナー",
           "body": "ヘアメイク、ロケ撮影、グループ配信の運営研修、AIGC コンテンツ制作を担当するパートナーです。",
-          "note": "お問い合わせ窓口は準備中",
+          "cta": "スタッフ募集を見る",
+          "action": "staff-recruit",
           "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "会社名", "value": "吉光片羽株式会社" },

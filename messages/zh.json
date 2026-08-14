@@ -2150,6 +2150,45 @@
         }
       }
     },
+    "recruitStaff": {
+      "eyebrow": "STAFF RECRUIT ／ 其他招募",
+      "title": "给掌镜的人、上妆的人，以及撑起直播间的人。",
+      "lead": "面向摄影师、化妆师与团播运营的招募窗口，欢迎在此提交资料。",
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "姓名",
+        "contact": "联系方式",
+        "contactHint": "LINE ID、邮箱或社交账号任一",
+        "email": "邮箱",
+        "kind": "希望参与职能",
+        "kindOptions": {
+          "photographer": "摄影师",
+          "makeup": "化妆师",
+          "group_live_ops": "团播运营"
+        },
+        "residence": "居住位置（选填）",
+        "commuteMode": "通勤方式",
+        "commuteModeOptions": {
+          "subway": "地铁",
+          "bicycle": "自行车",
+          "walk": "步行",
+          "car": "汽车"
+        },
+        "consent": "我同意公司为招募选拔目的使用以上信息。",
+        "submit": "提交",
+        "submitting": "提交中…",
+        "successTitle": "感谢你的报名。",
+        "successBody": "我们会在确认内容后尽快联系你。",
+        "errors": {
+          "required": "请填写",
+          "tooLong": "超出字数上限",
+          "invalidEmail": "请填写正确的邮箱地址",
+          "consent": "需要你的同意",
+          "rateLimited": "提交过于频繁，请稍后再试。",
+          "network": "提交失败，请检查网络后重试。"
+        }
+      }
+    },
     "contact": {
       "eyebrow": "CONTACT",
       "title": "联系我们",
@@ -2170,7 +2209,7 @@
         {
           "no": "02", "eyebrow": "FOR COMPANION", "title": "制作与运营合作伙伴",
           "body": "负责妆发、外景拍摄、团体直播运营培训和 AIGC 内容制作的合作伙伴。",
-          "note": "咨询窗口正在准备中", "partner": "PRODUCTION PARTNER",
+          "cta": "查看招募详情", "action": "staff-recruit", "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "公司名称", "value": "吉光片羽株式会社" },
             { "label": "成立・所在地", "value": "2019年／西宮市" },
