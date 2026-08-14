@@ -61,6 +61,20 @@ test('Contact section 01 carries the Shin-Osaka address in every locale', () => 
   }
 })
 
+// 段 02 是另一家公司（吉光片羽／西宮市），地址与段 01 的新大阪不能混。
+// 与段 01 不同，这一行每种语言只给本语言的写法、不叠罗马字副行 —— 断言里显式
+// 写上 subvalue: undefined，就是防止有人「顺手对齐段 01」把双语又叠回来。
+test('Contact section 02 carries the Nishinomiya address in every locale', () => {
+  for (const [messages, addressLabel, expected] of [
+    [ja, '所在地', '〒662-0073 兵庫県西宮市松風町2-5-106号室'],
+    [zh, '所在地', '〒662-0073 兵库县西宫市松风町2-5-106号室'],
+    [en, 'Address', 'Room 106, 2-5 Matsukazecho, Nishinomiya, Hyogo 662-0073'],
+  ] as const) {
+    const address = messages.site.contact.sections[1].rows.find(({ label }) => label === addressLabel)
+    assert.deepEqual({ value: address?.value, subvalue: address?.subvalue }, { value: expected, subvalue: undefined })
+  }
+})
+
 test('contact actions become locale-safe internal and external links', () => {
   const sections = buildContactSections(ja.site.contact.sections)
   assert.equal(sections[0].ctaHref, '/site/recruit')
