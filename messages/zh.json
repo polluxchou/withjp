@@ -2136,28 +2136,11 @@
             "secondary": "カイロン株式会社"
           },
           "rows": [
-            {
-              "label": "公司名称",
-              "value": "カイロン株式会社（Chiron Co., Ltd.）"
-            },
-            {
-              "label": "成立・所在地",
-              "value": "2021年／大阪市淀川区"
-            },
-            {
-              "label": "业务内容",
-              "value": "ライブ配信キャストの採用・オフライン運営"
-            },
-            {
-              "label": "所在地",
-              "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404",
-              "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003"
-            },
-            {
-              "label": "公司官网",
-              "value": "https://chi-ron.com/",
-              "link": "external"
-            }
+            { "label": "公司名称", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
+            { "label": "成立・所在地", "value": "2021年／大阪市淀川区" },
+            { "label": "业务内容", "value": "ライブ配信キャストの採用・オフライン運営" },
+            { "label": "所在地", "value": "〒532-0003 大阪府大阪市淀川区宫原2丁目12-14 Lions Mansion 新大阪第5 404室" },
+            { "label": "公司官网", "value": "https://chi-ron.com/", "link": "external" }
           ]
         },
         {
@@ -2169,27 +2152,12 @@
           "action": "staff-recruit",
           "partner": "PRODUCTION PARTNER",
           "rows": [
-            {
-              "label": "公司名称",
-              "value": "吉光片羽株式会社"
-            },
-            {
-              "label": "成立・所在地",
-              "value": "2019年／西宮市"
-            },
-            {
-              "label": "业务内容",
-              "value": "インフルエンサーマーケティング"
-            },
-            {
-              "label": "负责领域",
-              "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作"
-            },
-            {
-              "label": "公司官网",
-              "value": "https://kikkou.jp/",
-              "link": "external"
-            }
+            { "label": "公司名称", "value": "吉光片羽株式会社" },
+            { "label": "成立・所在地", "value": "2019年／西宮市" },
+            { "label": "业务内容", "value": "インフルエンサーマーケティング" },
+            { "label": "负责领域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
+            { "label": "所在地", "value": "〒662-0073 兵库县西宫市松风町2-5-106号室" },
+            { "label": "公司官网", "value": "https://kikkou.jp/", "link": "external" }
           ]
         },
         {
