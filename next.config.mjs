@@ -42,9 +42,30 @@ const SECURITY_HEADERS = [
   { key: 'Permissions-Policy',      value: 'camera=(), microphone=(), geolocation=()' },
 ]
 
+// 没有 NEXT_PUBLIC_SUPABASE_URL 时不注册远程图片源，而不是抛错终止配置加载：
+// next lint 也会加载本文件，而 CI 的 lint 步骤（copy.yml / check.yml）不设这个
+// 环境变量 —— 抛错会把两个现在通过的门禁改成必挂。缺变量时的行为与加这段配置
+// 之前一致（没有远程图片源），生产环境有变量所以正常工作。
+// 变量存在但不是合法 URL（`new URL()` 抛错）按同样的逻辑处理：不让配置加载
+// 失败，只是不注册远程图片源，并打一条 warn 方便定位——这种情况本身是配置
+// 错误，但让它表现为“图片走 next/image 优化失败”比“整个应用起不来”更安全。
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL is required')
-const supabaseHost = new URL(supabaseUrl).hostname
+let remotePatterns = []
+if (supabaseUrl) {
+  try {
+    const supabaseHost = new URL(supabaseUrl).hostname
+    remotePatterns = [
+      {
+        protocol: 'https',
+        hostname: supabaseHost,
+        port: '',
+        pathname: '/storage/v1/object/public/site-media/**',
+      },
+    ]
+  } catch {
+    console.warn('[next.config] NEXT_PUBLIC_SUPABASE_URL is not a valid URL — skipping site-media remotePattern')
+  }
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -57,14 +78,7 @@ const nextConfig = {
     ]
   },
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: supabaseHost,
-        port: '',
-        pathname: '/storage/v1/object/public/site-media/**',
-      },
-    ],
+    remotePatterns,
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {
