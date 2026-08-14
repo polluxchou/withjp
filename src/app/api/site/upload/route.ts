@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
+import { canEditSiteContent } from '@/lib/auth/site-content'
 import { validateImage, uploadImage } from '@/lib/storage/upload-image.ts'
 
 const BUCKET = 'site-media'
@@ -9,10 +10,8 @@ export async function POST(req: NextRequest) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
 
-  // TEMPORARY: 官网内容(新闻/成员)目前没有独立的编辑权限位,借用 is_admin 兜底。
-  // Task 7 引入 canEditSiteContent 后,这里要换成那个判定,不要再用 is_admin。
   const actor = await getActorProfile(user.id)
-  if (!actor?.is_admin) {
+  if (!canEditSiteContent(actor)) {
     return NextResponse.json({ data: null, error: 'Forbidden' }, { status: 403 })
   }
 
