@@ -72,10 +72,16 @@ const NAV = [
       { href: '/recruit-applications', key: 'recruitApplications', icon: Inbox },
     ],
   },
-  // 官网新闻的后台管理入口。只有新闻一项——成员管理是 Task 11 才建的页面，
-  // 现在先不加成员的 nav 项，避免指向一个还不存在的路由（会 404）。等
-  // Task 11 落地成员页时，这里再把它从单条 leaf 改成带两个 child 的 group。
-  { href: '/site-content/news', key: 'siteContent', icon: Newspaper },
+  // 官网内容后台管理入口（新闻 + 成员）。Task 9 先建了新闻，当时是单条 leaf；
+  // Task 11 补上成员管理页，改成带两个 child 的 group。
+  {
+    key: 'siteContent',
+    icon: Newspaper,
+    children: [
+      { href: '/site-content/news',    key: 'siteContentNews', icon: Newspaper, exact: true },
+      { href: '/site-content/members', key: 'siteMembers',     icon: Users },
+    ],
+  },
   { href: '/pipeline',  key: 'pipeline',  icon: GitBranch },
   { href: '/timeline',  key: 'timeline',  icon: CalendarRange },
   { href: '/tasks',     key: 'tasks',     icon: CheckSquare },

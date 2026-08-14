@@ -13,12 +13,20 @@ import {
   type NewsRow,
   type NewsRouteDeps,
 } from '../../../lib/site/news-service.ts'
+import {
+  createMemberListHandler,
+  createMemberPatchHandler,
+  type MemberDb,
+  type MemberQueryBuilder,
+  type MemberQueryResult,
+  type MemberRow,
+  type MemberRouteDeps,
+} from '../../../lib/site/members-service.ts'
 import { PUBLIC_SITE_LOCALES } from '../../../lib/site/domain-routing.ts'
 import type { SiteContentActor } from '../../../lib/auth/site-content.ts'
 
 // ============================================================
-// 覆盖范围（本任务只做新闻——members 是 Task 11 的范围，brief 里 Step 6/7
-// 提到的 members 白名单/用例不在这里实现，详见 task-9-report.md）：
+// 覆盖范围——新闻（Task 9）：
 //
 //   1. 未登录 GET/POST/PATCH/DELETE → 401
 //   2. 非管理员：GET 200，写请求 403，且 is_published:true 不会改到库
@@ -28,6 +36,22 @@ import type { SiteContentActor } from '../../../lib/auth/site-content.ts'
 //   5. PATCH 未知字段 / 修改 slug / 必填字段全空白均 400，且不产生部分更新
 //   7. 下架后 revalidatePath 对 PUBLIC_SITE_LOCALES 的每个 locale 都记录了
 //      list/首页/详情三条内部源路径为 stale
+//
+// 覆盖范围——成员（Task 11，见 task-11-brief.md）：
+//
+//   1. 未登录 GET/PATCH → 401
+//   2. 非管理员：GET 200，PATCH 403，数据库原值不变
+//   3. 管理员 PATCH 合法字段成功，updated_by_user_id 写入 actor.id
+//   4. 提交 no / 审计字段返回 400 forbidden_field，不落库
+//   5. PATCH 未知字段返回 400
+//   6. 跨字段业务约束：已公开卡位缺 name/photo_url/specialty_ja 400；
+//      未公开卡位缺 expected_reveal_on 400；且校验依赖「现有行 + 本次
+//      patch」合并后的有效值——只改照片时不会误报已有日期缺失
+//   7. PATCH 只提交一个字段时，其余未提及的选填字段保持原值不变（同新闻的
+//      optional() 位置回归测试）
+//   8. 非法卡位编号（超出 1-12 范围）返回 400
+//   9. PATCH 成功后 revalidatePath 对每个 PUBLIC_SITE_LOCALES 都记录了
+//      /site 与 /site/vision 两条路径（brief 指定路径，与新闻的三条不同）
 //
 // 未覆盖、且为什么：
 //   - 真实 HTTP 服务器（next build && next start）：本任务用「handler factory
@@ -41,6 +65,7 @@ import type { SiteContentActor } from '../../../lib/auth/site-content.ts'
 //     这里只验证「下架」真正把 is_published 写成 false（下面 fakeDb 状态断言）
 //     和 revalidatePath 确实对详情路径打了 stale 标记——一旦 Task 10 把公开
 //     页接上数据库，这两个前提就足够让 404 成立。
+//   - 成员页面/vision 页是否真的读库展示：同上，是 Task 12 的范围。
 // ============================================================
 
 const NOW = '2026-08-14T00:00:00.000Z'
@@ -453,4 +478,354 @@ test('删除前读取 slug：删除后仍能对该 slug 的详情路径打失效
   assert.equal(db.rows.length, 0)
   const paths = recorder.calls.map((c) => c.path)
   assert.ok(paths.some((p) => p.endsWith('/site/news/to-be-deleted')))
+})
+
+// ============================================================
+// ── 成员（Task 11）──────────────────────────────────────────────────────
+// ============================================================
+
+type MemberOp = 'select' | 'update'
+
+class FakeMemberQuery implements MemberQueryBuilder {
+  private op: MemberOp | null = null
+  private filters: Array<[string, unknown]> = []
+  private payload: Record<string, unknown> | null = null
+  private wantSingle = false
+  private rows: MemberRow[]
+
+  constructor(rows: MemberRow[]) {
+    this.rows = rows
+  }
+
+  select(): MemberQueryBuilder {
+    if (this.op === null) this.op = 'select'
+    return this
+  }
+  update(row: Record<string, unknown>): MemberQueryBuilder {
+    this.op = 'update'
+    this.payload = row
+    return this
+  }
+  eq(column: string, value: unknown): MemberQueryBuilder {
+    this.filters.push([column, value])
+    return this
+  }
+  single(): MemberQueryBuilder {
+    this.wantSingle = true
+    return this
+  }
+
+  private matches(row: MemberRow): boolean {
+    return this.filters.every(([col, val]) => (row as unknown as Record<string, unknown>)[col] === val)
+  }
+
+  private execute(): MemberQueryResult {
+    switch (this.op) {
+      case 'select': {
+        const matched = this.rows.filter((r) => this.matches(r))
+        if (this.wantSingle) {
+          return matched.length === 1
+            ? { data: { ...matched[0] }, error: null }
+            : { data: null, error: { message: 'not found' } }
+        }
+        return { data: matched.map((r) => ({ ...r })), error: null }
+      }
+      case 'update': {
+        const matched = this.rows.filter((r) => this.matches(r))
+        for (const row of matched) Object.assign(row, this.payload, { updated_at: new Date().toISOString() })
+        if (this.wantSingle) {
+          return matched.length === 1
+            ? { data: { ...matched[0] }, error: null }
+            : { data: null, error: { message: 'not found' } }
+        }
+        return { data: matched.map((r) => ({ ...r })), error: null }
+      }
+      default:
+        return { data: null, error: { message: 'no operation configured' } }
+    }
+  }
+
+  then<TResult1 = MemberQueryResult, TResult2 = never>(
+    onfulfilled?: ((value: MemberQueryResult) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): PromiseLike<TResult1 | TResult2> {
+    return Promise.resolve(this.execute()).then(onfulfilled, onrejected)
+  }
+}
+
+class FakeMemberDb implements MemberDb {
+  rows: MemberRow[] = []
+  from(table: 'site_members'): MemberQueryBuilder {
+    assert.equal(table, 'site_members')
+    return new FakeMemberQuery(this.rows)
+  }
+}
+
+function makeMemberDeps(opts: {
+  userId: string | null
+  actors?: Record<string, SiteContentActor>
+  db?: FakeMemberDb
+  recorder?: ReturnType<typeof makeRevalidateRecorder>
+}): { deps: MemberRouteDeps; db: FakeMemberDb; recorder: ReturnType<typeof makeRevalidateRecorder> } {
+  const db = opts.db ?? new FakeMemberDb()
+  const recorder = opts.recorder ?? makeRevalidateRecorder()
+  const deps: MemberRouteDeps = {
+    authGuard: fakeAuthGuard(opts.userId),
+    getActorProfile: fakeActorProfiles(opts.actors ?? {}),
+    db,
+    revalidatePath: recorder.revalidatePath,
+  }
+  return { deps, db, recorder }
+}
+
+function memberJsonRequest(method: string, body?: unknown): Request {
+  return new Request('http://localhost/api/site/members/1', {
+    method,
+    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+}
+
+async function seedMemberRow(db: FakeMemberDb, overrides: Partial<MemberRow> = {}): Promise<MemberRow> {
+  const row: MemberRow = {
+    id: randomUUID(),
+    no: 1,
+    is_revealed: false,
+    photo_url: null,
+    name: null,
+    name_ja: null,
+    name_zh: null,
+    name_en: null,
+    specialty_ja: null,
+    specialty_zh: null,
+    specialty_en: null,
+    expected_reveal_on: '2026-12-01',
+    created_by_user_id: null,
+    updated_by_user_id: null,
+    created_at: NOW,
+    updated_at: NOW,
+    ...overrides,
+  }
+  db.rows.push(row)
+  return row
+}
+
+// ── 1. 未登录 ──────────────────────────────────────────────────────────
+
+test('未登录 GET /api/site/members 返回 401', async () => {
+  const { deps } = makeMemberDeps({ userId: null })
+  const result = await createMemberListHandler(deps)()
+  assert.equal(result.status, 401)
+})
+
+test('未登录 PATCH /api/site/members/:no 返回 401', async () => {
+  const { deps } = makeMemberDeps({ userId: null })
+  const result = await createMemberPatchHandler(deps)(memberJsonRequest('PATCH', { is_revealed: false }), '1')
+  assert.equal(result.status, 401)
+})
+
+// ── 2. 非管理员：读可以，写 403 ──────────────────────────────────────────
+
+test('非管理员 GET 返回 200，且按 no 升序排列', async () => {
+  const { deps, db } = makeMemberDeps({ userId: NON_ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 3 })
+  await seedMemberRow(db, { no: 1 })
+  await seedMemberRow(db, { no: 2 })
+  const result = await createMemberListHandler(deps)()
+  assert.equal(result.status, 200)
+  const body = result.body as { data: MemberRow[] }
+  assert.deepEqual(body.data.map((r) => r.no), [1, 2, 3])
+})
+
+test('非管理员 PATCH 返回 403，数据库原值不变', async () => {
+  const { deps, db } = makeMemberDeps({ userId: NON_ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1, expected_reveal_on: '2026-12-01' })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { expected_reveal_on: '2026-10-01' }),
+    '1',
+  )
+  assert.equal(result.status, 403)
+  assert.equal(db.rows.find((r) => r.no === 1)?.expected_reveal_on, '2026-12-01')
+})
+
+// ── 3. 管理员 PATCH 合法字段成功 ─────────────────────────────────────────
+
+test('管理员 PATCH 未公开卡位的预计公开日成功，updated_by_user_id=actor.id', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1, expected_reveal_on: '2026-12-01' })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { expected_reveal_on: '2026-10-15' }),
+    '1',
+  )
+  assert.equal(result.status, 200)
+  const stored = db.rows.find((r) => r.no === 1)
+  assert.equal(stored?.expected_reveal_on, '2026-10-15')
+  assert.equal(stored?.updated_by_user_id, ADMIN_ID)
+})
+
+// ── 4. no / 审计字段是禁区 ───────────────────────────────────────────────
+
+test('PATCH 提交 no 字段返回 400（forbidden_field），不落库', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1, expected_reveal_on: '2026-12-01' })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { no: 2, expected_reveal_on: '2026-11-01' }),
+    '1',
+  )
+  assert.equal(result.status, 400)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'forbidden_field')
+  assert.equal(db.rows.find((r) => r.no === 1)?.expected_reveal_on, '2026-12-01')
+})
+
+test('PATCH 提交伪造的 updated_by_user_id 返回 400（forbidden_field），库中不出现该 UUID', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1, expected_reveal_on: '2026-12-01' })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { updated_by_user_id: ATTACKER_ID }),
+    '1',
+  )
+  assert.equal(result.status, 400)
+  assert.notEqual(db.rows.find((r) => r.no === 1)?.updated_by_user_id, ATTACKER_ID)
+})
+
+// ── 5. 未知字段 ──────────────────────────────────────────────────────────
+
+test('PATCH 未知字段返回 400，不产生部分更新', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1, name_ja: '原名字' })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { name_ja: '改过的名字', totally_unknown_field: 'x' }),
+    '1',
+  )
+  assert.equal(result.status, 400)
+  assert.equal(db.rows.find((r) => r.no === 1)?.name_ja, '原名字')
+})
+
+// ── 6. 跨字段业务约束（依赖"现有行 + patch"合并后的有效值）──────────────
+
+test('已公开卡位缺 name/photo_url/specialty_ja 返回 400，且不产生部分更新', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1, is_revealed: false, expected_reveal_on: '2026-12-01' })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { is_revealed: true }),
+    '1',
+  )
+  assert.equal(result.status, 400)
+  const body = result.body as { fields: Record<string, string> }
+  assert.equal(body.fields.name, 'required_when_revealed')
+  assert.equal(body.fields.photo_url, 'required_when_revealed')
+  assert.equal(body.fields.specialty_ja, 'required_when_revealed')
+  assert.equal(db.rows.find((r) => r.no === 1)?.is_revealed, false)
+})
+
+test('已公开卡位所有必填字段合并后齐全时可以成功公开', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, {
+    no: 1,
+    is_revealed: false,
+    name: '既存の名前',
+    photo_url: '/site/existing.webp',
+    specialty_ja: '既存の特技',
+    expected_reveal_on: '2026-12-01',
+  })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { is_revealed: true }),
+    '1',
+  )
+  assert.equal(result.status, 200)
+  assert.equal(db.rows.find((r) => r.no === 1)?.is_revealed, true)
+})
+
+test('未公开卡位缺 expected_reveal_on 返回 400', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, {
+    no: 1,
+    is_revealed: true,
+    name: '既存の名前',
+    photo_url: '/site/existing.webp',
+    specialty_ja: '既存の特技',
+    expected_reveal_on: null,
+  })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { is_revealed: false }),
+    '1',
+  )
+  assert.equal(result.status, 400)
+  const body = result.body as { fields: Record<string, string> }
+  assert.equal(body.fields.expected_reveal_on, 'required_when_unrevealed')
+})
+
+// 回归测试：只改照片时不能误报已有日期缺失——校验必须读现有行的
+// expected_reveal_on，而不是只看本次 patch 有没有带这个字段。
+test('未公开卡位只 PATCH 照片时，不会误报已有的 expected_reveal_on 缺失', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1, is_revealed: false, expected_reveal_on: '2026-12-01', photo_url: null })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { photo_url: '/site/new-photo.webp' }),
+    '1',
+  )
+  assert.equal(result.status, 200)
+  const stored = db.rows.find((r) => r.no === 1)
+  assert.equal(stored?.photo_url, '/site/new-photo.webp')
+  assert.equal(stored?.expected_reveal_on, '2026-12-01')
+})
+
+// 回归测试：optionalText() 的 `.optional()` 位置——同 news-service.ts 曾经
+// 踩过的坑，成员的 PATCH 全是可选字段，影响面更大。只提交一个字段时，其余
+// 未提及的选填字段必须保持原值不变。
+test('PATCH 只提交一个字段时，其余未提及的选填字段（中英文姓名/特长）保持原值不变', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, {
+    no: 1,
+    is_revealed: true,
+    name: 'KANO',
+    photo_url: '/site/kano.webp',
+    name_zh: '现有中文名', name_en: 'Existing English Name',
+    specialty_ja: '既存の特技', specialty_zh: '现有中文特长', specialty_en: 'Existing English Specialty',
+  })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { photo_url: '/site/kano-new.webp' }),
+    '1',
+  )
+  assert.equal(result.status, 200)
+  const stored = db.rows.find((r) => r.no === 1)
+  assert.equal(stored?.photo_url, '/site/kano-new.webp')
+  assert.equal(stored?.name, 'KANO')
+  assert.equal(stored?.name_zh, '现有中文名')
+  assert.equal(stored?.name_en, 'Existing English Name')
+  assert.equal(stored?.specialty_zh, '现有中文特长')
+  assert.equal(stored?.specialty_en, 'Existing English Specialty')
+})
+
+// ── 8. 非法卡位编号 ───────────────────────────────────────────────────────
+
+test('PATCH 非法卡位编号（超出 1-12 范围）返回 400', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  const result = await createMemberPatchHandler(deps)(memberJsonRequest('PATCH', { name_ja: 'x' }), '13')
+  assert.equal(result.status, 400)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'invalid_no')
+})
+
+// ── 9. 失效标记：逐 locale 断言 /site 与 /site/vision 两条路径 ────────────
+
+test('PATCH 成功后 revalidatePath 对每个 PUBLIC_SITE_LOCALES 都记录了 /site 与 /site/vision', async () => {
+  const { deps, db, recorder } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1, expected_reveal_on: '2026-12-01' })
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { expected_reveal_on: '2026-11-01' }),
+    '1',
+  )
+  assert.equal(result.status, 200)
+
+  const paths = recorder.calls.map((c) => c.path)
+  for (const locale of PUBLIC_SITE_LOCALES) {
+    assert.ok(paths.includes(`/${locale}/site`), `missing /${locale}/site`)
+    assert.ok(paths.includes(`/${locale}/site/vision`), `missing /${locale}/site/vision`)
+  }
+  // 2 条路径 × PUBLIC_SITE_LOCALES 个 locale，不多不少（brief 指定路径，与
+  // 新闻的三条不同——成员没有独立列表页）。
+  assert.equal(paths.length, PUBLIC_SITE_LOCALES.length * 2)
 })
