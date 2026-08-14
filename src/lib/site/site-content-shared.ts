@@ -17,9 +17,12 @@ import { z } from 'zod'
 // （news 有 insert/delete，members 只有 update），只有 data/error 的结果形状
 // 与 select/eq/single 三个方法是逐字节相同的，抽出来给两边的 QueryBuilder
 // 接口 extends，不强行合并成一个万能接口。────────────────────────────────
+// `code` 是 PostgREST/Postgres 的错误码（如唯一约束冲突固定返回 `23505`），
+// 之前的形状只有 message，无法区分"唯一约束冲突"与其它任意数据库故障——
+// news-service.ts 的 slug 唯一冲突 409 映射（评审 Important）需要读这个码。
 export interface SiteContentQueryResult {
   data: unknown
-  error: { message?: string } | null
+  error: { code?: string; message?: string } | null
 }
 
 export interface SiteContentQueryBuilder<Self> extends PromiseLike<SiteContentQueryResult> {

@@ -76,18 +76,29 @@ function matchesFilters(row: NewsRow, filters: Array<[string, unknown]>): boolea
 
 type Op = 'select' | 'insert' | 'update' | 'delete'
 
+type InjectedError = { code?: string; message?: string }
+
 // 最小的 fake 查询构造器：只实现 news-service.ts 实际调用到的链式方法
 // （select/insert/update/delete/eq/single + thenable），backing store 是
 // 传进来的同一个数组引用，所以多个 handler 调用之间共享同一份「表」状态。
+//
+// queuedErrors 是评审 Important 指出的缺口：这个 fake db 原先无法注入
+// 任何数据库层面的故障（CHECK 约束、唯一键冲突、连接失败……），导致
+// 500 db_error / 409 唯一冲突这些分支永远没有测试覆盖——它们只在真实
+// Supabase 报错时才会走到。queuedErrors 按 op 一次性排队一个错误：下一次
+// 匹配该 op 的调用会消费它并返回 { data: null, error }，而不是走正常的
+// 内存表逻辑；消费后立刻清空，不影响后续调用。
 class FakeNewsQuery implements NewsQueryBuilder {
   private op: Op | null = null
   private filters: Array<[string, unknown]> = []
   private payload: Record<string, unknown> | null = null
   private wantSingle = false
   private rows: NewsRow[]
+  private queuedErrors: Partial<Record<Op, InjectedError>>
 
-  constructor(rows: NewsRow[]) {
+  constructor(rows: NewsRow[], queuedErrors: Partial<Record<Op, InjectedError>>) {
     this.rows = rows
+    this.queuedErrors = queuedErrors
   }
 
   select(): NewsQueryBuilder {
@@ -118,6 +129,11 @@ class FakeNewsQuery implements NewsQueryBuilder {
   }
 
   private execute(): NewsQueryResult {
+    if (this.op !== null && this.queuedErrors[this.op]) {
+      const error = this.queuedErrors[this.op]!
+      delete this.queuedErrors[this.op]
+      return { data: null, error }
+    }
     switch (this.op) {
       case 'select': {
         const matched = this.rows.filter((r) => matchesFilters(r, this.filters))
@@ -166,9 +182,16 @@ class FakeNewsQuery implements NewsQueryBuilder {
 
 class FakeNewsDb implements NewsDb {
   rows: NewsRow[] = []
+  private queuedErrors: Partial<Record<Op, InjectedError>> = {}
+
+  /** 排队下一次匹配 op 的调用返回这个错误（一次性，消费后自动清空）。 */
+  injectError(op: Op, error: InjectedError): void {
+    this.queuedErrors[op] = error
+  }
+
   from(table: 'site_news'): NewsQueryBuilder {
     assert.equal(table, 'site_news')
-    return new FakeNewsQuery(this.rows)
+    return new FakeNewsQuery(this.rows, this.queuedErrors)
   }
 }
 
@@ -363,6 +386,71 @@ test('创建时提交伪造的审计字段返回 400（forbidden_field），不�
   assert.equal(db.rows.length, 0)
 })
 
+// ── 3b. 数据库故障分支（评审 Important：fake db 加错误注入）──────────────
+
+test('GET /api/site/news 数据库故障返回 500 db_error', async () => {
+  const { deps, db } = makeDeps({ userId: ADMIN_ID, actors: ACTORS })
+  db.injectError('select', { message: 'connection refused' })
+  const result = await createNewsListHandler(deps)()
+  assert.equal(result.status, 500)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'db_error')
+})
+
+test('创建时数据库故障（非唯一键冲突）返回 500 db_error，不产生部分记录', async () => {
+  const { deps, db } = makeDeps({ userId: ADMIN_ID, actors: ACTORS })
+  db.injectError('insert', { message: 'disk full' })
+  const result = await createNewsCreateHandler(deps)(jsonRequest('POST', validCreatePayload()))
+  assert.equal(result.status, 500)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'db_error')
+  assert.equal(db.rows.length, 0)
+})
+
+// 回归测试：NewsCreateSchema 只校验 slug 形状不校验唯一性，迁移里的
+// `unique` 约束才是唯一真相源——插入时撞见这个约束（Postgres 错误码
+// 23505）必须映射成 409 + fields.slug='duplicate'，而不是笼统的
+// 500 db_error（slug 是管理员手打的，这是最容易在生产触发的一条路径）。
+test('创建时 slug 与已有记录冲突（Postgres 23505）返回 409，fields.slug=duplicate', async () => {
+  const { deps, db } = makeDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedRow(db, { slug: 'test-news-slug' })
+  db.injectError('insert', { code: '23505', message: 'duplicate key value violates unique constraint' })
+  const result = await createNewsCreateHandler(deps)(jsonRequest('POST', validCreatePayload()))
+  assert.equal(result.status, 409)
+  const body = result.body as { fields: Record<string, string> }
+  assert.equal(body.fields.slug, 'duplicate')
+  assert.equal(db.rows.length, 1) // 只有 seed 那一条，插入没有部分生效
+})
+
+test('PATCH 不存在的 id 返回 404 not_found', async () => {
+  const { deps, db } = makeDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedRow(db)
+  const result = await createNewsPatchHandler(deps)(jsonRequest('PATCH', { is_published: false }), 'no-such-id')
+  assert.equal(result.status, 404)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'not_found')
+})
+
+test('DELETE 不存在的 id 返回 404 not_found', async () => {
+  const { deps, db } = makeDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedRow(db)
+  const result = await createNewsDeleteHandler(deps)('no-such-id')
+  assert.equal(result.status, 404)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'not_found')
+})
+
+test('删除时数据库故障返回 500 db_error，记录仍在', async () => {
+  const { deps, db } = makeDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const row = await seedRow(db)
+  db.injectError('delete', { message: 'connection refused' })
+  const result = await createNewsDeleteHandler(deps)(row.id)
+  assert.equal(result.status, 500)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'db_error')
+  assert.equal(db.rows.length, 1)
+})
+
 // ── 4. 管理员 PATCH 下架 + 拒绝伪造审计字段 ───────────────────────────────
 
 test('管理员 PATCH 下架成功', async () => {
@@ -486,15 +574,19 @@ test('删除前读取 slug：删除后仍能对该 slug 的详情路径打失效
 
 type MemberOp = 'select' | 'update'
 
+// queuedErrors：同 FakeNewsQuery 的理由——members 侧同样没有任何测试能让
+// db 返回故障，覆盖不到 GET /members 的 500 db_error 分支。
 class FakeMemberQuery implements MemberQueryBuilder {
   private op: MemberOp | null = null
   private filters: Array<[string, unknown]> = []
   private payload: Record<string, unknown> | null = null
   private wantSingle = false
   private rows: MemberRow[]
+  private queuedErrors: Partial<Record<MemberOp, InjectedError>>
 
-  constructor(rows: MemberRow[]) {
+  constructor(rows: MemberRow[], queuedErrors: Partial<Record<MemberOp, InjectedError>>) {
     this.rows = rows
+    this.queuedErrors = queuedErrors
   }
 
   select(): MemberQueryBuilder {
@@ -520,6 +612,11 @@ class FakeMemberQuery implements MemberQueryBuilder {
   }
 
   private execute(): MemberQueryResult {
+    if (this.op !== null && this.queuedErrors[this.op]) {
+      const error = this.queuedErrors[this.op]!
+      delete this.queuedErrors[this.op]
+      return { data: null, error }
+    }
     switch (this.op) {
       case 'select': {
         const matched = this.rows.filter((r) => this.matches(r))
@@ -555,9 +652,16 @@ class FakeMemberQuery implements MemberQueryBuilder {
 
 class FakeMemberDb implements MemberDb {
   rows: MemberRow[] = []
+  private queuedErrors: Partial<Record<MemberOp, InjectedError>> = {}
+
+  /** 排队下一次匹配 op 的调用返回这个错误（一次性，消费后自动清空）。 */
+  injectError(op: MemberOp, error: InjectedError): void {
+    this.queuedErrors[op] = error
+  }
+
   from(table: 'site_members'): MemberQueryBuilder {
     assert.equal(table, 'site_members')
-    return new FakeMemberQuery(this.rows)
+    return new FakeMemberQuery(this.rows, this.queuedErrors)
   }
 }
 
@@ -646,6 +750,31 @@ test('非管理员 PATCH 返回 403，数据库原值不变', async () => {
   )
   assert.equal(result.status, 403)
   assert.equal(db.rows.find((r) => r.no === 1)?.expected_reveal_on, '2026-12-01')
+})
+
+// ── 2b. 数据库故障分支（评审 Important：fake db 加错误注入）───────────────
+
+test('GET /api/site/members 数据库故障返回 500 db_error', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  db.injectError('select', { message: 'connection refused' })
+  const result = await createMemberListHandler(deps)()
+  assert.equal(result.status, 500)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'db_error')
+})
+
+test('PATCH 卡位号在合法范围内但没有对应记录时返回 404 not_found', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  // no=5 在 1-12 合法范围内，但没有 seed 过——命中的是「查不到行」分支,
+  // 不是 invalid_no 那条 400。
+  const result = await createMemberPatchHandler(deps)(
+    memberJsonRequest('PATCH', { name_ja: 'x' }),
+    '5',
+  )
+  assert.equal(result.status, 404)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'not_found')
 })
 
 // ── 3. 管理员 PATCH 合法字段成功 ─────────────────────────────────────────
