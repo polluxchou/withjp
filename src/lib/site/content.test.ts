@@ -142,6 +142,42 @@ test('已公开卡位没有配图时不渲染 image（不用别的卡位的图�
 })
 
 test(
+  '已公开卡位 name_ja 为 NULL 时（合法数据，非异常）role 回退到罗马字 name',
+  () => {
+    // 这不是"异常历史数据"的兜底，而是当前生产可达的正常操作路径：
+    // `site_members_revealed_fields` 约束（supabase/migrations/
+    // 20260814112723_site_content.sql:104-111）与 `validateEffectiveMember`
+    // （src/lib/site/members-service.ts:177-184）都只要求已公开卡位的
+    // `name`/`photo_url`/`specialty_ja` 非空——两处都没有约束 `name_ja`。
+    // 管理员完全可以合法地填了罗马字名、照片、日文特长,但漏填 name_ja,
+    // DB 和应用层都不会拦。这条测试断言的就是那条路径下的实际回退行为：
+    // pickLocaleText 的 ja 参数用 `row.name_ja ?? row.name ?? ''` 兜底,
+    // name_ja 缺失时不留白、不崩，而是显示罗马字卡片名。
+    //
+    // 「已公开成员是否必须有日文名」是产品决定，不在本任务改约束——这里只是
+    // 如实测试当前约束下代码的实际行为，供下一个改约束或改回退逻辑的人参考。
+    const rows: SiteMemberRow[] = [
+      {
+        no: 1,
+        is_revealed: true,
+        name: 'KANO',
+        name_ja: null,
+        name_zh: null,
+        name_en: null,
+        specialty_ja: '罠',
+        specialty_zh: null,
+        specialty_en: null,
+        photo_url: '/p.webp',
+        expected_reveal_on: null,
+      },
+    ]
+    const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
+    assert.equal(members[0].name, 'KANO')
+    assert.equal(members[0].role, 'KANO／罠')
+  },
+)
+
+test(
   'buildMembers 重建的 name/role 与 MEMBER_SEED（当年 messages/*.json 成员文案的原始抄本）' +
     '逐字节一致——尤其 3 号 LULU 的 zh 名「露露」不能回退成 ja 的「ルル」',
   () => {
