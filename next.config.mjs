@@ -1,5 +1,12 @@
 import createNextIntlPlugin from 'next-intl/plugin'
 
+// next lint 用 Node 原生 ESM loader 加载本文件（不是 Next 自己的打包器），认不出
+// 'next/constants' 这种没有文件扩展名的深子路径导出，import 会直接 ERR_MODULE_NOT_FOUND
+// 并把 test:copy 的 lint 门禁打挂——踩过一次才改成字面量。这个字符串是
+// next/dist/shared/lib/constants.js 里 PHASE_PRODUCTION_BUILD 的值，`next build`
+// 在加载本文件之前会把它写进 process.env.NEXT_PHASE，值本身早已是稳定的公开常量。
+const PHASE_PRODUCTION_BUILD = 'phase-production-build'
+
 const withNextIntl = createNextIntlPlugin('./src/i18n.ts')
 
 // L5 — Content Security Policy.
@@ -65,6 +72,21 @@ if (supabaseUrl) {
   } catch {
     console.warn('[next.config] NEXT_PUBLIC_SUPABASE_URL is not a valid URL — skipping site-media remotePattern')
   }
+}
+
+// Lint tolerance (above) stops at the `console.warn` — it must not also let a
+// *production build* silently ship with no Supabase remotePattern registered.
+// NEXT_PUBLIC_SUPABASE_URL is baked in at build time; a production build missing
+// (or with an invalid) it produces a site where every next/image render of a
+// Supabase-hosted image (news/member photos) throws at request time, and the
+// only signal today is the console.warn above, which nobody watches in CI.
+// `next build` sets NEXT_PHASE=phase-production-build before this file loads,
+// so this check only fires for real production builds — `next lint` and
+// `next dev` are unaffected, keeping the two CI lint gates green.
+if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD && remotePatterns.length === 0) {
+  throw new Error(
+    '[next.config] Production build with no Supabase remotePattern registered — set NEXT_PUBLIC_SUPABASE_URL to a valid URL before building.',
+  )
 }
 
 /** @type {import('next').NextConfig} */
