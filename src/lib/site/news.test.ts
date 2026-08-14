@@ -134,6 +134,16 @@ test('articlesFromListQuery：查询成功时排序+转换正常返回', () => {
   assert.deepEqual(articles.map((a) => a.slug), ['b', 'a']) // 置顶优先
 })
 
+test('articlesFromListQuery：内部再过滤一次 is_published，未发布行不会因为调用方漏加 SQL 过滤条件而漏网', () => {
+  const rows = [
+    row({ slug: 'published', is_published: true }),
+    row({ slug: 'draft', is_published: false }),
+  ]
+  const onQueryError = () => assert.fail('不应该被调用')
+  const articles = articlesFromListQuery('ja', { data: rows, error: null }, onQueryError)
+  assert.deepEqual(articles.map((a) => a.slug), ['published'])
+})
+
 test('articlesFromListQuery：查询出错时降级为空数组，且必须上报 error（不能沉默）', () => {
   let reported: unknown = null
   const error = { code: '500', message: 'connection refused' }

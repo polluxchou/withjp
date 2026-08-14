@@ -14,7 +14,7 @@
  */
 import type { Locale } from '../../i18n/routing.ts'
 import { pickLocaleText } from './i18n-content.ts'
-import { isValidNewsSlug, sortNews } from './news-sort.ts'
+import { isValidNewsSlug, publishedOnly, sortNews } from './news-sort.ts'
 
 export type NewsTag = 'RECRUIT' | 'PROJECT' | 'LIVE'
 export type NewsCategory = 'project' | 'recruit'
@@ -109,6 +109,12 @@ export interface SiteNewsQueryResult {
  * onQueryError 是回调而不是这里直接 console.error：页面组件负责实际打印
  * （可以加前缀、加 locale 等上下文），这里只做"出错了该返回什么"的决策，
  * 测试断言回调被正确调用即可，不用 mock 全局 console。
+ *
+ * 内部再调一次 publishedOnly 作为第二道保险：三个页面组件目前都在 SQL 侧
+ * `.eq('is_published', true)` 过滤过一次，但这层纯函数正是"查询结果 → 该
+ * 渲染什么"的决策点，不应该假设调用方的查询一定带对了过滤条件——少了这层，
+ * 谁不小心删掉某处的 `.eq('is_published', true)`，433 个测试照样全绿，
+ * 草稿/已下架文章会直接出现在公开页面上。
  */
 export function articlesFromListQuery(
   locale: Locale,
@@ -119,7 +125,7 @@ export function articlesFromListQuery(
     onQueryError(result.error)
     return []
   }
-  return buildArticles(locale, sortNews((result.data ?? []) as SiteNewsRow[]))
+  return buildArticles(locale, sortNews(publishedOnly((result.data ?? []) as SiteNewsRow[])))
 }
 
 /**
