@@ -76,6 +76,7 @@
 | 应募职能（site_applications.kind） | 主播 creator violet · 摄影师 photographer info · 化妆师 makeup warning · 团播运营 group_live_ops success（Task 4 登记：官网应募页 RecordRow 的职能 Tag，区分投递角色而非生命周期状态，独立于"创作者生命周期"域） |
 | 新闻发布状态（site_news.is_published，非枚举，二态布尔） | 已发布 success · 已下架 danger（Task 9 登记：后台新闻列表 RecordRow 的状态点 + 下架 Tag，下架代表已从官网移除，非生命周期状态） |
 | 新闻置顶标记（site_news.is_pinned，非枚举，二态布尔） | 置顶 violet（Task 9 登记：与财务预测年份卡"本年"同色系，标记态而非状态） |
+| 成员卡位公开状态（site_members.is_revealed，非枚举，二态布尔） | 已公开 success · 未公开 neutral（Task 11 登记：后台成员卡位网格的状态 Tag；未公开是"待揭晓"的正常过渡态而非失败/风险，不用 warning/danger） |
 
 > DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 待 PR2/PR3 迁移对应界面时登记。
 
