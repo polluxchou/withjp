@@ -6,13 +6,16 @@ import type { Locale } from '@/i18n/routing'
 import { locales } from '@/i18n/routing'
 import { createServerClient } from '@/lib/supabase/server'
 import { RECRUIT_HREF, SITE_BASE } from '@/lib/site/nav'
-import { articleFromSingleQuery, isNewsSlug, shouldShowNewsApply, type SiteArticle } from '@/lib/site/news'
+import {
+  articleFromSingleQuery,
+  isNewsSlug,
+  shouldShowNewsApply,
+  NEWS_COLUMNS,
+  type SiteArticle,
+} from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SiteImage from '@/components/site/SiteImage'
 import SiteButton from '@/components/site/SiteButton'
-
-const NEWS_COLUMNS =
-  'slug, tag, category, published_on, is_pinned, is_published, image_url, title_ja, title_zh, title_en, lead_ja, lead_zh, lead_en, body_ja, body_zh, body_en'
 
 // 内容来自 site_news 表（Task 10 起）：无限期缓存，只经由后台写接口的
 // revalidatePath 按需失效（news-service.ts 的 revalidateNewsPages），这里不

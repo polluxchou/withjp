@@ -4,7 +4,7 @@ import type { Locale } from '@/i18n/routing'
 import { createServerClient } from '@/lib/supabase/server'
 import { SITE_BASE, RECRUIT_HREF } from '@/lib/site/nav'
 import type { SiteProjectTerm, SiteServiceItem, SiteStat, SiteVisionCard } from '@/lib/site/content'
-import { articlesFromListQuery, type SiteArticle } from '@/lib/site/news'
+import { articlesFromListQuery, NEWS_COLUMNS, type SiteArticle } from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import HairlineGrid, { GridCell } from '@/components/site/HairlineGrid'
@@ -29,7 +29,7 @@ async function fetchLatestArticles(locale: Locale): Promise<SiteArticle[]> {
   const db = createServerClient()
   const { data, error } = await db
     .from('site_news')
-    .select('slug, tag, category, published_on, is_pinned, is_published, image_url, title_ja, title_zh, title_en, lead_ja, lead_zh, lead_en, body_ja, body_zh, body_en')
+    .select(NEWS_COLUMNS)
     .eq('is_published', true)
 
   const articles = articlesFromListQuery(locale, { data, error }, (queryError) => {

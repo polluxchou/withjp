@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button'
 import { Field, Input, Select, Textarea } from '@/components/ui/Field'
 import ImageUploadField from '@/components/ui/ImageUploadField'
 import type { NewsRow } from '@/lib/site/news-service.ts'
+import { formatFieldErrors, siteContentErrorMessage } from './form-errors'
 
 const NEWS_ENDPOINT = '/api/site/news'
 const TAGS = ['RECRUIT', 'PROJECT', 'LIVE'] as const
@@ -41,16 +42,6 @@ function toFormValue(row: NewsRow | null): FormValue {
   }
 }
 
-/** 错误响应里的 fields 是稳定字段码（required/too_long/invalid_slug/...），
- * 不是自然语言——这里只是把它们平铺展示出来方便定位是哪个字段出的问题，
- * 不是最终用户文案。 */
-function formatFieldErrors(fields: Record<string, string> | undefined): string | null {
-  if (!fields) return null
-  const entries = Object.entries(fields)
-  if (entries.length === 0) return null
-  return entries.map(([k, v]) => `${k}: ${v}`).join('；')
-}
-
 export default function NewsForm({
   row,
   onCancel,
@@ -69,8 +60,7 @@ export default function NewsForm({
   const [error, setError] = useState<string | null>(null)
 
   function errorMessage(code: string): string {
-    const known = ['forbidden', 'forbidden_field', 'validation', 'invalid_json', 'not_found', 'db_error']
-    return known.includes(code) ? t(`errors.${code}`) : t('errors.unknown')
+    return siteContentErrorMessage(t, code)
   }
 
   async function submit() {
