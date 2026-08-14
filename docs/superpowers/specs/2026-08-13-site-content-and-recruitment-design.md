@@ -145,14 +145,16 @@ create table if not exists site_news (
   image_url    text,
 
   -- 三语：ja 必填，zh/en 缺失时回退 ja
-  title_ja text not null check (char_length(title_ja) between 1 and 120),
+  -- not null 不保证非空白；下游的 pickLocaleText 把 ja 当作永远可用的回退值，
+  -- 所以需要显式检查 ja 列非纯空白。
+  title_ja text not null check (btrim(title_ja) <> '' and char_length(title_ja) between 1 and 120),
   title_zh text          check (char_length(title_zh) <= 120),
   title_en text          check (char_length(title_en) <= 120),
-  lead_ja  text not null check (char_length(lead_ja) between 1 and 300),
+  lead_ja  text not null check (btrim(lead_ja) <> '' and char_length(lead_ja) between 1 and 300),
   lead_zh  text          check (char_length(lead_zh) <= 300),
   lead_en  text          check (char_length(lead_en) <= 300),
   -- 正文纯文本，空行分段（附件明确不支持复合编辑器）
-  body_ja  text not null check (char_length(body_ja) between 1 and 8000),
+  body_ja  text not null check (btrim(body_ja) <> '' and char_length(body_ja) between 1 and 8000),
   body_zh  text          check (char_length(body_zh) <= 8000),
   body_en  text          check (char_length(body_en) <= 8000),
 
