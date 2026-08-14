@@ -26,6 +26,10 @@ function publicNewsUrl(slug: string): string {
   return `https://${PUBLIC_SITE_HOST}/news/${slug}`
 }
 
+/** 与 NewsForm.tsx 的 errorMessage() 同一套已知错误码——toggle/delete 走的是
+ * 同一组 PATCH/DELETE 接口，错误码形状与表单提交完全一致。 */
+const KNOWN_ERROR_CODES = ['forbidden', 'forbidden_field', 'validation', 'invalid_json', 'not_found', 'db_error']
+
 type ViewMode = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; row: NewsRow }
 
 export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
@@ -39,6 +43,12 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<NewsRow | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [toggling, setToggling] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  function errorMessage(code: string): string {
+    return KNOWN_ERROR_CODES.includes(code) ? t(`errors.${code}`) : t('errors.unknown')
+  }
 
   async function load() {
     setLoading(true)
@@ -59,13 +69,21 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
 
   async function toggleField(row: NewsRow, patch: Partial<Pick<NewsRow, 'is_pinned' | 'is_published'>>) {
     setToggling(row.id)
+    setActionError(null)
     try {
       const res = await fetch(`${NEWS_ENDPOINT}/${row.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       })
-      if (res.ok) await load()
+      if (res.ok) {
+        await load()
+        return
+      }
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      setActionError(errorMessage(json.error ?? 'unknown'))
+    } catch {
+      setActionError(errorMessage('unknown'))
     } finally {
       setToggling(null)
     }
@@ -74,12 +92,18 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
   async function confirmDelete() {
     if (!deleteTarget) return
     setDeleting(true)
+    setDeleteError(null)
     try {
       const res = await fetch(`${NEWS_ENDPOINT}/${deleteTarget.id}`, { method: 'DELETE' })
       if (res.ok) {
         setDeleteTarget(null)
         await load()
+        return
       }
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      setDeleteError(errorMessage(json.error ?? 'unknown'))
+    } catch {
+      setDeleteError(errorMessage('unknown'))
     } finally {
       setDeleting(false)
     }
@@ -120,6 +144,12 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
           ) : undefined
         }
       />
+
+      {actionError && (
+        <div className="mb-4 text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">
+          {actionError}
+        </div>
+      )}
 
       {loading ? (
         <LoadingState variant="stats" />
@@ -209,7 +239,10 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
                             size="sm"
                             aria-label={tCommon('delete')}
                             title={tCommon('delete')}
-                            onClick={() => setDeleteTarget(row)}
+                            onClick={() => {
+                              setDeleteError(null)
+                              setDeleteTarget(row)
+                            }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -226,11 +259,21 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
 
       <Modal
         open={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
+        onClose={() => {
+          setDeleteTarget(null)
+          setDeleteError(null)
+        }}
         title={t('deleteTitle')}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setDeleteTarget(null)
+                setDeleteError(null)
+              }}
+              disabled={deleting}
+            >
               {tCommon('cancel')}
             </Button>
             <Button variant="danger" loading={deleting} onClick={confirmDelete}>
@@ -240,6 +283,11 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
         }
       >
         <p className="text-sm text-ink-700">{t('deleteWarning', { title: deleteTarget?.title_ja ?? '' })}</p>
+        {deleteError && (
+          <p className="mt-3 text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">
+            {deleteError}
+          </p>
+        )}
       </Modal>
     </div>
   )
