@@ -15,6 +15,12 @@ export interface ImageUploadFieldProps {
 
 const UPLOAD_ENDPOINT = '/api/site/upload'
 
+// /api/site/upload 返回的稳定错误码（评审 I5：之前这里原样透传服务端散文,
+// 是全分支唯一一处未经 i18n 的用户可见错误）。未登记的码统一落到 'unknown'。
+const KNOWN_UPLOAD_ERROR_CODES = [
+  'forbidden', 'invalid_form_data', 'file_required', 'invalid_type', 'file_too_large', 'upload_failed',
+]
+
 /**
  * 官网内容表单的图片上传字段（Task 9 新建，登记见 docs/design-system.md
  * §6.2）。直接打 /api/site/upload（T6 已建好，已经用 canEditSiteContent
@@ -29,6 +35,10 @@ export default function ImageUploadField({ value, onChange, label, hint, error }
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
+  function uploadErrorMessage(code: string): string {
+    return KNOWN_UPLOAD_ERROR_CODES.includes(code) ? tCommon(`uploadErrors.${code}`) : tCommon('uploadErrors.unknown')
+  }
+
   async function handleFile(file: File) {
     setUploading(true)
     setUploadError(null)
@@ -38,12 +48,12 @@ export default function ImageUploadField({ value, onChange, label, hint, error }
       const res = await fetch(UPLOAD_ENDPOINT, { method: 'POST', body: form })
       const json = (await res.json()) as { data?: { url?: string }; error?: string }
       if (!res.ok || !json.data?.url) {
-        setUploadError(typeof json.error === 'string' ? json.error : 'upload_failed')
+        setUploadError(uploadErrorMessage(typeof json.error === 'string' ? json.error : 'upload_failed'))
         return
       }
       onChange(json.data.url)
     } catch {
-      setUploadError('upload_failed')
+      setUploadError(uploadErrorMessage('upload_failed'))
     } finally {
       setUploading(false)
     }

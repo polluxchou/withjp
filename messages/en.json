@@ -28,7 +28,16 @@
     "prev": "Previous",
     "next": "Next",
     "uploadImage": "Upload Image",
-    "lastSaved": "Last saved {time}"
+    "lastSaved": "Last saved {time}",
+    "uploadErrors": {
+      "forbidden": "You do not have permission to perform this action",
+      "invalid_form_data": "The upload data was malformed",
+      "file_required": "Please choose a file to upload",
+      "invalid_type": "Only PNG/JPEG/WebP/GIF images are supported",
+      "file_too_large": "Images must be 5MB or smaller",
+      "upload_failed": "Upload failed, please try again later",
+      "unknown": "Upload failed, please try again later"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -2331,6 +2340,16 @@
       "not_found": "The record does not exist or has been removed",
       "db_error": "Server error, please try again later",
       "unknown": "Save failed, please try again later"
+    },
+    "fieldErrors": {
+      "required": "This field is required",
+      "too_long": "This exceeds the maximum length",
+      "invalid_slug": "Invalid format: only lowercase letters, numbers, and hyphens are allowed",
+      "invalid_date": "Invalid date format",
+      "invalid_image_url": "This image address is not supported",
+      "duplicate": "This is already in use — please choose another",
+      "invalid": "This value does not meet the requirements",
+      "empty_patch": "No changes were detected to save"
     }
   },
   "siteMembers": {
@@ -2373,6 +2392,15 @@
       "not_found": "The record does not exist or has been removed",
       "db_error": "Server error, please try again later",
       "unknown": "Save failed, please try again later"
+    },
+    "fieldErrors": {
+      "too_long": "This exceeds the maximum length",
+      "invalid_date": "Invalid date format",
+      "invalid_image_url": "This image address is not supported",
+      "invalid": "This value does not meet the requirements",
+      "required_when_revealed": "Required for revealed slots",
+      "required_when_unrevealed": "Required for unrevealed slots",
+      "empty_patch": "No changes were detected to save"
     }
   }
 }
