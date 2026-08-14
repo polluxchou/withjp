@@ -20,7 +20,7 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 | 受众 | 公会内部 PMO / 运营 / 财务 / 管理层 | 关西应募者（主）、日本法人客户（次） |
 | 访问 | 必须登录（Supabase 会话） | 完全公开 |
 | 视觉 | 紫罗兰浅色、圆角卡片、无衬线 | 纯黑/浅灰、零圆角、明朝体 + 压缩体 |
-| 内容来源 | Supabase 业务数据 | i18n 文案（唯一例外是应募投递写库） |
+| 内容来源 | Supabase 业务数据 | i18n 文案 + 库内容（NEWS/成员读 `site_news`/`site_members`，2026-08-14 起，见 §2.2/§3.6.2/§3.6.3）+ 应募投递写库 |
 | 语言 | zh / en / ja | zh / en / ja（日文为主语气） |
 
 品牌身份：**EchoAmp OSAKA** —— **TikTok LIVE Creator Network**，办公室与配信工作室在新大阪，旗下女子团体企划 **MOONDOLLZ**（双队长制，AYATSUKI／YUKIHA + 12 位成员，其中 8 位已定形象）。
@@ -221,7 +221,7 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 **字段**（比设计稿多两项，都是必要补充）：姓名、年龄、居住地、**联系方式**（设计稿收了信息却没有任何联系方式，收了也联系不上人）、经验/SNS（选填）、**同意勾选**（收集个人信息的前提）、语言（自动）。
 
-**存储**：`supabase/migrations/045_site_applications.sql`。RLS 开启，**只给 `authenticated` 一条 select 策略，不给任何 insert/update/delete** —— 官网用的 anon key 是公开的，没有 insert policy 就算被人直连 PostgREST 也写不进来，唯一写入口是服务端的 service role。
+**存储**：`supabase/migrations/20260811183310_site_applications.sql`（应募种类扩展见 `20260814112722_site_applications_kinds.sql`；迁移文件已按时间戳重命名，见仓库迁移命名历史，`045_site_applications.sql` 这个旧编号早已不存在）。RLS 开启，**只给 `authenticated` 一条 select 策略，不给任何 insert/update/delete** —— 官网用的 anon key 是公开的，没有 insert policy 就算被人直连 PostgREST 也写不进来，唯一写入口是服务端的 service role。
 
 **反垃圾三层**：隐藏诱饵字段（真人看不见所以永远为空）、最短填写时长（3 秒内提交的不是人）、每来源每小时 5 次。前两者命中时返回**与成功同形的响应但不落库** —— 告诉爬虫「你被识别了」只会让它换招。
 
@@ -273,11 +273,16 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 **部署 NEWS / 成员改读库这两轮（Task 10 / Task 12）前的硬性前置条件（不可跳过、没有回退路径）**——这条门槛覆盖 `site_news` 与 `site_members` 两张表，不是只有 NEWS：
 
+> 三个页面（首页 LATEST、NEWS 列表、VISION 成员网格）在查询本身成功（`error` 为 `null`）但查到 0 行时，现在也会各打一条 `console.warn`（前缀 `BUILD-TIME/RUNTIME DEGRADATION`）——之前这条路径完全沉默：`onQueryError` 只在查询报错时触发，迁移跑了但 seed 没跑属于「查询成功、只是表是空的」，不会被现有的 `console.error` 捕到。这条 warn 不能替代下面的部署前置检查，只是给漏做检查的人多一道信号。
+
+0. **部署前必须先确认迁移已应用到目标 Supabase 项目**。本仓没有 `schema_migrations` 台账（迁移文件靠时间戳命名手动应用，见 `docs/superpowers/`/迁移相关审计），「代码先于迁移」和下面第 1 条的「代码先于 seed」是**同一类风险**，不能只堵后者：`20260814112723_site_content.sql` 建表这一步同样没有任何 CI/CD 钩子自动执行。部署前先跑 `select to_regclass('public.site_news'), to_regclass('public.site_members');`，两者都非 NULL 才说明表已建好，再往下走第 1 条的 seed。
 1. **必须先对生产 Supabase 手动跑一次内容搬迁脚本**：`node --env-file=.env.local scripts/seed-site-content.mjs`（`.env.local` 指向生产项目）。`messages/{zh,en,ja}.json` 的 `site.news.articles[]`（Task 10）与 `site.members.list[]`/`note`/`unrevealedRole`（Task 12）均已删除，官网 NEWS 三个位置（列表、详情、首页 LATEST）与 VISION 页 MEMBERS 网格现在只读 `site_news`/`site_members` 两张表——这两张表目前**没有任何 CI/CD 或 Vercel 钩子会自动写入**，仓库里搜过 `.github/workflows/*.yml`、`vercel.json`、`package.json` scripts 均确认这一点。
+   - **这是一次性前置步骤，不是可以重跑的定期任务**：脚本本身（2026-08-14 起）会在 `site_news`/`site_members` 任一表非空时拒绝执行并要求显式传 `--force`，因为上线后重跑会用写死的 fixture 静默覆盖运营在后台做过的编辑（下架的文章重新上线、已公开成员被打回未公开且姓名照片清空、`updated_at` 被覆盖），且原来退出码是 0、不会有任何报错信号。上线后需要重新灌内容，走后台 CRUD，不要再跑这个脚本。
    - **验证方式**：跑完脚本后执行 `select count(*) from site_news;` 应为 `5`，`select count(*) from site_members;` 应为 `12`；再抽查 `select no, is_revealed, expected_reveal_on from site_members order by no;`，确认 1–8 号 `is_revealed = true`、9–12 号 `is_revealed = false` 且 `expected_reveal_on = '2026-12-01'`，与 §3.6.3 描述的一致。
-   - **如果跳过这一步就部署**：NEWS 侧——`eacn.agenova.chat` 上线后 NEWS 列表清空、首页 LATEST 三格消失、5 篇文章详情页全部返回 404；成员侧——VISION 页的 MEMBERS 网格会把全部 12 个卡位渲染成「未公开」占位（不是 404，`membersFromQuery` 查询到空表时的正常降级行为，但对访客而言等于 8 位已公开成员集体消失），且这个空态一旦在 ISR 下被首次请求渲染并缓存，就会一直提供给后续访客，直到有人手动打一次 `revalidatePath`。**两者都没有任何自动回退机制**——静态文案已经删除，唯一的恢复路径就是事后再手动跑这个脚本，并对 VISION 页发一次请求触发重新渲染（或等下一次后台保存自然带过 `revalidatePath`）。
-2. **部署后必须确认 NEWS 详情页确实是静态预渲染的**，不是 `generateStaticParams`（`src/app/[locale]/site/news/[slug]/page.tsx`）连不上库时静默退化出来的逐请求动态渲染——这条退化**不会让构建失败、不会让 CI 变红**，唯一的信号是构建日志里前缀为 `BUILD-TIME DEGRADATION` 的 `console.warn`。检查方法：部署后看一次该次生产构建的日志有没有这行；或直接访问任一已发布 slug（如 `https://eacn.agenova.chat/news/echoamp-launch`）观察响应是否命中 CDN 缓存（`x-vercel-cache: HIT`/`STALE`，而不是每次都是 `MISS`）。
-3. **部署后必须确认 VISION 页的 MEMBERS 网格显示的是真实的 8 位成员**，不是 12 张「未公开」占位卡——这条退化同样不会让构建失败、不会让 CI 变红（`membersFromQuery` 设计上就是"查不到就返回未公开占位"，这是它的正常职责，不是 bug）。检查方法：三语下各访问一次 `https://eacn.agenova.chat/vision`（及 `/zh/vision`、`/en/vision`），确认前 8 张卡显示 KANO/MIKOTO/LULU 等真实姓名与照片，而不是清一色的「— 公開前 —」。
+   - **如果跳过这一步就部署**：NEWS 侧——`eacn.agenova.chat` 上线后 NEWS 列表清空、首页 LATEST 三格消失、5 篇文章详情页全部返回 404；成员侧——VISION 页的 MEMBERS 网格会把全部 12 个卡位渲染成「未公开」占位（不是 404，`membersFromQuery` 查询到空表时的正常降级行为，但对访客而言等于 8 位已公开成员集体消失），且这个空态一旦在 ISR 下被首次请求渲染并缓存，就会一直提供给后续访客，直到有人主动让对应路径重新走一次构建/重新渲染。**两者都没有自动回退机制，而且「事后再跑 seed」本身并不会修好已经上线的官网**：`revalidate = false` 下页面只在首次渲染时查一次库，之后无限期只读缓存，不会因为库里数据变了就自己重新查询。补跑 seed 只是让*下一次重新渲染*时能查到正确数据，它不会主动触发那次重新渲染。正确的恢复路径是**先补跑 seed，再重新部署一次生产构建**（触发 NEWS/成员相关页面在构建期重新查库、生成新的静态产物）；如果暂时不方便整站重新部署，也可以对任意一条新闻/任意一个成员卡位各做一次后台保存（哪怕内容没有实际变化），借 `revalidateNewsPages`/`revalidateMemberPages` 显式标记对应路径为 stale。**单纯"对 VISION 页发一次请求"不会触发任何重新渲染**——那次请求只会命中已经缓存的（错误的）产物，什么都不会改变，事后再跑 seed 也不会改变官网已经渲染并缓存的任何一个像素。
+2. **部署后必须确认 NEWS 详情页确实是静态预渲染的**，不是 `generateStaticParams`（`src/app/[locale]/site/news/[slug]/page.tsx`）连不上库时静默退化出来的逐请求动态渲染——这条退化**不会让构建失败、不会让 CI 变红**，唯一的信号是构建日志里前缀为 `BUILD-TIME DEGRADATION` 的 `console.warn`。检查方法：部署后看一次该次生产构建的日志有没有这行，**不能靠观察响应头判断**——退化成动态渲染后，同一 slug 首次请求 `x-vercel-cache` 是 `MISS`，此后由于同一份 `revalidate = false` 语义仍然成立，之后的请求会一路 `HIT`，与真正静态预渲染、后续全部命中缓存的响应头序列**完全一样**，两种状态无法靠 `x-vercel-cache` 区分。
+3. **部署后必须确认 NEWS 列表页与首页 LATEST 三格在三语下都显示真实内容**，不是空列表/空区块——检查方法：三语下各访问一次 `https://eacn.agenova.chat/news`（及 `/zh/news`、`/en/news`）与首页 `/`（及 `/zh`、`/en`），确认列表页有 5 篇文章、首页 LATEST 三格显示置顶优先排序后的前三条，而不是「暂无内容」或整个区块消失。这条与下面第 4 条（VISION 页成员）合起来才是完整的「seed 后验证」，只核对 VISION 不够——NEWS 与成员是各自独立的降级路径，一个查询失败不会拖累另一个，也不能靠核对了其中一个就假定另一个也正常。
+4. **部署后必须确认 VISION 页的 MEMBERS 网格显示的是真实的 8 位成员**，不是 12 张「未公开」占位卡——这条退化同样不会让构建失败、不会让 CI 变红（`membersFromQuery` 设计上就是"查不到就返回未公开占位"，这是它的正常职责，不是 bug）。检查方法：三语下各访问一次 `https://eacn.agenova.chat/vision`（及 `/zh/vision`、`/en/vision`），确认前 8 张卡显示 KANO/MIKOTO/LULU 等真实姓名与照片，而不是清一色的「— 公開前 —」。
 
 **上线前需要产品侧确认**（仍未全部关闭）：
 
