@@ -1,10 +1,30 @@
 import type { Metadata } from 'next'
-import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
-import { buildArticles, type SiteArticleCopy } from '@/lib/site/news'
+import type { Locale } from '@/i18n/routing'
+import { createServerClient } from '@/lib/supabase/server'
+import { sortNews } from '@/lib/site/news-sort'
+import { buildArticles, type SiteNewsRow } from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import NewsFilter from '@/components/site/NewsFilter'
+
+// 内容来自 site_news 表（Task 10 起），不再是构建时写死的静态文案，所以这个页面
+// 靠 ISR 缓存：`revalidate = false` 表示无限期缓存、只经由后台写接口的
+// revalidatePath 按需失效（src/lib/site/news-service.ts 的 revalidateNewsPages），
+// 这里不重复实现失效逻辑。
+export const revalidate = false
+
+async function fetchPublishedArticles(locale: Locale) {
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('site_news')
+    .select('slug, tag, category, published_on, is_pinned, is_published, image_url, title_ja, title_zh, title_en, lead_ja, lead_zh, lead_en, body_ja, body_zh, body_en')
+    .eq('is_published', true)
+
+  if (error) throw new Error(`[site/news] failed to load site_news: ${error.message}`)
+
+  return buildArticles(locale, sortNews((data ?? []) as SiteNewsRow[]))
+}
 
 export async function generateMetadata({
   params,
@@ -15,10 +35,11 @@ export async function generateMetadata({
   return { title: t('title') }
 }
 
-export default function SiteNewsPage({ params }: { params: { locale: string } }) {
+export default async function SiteNewsPage({ params }: { params: { locale: string } }) {
   setRequestLocale(params.locale)
-  const t = useTranslations('site.news')
-  const articles = buildArticles(t.raw('articles') as SiteArticleCopy[])
+  const articles = await fetchPublishedArticles(params.locale as Locale)
+
+  const t = await getTranslations('site.news')
   const filters = t.raw('filters') as string[]
 
   return (
