@@ -26,7 +26,8 @@
     "retry": "重试",
     "loadFailed": "加载失败，请重试",
     "prev": "上一个",
-    "next": "下一个"
+    "next": "下一个",
+    "uploadImage": "上传图片"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -52,7 +53,8 @@
     "logout": "退出登录",
     "appName": "Creator Network",
     "appSubtitle": "AI 运营系统",
-    "recruitApplications": "官网应募"
+    "recruitApplications": "官网应募",
+    "siteContent": "官网内容"
   },
   "language": {
     "zh": "中文",
@@ -2194,38 +2196,95 @@
       "title": "联系我们",
       "sections": [
         {
-          "no": "01", "eyebrow": "FOR CREATOR", "title": "想报名的人",
+          "no": "01",
+          "eyebrow": "FOR CREATOR",
+          "title": "想报名的人",
           "body": "关于试镜、课程与活动条件。招募及线下运营由 Chiron 株式会社负责，通过 LINE 咨询最快。",
-          "cta": "用 LINE 咨询", "action": "recruit", "partner": "运营主体",
-          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "cta": "用 LINE 咨询",
+          "action": "recruit",
+          "partner": "运营主体",
+          "brand": {
+            "primary": "Chiron",
+            "secondary": "カイロン株式会社"
+          },
           "rows": [
-            { "label": "公司名称", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
-            { "label": "成立・所在地", "value": "2021年／大阪市淀川区" },
-            { "label": "业务内容", "value": "ライブ配信キャストの採用・オフライン運営" },
-            { "label": "所在地", "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404", "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003" },
-            { "label": "公司官网", "value": "https://chi-ron.com/", "link": "external" }
+            {
+              "label": "公司名称",
+              "value": "カイロン株式会社（Chiron Co., Ltd.）"
+            },
+            {
+              "label": "成立・所在地",
+              "value": "2021年／大阪市淀川区"
+            },
+            {
+              "label": "业务内容",
+              "value": "ライブ配信キャストの採用・オフライン運営"
+            },
+            {
+              "label": "所在地",
+              "value": "〒532-0003 大阪府大阪市淀川区宮原2丁目12-14 ライオンズマンション新大阪第5 404",
+              "subvalue": "Lions Mansion Shin-Osaka No.5, Room 404, 2-12-14 Miyahara, Yodogawa-ku, Osaka 532-0003"
+            },
+            {
+              "label": "公司官网",
+              "value": "https://chi-ron.com/",
+              "link": "external"
+            }
           ]
         },
         {
-          "no": "02", "eyebrow": "FOR COMPANION", "title": "制作与运营合作伙伴",
+          "no": "02",
+          "eyebrow": "FOR COMPANION",
+          "title": "制作与运营合作伙伴",
           "body": "负责妆发、外景拍摄、团体直播运营培训和 AIGC 内容制作的合作伙伴。",
-          "cta": "查看招募详情", "action": "staff-recruit", "partner": "PRODUCTION PARTNER",
+          "cta": "查看招募详情",
+          "action": "staff-recruit",
+          "partner": "PRODUCTION PARTNER",
           "rows": [
-            { "label": "公司名称", "value": "吉光片羽株式会社" },
-            { "label": "成立・所在地", "value": "2019年／西宮市" },
-            { "label": "业务内容", "value": "インフルエンサーマーケティング" },
-            { "label": "负责领域", "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作" },
-            { "label": "公司官网", "value": "https://kikkou.jp/", "link": "external" }
+            {
+              "label": "公司名称",
+              "value": "吉光片羽株式会社"
+            },
+            {
+              "label": "成立・所在地",
+              "value": "2019年／西宮市"
+            },
+            {
+              "label": "业务内容",
+              "value": "インフルエンサーマーケティング"
+            },
+            {
+              "label": "负责领域",
+              "value": "ヘアメイク／ロケ撮影／運営研修／AIGC 制作"
+            },
+            {
+              "label": "公司官网",
+              "value": "https://kikkou.jp/",
+              "link": "external"
+            }
           ]
         },
         {
-          "no": "03", "eyebrow": "客户合作", "title": "企业及品牌合作",
+          "no": "03",
+          "eyebrow": "客户合作",
+          "title": "企业及品牌合作",
           "body": "我们接受有关乐曲制作、皮套人技术、商业直播咨询、广告业务合作，以及不诚信行为与合规投诉的邮件联系。",
-          "cta": "business@echoamp.jp", "action": "email",
+          "cta": "business@echoamp.jp",
+          "action": "email",
           "rows": [
-            { "label": "内容", "value": "乐曲制作／皮套人技术／商业直播咨询／广告业务合作／不诚信行为与合规投诉" },
-            { "label": "联系方式", "value": "business@echoamp.jp", "link": "email" },
-            { "label": "服务时间", "value": "工作日 10:00–19:00（日本时间）／中文・日文" }
+            {
+              "label": "内容",
+              "value": "乐曲制作／皮套人技术／商业直播咨询／广告业务合作／不诚信行为与合规投诉"
+            },
+            {
+              "label": "联系方式",
+              "value": "business@echoamp.jp",
+              "link": "email"
+            },
+            {
+              "label": "服务时间",
+              "value": "工作日 10:00–19:00（日本时间）／中文・日文"
+            }
           ]
         }
       ],
@@ -2296,6 +2355,63 @@
       "age": "年龄",
       "email": "邮箱",
       "commuteMode": "通勤方式"
+    }
+  },
+  "siteNews": {
+    "title": "官网内容 · 新闻",
+    "subtitle": "管理官网新闻列表：置顶、上下架与三语内容",
+    "listTitle": "新闻列表",
+    "add": "新建新闻",
+    "addTitle": "新建新闻",
+    "editTitle": "编辑新闻",
+    "formSubtitle": "日文内容必填，中文/英文缺省时官网回退显示日文",
+    "empty": "暂无新闻",
+    "emptyHint": "新建第一条新闻吧",
+    "statTotal": "新闻总数",
+    "statPublished": "已发布",
+    "statUnpublished": "已下架",
+    "pinnedTag": "置顶",
+    "unpublishedTag": "已下架",
+    "viewOnSite": "在官网查看",
+    "actionPin": "置顶",
+    "actionUnpin": "取消置顶",
+    "actionPublish": "上架",
+    "actionUnpublish": "下架",
+    "deleteTitle": "删除新闻",
+    "deleteWarning": "此操作不可撤销：删除后「{title}」将从数据库中永久移除。",
+    "fieldSlug": "路由标识（slug）",
+    "fieldSlugImmutable": "创建后不可修改",
+    "fieldCategory": "分类",
+    "fieldCategoryHint": "决定文末是否显示「去应募」按钮，与右侧标签不是一回事",
+    "fieldTag": "标签",
+    "fieldPublishedOn": "发布日期",
+    "fieldPinned": "置顶显示",
+    "fieldPublished": "立即发布",
+    "fieldImage": "主图",
+    "fieldImageHint": "留空则官网显示占位框",
+    "fieldTitle": "标题",
+    "fieldLead": "导语",
+    "fieldBody": "正文",
+    "sectionJa": "日文内容（必填）",
+    "sectionZh": "中文内容（选填，展开编辑）",
+    "sectionEn": "英文内容（选填，展开编辑）",
+    "category": {
+      "project": "项目",
+      "recruit": "招募"
+    },
+    "tag": {
+      "RECRUIT": "招募",
+      "PROJECT": "项目",
+      "LIVE": "直播"
+    },
+    "errors": {
+      "forbidden": "没有权限执行此操作",
+      "forbidden_field": "请求中包含不允许客户端提交的字段",
+      "validation": "表单校验未通过，请检查填写内容",
+      "invalid_json": "请求格式有误",
+      "not_found": "记录不存在或已被删除",
+      "db_error": "服务器出错，请稍后重试",
+      "unknown": "保存失败，请稍后重试"
     }
   }
 }

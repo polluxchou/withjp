@@ -24,6 +24,7 @@ import {
   Map as MapIcon,
   Radar,
   Inbox,
+  Newspaper,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -71,6 +72,10 @@ const NAV = [
       { href: '/recruit-applications', key: 'recruitApplications', icon: Inbox },
     ],
   },
+  // 官网新闻的后台管理入口。只有新闻一项——成员管理是 Task 11 才建的页面，
+  // 现在先不加成员的 nav 项，避免指向一个还不存在的路由（会 404）。等
+  // Task 11 落地成员页时，这里再把它从单条 leaf 改成带两个 child 的 group。
+  { href: '/site-content/news', key: 'siteContent', icon: Newspaper },
   { href: '/pipeline',  key: 'pipeline',  icon: GitBranch },
   { href: '/timeline',  key: 'timeline',  icon: CalendarRange },
   { href: '/tasks',     key: 'tasks',     icon: CheckSquare },
@@ -109,7 +114,7 @@ type ChildNavKey = NavGroupLit['children'][number]['key']
 type NavAccentMap = Record<TopNavKey, Accent> & Partial<Record<ChildNavKey, Accent>>
 
 const NAV_ACCENT: NavAccentMap = {
-  dashboard: 'mauve', creators: 'pink', pipeline: 'blue', timeline: 'violet',
+  dashboard: 'mauve', creators: 'pink', siteContent: 'violet', pipeline: 'blue', timeline: 'violet',
   tasks: 'green', workspace: 'blue', team: 'violet', knowledge: 'amber',
   costManagement: 'green', config: 'mauve',
   expenses: 'violet', items: 'amber', venue: 'violet', financeForecast: 'green',
