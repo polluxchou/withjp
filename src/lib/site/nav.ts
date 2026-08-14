@@ -25,6 +25,9 @@ export const SITE_NAV: SiteNavItem[] = [
 
 export const RECRUIT_HREF = `${SITE_BASE}/recruit`
 
+/** 其他招募（摄影师／化妆师／团播运营）表单页，contact 页 FOR COMPANION 段的 CTA 指向这里。 */
+export const STAFF_RECRUIT_HREF = `${SITE_BASE}/recruit/staff`
+
 const CLEAN_SITE_SECTION_RE = /^\/(?:news|vision|live|services|contact|recruit)(?:\/.*)?$/
 
 /**

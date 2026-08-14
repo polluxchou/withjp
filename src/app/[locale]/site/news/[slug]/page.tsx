@@ -1,17 +1,76 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
-import { RECRUIT_HREF, SITE_BASE } from '@/lib/site/nav'
-import { findArticle, isNewsSlug, NEWS_SLUGS, shouldShowNewsApply, type SiteArticleCopy } from '@/lib/site/news'
+import type { Locale } from '@/i18n/routing'
 import { locales } from '@/i18n/routing'
+import { createServerClient } from '@/lib/supabase/server'
+import { RECRUIT_HREF, SITE_BASE } from '@/lib/site/nav'
+import {
+  articleFromSingleQuery,
+  isNewsSlug,
+  shouldShowNewsApply,
+  NEWS_COLUMNS,
+  type SiteArticle,
+} from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SiteImage from '@/components/site/SiteImage'
 import SiteButton from '@/components/site/SiteButton'
 
-export function generateStaticParams() {
-  return locales.flatMap((locale) => NEWS_SLUGS.map((slug) => ({ locale, slug })))
+// 内容来自 site_news 表（Task 10 起）：无限期缓存，只经由后台写接口的
+// revalidatePath 按需失效（news-service.ts 的 revalidateNewsPages），这里不
+// 重复实现失效逻辑。
+export const revalidate = false
+
+// 下架文章的详情页必须 404，而不是旧链接还能打开——所以「已发布」是查询本身的
+// 一部分（`is_published = true`），不是在拿到行之后再用应用层逻辑挑一次。
+//
+// 查不到行（下架/未知 slug，PostgREST 错误码 PGRST116）与真实查询故障
+// （网络、鉴权、语法……）都会让这个函数返回 undefined、页面走 404——这是可以
+// 接受的降级——但两者不能在日志里长得一样：真实故障通过 console.error 上报，
+// 正常的"查不到"不上报，否则每次访问一篇下架文章都会污染错误日志。判断逻辑在
+// articleFromSingleQuery（news.ts）里，这样"出错该不该上报"能脱离 next dev
+// server 单独用 node:test 验证。
+async function fetchPublishedArticle(locale: Locale, slug: string): Promise<SiteArticle | undefined> {
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('site_news')
+    .select(NEWS_COLUMNS)
+    .eq('slug', slug)
+    .eq('is_published', true)
+    .single()
+
+  return articleFromSingleQuery(locale, { data, error }, (queryError) => {
+    console.error('[site/news/[slug]] site_news query failed', { slug, locale, queryError })
+  })
+}
+
+export async function generateStaticParams() {
+  try {
+    const db = createServerClient()
+    const { data, error } = await db.from('site_news').select('slug').eq('is_published', true)
+    if (error) throw error
+    const slugs = (data ?? []).map((row: { slug: string }) => row.slug)
+    return locales.flatMap((locale) => slugs.map((slug) => ({ locale, slug })))
+  } catch (error) {
+    // 构建期查不到库不应该拖垮整站构建——退化成「不预生成任何一篇」，请求时
+    // 仍会走下面的动态渲染路径（dynamicParams 默认 true），页面本身还能正常
+    // 服务，只是失去了预渲染的首字节速度。
+    //
+    // 但这个降级是静默的：next build 不会因此变红，CI 也不会报警——生产构建期
+    // 一旦连不上库，NEWS 详情页会整体从"静态预渲染"退化成"每次请求动态渲染"，
+    // 没有任何机制会告诉任何人这件事发生过。这条 warn 是目前唯一的信号，所以
+    // 措辞必须显眼；部署后必须人工确认一次详情页确实是静态生成的
+    // （docs/public-site.md §5 的上线前置检查清单）。
+    console.warn(
+      '[site/news/[slug]] BUILD-TIME DEGRADATION: generateStaticParams could not reach site_news — ' +
+        'NEWS detail pages will fall back to per-request dynamic rendering instead of static generation. ' +
+        'This does NOT fail the build and will NOT show up in CI. Verify after every deploy that NEWS detail ' +
+        'pages are actually statically generated (see docs/public-site.md §5).',
+      error,
+    )
+    return []
+  }
 }
 
 export async function generateMetadata({
@@ -19,20 +78,21 @@ export async function generateMetadata({
 }: {
   params: { locale: string; slug: string }
 }): Promise<Metadata> {
-  const t = await getTranslations({ locale: params.locale, namespace: 'site.news' })
-  const article = findArticle(t.raw('articles') as SiteArticleCopy[], params.slug)
+  if (!isNewsSlug(params.slug)) return {}
+  const article = await fetchPublishedArticle(params.locale as Locale, params.slug)
   if (!article) return {}
   return { title: article.title, description: article.lead }
 }
 
-export default function SiteArticlePage({ params }: { params: { locale: string; slug: string } }) {
+export default async function SiteArticlePage({ params }: { params: { locale: string; slug: string } }) {
   setRequestLocale(params.locale)
-  const t = useTranslations('site.news')
 
-  // 路由参数来自 URL，先过白名单再查文案：未知 slug 直接 404，不去渲染半空的文章
+  // 路由参数来自 URL，先过形状白名单再查库：形状不对的直接 404，不用拿它去查库
   if (!isNewsSlug(params.slug)) notFound()
-  const article = findArticle(t.raw('articles') as SiteArticleCopy[], params.slug)
+  const article = await fetchPublishedArticle(params.locale as Locale, params.slug)
   if (!article) notFound()
+
+  const t = await getTranslations('site.news')
 
   return (
     <SiteSection divider={false} className="pb-20 lg:pb-24">

@@ -1,6 +1,6 @@
-import { RECRUIT_HREF } from './nav.ts'
+import { RECRUIT_HREF, STAFF_RECRUIT_HREF } from './nav.ts'
 
-export type SiteContactAction = 'recruit' | 'email'
+export type SiteContactAction = 'recruit' | 'staff-recruit' | 'email'
 
 export interface SiteContactRowCopy {
   label: string
@@ -57,9 +57,11 @@ export function buildContactSections(copy: SiteContactSectionCopy[]): SiteContac
     ctaHref:
       section.action === 'recruit'
         ? RECRUIT_HREF
-        : section.action === 'email' && section.cta
-          ? `mailto:${section.cta}`
-          : undefined,
+        : section.action === 'staff-recruit'
+          ? STAFF_RECRUIT_HREF
+          : section.action === 'email' && section.cta
+            ? `mailto:${section.cta}`
+            : undefined,
     rows: section.rows.map((row) => ({
       ...row,
       href:

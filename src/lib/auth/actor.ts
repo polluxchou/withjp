@@ -3,17 +3,18 @@ import { createServerClient } from '@/lib/supabase/server'
 export interface ActorProfile {
   id: string
   is_admin: boolean
+  role: string | null
 }
 
 export async function getActorProfile(userId: string): Promise<ActorProfile | null> {
   const db = createServerClient()
   const { data } = await db
     .from('users')
-    .select('id, is_admin')
+    .select('id, is_admin, role')
     .eq('id', userId)
     .single()
   if (!data) return null
-  return { id: data.id, is_admin: data.is_admin ?? false }
+  return { id: data.id, is_admin: data.is_admin ?? false, role: data.role ?? null }
 }
 
 /**

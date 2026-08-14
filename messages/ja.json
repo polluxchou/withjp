@@ -26,7 +26,18 @@
     "retry": "再試行",
     "loadFailed": "読み込みに失敗しました。再試行してください",
     "prev": "前へ",
-    "next": "次へ"
+    "next": "次へ",
+    "uploadImage": "画像をアップロード",
+    "lastSaved": "最終保存：{time}",
+    "uploadErrors": {
+      "forbidden": "この操作を行う権限がありません",
+      "invalid_form_data": "アップロードデータの形式が正しくありません",
+      "file_required": "アップロードするファイルを選択してください",
+      "invalid_type": "PNG/JPEG/WebP/GIF 画像のみ対応しています",
+      "file_too_large": "画像は 5MB 以下にしてください",
+      "upload_failed": "アップロードに失敗しました。しばらくしてから再度お試しください",
+      "unknown": "アップロードに失敗しました。しばらくしてから再度お試しください"
+    }
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -52,7 +63,10 @@
     "costManagement": "コスト管理",
     "venue": "会場レイアウト",
     "items": "備品管理",
-    "recruitApplications": "サイト応募"
+    "recruitApplications": "サイト応募",
+    "siteContent": "サイトコンテンツ",
+    "siteContentNews": "ニュース管理",
+    "siteMembers": "メンバー管理"
   },
   "language": {
     "zh": "中文",
@@ -1818,56 +1832,7 @@
       "back": "← NEWS 一覧へ",
       "backCta": "NEWS 一覧",
       "applyCta": "応募する ／ APPLY",
-      "imagePlaceholder": "記事のメイン画像",
-      "articles": [
-        {
-          "date": "2026.08.12",
-          "tag": "PROJECT",
-          "title": "3Dキャラクター技術チーム、EchoAmpのMC向け専用キャラクターを開発へ",
-          "lead": "EchoAmpは、中国のライブ配信領域で豊富な実績を持つ3Dキャラクター技術チームと協業し、MCポジション向けの専用キャラクターと配信システムを開発します。",
-          "body": [
-            "キャラクターデザイン、リアルタイムモーション、音声表現、ライブインタラクションを統合し、MCが一貫したキャラクターとして継続的に配信へ参加できる環境を構築します。今後は、リアルなパフォーマンスとバーチャルキャラクターを組み合わせた新しいライブ表現も検証していきます。"
-          ]
-        },
-        {
-          "date": "2026.08.10",
-          "tag": "PROJECT",
-          "title": "EchoAmp、初の運営パートナーを発表。吉光片羽株式会社と本格的な協業へ",
-          "lead": "EchoAmpは、MCN運営およびクリエイターマネジメントの経験を持つ吉光片羽株式会社と本格的な協業を開始します。",
-          "body": [
-            "メンバー管理、コンテンツ運営、現場オペレーション、クリエイター育成などの領域で連携し、募集・トレーニングから本格的なライブ配信まで、一貫した運営体制を構築していきます。両社の強みを活かしながら、大阪でのチームづくりを進めます。"
-          ]
-        },
-        {
-          "date": "2026.08.01",
-          "tag": "RECRUIT",
-          "title": "EchoAmp、9月中旬より第1期メンバー募集を開始。6名を採用予定",
-          "lead": "EchoAmpは2026年9月中旬より、大阪で第1期メンバーの募集を開始します。初回は6名の女性クリエイターを採用予定です。",
-          "body": [
-            "歌やダンスのスキルに加え、カメラの前での表現力や、継続してライブ配信に取り組む意欲を重視します。選ばれたメンバーは、トレーニング、振付、ライブ配信の実践を重ねながら、最初のチームのスタイルとカルチャーを一緒につくっていきます。"
-          ]
-        },
-        {
-          "date": "2026.07.21",
-          "tag": "PROJECT",
-          "title": "EchoAmp、大阪で始動。歌とダンスを軸とした女性ライブ配信チームを結成へ",
-          "lead": "EchoAmpは、大阪でCreator Networkの運営プロジェクトを正式にスタートしました。",
-          "body": [
-            "歌、ダンス、ライブパフォーマンスを軸に、表現力と可能性を持つ女性クリエイターを発掘し、ひとつのライブ配信チームとして育てていきます。トレーニング、コンテンツ制作、継続的なライブ配信を通じて、チーム独自のスタイル、カルチャー、ファンコミュニティを築いていきます。"
-          ]
-        },
-        {
-          "date": "2026.05.01",
-          "tag": "PROJECT",
-          "title": "EchoAmp、ダブルキャプテン制の歌唱＆ダンスグループ企画始動を発表",
-          "lead": "ダブルキャプテン制の歌唱＆ダンスグループ「MOONDOLLZ」の始動を発表しました。",
-          "body": [
-            "MOON は夢幻・夜・神秘、DOLLZ はひとりひとり異なるスタイルを持つ「団体感」、語尾の Z は Y2K とストリートの温度。三つの語を重ねたグループ名です。",
-            "小ユニットごとに人物設定を分けて運営しながら、大グループとして共同でデビューします。キャプテンは綾月（MOON SIDE）と雪羽（DOLLZ SIDE）の二名。",
-            "メンバーは 10 月・12 月に順次公開予定です。"
-          ]
-        }
-      ]
+      "imagePlaceholder": "記事のメイン画像"
     },
     "vision": {
       "eyebrow": "VISION ／ 2027",
@@ -1920,7 +1885,6 @@
       "eyebrow": "MEMBERS ／ MOONDOLLZ",
       "title": "MOONDOLLZ",
       "sub": "双キャプテン制。小ユニットごとに人物設定を分け、大グループとして共同デビュー。",
-      "note": "※ メンバーは 10 月・12 月に順次公開",
       "placeholder": "MEMBER",
       "captains": [
         {
@@ -1937,41 +1901,7 @@
         }
       ],
       "unrevealedName": "— 公開前 —",
-      "unrevealedRole": "12月 公開",
-      "list": [
-        {
-          "name": "KANO",
-          "role": "花乃／儚い微笑みの罠"
-        },
-        {
-          "name": "MIKOTO",
-          "role": "美琴／優雅なる刃"
-        },
-        {
-          "name": "LULU",
-          "role": "ルル／弾けるピンクの閃光"
-        },
-        {
-          "name": "CHIYO",
-          "role": "千夜／千の夜に舞う孤星"
-        },
-        {
-          "name": "AKAYA",
-          "role": "綾香／宮廷に咲く強き桜"
-        },
-        {
-          "name": "YUMEKI",
-          "role": "夢綺／幻を織る声"
-        },
-        {
-          "name": "SHINO",
-          "role": "紫乃／高貴で危険な誘惑者"
-        },
-        {
-          "name": "HIMENE",
-          "role": "姫音／音のために生まれた姫"
-        }
-      ]
+      "unrevealedScheduleUnknown": "— 公開時期未定 —"
     },
     "live": {
       "eyebrow": "TIKTOK LIVE",
@@ -2150,6 +2080,45 @@
         }
       }
     },
+    "recruitStaff": {
+      "eyebrow": "STAFF RECRUIT ／ スタッフ募集",
+      "title": "撮影を担う人、メイクを担う人、配信運営を支える人へ。",
+      "lead": "フォトグラファー、ヘアメイク、グループ配信運営の募集窓口です。以下よりご応募ください。",
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "お名前",
+        "contact": "連絡先",
+        "contactHint": "LINE ID・メール・SNS のいずれか",
+        "email": "メールアドレス",
+        "kind": "希望する職種",
+        "kindOptions": {
+          "photographer": "フォトグラファー",
+          "makeup": "ヘアメイク",
+          "group_live_ops": "グループ配信運営"
+        },
+        "residence": "居住地（任意）",
+        "commuteMode": "通勤手段",
+        "commuteModeOptions": {
+          "subway": "電車",
+          "bicycle": "自転車",
+          "walk": "徒歩",
+          "car": "車"
+        },
+        "consent": "上記情報を採用選考の目的で利用することに同意します。",
+        "submit": "送信",
+        "submitting": "送信中…",
+        "successTitle": "ご応募ありがとうございます。",
+        "successBody": "内容確認のうえ、追ってご連絡いたします。",
+        "errors": {
+          "required": "入力してください",
+          "tooLong": "文字数が上限を超えています",
+          "invalidEmail": "正しいメールアドレスを入力してください",
+          "consent": "同意が必要です",
+          "rateLimited": "送信が集中しています。しばらくしてからお試しください。",
+          "network": "送信に失敗しました。通信環境をご確認ください。"
+        }
+      }
+    },
     "contact": {
       "eyebrow": "CONTACT",
       "title": "お問い合わせ",
@@ -2162,7 +2131,10 @@
           "cta": "LINE で相談する",
           "action": "recruit",
           "partner": "運営主体",
-          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "brand": {
+            "primary": "Chiron",
+            "secondary": "カイロン株式会社"
+          },
           "rows": [
             { "label": "会社名", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
             { "label": "設立・所在地", "value": "2021年／大阪市淀川区" },
@@ -2176,7 +2148,8 @@
           "eyebrow": "FOR COMPANION",
           "title": "制作・運営パートナー",
           "body": "ヘアメイク、ロケ撮影、グループ配信の運営研修、AIGC コンテンツ制作を担当するパートナーです。",
-          "note": "お問い合わせ窓口は準備中",
+          "cta": "スタッフ募集を見る",
+          "action": "staff-recruit",
           "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "会社名", "value": "吉光片羽株式会社" },
@@ -2195,9 +2168,19 @@
           "cta": "business@echoamp.jp",
           "action": "email",
           "rows": [
-            { "label": "内容", "value": "楽曲制作／着ぐるみ技術／商業ライブ配信／広告事業のご提携／不正行為・コンプライアンスに関する通報" },
-            { "label": "連絡先", "value": "business@echoamp.jp", "link": "email" },
-            { "label": "対応", "value": "平日 10:00–19:00（JST）／日本語・中国語" }
+            {
+              "label": "内容",
+              "value": "楽曲制作／着ぐるみ技術／商業ライブ配信／広告事業のご提携／不正行為・コンプライアンスに関する通報"
+            },
+            {
+              "label": "連絡先",
+              "value": "business@echoamp.jp",
+              "link": "email"
+            },
+            {
+              "label": "対応",
+              "value": "平日 10:00–19:00（JST）／日本語・中国語"
+            }
           ]
         }
       ],
@@ -2240,19 +2223,152 @@
   "recruitApplications": {
     "title": "サイト応募",
     "subtitle": "公式サイト RECRUIT フォームからの応募（閲覧のみ）",
+    "tabsLabel": "応募カテゴリ",
+    "tabs": {
+      "creator": "配信者",
+      "staff": "スタッフ職種"
+    },
     "totalLabel": "応募総数",
     "newLabel": "未対応",
     "todayLabel": "本日",
     "listTitle": "応募一覧",
     "empty": "まだ応募はありません",
+    "emptyHint": "公開の応募ページに新しい応募があると、ここに自動的に表示されます",
+    "notProvided": "—",
+    "kinds": {
+      "creator": "配信者",
+      "photographer": "カメラマン",
+      "makeup": "ヘアメイク",
+      "group_live_ops": "グループ配信運営"
+    },
+    "commuteModes": {
+      "subway": "電車",
+      "bicycle": "自転車",
+      "walk": "徒歩",
+      "car": "車"
+    },
     "columns": {
-      "date": "受信",
-      "name": "お名前",
       "age": "年齢",
-      "residence": "お住まい",
-      "contact": "ご連絡先",
-      "locale": "言語",
-      "experience": "経験・SNS"
+      "email": "メール",
+      "commuteMode": "通勤手段"
+    }
+  },
+  "siteNews": {
+    "title": "サイトコンテンツ・ニュース",
+    "subtitle": "公式サイトのニュース一覧を管理：ピン留め・公開状態・三言語コンテンツ",
+    "listTitle": "ニュース一覧",
+    "add": "新規ニュース",
+    "addTitle": "新規ニュース",
+    "editTitle": "ニュースを編集",
+    "formSubtitle": "日本語は必須。中国語・英語が未入力の場合、サイトでは日本語にフォールバックします",
+    "empty": "ニュースはまだありません",
+    "emptyHint": "最初のニュースを作成しましょう",
+    "statTotal": "ニュース総数",
+    "statPublished": "公開中",
+    "statUnpublished": "非公開",
+    "pinnedTag": "ピン留め",
+    "unpublishedTag": "非公開",
+    "viewOnSite": "サイトで見る",
+    "actionPin": "ピン留め",
+    "actionUnpin": "ピン留め解除",
+    "actionPublish": "公開する",
+    "actionUnpublish": "非公開にする",
+    "deleteTitle": "ニュースを削除",
+    "deleteWarning": "この操作は取り消せません。「{title}」はデータベースから完全に削除されます。",
+    "fieldSlug": "スラッグ",
+    "fieldSlugImmutable": "作成後は変更できません",
+    "fieldCategory": "カテゴリー",
+    "fieldCategoryHint": "記事末尾の応募ボタンの表示を左右します。右側のタグとは別の項目です",
+    "fieldTag": "タグ",
+    "fieldPublishedOn": "公開日",
+    "fieldPinned": "ピン留め表示",
+    "fieldPublished": "すぐに公開",
+    "fieldImage": "メイン画像",
+    "fieldImageHint": "空欄の場合、サイトではプレースホルダーが表示されます",
+    "fieldTitle": "タイトル",
+    "fieldLead": "リード文",
+    "fieldBody": "本文",
+    "sectionJa": "日本語コンテンツ（必須）",
+    "sectionZh": "中国語コンテンツ（任意・展開して編集）",
+    "sectionEn": "英語コンテンツ（任意・展開して編集）",
+    "category": {
+      "project": "プロジェクト",
+      "recruit": "採用"
+    },
+    "tag": {
+      "RECRUIT": "採用",
+      "PROJECT": "プロジェクト",
+      "LIVE": "ライブ"
+    },
+    "errors": {
+      "forbidden": "この操作を行う権限がありません",
+      "forbidden_field": "クライアントから指定できないフィールドが含まれています",
+      "validation": "入力内容を確認してください",
+      "invalid_json": "リクエストの形式が正しくありません",
+      "not_found": "対象のレコードが存在しないか、既に削除されています",
+      "db_error": "サーバーエラーです。しばらくしてから再度お試しください",
+      "unknown": "保存に失敗しました。しばらくしてから再度お試しください"
+    },
+    "fieldErrors": {
+      "required": "この項目は必須です",
+      "too_long": "文字数の上限を超えています",
+      "invalid_slug": "形式が正しくありません（半角小文字・数字・ハイフンのみ使用可）",
+      "invalid_date": "日付の形式が正しくありません",
+      "invalid_image_url": "この画像アドレスは対応していません",
+      "duplicate": "既に使用されています。別の値にしてください",
+      "invalid": "入力内容が要件を満たしていません",
+      "empty_patch": "保存する変更が検出されませんでした"
+    }
+  },
+  "siteMembers": {
+    "title": "サイトコンテンツ・メンバー",
+    "subtitle": "12 のメンバー枠を管理：公開状態・写真・三言語プロフィール",
+    "listTitle": "メンバー枠",
+    "viewOnSite": "サイトで見る",
+    "editTitle": "枠を編集・{name}",
+    "formSubtitle": "公開済みの枠にはローマ字名・写真・日本語の特技が必須です。未公開の枠には公開予定日が必須です",
+    "cardNo": "枠 {no}",
+    "unnamedCard": "未命名",
+    "revealedTag": "公開済み",
+    "unrevealedTag": "未公開",
+    "expectedReveal": "公開予定：{date}",
+    "expectedRevealUnset": "公開予定日は未設定です",
+    "edit": "編集",
+    "fieldRevealedOn": "この枠を今すぐ公開する",
+    "fieldExpectedRevealOn": "公開予定日",
+    "fieldExpectedRevealOnHint": "未公開の枠には必須です",
+    "fieldName": "ローマ字名",
+    "fieldNameHint": "カードの見出し、例：KANO",
+    "fieldPhoto": "写真",
+    "fieldPhotoHint": "公開済みの枠には必須です",
+    "fieldNameJa": "名前（日本語）",
+    "fieldSpecialtyJa": "特技（日本語）",
+    "fieldSpecialtyJaHint": "公開済みの枠には必須です",
+    "sectionBasic": "基本情報",
+    "sectionZh": "中国語プロフィール（任意・展開して編集）",
+    "sectionEn": "英語プロフィール（任意・展開して編集）",
+    "fieldNameZh": "名前（中国語）",
+    "fieldNameEn": "名前（英語）",
+    "fieldSpecialtyZh": "特技（中国語）",
+    "fieldSpecialtyEn": "特技（英語）",
+    "errors": {
+      "forbidden": "この操作を行う権限がありません",
+      "forbidden_field": "クライアントから指定できないフィールドが含まれています",
+      "validation": "入力内容を確認してください",
+      "invalid_json": "リクエストの形式が正しくありません",
+      "invalid_no": "枠番号が無効です",
+      "not_found": "対象のレコードが存在しないか、既に削除されています",
+      "db_error": "サーバーエラーです。しばらくしてから再度お試しください",
+      "unknown": "保存に失敗しました。しばらくしてから再度お試しください"
+    },
+    "fieldErrors": {
+      "too_long": "文字数の上限を超えています",
+      "invalid_date": "日付の形式が正しくありません",
+      "invalid_image_url": "この画像アドレスは対応していません",
+      "invalid": "入力内容が要件を満たしていません",
+      "required_when_revealed": "公開済みの枠には必須です",
+      "required_when_unrevealed": "未公開の枠には必須です",
+      "empty_patch": "保存する変更が検出されませんでした"
     }
   }
 }

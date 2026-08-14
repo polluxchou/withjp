@@ -1,73 +1,182 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import {
+  articleFromSingleQuery,
+  articlesFromListQuery,
+  buildArticle,
   buildArticles,
   findArticle,
   isNewsSlug,
-  NEWS_SLUGS,
   shouldShowNewsApply,
-  type SiteArticleCopy,
+  type SiteNewsRow,
 } from './news.ts'
 
-const copy: SiteArticleCopy[] = NEWS_SLUGS.map((slug, i) => ({
-  date: `2026.10.0${i + 1}`,
-  tag: 'LIVE',
-  title: `title ${slug}`,
-  lead: `lead ${slug}`,
-  body: ['a', 'b', 'c'],
-}))
+function row(overrides: Partial<SiteNewsRow> = {}): SiteNewsRow {
+  return {
+    slug: 'echoamp-launch',
+    tag: 'PROJECT',
+    category: 'project',
+    published_on: '2026-07-21',
+    is_pinned: false,
+    is_published: true,
+    image_url: '/site/moondollz-silhouettes.webp',
+    title_ja: 'タイトル ja',
+    title_zh: '标题 zh',
+    title_en: 'Title en',
+    lead_ja: 'リード ja',
+    lead_zh: '导语 zh',
+    lead_en: 'Lead en',
+    body_ja: '段落一 ja\n\n段落二 ja',
+    body_zh: '段落一 zh\n\n段落二 zh',
+    body_en: 'Paragraph one en\n\nParagraph two en',
+    ...overrides,
+  }
+}
 
-test('pairs copy with routes in slug order; image is optional until a photo is set', () => {
-  const articles = buildArticles(copy)
-  assert.equal(articles.length, NEWS_SLUGS.length)
-  assert.deepEqual(
-    articles.map((a) => a.slug),
-    [...NEWS_SLUGS],
+test('把库行按 locale 转成 SiteArticle：三语字段各自取值，日期与 href 由 slug/published_on 派生', () => {
+  const r = row()
+  const ja = buildArticle('ja', r)
+  assert.equal(ja.title, 'タイトル ja')
+  assert.equal(ja.lead, 'リード ja')
+  assert.deepEqual(ja.body, ['段落一 ja', '段落二 ja'])
+  assert.equal(ja.date, '2026.07.21')
+  assert.equal(ja.href, '/site/news/echoamp-launch')
+  assert.equal(ja.tag, 'PROJECT')
+  assert.equal(ja.slug, 'echoamp-launch')
+
+  const zh = buildArticle('zh', r)
+  assert.equal(zh.title, '标题 zh')
+
+  const en = buildArticle('en', r)
+  assert.equal(en.title, 'Title en')
+})
+
+test('body 按 \\n\\n 切回段落数组，不管有几段', () => {
+  const single = buildArticle('ja', row({ body_ja: '只有一段' }))
+  assert.deepEqual(single.body, ['只有一段'])
+
+  const three = buildArticle(
+    'ja',
+    row({ body_ja: '第一段\n\n第二段\n\n第三段' }),
   )
-  for (const article of articles) {
-    // 当前一批真实新闻的配图还没到位——只要求「有图时必须是站内 webp 资源」，
-    // 不要求每条都有图，否则这条测试会拦下正常的缺图状态。
-    if (article.image !== undefined) assert.match(article.image, /^\/site\/.+\.webp$/)
-    assert.equal(article.href, `/site/news/${article.slug}`)
+  assert.deepEqual(three.body, ['第一段', '第二段', '第三段'])
+})
+
+test('zh/en 缺失时回退日语（pickLocaleText 的三语回退契约）', () => {
+  const r = row({ title_zh: null, title_en: null, lead_zh: '', lead_en: '   ' })
+  assert.equal(buildArticle('zh', r).title, 'タイトル ja')
+  assert.equal(buildArticle('en', r).title, 'タイトル ja')
+  assert.equal(buildArticle('zh', r).lead, 'リード ja')
+  assert.equal(buildArticle('en', r).lead, 'リード ja')
+})
+
+test('image_url 为 null 时文章缺图，不会被改写成别的文章的图片', () => {
+  const article = buildArticle('ja', row({ image_url: null }))
+  assert.equal(article.image, undefined)
+})
+
+test('image_url 有值时原样透传', () => {
+  const article = buildArticle('ja', row({ image_url: '/site/shin-osaka-station.webp' }))
+  assert.equal(article.image, '/site/shin-osaka-station.webp')
+})
+
+test('category 是不随语言变化的行为开关，三语下都一样，交给 shouldShowNewsApply 判定', () => {
+  const recruitRow = row({ slug: 'first-recruitment-round', category: 'recruit' })
+  for (const locale of ['ja', 'zh', 'en'] as const) {
+    const article = buildArticle(locale, recruitRow)
+    assert.equal(article.category, 'recruit')
+    assert.equal(shouldShowNewsApply(article.category), true)
   }
+
+  const projectRow = row({ category: 'project' })
+  assert.equal(shouldShowNewsApply(buildArticle('ja', projectRow).category), false)
 })
 
-test('every configured news image exists in public/', () => {
-  // 路径写死在 NEWS_IMAGES 里，文件丢了页面上只会是一块空白，测试兜住这一步
-  const articles = buildArticles(copy)
-  const withImage = articles.filter((a) => a.image !== undefined)
-  assert.ok(withImage.length > 0)
-  for (const article of withImage) {
-    const asset = new URL(`../../../public${article.image}`, import.meta.url)
-    assert.ok(readFileSync(asset).byteLength > 0, article.image)
-  }
+test('buildArticles 把多行按传入顺序整体转换', () => {
+  const rows = [
+    row({ slug: 'a', title_ja: 'A' }),
+    row({ slug: 'b', title_ja: 'B' }),
+  ]
+  const articles = buildArticles('ja', rows)
+  assert.deepEqual(articles.map((a) => a.slug), ['a', 'b'])
+  assert.deepEqual(articles.map((a) => a.title), ['A', 'B'])
 })
 
-test('drops slots that have no copy yet instead of rendering empty cards', () => {
-  const partial = copy.slice(0, 2)
-  const articles = buildArticles(partial)
-  assert.equal(articles.length, 2)
+test('findArticle 按 slug 命中一行并转换；未命中返回 undefined', () => {
+  const rows = [row({ slug: 'a', title_ja: 'A' }), row({ slug: 'b', title_ja: 'B' })]
+  assert.equal(findArticle('ja', rows, 'b')?.title, 'B')
+  assert.equal(findArticle('ja', rows, 'nope'), undefined)
 })
 
-test('finds an article by slug and rejects unknown ones', () => {
-  assert.equal(findArticle(copy, 'operations-partner-announced')?.title, 'title operations-partner-announced')
-  assert.equal(findArticle(copy, 'nope'), undefined)
-})
-
-test('isNewsSlug guards the route param', () => {
+test('isNewsSlug 校验 slug 形状（与数据库 check 约束一致），拒绝路径穿越', () => {
   assert.equal(isNewsSlug('echoamp-launch'), true)
   assert.equal(isNewsSlug('../../etc/passwd'), false)
-})
-
-test('assigns locale-independent categories to the current news slugs', () => {
-  assert.deepEqual(
-    buildArticles(copy).map((article) => article.category),
-    ['project', 'project', 'recruit', 'project', 'project'],
-  )
+  assert.equal(isNewsSlug(''), false)
 })
 
 test('shows the apply action only for the recruit category', () => {
   assert.equal(shouldShowNewsApply('recruit'), true)
   assert.equal(shouldShowNewsApply('project'), false)
+})
+
+// ── 查询失败时的降级行为（评审 Important 2）──────────────────────────────
+// 列表页/首页不该因为一次数据库故障整页 500；这里不起真的 HTTP 服务器，
+// 只是把「supabase-js 查询返回的 { data, error } 长什么样」摆出来喂给
+// articlesFromListQuery / articleFromSingleQuery，断言它们的降级决策。
+
+test('articlesFromListQuery：查询成功时排序+转换正常返回', () => {
+  const rows = [
+    row({ slug: 'a', is_pinned: false, published_on: '2026-01-01' }),
+    row({ slug: 'b', is_pinned: true, published_on: '2026-01-01' }),
+  ]
+  const onQueryError = () => assert.fail('不应该被调用')
+  const articles = articlesFromListQuery('ja', { data: rows, error: null }, onQueryError)
+  assert.deepEqual(articles.map((a) => a.slug), ['b', 'a']) // 置顶优先
+})
+
+test('articlesFromListQuery：内部再过滤一次 is_published，未发布行不会因为调用方漏加 SQL 过滤条件而漏网', () => {
+  const rows = [
+    row({ slug: 'published', is_published: true }),
+    row({ slug: 'draft', is_published: false }),
+  ]
+  const onQueryError = () => assert.fail('不应该被调用')
+  const articles = articlesFromListQuery('ja', { data: rows, error: null }, onQueryError)
+  assert.deepEqual(articles.map((a) => a.slug), ['published'])
+})
+
+test('articlesFromListQuery：查询出错时降级为空数组，且必须上报 error（不能沉默）', () => {
+  let reported: unknown = null
+  const error = { code: '500', message: 'connection refused' }
+  const articles = articlesFromListQuery('ja', { data: null, error }, (e) => {
+    reported = e
+  })
+  assert.deepEqual(articles, [])
+  assert.deepEqual(reported, error)
+})
+
+test('articleFromSingleQuery：命中已发布行时正常返回，不上报', () => {
+  const r = row({ slug: 'echoamp-launch' })
+  const onQueryError = () => assert.fail('不应该被调用')
+  const article = articleFromSingleQuery('ja', { data: r, error: null }, onQueryError)
+  assert.equal(article?.slug, 'echoamp-launch')
+})
+
+test('articleFromSingleQuery：PGRST116（查不到/已下架）不当故障上报，仍返回 undefined（页面走 404）', () => {
+  const onQueryError = () => assert.fail('PGRST116 不应该被当作故障上报')
+  const article = articleFromSingleQuery(
+    'ja',
+    { data: null, error: { code: 'PGRST116', message: 'no rows' } },
+    onQueryError,
+  )
+  assert.equal(article, undefined)
+})
+
+test('articleFromSingleQuery：非 PGRST116 的真实故障必须上报，不能和"正常查不到"长得一样', () => {
+  let reported: unknown = null
+  const error = { code: '503', message: 'service unavailable' }
+  const article = articleFromSingleQuery('ja', { data: null, error }, (e) => {
+    reported = e
+  })
+  assert.equal(article, undefined)
+  assert.deepEqual(reported, error)
 })

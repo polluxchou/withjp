@@ -29,7 +29,10 @@ export type PublicSiteRoute =
 
 const PUBLIC_APPLICATION_PATH = '/api/site/applications'
 const PUBLIC_SITE_VIDEO_RE = /^\/site\/(?:[^/]+\/)*[^/]+\.(?:mp4|webm)$/i
-const PUBLIC_PAGE_RE = /^\/(?:news(?:\/[^/]+)?|vision|live|services|recruit|contact)?\/?$/
+// recruit 允许唯一一个子路径 /recruit/staff（其他招募表单）。
+// 这条正则是官网域名下的白名单，漏改会让新页面只在内部域名可用、
+// 在 eacn.agenova.chat 上 404 —— 而本地与 preview 都发现不了。
+const PUBLIC_PAGE_RE = /^\/(?:news(?:\/[^/]+)?|recruit(?:\/staff)?|vision|live|services|contact)?\/?$/
 
 function normalizeHostname(hostname: string): string {
   return hostname.trim().toLowerCase().replace(/\.$/, '')
