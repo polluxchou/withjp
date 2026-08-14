@@ -183,8 +183,14 @@ create table if not exists site_members (
   photo_url   text,
   -- 罗马字名（KANO / MIKOTO…），不分语言，卡片主标题
   name        text check (char_length(name) <= 40),
-  -- 附件：姓名（日文、英文、特长说明）
+  -- 附件：姓名（日文、中文、英文、特长说明）
+  --
+  -- name_zh 不能省：多数成员 zh 名字和 ja 是同一个词的繁简变体（可以借用
+  -- name_ja），但 3 号 LULU 是例外——ja 用片假名音译「ルル」，zh 用汉字
+  -- 「露露」，是两种不同的书写形式，不是同一字的简繁差异。省掉这一列会让
+  -- 「露露」这个当前 zh 用户看到的名字在搬迁后永久丢失。
   name_ja     text check (char_length(name_ja) <= 40),
+  name_zh     text check (char_length(name_zh) <= 40),
   name_en     text check (char_length(name_en) <= 40),
   specialty_ja text check (char_length(specialty_ja) <= 60),
   specialty_zh text check (char_length(specialty_zh) <= 60),
@@ -260,12 +266,15 @@ grant select on public.site_members to authenticated;
   借用另一篇图片填满卡位。
 - 成员：fixture 固定 8 个 `no`、罗马字 `name`、照片路径以及三语原始 role。解析规则必须按
   locale 分开：ja/zh 用全角 `／`，en 用 `/\s+\/\s+/`（兼容 ASCII 两侧空格）。左段分别写入
-  `name_ja` / `name_en`，右段分别写入 `specialty_ja` / `specialty_zh` / `specialty_en`；
-  不得用同一条全角分隔规则处理三语。9–12 号卡位建成 `is_revealed = false`，并明确写入
-  `expected_reveal_on = '2026-12-01'`，保留现有 i18n「12月公开」的初始语义。
+  `name_ja` / `name_zh` / `name_en`，右段分别写入 `specialty_ja` / `specialty_zh` /
+  `specialty_en`；不得用同一条全角分隔规则处理三语，且 zh 的左段（名字）不能像早期版本那样
+  丢弃——多数成员 zh 名字与 ja 是繁简变体，但 3 号 LULU 的 zh「露露」（汉字）与 ja「ルル」
+  （片假名音译）是不同的书写形式，必须各自落到 `name_ja` / `name_zh`，不能只留一份。9–12
+  号卡位建成 `is_revealed = false`，并明确写入 `expected_reveal_on = '2026-12-01'`，保留
+  现有 i18n「12月公开」的初始语义。
 
 脚本在 upsert 前后都必须断言 12 行的规范化结果：8 个已公开行的
-`name_ja`、`name_en`、`specialty_ja`、`specialty_zh`、`specialty_en` 与 fixture 完全相等，
+`name_ja`、`name_zh`、`name_en`、`specialty_ja`、`specialty_zh`、`specialty_en` 与 fixture 完全相等，
 9–12 行的 `is_revealed = false` 且日期为 `2026-12-01`；任何分隔符缺失、空值或错位都以非零码退出，
 不能继续写入部分数据。fixture 至少包含以下可执行的分割断言：
 
@@ -411,7 +420,7 @@ POST   /api/site/upload            图片上传（news 主图 / 成员照片）
 新闻 patch 允许上述字段，但 `slug` 新建后不可改；`is_published` 只能在通过 `is_admin` 写权限
 检查后由该白名单字段修改，不能由未授权客户端绕过权限伪造“已发布”状态。
 
-成员 patch 的允许字段只有：`is_revealed`、`photo_url`、`name`、`name_ja`、`name_en`、
+成员 patch 的允许字段只有：`is_revealed`、`photo_url`、`name`、`name_ja`、`name_zh`、`name_en`、
 `specialty_ja`、`specialty_zh`、`specialty_en`、`expected_reveal_on`；路由参数 `[no]` 决定卡位，
 不能从请求体接受或修改 `no`、`id`、创建时间或更新时间。已公开卡位的三个 required 值经 trim 后
 必须非空，未公开卡位必须有 `expected_reveal_on`；patch 要把现有行与部分请求合并后再校验，不能
