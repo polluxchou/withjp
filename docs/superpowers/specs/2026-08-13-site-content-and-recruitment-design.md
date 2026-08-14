@@ -37,7 +37,7 @@
    （入口挂在 CONTACT 页 §02「制作与运营合作伙伴」，见 §5.5）
 2. `site_news` 表 + 后台 CRUD + 置顶 + 单图上传；官网 NEWS 列表/详情改为读库
 3. `site_members` 表 + 后台配置；官网 VISION 页成员网格改为读库
-4. 现有 4 篇新闻、8 位成员从稳定 seed fixture 搬进库（幂等脚本；fixture 初始值来自现有 i18n）
+4. 现有 5 篇新闻、8 位成员从稳定 seed fixture 搬进库（幂等脚本；fixture 初始值来自现有 i18n）
 5. 上传 route 去重（新增第三个上传口之前先抽共享 helper）
 
 ### 不做
@@ -53,11 +53,11 @@
 
 ## 3. 数据层
 
-### 3.1 迁移 047 · `site_applications` 扩展
+### 3.1 迁移 `20260814112722_site_applications_kinds.sql` · `site_applications` 扩展
 
 ```sql
 -- ============================================================
--- Migration 047: 官网应募扩展出「其他招募」三类
+-- Migration 20260814112722_site_applications_kinds: 官网应募扩展出「其他招募」三类
 --
 -- 不新建第二张表：附件要的是「官网应募页增加一个 tab」，同一数据源两个视图。
 -- 字段名逐字对齐 tt-agent/docs/domain-b-applications-contract.md，
@@ -90,24 +90,24 @@ create index if not exists idx_site_applications_kind_created
   on site_applications (kind, created_at desc);
 ```
 
-047 只做 expand，不删除 `kind` 的 default。这样旧服务与新服务并行期间，旧表单仍能成功写入，
+`20260814112722_site_applications_kinds.sql` 只做 expand，不删除 `kind` 的 default。这样旧服务与新服务并行期间，旧表单仍能成功写入，
 历史行也会回填为 `creator`。等新服务已经部署、旧实例排空，并确认历史回填与新旧接口写入均只产生
-四种合法 `kind` 后，再执行后续迁移 050：
+四种合法 `kind` 后，再执行后续的 contract 迁移：
 
 ```sql
--- Migration 050: site_applications kind contract
+-- Migration 20260814112725_site_applications_kinds_contract: site_applications kind contract
 -- 只有满足 §9 交付前的上线判据后才能执行；它会让漏传 kind 的新请求直接失败。
 alter table site_applications
   alter column kind drop default;
 ```
 
-050 不改变列的 `not null` 和 check 约束，只移除兼容旧服务的默认值；执行前必须确认所有仍可能写入
+`20260814112725_site_applications_kinds_contract.sql` 不改变列的 `not null` 和 check 约束，只移除兼容旧服务的默认值；执行前必须确认所有仍可能写入
 `site_applications` 的实例都已部署 Task 3 的新 service，并且回填查询与线上写入监控没有发现空值或未知 kind。
 
 > 现有的 `age between 16 and 60`、`residence` 长度上限等 check 保持不变 —— 它们在
 > 列为 NULL 时自动为真，不需要改。
 
-### 3.2 迁移 048 · 内容表
+### 3.2 迁移 `20260814112723_site_content.sql` · 内容表
 
 两张专用表，不用通用表 + jsonb：字段少、形状差异大，而 check 约束、索引与
 「哪些字段必填」这三件事在 jsonb 里全部失去表达能力。
@@ -124,13 +124,22 @@ create table if not exists site_news (
                  check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(slug) <= 60),
   -- 与 site.news.filters 的词表一致（ALL 只是 UI 筛选项，不是 tag 取值）
   tag          text not null check (tag in ('RECRUIT', 'PROJECT', 'LIVE')),
+  -- 不随语言变化的内容分类，控制页面**行为**而非展示：文末「去应募」CTA 只在
+  -- recruit 类文章出现（上游 #197 的 shouldShowNewsApply，现由 src/lib/site/news.ts
+  -- 的 NEWS_CATEGORIES 常量提供）。
+  --
+  -- **它和 tag 不是一回事，不要合并。** tag 是给访客看的筛选标签，category 是
+  -- 行为开关。今天两者恰好高度相关（RECRUIT ↔ recruit），但把 CTA 挂在 tag 上
+  -- 意味着以后想要「一条带 RECRUIT 标签、但不挂应募入口的资讯」就无法表达。
+  -- 迁移时漏掉这一列，会直接丢失已上线的「只有招募类文章才显示应募按钮」。
+  category     text not null default 'project' check (category in ('project', 'recruit')),
   published_on date not null,
   is_pinned    boolean not null default false,
   -- 下架能力（2026-08-13 确认需要）：false = 内容还在库里，但官网不展示。
   -- 比软删便宜也比软删诚实——运营要的是「先撤下来再想怎么改」，不是删除。
   -- 默认 true：后台没有草稿态，新建即发布（§5.2）。
   is_published boolean not null default true,
-  -- 两种形态并存：搬迁进来的 4 篇沿用仓库里的静态路径（/site/*.webp），
+  -- 两种形态并存：搬迁进来的 5 篇沿用仓库里的静态路径（/site/*.webp），
   -- 后台新上传的是 site-media 桶的公开 URL。渲染侧一视同仁地当 src 用，
   -- 不要为了「统一」去把老图搬进桶——它们已经在 CDN 上了，搬迁只有风险没有收益。
   image_url    text,
@@ -243,9 +252,10 @@ grant select on public.site_members to authenticated;
 **不从 `messages/*.json` 或 `src/lib/site/{news,content}.ts` 导入 seed 数据**：前端文案和展示常量
 会在本次迁移后删除或改形，seed 不能依赖它们。
 
-- 新闻：fixture 固定四个 slug、图片路径和日期；`date`（`2026.10.01`）→ `published_on`
-  （ISO `YYYY-MM-DD`）；`body: string[]` → 用 `\n\n` 连接成 `body_*`；图片继续使用仓库已有的
-  `/site/*.webp` 路径，先不搬进存储桶。
+- 新闻：fixture 固定当前五个 slug、日期、tag、category 与可空图片路径；`date`（`2026.08.12`）→
+  `published_on`（ISO `YYYY-MM-DD`）；`body: string[]` → 用 `\n\n` 连接成 `body_*`。当前五篇都沿用
+  仓库已有的 `/site/*.webp` 路径，先不搬进存储桶；以后缺图文章必须把 `image_url` 写为 `null`，不能
+  借用另一篇图片填满卡位。
 - 成员：fixture 固定 8 个 `no`、罗马字 `name`、照片路径以及三语原始 role。解析规则必须按
   locale 分开：ja/zh 用全角 `／`，en 用 `/\s+\/\s+/`（兼容 ASCII 两侧空格）。左段分别写入
   `name_ja` / `name_en`，右段分别写入 `specialty_ja` / `specialty_zh` / `specialty_en`；
@@ -280,10 +290,11 @@ fixture 的初始内容固定如下；它是迁移输入，不是运行时 UI �
 
 ```js
 export const NEWS_SEED = [
-  { slug: 'nightly-live-start', image_url: '/site/moondollz-group.webp' },
-  { slug: 'moondollz-launch', image_url: '/site/moondollz-key.webp' },
-  { slug: 'first-gen-audition', image_url: '/site/card-kano.webp' },
-  { slug: 'osaka-studio-open', image_url: '/site/card-shino.webp' },
+  { slug: 'mc-character-tech-partnership', published_on: '2026-08-12', tag: 'PROJECT', category: 'project', image_url: '/site/mc-character-expressions.webp' },
+  { slug: 'operations-partner-announced', published_on: '2026-08-10', tag: 'PROJECT', category: 'project', image_url: '/site/operations-partner-lockup.webp' },
+  { slug: 'first-recruitment-round', published_on: '2026-08-01', tag: 'RECRUIT', category: 'recruit', image_url: '/site/shin-osaka-station.webp' },
+  { slug: 'echoamp-launch', published_on: '2026-07-21', tag: 'PROJECT', category: 'project', image_url: '/site/moondollz-silhouettes.webp' },
+  { slug: 'moondollz-launch', published_on: '2026-05-01', tag: 'PROJECT', category: 'project', image_url: '/site/moondollz-key.webp' },
 ]
 
 export const MEMBER_SEED = [
@@ -315,9 +326,14 @@ export const MEMBER_SEED = [
 ```
 
 `NEWS_SEED` 的每一项还必须包含 `published_on`、`tag` 和完整的
-`copy: { ja: { title, lead, body }, zh: { ... }, en: { ... } }`；四篇文章的正文与三语值在
+`copy: { ja: { title, lead, body }, zh: { ... }, en: { ... } }`；五篇文章的正文与三语值在
 fixture 中完整保存，不能在 seed 运行时再回读已准备删除的 `messages.site.news.articles`。
-上面的四个 slug/图片映射必须与这些完整 copy 使用同一个数组项，不能依赖下标拼接另一份来源。
+每项的 slug、tag、category、图片（可为 `null`）与完整 copy 必须在同一个数组项，不能依赖下标拼接另一份来源。
+
+seed 必须断言 slug 的集合与 `NEWS_SLUGS` 当前的五项完全一致，且每项的 category 分别为
+`project`、`project`、`recruit`、`project`、`project`。这是把当前 `NEWS_CATEGORIES` 的行为数据
+一并搬进库：后续删掉静态常量后，只有 `category = 'recruit'` 的 `first-recruitment-round` 才会显示
+文末「去应募」CTA。
 
 **顺序是硬的**：先跑脚本搬迁 → 验证官网读库正常 → 再从 `messages/*.json` 删除已经被数据库替代的 key。
 反过来就是上线即丢内容。
@@ -328,8 +344,12 @@ fixture 中完整保存，不能在 seed 运行时再回读已准备删除的 `m
 
 ```ts
 // src/lib/site/i18n-content.ts
+import { PUBLIC_SITE_LOCALES } from './domain-routing'
+
+export type PublicSiteLocale = (typeof PUBLIC_SITE_LOCALES)[number]
+
 export function pickLocale<T>(
-  locale: 'zh' | 'en' | 'ja',
+  locale: PublicSiteLocale,
   values: { ja: T; zh?: T | null; en?: T | null },
 ): T
 ```
@@ -379,11 +399,12 @@ POST   /api/site/upload            图片上传（news 主图 / 成员照片）
 审计字段。
 
 新闻 create 的允许字段只有：
-`slug`、`tag`、`published_on`、`is_pinned`、`is_published`、`image_url`、
+`slug`、`tag`、`category`、`published_on`、`is_pinned`、`is_published`、`image_url`、
 `title_ja`/`title_zh`/`title_en`、`lead_ja`/`lead_zh`/`lead_en`、
 `body_ja`/`body_zh`/`body_en`。其中 `slug`、`tag`、`published_on`、`title_ja`、`lead_ja`、
-`body_ja` 必填；`is_pinned` 缺省为 `false`、`is_published` 缺省为 `true`；zh/en 文本及
-`image_url` 为空时写 `null`。
+`body_ja`、`category` 必填；`category` 只能是 `project|recruit`，`is_pinned` 缺省为 `false`、
+`is_published` 缺省为 `true`；zh/en 文本及 `image_url` 为空时写 `null`。图片为空表示文章没有主图，
+官网交给 `SiteImage` 的既有占位框表达，不能用其他文章的图替代。
 
 新闻 patch 允许上述字段，但 `slug` 新建后不可改；`is_published` 只能在通过 `is_admin` 写权限
 检查后由该白名单字段修改，不能由未授权客户端绕过权限伪造“已发布”状态。
@@ -392,7 +413,7 @@ POST   /api/site/upload            图片上传（news 主图 / 成员照片）
 `specialty_ja`、`specialty_zh`、`specialty_en`、`expected_reveal_on`；路由参数 `[no]` 决定卡位，
 不能从请求体接受或修改 `no`、`id`、创建时间或更新时间。已公开卡位的三个 required 值经 trim 后
 必须非空，未公开卡位必须有 `expected_reveal_on`；patch 要把现有行与部分请求合并后再校验，不能
-因为请求只改照片就误把已有日期当成缺失。空值规则与 048 的 check 保持一致。
+因为请求只改照片就误把已有日期当成缺失。空值规则与 `20260814112723_site_content.sql` 的 check 保持一致。
 
 服务端审计赋值固定如下：create 忽略或拒绝客户端的 `created_by_user_id` /
 `updated_by_user_id`，从通过权限检查的 `actor.id` 写入两者；patch 永远保留原
@@ -498,8 +519,11 @@ section.action === 'staff-recruit' ? STAFF_RECRUIT_HREF : ...
 
 官网侧的查询一律带 `where is_published`。`generateStaticParams` 同样只返回已发布的
 slug —— 已下架文章的详情页应当 404，而不是仍能被旧链接直接打开。
+新闻详情从库行读取 `category` 并传给 `shouldShowNewsApply(category)`；只有 `recruit` 才渲染文末
+「去应募」CTA。这样迁移后页面行为仍由内容数据决定，不会随着静态 `NEWS_CATEGORIES` 删除而丢失。
 
-后台保存成功后，按 `zh`、`en`、`ja` 逐一调用 `revalidatePath()`，传入官网页面对应的**内部源路径**，
+后台保存成功后，遍历 `src/lib/site/domain-routing.ts` 导出的 `PUBLIC_SITE_LOCALES`（当前顺序为
+`ja`、`en`、`zh`）逐一调用 `revalidatePath()`，传入官网页面对应的**内部源路径**，
 不要传动态模式，也不要依赖官网域名 rewrite 在失效时再次运行。具体失效集合是：
 
 - 新闻新建、编辑、置顶、上下架、删除：`/${locale}/site`、`/${locale}/site/news`，以及受影响的
@@ -551,7 +575,7 @@ images: {
 实现后必须用真实 `getPublicUrl()` 返回的 URL 渲染新闻和成员图片，并在 production build/start
 环境验证请求成功；仅检查 CSP 或使用本地 `/site/*.webp` 不能证明这条配置有效。
 
-`src/lib/site/news.ts` 现有的 `NEWS_SLUGS` / `NEWS_IMAGES` / `buildArticles` 与
+`src/lib/site/news.ts` 现有的 `NEWS_SLUGS` / `NEWS_IMAGES` / `NEWS_CATEGORIES` / `buildArticles` 与
 `src/lib/site/content.ts` 的 `buildMembers` / `MEMBER_IMAGES` 相应删除或改为从库数据构造；
 `MEMBER_SLOTS = 12` 保留（它现在是 `site_members.no` 的 check 上界，两处要一致）。
 成员构造规则必须与数据库约束双重防守：未公开卡位用 `expected_reveal_on` 格式化为 `YYYY-MM`；
@@ -566,7 +590,7 @@ images: {
 内容进库后，这些 key 应从 `messages/{zh,en,ja}.json` 删除，但**未使用 key 目前只会
 `console.warn`，不会让 `check-i18n` 退出失败**：
 
-- `site.news.articles[]`（4 篇）
+- `site.news.articles[]`（5 篇）
 - `site.members.list`（8 位）
 - `site.members.note`、`site.members.unrevealedRole` —— 被 per-member 的
   `expected_reveal_on` 取代
@@ -591,6 +615,10 @@ images: {
 与替代 UI 逻辑，验证三语页面，再删除旧 key；随后运行 `npm run test:copy`，必要时用
 `node scripts/check-i18n.mjs --update-baseline` 更新 baseline。seed 需要的稳定内容必须先移到
 脚本自身的 fixture，不能继续依赖准备删除的 UI messages。
+
+CI 不只跑文案门禁：`.github/workflows/copy.yml` 分别运行 i18n、裸中文、样式 token 和零 warning 的 ESLint，
+本地可用 `npm run test:copy` 运行同一组检查；`.github/workflows/check.yml` 则只跑 `tsc` 和 `test`，避免把 ESLint 重复执行。提交前仍须运行这三项，
+因为 paths 过滤会让只改迁移或 API 的 PR 不触发 copy workflow。
 
 ---
 
@@ -632,7 +660,9 @@ accent（若不使用继承）；三语 `nav` namespace 增加 `siteContent`、`
 
 - **新闻列表**：表格 + 新建按钮；行内可切换**置顶**与**上架/下架**；已下架的行整行降调
   （灰显 + 状态标签），一眼能看出它不在官网上。
-- **新闻编辑**：slug（新建后不可改）、tag、发布日、主图上传、三语三段（ja 必填，zh/en 折叠默认收起）。
+- **新闻编辑**：slug（新建后不可改）、tag、category、发布日、主图上传（可清空为无图）、三语三段
+  （ja 必填，zh/en 折叠默认收起）。category 直接编辑 `project|recruit`，保存后的官网详情把它传给
+  `shouldShowNewsApply()`；不要从展示用 tag 推断 CTA。
 - **成员配置**：12 个卡位的网格，点开编辑单个卡位；未公开卡位只需填 `expected_reveal_on`。
 
 ### 8.4 界面设计约束（硬性，覆盖后台与官网两侧）
@@ -700,8 +730,12 @@ accent（若不使用继承）；三语 `nav` namespace 增加 `siteContent`、`
 `Request` 又不连生产 Supabase，route 应把业务处理抽成可注入 `{ authGuard, getActorProfile, db,
 revalidatePath }` 的 handler factory，production route 绑定真实依赖，测试绑定隔离的 fake context。
 
-迁移 047/048/049 按 046 的做法，在一次性 Postgres 容器上实跑验证（含幂等重跑）后才算完成；050
-必须在 §3.1 规定的 expand → deploy → contract 判据满足后单独执行，不能与 047 同批运行。
+`20260814112722_site_applications_kinds.sql`、`20260814112723_site_content.sql`、
+`20260814112724_site_media_bucket.sql` 按
+`20260814074006_rls_users_broadcast_accounts_salary.sql` 的做法，在一次性 Postgres 容器上实跑验证
+（含幂等重跑）后才算完成；`20260814112725_site_applications_kinds_contract.sql` 必须在 §3.1 规定的
+expand → deploy → contract 判据满足后单独执行，不能与 expand 同批运行。迁移按文件名字典序应用，
+四个时间戳按生成时刻逐秒递增，因而 expand 始终排在 contract 之前。
 
 ---
 

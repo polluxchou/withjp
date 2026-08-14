@@ -24,9 +24,9 @@
 5. **两套设计面不串味**：后台页面用 `src/components/ui/` + `layout/Header` + mauve/violet token；官网页面用 `src/components/site/` + `site-*` token。见规格 §8.4。
 6. **组件先查后建**：新 UI 需求先查 `docs/design-system.md` §6.1 决策表与 `src/components/ui/` 目录，没有才新建；新建必须登记进 `design-system.md` §6.2。
 7. **i18n 三语同改**：`messages/{zh,en,ja}.json` 的 key 形状必须完全一致，改一个文件就要改三个。改完跑 `npm run test:copy`。
-8. **迁移必须可重跑**：本仓迁移是人工按文件名顺序应用、无 `schema_migrations` 记录。`create policy` 前先 `drop policy if exists`；`add constraint` 用 `DO` 块查 `pg_constraint` 后再加（Postgres 不支持 `add constraint if not exists`）。
-9. **迁移验收方式**：在一次性 Docker Postgres 容器上实跑（含重跑一次验幂等）后才算完成。参照 `supabase/migrations/046_rls_hardening.sql` 的做法。
-10. **每个任务结束跑一次** `npx tsc --noEmit && npm test && npm run test:copy`。
+8. **迁移必须可重跑且用时间戳命名**：本仓迁移是人工按文件名字典序应用、无 `schema_migrations` 记录。创建时用 `TZ=Asia/Tokyo date +%Y%m%d%H%M%S` 生成 `<YYYYMMDDHHMMSS>_<snake_case>.sql` 的前缀，并通过 `scripts/check-migrations.mjs`；`create policy` 前先 `drop policy if exists`，`add constraint` 用 `DO` 块查 `pg_constraint` 后再加（Postgres 不支持 `add constraint if not exists`）。同批文件逐秒递增以保证唯一和依赖顺序；contract 文件的时间戳必须晚于 expand，即使已随代码提交也只能在 expand 的部署判据满足后单独应用。
+9. **迁移验收方式**：在一次性 Docker Postgres 容器上实跑（含重跑一次验幂等）后才算完成。参照 `supabase/migrations/20260814074006_rls_users_broadcast_accounts_salary.sql` 的做法。
+10. **每个任务结束跑一次** `npx tsc --noEmit && npm test && npm run test:copy`。`test:copy` 已包含零 warning 的 ESLint；CI 的 `copy.yml` 分别运行这一组检查，`check.yml` 只跑 tsc 和 test。
 
 ---
 
@@ -36,11 +36,11 @@
 
 | 文件 | 职责 |
 |---|---|
-| `supabase/migrations/047_site_applications_kinds.sql` | `site_applications` 加 `kind`/`email`/`commute_mode` + 按 kind 的 check |
-| `supabase/migrations/048_site_content.sql` | `site_news` / `site_members` 两张表 + RLS |
-| `supabase/migrations/049_site_media_bucket.sql` | `site-media` 公开桶 |
-| `supabase/migrations/050_site_applications_kinds_contract.sql` | 新服务稳定后移除 `kind` 的兼容 default |
-| `scripts/seed-site-content.mjs` | 把静态 fixture 中的 4 篇新闻、8 位成员搬进库（幂等） |
+| `supabase/migrations/20260814112722_site_applications_kinds.sql` | `site_applications` 加 `kind`/`email`/`commute_mode` + 按 kind 的 check（expand） |
+| `supabase/migrations/20260814112723_site_content.sql` | `site_news` / `site_members` 两张表 + RLS |
+| `supabase/migrations/20260814112724_site_media_bucket.sql` | `site-media` 公开桶 |
+| `supabase/migrations/20260814112725_site_applications_kinds_contract.sql` | 新服务稳定后移除 `kind` 的兼容 default（contract，不与前三条同批应用） |
+| `scripts/seed-site-content.mjs` | 把静态 fixture 中的 5 篇新闻、8 位成员搬进库（幂等） |
 | `scripts/site-content-seed-data.mjs` | 与 UI i18n/展示常量解耦的新闻、成员静态 seed fixture |
 | `src/lib/site/i18n-content.ts` (+`.test.ts`) | `pickLocaleText` 三语回退纯函数 |
 | `src/lib/storage/upload-image.ts` (+`.test.ts`) | 图片上传共享 helper（三个 route 复用） |
@@ -61,7 +61,7 @@
 |---|---|
 | `src/lib/site/application.ts` | 加 `kind` 分支与 email/commuteMode 校验 |
 | `src/lib/site/application-service.ts` | 落库带上新字段 |
-| `src/lib/site/domain-routing.ts` | `PUBLIC_PAGE_RE` 放行 `/recruit/staff` |
+| `src/lib/site/domain-routing.ts` | 导出 `PUBLIC_SITE_LOCALES` 给官网缓存失效复用，并让 `PUBLIC_PAGE_RE` 放行 `/recruit/staff` |
 | `src/lib/site/contact.ts` | `SiteContactAction` 加 `'staff-recruit'` |
 | `src/lib/site/nav.ts` | 导出 `STAFF_RECRUIT_HREF` |
 | `src/lib/auth/actor.ts` | `getActorProfile` 补 select `role` |
@@ -79,10 +79,10 @@
 
 # Phase 1 · 其他招募
 
-### Task 1: 迁移 047 —— `site_applications` 扩展
+### Task 1: 迁移 `20260814112722_site_applications_kinds.sql` —— `site_applications` 扩展
 
 **Files:**
-- Create: `supabase/migrations/047_site_applications_kinds.sql`
+- Create: `supabase/migrations/20260814112722_site_applications_kinds.sql`
 
 **Interfaces:**
 - Produces: `site_applications.kind`（`creator|photographer|makeup|group_live_ops`）、`.email`、`.commute_mode`；Task 3 落库时使用。
@@ -91,7 +91,7 @@
 
 ```sql
 -- ============================================================
--- Migration 047: 官网应募扩展出「其他招募」三类
+-- Migration 20260814112722_site_applications_kinds: 官网应募扩展出「其他招募」三类
 --
 -- 不新建第二张表：附件要的是「官网应募页增加一个 tab」，同一数据源两个视图。
 -- 字段名逐字对齐 tt-agent/docs/domain-b-applications-contract.md，
@@ -100,7 +100,7 @@
 
 alter table site_applications
   -- expand 阶段保留 default：旧版本服务仍在运行时，少传 kind 的请求
-  -- 继续按主播应募落库；contract 阶段再由迁移 050 删除这个 default。
+  -- 继续按主播应募落库；contract 阶段再由后续 contract 迁移删除这个 default。
   add column if not exists kind text not null default 'creator'
     check (kind in ('creator', 'photographer', 'makeup', 'group_live_ops')),
   add column if not exists email text
@@ -134,9 +134,9 @@ create index if not exists idx_site_applications_kind_created
 - [ ] **Step 2: 起一次性容器并铺现有表结构**
 
 ```bash
-docker run -d --rm --name m047 -e POSTGRES_PASSWORD=x postgres:16-alpine
+docker run -d --rm --name m-site-applications-kinds -e POSTGRES_PASSWORD=x postgres:16-alpine
 sleep 5
-docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
+docker exec -i m-site-applications-kinds psql -U postgres -v ON_ERROR_STOP=1 <<'SQL'
 create table site_applications (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 30),
@@ -157,24 +157,24 @@ SQL
 - [ ] **Step 3: 应用迁移，验证回填、约束与兼容 default**
 
 ```bash
-docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/047_site_applications_kinds.sql
-docker exec -i m047 psql -U postgres -qtA <<'SQL'
+docker exec -i m-site-applications-kinds psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20260814112722_site_applications_kinds.sql
+docker exec -i m-site-applications-kinds psql -U postgres -qtA <<'SQL'
 select '历史行 kind=' || kind from site_applications;
 select 'kind default=' || coalesce(column_default, '<none>')
   from information_schema.columns
   where table_name = 'site_applications' and column_name = 'kind';
 SQL
-if docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+if docker exec -i m-site-applications-kinds psql -U postgres -v ON_ERROR_STOP=1 -q -c \
   "insert into site_applications (kind,name,contact,locale,commute_mode)
    values ('makeup','A','x','ja','subway');"; then
   echo 'ERROR: staff row without email was accepted' >&2; exit 1
 else
   echo 'OK: staff row without email rejected'
 fi
-docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+docker exec -i m-site-applications-kinds psql -U postgres -v ON_ERROR_STOP=1 -q -c \
   "insert into site_applications (kind,name,contact,locale,email,commute_mode)
    values ('makeup','B','x','ja','b@e.com','subway');"
-if docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+if docker exec -i m-site-applications-kinds psql -U postgres -v ON_ERROR_STOP=1 -q -c \
   "insert into site_applications (kind,name,contact,locale,residence)
    values ('creator','C','x','ja','大阪');"; then
   echo 'ERROR: creator row without age was accepted' >&2; exit 1
@@ -186,17 +186,17 @@ fi
 Expected：历史行 `kind=creator`；`kind` 的 default 仍为 `'creator'`；第一条与第三条被 check
 拒绝；第二条 OK。
 
-- [ ] **Step 4: 验 047 幂等 + 销毁容器**
+- [ ] **Step 4: 验 `site_applications_kinds` 幂等 + 销毁容器**
 
 ```bash
-docker exec -i m047 psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/047_site_applications_kinds.sql && echo "重跑 OK"
-docker rm -f m047
+docker exec -i m-site-applications-kinds psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20260814112722_site_applications_kinds.sql && echo "重跑 OK"
+docker rm -f m-site-applications-kinds
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/047_site_applications_kinds.sql
+git add supabase/migrations/20260814112722_site_applications_kinds.sql
 git commit -m "feat(db): site_applications 扩展出其他招募三类"
 ```
 
@@ -210,12 +210,12 @@ git commit -m "feat(db): site_applications 扩展出其他招募三类"
 3. 通过访问日志/指标确认新旧 API 在观察窗口内都显式写入四种合法 kind，未出现依赖 default 的请求；
 4. 已验证 creator 与三类 staff 的完整请求都能成功落库，缺少 `kind` 的请求在 contract 后应明确失败。
 
-- [ ] **Step 6: 迁移 050 —— contract 阶段移除兼容 default**
+- [ ] **Step 6: 迁移 `20260814112725_site_applications_kinds_contract.sql` —— contract 阶段移除兼容 default**
 
-**Files:** Create `supabase/migrations/050_site_applications_kinds_contract.sql`
+**Files:** Create `supabase/migrations/20260814112725_site_applications_kinds_contract.sql`
 
 ```sql
--- Migration 050: site_applications kind contract
+-- Migration 20260814112725_site_applications_kinds_contract: site_applications kind contract
 -- 仅在 Task 1 Step 5 的全部判据满足后执行。
 alter table site_applications
   alter column kind drop default;
@@ -224,12 +224,12 @@ alter table site_applications
 应用并检查：
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/050_site_applications_kinds_contract.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260814112725_site_applications_kinds_contract.sql
 psql "$DATABASE_URL" -Atc "select column_default from information_schema.columns where table_name='site_applications' and column_name='kind'"
 ```
 
 Expected：查询返回空行；`kind` 的 `NOT NULL`、允许值 check 和按 kind 的字段 check 保持不变。
-050 不得与 047 同批执行，也不得在旧 service 仍可能接收流量时执行。
+contract 文件的时间戳晚于 expand，文件名字典序会先应用 expand；它不得与 expand 同批执行，也不得在旧 service 仍可能接收流量时执行。
 
 ---
 
@@ -635,7 +635,7 @@ git commit -m "feat(site): 数据库内容的三语回退"
 - Create: `src/lib/storage/upload-image.ts`、`src/lib/storage/upload-image.test.ts`
 - Modify: `src/app/api/items/photo/route.ts`、`src/app/api/competitors/upload/route.ts`
 - Create: `src/app/api/site/upload/route.ts`
-- Create: `supabase/migrations/049_site_media_bucket.sql`
+- Create: `supabase/migrations/20260814112724_site_media_bucket.sql`
 - Modify: `package.json`
 
 **Interfaces:**
@@ -707,7 +707,7 @@ Expected: PASS
 - [ ] **Step 5: 建桶迁移**
 
 ```sql
--- Migration 049: 官网内容图片桶（新闻主图 / 成员照片）
+-- Migration 20260814112724_site_media_bucket: 官网内容图片桶（新闻主图 / 成员照片）
 -- 公开读：这些图本来就在官网上对外展示，与 item-photos 同理。
 insert into storage.buckets (id, name, public)
 values ('site-media', 'site-media', true)
@@ -749,7 +749,7 @@ images: {
 ```bash
 git add src/lib/storage/upload-image.ts src/lib/storage/upload-image.test.ts \
   src/app/api/items/photo/route.ts src/app/api/competitors/upload/route.ts \
-  src/app/api/site/upload/route.ts supabase/migrations/049_site_media_bucket.sql next.config.mjs
+  src/app/api/site/upload/route.ts supabase/migrations/20260814112724_site_media_bucket.sql next.config.mjs
 git commit -m "refactor(storage): 抽出图片上传 helper 并新增 site-media 桶"
 ```
 
@@ -757,10 +757,10 @@ git commit -m "refactor(storage): 抽出图片上传 helper 并新增 site-media
 
 # Phase 3 · 新闻
 
-### Task 7: 迁移 048 + 权限纯函数
+### Task 7: 迁移 `20260814112723_site_content.sql` + 权限纯函数
 
 **Files:**
-- Create: `supabase/migrations/048_site_content.sql`
+- Create: `supabase/migrations/20260814112723_site_content.sql`
 - Create: `src/lib/auth/site-content.ts`、`src/lib/auth/site-content.test.ts`
 - Modify: `src/lib/auth/actor.ts`、`package.json`
 
@@ -824,9 +824,10 @@ export function canEditSiteContent(actor: SiteContentActor | null): boolean {
 
 `src/lib/auth/actor.ts`：`getActorProfile` 的 select 从 `'id, is_admin'` 改为 `'id, is_admin, role'`，`ActorProfile` 接口加 `role: string | null`，return 加 `role: data.role ?? null`。
 
-- [ ] **Step 4: 写迁移 048（所有 DDL 可重跑）**
+- [ ] **Step 4: 写迁移 `20260814112723_site_content.sql`（所有 DDL 可重跑）**
 
-按规格 §3.2 与 §3.3 全文照抄：`site_news`（含 `is_published boolean not null default true`、索引
+按规格 §3.2 与 §3.3 全文照抄：`site_news`（含 `category text not null default 'project' check (category in ('project', 'recruit'))`、
+`is_published boolean not null default true`、索引
 `(is_published, is_pinned desc, published_on desc)`、`updated_at` 触发器）、`site_members`
 （12 卡位 check、`site_members_revealed_fields` 约束）；两表 RLS 按 `drop policy if exists` →
 `create policy ... for select to authenticated using (true)` → `revoke all ... from anon, authenticated`
@@ -846,8 +847,8 @@ DDL 必须使用以下幂等形式，不能恢复成裸语句：把两张完整�
 - [ ] **Step 5: 容器验证（含幂等）**
 
 ```bash
-docker run -d --rm --name m048 -e POSTGRES_PASSWORD=x postgres:16-alpine && sleep 5
-docker exec -i m048 psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+docker run -d --rm --name m-site-content -e POSTGRES_PASSWORD=x postgres:16-alpine && sleep 5
+docker exec -i m-site-content psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 create role anon; create role authenticated;
 create table users (id uuid primary key);
 create function update_updated_at() returns trigger language plpgsql as $$
@@ -855,32 +856,32 @@ create function update_updated_at() returns trigger language plpgsql as $$
 grant usage on schema public to anon, authenticated;
 grant all on all tables in schema public to anon, authenticated;
 SQL
-docker exec -i m048 psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/048_site_content.sql && echo "应用 OK"
-docker exec -i m048 psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/048_site_content.sql && echo "重跑 OK"
-docker exec -i m048 psql -U postgres -qtA -c "
+docker exec -i m-site-content psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20260814112723_site_content.sql && echo "应用 OK"
+docker exec -i m-site-content psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20260814112723_site_content.sql && echo "重跑 OK"
+docker exec -i m-site-content psql -U postgres -qtA -c "
   select grantee||': '||table_name||' = '||string_agg(privilege_type,',' order by privilege_type)
   from information_schema.role_table_grants
   where grantee in ('anon','authenticated') and table_name in ('site_news','site_members')
   group by grantee, table_name;"
-if docker exec -i m048 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+if docker exec -i m-site-content psql -U postgres -v ON_ERROR_STOP=1 -q -c \
   "insert into site_members (no, is_revealed, name, photo_url, specialty_ja, expected_reveal_on)
    values (12, true, ' ', '/p.webp', 'ok', '2026-12-01');"; then
   echo 'ERROR: revealed blank name was accepted' >&2; exit 1
 else
   echo 'OK: revealed blank name rejected'
 fi
-if docker exec -i m048 psql -U postgres -v ON_ERROR_STOP=1 -q -c \
+if docker exec -i m-site-content psql -U postgres -v ON_ERROR_STOP=1 -q -c \
   "insert into site_members (no, is_revealed, name, photo_url, specialty_ja)
    values (11, false, null, null, null);"; then
   echo 'ERROR: unrevealed null schedule was accepted' >&2; exit 1
 else
   echo 'OK: unrevealed null schedule rejected'
 fi
-docker rm -f m048
+docker rm -f m-site-content
 ```
 
 Expected：第二次应用输出 `重跑 OK`；anon 零行；authenticated 两张表各只有 `SELECT`
-（**特别确认没有 TRUNCATE** —— 它不受 RLS 约束，是 046 实跑时抓到的坑）。
+（**特别确认没有 TRUNCATE** —— 它不受 RLS 约束，是既有 RLS 实跑曾抓到的坑）。
 
 - [ ] **Step 6: 注册测试 + Commit**
 
@@ -922,20 +923,33 @@ for (const [locale, split] of Object.entries(splitters)) {
 ```
 
 `site-content-seed-data.mjs` 必须自包含地导出规格 §3.4 的完整 `NEWS_SEED` 与 `MEMBER_SEED`：
-`NEWS_SEED` 每项包含 slug、图片路径、published_on、tag，以及四篇文章的完整 ja/zh/en
+`NEWS_SEED` 每项包含 slug、可空图片路径、published_on、tag、category，以及五篇文章的完整 ja/zh/en
 `title`、`lead`、`body`；`MEMBER_SEED` 包含 8 个成员的 `no`、罗马字 `name`、图片路径和 ja/zh/en
 原始 role。不得从 `messages/*.json`、`src/lib/site/news.ts` 或 `content.ts` 导入；后续删除 UI key
 或私有常量不会影响 seed。ja/zh 的 role 用全角 `／`，en 用 ASCII `/`，三种解析规则必须分别
 写在脚本中。任何一条不能恰好拆成两段都要以非零码停止，不能猜测或继续写库。
+
+新闻 metadata 必须与当前代码逐项对应，不能再按数组下标把旧内容错配给新 slug：
+
+| slug | published_on | tag | category | image_url |
+|---|---|---|---|---|
+| `mc-character-tech-partnership` | `2026-08-12` | `PROJECT` | `project` | `/site/mc-character-expressions.webp` |
+| `operations-partner-announced` | `2026-08-10` | `PROJECT` | `project` | `/site/operations-partner-lockup.webp` |
+| `first-recruitment-round` | `2026-08-01` | `RECRUIT` | `recruit` | `/site/shin-osaka-station.webp` |
+| `echoamp-launch` | `2026-07-21` | `PROJECT` | `project` | `/site/moondollz-silhouettes.webp` |
+| `moondollz-launch` | `2026-05-01` | `PROJECT` | `project` | `/site/moondollz-key.webp` |
 
 - [ ] **Step 2: 写脚本**
 
 读 `site-content-seed-data.mjs` 的 fixture，用 `SUPABASE_SERVICE_ROLE_KEY` 写库，幂等（新闻按
 `slug` upsert、成员按 `no` upsert）。脚本只从 fixture 读取图片和原始内容，不依赖任何私有展示常量。
 
-- 新闻：fixture 四个 slug；日期 `"2026.10.01"` → `published_on` `"2026-10-01"`
-  （`.replaceAll('.', '-')`）；`body: string[]` → `body_*` 用 `\n\n` 连接；tag 必须是
-  `RECRUIT|PROJECT|LIVE`；`is_published = true`。
+- 新闻：fixture 的 slug 集合必须与当前 `NEWS_SLUGS` 完全一致：`mc-character-tech-partnership`、
+  `operations-partner-announced`、`first-recruitment-round`、`echoamp-launch`、`moondollz-launch`；日期
+  `"2026.08.12"` → `published_on` `"2026-08-12"`（`.replaceAll('.', '-')`）；`body: string[]` → `body_*`
+  用 `\n\n` 连接；tag 必须是 `RECRUIT|PROJECT|LIVE`，category 必须是 `project|recruit`，`is_published = true`。
+  当前五项的 category 依次为 `project`、`project`、`recruit`、`project`、`project`。`image_url` 可为
+  `null`；当前 fixture 的五项均使用现有 `/site/*.webp`，以后缺图时保持 `null`，由官网占位框渲染。
 - 成员：fixture 的 8 条写入 `is_revealed = true`；分别用 ja/zh/en splitter 生成
   `name_ja`、`name_en`、`specialty_ja`、`specialty_zh`、`specialty_en`；9–12 号写入
   `is_revealed = false`、`expected_reveal_on = '2026-12-01'`，不能写 NULL。
@@ -947,8 +961,8 @@ for (const [locale, split] of Object.entries(splitters)) {
 
 - [ ] **Step 3: 对本地/测试库跑两次，确认幂等**
 
-Expected：第二次跑完 `select count(*) from site_news` = 4、`site_members` = 12，与第一次相同；
-并再次通过上述 12 行逐字段断言。
+Expected：第二次跑完 `select count(*) from site_news` = 5、`site_members` = 12，与第一次相同；
+并再次通过上述 12 行逐字段断言，以及新闻 slug 集合、category 和可空图片字段的回读断言。
 
 - [ ] **Step 4: Commit**
 
@@ -1036,7 +1050,7 @@ export function sortNews<T extends NewsOrderable>(rows: T[]): T[] {
 }
 
 /**
- * 与迁移 048 里 site_news.slug 的 check 约束**同一条规则**，两边改必须一起改。
+ * 与 `20260814112723_site_content.sql` 里 site_news.slug 的 check 约束**同一条规则**，两边改必须一起改。
  * 前置校验存在的意义是给出字段级错误，而不是让用户撞一个数据库约束错误。
  */
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
@@ -1059,16 +1073,15 @@ Expected: PASS
   不通过返回 403。
 
 `PATCH` 支持部分字段（含 `is_pinned` / `is_published`）。
-**每个写方法成功后逐一失效三个 locale 的内部源路径**，不要使用动态路由模式，也不要依赖官网域名
+**每个写方法成功后遍历 `PUBLIC_SITE_LOCALES` 逐一失效官网语言的内部源路径**，不要使用动态路由模式，也不要依赖官网域名
 rewrite：
 
 ```ts
 import { revalidatePath } from 'next/cache'
-
-const SITE_LOCALES = ['zh', 'en', 'ja'] as const
+import { PUBLIC_SITE_LOCALES } from '@/lib/site/domain-routing'
 
 function revalidateNewsPages(slug: string): void {
-  for (const locale of SITE_LOCALES) {
+  for (const locale of PUBLIC_SITE_LOCALES) {
     revalidatePath(`/${locale}/site`)
     revalidatePath(`/${locale}/site/news`)
     revalidatePath(`/${locale}/site/news/${slug}`)
@@ -1086,11 +1099,12 @@ function revalidateNewsPages(slug: string): void {
 
 仓库已有 `zod`，用它解析 JSON；禁止把 `body` 直接 spread 到 Supabase。所有文本字段先
 `trim()`，必填字段 trim 后为空则返回字段错误；选填文本 trim 后为空统一转为 `null`；日期、URL、
-slug、tag、布尔值和枚举分别校验，校验规则与 048 的 check 一致。
+slug、tag、category、布尔值和枚举分别校验，校验规则与 `20260814112723_site_content.sql` 的 check 一致。
 
-- news create 只允许 `slug`、`tag`、`published_on`、`is_pinned`、`is_published`、`image_url`、
-  `title_ja/zh/en`、`lead_ja/zh/en`、`body_ja/zh/en`；ja 的 title/lead/body 必填，slug 新建后
-  不可修改；`is_pinned` 缺省为 `false`、`is_published` 缺省为 `true`；
+- news create 只允许 `slug`、`tag`、`category`、`published_on`、`is_pinned`、`is_published`、`image_url`、
+  `title_ja/zh/en`、`lead_ja/zh/en`、`body_ja/zh/en`；ja 的 title/lead/body 与 category 必填，category
+  只能是 `project|recruit`，slug 新建后不可修改；`is_pinned` 缺省为 `false`、`is_published` 缺省为 `true`；
+- `image_url` 的空白统一写为 `null`，表示缺图并由官网占位框显示；不得从其他新闻复制图片来规避空值。
 - news patch 只允许上述字段中的可编辑字段，客户端传入的 `created_by_user_id`、
   `updated_by_user_id`、`id`、`created_at`、`updated_at` 一律拒绝或忽略；`is_published` 只有
   通过 `is_admin` 写权限检查的 PATCH 才能改变，非管理员不能靠请求体伪造发布状态；
@@ -1113,13 +1127,15 @@ slug、tag、布尔值和枚举分别校验，校验规则与 048 的 check 一�
 1. 未登录 `GET` 返回 401；未登录 `POST/PATCH/DELETE` 也分别返回 401；
 2. 已登录但 `is_admin=false` 的用户：GET 返回 200；任何写请求返回 403，尝试提交
    `is_published: true` 后数据库原值不变；
-3. `is_admin=true` 的用户可创建新闻，返回 201，写入的两个审计字段均为该 actor.id；
+3. `is_admin=true` 的用户可创建 `category: 'recruit'` 的新闻，返回 201，写入的两个审计字段均为该 actor.id，
+   category 原样入库；`category: 'other'` 返回 400，数据库不产生部分记录；`image_url` 为空白时写入 `null`，
+   不自动复制任何已有图片；
 4. 管理员 PATCH 下架新闻成功；请求同时携带攻击者的 `created_by_user_id` /
    `updated_by_user_id`，返回 400（或稳定忽略结果），数据库不出现攻击者 UUID；
 5. PATCH 传入未知字段、slug 修改、必填字段全空白分别返回 400，数据库没有部分更新；
 6. 管理员 PATCH 已公开成员时，空白 `name`、`photo_url` 或 `specialty_ja` 返回 400；未公开成员
    缺少 `expected_reveal_on` 也返回 400；数据库中不出现不完整卡位；
-7. 下架后调用官网详情 loader/production 页面请求，详情返回 404；同时断言三个 locale 的
+7. 下架后调用官网详情 loader/production 页面请求，详情返回 404；同时断言 `PUBLIC_SITE_LOCALES` 的每个
    列表、首页、详情内部源路径都被记录为 stale。
 
 若采用黑盒验证，使用 `next build && next start` 启动临时端口，向测试数据库写入 fixture，
@@ -1133,7 +1149,7 @@ helper 返回值。
 
 - [ ] **Step 9: 后台列表页 + 侧边栏**
 
-`site-content/news/page.tsx`：`Header`(title+sub+actions) → `StatBand` → `SectionCard` + `RecordRow × n`；行内切置顶与上下架；已下架整行降调 + `Tag`；删除走 `Modal` + `danger` Button + 一句话说明不可逆；编辑用页内 `SectionCard` + `Field` 单列，zh/en 段默认折叠。三态齐全。
+`site-content/news/page.tsx`：`Header`(title+sub+actions) → `StatBand` → `SectionCard` + `RecordRow × n`；行内切置顶与上下架；已下架整行降调 + `Tag`；删除走 `Modal` + `danger` Button + 一句话说明不可逆；编辑用页内 `SectionCard` + `Field` 单列，包含 `project|recruit` 的 category 选择、可清空主图和 zh/en 默认折叠的三语段。category 是详情 CTA 的行为字段，不能从 tag 自动推导。三态齐全。
 `Sidebar.tsx` 的 `NAV` 加「官网内容」分组，放在「创作者」组之后：引入实际存在的新闻和成员
 图标（例如 `Newspaper`、`UsersRound`），加入 `siteContent` 一级 key 及两个 child key。
 因为 `NAV_ACCENT` 的类型是 `Record<TopNavKey, Accent>`，必须同时补
@@ -1169,11 +1185,11 @@ git add -A && git commit -m "feat(admin): 新闻后台管理"
 
 - [ ] **Step 1: 改 `news.ts`**
 
-删 `NEWS_SLUGS` / `NEWS_IMAGES` / `buildArticles` / `findArticle` 的 i18n 版本，改为从库行构造 `SiteArticle`（三语字段走 `pickLocaleText`，`body` 按 `\n\n` 切回段落数组）。`news.test.ts` 改写为「库行 → SiteArticle」的测试。
+删 `NEWS_SLUGS` / `NEWS_IMAGES` / `NEWS_CATEGORIES` / `buildArticles` / `findArticle` 的 i18n 版本，改为从库行构造 `SiteArticle`（三语字段走 `pickLocaleText`，`body` 按 `\n\n` 切回段落数组，`image_url = null` 保持为缺图）。`news.test.ts` 改写为「库行 → SiteArticle」的测试，覆盖 `category: 'recruit'` 仍会交给 CTA 判定，以及 `image_url: null` 不被改写为其他文章的图片。
 
 - [ ] **Step 2: 三个页面改读库**
 
-列表 / 详情 / 首页最新三条都查 `is_published = true`；`generateStaticParams` 只返回已发布 slug（**下架文章的详情页应 404，而不是旧链接还能打开**）。加 ISR 配置。
+列表 / 详情 / 首页最新三条都查 `is_published = true`；`generateStaticParams` 只返回已发布 slug（**下架文章的详情页应 404，而不是旧链接还能打开**）。详情页把库行的 `category` 传给 `shouldShowNewsApply()`，只有 `category === 'recruit'` 才显示文末「去应募」CTA；不能再从已删除的 `NEWS_CATEGORIES` 或展示 tag 推断。加 ISR 配置。
 
 - [ ] **Step 3: 先验证读库正常，再删 key**
 
@@ -1213,12 +1229,13 @@ git add -A && git commit -m "feat(site): 新闻改为读库 + ISR"
 
 `GET` 返回 12 个卡位（按 `no` 升序），登录即可；`PATCH /[no]` 改单个卡位，仅 `is_admin`。
 读写分开的判定与 Task 9 一致。写成功后
-逐一失效三个 locale 的内部源路径：
+遍历 `PUBLIC_SITE_LOCALES` 逐一失效官网语言的内部源路径：
 
 ```ts
 import { revalidatePath } from 'next/cache'
+import { PUBLIC_SITE_LOCALES } from '@/lib/site/domain-routing'
 
-for (const locale of ['zh', 'en', 'ja'] as const) {
+for (const locale of PUBLIC_SITE_LOCALES) {
   revalidatePath(`/${locale}/site`)
   revalidatePath(`/${locale}/site/vision`)
 }
@@ -1334,13 +1351,15 @@ git add -A && git commit -m "feat(site): 成员网格改为读库 + ISR"
 ## 交付前检查清单
 
 - [ ] `npx tsc --noEmit` / `npm test` / `npm run test:copy` 全绿
-- [ ] 迁移 047/048/049 都在一次性容器上跑过，且**重跑一次不报错**；迁移 050 只在 Task 1
-      Step 5 的 contract 判据满足后执行，并单独验证 default 已移除
+- [ ] `20260814112722_site_applications_kinds.sql`、`20260814112723_site_content.sql`、
+      `20260814112724_site_media_bucket.sql` 都在一次性容器上跑过，且**重跑一次不报错**；
+      `20260814112725_site_applications_kinds_contract.sql` 只在 Task 1 Step 5 的 contract 判据满足后
+      单独执行，并验证 default 已移除
 - [ ] `site_news` / `site_members` 上 anon 零权限、authenticated 只有 SELECT（**确认没有 TRUNCATE**）
-- [ ] 搬迁脚本跑过两次，行数不变（news=4、members=12）
+- [ ] 搬迁脚本跑过两次，行数不变（news=5、members=12），五个 slug、category 和可空图片字段回读无误
 - [ ] 搬迁脚本回读断言通过：8 个已公开行的 `name_ja`、`name_en`、三种 `specialty_*` 精确匹配，
       9–12 行均为未公开且 `expected_reveal_on = '2026-12-01'`
-- [ ] 048 的已公开空白字段、未公开 NULL 日期负例均由“命令意外成功即失败”的脚本拦截
+- [ ] `20260814112723_site_content.sql` 的已公开空白字段、未公开 NULL 日期负例均由“命令意外成功即失败”的脚本拦截
 - [ ] 内容 API 集成测试覆盖 401/403/管理员成功、白名单与审计字段、下架详情 404；普通登录用户
       的后台写控件隐藏或禁用
 - [ ] 官网三语切换下 news 列表/详情、vision 成员网格渲染正确
