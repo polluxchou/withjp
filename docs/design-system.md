@@ -73,6 +73,10 @@
 | 财务预测视角 | 公开 success · 私有 neutral · 归属徽章 neutral |
 | 财务预测年份卡 | 本年 violet（`AnnualOverview` 年份卡的「本年」标记） |
 | 讨论 | 进行中 open info · 已结束 resolved success（PR4 Task 2 登记：与任务/战略节点的"进行中"、任务/工时任务的"已完成"同色系，非阻断性正向终态） |
+| 应募职能（site_applications.kind） | 主播 creator violet · 摄影师 photographer info · 化妆师 makeup warning · 团播运营 group_live_ops success（Task 4 登记：官网应募页 RecordRow 的职能 Tag，区分投递角色而非生命周期状态，独立于"创作者生命周期"域） |
+| 新闻发布状态（site_news.is_published，非枚举，二态布尔） | 已发布 success · 已下架 danger（Task 9 登记：后台新闻列表 RecordRow 的状态点 + 下架 Tag，下架代表已从官网移除，非生命周期状态） |
+| 新闻置顶标记（site_news.is_pinned，非枚举，二态布尔） | 置顶 violet（Task 9 登记：与财务预测年份卡"本年"同色系，标记态而非状态） |
+| 成员卡位公开状态（site_members.is_revealed，非枚举，二态布尔） | 已公开 success · 未公开 neutral（Task 11 登记：后台成员卡位网格的状态 Tag；未公开是"待揭晓"的正常过渡态而非失败/风险，不用 warning/danger） |
 
 > DevicePaymentStatus 与 ExpensePaymentStatus 同构，直接用 expense 域；VenueItemStatus 待 PR2/PR3 迁移对应界面时登记。
 
@@ -164,6 +168,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **ProgressBar** `value` `max` `label` `tone`；`tone` 仅 `default|warning`，>90% 自动 warning；`label` 必填
 - **可访问性底线**：所有交互组件可键盘到达；Modal/Drawer 焦点圈定；Tag dot 变体必带文字；色彩不作为唯一信息通道
 - **Header（PageHeader）**`src/components/layout/Header.tsx`，登记例外见本节开头 `title` `subtitle` `actions` `tabs` `search`；标题 `text-xl sm:text-2xl font-bold tracking-title text-ink-900`；`tabs` 渲染在标题区下方，`search` 渲染在 `actions` 前（同一 flex 行）；三者均可选，页面按需组合（§6.3 列表页模式）
+- **ImageUploadField**（Task 9 新建）`value: string | null` `onChange(url: string): void` `label: string` `hint?: string` `error?: string`；内部用 `Field` 包裹，上传打 `/api/site/upload`（已走 `canEditSiteContent`，本组件不重复鉴权）；`onChange('')` 表示"清空图片"，调用方在提交时把空字符串当 `null` 处理，与其他可选文本字段"trim 后为空转 null"走同一套约定；组件自身的上传态/上传失败态显示在 `Field` 的 `error` 位（优先于调用方传入的 `error`，因为上传失败更紧迫）
 
 ### 6.3 页面模式（骨架级复用）
 

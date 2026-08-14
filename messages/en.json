@@ -26,7 +26,18 @@
     "retry": "Retry",
     "loadFailed": "Failed to load. Please retry.",
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "uploadImage": "Upload Image",
+    "lastSaved": "Last saved {time}",
+    "uploadErrors": {
+      "forbidden": "You do not have permission to perform this action",
+      "invalid_form_data": "The upload data was malformed",
+      "file_required": "Please choose a file to upload",
+      "invalid_type": "Only PNG/JPEG/WebP/GIF images are supported",
+      "file_too_large": "Images must be 5MB or smaller",
+      "upload_failed": "Upload failed, please try again later",
+      "unknown": "Upload failed, please try again later"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -52,7 +63,10 @@
     "logout": "Logout",
     "appName": "Creator Network",
     "appSubtitle": "AI Operating System",
-    "recruitApplications": "Site applications"
+    "recruitApplications": "Site applications",
+    "siteContent": "Site Content",
+    "siteContentNews": "News",
+    "siteMembers": "Members"
   },
   "language": {
     "zh": "中文",
@@ -1818,56 +1832,7 @@
       "back": "← Back to NEWS",
       "backCta": "All NEWS",
       "applyCta": "APPLY NOW",
-      "imagePlaceholder": "Article hero image",
-      "articles": [
-        {
-          "date": "2026.08.12",
-          "tag": "PROJECT",
-          "title": "3D Avatar Technology Team to Create Dedicated MC Characters for EchoAmp",
-          "lead": "EchoAmp will work with an experienced 3D avatar technology team from China’s live-streaming industry to develop dedicated character solutions for its MC roles.",
-          "body": [
-            "The collaboration will integrate character design, real-time motion, voice performance, and live interaction, enabling MCs to appear consistently through distinctive virtual identities. The project will also explore new formats that combine live performers, virtual characters, and real-time streaming."
-          ]
-        },
-        {
-          "date": "2026.08.10",
-          "tag": "PROJECT",
-          "title": "EchoAmp Announces Its First Operations Partner, 吉光片羽株式会社",
-          "lead": "EchoAmp will enter into a close partnership with 吉光片羽株式会社, a media company with established experience in MCN operations and creator management.",
-          "body": [
-            "The two companies will collaborate across talent management, content operations, on-site execution, and creator development. EchoAmp will lead the team’s overall brand and direction while combining its capabilities with its partner’s local operational experience in Japan."
-          ]
-        },
-        {
-          "date": "2026.08.01",
-          "tag": "RECRUIT",
-          "title": "EchoAmp to Begin Its First Recruitment Round in Mid-September, Seeking Six Members",
-          "lead": "EchoAmp will begin its first team recruitment round in Osaka in mid-September 2026, with six female creators planned for the initial lineup.",
-          "body": [
-            "Recruitment will focus on singing, dance, on-camera presence, and a strong commitment to live performance. Selected members will take part in training, choreography, and live-streaming practice while helping shape the style and culture of EchoAmp’s first performance team."
-          ]
-        },
-        {
-          "date": "2026.07.21",
-          "tag": "PROJECT",
-          "title": "EchoAmp Launches in Osaka with Plans to Build a Female Singing and Dancing Live Team",
-          "lead": "EchoAmp has officially launched its Creator Network project in Osaka.",
-          "body": [
-            "Centered on singing, dance, and live performance, the project will discover female creators with strong potential and bring them together as a dedicated live-streaming team. Through training, content production, and continuous live shows, EchoAmp aims to build a distinctive team style, culture, and fan community around live streaming as a stage of its own."
-          ]
-        },
-        {
-          "date": "2026.05.01",
-          "tag": "PROJECT",
-          "title": "EchoAmp Announces New Dual-Captain Singing and Dance Group",
-          "lead": "We announced MOONDOLLZ, a dual-captain singing and dance group.",
-          "body": [
-            "MOON is the dreamlike, nocturnal and mysterious; DOLLZ is the sense of a troupe where every member carries her own style; the closing Z is the temperature of Y2K and streetwear. The name stacks all three.",
-            "Sub-units are run with distinct character settings while debuting together as one group. The captains are Ayatsuki (MOON SIDE) and Yukiha (DOLLZ SIDE).",
-            "Members will be revealed progressively in October and December."
-          ]
-        }
-      ]
+      "imagePlaceholder": "Article hero image"
     },
     "vision": {
       "eyebrow": "VISION ／ 2027",
@@ -1920,7 +1885,6 @@
       "eyebrow": "MEMBERS ／ MOONDOLLZ",
       "title": "MOONDOLLZ",
       "sub": "Two captains. Sub-units carry distinct character settings, then debut together as one group.",
-      "note": "* Members revealed progressively in October and December",
       "placeholder": "MEMBER",
       "captains": [
         {
@@ -1937,41 +1901,7 @@
         }
       ],
       "unrevealedName": "— NOT YET REVEALED —",
-      "unrevealedRole": "Revealed in December",
-      "list": [
-        {
-          "name": "KANO",
-          "role": "Kano / The trap of a fragile smile"
-        },
-        {
-          "name": "MIKOTO",
-          "role": "Mikoto / The graceful blade"
-        },
-        {
-          "name": "LULU",
-          "role": "Lulu / A burst of pink light"
-        },
-        {
-          "name": "CHIYO",
-          "role": "Chiyo / Lone star dancing a thousand nights"
-        },
-        {
-          "name": "AKAYA",
-          "role": "Akaya / Strong cherry blossom of the court"
-        },
-        {
-          "name": "YUMEKI",
-          "role": "Yumeki / The voice that weaves illusions"
-        },
-        {
-          "name": "SHINO",
-          "role": "Shino / Noble and dangerous temptress"
-        },
-        {
-          "name": "HIMENE",
-          "role": "Himene / A princess born for sound"
-        }
-      ]
+      "unrevealedScheduleUnknown": "— Reveal date TBD —"
     },
     "live": {
       "eyebrow": "TIKTOK LIVE",
@@ -2150,15 +2080,61 @@
         }
       }
     },
+    "recruitStaff": {
+      "eyebrow": "STAFF RECRUIT ／ OPENINGS",
+      "title": "For those behind the lens, behind the makeup, and behind the live-stream operations.",
+      "lead": "We're recruiting photographers, makeup artists, and group-stream operators — submit your details below.",
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "Name",
+        "contact": "Contact",
+        "contactHint": "LINE ID, email, or a social handle",
+        "email": "Email",
+        "kind": "Role you'd like to join",
+        "kindOptions": {
+          "photographer": "Photographer",
+          "makeup": "Makeup artist",
+          "group_live_ops": "Group-stream operations"
+        },
+        "residence": "Location (optional)",
+        "commuteMode": "Commute",
+        "commuteModeOptions": {
+          "subway": "Train",
+          "bicycle": "Bicycle",
+          "walk": "On foot",
+          "car": "Car"
+        },
+        "consent": "I agree that the company may use the information above for recruitment purposes.",
+        "submit": "Submit",
+        "submitting": "Submitting…",
+        "successTitle": "Thanks for applying.",
+        "successBody": "We'll review your submission and get back to you soon.",
+        "errors": {
+          "required": "Required",
+          "tooLong": "Too long",
+          "invalidEmail": "Enter a valid email address",
+          "consent": "Your consent is required",
+          "rateLimited": "Too many submissions right now. Please try again shortly.",
+          "network": "Could not send. Check your connection and try again."
+        }
+      }
+    },
     "contact": {
       "eyebrow": "CONTACT",
       "title": "GET IN TOUCH",
       "sections": [
         {
-          "no": "01", "eyebrow": "FOR CREATOR", "title": "For applicants",
+          "no": "01",
+          "eyebrow": "FOR CREATOR",
+          "title": "For applicants",
           "body": "For auditions, lessons and activity terms. Chiron handles recruiting and offline operations; LINE is the fastest way to reach us.",
-          "cta": "Ask us on LINE", "action": "recruit", "partner": "Operating Entity",
-          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "cta": "Ask us on LINE",
+          "action": "recruit",
+          "partner": "Operating Entity",
+          "brand": {
+            "primary": "Chiron",
+            "secondary": "カイロン株式会社"
+          },
           "rows": [
             { "label": "Company", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
             { "label": "Founded / location", "value": "2021年／大阪市淀川区" },
@@ -2168,9 +2144,13 @@
           ]
         },
         {
-          "no": "02", "eyebrow": "FOR COMPANION", "title": "Production & operations partner",
+          "no": "02",
+          "eyebrow": "FOR COMPANION",
+          "title": "Production & operations partner",
           "body": "Our partner for hair and makeup, location shoots, group-stream operations training and AIGC content production.",
-          "note": "Contact desk coming soon", "partner": "PRODUCTION PARTNER",
+          "cta": "See staff openings",
+          "action": "staff-recruit",
+          "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "Company", "value": "吉光片羽株式会社" },
             { "label": "Founded / location", "value": "2019年／西宮市" },
@@ -2181,13 +2161,26 @@
           ]
         },
         {
-          "no": "03", "eyebrow": "FOR CLIENT", "title": "For Businesses & Brands",
+          "no": "03",
+          "eyebrow": "FOR CLIENT",
+          "title": "For Businesses & Brands",
           "body": "For music production, mascot costume technology, commercial livestreaming, advertising partnerships, or reports of misconduct and compliance concerns, please contact us by email.",
-          "cta": "business@echoamp.jp", "action": "email",
+          "cta": "business@echoamp.jp",
+          "action": "email",
           "rows": [
-            { "label": "Services", "value": "Music production / mascot costume technology / commercial livestreaming / advertising partnerships / misconduct and compliance reports" },
-            { "label": "Contact", "value": "business@echoamp.jp", "link": "email" },
-            { "label": "Hours", "value": "Weekdays 10:00–19:00 (JST) / Japanese & Chinese" }
+            {
+              "label": "Services",
+              "value": "Music production / mascot costume technology / commercial livestreaming / advertising partnerships / misconduct and compliance reports"
+            },
+            {
+              "label": "Contact",
+              "value": "business@echoamp.jp",
+              "link": "email"
+            },
+            {
+              "label": "Hours",
+              "value": "Weekdays 10:00–19:00 (JST) / Japanese & Chinese"
+            }
           ]
         }
       ],
@@ -2230,19 +2223,152 @@
   "recruitApplications": {
     "title": "Site applications",
     "subtitle": "Entries from the public site's RECRUIT form (read-only)",
+    "tabsLabel": "Application category",
+    "tabs": {
+      "creator": "Creators",
+      "staff": "Staff roles"
+    },
     "totalLabel": "Total",
     "newLabel": "Unhandled",
     "todayLabel": "Today",
     "listTitle": "Entries",
     "empty": "No applications yet",
+    "emptyHint": "New submissions from the public recruitment page will appear here automatically",
+    "notProvided": "—",
+    "kinds": {
+      "creator": "Creator",
+      "photographer": "Photographer",
+      "makeup": "Makeup artist",
+      "group_live_ops": "Group-live ops"
+    },
+    "commuteModes": {
+      "subway": "Subway",
+      "bicycle": "Bicycle",
+      "walk": "Walk",
+      "car": "Car"
+    },
     "columns": {
-      "date": "Received",
-      "name": "Name",
       "age": "Age",
-      "residence": "Lives in",
-      "contact": "Contact",
-      "locale": "Language",
-      "experience": "Experience / socials"
+      "email": "Email",
+      "commuteMode": "Commute"
+    }
+  },
+  "siteNews": {
+    "title": "Site Content · News",
+    "subtitle": "Manage the public site's news list: pinning, publish state, and trilingual content",
+    "listTitle": "News List",
+    "add": "New Article",
+    "addTitle": "New Article",
+    "editTitle": "Edit Article",
+    "formSubtitle": "Japanese content is required; Chinese/English fall back to Japanese on the site when left blank",
+    "empty": "No articles yet",
+    "emptyHint": "Create the first article",
+    "statTotal": "Total Articles",
+    "statPublished": "Published",
+    "statUnpublished": "Unpublished",
+    "pinnedTag": "Pinned",
+    "unpublishedTag": "Unpublished",
+    "viewOnSite": "View on site",
+    "actionPin": "Pin",
+    "actionUnpin": "Unpin",
+    "actionPublish": "Publish",
+    "actionUnpublish": "Unpublish",
+    "deleteTitle": "Delete article",
+    "deleteWarning": "This cannot be undone: \"{title}\" will be permanently removed from the database.",
+    "fieldSlug": "Slug",
+    "fieldSlugImmutable": "Cannot be changed after creation",
+    "fieldCategory": "Category",
+    "fieldCategoryHint": "Controls whether the \"Apply\" CTA shows at the end of the article — distinct from the tag on the right",
+    "fieldTag": "Tag",
+    "fieldPublishedOn": "Published on",
+    "fieldPinned": "Pin to top",
+    "fieldPublished": "Publish immediately",
+    "fieldImage": "Cover image",
+    "fieldImageHint": "Leave blank to show the placeholder on the site",
+    "fieldTitle": "Title",
+    "fieldLead": "Lead",
+    "fieldBody": "Body",
+    "sectionJa": "Japanese content (required)",
+    "sectionZh": "Chinese content (optional, expand to edit)",
+    "sectionEn": "English content (optional, expand to edit)",
+    "category": {
+      "project": "Project",
+      "recruit": "Recruit"
+    },
+    "tag": {
+      "RECRUIT": "Recruit",
+      "PROJECT": "Project",
+      "LIVE": "Live"
+    },
+    "errors": {
+      "forbidden": "You do not have permission to perform this action",
+      "forbidden_field": "The request includes a field the client is not allowed to set",
+      "validation": "Form validation failed — please check the fields",
+      "invalid_json": "The request was malformed",
+      "not_found": "The record does not exist or has been removed",
+      "db_error": "Server error, please try again later",
+      "unknown": "Save failed, please try again later"
+    },
+    "fieldErrors": {
+      "required": "This field is required",
+      "too_long": "This exceeds the maximum length",
+      "invalid_slug": "Invalid format: only lowercase letters, numbers, and hyphens are allowed",
+      "invalid_date": "Invalid date format",
+      "invalid_image_url": "This image address is not supported",
+      "duplicate": "This is already in use — please choose another",
+      "invalid": "This value does not meet the requirements",
+      "empty_patch": "No changes were detected to save"
+    }
+  },
+  "siteMembers": {
+    "title": "Site Content · Members",
+    "subtitle": "Manage the 12 member slots: reveal state, photo, and trilingual profile",
+    "listTitle": "Member Slots",
+    "viewOnSite": "View on site",
+    "editTitle": "Edit slot · {name}",
+    "formSubtitle": "Revealed slots require a romanized name, photo, and Japanese specialty; unrevealed slots require an expected reveal date",
+    "cardNo": "Slot {no}",
+    "unnamedCard": "Not yet named",
+    "revealedTag": "Revealed",
+    "unrevealedTag": "Unrevealed",
+    "expectedReveal": "Expected reveal: {date}",
+    "expectedRevealUnset": "No expected reveal date set",
+    "edit": "Edit",
+    "fieldRevealedOn": "Reveal this slot now",
+    "fieldExpectedRevealOn": "Expected reveal date",
+    "fieldExpectedRevealOnHint": "Required for unrevealed slots",
+    "fieldName": "Romanized name",
+    "fieldNameHint": "Card headline, e.g. KANO",
+    "fieldPhoto": "Photo",
+    "fieldPhotoHint": "Required for revealed slots",
+    "fieldNameJa": "Name (Japanese)",
+    "fieldSpecialtyJa": "Specialty (Japanese)",
+    "fieldSpecialtyJaHint": "Required for revealed slots",
+    "sectionBasic": "Basic info",
+    "sectionZh": "Chinese profile (optional, expand to edit)",
+    "sectionEn": "English profile (optional, expand to edit)",
+    "fieldNameZh": "Name (Chinese)",
+    "fieldNameEn": "Name (English)",
+    "fieldSpecialtyZh": "Specialty (Chinese)",
+    "fieldSpecialtyEn": "Specialty (English)",
+    "errors": {
+      "forbidden": "You do not have permission to perform this action",
+      "forbidden_field": "The request includes a field the client is not allowed to set",
+      "validation": "Form validation failed — please check the fields",
+      "invalid_json": "The request was malformed",
+      "invalid_no": "Invalid slot number",
+      "not_found": "The record does not exist or has been removed",
+      "db_error": "Server error, please try again later",
+      "unknown": "Save failed, please try again later"
+    },
+    "fieldErrors": {
+      "too_long": "This exceeds the maximum length",
+      "invalid_date": "Invalid date format",
+      "invalid_image_url": "This image address is not supported",
+      "invalid": "This value does not meet the requirements",
+      "required_when_revealed": "Required for revealed slots",
+      "required_when_unrevealed": "Required for unrevealed slots",
+      "empty_patch": "No changes were detected to save"
     }
   }
 }

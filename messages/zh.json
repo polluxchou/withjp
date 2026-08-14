@@ -26,7 +26,18 @@
     "retry": "重试",
     "loadFailed": "加载失败，请重试",
     "prev": "上一个",
-    "next": "下一个"
+    "next": "下一个",
+    "uploadImage": "上传图片",
+    "lastSaved": "最后保存于 {time}",
+    "uploadErrors": {
+      "forbidden": "没有权限执行此操作",
+      "invalid_form_data": "上传数据格式有误",
+      "file_required": "请选择要上传的文件",
+      "invalid_type": "仅支持 PNG/JPEG/WebP/GIF 图片",
+      "file_too_large": "图片不能超过 5MB",
+      "upload_failed": "上传失败，请稍后重试",
+      "unknown": "上传失败，请稍后重试"
+    }
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -52,7 +63,10 @@
     "logout": "退出登录",
     "appName": "Creator Network",
     "appSubtitle": "AI 运营系统",
-    "recruitApplications": "官网应募"
+    "recruitApplications": "官网应募",
+    "siteContent": "官网内容",
+    "siteContentNews": "新闻管理",
+    "siteMembers": "成员管理"
   },
   "language": {
     "zh": "中文",
@@ -1818,56 +1832,7 @@
       "back": "← 返回 NEWS 列表",
       "backCta": "NEWS 列表",
       "applyCta": "报名 ／ APPLY",
-      "imagePlaceholder": "文章主图",
-      "articles": [
-        {
-          "date": "2026.08.12",
-          "tag": "PROJECT",
-          "title": "3D 皮套人技术团队将为 EchoAmp MC 岗位打造专属角色服务",
-          "lead": "EchoAmp 将与具备丰富抖音直播项目经验的 3D 皮套人技术团队展开合作，为团队 MC 岗位开发专属角色与直播方案。",
-          "body": [
-            "双方将围绕角色造型、实时动作、声音表现与直播互动进行整合，让 MC 能够以稳定的角色形象持续参与团队直播。未来，该能力也将用于探索真人表演、虚拟角色与实时直播结合的新内容形式。"
-          ]
-        },
-        {
-          "date": "2026.08.10",
-          "tag": "PROJECT",
-          "title": "EchoAmp 公布首批运营合作伙伴，将与吉光片羽株式会社展开深度合作",
-          "lead": "EchoAmp 将与具备成熟 MCN 运营及创作者管理经验的吉光片羽株式会社展开深度合作。",
-          "body": [
-            "双方将围绕成员管理、内容运营、现场执行及创作者成长体系进行协作，共同完善从招募、训练到正式直播的线下运营体系。EchoAmp 将负责团队整体品牌与发展方向，并结合吉光片羽株式会社的本地运营经验，推动大阪唱跳直播团队的长期建设。"
-          ]
-        },
-        {
-          "date": "2026.08.01",
-          "tag": "RECRUIT",
-          "title": "EchoAmp 将于9月中旬启动首轮团队招募，计划招募6名成员",
-          "lead": "EchoAmp 计划于 2026 年 9 月中旬在大阪正式启动第一轮成员招募，首期计划招募 6 名女性创作者。",
-          "body": [
-            "招募将重点关注唱歌、舞蹈、镜头表现力以及持续参与直播的意愿。入选成员将参与统一训练、排舞与直播实践，并作为 EchoAmp 首支唱跳直播团队的核心成员，共同建立团队早期的表演风格与文化。"
-          ]
-        },
-        {
-          "date": "2026.07.21",
-          "tag": "PROJECT",
-          "title": "EchoAmp 项目正式启动，计划在大阪打造唱跳型女子直播团体",
-          "lead": "EchoAmp 正式启动大阪地区的 Creator Network 运营计划。",
-          "body": [
-            "项目将以唱歌、舞蹈与直播表演为核心，寻找具有表现力与成长潜力的女性创作者，并逐步组建稳定的女子直播团队。EchoAmp 希望把直播本身作为一种持续发生的舞台，通过训练、内容制作与长期直播，共同形成属于团队的表演风格、文化与粉丝群体。"
-          ]
-        },
-        {
-          "date": "2026.05.01",
-          "tag": "PROJECT",
-          "title": "EchoAmp 宣布双队长制歌唱与舞蹈团体企划启动",
-          "lead": "我们宣布双队长制的歌唱与舞蹈团体「MOONDOLLZ」正式启动。",
-          "body": [
-            "MOON 是梦幻、夜与神秘；DOLLZ 是每个人各有风格的「团体感」；结尾的 Z 是 Y2K 与街头的温度。团名由这三个词叠成。",
-            "按小单元区分人物设定分别运营，同时作为大团体共同出道。两位队长是绫月（MOON SIDE）与雪羽（DOLLZ SIDE）。",
-            "成员将于 10 月、12 月陆续公开。"
-          ]
-        }
-      ]
+      "imagePlaceholder": "文章主图"
     },
     "vision": {
       "eyebrow": "VISION ／ 2027",
@@ -1920,7 +1885,6 @@
       "eyebrow": "MEMBERS ／ MOONDOLLZ",
       "title": "MOONDOLLZ",
       "sub": "双队长制。按小单元区分人物设定，再作为大团体共同出道。",
-      "note": "※ 成员将于 10 月・12 月陆续公开",
       "placeholder": "MEMBER",
       "captains": [
         {
@@ -1937,41 +1901,7 @@
         }
       ],
       "unrevealedName": "— 尚未公开 —",
-      "unrevealedRole": "12 月公开",
-      "list": [
-        {
-          "name": "KANO",
-          "role": "花乃／易碎微笑的陷阱"
-        },
-        {
-          "name": "MIKOTO",
-          "role": "美琴／优雅之刃"
-        },
-        {
-          "name": "LULU",
-          "role": "露露／炸开的粉色闪光"
-        },
-        {
-          "name": "CHIYO",
-          "role": "千夜／千夜起舞的孤星"
-        },
-        {
-          "name": "AKAYA",
-          "role": "绫香／宫廷里盛放的强樱"
-        },
-        {
-          "name": "YUMEKI",
-          "role": "梦绮／编织幻象的声音"
-        },
-        {
-          "name": "SHINO",
-          "role": "紫乃／高贵而危险的诱惑者"
-        },
-        {
-          "name": "HIMENE",
-          "role": "姬音／为声音而生的公主"
-        }
-      ]
+      "unrevealedScheduleUnknown": "— 公开时间未定 —"
     },
     "live": {
       "eyebrow": "TIKTOK LIVE",
@@ -2150,15 +2080,61 @@
         }
       }
     },
+    "recruitStaff": {
+      "eyebrow": "STAFF RECRUIT ／ 其他招募",
+      "title": "给掌镜的人、上妆的人，以及撑起直播间的人。",
+      "lead": "面向摄影师、化妆师与团播运营的招募窗口，欢迎在此提交资料。",
+      "form": {
+        "eyebrow": "ENTRY FORM",
+        "name": "姓名",
+        "contact": "联系方式",
+        "contactHint": "LINE ID、邮箱或社交账号任一",
+        "email": "邮箱",
+        "kind": "希望参与职能",
+        "kindOptions": {
+          "photographer": "摄影师",
+          "makeup": "化妆师",
+          "group_live_ops": "团播运营"
+        },
+        "residence": "居住位置（选填）",
+        "commuteMode": "通勤方式",
+        "commuteModeOptions": {
+          "subway": "地铁",
+          "bicycle": "自行车",
+          "walk": "步行",
+          "car": "汽车"
+        },
+        "consent": "我同意公司为招募选拔目的使用以上信息。",
+        "submit": "提交",
+        "submitting": "提交中…",
+        "successTitle": "感谢你的报名。",
+        "successBody": "我们会在确认内容后尽快联系你。",
+        "errors": {
+          "required": "请填写",
+          "tooLong": "超出字数上限",
+          "invalidEmail": "请填写正确的邮箱地址",
+          "consent": "需要你的同意",
+          "rateLimited": "提交过于频繁，请稍后再试。",
+          "network": "提交失败，请检查网络后重试。"
+        }
+      }
+    },
     "contact": {
       "eyebrow": "CONTACT",
       "title": "联系我们",
       "sections": [
         {
-          "no": "01", "eyebrow": "FOR CREATOR", "title": "想报名的人",
+          "no": "01",
+          "eyebrow": "FOR CREATOR",
+          "title": "想报名的人",
           "body": "关于试镜、课程与活动条件。招募及线下运营由 Chiron 株式会社负责，通过 LINE 咨询最快。",
-          "cta": "用 LINE 咨询", "action": "recruit", "partner": "运营主体",
-          "brand": { "primary": "Chiron", "secondary": "カイロン株式会社" },
+          "cta": "用 LINE 咨询",
+          "action": "recruit",
+          "partner": "运营主体",
+          "brand": {
+            "primary": "Chiron",
+            "secondary": "カイロン株式会社"
+          },
           "rows": [
             { "label": "公司名称", "value": "カイロン株式会社（Chiron Co., Ltd.）" },
             { "label": "成立・所在地", "value": "2021年／大阪市淀川区" },
@@ -2168,9 +2144,13 @@
           ]
         },
         {
-          "no": "02", "eyebrow": "FOR COMPANION", "title": "制作与运营合作伙伴",
+          "no": "02",
+          "eyebrow": "FOR COMPANION",
+          "title": "制作与运营合作伙伴",
           "body": "负责妆发、外景拍摄、团体直播运营培训和 AIGC 内容制作的合作伙伴。",
-          "note": "咨询窗口正在准备中", "partner": "PRODUCTION PARTNER",
+          "cta": "查看招募详情",
+          "action": "staff-recruit",
+          "partner": "PRODUCTION PARTNER",
           "rows": [
             { "label": "公司名称", "value": "吉光片羽株式会社" },
             { "label": "成立・所在地", "value": "2019年／西宮市" },
@@ -2181,13 +2161,26 @@
           ]
         },
         {
-          "no": "03", "eyebrow": "客户合作", "title": "企业及品牌合作",
+          "no": "03",
+          "eyebrow": "客户合作",
+          "title": "企业及品牌合作",
           "body": "我们接受有关乐曲制作、皮套人技术、商业直播咨询、广告业务合作，以及不诚信行为与合规投诉的邮件联系。",
-          "cta": "business@echoamp.jp", "action": "email",
+          "cta": "business@echoamp.jp",
+          "action": "email",
           "rows": [
-            { "label": "内容", "value": "乐曲制作／皮套人技术／商业直播咨询／广告业务合作／不诚信行为与合规投诉" },
-            { "label": "联系方式", "value": "business@echoamp.jp", "link": "email" },
-            { "label": "服务时间", "value": "工作日 10:00–19:00（日本时间）／中文・日文" }
+            {
+              "label": "内容",
+              "value": "乐曲制作／皮套人技术／商业直播咨询／广告业务合作／不诚信行为与合规投诉"
+            },
+            {
+              "label": "联系方式",
+              "value": "business@echoamp.jp",
+              "link": "email"
+            },
+            {
+              "label": "服务时间",
+              "value": "工作日 10:00–19:00（日本时间）／中文・日文"
+            }
           ]
         }
       ],
@@ -2230,19 +2223,152 @@
   "recruitApplications": {
     "title": "官网应募",
     "subtitle": "对外官网 RECRUIT 表单的投递记录（只读）",
+    "tabsLabel": "投递分类",
+    "tabs": {
+      "creator": "主播投递",
+      "staff": "职能投递"
+    },
     "totalLabel": "投递总数",
     "newLabel": "待处理",
     "todayLabel": "今日新增",
     "listTitle": "投递列表",
     "empty": "还没有收到投递",
+    "emptyHint": "公开招募页收到新的投递后会自动显示在这里",
+    "notProvided": "—",
+    "kinds": {
+      "creator": "主播",
+      "photographer": "摄影师",
+      "makeup": "化妆师",
+      "group_live_ops": "团播运营"
+    },
+    "commuteModes": {
+      "subway": "地铁",
+      "bicycle": "自行车",
+      "walk": "步行",
+      "car": "自驾"
+    },
     "columns": {
-      "date": "时间",
-      "name": "姓名",
       "age": "年龄",
-      "residence": "居住地",
-      "contact": "联系方式",
-      "locale": "语言",
-      "experience": "经验・社交账号"
+      "email": "邮箱",
+      "commuteMode": "通勤方式"
+    }
+  },
+  "siteNews": {
+    "title": "官网内容 · 新闻",
+    "subtitle": "管理官网新闻列表：置顶、上下架与三语内容",
+    "listTitle": "新闻列表",
+    "add": "新建新闻",
+    "addTitle": "新建新闻",
+    "editTitle": "编辑新闻",
+    "formSubtitle": "日文内容必填，中文/英文缺省时官网回退显示日文",
+    "empty": "暂无新闻",
+    "emptyHint": "新建第一条新闻吧",
+    "statTotal": "新闻总数",
+    "statPublished": "已发布",
+    "statUnpublished": "已下架",
+    "pinnedTag": "置顶",
+    "unpublishedTag": "已下架",
+    "viewOnSite": "在官网查看",
+    "actionPin": "置顶",
+    "actionUnpin": "取消置顶",
+    "actionPublish": "上架",
+    "actionUnpublish": "下架",
+    "deleteTitle": "删除新闻",
+    "deleteWarning": "此操作不可撤销：删除后「{title}」将从数据库中永久移除。",
+    "fieldSlug": "路由标识（slug）",
+    "fieldSlugImmutable": "创建后不可修改",
+    "fieldCategory": "分类",
+    "fieldCategoryHint": "决定文末是否显示「去应募」按钮，与右侧标签不是一回事",
+    "fieldTag": "标签",
+    "fieldPublishedOn": "发布日期",
+    "fieldPinned": "置顶显示",
+    "fieldPublished": "立即发布",
+    "fieldImage": "主图",
+    "fieldImageHint": "留空则官网显示占位框",
+    "fieldTitle": "标题",
+    "fieldLead": "导语",
+    "fieldBody": "正文",
+    "sectionJa": "日文内容（必填）",
+    "sectionZh": "中文内容（选填，展开编辑）",
+    "sectionEn": "英文内容（选填，展开编辑）",
+    "category": {
+      "project": "项目",
+      "recruit": "招募"
+    },
+    "tag": {
+      "RECRUIT": "招募",
+      "PROJECT": "项目",
+      "LIVE": "直播"
+    },
+    "errors": {
+      "forbidden": "没有权限执行此操作",
+      "forbidden_field": "请求中包含不允许客户端提交的字段",
+      "validation": "表单校验未通过，请检查填写内容",
+      "invalid_json": "请求格式有误",
+      "not_found": "记录不存在或已被删除",
+      "db_error": "服务器出错，请稍后重试",
+      "unknown": "保存失败，请稍后重试"
+    },
+    "fieldErrors": {
+      "required": "此字段为必填项",
+      "too_long": "内容超出长度限制",
+      "invalid_slug": "格式不正确：仅允许小写字母、数字与连字符",
+      "invalid_date": "日期格式不正确",
+      "invalid_image_url": "图片地址不受支持",
+      "duplicate": "已被使用，请换一个",
+      "invalid": "填写内容不符合要求",
+      "empty_patch": "没有检测到需要保存的更改"
+    }
+  },
+  "siteMembers": {
+    "title": "官网内容 · 成员",
+    "subtitle": "管理 12 个成员卡位：公开状态、照片与三语资料",
+    "listTitle": "成员卡位",
+    "viewOnSite": "在官网查看",
+    "editTitle": "编辑卡位 · {name}",
+    "formSubtitle": "已公开卡位需要罗马字名、照片与日文特长；未公开卡位需要预计公开日期",
+    "cardNo": "编号 {no}",
+    "unnamedCard": "尚未命名",
+    "revealedTag": "已公开",
+    "unrevealedTag": "未公开",
+    "expectedReveal": "预计公开：{date}",
+    "expectedRevealUnset": "预计公开日期未设置",
+    "edit": "编辑",
+    "fieldRevealedOn": "立即公开此卡位",
+    "fieldExpectedRevealOn": "预计公开日期",
+    "fieldExpectedRevealOnHint": "未公开卡位必填",
+    "fieldName": "罗马字名",
+    "fieldNameHint": "卡片主标题，如 KANO",
+    "fieldPhoto": "照片",
+    "fieldPhotoHint": "已公开卡位必填",
+    "fieldNameJa": "姓名（日文）",
+    "fieldSpecialtyJa": "特长（日文）",
+    "fieldSpecialtyJaHint": "已公开卡位必填",
+    "sectionBasic": "基本信息",
+    "sectionZh": "中文资料（选填，展开编辑）",
+    "sectionEn": "英文资料（选填，展开编辑）",
+    "fieldNameZh": "姓名（中文）",
+    "fieldNameEn": "姓名（英文）",
+    "fieldSpecialtyZh": "特长（中文）",
+    "fieldSpecialtyEn": "特长（英文）",
+    "errors": {
+      "forbidden": "没有权限执行此操作",
+      "forbidden_field": "请求中包含不允许客户端提交的字段",
+      "validation": "表单校验未通过，请检查填写内容",
+      "invalid_json": "请求格式有误",
+      "invalid_no": "卡位编号无效",
+      "not_found": "记录不存在或已被删除",
+      "db_error": "服务器出错，请稍后重试",
+      "unknown": "保存失败，请稍后重试"
+    },
+    "fieldErrors": {
+      "too_long": "内容超出长度限制",
+      "invalid_date": "日期格式不正确",
+      "invalid_image_url": "图片地址不受支持",
+      "invalid": "填写内容不符合要求",
+      "required_when_revealed": "已公开卡位必须填写此项",
+      "required_when_unrevealed": "未公开卡位必须填写此项",
+      "empty_patch": "没有检测到需要保存的更改"
     }
   }
 }

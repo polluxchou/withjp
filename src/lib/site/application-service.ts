@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { createNotification } from '@/lib/notifications/create'
-import { hashIp, type ApplicationValue } from './application'
+import type { ApplicationValue } from './application'
+import { hashIp } from './application-ip-hash'
 
 /**
  * 应募投递的服务端部分：限流、落库、通知 ops。校验与反垃圾判定在
@@ -55,11 +56,14 @@ export async function submitApplication(
   const { data, error } = await db
     .from('site_applications')
     .insert({
+      kind: value.kind,
       name: value.name,
       age: value.age,
       residence: value.residence,
       contact: value.contact,
       experience: value.experience,
+      email: value.email,
+      commute_mode: value.commuteMode,
       locale: value.locale,
       ip_hash,
       user_agent: meta.userAgent?.slice(0, 400) ?? null,
@@ -87,6 +91,15 @@ async function notifyOps(id: string, value: ApplicationValue): Promise<void> {
     targets = everyone ?? []
   }
 
+  // creator 类走 age／residence；其余三类（photographer/makeup/group_live_ops）
+  // 这两列都可能是 null，`${value.age} ／ ${value.residence}` 会稳定渲染成
+  // `null ／ null`，所以按 kind 分支——非 creator 用 kind 本身替掉 age，
+  // residence 缺省时兜底成 '-'。
+  const detail =
+    value.kind === 'creator'
+      ? `${value.age} ／ ${value.residence}`
+      : `${value.kind} ／ ${value.residence ?? '-'}`
+
   await Promise.all(
     targets.map((user: { id: string }) =>
       createNotification({
@@ -96,7 +109,7 @@ async function notifyOps(id: string, value: ApplicationValue): Promise<void> {
         // 徽标，新类型没有徽标，靠标题本身说清是什么。联系方式不进通知，
         // 要看就去后台页面 —— 个人信息少一处流转。
         title: `RECRUIT ／ ${value.name}`,
-        body: `${value.age} ／ ${value.residence}`,
+        body: detail,
         entity_type: 'site_application',
         entity_id: id,
         action_url: '/recruit-applications',
