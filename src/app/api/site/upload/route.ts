@@ -1,42 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
-import { canEditSiteContent } from '@/lib/auth/site-content'
 import { validateImage, uploadImage } from '@/lib/storage/upload-image.ts'
+import { createUploadHandler, type UploadRouteDeps } from '@/lib/site/upload-service.ts'
+import { boundSiteContentAuthGuard } from '../_shared/deps.ts'
 
-const BUCKET = 'site-media'
+// 业务判定全部在 upload-service.ts 里（评审 Important：补测试矩阵），这个
+// 文件只做「绑定真实依赖 + 转成 NextResponse」，鉴权前导复用
+// ../_shared/deps.ts 的 boundSiteContentAuthGuard（同 news/members 的
+// route.ts）。
+function deps(): UploadRouteDeps {
+  return {
+    authGuard: boundSiteContentAuthGuard,
+    getActorProfile,
+    validateImage,
+    uploadImage,
+  }
+}
 
 export async function POST(req: NextRequest) {
-  const user = await authGuard()
-  if (user instanceof NextResponse) return user
-
-  const actor = await getActorProfile(user.id)
-  if (!canEditSiteContent(actor)) {
-    return NextResponse.json({ data: null, error: 'Forbidden' }, { status: 403 })
-  }
-
-  let form: FormData
-  try {
-    form = await req.formData()
-  } catch {
-    return NextResponse.json({ data: null, error: 'Invalid form data' }, { status: 400 })
-  }
-
-  const file = form.get('file')
-  if (!(file instanceof File)) {
-    return NextResponse.json({ data: null, error: 'file is required' }, { status: 400 })
-  }
-
-  const validated = validateImage(file)
-  if (!validated.ok) {
-    const message = validated.error === 'type' ? '仅支持 PNG/JPEG/WebP/GIF 图片' : '图片不能超过 5MB'
-    return NextResponse.json({ data: null, error: message }, { status: 400 })
-  }
-
-  const { url, error } = await uploadImage(BUCKET, file)
-  if (error) {
-    return NextResponse.json({ data: null, error }, { status: 500 })
-  }
-
-  return NextResponse.json({ data: { url }, error: null }, { status: 201 })
+  const result = await createUploadHandler(deps())(req)
+  return NextResponse.json(result.body, { status: result.status })
 }
