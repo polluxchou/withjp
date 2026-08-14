@@ -43,15 +43,22 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 ### 2.2 受众与语言
 
-日文是主语气（目标受众是关西应募者与日本法人），中文与英文是**等价的完整版本**而不是降级翻译 —— 三语共用同一套结构，任一语言缺内容都会被门禁拦下。应募者用哪种语言投递会被记录，方便运营用对语言回复。
+日文是主语气（目标受众是关西应募者与日本法人），中文与英文是**等价的完整版本**而不是降级翻译。
+
+两套内容来源、两套「等价」口径并存（2026-08-14 起）：
+
+- **i18n 文案**（`messages/{zh,en,ja}.json`）：三语共用同一套结构，任一语言缺内容都会被 `check-i18n` 拦下——这条仍适用于 VISION / TIKTOK LIVE / SERVICES / RECRUIT / CONTACT 等页面。
+- **库内容**（`site_news`，后续 `site_members`）：口径改成**日语必填、中英回退**——`title_ja`/`lead_ja`/`body_ja` 有数据库 not-null + 非空白 check 约束，`zh`/`en` 列可以为空，页面渲染时用 `pickLocaleText`（`src/lib/site/i18n-content.ts`）回退到日语，而不是三语强制等长同形。这不是降级：后台表单三语字段都能填，只是「暂时没翻译」不再是构建时的硬门禁，而是运营可以先发日语版、之后再补的正常状态。
+
+应募者用哪种语言投递会被记录，方便运营用对语言回复。
 
 ### 2.3 功能需求
 
 | 页面 | 路由 | 访客能做什么 | 内容来源 |
 |---|---|---|---|
-| TOP | `/[locale]/site` | 了解定位、看最新三条动态、跳转各板块与应募 | i18n |
-| NEWS | `…/news` | 按分类筛选动态、点进文章 | i18n |
-| NEWS 详情 | `…/news/[slug]` | 读完整文章、从文末直接去应募 | i18n |
+| TOP | `/[locale]/site` | 了解定位、看最新三条动态、跳转各板块与应募 | i18n（LATEST 三格读库） |
+| NEWS | `…/news` | 按分类筛选动态、点进文章 | 库（`site_news`） |
+| NEWS 详情 | `…/news/[slug]` | 读完整文章、从文末直接去应募 | 库（`site_news`） |
 | VISION | `…/vision` | 理解团队愿景与四个目标（专辑／基地／13 人／成长周期）、看双队长与 12 位成员 | i18n |
 | TIKTOK LIVE | `…/live` | 查看从训练到开播的阶段计划、了解开播平台 | i18n |
 | SERVICES | `…/services` | 了解四条事业线与着ぐるみ技术细分 | i18n |
@@ -63,7 +70,7 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 ### 2.4 非功能需求
 
 - **免登录**：middleware 放行 `/site`，公网可直达
-- **静态优先**：除应募接口外全部预渲染（首屏不依赖数据库；数据库故障不影响官网可读）
+- **ISR**（2026-08-14 起，NEWS 三页由「静态优先」改为 ISR）：`site_news` 页面（TOP 的 LATEST 三格、NEWS 列表、NEWS 详情）设 `export const revalidate = false`——首次访问渲染后无限期缓存，后台改动通过 `revalidatePath` 按需失效（`src/lib/site/news-service.ts` 的 `revalidateNewsPages`），不是每次请求都查库。详情页 `generateStaticParams` 在构建期查一次已发布 slug 做预渲染；查不到库时不让整个 `next build` 失败，退化为「不预生成、请求时动态渲染」（见页面里的 `try/catch` 与 warn）。其余页面（VISION/TIKTOK LIVE/SERVICES/RECRUIT/CONTACT）仍是纯 i18n 静态预渲染，不受此影响
 - **响应式三档**：≥1024 照设计稿、768–1023 降列、<768 单栏 + 抽屉
 - **可访问性**：装饰性图层 `aria-hidden`、示意图 `role="img"` + 说明、遵循 `prefers-reduced-motion`、强调色在两套主题下都保证正文对比度（浅色主题把亮青换成深青）
 - **隐私最小化**：只收招募必需字段；不存原始 IP（只存加盐哈希，用途仅限限流）；收集前必须明示同意
@@ -71,7 +78,7 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 ### 2.5 本轮明确不做
 
-- NEWS / 成员 / 排班的**后台可编辑化**（现在改内容 = 改 i18n 文案 = 发一次版）
+- 排班的**后台可编辑化**（现在改内容 = 改 i18n 文案 = 发一次版）。NEWS 本轮已做（后台 CRUD + 官网读库，见下方「内容与三语」一节）；成员本轮同期在做（后台 CRUD 已落地，官网读库见后续任务）
 - 应募的**状态流转与导出**（后台只读）
 - CDN、robots/sitemap、埋点与营销工具
 - 应募数据的自动清理策略（保留期限待产品侧定）
@@ -129,23 +136,31 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 | 氛围 | `Ticker`、`PulseDot`、`LogoVeil`(c)、`StudioMap` |
 | 表单 | `ApplicationForm`(c) |
 
-纯逻辑与数据形状在 `src/lib/site/`：`nav.ts`（导航与激活判定）、`news.ts`（文章 slug 与配图）、`contact.ts`（联系分区与 CTA 解析）、`content.ts`（i18n 数组的类型）、`theme.ts`、`locale-menu.ts`、`application.ts`（校验与反垃圾）、`application-service.ts`（限流/落库/通知）。**带分支的逻辑都有 node:test 单测**。
+纯逻辑与数据形状在 `src/lib/site/`：`nav.ts`（导航与激活判定）、`news.ts`（库行 → 文章模型的映射，`buildArticle`/`buildArticles`/`findArticle`，不含查库；查库在三个页面组件里）、`news-sort.ts`（`sortNews`/`publishedOnly`/`isValidNewsSlug`）、`i18n-content.ts`（`pickLocaleText` 三语回退）、`contact.ts`（联系分区与 CTA 解析）、`content.ts`（i18n 数组的类型）、`theme.ts`、`locale-menu.ts`、`application.ts`（校验与反垃圾）、`application-service.ts`（限流/落库/通知）。**带分支的逻辑都有 node:test 单测**。
 
 ### 3.6 内容与三语
 
 `check-no-bare-han` 禁止 JSX 里出现汉字（日文汉字同样命中），所以**所有文案必须走 i18n** —— 这条门禁顺带保证了三语不会漏翻。
 
 - 命名空间 `site.*`，三份文件 `messages/{zh,en,ja}.json`
-- 列表型内容用数组：NEWS 文章、成员、排期、事业线、VISION 四格、CONTACT 分区、跑马灯
-- `check-i18n` 会把数组展开成 `key[index]` 做三语 parity，因此**三语数组必须等长同形**，少一篇文章或少一行都会失败
+- 列表型内容用数组：排期、事业线、VISION 四格、CONTACT 分区、跑马灯。**NEWS 是例外**（2026-08-14 起）：`site.news.articles[]` 已删除，文章内容全部在 `site_news` 表里，见下方 §3.6.2
+- `check-i18n` 会把数组展开成 `key[index]` 做三语 parity，因此仍在 i18n 里的**三语数组必须等长同形**，少一行都会失败——这条规则不再适用于 NEWS
 - 页面用 `t.raw()` 读数组，类型统一声明在 `src/lib/site/*.ts`，不在页面里各写各的 `as any`
 
-**「什么写在 i18n、什么写在代码」的分界（2026-08 这一轮定型）**：
+**「什么写在 i18n、什么写在代码」的分界（2026-08 这一轮定型，NEWS 除外见 §3.6.2）**：
 
-- **文案在 i18n，资源路径与不随语言变化的属性在代码**。图片路径不需要翻译，塞进三份 message 文件只会被译歪，也过不了 parity 的意义检查。既有落点：`news.ts` 的 `NEWS_IMAGES`、`contact.ts` 的 `BRAND_LOGOS`、`services.ts` 的媒体清单、`vision/page.tsx` 的 `CAPTAIN_IMAGES`
-- 同理，**控制页面行为的分类也在代码**：`news.ts` 的 `NEWS_CATEGORIES`（`project` / `recruit`）决定文末是否显示「报名」按钮 —— 项目类新闻不该把读者引去投递
-- 配图可缺：`NEWS_IMAGES` 是 `Partial<Record<…>>`、`SiteArticle.image` 可选，缺图时 `SiteImage` 渲染占位框而不是破图。素材没到位不阻塞文案上线
+- **文案在 i18n，资源路径与不随语言变化的属性在代码**。图片路径不需要翻译，塞进三份 message 文件只会被译歪，也过不了 parity 的意义检查。既有落点：`contact.ts` 的 `BRAND_LOGOS`、`services.ts` 的媒体清单、`vision/page.tsx` 的 `CAPTAIN_IMAGES`
 - **字段名要跟着语义走**。排期表第三列原来叫 `cast`（出演单元），改成阶段计划后装的是 `STYLE SETUP` 这类阶段标签，字段一并改名 `focus` —— 留一个名字骗人的字段，下一个接手的人会照错的语义去用
+
+### 3.6.2 NEWS 改读库（2026-08-14）
+
+`site.news.articles[]`（i18n 数组）已删除，NEWS 的列表 / 详情 / 首页 LATEST 三格全部改读 `site_news` 表（`supabase/migrations/20260814112723_site_content.sql`，Task 7 建表、Task 8 一次性搬迁真实内容、Task 9 建后台 CRUD）。
+
+- **图片**：`image_url` 列，两种取值形态并存——搬迁进来的 5 篇沿用仓库里的静态路径（`/site/*.webp`），后台新上传的是 `site-media` 桶的公开 URL。`null` 时 `SiteArticle.image` 为 `undefined`，`SiteImage` 渲染占位框，不用别的文章的图顶替
+- **CTA 行为**：文末「去应募」按钮只在 `category === 'recruit'` 的文章出现（上游 PR 197 的行为），`category` 现在是 `site_news.category` 列，不再是 `news.ts` 里的常量——迁移这条时漏掉这一列会直接丢失已上线的行为，`shouldShowNewsApply(category)` 判定逻辑本身不变
+- **下架**：`is_published = false` 的文章不出现在列表/首页，详情页直接 404（不是软删，内容还在库里）
+- **三语回退**：`ja` 必填（数据库 check 约束），`zh`/`en` 缺失时 `pickLocaleText` 回退到 `ja`——比 i18n 数组的「三语等长同形」宽松，配合 §2.2 的口径调整
+- **ISR**：见 §2.4
 
 ### 3.6.1 内容模型：从占位稿到真实资料（2026-08-13）
 
@@ -222,10 +237,10 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 | 命令 | 覆盖 |
 |---|---|
-| `npm test` | 288 个单测，含官网的校验/反垃圾/IP 哈希/导航激活/文章模型/联系分区/语言菜单 |
+| `npm test` | 404 个单测，含官网的校验/反垃圾/IP 哈希/导航激活/文章模型（库行 → SiteArticle）/联系分区/语言菜单 |
 | `npm run test:copy` | 三语 key parity + JSX 无裸汉字 + 样式 token 合法性 |
 | `npx tsc --noEmit` | 类型 |
-| `npx next build` | 全站预渲染（官网 8 类页面 × 3 语言，含 4 篇文章 × 3 语言） |
+| `npx next build` | 全站预渲染（官网 8 类页面 × 3 语言）；NEWS 详情页 `generateStaticParams` 需要能连上 `site_news`（2026-08-14 起，见 §2.4）——本地/CI 没有可用的 Supabase 连接时会退化为 0 篇预生成而不是构建失败，生产构建仍需要 `SUPABASE_SERVICE_ROLE_KEY` 在构建期可用 |
 
 **两个必须知道的静默失效陷阱**（都实际踩过）：
 

@@ -1,9 +1,11 @@
-import { useTranslations } from 'next-intl'
-import { setRequestLocale } from 'next-intl/server'
+import { setRequestLocale, getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
+import type { Locale } from '@/i18n/routing'
+import { createServerClient } from '@/lib/supabase/server'
+import { sortNews } from '@/lib/site/news-sort'
 import { SITE_BASE, RECRUIT_HREF } from '@/lib/site/nav'
 import type { SiteProjectTerm, SiteServiceItem, SiteStat, SiteVisionCard } from '@/lib/site/content'
-import { buildArticles, type SiteArticleCopy } from '@/lib/site/news'
+import { buildArticles, type SiteNewsRow } from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import HairlineGrid, { GridCell } from '@/components/site/HairlineGrid'
@@ -15,12 +17,31 @@ import Ticker from '@/components/site/Ticker'
 import PulseDot from '@/components/site/PulseDot'
 import { NewsCard } from '@/components/site/NewsRow'
 
-export default function SiteTopPage({ params }: { params: { locale: string } }) {
+// 首页 LATEST 三格取自 site_news（Task 10 起）；无限期缓存，只经由后台写接口的
+// revalidatePath 按需失效（news-service.ts 的 revalidateNewsPages），这里不
+// 重复实现失效逻辑。
+export const revalidate = false
+
+async function fetchLatestArticles(locale: Locale) {
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('site_news')
+    .select('slug, tag, category, published_on, is_pinned, is_published, image_url, title_ja, title_zh, title_en, lead_ja, lead_zh, lead_en, body_ja, body_zh, body_en')
+    .eq('is_published', true)
+
+  if (error) throw new Error(`[site] failed to load site_news: ${error.message}`)
+
+  return buildArticles(locale, sortNews((data ?? []) as SiteNewsRow[])).slice(0, 3)
+}
+
+export default async function SiteTopPage({ params }: { params: { locale: string } }) {
   setRequestLocale(params.locale)
-  const t = useTranslations('site.home')
-  const tNews = useTranslations('site.news')
-  const tServices = useTranslations('site.services')
-  const tTicker = useTranslations('site.ticker')
+  const news = await fetchLatestArticles(params.locale as Locale)
+
+  const t = await getTranslations('site.home')
+  const tNews = await getTranslations('site.news')
+  const tServices = await getTranslations('site.services')
+  const tTicker = await getTranslations('site.ticker')
 
   // slogan 是品牌锁定文字，三语共用同一句欧文（页脚版权行里也是同一句）：设计稿
   // 这一行的气质全靠 Barlow Condensed 的三重错位，本地化成汉字短句会同时丢掉字族
@@ -35,7 +56,6 @@ export default function SiteTopPage({ params }: { params: { locale: string } }) 
   const stats = t.raw('stats') as SiteStat[]
   const visionCards = t.raw('visionCards') as SiteVisionCard[]
   const terms = t.raw('projectTerms') as SiteProjectTerm[]
-  const news = buildArticles(tNews.raw('articles') as SiteArticleCopy[]).slice(0, 3)
   const services = tServices.raw('items') as SiteServiceItem[]
   const ticker = tTicker.raw('items') as string[]
 
