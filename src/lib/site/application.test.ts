@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import {
   validateApplication,
   isBotSubmission,
-  hashIp,
   LIMITS,
 } from './application.ts'
+import { hashIp } from './application-ip-hash.ts'
 
 const valid = {
   name: 'テスト 花子',
