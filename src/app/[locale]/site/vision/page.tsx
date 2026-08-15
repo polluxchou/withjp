@@ -27,38 +27,28 @@ export const revalidate = false
 
 // 查询失败时不抛错——否则会让整个 VISION 页（连带宣言/年代/团体性格一起）500，
 // 这与「数据库故障不影响官网可读」的口径（docs/public-site.md §2.4）相悖。
-// 降级为 12 个「未公开」占位卡位（membersFromQuery 内部决策，测试见
-// content.test.ts），真实故障通过 console.error 留痕，避免和「目前确实还没
-// 公开任何成员」这种正常状态混为一谈。
+// membersFromQuery 返回 `null` 表示查询失败，调用方（下面的页面组件）据此
+// 跳过整个 MEMBERS 区块，而不是像卡位数还是常量时那样渲染 12 张编造的
+// "未公开"占位卡——卡位数现在由表的实际行数决定，查询失败时根本不知道该编
+// 几张假卡，编造内容比不显示这个区块更糟。真实故障通过 console.error 留痕，
+// 避免和"查询成功但库里目前确实没有任何卡位"这种合法状态混为一谈（后者
+// membersFromQuery 会返回空数组，页面仍然正常渲染区块标题与队长，只是卡片
+// 网格是空的——不再有"0 行 = 迁移大概没跑"的专门警告，因为 0 行现在是数据
+// 驱动之后完全合法的常态，不是异常信号）。
 async function fetchMembers(
   locale: Locale,
   unrevealedName: string,
   unrevealedScheduleUnknown: string,
-): Promise<SiteMember[]> {
+): Promise<SiteMember[] | null> {
   const db = createServerClient()
   const { data, error } = await db.from('site_members').select(MEMBER_COLUMNS)
-
-  // 查询本身成功（error 是 null）但一行都没查到——onQueryError 不会触发,因为
-  // 这不是查询故障。但 site_members 在稳定状态下永远应该有 12 行（12 个卡位
-  // 由 seed 建好,后续只有 PATCH,没有增删),0 行是比新闻侧更强的信号:几乎
-  // 只可能是迁移建好表之后 scripts/seed-site-content.mjs 没跑过。漏了这一步,
-  // MEMBERS 网格会无声退化成 12 张"未公开"占位卡（membersFromQuery 对空数组
-  // 的正常降级行为),8 位已公开成员看起来集体消失,而不会有任何 console.error。
-  if (!error && (data ?? []).length === 0) {
-    console.warn(
-      '[site/vision] BUILD-TIME/RUNTIME DEGRADATION: site_members query succeeded but returned 0 rows — ' +
-        'this usually means the one-time content migration (scripts/seed-site-content.mjs) has not been run ' +
-        'against this database yet. The MEMBERS grid will silently render all 12 cards as "unrevealed" instead ' +
-        'of failing loudly. See docs/public-site.md §5 before assuming this is expected.',
-    )
-  }
 
   return membersFromQuery(
     locale,
     { data, error },
     { unrevealedName, unrevealedScheduleUnknown },
     (queryError) => {
-      console.error('[site/vision] site_members query failed, degrading to 12 unrevealed placeholders', queryError)
+      console.error('[site/vision] site_members query failed, skipping MEMBERS section', queryError)
     },
   )
 }
@@ -142,41 +132,47 @@ export default async function SiteVisionPage({ params }: { params: { locale: str
       </div>
 
       {/* ══ MEMBERS（设计稿把成员并入 VISION 页） ══ */}
-      <SiteSection divider={false} className="pb-20 lg:pb-24">
-        <div className="font-condensed text-[12px] tracking-[0.3em] text-site-accent">{tm('eyebrow')}</div>
-        <h2 className="mt-1.5 font-condensed text-[clamp(34px,4vw,56px)] tracking-[0.05em]">{tm('title')}</h2>
-        <p className="mb-9 mt-1.5 font-serif-jp text-[18px] text-site-fg/70">{tm('sub')}</p>
+      {/* members 为 null 表示 site_members 查询失败（fetchMembers 内部已
+          console.error 留痕）——整个区块（标题、队长、卡片网格）一起跳过，
+          不渲染任何编造的占位内容。members 为空数组是查询成功但库里目前
+          没有任何卡位这一合法状态，区块正常渲染，只是卡片网格是空的。 */}
+      {members !== null && (
+        <SiteSection divider={false} className="pb-20 lg:pb-24">
+          <div className="font-condensed text-[12px] tracking-[0.3em] text-site-accent">{tm('eyebrow')}</div>
+          <h2 className="mt-1.5 font-condensed text-[clamp(34px,4vw,56px)] tracking-[0.05em]">{tm('title')}</h2>
+          <p className="mb-9 mt-1.5 font-serif-jp text-[18px] text-site-fg/70">{tm('sub')}</p>
 
-        <HairlineGrid cols={2} className="mb-12">
-          {captains.map((captain, i) => (
-            <GridCell key={captain.name} tone="panel" className="grid gap-6 p-[26px] sm:grid-cols-[200px_minmax(0,1fr)]">
-              <div className="relative h-[250px]">
-                <SiteImage
-                  src={CAPTAIN_IMAGES[i]}
-                  alt={captain.name}
-                  placeholder={captain.name}
-                  sizes="200px"
-                  className="h-full w-full"
-                />
-              </div>
-              <div>
-                <div className="font-condensed text-[12px] tracking-[0.22em] text-site-accent">
-                  {captain.eyebrow}
+          <HairlineGrid cols={2} className="mb-12">
+            {captains.map((captain, i) => (
+              <GridCell key={captain.name} tone="panel" className="grid gap-6 p-[26px] sm:grid-cols-[200px_minmax(0,1fr)]">
+                <div className="relative h-[250px]">
+                  <SiteImage
+                    src={CAPTAIN_IMAGES[i]}
+                    alt={captain.name}
+                    placeholder={captain.name}
+                    sizes="200px"
+                    className="h-full w-full"
+                  />
                 </div>
-                <div className="mb-0.5 mt-2.5 font-condensed text-[34px] tracking-[0.08em]">{captain.name}</div>
-                <div className="mb-2.5 font-serif-jp text-[19px] text-site-fg/72">{captain.jp}</div>
-                <p className="text-[14px] leading-[1.9] text-site-fg/66">{captain.body}</p>
-              </div>
-            </GridCell>
-          ))}
-        </HairlineGrid>
+                <div>
+                  <div className="font-condensed text-[12px] tracking-[0.22em] text-site-accent">
+                    {captain.eyebrow}
+                  </div>
+                  <div className="mb-0.5 mt-2.5 font-condensed text-[34px] tracking-[0.08em]">{captain.name}</div>
+                  <div className="mb-2.5 font-serif-jp text-[19px] text-site-fg/72">{captain.jp}</div>
+                  <p className="text-[14px] leading-[1.9] text-site-fg/66">{captain.body}</p>
+                </div>
+              </GridCell>
+            ))}
+          </HairlineGrid>
 
-        <HairlineGrid cols={6}>
-          {members.map((member) => (
-            <MemberCard key={member.no} member={member} placeholder={tm('placeholder')} />
-          ))}
-        </HairlineGrid>
-      </SiteSection>
+          <HairlineGrid cols={6}>
+            {members.map((member) => (
+              <MemberCard key={member.no} member={member} placeholder={tm('placeholder')} />
+            ))}
+          </HairlineGrid>
+        </SiteSection>
+      )}
     </>
   )
 }
