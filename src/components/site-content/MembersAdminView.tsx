@@ -2,17 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Pencil, ImageOff, ExternalLink, Users } from 'lucide-react'
+import { Pencil, ImageOff, ExternalLink, Users, Plus, Trash2 } from 'lucide-react'
 import Header from '@/components/layout/Header'
 import SectionCard from '@/components/ui/SectionCard'
 import Button from '@/components/ui/Button'
 import Tag from '@/components/ui/Tag'
 import Modal from '@/components/ui/Modal'
+import EmptyState from '@/components/ui/EmptyState'
 import LoadingState from '@/components/ui/LoadingState'
 import ErrorState from '@/components/ui/ErrorState'
 import MemberEditForm from './MemberEditForm'
+import MemberCreateForm from './MemberCreateForm'
 import type { MemberRow } from '@/lib/site/members-service.ts'
 import { PUBLIC_SITE_HOST } from '@/lib/site/domain-routing.ts'
+import { siteContentErrorMessage } from './form-errors'
 import { formatSavedAt } from './format'
 
 const MEMBERS_ENDPOINT = '/api/site/members'
@@ -24,9 +27,17 @@ function publicVisionUrl(): string {
 }
 
 /**
- * 12 卡位网格：先用 SectionCard + 现有原语（Tag/Button/Modal/Field）拼，
- * 没有新建任何 ui/ 原语（brief Step 2 要求"拼不动再建"，这里拼得动）。
- * 点开单卡编辑用 Modal + MemberEditForm（内部是 Field 单列）。
+ * 卡位网格：先用 SectionCard + 现有原语（Tag/Button/Modal/Field）拼，没有
+ * 新建任何 ui/ 原语（brief Step 2 要求"拼不动再建"，这里拼得动）。点开单卡
+ * 编辑用 Modal + MemberEditForm（内部是 Field 单列）。
+ *
+ * 卡位数据驱动之后（20260815132734_member_slots_flexible.sql 起）新增
+ * ①「新增卡位」（Modal + MemberCreateForm）与 ② 每卡的删除入口（Modal +
+ * danger Button，同 NewsAdminView 的删除确认一致）。「新增卡位」按钮挂在
+ * Header.actions 里，不依赖 rows 是否为空——这正是要修的死锁本身：
+ * `site_members` 若因故是空表，之前后台只能读到 0 行、渲染 0 张卡，且没有
+ * 写入口，UI 上没有任何按钮能把数据补回去。EmptyState 的 action 再放一个
+ * 同样的入口只是锦上添花，Header 里那个才是即使为空也始终存在的救生索。
  */
 export default function MembersAdminView({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations('siteMembers')
@@ -37,6 +48,14 @@ export default function MembersAdminView({ isAdmin }: { isAdmin: boolean }) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [editing, setEditing] = useState<MemberRow | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<MemberRow | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  function errorMessage(code: string): string {
+    return siteContentErrorMessage(t, code, ['invalid_no'])
+  }
 
   async function load() {
     setLoading(true)
@@ -60,19 +79,51 @@ export default function MembersAdminView({ isAdmin }: { isAdmin: boolean }) {
     await load()
   }
 
+  async function handleCreated() {
+    setCreating(false)
+    await load()
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      const res = await fetch(`${MEMBERS_ENDPOINT}/${deleteTarget.no}`, { method: 'DELETE' })
+      if (res.ok) {
+        setDeleteTarget(null)
+        await load()
+        return
+      }
+      const json = (await res.json().catch(() => ({}))) as { error?: string }
+      setDeleteError(errorMessage(json.error ?? 'unknown'))
+    } catch {
+      setDeleteError(errorMessage('unknown'))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div>
       <Header
         title={t('title')}
         subtitle={t('subtitle')}
         actions={
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() => window.open(publicVisionUrl(), '_blank', 'noopener,noreferrer')}
-          >
-            <ExternalLink className="w-4 h-4" /> {t('viewOnSite')}
-          </Button>
+          <div className="flex items-center gap-2.5">
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => window.open(publicVisionUrl(), '_blank', 'noopener,noreferrer')}
+            >
+              <ExternalLink className="w-4 h-4" /> {t('viewOnSite')}
+            </Button>
+            {isAdmin && (
+              <Button size="lg" onClick={() => setCreating(true)}>
+                <Plus className="w-4 h-4" /> {t('add')}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -81,6 +132,12 @@ export default function MembersAdminView({ isAdmin }: { isAdmin: boolean }) {
           <LoadingState variant="list" rows={12} />
         ) : loadError ? (
           <ErrorState detail={tCommon('loadFailed')} onRetry={load} />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            title={t('empty')}
+            hint={t('emptyHint')}
+            action={isAdmin ? <Button size="sm" onClick={() => setCreating(true)}>{t('add')}</Button> : undefined}
+          />
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {rows.map((row) => (
@@ -129,9 +186,23 @@ export default function MembersAdminView({ isAdmin }: { isAdmin: boolean }) {
                 </div>
 
                 {isAdmin && (
-                  <Button variant="secondary" size="sm" onClick={() => setEditing(row)}>
-                    <Pencil className="w-3.5 h-3.5" /> {t('edit')}
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => setEditing(row)}>
+                      <Pencil className="w-3.5 h-3.5" /> {t('edit')}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={tCommon('delete')}
+                      title={tCommon('delete')}
+                      onClick={() => {
+                        setDeleteError(null)
+                        setDeleteTarget(row)
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 )}
               </div>
             ))}
@@ -146,6 +217,43 @@ export default function MembersAdminView({ isAdmin }: { isAdmin: boolean }) {
       >
         {editing && (
           <MemberEditForm row={editing} onCancel={() => setEditing(null)} onSaved={handleSaved} />
+        )}
+      </Modal>
+
+      <Modal open={creating} onClose={() => setCreating(false)} title={t('addTitle')}>
+        <MemberCreateForm onCancel={() => setCreating(false)} onCreated={handleCreated} />
+      </Modal>
+
+      <Modal
+        open={deleteTarget !== null}
+        onClose={() => {
+          setDeleteTarget(null)
+          setDeleteError(null)
+        }}
+        title={t('deleteTitle')}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setDeleteTarget(null)
+                setDeleteError(null)
+              }}
+              disabled={deleting}
+            >
+              {tCommon('cancel')}
+            </Button>
+            <Button variant="danger" loading={deleting} onClick={confirmDelete}>
+              {tCommon('delete')}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-700">{t('deleteWarning', { no: deleteTarget?.no ?? '' })}</p>
+        {deleteError && (
+          <p className="mt-3 text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2">
+            {deleteError}
+          </p>
         )}
       </Modal>
     </div>
