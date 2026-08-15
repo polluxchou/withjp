@@ -14,6 +14,8 @@ import {
   type NewsRouteDeps,
 } from '../../../lib/site/news-service.ts'
 import {
+  createMemberCreateHandler,
+  createMemberDeleteHandler,
   createMemberListHandler,
   createMemberPatchHandler,
   type MemberDb,
@@ -37,10 +39,10 @@ import type { SiteContentActor } from '../../../lib/auth/site-content.ts'
 //   7. 下架后 revalidatePath 对 PUBLIC_SITE_LOCALES 的每个 locale 都记录了
 //      list/首页/详情三条内部源路径为 stale
 //
-// 覆盖范围——成员（Task 11，见 task-11-brief.md）：
+// 覆盖范围——成员（Task 11 起，卡位数据驱动 + 后台增删见本轮改动）：
 //
-//   1. 未登录 GET/PATCH → 401
-//   2. 非管理员：GET 200，PATCH 403，数据库原值不变
+//   1. 未登录 GET/POST/PATCH/DELETE → 401
+//   2. 非管理员：GET 200，POST/PATCH/DELETE 403，数据库原值不变
 //   3. 管理员 PATCH 合法字段成功，updated_by_user_id 写入 actor.id
 //   4. 提交 no / 审计字段返回 400 forbidden_field，不落库
 //   5. PATCH 未知字段返回 400
@@ -49,9 +51,17 @@ import type { SiteContentActor } from '../../../lib/auth/site-content.ts'
 //      patch」合并后的有效值——只改照片时不会误报已有日期缺失
 //   7. PATCH 只提交一个字段时，其余未提及的选填字段保持原值不变（同新闻的
 //      optional() 位置回归测试）
-//   8. 非法卡位编号（超出 1-12 范围）返回 400
+//   8. 卡位编号已无上限（20260815132734_member_slots_flexible.sql 去掉
+//      site_members.no 的 1-12 上界）——no=13 这类曾经的"非法"编号现在只是
+//      "没有对应记录"（404），只有 no<=0 才是 400 invalid_no
 //   9. PATCH 成功后 revalidatePath 对每个 PUBLIC_SITE_LOCALES 都记录了
 //      /site 与 /site/vision 两条路径（brief 指定路径，与新闻的三条不同）
+//  10. POST 新增卡位：no 由服务端取"当前最大 no + 1"（空表时是 1），
+//      is_revealed 默认 false，客户端提交 no/is_revealed 均返回 400
+//      forbidden_field；expected_reveal_on 缺失/格式非法返回 400；
+//      唯一键冲突（23505）返回 409；成功后 revalidatePath 与 PATCH 一致
+//  11. DELETE 删除卡位：成功后该 no 从列表消失；不存在返回 404；
+//      数据库故障返回 500，记录仍在
 //
 // 未覆盖、且为什么：
 //   - 真实 HTTP 服务器（next build && next start）：本任务用「handler factory
@@ -572,10 +582,16 @@ test('删除前读取 slug：删除后仍能对该 slug 的详情路径打失效
 // ── 成员（Task 11）──────────────────────────────────────────────────────
 // ============================================================
 
-type MemberOp = 'select' | 'update'
+type MemberOp = 'select' | 'insert' | 'update' | 'delete'
 
 // queuedErrors：同 FakeNewsQuery 的理由——members 侧同样没有任何测试能让
-// db 返回故障，覆盖不到 GET /members 的 500 db_error 分支。
+// db 返回故障，覆盖不到 GET /members 的 500 db_error 分支。insert/delete
+// 是新增卡位（POST）/删除卡位（DELETE）用到的操作——members 之前只有
+// update，现在补上，与 FakeNewsQuery 的 insert/delete 分支同构。
+//
+// insert 分支会检查 no 唯一性并模拟 Postgres 23505——members-service.ts 的
+// createMemberCreateHandler 依赖真实数据库的 unique 约束兜底并发冲突，fake
+// db 需要如实重现这条路径才能测到 409 分支。
 class FakeMemberQuery implements MemberQueryBuilder {
   private op: MemberOp | null = null
   private filters: Array<[string, unknown]> = []
@@ -593,9 +609,18 @@ class FakeMemberQuery implements MemberQueryBuilder {
     if (this.op === null) this.op = 'select'
     return this
   }
+  insert(row: Record<string, unknown>): MemberQueryBuilder {
+    this.op = 'insert'
+    this.payload = row
+    return this
+  }
   update(row: Record<string, unknown>): MemberQueryBuilder {
     this.op = 'update'
     this.payload = row
+    return this
+  }
+  delete(): MemberQueryBuilder {
+    this.op = 'delete'
     return this
   }
   eq(column: string, value: unknown): MemberQueryBuilder {
@@ -627,6 +652,15 @@ class FakeMemberQuery implements MemberQueryBuilder {
         }
         return { data: matched.map((r) => ({ ...r })), error: null }
       }
+      case 'insert': {
+        const no = (this.payload as { no: number }).no
+        if (this.rows.some((r) => r.no === no)) {
+          return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } }
+        }
+        const row = { id: randomUUID(), created_at: NOW, updated_at: NOW, ...this.payload } as MemberRow
+        this.rows.push(row)
+        return { data: { ...row }, error: null }
+      }
       case 'update': {
         const matched = this.rows.filter((r) => this.matches(r))
         for (const row of matched) Object.assign(row, this.payload, { updated_at: new Date().toISOString() })
@@ -636,6 +670,14 @@ class FakeMemberQuery implements MemberQueryBuilder {
             : { data: null, error: { message: 'not found' } }
         }
         return { data: matched.map((r) => ({ ...r })), error: null }
+      }
+      case 'delete': {
+        const matched = this.rows.filter((r) => this.matches(r))
+        for (const row of matched) {
+          const idx = this.rows.indexOf(row)
+          if (idx >= 0) this.rows.splice(idx, 1)
+        }
+        return { data: null, error: null }
       }
       default:
         return { data: null, error: { message: 'no operation configured' } }
@@ -728,6 +770,18 @@ test('未登录 PATCH /api/site/members/:no 返回 401', async () => {
   assert.equal(result.status, 401)
 })
 
+test('未登录 POST /api/site/members 返回 401', async () => {
+  const { deps } = makeMemberDeps({ userId: null })
+  const result = await createMemberCreateHandler(deps)(memberJsonRequest('POST', { expected_reveal_on: '2026-12-01' }))
+  assert.equal(result.status, 401)
+})
+
+test('未登录 DELETE /api/site/members/:no 返回 401', async () => {
+  const { deps } = makeMemberDeps({ userId: null })
+  const result = await createMemberDeleteHandler(deps)('1')
+  assert.equal(result.status, 401)
+})
+
 // ── 2. 非管理员：读可以，写 403 ──────────────────────────────────────────
 
 test('非管理员 GET 返回 200，且按 no 升序排列', async () => {
@@ -750,6 +804,21 @@ test('非管理员 PATCH 返回 403，数据库原值不变', async () => {
   )
   assert.equal(result.status, 403)
   assert.equal(db.rows.find((r) => r.no === 1)?.expected_reveal_on, '2026-12-01')
+})
+
+test('非管理员 POST 返回 403，不新增记录', async () => {
+  const { deps, db } = makeMemberDeps({ userId: NON_ADMIN_ID, actors: ACTORS })
+  const result = await createMemberCreateHandler(deps)(memberJsonRequest('POST', { expected_reveal_on: '2026-12-01' }))
+  assert.equal(result.status, 403)
+  assert.equal(db.rows.length, 0)
+})
+
+test('非管理员 DELETE 返回 403，记录仍在', async () => {
+  const { deps, db } = makeMemberDeps({ userId: NON_ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  const result = await createMemberDeleteHandler(deps)('1')
+  assert.equal(result.status, 403)
+  assert.equal(db.rows.length, 1)
 })
 
 // ── 2b. 数据库故障分支（评审 Important：fake db 加错误注入）───────────────
@@ -927,12 +996,25 @@ test('PATCH 只提交一个字段时，其余未提及的选填字段（中英�
   assert.equal(stored?.specialty_en, 'Existing English Specialty')
 })
 
-// ── 8. 非法卡位编号 ───────────────────────────────────────────────────────
+// ── 8. 卡位编号已无上限 ───────────────────────────────────────────────────
+//
+// 20260815132734_member_slots_flexible.sql 去掉了 site_members.no 的 1-12
+// 上界——no=13 曾经是"非法范围"（400 invalid_no），现在只是"没有这条记录"
+// （404 not_found）。只有 no<=0 才应该在到达数据库之前就被拒绝。
 
-test('PATCH 非法卡位编号（超出 1-12 范围）返回 400', async () => {
+test('PATCH no=13（曾经的"非法范围"）在没有对应记录时返回 404，而不是 400 invalid_no', async () => {
   const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
   await seedMemberRow(db, { no: 1 })
   const result = await createMemberPatchHandler(deps)(memberJsonRequest('PATCH', { name_ja: 'x' }), '13')
+  assert.equal(result.status, 404)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'not_found')
+})
+
+test('PATCH no=0 / 负数返回 400 invalid_no', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  const result = await createMemberPatchHandler(deps)(memberJsonRequest('PATCH', { name_ja: 'x' }), '0')
   assert.equal(result.status, 400)
   const body = result.body as { error: string }
   assert.equal(body.error, 'invalid_no')
@@ -956,5 +1038,191 @@ test('PATCH 成功后 revalidatePath 对每个 PUBLIC_SITE_LOCALES 都记录了 
   }
   // 2 条路径 × PUBLIC_SITE_LOCALES 个 locale，不多不少（brief 指定路径，与
   // 新闻的三条不同——成员没有独立列表页）。
+  assert.equal(paths.length, PUBLIC_SITE_LOCALES.length * 2)
+})
+
+// ============================================================
+// ── 成员：POST 新增卡位 / DELETE 删除卡位（卡位数据驱动本轮改动）─────────
+//
+// 这两个 handler 直接解决 brief 里描述的死锁：site_members 若因故是空表，
+// 后台之前只能读到 0 行、渲染 0 张卡，且没有 POST，UI 完全无法恢复。下面
+// 「空表时 POST 成功，no=1」这条测试就是在验证这个死锁确实被打破了。
+// ============================================================
+
+// ── 10. POST 新增卡位 ────────────────────────────────────────────────────
+
+test('POST 新增卡位：空表时 no=1，is_revealed 默认 false', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { expected_reveal_on: '2026-12-01' }),
+  )
+  assert.equal(result.status, 201)
+  assert.equal(db.rows.length, 1)
+  const row = db.rows[0]
+  assert.equal(row.no, 1)
+  assert.equal(row.is_revealed, false)
+  assert.equal(row.expected_reveal_on, '2026-12-01')
+  assert.equal(row.created_by_user_id, ADMIN_ID)
+  assert.equal(row.updated_by_user_id, ADMIN_ID)
+})
+
+test('POST 新增卡位：no 取当前最大 no + 1，不管入参顺序', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 3 })
+  await seedMemberRow(db, { no: 1 })
+  await seedMemberRow(db, { no: 7 })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { expected_reveal_on: '2026-12-01' }),
+  )
+  assert.equal(result.status, 201)
+  const body = result.body as { data: MemberRow }
+  assert.equal(body.data.no, 8)
+  assert.equal(db.rows.length, 4)
+})
+
+test('POST 缺少 expected_reveal_on 返回 400，不落库', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const result = await createMemberCreateHandler(deps)(memberJsonRequest('POST', {}))
+  assert.equal(result.status, 400)
+  assert.equal(db.rows.length, 0)
+})
+
+test('POST expected_reveal_on 格式非法返回 400，不落库', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { expected_reveal_on: 'not-a-date' }),
+  )
+  assert.equal(result.status, 400)
+  assert.equal(db.rows.length, 0)
+})
+
+test('POST 提交 no 字段返回 400（forbidden_field），不落库——no 只能由服务端计算', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { no: 99, expected_reveal_on: '2026-12-01' }),
+  )
+  assert.equal(result.status, 400)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'forbidden_field')
+  assert.equal(db.rows.length, 0)
+})
+
+test('POST 提交 is_revealed 返回 400（forbidden_field）——新卡位的 is_revealed 由服务端定死成 false', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { is_revealed: true, expected_reveal_on: '2026-12-01' }),
+  )
+  assert.equal(result.status, 400)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'forbidden_field')
+  assert.equal(db.rows.length, 0)
+})
+
+test('POST 提交伪造的 created_by_user_id 返回 400（forbidden_field），不落库', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { expected_reveal_on: '2026-12-01', created_by_user_id: ATTACKER_ID }),
+  )
+  assert.equal(result.status, 400)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'forbidden_field')
+  assert.equal(db.rows.length, 0)
+})
+
+test('POST 数据库故障（非唯一键冲突）返回 500 db_error，不产生部分记录', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  db.injectError('select', { message: 'connection refused' })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { expected_reveal_on: '2026-12-01' }),
+  )
+  assert.equal(result.status, 500)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'db_error')
+  assert.equal(db.rows.length, 0)
+})
+
+// 回归测试：两个管理员几乎同时新增卡位、算出同一个 nextNo 时，数据库的
+// unique(no) 约束（Postgres 23505）必须映射成能重试的 409，而不是笼统的
+// 500——见 members-service.ts createMemberCreateHandler 的注释。
+test('POST 撞上 no 唯一键冲突（Postgres 23505）返回 409 conflict', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  db.injectError('insert', { code: '23505', message: 'duplicate key value violates unique constraint' })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { expected_reveal_on: '2026-12-01' }),
+  )
+  assert.equal(result.status, 409)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'conflict')
+  assert.equal(db.rows.length, 1) // 只有 seed 那一条，插入没有部分生效
+})
+
+test('POST 成功后 revalidatePath 对每个 PUBLIC_SITE_LOCALES 都记录了 /site 与 /site/vision', async () => {
+  const { deps, recorder } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const result = await createMemberCreateHandler(deps)(
+    memberJsonRequest('POST', { expected_reveal_on: '2026-12-01' }),
+  )
+  assert.equal(result.status, 201)
+
+  const paths = recorder.calls.map((c) => c.path)
+  for (const locale of PUBLIC_SITE_LOCALES) {
+    assert.ok(paths.includes(`/${locale}/site`), `missing /${locale}/site`)
+    assert.ok(paths.includes(`/${locale}/site/vision`), `missing /${locale}/site/vision`)
+  }
+  assert.equal(paths.length, PUBLIC_SITE_LOCALES.length * 2)
+})
+
+// ── 11. DELETE 删除卡位 ──────────────────────────────────────────────────
+
+test('DELETE 删除卡位成功：该 no 从列表消失', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  await seedMemberRow(db, { no: 2 })
+  const result = await createMemberDeleteHandler(deps)('1')
+  assert.equal(result.status, 200)
+  assert.equal(db.rows.length, 1)
+  assert.equal(db.rows[0].no, 2)
+})
+
+test('DELETE 不存在的 no 返回 404 not_found', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  const result = await createMemberDeleteHandler(deps)('99')
+  assert.equal(result.status, 404)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'not_found')
+  assert.equal(db.rows.length, 1)
+})
+
+test('DELETE no=0 / 负数返回 400 invalid_no', async () => {
+  const { deps } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  const result = await createMemberDeleteHandler(deps)('0')
+  assert.equal(result.status, 400)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'invalid_no')
+})
+
+test('DELETE 数据库故障返回 500 db_error，记录仍在', async () => {
+  const { deps, db } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  db.injectError('delete', { message: 'connection refused' })
+  const result = await createMemberDeleteHandler(deps)('1')
+  assert.equal(result.status, 500)
+  const body = result.body as { error: string }
+  assert.equal(body.error, 'db_error')
+  assert.equal(db.rows.length, 1)
+})
+
+test('DELETE 成功后 revalidatePath 对每个 PUBLIC_SITE_LOCALES 都记录了 /site 与 /site/vision', async () => {
+  const { deps, db, recorder } = makeMemberDeps({ userId: ADMIN_ID, actors: ACTORS })
+  await seedMemberRow(db, { no: 1 })
+  const result = await createMemberDeleteHandler(deps)('1')
+  assert.equal(result.status, 200)
+
+  const paths = recorder.calls.map((c) => c.path)
+  for (const locale of PUBLIC_SITE_LOCALES) {
+    assert.ok(paths.includes(`/${locale}/site`), `missing /${locale}/site`)
+    assert.ok(paths.includes(`/${locale}/site/vision`), `missing /${locale}/site/vision`)
+  }
   assert.equal(paths.length, PUBLIC_SITE_LOCALES.length * 2)
 })
