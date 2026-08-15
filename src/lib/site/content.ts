@@ -78,11 +78,16 @@ export interface SiteRecruitRow {
   body: string
 }
 
-/**
- * MOONDOLLZ 共 12 位，是 site_members.no 的 check 约束（1–12）的上界，两处
- * 必须一致——改任何一边都要连带看看另一边。
- */
-export const MEMBER_SLOTS = 12
+// 曾经这里有一个 MEMBER_SLOTS = 12 常量，是 site_members.no 的 check 约束
+// （1–12）的上界，buildMembers 用它把查询结果补齐到固定 12 张卡。
+//
+// 自 20260815132734_member_slots_flexible.sql（去掉 no 的上界，只保留
+// unique + no > 0）与本文件的 buildMembers 改成数据驱动起，卡位数完全由
+// site_members 表的实际行数决定——库里有几行就渲染几张卡，后台可以任意
+// 增删（POST /api/site/members 新增、DELETE /api/site/members/[no] 删除）。
+// 常量删掉了：seed 脚本（scripts/seed-site-content.mjs）也没有引用它，它是
+// 自己核对"回读行数应为 12"的独立断言，不依赖这个常量——留一个名字听起来
+// 像事实源、实际已经不是的常量，比没有常量更容易误导下一个读代码的人。
 
 /**
  * 渲染官网所需的 site_members 列集合（渲染视角，不含 id/created_at 等审计
@@ -134,28 +139,28 @@ function joinNameAndSpecialty(locale: Locale, name: string, specialty: string): 
 }
 
 /**
- * 把一个卡位（可能不存在，也可能存在但未公开）转成 SiteMember。row 为
- * undefined（查询没返回这个 no，比如降级或异常数据）与显式
- * `is_revealed: false` 同等处理，都不能让卡片区块缺角或渲染出空白——这两种
- * 情况的展示结果必须一样。
+ * 把一个存在的卡位行转成 SiteMember。row 一定存在——数据驱动之后不再有"缺行
+ * 补占位"这回事：库里没有这个 no 就是没有这张卡，不渲染，不是渲染一张假的
+ * 未公开卡（那是编造内容）。row.is_revealed 仍然可能是 false（管理员新增
+ * 卡位但还没到公开时间），这种情况按未公开处理，与"行不存在"是两种不同的
+ * 状态，不能混在一起。
  *
  * 未公开卡位的 role 优先用该行自己的 expected_reveal_on 格式化成
  * 'YYYY-MM'，不用全局写死的文案——不同卡位的公开时间不一样。读到 NULL
- * （异常历史数据）或整行都没有时才落到 unrevealedScheduleUnknown，不能
- * 返回空字符串。正常 seed 的 9–12 行都带 expected_reveal_on，这条 fallback
- * 只处理异常情况。
+ * （异常历史数据，理论上不该发生——site_members_unrevealed_schedule 约束
+ * 要求未公开卡位必须有 expected_reveal_on）才落到 unrevealedScheduleUnknown，
+ * 不能返回空字符串。
  */
 function buildMember(
-  row: SiteMemberRow | undefined,
-  no: number,
+  row: SiteMemberRow,
   locale: Locale,
   unrevealedName: string,
   unrevealedScheduleUnknown: string,
 ): SiteMember {
-  const label = `NO.${String(no).padStart(2, '0')}`
+  const label = `NO.${String(row.no).padStart(2, '0')}`
 
-  if (!row || !row.is_revealed) {
-    const role = row?.expected_reveal_on ? formatRevealMonth(row.expected_reveal_on) : unrevealedScheduleUnknown
+  if (!row.is_revealed) {
+    const role = row.expected_reveal_on ? formatRevealMonth(row.expected_reveal_on) : unrevealedScheduleUnknown
     return { no: label, name: unrevealedName, role }
   }
 
@@ -171,9 +176,13 @@ function buildMember(
 }
 
 /**
- * 把 site_members 的行集合按 locale 补齐到 12 个卡位。rows 不需要排好序或
- * 补满 12 行——缺行（查询降级、seed 尚未跑）一律按未公开卡位处理，不让网格
- * 缺角或让整页挂掉。
+ * 把 site_members 的行集合按 locale 转成展示用的卡片——数据驱动：库里有几行
+ * 就渲染几张卡，不再补齐到固定格数。rows 不需要预先排序，这里按 no 升序重排
+ * （官网卡位按编号顺序展示，PostgREST 不保证返回顺序）。
+ *
+ * 0 行是合法状态（尚未配置任何卡位，或全部被后台删除），返回空数组，
+ * 由调用方（vision/page.tsx）决定要不要渲染一个空网格——不在这里假装还有
+ * 卡位存在。
  */
 export function buildMembers(
   rows: SiteMemberRow[],
@@ -181,11 +190,9 @@ export function buildMembers(
   unrevealedName: string,
   unrevealedScheduleUnknown: string,
 ): SiteMember[] {
-  const byNo = new Map(rows.map((row) => [row.no, row]))
-  return Array.from({ length: MEMBER_SLOTS }, (_, i) => {
-    const no = i + 1
-    return buildMember(byNo.get(no), no, locale, unrevealedName, unrevealedScheduleUnknown)
-  })
+  return [...rows]
+    .sort((a, b) => a.no - b.no)
+    .map((row) => buildMember(row, locale, unrevealedName, unrevealedScheduleUnknown))
 }
 
 /** 与 supabase-js 查询返回值兼容的最小形状，不引入真实客户端的复杂泛型。 */
@@ -195,12 +202,14 @@ export interface SiteMemberQueryResult {
 }
 
 /**
- * 查询结果 → 12 个卡位。数据库故障不该让 VISION 整页 500（连带宣言/年代/团体
- * 性格一起）——这里查询失败时降级为全部按「未公开」渲染的 12 个占位卡位（复用
- * buildMembers 传空数组的行为，role 落到 unrevealedScheduleUnknown，因为拿不到
- * 每行各自的 expected_reveal_on），而不是抛错。但降级不等于沉默：真实故障必须
- * 经 onQueryError 上报，否则「数据库打嗝」在监控里会和「目前确实还没公开任何
- * 成员」长得一模一样。
+ * 查询结果 → 该渲染什么。返回 `null` 表示查询失败，调用方应跳过整个 MEMBERS
+ * 区块（不渲染标题、队长、网格——见 vision/page.tsx），而不是像数据驱动之前
+ * 那样渲染 12 张编造的"未公开"占位卡：卡位数已经不再是常量，查询失败时根本
+ * 不知道该编几张假卡出来，编造内容比不显示这个区块更糟。
+ *
+ * 返回空数组（`[]`）表示查询成功但库里确实没有任何卡位——这是数据驱动之后
+ * 的合法状态（尚未配置，或管理员删光了），调用方应该正常渲染 MEMBERS 区块
+ * （标题、队长仍然是有意义的内容），只是卡片网格是空的，不是需要隐藏的故障。
  *
  * onQueryError 是回调而不是这里直接 console.error：页面组件负责实际打印
  * （可以加前缀等上下文），这里只做「出错了该返回什么」的决策。
@@ -210,10 +219,10 @@ export function membersFromQuery(
   result: SiteMemberQueryResult,
   labels: { unrevealedName: string; unrevealedScheduleUnknown: string },
   onQueryError: (error: { code?: string; message?: string }) => void,
-): SiteMember[] {
+): SiteMember[] | null {
   if (result.error) {
     onQueryError(result.error)
-    return buildMembers([], locale, labels.unrevealedName, labels.unrevealedScheduleUnknown)
+    return null
   }
   return buildMembers((result.data ?? []) as SiteMemberRow[], locale, labels.unrevealedName, labels.unrevealedScheduleUnknown)
 }

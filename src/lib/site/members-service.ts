@@ -7,11 +7,17 @@
 // 表达（AuthResult / HandlerResult），两个 route.ts 负责在边界处转换成真正的
 // NextResponse，并绑定真实的 authGuard/getActorProfile/db/revalidatePath。
 //
-// 与新闻的关键差异（见 task-11-brief.md）：
-//   - 12 个卡位由 seed 建好，是固定的——只有 GET 与 PATCH /[no]，没有增删。
-//   - `no` 只从路由参数取，不从 body 接受，命中时和审计字段一样返回
+// 与新闻的关键差异：
+//   - 卡位数原本由 seed 建好、固定 12 个，只有 GET 与 PATCH /[no]。这在生产
+//     暴露了两个问题：企划人数变化就要发迁移改常量+手工补行；`site_members`
+//     若因故是空表，后台渲染 0 张卡且没有 POST，UI 完全无法恢复。自
+//     20260815132734_member_slots_flexible.sql（去掉 no 的 1–12 上界，只留
+//     unique + no > 0）起卡位数改由表的实际行数决定，本文件补上 POST（新增
+//     一个卡位）与 DELETE /[no]（删除一个卡位），两者鉴权与 PATCH 一致。
+//   - `no` 只从路由参数取（PATCH/DELETE）或由服务端计算（POST：当前最大
+//     no + 1），永远不从 body 接受，命中时和审计字段一样返回
 //     'forbidden_field'（而不是让 .strict() 把它当成普通未知字段折叠成
-//     'invalid'）——no 是主键级别的路由标识,应该有和审计字段同等的显式拒绝。
+//     'invalid'）——no 是主键级别的标识,应该有和审计字段同等的显式拒绝。
 //   - PATCH 全是可选字段（没有必填字段一说），但有两条**跨字段**的业务约束
 //     （已公开卡位要求 name/photo_url/specialty_ja 非空；未公开卡位要求
 //     expected_reveal_on 非空），且约束依赖的是"数据库现有行 + 本次 patch"
@@ -20,6 +26,10 @@
 //     没提到的 key 保留原值,这正是 `{ ...existing, ...parsed.data }` 的语义,
 //     前提是 optionalText() 的 `.optional()` 位置正确,未提及的键根本不出现在
 //     parsed.data 里,不会被合并进来覆盖成 null）,再对合并结果跑业务校验。
+//   - POST 不需要这层浅合并——新建的卡位没有"现有行"，服务端直接把
+//     is_revealed 定死成 false（新卡位默认未公开），只接受客户端提供
+//     expected_reveal_on（site_members_unrevealed_schedule 约束要求未公开
+//     卡位必须有这一列），其余展示字段留给后续 PATCH 去补。
 import { z } from 'zod'
 import { canEditSiteContent, type SiteContentActor } from '../auth/site-content.ts'
 import { PUBLIC_SITE_LOCALES } from './domain-routing.ts'
@@ -38,13 +48,17 @@ import {
 
 // ── 与真实 Supabase 客户端的最小契约（同 news-service.ts 的理由：类型上收窄,
 // 运行时仍是真实 supabase 客户端）。data/error 形状与 select/eq/single 三个
-// 方法与 news-service.ts 逐字节相同，收在 SiteContentQueryBuilder 里
-// extends；update 是这里唯一需要的写方法（没有 insert/delete——12 个卡位由
-// seed 建好,只有 PATCH）。──────────────────────────────────────────────────
+// 方法与 news-service.ts 逐字节相同，收在 SiteContentQueryBuilder 里 extends。
+// insert/delete 现在也是 members 的一部分（卡位数据驱动 + 后台增删，见
+// 20260815132734_member_slots_flexible.sql 去掉 no 的 1–12 上界）——卡位数
+// 不再是 seed 建好之后就固定不变的常量，POST 新增一个卡位、DELETE 删除一个
+// 卡位，两者都要用到。────────────────────────────────────────────────────
 export type MemberQueryResult = SiteContentQueryResult
 
 export interface MemberQueryBuilder extends SiteContentQueryBuilder<MemberQueryBuilder> {
+  insert(row: Record<string, unknown>): MemberQueryBuilder
   update(row: Record<string, unknown>): MemberQueryBuilder
+  delete(): MemberQueryBuilder
 }
 
 export interface MemberDb {
@@ -95,9 +109,10 @@ function expectedRevealOnField() {
     .optional()
 }
 
-// no 不在白名单里——12 个卡位由 seed 建好，编号是路由参数，不是可 patch 的
-// 字段；试图在 body 里传 no 走 rejectForbiddenFields()，而不是落进 .strict()
-// 的"未知字段"分支（那样只会得到笼统的 'invalid'，不是 'forbidden_field'）。
+// no 不在白名单里——编号由路由参数（PATCH/DELETE）或服务端计算（POST）决定，
+// 不是可 patch 的字段；试图在 body 里传 no 走 rejectForbiddenFields()，而不是
+// 落进 .strict() 的"未知字段"分支（那样只会得到笼统的 'invalid'，不是
+// 'forbidden_field'）。
 export const MemberPatchSchema = z.object({
   is_revealed: z.boolean().optional(),
   photo_url: imageUrlField(),
@@ -111,11 +126,32 @@ export const MemberPatchSchema = z.object({
   expected_reveal_on: expectedRevealOnField(),
 }).strict()
 
+// POST 的白名单只有 expected_reveal_on——新卡位没有"现有行"可合并，
+// is_revealed 由服务端定死成 false（见文件顶部注释），其余展示字段
+// （name/photo_url/specialty_*）留给创建后的 PATCH 去补，不在创建这一步
+// 一次性塞完。expected_reveal_on 必填（不像 PATCH 里是 optional）——
+// site_members_unrevealed_schedule 约束要求未公开卡位必须有这一列，新卡位
+// 一律未公开，所以这里没有"可以不填"的分支。
+export const MemberCreateSchema = z.object({
+  expected_reveal_on: z.string()
+    .transform((v) => v.trim())
+    .refine((v) => isValidCalendarDate(v), { message: 'invalid_date' }),
+}).strict()
+
 // 审计字段一律由服务端从 actor.id 赋值，永不接受客户端提供；no/id/created_at/
 // updated_at 同理不可由客户端指定——no 视同审计字段级别的禁区，见上面注释。
+// PATCH/DELETE 共用这份（DELETE 不解析 body，这份集合对它没有实际意义，但
+// 保留同名导出避免两份平行定义漂移）。
 const FORBIDDEN_FIELDS = new Set([
   'id', 'no', 'created_by_user_id', 'updated_by_user_id', 'created_at', 'updated_at',
 ])
+
+// POST 比 PATCH 多禁一个 is_revealed——新卡位的 is_revealed 由服务端定死成
+// false（不像 PATCH 那样是正常可写字段），客户端传它会被当成禁区字段拒绝，
+// 而不是静默忽略：静默忽略会让管理员以为自己传的 is_revealed:true 生效了，
+// 实际却因为没有 name/photo_url/specialty_ja 而在数据库层被
+// site_members_revealed_fields 约束拒绝，得到一个不知所云的 db_error。
+const CREATE_FORBIDDEN_FIELDS = new Set(Array.from(FORBIDDEN_FIELDS).concat('is_revealed'))
 
 // rejectForbiddenFields()/zodFieldErrors() 现在收在 site-content-shared.ts，
 // 与 news-service.ts 共用同一份实现；这里只保留 FORBIDDEN_FIELDS 集合
@@ -160,7 +196,7 @@ export function revalidateMemberPages(
   }
 }
 
-// ── GET /api/site/members —— 读不分权限，登录即可，按 no 升序返回 12 个卡位 ──
+// ── GET /api/site/members —— 读不分权限，登录即可，按 no 升序返回全部卡位 ──
 export function createMemberListHandler(deps: MemberRouteDeps) {
   return async function handleList(): Promise<HandlerResult> {
     const auth = await deps.authGuard()
@@ -186,7 +222,7 @@ export function createMemberPatchHandler(deps: MemberRouteDeps) {
     }
 
     const no = Number(noParam)
-    if (!Number.isInteger(no) || no < 1 || no > 12) {
+    if (!Number.isInteger(no) || no < 1) {
       return { status: 400, body: { data: null, error: 'invalid_no' } }
     }
 
@@ -232,5 +268,90 @@ export function createMemberPatchHandler(deps: MemberRouteDeps) {
     const row = data as MemberRow
     revalidateMemberPages(deps.revalidatePath, { actorId: actor.id, no })
     return { status: 200, body: { data: row, error: null } }
+  }
+}
+
+// ── POST /api/site/members —— 新增一个卡位，仅 canEditSiteContent 通过者可用 ──
+//
+// 这是这次任务要修的死锁本身：`site_members` 若因故是空表，之前后台没有 POST，
+// 只能读到 0 行、渲染 0 张卡，UI 上没有任何入口能把数据补回去。有了这个
+// handler，即使表被清空，管理员也能从后台一步步把卡位加回来。
+export function createMemberCreateHandler(deps: MemberRouteDeps) {
+  return async function handleCreate(req: Request): Promise<HandlerResult> {
+    const auth = await deps.authGuard()
+    if (!auth.ok) return { status: auth.status, body: { data: null, error: 'unauthorized' } }
+
+    const actor = await deps.getActorProfile(auth.user.id)
+    if (!actor || !canEditSiteContent(actor)) {
+      return { status: 403, body: { data: null, error: 'forbidden' } }
+    }
+
+    const parsedBody = await parseJsonBody(req)
+    if (!parsedBody.ok) return parsedBody.result
+
+    const forbidden = rejectForbiddenFields(parsedBody.value, CREATE_FORBIDDEN_FIELDS)
+    if (forbidden) return forbidden
+
+    const parsed = MemberCreateSchema.safeParse(parsedBody.value)
+    if (!parsed.success) {
+      return { status: 400, body: { data: null, error: 'validation', fields: zodFieldErrors(parsed.error) } }
+    }
+
+    // no 由服务端取"当前最大 no + 1"——site_members.no 没有 serial/identity
+    // 列（历史上一直由 seed 脚本显式赋值，见 20260814112723_site_content.sql），
+    // 所以这里手动算。只选 no 这一列，不用整表——卡位数据驱动之后行数不再
+    // 假设恰好是 12，没必要多传其余列。
+    const { data: existingRows, error: listError } = await deps.db.from('site_members').select('no')
+    if (listError) return { status: 500, body: { data: null, error: 'db_error' } }
+    const nextNo = ((existingRows ?? []) as { no: number }[]).reduce((max, row) => Math.max(max, row.no), 0) + 1
+
+    const insertRow: Record<string, unknown> = {
+      ...parsed.data,
+      no: nextNo,
+      is_revealed: false,
+      created_by_user_id: actor.id,
+      updated_by_user_id: actor.id,
+    }
+
+    const { data, error } = await deps.db.from('site_members').insert(insertRow).select().single()
+    // 23505 = Postgres 唯一约束冲突（site_members.no 的 unique）。理论上只有
+    // 两个管理员在同一瞬间各自读到相同的"当前最大 no"、又几乎同时插入才会
+    // 撞上——概率很低但不是不可能，给一个能重试的 409 而不是笼统的 500，
+    // 管理员刷新一次列表重新点"新增"即可，no 会重新计算。
+    if (error?.code === '23505') {
+      return { status: 409, body: { data: null, error: 'conflict' } }
+    }
+    if (error || !data) return { status: 500, body: { data: null, error: 'db_error' } }
+
+    const row = data as MemberRow
+    revalidateMemberPages(deps.revalidatePath, { actorId: actor.id, no: row.no })
+    return { status: 201, body: { data: row, error: null } }
+  }
+}
+
+// ── DELETE /api/site/members/:no —— 删除一个卡位，仅 canEditSiteContent 通过者可用 ──
+export function createMemberDeleteHandler(deps: MemberRouteDeps) {
+  return async function handleDelete(noParam: string): Promise<HandlerResult> {
+    const auth = await deps.authGuard()
+    if (!auth.ok) return { status: auth.status, body: { data: null, error: 'unauthorized' } }
+
+    const actor = await deps.getActorProfile(auth.user.id)
+    if (!actor || !canEditSiteContent(actor)) {
+      return { status: 403, body: { data: null, error: 'forbidden' } }
+    }
+
+    const no = Number(noParam)
+    if (!Number.isInteger(no) || no < 1) {
+      return { status: 400, body: { data: null, error: 'invalid_no' } }
+    }
+
+    const { data: existing, error: fetchError } = await deps.db.from('site_members').select('no').eq('no', no).single()
+    if (fetchError || !existing) return { status: 404, body: { data: null, error: 'not_found' } }
+
+    const { error: deleteError } = await deps.db.from('site_members').delete().eq('no', no)
+    if (deleteError) return { status: 500, body: { data: null, error: 'db_error' } }
+
+    revalidateMemberPages(deps.revalidatePath, { actorId: actor.id, no })
+    return { status: 200, body: { data: { no }, error: null } }
   }
 }

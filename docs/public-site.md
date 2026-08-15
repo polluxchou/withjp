@@ -169,11 +169,11 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 `site.members.list[]`（8 位已公开成员）、`site.members.note`、`site.members.unrevealedRole` 三个 i18n key 均已删除，VISION 页的 MEMBERS 网格改读 `site_members` 表（同一张迁移表，Task 7 建表、Task 8 一次性搬迁真实内容、Task 11 建后台配置页）。双队长（`site.members.captains`）与 UI 标签（`eyebrow`/`title`/`sub`/`placeholder`/`unrevealedName`/`unrevealedScheduleUnknown`）仍在 i18n——这些不是 12 个卡位各自的内容,不用挪。
 
-- **12 个卡位固定**：`site_members.no`（1–12）与 `MEMBER_SLOTS` 常量（`src/lib/site/content.ts`）两处必须一致，`buildMembers` 把查询结果补齐到 12 张卡，缺行（查询降级、异常数据）与显式 `is_revealed: false` 同等处理——都渲染成「未公开」占位卡，不让网格缺角
+- **卡位数据驱动（2026-08-15）**：`site_members.no` 只保留 `unique` + `no > 0`（`20260815132734_member_slots_flexible.sql` 去掉了原来 1–12 的上界），`MEMBER_SLOTS` 常量已删除。`buildMembers` 不再把查询结果补齐到固定格数——库里有几行就渲染几张卡（按 `no` 升序），行不存在就是没有这张卡，不再渲染编造的占位卡。后台 `POST /api/site/members` 可新增卡位（`no` 由服务端取当前最大 `no + 1`），`DELETE /api/site/members/[no]` 可删除，解决了「`site_members` 空表时后台渲染 0 张卡、且没有 POST，UI 完全无法恢复」的问题
 - **姓名拆两列**：卡片主标题是 `name` 列（罗马字，如 `KANO`，不分语言），卡片副标题的「姓名／特长」由 `name_ja`/`name_zh`/`name_en` + `specialty_ja`/`specialty_zh`/`specialty_en` 按 `pickLocaleText` 取值后拼接（ja/zh 用全角「／」、en 用半角" / "，与 `scripts/seed-site-content.mjs` 的拆分规则互为逆操作，两处必须同步）。`name_zh` 不能靠回退 `name_ja` 省掉——3 号 LULU 的 zh「露露」（汉字）与 ja「ルル」（片假名音译）是两种不同的书写系统，不是同一字的简繁差异,这是这一列存在的全部理由
 - **未公开卡位的展示时间**：不再用全局写死的 `unrevealedRole`/`note`，改成每行自己的 `expected_reveal_on` 格式化成 `YYYY-MM`；正常 seed 的 9–12 行都带 `2026-12-01`，读到 `NULL`（异常历史数据）或整行缺失时才落到 `unrevealedScheduleUnknown` 兜底，不能显示空字符串
 - **ISR**：见 §2.4
-- **查询失败的降级**：`src/lib/site/content.ts` 的 `membersFromQuery` 把「查询结果（含 error）→ 该渲染什么」这层决策从页面组件里拆出来——纯函数、不做 IO，能用 `node:test` 直接断言（`content.test.ts`）。查询失败时降级为 12 个「未公开」占位卡位（复用 `buildMembers` 对缺行的处理），不让 VISION 整页 500；真实故障经 `onQueryError` 回调交给页面组件 `console.error` 上报
+- **查询失败的降级**：`src/lib/site/content.ts` 的 `membersFromQuery` 把「查询结果（含 error）→ 该渲染什么」这层决策从页面组件里拆出来——纯函数、不做 IO，能用 `node:test` 直接断言（`content.test.ts`）。查询失败时返回 `null`，`vision/page.tsx` 据此跳过整个 MEMBERS 区块（标题、队长、卡片网格一起不渲染），不让 VISION 整页 500，也不再编造占位卡——卡位数已经不是常量，故障时根本不知道该编几张假卡。查询成功但 0 行是合法状态（`membersFromQuery` 返回空数组），区块正常渲染，只是卡片网格为空，不再有专门的「0 行 = 迁移大概没跑」警告。真实故障经 `onQueryError` 回调交给页面组件 `console.error` 上报
 - **上线前置**：见 §5（部署门槛已扩展到覆盖成员，不再只是 NEWS）
 
 ### 3.6.1 内容模型：从占位稿到真实资料（2026-08-13）
