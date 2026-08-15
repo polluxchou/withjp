@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildMembers, membersFromQuery, MEMBER_SLOTS, type SiteMemberRow } from './content.ts'
+import { buildMembers, membersFromQuery, type SiteMemberRow } from './content.ts'
 import { MEMBER_SEED } from '../../../scripts/site-content-seed-data.mjs'
 
 // ── 用 scripts/site-content-seed-data.mjs 的 MEMBER_SEED 作为"读库渲染是否
@@ -40,8 +40,13 @@ function emptyRow(no: number): SiteMemberRow {
   }
 }
 
-test('12 个卡位补齐，未公开卡位显示占位', () => {
-  const rows: SiteMemberRow[] = Array.from({ length: 12 }, (_, i) => emptyRow(i + 1))
+test('buildMembers 数据驱动：0 行返回空数组，不补齐任何占位卡', () => {
+  const members = buildMembers([], 'ja', '— 公開前 —', '— 公开时间未定 —')
+  assert.deepEqual(members, [])
+})
+
+test('buildMembers 数据驱动：3 行只渲染 3 张卡，不补到固定格数', () => {
+  const rows: SiteMemberRow[] = [emptyRow(1), emptyRow(2), emptyRow(3)]
   rows[0] = {
     ...rows[0],
     is_revealed: true,
@@ -51,10 +56,18 @@ test('12 个卡位补齐，未公开卡位显示占位', () => {
     photo_url: '/p.webp',
   }
   const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
-  assert.equal(members.length, 12)
+  assert.equal(members.length, 3)
   assert.equal(members[0].name, 'KANO')
   assert.equal(members[0].image, '/p.webp')
-  assert.equal(members[11].name, '— 公開前 —')
+  assert.equal(members[1].name, '— 公開前 —')
+  assert.equal(members[2].name, '— 公開前 —')
+})
+
+test('buildMembers 数据驱动：12 行渲染 12 张卡，按 no 升序排列（不依赖入参顺序）', () => {
+  const rows: SiteMemberRow[] = Array.from({ length: 12 }, (_, i) => emptyRow(i + 1)).reverse()
+  const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
+  assert.equal(members.length, 12)
+  assert.deepEqual(members.map((m) => m.no), Array.from({ length: 12 }, (_, i) => `NO.${String(i + 1).padStart(2, '0')}`))
 })
 
 test('未公开卡位用该行的预计公开时间，而不是全局写死的文案', () => {
@@ -74,7 +87,7 @@ test('未公开卡位用该行的预计公开时间，而不是全局写死的�
     },
   ]
   const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
-  assert.equal(members[8].role, '2026-12')
+  assert.equal(members[0].role, '2026-12')
 })
 
 test('未公开卡位日期为空时显示明确 fallback，而不是空字符串', () => {
@@ -94,11 +107,14 @@ test('未公开卡位日期为空时显示明确 fallback，而不是空字符�
     },
   ]
   const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
-  assert.equal(members[8].role, '— 公开时间未定 —')
+  assert.equal(members[0].role, '— 公开时间未定 —')
 })
 
-test('查询结果里完全缺失的卡位（rows 没有该 no）与显式未公开一样处理，不让网格缺角', () => {
-  // 只传 no.1，其余 11 个卡位在 rows 里完全不存在（不是显式 is_revealed:false）
+test('查询结果里不存在的 no 就是没有这张卡——数据驱动之后不再补齐成"未公开"占位卡', () => {
+  // 只传 no.1，no.2 在 rows 里完全不存在——数据驱动之前会被 buildMembers 补成
+  // 一张"未公开"占位卡；数据驱动之后，rows 有几行就渲染几张，不存在的 no
+  // 根本不出现在结果里（这正是 DELETE /api/site/members/[no] 能生效的前提：
+  // 删掉一行之后官网卡片数应该减少，而不是被填回一张占位卡）。
   const rows: SiteMemberRow[] = [
     {
       no: 1,
@@ -115,10 +131,8 @@ test('查询结果里完全缺失的卡位（rows 没有该 no）与显式未公
     },
   ]
   const members = buildMembers(rows, 'ja', '— 公開前 —', '— 公开时间未定 —')
-  assert.equal(members.length, MEMBER_SLOTS)
-  assert.equal(members[1].name, '— 公開前 —')
-  assert.equal(members[1].role, '— 公开时间未定 —')
-  assert.equal(members[1].image, undefined)
+  assert.equal(members.length, 1)
+  assert.equal(members[0].name, 'KANO')
 })
 
 test('已公开卡位没有配图时不渲染 image（不用别的卡位的图顶替）', () => {
@@ -231,12 +245,26 @@ test('membersFromQuery：查询成功时按 locale 转换全部 12 行', () => {
     (error) => errors.push(error),
   )
 
+  assert.ok(members !== null)
   assert.equal(members.length, 12)
   assert.equal(members[0].name, 'KANO')
   assert.equal(errors.length, 0)
 })
 
-test('membersFromQuery：查询失败时降级为 12 个未公开占位卡位，并把错误交给 onQueryError，不 throw', () => {
+test('membersFromQuery：查询成功但库里 0 行时返回空数组（合法状态，不是故障，不触发 onQueryError）', () => {
+  const errors: unknown[] = []
+  const members = membersFromQuery(
+    'ja',
+    { data: [], error: null },
+    { unrevealedName: '— 公開前 —', unrevealedScheduleUnknown: '— 公开时间未定 —' },
+    (error) => errors.push(error),
+  )
+
+  assert.deepEqual(members, [])
+  assert.equal(errors.length, 0)
+})
+
+test('membersFromQuery：查询失败时返回 null（页面据此跳过整个 MEMBERS 区块），并把错误交给 onQueryError，不 throw', () => {
   const errors: unknown[] = []
   const members = membersFromQuery(
     'ja',
@@ -245,8 +273,6 @@ test('membersFromQuery：查询失败时降级为 12 个未公开占位卡位，
     (error) => errors.push(error),
   )
 
-  assert.equal(members.length, 12)
-  assert.ok(members.every((m) => m.name === '— 公開前 —'))
-  assert.ok(members.every((m) => m.role === '— 公开时间未定 —'))
+  assert.equal(members, null)
   assert.deepEqual(errors, [{ code: '500', message: 'boom' }])
 })
