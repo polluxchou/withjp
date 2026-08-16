@@ -159,6 +159,18 @@
     scrollbar-color: #d4d4d8 transparent;
   }
 
+  /* 横向滚动但不画滚动条。用在"内容被裁切本身就是可滚提示"的窄条上
+     （竞品导航的账号名芯片行）——macOS 设成「总是显示滚动条」时，一条
+     16px 的深灰轨道会横在窄条下方，比它引导的内容还抢眼。
+     两条声明缺一不可：scrollbar-width 管 Firefox 与新版 Chromium，
+     ::-webkit-scrollbar 管 Safari 和老 Chromium。 */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* iOS Safari 不支持 background-attachment: fixed，会按 scroll 渲染，长页面底部的
      光晕层会滚出视口外不可见——此回退已接受。桌面端 fixed 以视口（而非内容）为锚。 */
   .bg-atmosphere {

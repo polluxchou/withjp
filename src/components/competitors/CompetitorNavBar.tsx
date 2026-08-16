@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { SearchInput } from '@/components/ui/Field'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
-import { FOCUS_RING } from '@/lib/ui/recipes'
 
 export interface NavTarget {
   id: string
@@ -62,7 +61,9 @@ export default function CompetitorNavBar({
         <p className="text-xs text-ink-400">{t('navNoMatch')}</p>
       ) : (
         // 芯片行横向滚动而不换行：账号再多也只占一行高度，不把卡片列表推下去。
-        <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1">
+        // scrollbar-none:滚动条被隐藏了,但可滚性并没有丢——右缘半截芯片就是提示,
+        // 触控板/滚轮横滚照常;真要精确找某个号,左边的过滤框比拖滚动条快。
+        <div className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
           {matched.map((x) => (
             <button
               key={x.id}
@@ -70,7 +71,10 @@ export default function CompetitorNavBar({
               onClick={() => jump(x.id)}
               title={`@${x.handle}`}
               aria-label={t('navJumpTo', { name: x.name })}
-              className={`h-7 shrink-0 rounded-btn border border-line-strong bg-surface px-3 text-xs text-ink-700 transition-colors hover:bg-row-hover hover:text-ink-900 ${FOCUS_RING}`}
+              // 焦点环走 ring-inset 而非共用的 FOCUS_RING:后者带 ring-offset-1,
+              // 而 offset 在 overflow-*-auto 容器里会被裁切(design-system §4
+              // 第二配方的例外③「滚动容器内的项」,recipes.ts 里也写明了不收进常量)。
+              className="h-7 shrink-0 rounded-btn border border-line-strong bg-surface px-3 text-xs text-ink-700 transition-colors hover:bg-row-hover hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
             >
               {x.name}
             </button>
