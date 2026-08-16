@@ -272,7 +272,8 @@ export default function ShotLightbox({
         </button>
         {/*
           并排最多 LIGHTBOX_VISIBLE 张。当天不足这么多就有几张排几张——
-          父层 justify-center 会让它们保持居中,不需要占位空格。
+          父层是 flex-col,横向居中由 items-center(交叉轴)负责,所以不足 3 张时
+          这一行会自然居中,不需要占位空格。
           min-w-0 是为了极窄视口下等比缩小而不是横向溢出。
         */}
         {visible.map((s) => (
