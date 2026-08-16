@@ -126,6 +126,5 @@ export const LIGHTBOX_VISIBLE = 3
  */
 export function clampWindowStart(start: number, total: number, size: number): number {
   const max = Math.max(total - size, 0)
-  if (!Number.isFinite(start) || start < 0) return 0
-  return Math.min(Math.floor(start), max)
+  return Math.min(Math.max(start, 0), max)
 }
