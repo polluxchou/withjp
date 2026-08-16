@@ -114,3 +114,18 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
   }
   return map
 }
+
+/** 灯箱一次并排显示的张数。 */
+export const LIGHTBOX_VISIBLE = 3
+
+/**
+ * 把灯箱窗口起点夹逼到 [0, max(0, total - size)]。
+ *
+ * total <= size 时恒为 0：当天照片不够铺满窗口就不该滑动，
+ * 否则会滑出一段空位，而空位会被读成「图没加载出来」。
+ */
+export function clampWindowStart(start: number, total: number, size: number): number {
+  const max = Math.max(total - size, 0)
+  if (!Number.isFinite(start) || start < 0) return 0
+  return Math.min(Math.floor(start), max)
+}

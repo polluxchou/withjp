@@ -4,11 +4,13 @@ import test from 'node:test'
 
 import {
   UNDATED_KEY,
+  LIGHTBOX_VISIBLE,
   isValidShotDate,
   collectShotDates,
   windowOf,
   resolveAnchor,
   groupShotsByDate,
+  clampWindowStart,
 } from './shotGrid.ts'
 import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
 
@@ -244,4 +246,25 @@ test('groupShotsByDate: 不修改入参数组的顺序', () => {
   const input = [shotAt('b', '2026-08-01', 2, '2026-08-01T00:00:00Z'), shotAt('a', '2026-08-01', 1, '2026-08-01T00:00:00Z')]
   groupShotsByDate(input)
   assert.deepEqual(input.map((s) => s.id), ['b', 'a'])
+})
+
+test('clampWindowStart: 总数不超过窗口时恒为 0', () => {
+  // 当天只有 1-3 张时窗口不该滑动,否则会滑出空位
+  assert.equal(clampWindowStart(0, 1, 3), 0)
+  assert.equal(clampWindowStart(2, 3, 3), 0)
+  assert.equal(clampWindowStart(5, 0, 3), 0)
+})
+
+test('clampWindowStart: 贴左与贴右', () => {
+  assert.equal(clampWindowStart(-1, 5, 3), 0)
+  assert.equal(clampWindowStart(9, 5, 3), 2) // total - size
+})
+
+test('clampWindowStart: 窗口内原样返回', () => {
+  assert.equal(clampWindowStart(1, 5, 3), 1)
+  assert.equal(clampWindowStart(2, 5, 3), 2)
+})
+
+test('LIGHTBOX_VISIBLE: 灯箱并排张数', () => {
+  assert.equal(LIGHTBOX_VISIBLE, 3)
 })
