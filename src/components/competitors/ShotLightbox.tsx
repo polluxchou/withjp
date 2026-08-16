@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { LIGHTBOX_VISIBLE, clampWindowStart } from '@/lib/competitors/shotGrid'
@@ -17,8 +17,10 @@ export default function ShotLightbox({
   onChanged: () => void | Promise<void>
 }) {
   const t = useTranslations('competitors')
+  const tCommon = useTranslations('common')
   const [start, setStart] = useState(0)
   const [pickedId, setPickedId] = useState<string | null>(null)
+  const [settled, setSettled] = useState<Set<string>>(() => new Set())
   const [dateInput, setDateInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -32,6 +34,11 @@ export default function ShotLightbox({
   // 删除不可逆,作用对象必须永远在画面里。
   const selected = visible.find((s) => s.id === pickedId) ?? visible[0]
 
+  // 窗口里任何一张没就位就整排不显示。未加载的 img 固有尺寸是 0x0,外层按钮
+  // 会塌成零宽 —— 当天三张里慢到一张,画面上就只剩两张,被读成"这天只有两张"。
+  // 单图时代这个行为一直存在,只是看不出来(就一张图,你只会觉得在加载)。
+  const allVisibleReady = visible.every((s) => settled.has(s.id))
+
   // 依赖两个原始值而不是 selected 对象本身:调用方每次渲染换引用也不会重复触发,
   // 同时满足 exhaustive-deps(依赖数组不参与类型检查,靠 lint 兜底,别写成对象)。
   const selectedId = selected?.id
@@ -41,6 +48,29 @@ export default function ShotLightbox({
     setDateInput(selectedShotOn)
     setError(null)
   }, [selectedId, selectedShotOn])
+
+  // 预加载当天全部截图,顺带记录每张的"已结束"状态。预加载整天(通常 3-6 张)
+  // 而不只是当前窗口,是为了让窗口外的图提前开始下载,滑过去时多半已在缓存里。
+  // 注意这只是"多半":实测若在某张下载完成前就按箭头滑到它,仍会看到加载态。
+  // onerror 也记为已结束:否则一张 404 的图会把整排永远卡在加载态(已实测)。
+  useEffect(() => {
+    let alive = true
+    const loaders = shots.map((s) => {
+      const img = new Image()
+      const done = () => {
+        if (!alive) return
+        setSettled((prev) => (prev.has(s.id) ? prev : new Set(prev).add(s.id)))
+      }
+      img.onload = done
+      img.onerror = done
+      img.src = s.image_url
+      return img
+    })
+    return () => {
+      alive = false
+      for (const img of loaders) { img.onload = null; img.onerror = null }
+    }
+  }, [shots])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -131,25 +161,35 @@ export default function ShotLightbox({
           这一行会自然居中,不需要占位空格。
           min-w-0 是为了极窄视口下等比缩小而不是横向溢出。
         */}
-        {visible.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => setPickedId(s.id)}
-            aria-pressed={s.id === selected.id}
-            aria-label={s.caption || s.tag || s.shot_on || t('undated')}
-            className={`min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring ${
-              s.id === selected.id ? 'ring-2 ring-primary' : ''
-            }`}
+        {allVisibleReady ? (
+          visible.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setPickedId(s.id)}
+              aria-pressed={s.id === selected.id}
+              aria-label={s.caption || s.tag || s.shot_on || t('undated')}
+              className={`min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring ${
+                s.id === selected.id ? 'ring-2 ring-primary' : ''
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={s.image_url}
+                alt={s.caption || s.tag || ''}
+                className="max-h-[64vh] max-w-full rounded-lg"
+              />
+            </button>
+          ))
+        ) : (
+          <div
+            role="status"
+            className="flex h-[64vh] items-center justify-center gap-2 px-24 text-xs text-white"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={s.image_url}
-              alt={s.caption || s.tag || ''}
-              className="max-h-[64vh] max-w-full rounded-lg"
-            />
-          </button>
-        ))}
+            <Loader2 size={16} className="animate-spin" />
+            <span>{tCommon('loading')}</span>
+          </div>
+        )}
         <button
           type="button"
           onClick={() => step(1)}
