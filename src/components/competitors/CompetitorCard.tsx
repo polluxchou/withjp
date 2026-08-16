@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import ShotAlbum from './ShotAlbum'
+import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
@@ -24,7 +25,7 @@ function Field({ label, value }: { label: string; value: string | null }) {
 
 export default function CompetitorCard({
   c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
-  dateWindow, selectedDate, nested = false,
+  dateWindow, selectedDate, nested = false, highlighted = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -36,6 +37,8 @@ export default function CompetitorCard({
   dateWindow: string[]
   selectedDate: string | null
   nested?: boolean
+  /** 刚被导航条定位到:短暂描边,告诉用户滚动停在了哪张卡。 */
+  highlighted?: boolean
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
@@ -63,10 +66,17 @@ export default function CompetitorCard({
     // 同比例的 1fr_3fr 落进去,列宽就对不上了(实测第 5 列偏 21px)。
     // 层级感改用 ring —— box-shadow 不参与盒模型,拿不走一个像素的宽度。
     ? 'rounded-field bg-muted-soft py-3 ring-1 ring-inset ring-line'
-    : 'rounded-card border border-line bg-surface p-4'
+    // 高亮 ring 只出现在顶层卡这一支:子卡那支已经有自己的 ring-1,同一属性
+    // 挂两个候选类时谁生效由 Tailwind 生成顺序决定、不看书写顺序(见
+    // FilterChip 的同款教训)。互斥分支从结构上避免这个问题。
+    // scroll-mt-4:scrollIntoView 落点留一点余量,不让卡片贴死视口顶。
+    : `rounded-card border border-line bg-surface p-4 scroll-mt-4 transition-shadow ${
+        highlighted ? 'ring-2 ring-primary-ring' : ''
+      }`
 
   return (
-    <div className={shell}>
+    // 子卡不挂锚点:导航条只定位顶层竞品,子主播通过父卡的"关联主播"下钻。
+    <div id={nested ? undefined : competitorAnchorId(c.id)} className={shell}>
       <div className="mb-3 flex items-center gap-3">
         {c.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element

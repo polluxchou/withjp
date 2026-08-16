@@ -1,15 +1,22 @@
 // src/components/competitors/CompetitorDossierView.tsx
 'use client'
 
-import { useCallback, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import CompetitorCard from './CompetitorCard'
+import CompetitorNavBar from './CompetitorNavBar'
+import CompetitorSummaryBar from './CompetitorSummaryBar'
 import ShotDateStrip from './ShotDateStrip'
+import { todayLocal } from '@/lib/competitors/localDate'
 import { SHOT_WINDOW_SIZE, collectShotDates, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
+import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
 import type { CompetitorBoard } from '@/lib/competitors/types'
 import Button from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
+
+/** 导航定位后的高亮时长（毫秒）：够看清停在哪张卡，又不至于赖着不走。 */
+const HIGHLIGHT_MS = 1600
 
 export default function CompetitorDossierView({ initial }: { initial: CompetitorBoard }) {
   const t = useTranslations('competitors')
@@ -30,12 +37,31 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
 
   // 顶层竞品可作为父账号选项。
   const parentOptions = useMemo(
-    () => board.competitors.map((c) => ({
-      id: c.id,
-      label: c.latest?.display_name ?? c.display_name ?? c.handle,
-    })),
+    () => board.competitors.map((c) => ({ id: c.id, label: competitorName(c) })),
     [board.competitors],
   )
+
+  // today 要读时钟：服务端(UTC)和浏览器(UTC+8/+9)会算出不同的日期，直接在
+  // 渲染期取会让统计条的文本 hydration 不一致。挂载后再取，首帧不渲染统计条。
+  const [today, setToday] = useState<string | null>(null)
+  useEffect(() => { setToday(todayLocal()) }, [])
+  // 统计与导航都只覆盖顶层主竞品：子主播是父卡内部的下钻内容，
+  // 混进总量会让"追踪了几家"这个数字失去意义。
+  const summary = useMemo(
+    () => (today ? summarizeBoard(board.competitors, today) : null),
+    [board.competitors, today],
+  )
+  const navTargets = useMemo(
+    () => board.competitors.map((c) => ({ id: c.id, name: competitorName(c), handle: c.handle })),
+    [board.competitors],
+  )
+
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!highlightId) return
+    const timer = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS)
+    return () => clearTimeout(timer)
+  }, [highlightId])
 
   const refresh = useCallback(async () => {
     try {
@@ -164,6 +190,8 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
         <p className="text-sm text-ink-500">{t('empty')}</p>
       ) : (
         <div className="space-y-3">
+          {summary && <CompetitorSummaryBar summary={summary} />}
+          <CompetitorNavBar targets={navTargets} onJump={setHighlightId} />
           <ShotDateStrip
             axis={shotAxis}
             dateWindow={dateWindow}
@@ -182,6 +210,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               onUpdateHandle={updateHandle}
               dateWindow={dateWindow}
               selectedDate={selectedDate}
+              highlighted={c.id === highlightId}
             />
           ))}
         </div>

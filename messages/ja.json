@@ -1435,7 +1435,20 @@
     "openProfile": "プロフィールを開く",
     "expandProfile": "詳細を開閉",
     "handlePlaceholder": "@handle または URL",
-    "editHandle": "handle を編集"
+    "editHandle": "handle を編集",
+    "statTracked": "追跡アカウント",
+    "statTrackedNote": "フォロワーデータあり {count} 件",
+    "statFollowers": "フォロワー合計",
+    "statFollowersNote": "{count} 件の最新スナップショットより",
+    "statLatest": "最終取得",
+    "statLatestToday": "今日",
+    "statLatestDaysAgo": "{days} 日前",
+    "statStale": "要更新",
+    "statStaleNone": "すべて {days} 日以内",
+    "statStaleMore": "{names} ほか {count} 件",
+    "navFilterPlaceholder": "アカウント名で絞り込み",
+    "navNoMatch": "該当なし",
+    "navJumpTo": "{name} へ移動"
   },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",
