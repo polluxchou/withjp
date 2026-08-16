@@ -1670,7 +1670,20 @@
     "openProfile": "打开主页",
     "expandProfile": "展开档案",
     "handlePlaceholder": "@handle 或链接",
-    "editHandle": "编辑 handle"
+    "editHandle": "编辑 handle",
+    "statTracked": "追踪账号",
+    "statTrackedNote": "{count} 个有粉丝数据",
+    "statFollowers": "粉丝总量",
+    "statFollowersNote": "基于 {count} 个账号最新快照",
+    "statLatest": "最近采集",
+    "statLatestToday": "今天",
+    "statLatestDaysAgo": "{days} 天前",
+    "statStale": "待更新",
+    "statStaleNone": "全部在 {days} 天内",
+    "statStaleMore": "{names} 及其他 {count} 个",
+    "navFilterPlaceholder": "筛选账号名",
+    "navNoMatch": "无匹配账号",
+    "navJumpTo": "跳到 {name}"
   },
   "site": {
     "meta": {

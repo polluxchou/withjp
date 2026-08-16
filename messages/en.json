@@ -1670,7 +1670,20 @@
     "openProfile": "Open profile",
     "expandProfile": "Toggle dossier",
     "handlePlaceholder": "@handle or URL",
-    "editHandle": "Edit handle"
+    "editHandle": "Edit handle",
+    "statTracked": "Tracked accounts",
+    "statTrackedNote": "{count} with follower data",
+    "statFollowers": "Total followers",
+    "statFollowersNote": "From {count} accounts' latest snapshots",
+    "statLatest": "Last captured",
+    "statLatestToday": "Today",
+    "statLatestDaysAgo": "{days} days ago",
+    "statStale": "Needs refresh",
+    "statStaleNone": "All within {days} days",
+    "statStaleMore": "{names} and {count} more",
+    "navFilterPlaceholder": "Filter by name",
+    "navNoMatch": "No matching account",
+    "navJumpTo": "Jump to {name}"
   },
   "site": {
     "meta": {
