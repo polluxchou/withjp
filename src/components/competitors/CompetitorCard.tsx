@@ -25,7 +25,7 @@ function Field({ label, value }: { label: string; value: string | null }) {
 
 export default function CompetitorCard({
   c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
-  dateWindow, selectedDate, nested = false, highlighted = false,
+  dateWindow, selectedDate, nested = false, selected = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -37,8 +37,8 @@ export default function CompetitorCard({
   dateWindow: string[]
   selectedDate: string | null
   nested?: boolean
-  /** 刚被导航条定位到:短暂描边,告诉用户滚动停在了哪张卡。 */
-  highlighted?: boolean
+  /** 导航条当前选中的账号:与芯片的实心态成对出现,换一个号才熄灭。 */
+  selected?: boolean
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
@@ -66,13 +66,13 @@ export default function CompetitorCard({
     // 同比例的 1fr_3fr 落进去,列宽就对不上了(实测第 5 列偏 21px)。
     // 层级感改用 ring —— box-shadow 不参与盒模型,拿不走一个像素的宽度。
     ? 'rounded-field bg-muted-soft py-3 ring-1 ring-inset ring-line'
-    // 高亮 ring 只出现在顶层卡这一支:子卡那支已经有自己的 ring-1,同一属性
+    // 选中 ring 只出现在顶层卡这一支:子卡那支已经有自己的 ring-1,同一属性
     // 挂两个候选类时谁生效由 Tailwind 生成顺序决定、不看书写顺序(见
     // FilterChip 的同款教训)。互斥分支从结构上避免这个问题。
     // 这里不需要 scroll-mt:导航跳转不走 scrollIntoView(视口顶被吸顶块占着),
     // 落点由 CompetitorNavBar 按吸顶块实测高度算,见那里的 ANCHOR_GAP。
     : `rounded-card border border-line bg-surface p-4 transition-shadow ${
-        highlighted ? 'ring-2 ring-primary-ring' : ''
+        selected ? 'ring-2 ring-primary' : ''
       }`
 
   return (
