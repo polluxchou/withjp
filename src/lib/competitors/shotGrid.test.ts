@@ -11,6 +11,7 @@ import {
   resolveAnchor,
   groupShotsByDate,
   clampWindowStart,
+  visibleCountFor,
 } from './shotGrid.ts'
 import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
 
@@ -267,4 +268,30 @@ test('clampWindowStart: 窗口内原样返回', () => {
 
 test('LIGHTBOX_VISIBLE: 灯箱并排张数', () => {
   assert.equal(LIGHTBOX_VISIBLE, 3)
+})
+
+test('visibleCountFor: 真实设备尺寸下的并排张数', () => {
+  // 竖图由高度约束宽度,单张宽 = 0.36 × vh(64vh 高 × 9:16)。
+  // 期望值对应产品决策:手机与竖屏平板走单图,横屏平板与笔记本走三连排。
+  assert.equal(visibleCountFor(390, 844, 3), 1)   // iPhone 竖屏
+  assert.equal(visibleCountFor(768, 1024, 3), 1)  // iPad 竖屏:宽度够 768 但三连排塞不下
+  assert.equal(visibleCountFor(1024, 768, 3), 3)  // iPad 横屏
+  assert.equal(visibleCountFor(1280, 800, 3), 3)  // 笔记本
+})
+
+test('visibleCountFor: 至少返回 1,且不超过上限', () => {
+  // 再窄也要显示一张,否则灯箱变成空的
+  assert.equal(visibleCountFor(100, 2000, 3), 1)
+  // 再宽也不超过 max
+  assert.equal(visibleCountFor(6000, 400, 3), 3)
+})
+
+test('visibleCountFor: 中间档位能落到 2 张', () => {
+  // 存在既放不下 3 张、又放得下 2 张的视口
+  assert.equal(visibleCountFor(800, 700, 3), 2)
+})
+
+test('visibleCountFor: 非法视口尺寸兜底为 1', () => {
+  // SSR 或尚未测量到尺寸时不要算出 0 张
+  assert.equal(visibleCountFor(0, 0, 3), 1)
 })

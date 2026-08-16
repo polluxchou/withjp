@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Loader2, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { todayLocal } from '@/lib/competitors/localDate'
-import { LIGHTBOX_VISIBLE, clampWindowStart } from '@/lib/competitors/shotGrid'
+import { LIGHTBOX_VISIBLE, clampWindowStart, visibleCountFor } from '@/lib/competitors/shotGrid'
 
 export default function ShotLightbox({
   shots, canEdit, onClose, onChanged,
@@ -21,14 +21,22 @@ export default function ShotLightbox({
   const [start, setStart] = useState(0)
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
+  // 惰性初始化而不是先给 3 再用 effect 纠正:后者会让手机上先画出三连排、
+  // 下一帧才塌回单图。灯箱只在用户点开某天后才渲染,不参与 SSR,所以这里
+  // 读 window 不会有 hydration 不一致;guard 只是防御性的。
+  const [perView, setPerView] = useState(() =>
+    typeof window === 'undefined'
+      ? LIGHTBOX_VISIBLE
+      : visibleCountFor(window.innerWidth, window.innerHeight, LIGHTBOX_VISIBLE),
+  )
   const [dateInput, setDateInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   // 渲染期夹逼,不放 useEffect:effect 版本在 shots 变短时会先渲染出
   // 越界的一帧(整个灯箱闪掉),effect 跑完才回来。
-  const from = clampWindowStart(start, shots.length, LIGHTBOX_VISIBLE)
-  const visible = shots.slice(from, from + LIGHTBOX_VISIBLE)
+  const from = clampWindowStart(start, shots.length, perView)
+  const visible = shots.slice(from, from + perView)
 
   // 兜底到窗口首张,一次覆盖"选中项被删"与"选中项滑出窗口"两种情况。
   // 删除不可逆,作用对象必须永远在画面里。
@@ -72,6 +80,19 @@ export default function ShotLightbox({
     }
   }, [shots])
 
+  // 旋转屏幕或改窗口大小时重算并排张数:横竖屏切换会让"放不放得下三张"整个反过来
+  // (竖屏平板放不下、横过来就放得下)。
+  useEffect(() => {
+    const measure = () =>
+      setPerView(visibleCountFor(window.innerWidth, window.innerHeight, LIGHTBOX_VISIBLE))
+    window.addEventListener('resize', measure)
+    window.addEventListener('orientationchange', measure)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('orientationchange', measure)
+    }
+  }, [])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -81,14 +102,14 @@ export default function ShotLightbox({
   if (!selected) return null
 
   const atStart = from <= 0
-  const atEnd = from + LIGHTBOX_VISIBLE >= shots.length
+  const atEnd = from + perView >= shots.length
   const selectedIndex = shots.findIndex((s) => s.id === selected.id)
 
   // 箭头既翻窗口也换选中:选中新进来的那一张,读作"看下一张",
   // 与改版前单图模式的心智模型一致。
   const step = (direction: -1 | 1) => {
-    const next = clampWindowStart(from + direction, shots.length, LIGHTBOX_VISIBLE)
-    const win = shots.slice(next, next + LIGHTBOX_VISIBLE)
+    const next = clampWindowStart(from + direction, shots.length, perView)
+    const win = shots.slice(next, next + perView)
     const pick = direction === 1 ? win[win.length - 1] : win[0]
     setStart(next)
     if (pick) setPickedId(pick.id)
@@ -156,7 +177,7 @@ export default function ShotLightbox({
           <ChevronLeft size={20} />
         </button>
         {/*
-          并排最多 LIGHTBOX_VISIBLE 张。当天不足这么多就有几张排几张——
+          并排 perView 张(由视口算出,手机与竖屏平板为 1)。当天不足这么多就有几张排几张——
           父层是 flex-col,横向居中由 items-center(交叉轴)负责,所以不足 3 张时
           这一行会自然居中,不需要占位空格。
           min-w-0 是为了极窄视口下等比缩小而不是横向溢出。
