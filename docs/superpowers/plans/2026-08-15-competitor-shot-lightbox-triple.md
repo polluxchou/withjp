@@ -111,10 +111,15 @@ export const LIGHTBOX_VISIBLE = 3
  */
 export function clampWindowStart(start: number, total: number, size: number): number {
   const max = Math.max(total - size, 0)
-  if (!Number.isFinite(start) || start < 0) return 0
-  return Math.min(Math.floor(start), max)
+  return Math.min(Math.max(start, 0), max)
 }
 ```
+
+> 本块已同步为**评审后**的最终实现。初版还带 `if (!Number.isFinite(start) || start < 0) return 0`
+> 与 `Math.floor(start)` 两处防御，代码质量评审指出它们在唯一调用方（React state）语境下
+> 不可能触发、测试也覆盖不到，且与同文件 `windowOf` 不做输入消毒的风格冲突，故在 `aa87ab4`
+> 精简掉。`start < 0` 归零是真实需求（窗口贴左时调用方会传 -1），由 `Math.max(start, 0)` 承担。
+> 本计划的代码块与实现保持逐字一致，是一条会主动核查的不变量（`awk` 抽块 + `diff`）。
 
 - [ ] **Step 4: 运行测试，确认通过**
 
