@@ -170,7 +170,8 @@ export default function ShotAlbum({
       </div>
       {openDate && (
         <ShotLightbox
-          // key 保证换一天就重新挂载,index 不会带着上一天的值过来
+          // key 保证换一天就重新挂载,窗口起点与选中项(start / pickedId)
+          // 不会带着上一天的值过来
           key={openDate}
           shots={grouped.get(openDate) ?? []}
           canEdit={canEdit}
