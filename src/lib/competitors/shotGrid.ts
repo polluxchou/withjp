@@ -128,3 +128,34 @@ export function clampWindowStart(start: number, total: number, size: number): nu
   const max = Math.max(total - size, 0)
   return Math.min(Math.max(start, 0), max)
 }
+
+/**
+ * 灯箱单张图的高度上限,单位是视口高度的比例。
+ *
+ * 必须与 ShotLightbox 里 <img> 的 `max-h-[64vh]` 保持一致 —— 容量计算靠它
+ * 反推单张宽度,两处不同步会算出放不下的张数。
+ */
+const IMAGE_MAX_VH = 0.64
+
+/** 竖屏截图的宽高比(TikTok LIVE 截图的常态)。 */
+const SHOT_ASPECT = 9 / 16
+
+/** 两个箭头按钮(各 36px)与格间距(12px)占掉的横向空间:72 + 12×(n+1)。 */
+const ARROWS_PX = 72
+const GAP_PX = 12
+
+/**
+ * 当前视口能并排放下几张截图,夹逼到 [1, max]。
+ *
+ * 竖图是**由高度约束宽度**的:单张宽 = IMAGE_MAX_VH × vh × 9/16。所以能否
+ * 三连排取决于视口的宽高比而不只是宽度 —— 竖屏平板宽度有 768 却照样放不下,
+ * 而横屏平板只有 1024 反而放得下。
+ *
+ * 至少返回 1:再窄也要显示一张,否则灯箱是空的。SSR 或尚未测到尺寸时
+ * (vw/vh 为 0)同样落到 1。
+ */
+export function visibleCountFor(vw: number, vh: number, max: number): number {
+  const perImage = IMAGE_MAX_VH * vh * SHOT_ASPECT
+  const fits = Math.floor((vw - ARROWS_PX - GAP_PX) / (perImage + GAP_PX))
+  return Math.min(Math.max(fits, 1), max)
+}
