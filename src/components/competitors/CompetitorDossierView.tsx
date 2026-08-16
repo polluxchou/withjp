@@ -191,13 +191,21 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
       ) : (
         <div className="space-y-3">
           {summary && <CompetitorSummaryBar summary={summary} />}
-          <CompetitorNavBar targets={navTargets} onJump={setHighlightId} />
-          <ShotDateStrip
-            axis={shotAxis}
-            dateWindow={dateWindow}
-            selectedDate={selectedDate}
-            onPick={setAnchorDate}
-          />
+          {/* 账号导航条与日期轴合成一整块吸顶:
+              - 导航条常驻,才能连着跳好几个账号而不用每次滚回顶部;
+              - 日期轴本来就必须吸顶(格子里不显示日期文字,滚走了就没法对应列);
+              - 两者各自 sticky top-0 会重叠,所以吸顶提到这一层统一做。
+              不透明底色必须在这层:否则卡片会从吸顶块底下穿过去。
+              data-sticky-head 是给导航条量高度用的锚点偏移量来源,见 CompetitorNavBar。*/}
+          <div data-sticky-head className="sticky top-0 z-10 bg-atmosphere pt-2">
+            <CompetitorNavBar targets={navTargets} onJump={setHighlightId} />
+            <ShotDateStrip
+              axis={shotAxis}
+              dateWindow={dateWindow}
+              selectedDate={selectedDate}
+              onPick={setAnchorDate}
+            />
+          </div>
           {board.competitors.map((c) => (
             <CompetitorCard
               key={c.id}

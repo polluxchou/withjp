@@ -69,8 +69,9 @@ export default function CompetitorCard({
     // 高亮 ring 只出现在顶层卡这一支:子卡那支已经有自己的 ring-1,同一属性
     // 挂两个候选类时谁生效由 Tailwind 生成顺序决定、不看书写顺序(见
     // FilterChip 的同款教训)。互斥分支从结构上避免这个问题。
-    // scroll-mt-4:scrollIntoView 落点留一点余量,不让卡片贴死视口顶。
-    : `rounded-card border border-line bg-surface p-4 scroll-mt-4 transition-shadow ${
+    // 这里不需要 scroll-mt:导航跳转不走 scrollIntoView(视口顶被吸顶块占着),
+    // 落点由 CompetitorNavBar 按吸顶块实测高度算,见那里的 ANCHOR_GAP。
+    : `rounded-card border border-line bg-surface p-4 transition-shadow ${
         highlighted ? 'ring-2 ring-primary-ring' : ''
       }`
 
