@@ -15,8 +15,6 @@ import type { CompetitorBoard } from '@/lib/competitors/types'
 import Button from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
 
-/** 导航定位后的高亮时长（毫秒）：够看清停在哪张卡，又不至于赖着不走。 */
-const HIGHLIGHT_MS = 1600
 
 export default function CompetitorDossierView({ initial }: { initial: CompetitorBoard }) {
   const t = useTranslations('competitors')
@@ -56,12 +54,9 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     [board.competitors],
   )
 
-  const [highlightId, setHighlightId] = useState<string | null>(null)
-  useEffect(() => {
-    if (!highlightId) return
-    const timer = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS)
-    return () => clearTimeout(timer)
-  }, [highlightId])
+  // 选中态常驻,不再是"跳过去闪一下"的临时高亮:芯片和卡片共用这一个 id,
+  // 滚了半天也能一眼看出自己停在哪个号上。换一个号才让上一个熄灭。
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -198,7 +193,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               不透明底色必须在这层:否则卡片会从吸顶块底下穿过去。
               data-sticky-head 是给导航条量高度用的锚点偏移量来源,见 CompetitorNavBar。*/}
           <div data-sticky-head className="sticky top-0 z-10 bg-atmosphere pt-2">
-            <CompetitorNavBar targets={navTargets} onJump={setHighlightId} />
+            <CompetitorNavBar targets={navTargets} selectedId={selectedId} onJump={setSelectedId} />
             <ShotDateStrip
               axis={shotAxis}
               dateWindow={dateWindow}
@@ -218,7 +213,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               onUpdateHandle={updateHandle}
               dateWindow={dateWindow}
               selectedDate={selectedDate}
-              highlighted={c.id === highlightId}
+              selected={c.id === selectedId}
             />
           ))}
         </div>

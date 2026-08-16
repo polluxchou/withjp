@@ -17,9 +17,12 @@ export interface NavTarget {
 
 export default function CompetitorNavBar({
   targets,
+  selectedId,
   onJump,
 }: {
   targets: NavTarget[]
+  /** 当前选中的账号:芯片与对应卡片共用这一个来源,保证两处永远指同一个号。 */
+  selectedId: string | null
   onJump: (id: string) => void
 }) {
   const t = useTranslations('competitors')
@@ -74,21 +77,34 @@ export default function CompetitorNavBar({
         // scrollbar-none:滚动条被隐藏了,但可滚性并没有丢——右缘半截芯片就是提示,
         // 触控板/滚轮横滚照常;真要精确找某个号,左边的过滤框比拖滚动条快。
         <div className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
-          {matched.map((x) => (
-            <button
-              key={x.id}
-              type="button"
-              onClick={() => jump(x.id)}
-              title={`@${x.handle}`}
-              aria-label={t('navJumpTo', { name: x.name })}
-              // 焦点环走 ring-inset 而非共用的 FOCUS_RING:后者带 ring-offset-1,
-              // 而 offset 在 overflow-*-auto 容器里会被裁切(design-system §4
-              // 第二配方的例外③「滚动容器内的项」,recipes.ts 里也写明了不收进常量)。
-              className="h-7 shrink-0 rounded-btn border border-line-strong bg-surface px-3 text-xs text-ink-700 transition-colors hover:bg-row-hover hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
-            >
-              {x.name}
-            </button>
-          ))}
+          {matched.map((x) => {
+            const on = x.id === selectedId
+            return (
+              <button
+                key={x.id}
+                type="button"
+                onClick={() => jump(x.id)}
+                title={`@${x.handle}`}
+                aria-label={t('navJumpTo', { name: x.name })}
+                aria-current={on ? 'true' : undefined}
+                // 选中态与默认态走互斥三元、每个属性只输出一个候选类:同一属性
+                // 挂两个类时谁生效由 Tailwind 生成顺序决定、不看书写顺序
+                // (FilterChip 里踩过,active 的 font-bold 被 font-semibold 压掉)。
+                // hover:* 也必须只留在默认态那一支——否则鼠标一悬停就把实心底色
+                // 盖成浅灰,选中态当场消失。
+                // 焦点环走 ring-inset 而非共用的 FOCUS_RING:后者带 ring-offset-1,
+                // 而 offset 在 overflow-*-auto 容器里会被裁切(design-system §4
+                // 第二配方的例外③「滚动容器内的项」,recipes.ts 里也写明了不收进常量)。
+                className={`h-7 shrink-0 rounded-btn border px-3 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
+                  on
+                    ? 'border-primary bg-primary font-medium text-white'
+                    : 'border-line-strong bg-surface text-ink-700 hover:bg-row-hover hover:text-ink-900'
+                }`}
+              >
+                {x.name}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
