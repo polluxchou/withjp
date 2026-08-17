@@ -80,6 +80,29 @@ test('contact actions become locale-safe internal and external links', () => {
   assert.deepEqual(sections.map(({ id }) => id), ['contact-01', 'contact-02', 'contact-03'])
 })
 
+// 按钮文案不能承诺一个它并不通往的渠道。段 01 的按钮曾经写着「用 LINE 咨询 /
+// LINE で相談する / Ask us on LINE」，而 action 是 'recruit'——点下去落到报名
+// 表单，不是 LINE。ctaHref 那条测试只验「链接对不对」，验不出「文案说的是不是
+// 同一件事」，所以这个错能一直在线上待着。
+//
+// 判据：contact 的 action 只有 recruit / staff-recruit / email 三种，没有 line，
+// 所以任何提到 LINE 的按钮文案必然名不副实；提到邮箱的则必须真的是 email。
+test('CTA 文案不承诺按钮并不通往的渠道', () => {
+  for (const [locale, messages] of [['ja', ja], ['zh', zh], ['en', en]] as const) {
+    for (const section of messages.site.contact.sections) {
+      if (!section.cta) continue
+      const where = `${locale} contact-${section.no}`
+      assert.ok(
+        !/\bLINE\b/i.test(section.cta),
+        `${where}: 按钮文案提到 LINE，但没有 line 这种 action —— 它实际通往 ${section.action}`,
+      )
+      if (/@|メール|mail/i.test(section.cta)) {
+        assert.equal(section.action, 'email', `${where}: 按钮文案像邮箱，action 却是 ${section.action}`)
+      }
+    }
+  }
+})
+
 test('staff-recruit 映射到员工招募页', () => {
   const [s] = buildContactSections([
     { no: '02', eyebrow: 'FOR COMPANION', title: 't', body: 'b',
