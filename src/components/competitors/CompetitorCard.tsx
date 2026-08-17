@@ -143,7 +143,7 @@ export default function CompetitorCard({
             ))}
           </div>
         </div>
-        {canEdit && c.related.length === 0 ? (
+        {canEdit && nested && c.related.length === 0 ? (
           <div className="flex items-center gap-1">
             <select
               value={showAsStreamer ? 'streamer' : 'group'}
