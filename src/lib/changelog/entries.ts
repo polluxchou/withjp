@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-08-17',
+    items: [
+      {
+        kind: 'fix',
+        scope: '对外官网',
+        title: '页脚地址改用行政区名：「大阪市淀川区新大阪」改为「大阪市淀川区西中岛」',
+        details:
+          '官网页脚 ECHOAMP 下面那行地址原来写的是「大阪市淀川区新大阪」，但「新大阪」不是行政区划——它是车站及其周边片区的通称，接在「淀川区」后面读起来像是又下一级的区名，实际不存在这个层级。这一带在行政上对应的町名是「西中島」，现在改用它。日文写作「西中島」、中文写作「西中岛」，各按各自的字形；英文从「Shin-Osaka, Yodogawa-ku, Osaka」改为「Nishinakajima, Yodogawa-ku, Osaka」。CONTACT 页两家公司的完整地址不受影响，那里写的是带邮编的真实门牌，本来就准确。',
+      },
+    ],
+  },
+  {
     date: '2026-08-16',
     items: [
       {
