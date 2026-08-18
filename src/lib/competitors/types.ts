@@ -63,16 +63,15 @@ export interface CompetitorShot {
 }
 
 /**
- * 把开播/截图时刻算成"已播 H:MM"。两者任一缺失或截图早于开播（异常）返回 null。
+ * 把开播/截图时刻拆成已播的 { 小时, 分钟 }。两者任一缺失或截图早于开播（异常）返回 null。
+ * 只返回数值部件，单位文案交给 i18n 按语言拼（避免 "1:20" 被误读成 1 分 20 秒）。
  * 纯函数，UI 与测试共用。
  */
-export function shotUptimeLabel(startedAt: string | null, capturedAt: string | null): string | null {
+export function shotUptimeParts(startedAt: string | null, capturedAt: string | null): { h: number; m: number } | null {
   if (!startedAt || !capturedAt) return null
   const sec = Math.floor((new Date(capturedAt).getTime() - new Date(startedAt).getTime()) / 1000)
   if (!Number.isFinite(sec) || sec < 0) return null
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  return `${h}:${String(m).padStart(2, '0')}`
+  return { h: Math.floor(sec / 3600), m: Math.floor((sec % 3600) / 60) }
 }
 
 /** 按 ISO 周聚合的粉丝点（week_start = 周一 YYYY-MM-DD）。 */
