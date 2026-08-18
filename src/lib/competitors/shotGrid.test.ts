@@ -62,6 +62,9 @@ function shot(id: string, shot_on: string | null): CompetitorShot {
     caption: '',
     sort_order: 0,
     created_at: '2026-08-01T00:00:00Z',
+    viewer_count: null,
+    stream_started_at: null,
+    captured_at: null,
   }
 }
 

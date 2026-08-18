@@ -115,6 +115,12 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
           {t('moreShots', { count: extra })}
         </span>
       )}
+      {/* 自动采集才有在线人数：左上角小角标给一眼"当时热度"。人工上传的截图为 null,不显示。 */}
+      {cover.viewer_count != null && (
+        <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
+          {t('shotViewers', { count: cover.viewer_count })}
+        </span>
+      )}
       {cover.tag && (
         <span className="pointer-events-none absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-[9px] text-white">
           {cover.tag}
