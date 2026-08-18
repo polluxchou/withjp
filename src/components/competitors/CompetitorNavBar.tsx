@@ -1,10 +1,11 @@
 // src/components/competitors/CompetitorNavBar.tsx
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { SearchInput } from '@/components/ui/Field'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
+import { centeredScrollLeft } from '@/lib/competitors/navScroll'
 
 /** 卡片顶边与吸顶块之间留出的呼吸位（px）。 */
 const ANCHOR_GAP = 8
@@ -27,6 +28,7 @@ export default function CompetitorNavBar({
 }) {
   const t = useTranslations('competitors')
   const [query, setQuery] = useState('')
+  const rowRef = useRef<HTMLDivElement>(null)
 
   const matched = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -37,7 +39,22 @@ export default function CompetitorNavBar({
   // 只有一个账号时导航没有意义，整条不渲染。
   if (targets.length < 2) return null
 
-  const jump = (id: string) => {
+  const jump = (id: string, chip: HTMLElement) => {
+    // 把选中的芯片挪到行的正中:点了边缘的账号后,两侧都能露出几个邻居,不用
+    // 横滚就能接着点下一个。与日期轴 windowOf 的锚点居中语义一致(见 navScroll)。
+    // 只能改容器的 scrollLeft,不能对芯片用 scrollIntoView({inline})——那会连
+    // 带滚动所有可滚祖先(包括 window),跟下面刚算好的纵向落点打架。
+    const row = rowRef.current
+    if (row) {
+      const chipStart = chip.getBoundingClientRect().left - row.getBoundingClientRect().left + row.scrollLeft
+      row.scrollLeft = centeredScrollLeft({
+        chipStart,
+        chipWidth: chip.offsetWidth,
+        viewWidth: row.clientWidth,
+        contentWidth: row.scrollWidth,
+      })
+    }
+
     const el = document.getElementById(competitorAnchorId(id))
     if (el) {
       // 不能用 scrollIntoView:它把卡片顶边对齐到视口顶,而视口顶被吸顶块
@@ -76,14 +93,14 @@ export default function CompetitorNavBar({
         // 芯片行横向滚动而不换行：账号再多也只占一行高度，不把卡片列表推下去。
         // scrollbar-none:滚动条被隐藏了,但可滚性并没有丢——右缘半截芯片就是提示,
         // 触控板/滚轮横滚照常;真要精确找某个号,左边的过滤框比拖滚动条快。
-        <div className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+        <div ref={rowRef} className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
           {matched.map((x) => {
             const on = x.id === selectedId
             return (
               <button
                 key={x.id}
                 type="button"
-                onClick={() => jump(x.id)}
+                onClick={(e) => jump(x.id, e.currentTarget)}
                 title={`@${x.handle}`}
                 aria-label={t('navJumpTo', { name: x.name })}
                 aria-current={on ? 'true' : undefined}
