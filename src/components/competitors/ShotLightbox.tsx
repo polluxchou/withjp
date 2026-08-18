@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Loader2, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
-import { shotUptimeLabel } from '@/lib/competitors/types'
+import { shotUptimeParts } from '@/lib/competitors/types'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { LIGHTBOX_VISIBLE, clampWindowStart, visibleCountFor } from '@/lib/competitors/shotGrid'
 
@@ -229,11 +229,16 @@ export default function ShotLightbox({
         {selected.viewer_count != null && (
           <span className="opacity-80">{t('shotViewers', { count: selected.viewer_count })}</span>
         )}
-        {shotUptimeLabel(selected.stream_started_at, selected.captured_at) && (
-          <span className="opacity-80">
-            {t('shotUptime', { duration: shotUptimeLabel(selected.stream_started_at, selected.captured_at)! })}
-          </span>
-        )}
+        {(() => {
+          const up = shotUptimeParts(selected.stream_started_at, selected.captured_at)
+          if (!up) return null
+          // 不足 1 小时只显示分钟,免得出现"0时20分"
+          return (
+            <span className="opacity-80">
+              {up.h > 0 ? t('shotUptime', { h: up.h, m: up.m }) : t('shotUptimeMin', { m: up.m })}
+            </span>
+          )
+        })()}
         {canEdit && (
           <>
             <label className="flex items-center gap-1">
@@ -254,19 +259,25 @@ export default function ShotLightbox({
             >
               {t('saveShotDate')}
             </button>
+            {/* 破坏性操作:手机上给足 44px 触达区,并与两侧(尤其关闭)拉开间距,防误触 */}
             <button
               type="button"
               onClick={removeSelected}
               disabled={busy}
               aria-label={t('delete')}
-              className="rounded bg-black/50 p-1 text-white hover:bg-danger-strong disabled:opacity-50"
+              className="mx-1 inline-flex h-11 w-11 items-center justify-center rounded bg-black/50 text-white hover:bg-danger-strong disabled:opacity-50 sm:mx-0 sm:h-8 sm:w-8"
             >
-              <Trash2 size={14} />
+              <Trash2 size={18} />
             </button>
           </>
         )}
-        <button type="button" onClick={onClose} aria-label={t('closeShot')} className="rounded bg-black/50 p-1 text-white">
-          <X size={14} />
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('closeShot')}
+          className="inline-flex h-11 w-11 items-center justify-center rounded bg-black/50 text-white sm:h-8 sm:w-8"
+        >
+          <X size={18} />
         </button>
       </div>
 
