@@ -1621,7 +1621,7 @@
     "readOnly": "只有管理员可以增删竞品",
     "colFollowers": "粉丝",
     "colLikes": "获赞",
-    "colVideos": "作品",
+    "colVideos": "视频数",
     "region": "地区",
     "verified": "已认证",
     "latestOn": "最近采集 {date}",

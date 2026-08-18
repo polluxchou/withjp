@@ -52,10 +52,13 @@ export default function CompetitorCard({
   const isStreamer = !!c.parent_id
   const showAsStreamer = isStreamer || pendingStreamer
   const name = c.latest?.display_name ?? c.display_name ?? c.handle
-  // 视频数是本行唯一的"指标"，单独包一层 tabular-nums；其余分段是纯文本，
-  // 不需要数字对齐，继续走字符串拼接（design-system §2 数字规则）。
+  // 视频数与获赞是本行的两个"指标"，各自单独包一层 tabular-nums；其余分段是
+  // 纯文本，不需要数字对齐，继续走字符串拼接（design-system §2 数字规则）。
+  // 两者都只取 c.latest（最新一次采集）的值，不回退到更早的快照——回退会让
+  // 一个旧数字挨着一个新日期显示，比留个破折号更容易误读。没采到就是 —。
   const statParts: ReactNode[] = [
     <span key="videos">{t('colVideos')} <span className="tabular-nums">{formatCount(c.latest?.videos ?? null)}</span></span>,
+    <span key="likes">{t('colLikes')} <span className="tabular-nums">{formatCount(c.latest?.likes ?? null)}</span></span>,
     c.composition ?? null,
     c.online_note ? `${t('fieldOnline')} ${c.online_note}` : null,
     c.latest ? t('latestOn', { date: c.latest.captured_on }) : null,
