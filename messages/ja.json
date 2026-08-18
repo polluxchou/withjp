@@ -1409,6 +1409,8 @@
     "addShotOnDate": "{date} のスクショを追加",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
+    "shotViewers": "視聴者 {count}",
+    "shotUptime": "配信 {duration}",
     "prevShot": "前の画像",
     "nextShot": "次の画像",
     "closeShot": "閉じる",

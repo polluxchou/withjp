@@ -1644,6 +1644,8 @@
     "addShotOnDate": "为 {date} 添加截图",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
+    "shotViewers": "在线 {count}",
+    "shotUptime": "已播 {duration}",
     "prevShot": "上一张",
     "nextShot": "下一张",
     "closeShot": "关闭",

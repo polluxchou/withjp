@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Loader2, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
+import { shotUptimeLabel } from '@/lib/competitors/types'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { LIGHTBOX_VISIBLE, clampWindowStart, visibleCountFor } from '@/lib/competitors/shotGrid'
 
@@ -224,6 +225,15 @@ export default function ShotLightbox({
 
       <div className="flex items-center gap-3 text-xs text-white" onClick={(e) => e.stopPropagation()}>
         <span>{t('shotIndexOf', { index: selectedIndex + 1, total: shots.length })}</span>
+        {/* 自动采集的直播态：在线人数 + 截图时已播时长。人工上传的截图这两项为 null,整段不出现。 */}
+        {selected.viewer_count != null && (
+          <span className="opacity-80">{t('shotViewers', { count: selected.viewer_count })}</span>
+        )}
+        {shotUptimeLabel(selected.stream_started_at, selected.captured_at) && (
+          <span className="opacity-80">
+            {t('shotUptime', { duration: shotUptimeLabel(selected.stream_started_at, selected.captured_at)! })}
+          </span>
+        )}
         {canEdit && (
           <>
             <label className="flex items-center gap-1">

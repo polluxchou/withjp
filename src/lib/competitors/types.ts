@@ -54,6 +54,25 @@ export interface CompetitorShot {
   caption: string
   sort_order: number
   created_at: string
+  /** 截图那一刻直播间在线人数（自动采集才有；人工上传为 null）。 */
+  viewer_count: number | null
+  /** 本场直播开播时间（ISO）。配合 captured_at 得"截图时已播时长"。 */
+  stream_started_at: string | null
+  /** 截图捕获时刻（ISO）。用它而非 created_at 算时长，避免入库延迟误差。 */
+  captured_at: string | null
+}
+
+/**
+ * 把开播/截图时刻算成"已播 H:MM"。两者任一缺失或截图早于开播（异常）返回 null。
+ * 纯函数，UI 与测试共用。
+ */
+export function shotUptimeLabel(startedAt: string | null, capturedAt: string | null): string | null {
+  if (!startedAt || !capturedAt) return null
+  const sec = Math.floor((new Date(capturedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+  if (!Number.isFinite(sec) || sec < 0) return null
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  return `${h}:${String(m).padStart(2, '0')}`
 }
 
 /** 按 ISO 周聚合的粉丝点（week_start = 周一 YYYY-MM-DD）。 */
