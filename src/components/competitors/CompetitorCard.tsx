@@ -63,7 +63,9 @@ export default function CompetitorCard({
 
   // 角色区(只读的 Tag / 管理员的两个 select)提成变量:窄屏要把它整体挪到
   // header 第二行,三个分支共用同一个包装 div,免得给不吃 className 的 Tag 加类。
-  const roleNode = canEdit && c.related.length === 0 ? (
+  // 22 个跟踪账号目前都是团播主账号,不会被改挂成子账号,归属切换只在
+  // nested(子账号)卡片上有意义;顶层卡片只展示静态标签。
+  const roleNode = canEdit && nested && c.related.length === 0 ? (
     <div className="flex items-center gap-1">
       <select
         value={showAsStreamer ? 'streamer' : 'group'}
