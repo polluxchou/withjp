@@ -189,18 +189,23 @@ export default function CompetitorCard({
         )}
       </div>
 
-      {/* 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开 */}
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1">
-        <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
-        <ShotAlbum
-          competitorId={c.id}
-          shots={c.shots}
-          canEdit={canEdit}
-          onChanged={onChanged}
-          dateWindow={dateWindow}
-          selectedDate={selectedDate}
-        />
-      </div>
+      {/* 子账号只看基础粉丝曲线,不展示/维护截图(数据结构保留,只是先不接 UI)。 */}
+      {nested ? (
+        <WeeklyFollowersCurve weekly={c.weekly} compact />
+      ) : (
+        // 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1">
+          <WeeklyFollowersCurve weekly={c.weekly} />
+          <ShotAlbum
+            competitorId={c.id}
+            shots={c.shots}
+            canEdit={canEdit}
+            onChanged={onChanged}
+            dateWindow={dateWindow}
+            selectedDate={selectedDate}
+          />
+        </div>
+      )}
 
       {c.related.length > 0 && (
         <div className="mt-3 border-t border-line-soft pt-3">
