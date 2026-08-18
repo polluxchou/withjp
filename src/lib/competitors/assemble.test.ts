@@ -31,6 +31,7 @@ const snap = (captured_on: string, followers: number): CompetitorSnapshot => ({
 const shot = (id: string, shot_on: string | null, sort_order = 0): CompetitorShot => ({
   id, competitor_id: 'c1', image_url: 'https://x/' + id + '.png', shot_on,
   tag: null, caption: '', sort_order, created_at: '2026-07-01T00:00:00Z',
+  viewer_count: null, stream_started_at: null, captured_at: null,
 })
 
 test('assembleBoard: 挑最新快照 + 历史升序 + 周聚合', () => {
