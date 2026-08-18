@@ -19,9 +19,23 @@ export default function CompetitorSummaryBar({ summary }: { summary: BoardSummar
   // 直接拼接、一个分隔符都不给（实测 "Yozora LiveHoshi Kan"）。narrow 则是为了
   // 拿到「、」和「, 」而不是「和」「and」——这里是罗列不是并列连词。
   const listFmt = useMemo(() => new Intl.ListFormat(locale, { style: 'narrow', type: 'conjunction' }), [locale])
-  const { tracked, withData, totalFollowers, latestCapturedOn, daysSinceLatest, staleCount, staleNames } = summary
+  const { tracked, withData, totalFollowers, latestCapturedOn, latestMetricsOn, daysSinceLatest, staleCount, staleNames } = summary
 
   if (tracked === 0) return null
+
+  // 「最近采集」取两条采集链路里较新的一天（主页指标周采 / 直播截图），所以指标
+  // 落后时要在 note 里单独点名指标那一天——否则一个来自截图的日期看着像
+  // "粉丝数也是当天读的"。指标反而更新时不重复报同一个日期。
+  const latestNote = [
+    daysSinceLatest == null
+      ? null
+      : daysSinceLatest <= 0
+        ? t('statLatestToday')
+        : t('statLatestDaysAgo', { days: daysSinceLatest }),
+    latestMetricsOn != null && latestCapturedOn != null && latestMetricsOn < latestCapturedOn
+      ? t('statLatestMetricsOn', { date: latestMetricsOn })
+      : null,
+  ].filter((part) => part != null).join(' · ')
 
   const staleNote = staleCount === 0
     ? t('statStaleNone', { days: STALE_DAYS })
@@ -47,13 +61,7 @@ export default function CompetitorSummaryBar({ summary }: { summary: BoardSummar
       <Stat
         label={t('statLatest')}
         value={latestCapturedOn ?? '—'}
-        note={
-          daysSinceLatest == null
-            ? undefined
-            : daysSinceLatest <= 0
-              ? t('statLatestToday')
-              : t('statLatestDaysAgo', { days: daysSinceLatest })
-        }
+        note={latestNote || undefined}
       />
       <Stat
         label={t('statStale')}
