@@ -24,6 +24,8 @@ test('summarizeBoard: 空数组归零', () => {
     withData: 0,
     totalFollowers: 0,
     latestCapturedOn: null,
+    latestMetricsOn: null,
+    latestShotOn: null,
     daysSinceLatest: null,
     staleCount: 0,
     staleNames: [],
@@ -117,4 +119,72 @@ test('competitorName: 快照名 → 竞品名 → handle 三级回退', () => {
   assert.equal(competitorName(make('handle', snap('2026-08-15', 1, '快照名'), '竞品名')), '快照名')
   assert.equal(competitorName(make('handle', snap('2026-08-15', 1, null), '竞品名')), '竞品名')
   assert.equal(competitorName(make('handle', null, null)), 'handle')
+})
+
+// —— 「最近采集」跨两条链路：主页指标快照 + 直播截图 ——
+
+function shot(shot_on: string | null) {
+  return { shot_on }
+}
+
+test('summarizeBoard: 截图比指标新时，latestCapturedOn 取截图日、latestMetricsOn 留在指标日', () => {
+  const s = summarizeBoard(
+    [{ ...make('a', snap('2026-08-17', 1000)), shots: [shot('2026-08-18')] }],
+    '2026-08-18',
+  )
+  assert.equal(s.latestCapturedOn, '2026-08-18')
+  assert.equal(s.latestMetricsOn, '2026-08-17')
+  assert.equal(s.latestShotOn, '2026-08-18')
+  assert.equal(s.daysSinceLatest, 0)
+})
+
+test('summarizeBoard: 指标比截图新时截图不拉低日期', () => {
+  const s = summarizeBoard(
+    [{ ...make('a', snap('2026-08-18', 1000)), shots: [shot('2026-08-12'), shot('2026-08-15')] }],
+    '2026-08-18',
+  )
+  assert.equal(s.latestCapturedOn, '2026-08-18')
+  assert.equal(s.latestShotOn, '2026-08-15')
+})
+
+test('summarizeBoard: 未标日期的截图(shot_on=null)不参与', () => {
+  const s = summarizeBoard(
+    [{ ...make('a', snap('2026-08-17', 1000)), shots: [shot(null)] }],
+    '2026-08-18',
+  )
+  assert.equal(s.latestShotOn, null)
+  assert.equal(s.latestCapturedOn, '2026-08-17')
+})
+
+test('summarizeBoard: 子主播的截图也算进最近采集', () => {
+  const s = summarizeBoard(
+    [{
+      ...make('parent', snap('2026-08-17', 1000)),
+      shots: [],
+      related: [{ ...make('kid', null), shots: [shot('2026-08-18')] }],
+    }],
+    '2026-08-18',
+  )
+  // 日期取最大值，不像账号数/粉丝总量那样会被子账号稀释，所以下钻的截图照算
+  assert.equal(s.latestCapturedOn, '2026-08-18')
+  assert.equal(s.tracked, 1, '追踪账号数仍只数顶层')
+})
+
+test('summarizeBoard: 只有截图没有指标时，日期出得来但账号仍算待更新', () => {
+  const s = summarizeBoard(
+    [{ ...make('a', null, '只截了图的团'), shots: [shot('2026-08-18')] }],
+    '2026-08-18',
+  )
+  assert.equal(s.latestCapturedOn, '2026-08-18')
+  assert.equal(s.latestMetricsOn, null)
+  assert.equal(s.staleCount, 1)
+  assert.deepEqual(s.staleNames, ['只截了图的团'])
+})
+
+test('summarizeBoard: 陈旧判定只看指标，截图再新也不救', () => {
+  const s = summarizeBoard(
+    [{ ...make('a', snap('2026-08-01', 1000)), shots: [shot('2026-08-18')] }],
+    '2026-08-18',
+  )
+  assert.equal(s.staleCount, 1)
 })
