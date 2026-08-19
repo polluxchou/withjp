@@ -9,6 +9,7 @@ import { shotUptimeParts } from '@/lib/competitors/types'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { LIGHTBOX_VISIBLE, clampWindowStart, visibleCountFor } from '@/lib/competitors/shotGrid'
 import { formatDayTimeInLocaleZone } from '@/lib/time/localeZone'
+import { lockViewportScroll } from '@/lib/ui/scrollLock'
 
 export default function ShotLightbox({
   shots, canEdit, onClose, onChanged,
@@ -102,6 +103,19 @@ export default function ShotLightbox({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // 灯箱打开期间锁掉底层页面滚动。遮罩盖住整屏但不吃滚轮事件,在图上滚会把
+  // 下面的竞品列表滚走 —— 关掉灯箱才发现位置全变了,而日期列是靠位置对应的。
+  //
+  // 走全站共用的 lockViewportScroll():锁 <html>、补滚动条槽宽避免横向跳、
+  // 解锁读回原内联值。锁哪个元素为什么这么选、以及验证时必须用真实滚轮事件
+  // (window.scrollTo 会给假阴性),都写在 lib/ui/scrollLock.ts 的头注释里。
+  //
+  // 早先这里的注释断言「给 body 加 overflow:hidden 完全不起作用」——那句是错的。
+  // 后来用真实滚轮实测:CSS 的 overflow 视口传播规则下,<html> 两轴都是 visible 时
+  // UA 改用 body 的 overflow 作用于视口,所以 body 锁同样拦得住(Sidebar 的移动端
+  // 抽屉一直靠它)。选 documentElement 的真实理由是它无条件成立,不依赖那个前提。
+  useEffect(() => lockViewportScroll(), [])
 
   if (!selected) return null
 
