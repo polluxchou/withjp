@@ -2,12 +2,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Loader2, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { LIGHTBOX_VISIBLE, clampWindowStart, visibleCountFor } from '@/lib/competitors/shotGrid'
+import { formatDayTimeInLocaleZone } from '@/lib/time/localeZone'
 
 export default function ShotLightbox({
   shots, canEdit, onClose, onChanged,
@@ -19,6 +20,8 @@ export default function ShotLightbox({
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
+  // 开播时刻按界面语言换算（ja=日本 / zh=北京 / en=加州），库里是 UTC。
+  const locale = useLocale()
   const [start, setStart] = useState(0)
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
@@ -228,6 +231,13 @@ export default function ShotLightbox({
         {/* 自动采集的直播态：在线人数 + 截图时已播时长。人工上传的截图这两项为 null,整段不出现。 */}
         {selected.viewer_count != null && (
           <span className="opacity-80">{t('shotViewers', { count: selected.viewer_count })}</span>
+        )}
+        {/* 开播时刻：直播间自己报的 stream_started_at，同一场的多张截图值一致。
+            时长只说明「截图时已播多久」，看不出对方的开播作息，所以两个都给。 */}
+        {formatDayTimeInLocaleZone(selected.stream_started_at, locale) && (
+          <span className="opacity-80 tabular-nums">
+            {t('shotStartedAt', { time: formatDayTimeInLocaleZone(selected.stream_started_at, locale)! })}
+          </span>
         )}
         {(() => {
           const up = shotUptimeParts(selected.stream_started_at, selected.captured_at)

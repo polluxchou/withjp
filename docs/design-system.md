@@ -112,6 +112,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 - **字距 token**（Tailwind letterSpacing 自定义）：`tracking-title` `-0.02em`（页面标题）/ `tracking-section` `-0.01em`（区块标题）/ `tracking-kpi` `-0.03em`（KPI 数字）
 - 页面标题 `2xl/700/-0.02em`（`tracking-title`）；KPI 数字 `2xl/700/-0.03em/tabular`（`tracking-kpi`）；区块标题 `lg/600/-0.01em`（`tracking-section`）
 - 数字规则：所有统计/金额加 `tabular-nums`；金额与编号用 mono；千分位逗号；负值用 danger text
+- 时间显示规则：库里一律 UTC 打点（`timestamptz`），**展示时区跟界面语言走**（`ja`=Asia/Tokyo · `zh`=Asia/Shanghai · `en`=America/Los_Angeles），唯一实现处 `src/lib/time/localeZone.ts`，next-intl 的全局 `timeZone` 也由它喂（不设会回落到运行环境时区：本地 PDT、Vercel UTC）。不跟设备时区走——同一条记录必须在同语言的所有人屏幕上读到同一个数字。手写版式用 `formatDayTimeInLocaleZone`（固定 `MM-DD HH:mm` 数字序，不用各语言本地排法，与站内其它日期同构）。⚠️ 与「日期分桶」区分：`competitor_shots.shot_on` 这类归档日期列按日区业务日（Asia/Tokyo）落库、全站唯一，是数据不是显示，不随语言变
 - 截断规则：所有弹性文字容器 `min-w-0` + `truncate`（ja 长词风险），多行截断用 `line-clamp-N`
 
 ## 3. 空间、形状与深度
