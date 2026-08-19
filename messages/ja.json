@@ -1388,6 +1388,8 @@
     "colLikes": "いいね",
     "colVideos": "動画",
     "region": "地域",
+    "fieldProfileLanguage": "プロフィール言語",
+    "profileLanguageMismatch": "{region} の可能性・地域と不一致",
     "verified": "認証済み",
     "latestOn": "最終取得 {date}",
     "noData": "取得データがありません",

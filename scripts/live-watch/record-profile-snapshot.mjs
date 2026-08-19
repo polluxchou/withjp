@@ -34,6 +34,8 @@ for (const r of rows) {
     videos: parseCount(r.videos), // undefined → null
     following: parseCount(r.following),
     bio: r.bio ?? null,
+    // 主页语言：地区的辅助参考，不写 competitors.region（那是人工权威值）。
+    language: r.language ?? null,
   }
   const { error } = await db.from('competitor_snapshots')
     .upsert(snap, { onConflict: 'competitor_id,captured_on' })
