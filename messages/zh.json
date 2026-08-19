@@ -1693,6 +1693,7 @@
     "statStaleMore": "{names} 及其他 {count} 个",
     "navFilterPlaceholder": "筛选账号名",
     "navNoMatch": "无匹配账号",
+    "navMissingShot": "当天无截图",
     "navJumpTo": "跳到 {name}"
   },
   "site": {

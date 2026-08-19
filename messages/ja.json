@@ -1458,6 +1458,7 @@
     "statStaleMore": "{names} ほか {count} 件",
     "navFilterPlaceholder": "アカウント名で絞り込み",
     "navNoMatch": "該当なし",
+    "navMissingShot": "当日のスクショなし",
     "navJumpTo": "{name} へ移動"
   },
   "items": {

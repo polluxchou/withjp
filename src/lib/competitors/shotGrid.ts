@@ -159,3 +159,21 @@ export function visibleCountFor(vw: number, vh: number, max: number): number {
   const fits = Math.floor((vw - ARROWS_PX - GAP_PX) / (perImage + GAP_PX))
   return Math.min(Math.max(fits, 1), max)
 }
+
+/**
+ * 该账号在轴上当前这一天有没有留下截图 —— 导航条据此把它标成「待补」。
+ *
+ * 判据是「有没有那天的图」，不是「那天有没有开播」：我们只有截图这一手证据，
+ * 对方那天究竟没播还是播了没截到，库里区分不出来（半自动采集，见
+ * docs/superpowers/specs 里的直播截图评审）。所以文案说的是「无截图」而非「未开播」。
+ *
+ * date 为 null（轴为空）或 UNDATED_KEY（当前停在"未标日期"那一列）时一律不标记：
+ * 那两种情况下"当天"没有意义，标出来只会让整条导航一片黄。
+ */
+export function missesShotOn(
+  shots: { shot_on: string | null }[] | undefined,
+  date: string | null,
+): boolean {
+  if (!date || date === UNDATED_KEY) return false
+  return !(shots ?? []).some((s) => s.shot_on === date)
+}
