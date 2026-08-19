@@ -26,7 +26,7 @@ const comp = (over: Partial<Competitor> = {}): Competitor => ({
 const snap = (captured_on: string, followers: number): CompetitorSnapshot => ({
   id: 's-' + captured_on, competitor_id: 'c1', captured_on, followers,
   likes: null, videos: null, following: null, display_name: null, bio: null,
-  region: null, verified: null, raw: null, captured_at: captured_on + 'T00:00:00Z',
+  region: null, language: null, verified: null, raw: null, captured_at: captured_on + 'T00:00:00Z',
 })
 const shot = (id: string, shot_on: string | null, sort_order = 0): CompetitorShot => ({
   id, competitor_id: 'c1', image_url: 'https://x/' + id + '.png', shot_on,

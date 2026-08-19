@@ -1623,6 +1623,8 @@
     "colLikes": "获赞",
     "colVideos": "作品",
     "region": "地区",
+    "fieldProfileLanguage": "主页语言",
+    "profileLanguageMismatch": "疑似 {region}，与地区不一致",
     "verified": "已认证",
     "latestOn": "最近采集 {date}",
     "noData": "暂无采集数据",

@@ -1623,6 +1623,8 @@
     "colLikes": "Likes",
     "colVideos": "Videos",
     "region": "Region",
+    "fieldProfileLanguage": "profile language",
+    "profileLanguageMismatch": "looks like {region}, differs from region",
     "verified": "Verified",
     "latestOn": "Last captured {date}",
     "noData": "No data captured yet",

@@ -38,7 +38,9 @@
 
 ## 5. 范围与非目标
 
-**范围**：单平台 TikTok；日本区（`region` 默认 `JP`）；主页公开指标 + 人工上传截图 + 团级档案 + 两级层级。
+**范围**：单平台 TikTok；**以日区为主但不限于日区**（2026-08-19 核实：23 个顶层竞品里 `_k.queens` / `the_re_born` / `blank.s9` 是韩国团，简介自报 KST 与韩文成员名）；主页公开指标 + 人工上传截图 + 团级档案 + 两级层级。
+
+> ⚠️ `region` 是**建档时人工填的**，采集从不刷新它。曾经 23 个账号被一律填成 `JP`（含上述 3 个韩国团），错了一个月没人发现——因为卡片上那个地区标签每张都一样，没人会去核。现在采集会额外带回主页语言（`competitor_snapshots.language`）做交叉校验，但它只是辅助参考，`competitors.region` 仍是唯一权威值。
 
 **非目标（明确不做）**：
 - 直播间实时数据（在线曲线、逐分钟人数、GMV 实时）——`online_note` 仅存人工观察近似值。
@@ -80,6 +82,8 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | `042_competitor_monitoring.sql` | `competitors` + `competitor_snapshots` 建表 + RLS `authenticated_only` |
 | `043_competitor_dossier.sql` | `competitors` 补团级列；新建 `competitor_shots` + 索引 + RLS；建公开 Storage 桶 `competitor-shots` |
 | `044_competitor_parent.sql` | `competitors` 加自引用 `parent_id`（`on delete cascade`）+ 索引 `idx_competitors_parent` |
+| `20260818000000_competitor_shots_live_metrics.sql` | `competitor_shots` 加 `viewer_count` / `stream_started_at` / `captured_at`（直播态指标） |
+| `20260819000000_competitor_snapshot_language.sql` | `competitor_snapshots` 加 `language`（主页语言，地区的辅助参考） |
 
 > ⚠️ 迁移只能在 Supabase 面板 SQL Editor 手动跑（本仓库不本地 push 迁移）。线上项目 ref：`aumcmufpjkxkgaylrfzl`。042/043/044 均已应用。
 
@@ -92,6 +96,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 
 **`competitor_snapshots`（每日主页打点）** — 唯一键 `unique(competitor_id, captured_on)`
 - `followers`、`likes`、`videos`、`following`、`display_name`、`bio`、`region`、`verified`、`raw`(jsonb)、`captured_at`
+- `language`（20260819 加）：主页 rehydration JSON 的 `user.language`，即**账号的应用语言设置**。它是国别的代理指标而非权威值（日本团把语言设成 `en` 完全可能），只用于展示与和人工 `region` 交叉校验，**不自动覆盖 `region`**。判定逻辑在 `src/lib/competitors/profileLanguage.ts`：只有 `ja/ko/th/vi/id` 这类能明确推出地区的语言才提示不一致，`en` 这类跨地区语言一律不提示。⚠️ 快照的 `region` 列实测一直是空的（采集脚本不读它），所以展开档案里的「地区」回退到 `competitors.region`。
 - 同日重采幂等覆盖（upsert）；`captured_on` 默认脚本运行时 UTC 当天。
 
 **`competitor_shots`（手动上传截图）**
@@ -101,7 +106,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 
 ### 8.3 数据分工原则
 
-随时间变化的身份/指标（`display_name`/`bio`/`region`/`verified`/`followers`/`likes`/`videos`）留在 `competitor_snapshots`，卡片取最新一条；团级稳定属性落在 `competitors`；粉丝曲线由 snapshots 按周聚合。
+随时间变化的身份/指标（`display_name`/`bio`/`region`/`language`/`verified`/`followers`/`likes`/`videos`）留在 `competitor_snapshots`，卡片取最新一条；团级稳定属性落在 `competitors`；粉丝曲线由 snapshots 按周聚合。
 
 ### 8.4 RLS
 
