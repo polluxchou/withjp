@@ -1693,6 +1693,7 @@
     "statStaleMore": "{names} and {count} more",
     "navFilterPlaceholder": "Filter by name",
     "navNoMatch": "No matching account",
+    "navMissingShot": "no shot that day",
     "navJumpTo": "Jump to {name}"
   },
   "site": {

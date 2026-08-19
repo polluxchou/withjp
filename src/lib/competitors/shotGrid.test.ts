@@ -3,15 +3,16 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  UNDATED_KEY,
   LIGHTBOX_VISIBLE,
-  isValidShotDate,
-  collectShotDates,
-  windowOf,
-  resolveAnchor,
-  groupShotsByDate,
+  UNDATED_KEY,
   clampWindowStart,
+  collectShotDates,
+  groupShotsByDate,
+  isValidShotDate,
+  missesShotOn,
+  resolveAnchor,
   visibleCountFor,
+  windowOf,
 } from './shotGrid.ts'
 import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
 
@@ -297,4 +298,30 @@ test('visibleCountFor: 中间档位能落到 2 张', () => {
 test('visibleCountFor: 非法视口尺寸兜底为 1', () => {
   // SSR 或尚未测量到尺寸时不要算出 0 张
   assert.equal(visibleCountFor(0, 0, 3), 1)
+})
+
+// —— 导航条「当天无截图」标记 ——
+
+const shotOn = (shot_on: string | null) => ({ shot_on })
+
+test('missesShotOn: 当天有图不标记,没图才标记', () => {
+  const shots = [shotOn('2026-08-18'), shotOn('2026-08-19')]
+  assert.equal(missesShotOn(shots, '2026-08-19'), false)
+  assert.equal(missesShotOn(shots, '2026-08-17'), true)
+})
+
+test('missesShotOn: 从没截过图的账号一律标记', () => {
+  assert.equal(missesShotOn([], '2026-08-19'), true)
+  assert.equal(missesShotOn(undefined, '2026-08-19'), true)
+})
+
+test('missesShotOn: 未标日期的图不算当天的图', () => {
+  assert.equal(missesShotOn([shotOn(null)], '2026-08-19'), true)
+})
+
+test('missesShotOn: 轴为空或停在"未标日期"列时不标记', () => {
+  // 这两种情况下"当天"没有意义,标出来会让整条导航一片黄
+  assert.equal(missesShotOn([], null), false)
+  assert.equal(missesShotOn([], UNDATED_KEY), false)
+  assert.equal(missesShotOn([shotOn('2026-08-19')], UNDATED_KEY), false)
 })
