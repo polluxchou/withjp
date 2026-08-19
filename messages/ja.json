@@ -1410,6 +1410,7 @@
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "shotViewers": "視聴者 {count}",
+    "shotStartedAt": "配信開始 {time} JST",
     "shotUptime": "配信 {h}時間{m}分",
     "shotUptimeMin": "配信 {m}分",
     "prevShot": "前の画像",

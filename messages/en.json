@@ -1645,6 +1645,7 @@
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
     "shotViewers": "{count} watching",
+    "shotStartedAt": "Started {time} PT",
     "shotUptime": "Live {h}h {m}m",
     "shotUptimeMin": "Live {m}m",
     "prevShot": "Previous shot",
