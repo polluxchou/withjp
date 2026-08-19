@@ -32,6 +32,8 @@ export interface CompetitorSnapshot {
   following: number | null
   display_name: string | null
   bio: string | null
+  /** 主页 rehydration JSON 的 user.language。地区的辅助参考，不权威。 */
+  language: string | null
   region: string | null
   verified: boolean | null
   raw: Record<string, unknown> | null

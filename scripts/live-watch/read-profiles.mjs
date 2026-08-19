@@ -72,6 +72,26 @@ function textOf(html, e2e) {
   const m = html.match(new RegExp(`data-e2e="${e2e}"[^>]*>([^<]*)<`))
   return m ? m[1].trim() : null
 }
+// 主页语言（账号的应用语言设置）。它**不在**渲染后的 DOM 上，而在 rehydration
+// JSON 里 —— outerHTML 包含 script 标签，所以同一份 html 就能拿到，不必多跑一趟。
+//
+// 只作为「地区」的辅助参考：region 是人工维护的权威值，language 只是代理指标
+// （日本团把语言设成 en 也完全可能）。所以取不到就返回 null，绝不影响本轮成败。
+//
+// 必须整段 JSON.parse 后按路径取，不能对整页正则 "language":"xx" —— 那份 payload
+// 里 app-context / i18n 等多处都有同名 key，正则会抓错。
+function languageOf(html) {
+  const m = html.match(/id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/)
+  if (!m) return null
+  try {
+    const scope = JSON.parse(m[1])?.['__DEFAULT_SCOPE__']
+    const lang = scope?.['webapp.user-detail']?.userInfo?.user?.language
+    return typeof lang === 'string' && lang.trim() ? lang.trim() : null
+  } catch {
+    return null
+  }
+}
+
 function extractProfile(html) {
   const followers = textOf(html, 'followers-count')
   const following = textOf(html, 'following-count')
@@ -90,6 +110,7 @@ function extractProfile(html) {
   return {
     followers, likes, following, // 字符串，下游 parseCount；videos 主页不展示，留空
     bio: bio || undefined,
+    language: languageOf(html) ?? undefined,
   }
 }
 

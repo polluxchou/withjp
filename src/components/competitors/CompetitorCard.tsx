@@ -10,6 +10,7 @@ import ShotAlbum from './ShotAlbum'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
+import { checkProfileLanguage } from '@/lib/competitors/profileLanguage'
 import { formatDayTimeInLocaleZone, timeZoneForLocale } from '@/lib/time/localeZone'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
@@ -348,7 +349,21 @@ export default function CompetitorCard({
             value={slotLabels ? t('liveSlotsValue', { slots: slotLabels, count: habit.sessions }) : null}
           />
           <Field label={t('fieldRecentSessions')} value={recentSessions.join(' · ') || null} />
-          <Field label={t('region')} value={c.latest?.region ?? null} />
+          {/* 地区回退到竞品表:快照的 region 实测一直是空的(采集脚本不读它),
+              只看快照会让这一行永远不渲染。人工值才是权威值。 */}
+          <Field label={t('region')} value={c.latest?.region ?? c.region} />
+          {/* 主页语言只是辅助参考(账号的应用语言设置),与人工地区冲突时给个提示,
+              但不改写 region —— 见 lib/competitors/profileLanguage.ts。 */}
+          <Field
+            label={t('fieldProfileLanguage')}
+            value={(() => {
+              const check = checkProfileLanguage(c.latest?.language, c.region)
+              if (!check) return null
+              return check.mismatch
+                ? `${check.language} · ${t('profileLanguageMismatch', { region: check.expectedRegion! })}`
+                : check.language
+            })()}
+          />
           <Field label={t('bio')} value={c.latest?.bio ?? null} />
           {c.latest_videos?.length ? (
             <div className="flex flex-wrap gap-2 text-primary">
