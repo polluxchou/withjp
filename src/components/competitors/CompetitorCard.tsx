@@ -1,7 +1,7 @@
 // src/components/competitors/CompetitorCard.tsx
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
@@ -17,6 +17,9 @@ import Tag from '@/components/ui/Tag'
 
 /** 展开档案里列几场原始开播时刻作证据。8 场够看出本周的档,再多会撑破一行。 */
 const RECENT_SESSIONS = 8
+
+/** 复制成功/失败提示的停留时长。与 intent 里那个复制按钮(1500ms)保持一致。 */
+const COPY_FEEDBACK_MS = 1500
 
 function Field({ label, value }: { label: string; value: string | null }) {
   if (!value) return null
@@ -65,12 +68,36 @@ export default function CompetitorCard({
   const [relOpen, setRelOpen] = useState(false)
   const [editingHandle, setEditingHandle] = useState(false)
   const [handleInput, setHandleInput] = useState('')
+  const [copyState, setCopyState] = useState<'ok' | 'fail' | null>(null)
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // pendingStreamer: user clicked "主播" but hasn't picked a parent yet
   const [pendingStreamer, setPendingStreamer] = useState(false)
   useEffect(() => { setPendingStreamer(false) }, [c.parent_id])
   const isStreamer = !!c.parent_id
   const showAsStreamer = isStreamer || pendingStreamer
   const name = c.latest?.display_name ?? c.display_name ?? c.handle
+
+  // 「@handle」整串(带 @)复制到剪贴板 —— 带着 @ 才能直接粘进 TikTok 搜索框。
+  // 库里存的 handle 一律不含 @(service.ts 新增与更新两条路径都过 parseHandleFromUrl),
+  // 所以这里拼一个 @ 就是最终形态,不会出现 @@。
+  const handleText = `@${c.handle}`
+
+  const copyHandle = async () => {
+    try {
+      await navigator.clipboard.writeText(handleText)
+      setCopyState('ok')
+    } catch {
+      // 非安全上下文(http 域名)或用户拒权时 writeText 会抛。这里不能静默 ——
+      // 点了没反应会被读成按钮坏了,所以失败也给一句提示。
+      setCopyState('fail')
+    }
+    // 连点时重置停留窗口,而不是让先前那个定时器提前把提示收走。
+    if (copyTimer.current) clearTimeout(copyTimer.current)
+    copyTimer.current = setTimeout(() => setCopyState(null), COPY_FEEDBACK_MS)
+  }
+
+  // 卡片可能在提示还挂着时就被卸载(删除竞品 / 列表重取),留下的定时器没意义。
+  useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current) }, [])
   // 视频数是本行唯一的"指标"，单独包一层 tabular-nums；其余分段是纯文本，
   // 不需要数字对齐，继续走字符串拼接（design-system §2 数字规则）。
   const statParts: ReactNode[] = [
@@ -193,8 +220,19 @@ export default function CompetitorCard({
                 // @handle 也要能收缩:名字是这行唯一带 overflow-hidden 的元素,min-width
                 // 会塌到 0 并独吞全部收缩量(实测 canEdit 下名字宽 0px)。shrink-[3]
                 // 让 handle 收缩得比名字快 3 倍,把余量优先留给名字。
-                <span className="flex min-w-0 shrink-[3] items-center gap-0.5">
-                  <span className="truncate text-xs text-ink-500">@{c.handle}</span>
+                <span className="relative flex min-w-0 shrink-[3] items-center gap-0.5">
+                  {/* 点 handle 即复制。提示语用绝对定位浮层而不是行内插一个元素:
+                      这一行的宽度是精算过的(见上面 shrink-[3] 的注释),让一个
+                      出现又消失的元素参与布局会把名字挤来挤去。 */}
+                  <button
+                    type="button"
+                    onClick={copyHandle}
+                    title={t('copyHandle', { handle: handleText })}
+                    aria-label={t('copyHandle', { handle: handleText })}
+                    className={`truncate rounded-field text-xs text-ink-500 hover:text-ink-700 ${FOCUS_RING}`}
+                  >
+                    {handleText}
+                  </button>
                   {canEdit && (
                     <button
                       onClick={() => { setHandleInput(c.handle); setEditingHandle(true) }}
@@ -204,6 +242,18 @@ export default function CompetitorCard({
                       <Pencil size={13} strokeWidth={1.5} />
                     </button>
                   )}
+                  {/* live region 常驻、只让内容从空变成提示语:整个容器条件渲染的话
+                      部分读屏抓不到这次变化,也就不会播报。pointer-events-none 免得
+                      浮层挡住下面那行的点击。 */}
+                  <span role="status" className="pointer-events-none absolute left-0 top-full z-10 mt-0.5">
+                    {copyState && (
+                      <Tag
+                        label={copyState === 'ok' ? t('handleCopied') : t('copyFailed')}
+                        tone={copyState === 'ok' ? 'success' : 'danger'}
+                        size="sm"
+                      />
+                    )}
+                  </span>
                 </span>
               )}
               {/* Tag 不吃 className,包一层防收缩:它是 flex 子项,默认会被压到
