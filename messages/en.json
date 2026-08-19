@@ -1681,6 +1681,7 @@
     "statLatest": "Last captured",
     "statLatestToday": "Today",
     "statLatestDaysAgo": "{days} days ago",
+    "statLatestMetricsOn": "metrics {date}",
     "statStale": "Needs refresh",
     "statStaleNone": "All within {days} days",
     "statStaleMore": "{names} and {count} more",

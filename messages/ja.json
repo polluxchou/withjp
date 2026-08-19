@@ -1446,6 +1446,7 @@
     "statLatest": "最終取得",
     "statLatestToday": "今日",
     "statLatestDaysAgo": "{days} 日前",
+    "statLatestMetricsOn": "指標 {date}",
     "statStale": "要更新",
     "statStaleNone": "すべて {days} 日以内",
     "statStaleMore": "{names} ほか {count} 件",

@@ -1681,6 +1681,7 @@
     "statLatest": "最近采集",
     "statLatestToday": "今天",
     "statLatestDaysAgo": "{days} 天前",
+    "statLatestMetricsOn": "指标 {date}",
     "statStale": "待更新",
     "statStaleNone": "全部在 {days} 天内",
     "statStaleMore": "{names} 及其他 {count} 个",

@@ -26,7 +26,21 @@ function opt(name, fallback = null) {
 
 const handle = opt('handle')
 const file = opt('file')
-const shotOn = opt('shot-on', new Date().toISOString().slice(0, 10))
+// 截图日期按日本时间取，不用 toISOString()（那是 UTC）。竞品全是日区团播、
+// 日期轴也按日本的一天看，而本机时区是 PDT：走 UTC 会把 JST 次日 00:00-09:00
+// 的深夜档盖成前一天，走本机时区又会把 PDT 傍晚 17:00 之后的截图盖成次日。
+// 这是"归档到哪一天"的数据分桶，与界面按 locale 换算显示时刻是两件事：分桶
+// 必须全站唯一（日区业务日），显示时刻才随界面语言走（见 src/lib/time/localeZone.ts）。
+const SHOT_TZ = 'Asia/Tokyo'
+function todayInShotTz() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SHOT_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date())
+  const at = (type) => parts.find((x) => x.type === type).value
+  return `${at('year')}-${at('month')}-${at('day')}`
+}
+
+const shotOn = opt('shot-on', todayInShotTz())
 const tag = opt('tag', 'live_auto')
 const caption = opt('caption', '')
 const dryRun = opt('dry-run') === true
