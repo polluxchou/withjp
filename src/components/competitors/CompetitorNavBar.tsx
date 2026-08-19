@@ -14,6 +14,8 @@ export interface NavTarget {
   id: string
   name: string
   handle: string
+  /** 轴上当前那天没留下截图 —— 标成待补（淡黄）。见 shotGrid.missesShotOn。 */
+  missingShot?: boolean
 }
 
 export default function CompetitorNavBar({
@@ -126,8 +128,14 @@ export default function CompetitorNavBar({
                 key={x.id}
                 type="button"
                 onClick={(e) => jump(x.id, e.currentTarget)}
-                title={`@${x.handle}`}
-                aria-label={t('navJumpTo', { name: x.name })}
+                title={x.missingShot ? `@${x.handle} · ${t('navMissingShot')}` : `@${x.handle}`}
+                // 颜色不作为唯一信息通道（design-system §6.2 可访问性底线）：
+                // 待补状态同时进无障碍名与 title，并用虚线边框给一个非色彩通道。
+                aria-label={
+                  x.missingShot
+                    ? `${t('navJumpTo', { name: x.name })} · ${t('navMissingShot')}`
+                    : t('navJumpTo', { name: x.name })
+                }
                 aria-current={on ? 'true' : undefined}
                 // 选中态与默认态走互斥三元、每个属性只输出一个候选类:同一属性
                 // 挂两个类时谁生效由 Tailwind 生成顺序决定、不看书写顺序
@@ -140,7 +148,11 @@ export default function CompetitorNavBar({
                 className={`h-7 shrink-0 rounded-btn border px-3 text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
                   on
                     ? 'border-primary bg-primary font-medium text-white'
-                    : 'border-line-strong bg-surface text-ink-700 hover:bg-row-hover hover:text-ink-900'
+                    : x.missingShot
+                      // 选中态优先:同一个号既被选中又待补时,实心紫压过淡黄——
+                      // 三支互斥,每个属性仍只输出一个候选类(见上方注释)。
+                      ? 'border-dashed border-warning-border bg-warning-soft text-warning-text hover:bg-row-hover'
+                      : 'border-line-strong bg-surface text-ink-700 hover:bg-row-hover hover:text-ink-900'
                 }`}
               >
                 {x.name}

@@ -9,7 +9,7 @@ import CompetitorNavBar from './CompetitorNavBar'
 import CompetitorSummaryBar from './CompetitorSummaryBar'
 import ShotDateStrip from './ShotDateStrip'
 import { todayLocal } from '@/lib/competitors/localDate'
-import { SHOT_WINDOW_SIZE, collectShotDates, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
+import { SHOT_WINDOW_SIZE, collectShotDates, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
 import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
 import type { CompetitorBoard } from '@/lib/competitors/types'
 import Button from '@/components/ui/Button'
@@ -49,9 +49,17 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     () => (today ? summarizeBoard(board.competitors, today) : null),
     [board.competitors, today],
   )
+  // missingShot 跟的是**日期轴上当前选中的那天**（默认落在有图的最新一天，
+  // 日常扫播时就是今天），不是系统今天：轴上只有有图的日期，若某天全员无图
+  // 那天根本不在轴上，拿系统今天去比会得出"全员待补"这种没信息量的结果。
   const navTargets = useMemo(
-    () => board.competitors.map((c) => ({ id: c.id, name: competitorName(c), handle: c.handle })),
-    [board.competitors],
+    () => board.competitors.map((c) => ({
+      id: c.id,
+      name: competitorName(c),
+      handle: c.handle,
+      missingShot: missesShotOn(c.shots, selectedDate),
+    })),
+    [board.competitors, selectedDate],
   )
 
   // 选中态常驻,不再是"跳过去闪一下"的临时高亮:芯片和卡片共用这一个 id,

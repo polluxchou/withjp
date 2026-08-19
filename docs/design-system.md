@@ -68,6 +68,7 @@
 | 支出 | 预算 budgeted info · 待付款 ordered_unpaid warning · 已付款 paid success · 已退款 refunded info · 部分退款 partially_refunded warning |
 | 战略节点 | 计划中 neutral · 进行中 info · 有风险 warning · 已完成 success · 已逾期 danger |
 | 物品 | 使用中 success · 闲置 neutral · 维修 warning · 报废 danger |
+| 竞品导航条采集状态（非持久化枚举，按日期轴当前选中那天派生） | 当天有截图 默认（白底 `line-strong` 描边）· 当天无截图 warning（`bg-warning-soft` + `border-warning-border` **虚线** + `text-warning-text`）· 选中 primary 实心（压过 warning，三支互斥）。虚线是给色彩之外的第二通道，状态同时进 `aria-label`/`title`（「当天无截图」），满足「色彩不作为唯一信息通道」 |
 | 工时任务 | 计划中 planned neutral · 进行中 doing info · 已完成 done success · 已取消 cancelled neutral |
 | 财务预测账号收入档 | 重点跟进 success · 稳定 violet · 观察 warning（`StatusBadge` 按月收入阈值派生，非持久化枚举） |
 | 财务预测视角 | 公开 success · 私有 neutral · 归属徽章 neutral |
