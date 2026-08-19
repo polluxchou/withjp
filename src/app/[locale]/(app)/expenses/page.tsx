@@ -675,7 +675,7 @@ export default function ExpensesPage() {
             row) sidesteps that mismatch. If this wrapper ever needs to
             become the *actual* last Stat in the band, drop the hardcoded
             border-r here and let Stat's own last:border-r-0 take over. */}
-        <div ref={monthPickerRef} className="relative flex-1 min-w-fit border-r border-line-soft">
+        <div ref={monthPickerRef} className="relative flex-1 min-w-0 border-line-soft md:min-w-fit md:border-r">
           <Stat
             label={activeMonth ? t('kpi.monthExpenseLabel', { month: activeMonth }) : t('thisMonth')}
             value={fmtRmb(summary.currentMonthCost, { compact: true })}
