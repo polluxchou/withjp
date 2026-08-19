@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { lockViewportScroll } from '@/lib/ui/scrollLock'
 
 interface ModalProps {
   open: boolean
@@ -36,6 +37,17 @@ export default function Modal({ open, onClose, title, children, width = 'max-w-l
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
+
+  // 弹窗打开期间锁住底层页面滚动。遮罩盖满整屏但不吃滚轮，实测两种穿透都会复现：
+  // 滚轮落在遮罩上时直接滚底层页面；落在面板里、而面板内容区当前不需要滚动时
+  // （内容装得下），滚动会向上冒到视口，同样把底层页面滚走 —— 关掉弹窗才发现
+  // 位置全变了。这与面板已声明的 aria-modal（向读屏宣告「外面是 inert」）自相矛盾。
+  //
+  // 锁的是 <html> 而不是 body,理由与验证方法见 lib/ui/scrollLock.ts 的注释。
+  useEffect(() => {
+    if (!open) return
+    return lockViewportScroll()
+  }, [open])
 
   // 基础焦点圈定（design-system §6.2 可访问性底线）：打开时记下触发前的
   // 焦点元素并把焦点挪进面板本身（面板加 tabIndex={-1} 使其可编程聚焦，
