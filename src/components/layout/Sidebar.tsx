@@ -36,6 +36,7 @@ import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import type { AgentRole, UserProfile } from '@/lib/types'
+import { lockViewportScroll } from '@/lib/ui/scrollLock'
 import { ACCENT_CHIP } from '@/lib/ui/accent'
 import type { Accent } from '@/lib/ui/accent'
 
@@ -328,12 +329,26 @@ export default function Sidebar() {
   // Auto-close the mobile drawer when navigating to a new route
   useEffect(() => { setMobileOpen(false) }, [path])
 
-  // Lock body scroll while the mobile drawer is open
+  // 抽屉打开期间锁住页面滚动，走全站共用的 lockViewportScroll()。
+  //
+  // 这里原先只锁 body。那样也确实拦得住（CSS 的 overflow 视口传播规则：<html>
+  // 两轴都是 visible 时，UA 改用 body 的 overflow 作用于视口，而本仓 <html> 上
+  // 没有任何 overflow 规则）——实测 375x812 真点开抽屉后滚轮滚不动。换掉是为了
+  // 另外两件事：
+  //
+  // 一，body 那条路依赖「没人给 <html> 设过 overflow」这个隐性前提。谁哪天为了
+  // 兜住横向溢出加一句 html{overflow-x:hidden}，传播规则立刻失效、这把锁静默
+  // 失灵，抽屉照样能开、页面照样能滚。锁 <html> 无条件成立。
+  //
+  // 二，原写法不补滚动条槽宽。窄桌面窗口（<1024px 就算移动模式，Windows / Linux
+  // 上有实体滚动条）开合抽屉时，页面会横向跳一下。
+  //
+  // 共用实现按元素记引用计数，所以这把锁和 ProfileEditor 弹窗（就在下面，用的是
+  // 同一个 <html>）可以任意顺序释放而不会互相锁死 —— 路由一变这里会自动关抽屉，
+  // 而那个弹窗可能还开着，先释放的正是这一把。
   useEffect(() => {
-    if (!isMobile) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = mobileOpen ? 'hidden' : prev
-    return () => { document.body.style.overflow = prev }
+    if (!isMobile || !mobileOpen) return
+    return lockViewportScroll()
   }, [mobileOpen, isMobile])
 
   // On mobile, ignore the desktop `collapsed` setting so the drawer
