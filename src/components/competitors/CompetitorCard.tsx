@@ -1,17 +1,22 @@
 // src/components/competitors/CompetitorCard.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import ShotAlbum from './ShotAlbum'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
+import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
+import { formatDayTimeInLocaleZone, timeZoneForLocale } from '@/lib/time/localeZone'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import Tag from '@/components/ui/Tag'
+
+/** 展开档案里列几场原始开播时刻作证据。8 场够看出本周的档,再多会撑破一行。 */
+const RECENT_SESSIONS = 8
 
 function Field({ label, value }: { label: string; value: string | null }) {
   if (!value) return null
@@ -42,6 +47,20 @@ export default function CompetitorCard({
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
+  // 开播档按界面语言的时区聚类："一天里的第几分钟"这个概念本身依赖时区。
+  const locale = useLocale()
+  const habit = useMemo(
+    () => summarizeLiveHabit(c.shots.map((s) => s.stream_started_at), timeZoneForLocale(locale)),
+    [c.shots, locale],
+  )
+  const slotLabels = habit.slots.map((s) => s.label).join(' / ')
+  // 未达 3 场门槛就只报最近一场,不把单次开播说成规律。
+  const recentSessions = useMemo(
+    () => recentSessionStarts(c.shots.map((s) => s.stream_started_at), RECENT_SESSIONS)
+      .map((iso) => formatDayTimeInLocaleZone(iso, locale))
+      .filter((label): label is string => label != null),
+    [c.shots, locale],
+  )
   const [open, setOpen] = useState(false)
   const [relOpen, setRelOpen] = useState(false)
   const [editingHandle, setEditingHandle] = useState(false)
@@ -58,6 +77,10 @@ export default function CompetitorCard({
     <span key="videos">{t('colVideos')} <span className="tabular-nums">{formatCount(c.latest?.videos ?? null)}</span></span>,
     c.composition ?? null,
     c.online_note ? `${t('fieldOnline')} ${c.online_note}` : null,
+    slotLabels ? t('liveSlotsCompact', { slots: slotLabels })
+      : habit.latestStartedAt
+        ? t('liveSlotsLatest', { time: formatDayTimeInLocaleZone(habit.latestStartedAt, locale)! })
+        : null,
     c.latest ? t('latestOn', { date: c.latest.captured_on }) : null,
   ].filter((part) => part != null && part !== '')
 
@@ -269,6 +292,12 @@ export default function CompetitorCard({
           <Field label={t('fieldLaunch')} value={[c.launch_city, c.launched_on].filter(Boolean).join(' · ') || null} />
           <Field label={t('fieldMc')} value={c.mc_note} />
           <Field label={t('fieldOnline')} value={c.online_note} />
+          {/* 手填的「在线」保留并与实测并列:对方公告的排班和实际开播时间不一致本身就是情报。 */}
+          <Field
+            label={t('fieldLiveSlots')}
+            value={slotLabels ? t('liveSlotsValue', { slots: slotLabels, count: habit.sessions }) : null}
+          />
+          <Field label={t('fieldRecentSessions')} value={recentSessions.join(' · ') || null} />
           <Field label={t('region')} value={c.latest?.region ?? null} />
           <Field label={t('bio')} value={c.latest?.bio ?? null} />
           {c.latest_videos?.length ? (
