@@ -38,6 +38,13 @@ export const CHANGELOG: DailyChangelog[] = [
       },
       {
         kind: 'fix',
+        scope: '对外官网',
+        title: '联系页「想报名的人」的按钮改成「前往报名表单」，之前写的是「用 LINE 咨询」',
+        details:
+          '这个按钮一直是跳到招募页的报名表单，但文案三语都写成了「用 LINE 咨询」（日文「LINE で相談する」、英文「Ask us on LINE」），点下去看到的是表单而不是 LINE，预期和结果对不上。现在改成「前往报名表单」／「応募フォームへ」／「Go to application form」。同时删掉了正文里「通过 LINE 咨询最快」那句——这一段的资料表全是 Chiron 的公司信息，没有任何 LINE 入口，那句话落不到实处。LINE 这个渠道没有消失：招募页的表单旁边本来就写着「也可以通过 LINE 报名：@echoamp_osaka」，提交成功后的提示里也有，所以按钮把人带到那一页反而让路径更顺。',
+      },
+      {
+        kind: 'fix',
         scope: '界面',
         title: '弹窗打开时底层页面不再被滚轮滚走，关掉后回到原来的位置',
         details:
