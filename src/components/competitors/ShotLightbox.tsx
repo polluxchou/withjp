@@ -103,6 +103,29 @@ export default function ShotLightbox({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // 灯箱打开期间锁掉底层页面滚动。遮罩盖住整屏但不吃滚轮事件,在图上滚会把
+  // 下面的竞品列表滚走 —— 关掉灯箱才发现位置全变了,而日期列是靠位置对应的。
+  //
+  // 锁的是 documentElement 而不是 body:本应用的滚动容器是 <html>
+  // (document.scrollingElement === documentElement,body 的 clientHeight
+  // 撑不满内容),给 body 加 overflow:hidden 完全不起作用 —— 实测确认过。
+  //
+  // 同时补一个等于滚动条宽度的 padding-right:锁定会让实体滚动条消失,不补的话
+  // 页面内容会横向跳一下。macOS 是覆盖式滚动条、gutter 为 0,这段是给
+  // Windows / Linux 用的。
+  useEffect(() => {
+    const el = document.documentElement
+    const gutter = window.innerWidth - el.clientWidth
+    const prevOverflow = el.style.overflow
+    const prevPadding = el.style.paddingRight
+    el.style.overflow = 'hidden'
+    if (gutter > 0) el.style.paddingRight = `${gutter}px`
+    return () => {
+      el.style.overflow = prevOverflow
+      el.style.paddingRight = prevPadding
+    }
+  }, [])
+
   if (!selected) return null
 
   const atStart = from <= 0
