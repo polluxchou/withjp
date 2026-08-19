@@ -77,28 +77,50 @@ test('重复解锁是幂等的，不会二次写坏样式', () => {
   assert.equal(el.style.overflow, 'scroll', '第二次调用不该再写一遍旧值')
 })
 
-// ── 防线：守住 Sidebar 移动端抽屉那把 body 锁赖以生效的前提 ──────────────
-// Sidebar 锁的是 body（见 components/layout/Sidebar.tsx）。它今天有效，靠的是
-// 「<html> 的 overflow 两轴都是 visible」→ overflow 向视口传播时改用 body 的值。
-// 谁哪天为了兜住横向溢出加一句 `html { overflow-x: hidden }`，传播规则立刻失效、
-// 那把锁静默失灵：抽屉照样能开、底层页面照样能滚，没有任何测试会红。
-// 这条测试就是那声警报。:root 一并盯着 —— 它选中的也是 <html>。
-test('globals.css 不给 html / :root 设 overflow（Sidebar 的 body 锁依赖这个前提）', async () => {
-  const { readFileSync } = await import('node:fs')
-  const css = readFileSync(new URL('../../app/globals.css', import.meta.url), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '') // 先去注释，免得注释里提到 overflow 造成误报
+test('乱序释放（外层先放）不会把页面永久锁死', () => {
+  const el = fakeTarget({ clientWidth: 1265 })
+  const releaseDrawer = lockViewportScroll(el, 1280)
+  el.clientWidth = 1280 // 已经锁上了，滚动条没了，后来者量到的槽宽是 0
+  const releaseModal = lockViewportScroll(el, 1280)
 
-  const offenders: string[] = []
-  for (const [, selector, decls] of Array.from(css.matchAll(/([^{}]+)\{([^{}]*)\}/g))) {
-    const hitsRoot = /(^|[\s,>+~])(html|:root)\b/.test(selector)
-    const setsOverflow = /(^|[\s;])overflow(-x|-y)?\s*:/.test(decls)
-    if (hitsRoot && setsOverflow) offenders.push(`${selector.trim()} { ${decls.trim()} }`)
-  }
+  // 真实场景：路由一变 Sidebar 自动关抽屉，此时 ProfileEditor 弹窗还开着
+  releaseDrawer()
+  assert.equal(el.style.overflow, 'hidden', '弹窗还持有锁，页面必须仍然锁着')
+  assert.equal(el.style.paddingRight, '15px')
 
-  assert.deepEqual(
-    offenders,
-    [],
-    '给 html/:root 设了 overflow 会让 Sidebar 的 body 滚动锁静默失灵；' +
-      '要么撤掉这条 CSS，要么把 Sidebar 改成用 lockViewportScroll()（锁 documentElement，无条件成立）',
-  )
+  releaseModal()
+  assert.equal(el.style.overflow, '', '最后一个释放后必须真正解锁')
+  assert.equal(el.style.paddingRight, '', '补的 padding 也要撤掉')
+})
+
+test('恢复的是第一个持有者上锁前的值', () => {
+  const el = fakeTarget({ overflow: 'auto', paddingRight: '4px', clientWidth: 1265 })
+  const releaseA = lockViewportScroll(el, 1280)
+  const releaseB = lockViewportScroll(el, 1280)
+  releaseB()
+  releaseA()
+  assert.equal(el.style.overflow, 'auto')
+  assert.equal(el.style.paddingRight, '4px')
+})
+
+test('不同元素各自计数，互不干扰', () => {
+  const a = fakeTarget({ clientWidth: 1265 })
+  const b = fakeTarget({ clientWidth: 375 })
+  const releaseA = lockViewportScroll(a, 1280)
+  const releaseB = lockViewportScroll(b, 375)
+  releaseA()
+  assert.equal(a.style.overflow, '', 'a 的唯一持有者已释放')
+  assert.equal(b.style.overflow, 'hidden', 'b 不该被 a 的释放牵连')
+  releaseB()
+  assert.equal(b.style.overflow, '')
+})
+
+test('全部释放后再上锁，重新捕获当时的原值', () => {
+  const el = fakeTarget({ clientWidth: 1265 })
+  lockViewportScroll(el, 1280)()
+  el.style.overflow = 'scroll'
+  const release = lockViewportScroll(el, 1280)
+  assert.equal(el.style.overflow, 'hidden')
+  release()
+  assert.equal(el.style.overflow, 'scroll', '第二轮该恢复成第二轮开始前的值')
 })
