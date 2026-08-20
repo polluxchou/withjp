@@ -2,6 +2,21 @@ import { RECRUIT_HREF, STAFF_RECRUIT_HREF } from './nav.ts'
 
 export type SiteContactAction = 'recruit' | 'staff-recruit' | 'email'
 
+/** CTA 按钮变体：实底 hot / 描边 ghost。与 SiteButton 的 Variant 对齐。 */
+export type SiteContactCtaVariant = 'hot' | 'ghost'
+
+/**
+ * 两个招募入口（01 主播报名 / 02 职能招募）是同权重的转化点，都走实底 hot；
+ * 03 是邮件咨询（mailto），保持描边 —— 一屏三颗红按钮就没有层次了，而且
+ * 「写封邮件」和「去填表」本来就不是一个量级的动作。
+ *
+ * 放在这里而不是组件里：action → ctaHref 的映射就在下面，两处判读同一个字段，
+ * 分开写迟早对不上（02 此前正是只在 ctaHref 那边被认了、在变体这边漏了）。
+ */
+export function contactCtaVariant(action: SiteContactAction | undefined): SiteContactCtaVariant {
+  return action === 'recruit' || action === 'staff-recruit' ? 'hot' : 'ghost'
+}
+
 export interface SiteContactRowCopy {
   label: string
   value: string

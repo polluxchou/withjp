@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   buildContactSections,
+  contactCtaVariant,
   type SiteContactSectionCopy,
 } from './contact.ts'
 
@@ -211,4 +212,20 @@ test('Contact section 03 uses the approved client copy in every locale', () => {
       hours: 'Weekdays 10:00–19:00 (JST) / Japanese & Chinese',
     },
   )
+})
+
+// —— CTA 按钮变体 ——
+
+test('contactCtaVariant: 两个招募入口都走实底 hot', () => {
+  assert.equal(contactCtaVariant('recruit'), 'hot', '01 主播报名')
+  assert.equal(contactCtaVariant('staff-recruit'), 'hot', '02 职能招募，此前漏成了 ghost')
+})
+
+test('contactCtaVariant: 邮件咨询保持描边', () => {
+  // 一屏三颗红按钮没有层次；写邮件与去填表也不是一个量级的动作
+  assert.equal(contactCtaVariant('email'), 'ghost')
+})
+
+test('contactCtaVariant: 没有 action 时按描边处理', () => {
+  assert.equal(contactCtaVariant(undefined), 'ghost')
 })
