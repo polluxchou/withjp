@@ -83,6 +83,12 @@ export function recentSessionStarts(
 export function summarizeLiveHabit(
   startedAts: (string | null | undefined)[],
   timeZone: string,
+  /**
+   * 一档至少几场才收进 slots。默认 SLOT_MIN_SESSIONS（卡片上「常见开播时段」
+   * 的门槛：不把单次开播说成规律）。地区标尺传 1 —— 它要把只播过一次的账号
+   * 也摆上轴、另用浅色标成推测，否则图上几乎是空的、看不出分布。
+   */
+  minSessions: number = SLOT_MIN_SESSIONS,
 ): LiveHabit {
   // 同一场的多张截图报同一个 stream_started_at，去重后才是「场次」。
   const distinct = Array.from(new Set(startedAts.filter((s): s is string => !!s)))
@@ -112,7 +118,7 @@ export function summarizeLiveHabit(
   }
 
   const slots = groups
-    .filter((g) => g.length >= SLOT_MIN_SESSIONS)
+    .filter((g) => g.length >= minSessions)
     .map((g) => ({ startMinutes: median(g), label: minutesToLabel(median(g)), count: g.length }))
     // 跨午夜合并出的负数中位数要归一到 0-1439 之后再排序，否则它会排到最前面。
     .sort((a, b) => (((a.startMinutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES)
