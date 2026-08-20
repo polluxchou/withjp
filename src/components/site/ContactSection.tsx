@@ -1,5 +1,6 @@
 import BlueprintFrame from './BlueprintFrame'
 import SiteButton from './SiteButton'
+import { contactCtaVariant } from '@/lib/site/contact'
 import type { SiteContactSection as ContactSectionData } from '@/lib/site/contact'
 
 export default function ContactSection({ section }: { section: ContactSectionData }) {
@@ -22,7 +23,7 @@ export default function ContactSection({ section }: { section: ContactSectionDat
         {section.cta && section.ctaHref && (
           <SiteButton
             href={section.ctaHref}
-            variant={section.action === 'recruit' ? 'hot' : 'ghost'}
+            variant={contactCtaVariant(section.action)}
             size="md"
             className="mt-8"
           >
