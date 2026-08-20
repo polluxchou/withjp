@@ -102,10 +102,16 @@ export default function CompetitorCard({
 
   // 卡片可能在提示还挂着时就被卸载(删除竞品 / 列表重取),留下的定时器没意义。
   useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current) }, [])
-  // 视频数是本行唯一的"指标"，单独包一层 tabular-nums；其余分段是纯文本，
+  // 获赞是本行唯一的"指标"，单独包一层 tabular-nums；其余分段是纯文本，
   // 不需要数字对齐，继续走字符串拼接（design-system §2 数字规则）。
+  //
+  // 这里原来放的是「作品（视频数）」，2026-08-20 换成获赞：主页采集脚本压根
+  // 不读视频数（TikTok 主页的三个计数是关注/粉丝/获赞，没有作品数），实测
+  // 23 个顶层账号的最新快照里**没有一个**有 videos，所以那一段在每张卡上都
+  // 只能显示「作品 —」，白占一段位置；而获赞 23/23 都采到了，却一直没露面。
+  // 历史打点表里的视频列保留不动——早期采集路径留下的老快照还有值。
   const statParts: ReactNode[] = [
-    <span key="videos">{t('colVideos')} <span className="tabular-nums">{formatCount(c.latest?.videos ?? null)}</span></span>,
+    <span key="likes">{t('colLikes')} <span className="tabular-nums">{formatCount(c.latest?.likes ?? null)}</span></span>,
     c.composition ?? null,
     c.online_note ? `${t('fieldOnline')} ${c.online_note}` : null,
     slotLabels ? t('liveSlotsCompact', { slots: slotLabels })
