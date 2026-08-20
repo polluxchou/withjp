@@ -119,6 +119,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | `metrics.ts` | `parseCount("1.2M"→1200000)` / `formatCount(n→"1.2M")`（零 import，脚本+视图共用） | `metrics.test.ts` |
 | `chart.ts` | `buildWeeklyCurve(weekly)` → 0–100 百分比点集 + polyline 几何（含日期刻度） | `chart.test.ts` |
 | `weekly.ts` | `weekStartOf(date)`（ISO 周一）/ `bucketFollowersByWeek(history)`（每周取最后一次快照，空值跳过） | `weekly.test.ts` |
+| `regionRuler.ts` | `buildRegionRuler({competitors,region,timeZone,now,currentId})` 把同地区已采到开播时刻的账号摊到一条 24h 轴上：递归含子主播、按 region 过滤、只取近 14 天、每档画中位数 ±30min 段、`established` 标记是否达 3 场门槛；轴端按整点对齐且至少 8 小时宽 | `regionRuler.test.ts` |
 | `mentions.ts` | `extractMentionedHandles(bio, self)` 提取 bio 里 @ 的 handle（排除自身/邮箱域名/去尾点/大小写去重/上限20） | `mentions.test.ts` |
 | `assemble.ts` | `parseHandleFromUrl` + `assembleBoard(competitors,snapshots,shots,canEdit)`：组装 latest/history/weekly/shots，并做**父子嵌套**（`parent_id` 空→顶层，非空→挂到父的 `related`；悬空 parent_id 回退顶层） | `assemble.test.ts` |
 | `types.ts` | 领域类型（`Competitor`/`CompetitorSnapshot`/`CompetitorShot`/`WeeklyPoint`/`CompetitorWithHistory`(含 `related`)/`CompetitorBoard`） | — |

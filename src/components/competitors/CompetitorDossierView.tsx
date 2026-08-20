@@ -221,6 +221,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               onUpdateHandle={updateHandle}
               dateWindow={dateWindow}
               selectedDate={selectedDate}
+              regionPeers={board.competitors}
               selected={c.id === selectedId}
             />
           ))}

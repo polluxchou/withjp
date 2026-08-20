@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import ShotAlbum from './ShotAlbum'
+import RegionLiveRuler from './RegionLiveRuler'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
@@ -34,7 +35,7 @@ function Field({ label, value }: { label: string; value: string | null }) {
 
 export default function CompetitorCard({
   c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
-  dateWindow, selectedDate, nested = false, selected = false,
+  dateWindow, selectedDate, regionPeers, nested = false, selected = false,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -45,6 +46,8 @@ export default function CompetitorCard({
   onUpdateHandle: (id: string, raw: string) => void
   dateWindow: string[]
   selectedDate: string | null
+  /** 整个看板的竞品：地区标签的浮层要拿同区所有账号画标尺。 */
+  regionPeers: CompetitorWithHistory[]
   nested?: boolean
   /** 导航条当前选中的账号:与芯片的实心态成对出现,换一个号才熄灭。 */
   selected?: boolean
@@ -257,11 +260,9 @@ export default function CompetitorCard({
                   </span>
                 </span>
               )}
-              {/* Tag 不吃 className,包一层防收缩:它是 flex 子项,默认会被压到
-                  换行(实测「日本」被挤成竖排两字)。 */}
-              <span className="shrink-0">
-                <Tag label={c.region} tone="violet" size="sm" />
-              </span>
+              {/* 地区标签兼作「同区开播时段」浮层的触发器（内部自带 shrink-0：
+                  它是 flex 子项，默认会被压到换行——实测「日本」被挤成竖排两字）。 */}
+              <RegionLiveRuler region={c.region} peers={regionPeers} currentId={c.id} />
             </div>
           </div>
           {roleNode && (
@@ -328,6 +329,7 @@ export default function CompetitorCard({
                   onUpdateHandle={onUpdateHandle}
                   dateWindow={dateWindow}
                   selectedDate={selectedDate}
+                  regionPeers={regionPeers}
                   nested
                 />
               ))}
