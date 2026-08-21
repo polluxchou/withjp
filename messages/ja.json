@@ -1475,7 +1475,25 @@
     "navFilterPlaceholder": "アカウント名で絞り込み",
     "navNoMatch": "該当なし",
     "navMissingShot": "当日のスクショなし",
-    "navJumpTo": "{name} へ移動"
+    "navJumpTo": "{name} へ移動",
+    "ask": {
+      "open": "データに聞く",
+      "title": "競合データに聞く",
+      "close": "閉じる",
+      "placeholder": "例：先週いちばん伸びたのは / solulune はいつも何時から配信",
+      "send": "送信",
+      "thinking": "確認中…",
+      "emptyHint": "取得済みのデータだけで答えます。推測はしません。例えば：",
+      "example1": "先週いちばん伸びたのは",
+      "example2": "solulune はいつも何時から配信",
+      "example3": "データの更新が必要な競合は",
+      "errorNotConfigured": "チャット機能が未設定です。管理者に DEEPSEEK_API_KEY の設定を依頼してください。",
+      "errorUpstream": "回答を取得できませんでした。もう一度お試しください。",
+      "errorBadRequest": "このメッセージは送信できませんでした。言い換えてお試しください。",
+      "copyError": "エラーをコピー",
+      "copyTooltip": "エラー全文をコピーして開発者に送る",
+      "copied": "コピーしました"
+    }
   },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",
