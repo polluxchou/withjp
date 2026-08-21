@@ -145,3 +145,44 @@ export function nextWatchdog(
   if (state.reinjects >= MAX_REINJECTS) return { state: { ...state, ended: true }, action: 'end' }
   return { state: { reinjects: state.reinjects + 1, ended: false }, action: 'reinject' }
 }
+
+/**
+ * 目录名的时间戳按日本时间取，不用 toISOString()（那是 UTC）。
+ * 竞品全是日区团播，深夜档落在 JST 次日 00:00–09:00 —— 走 UTC 会把它归到前一天，
+ * 走本机时区（PDT）又会把傍晚场归到次日。同 record-live-shot.mjs 的处理。
+ */
+const SESSION_TZ = 'Asia/Tokyo'
+
+function stampInTokyo(epochSec: number): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SESSION_TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date(epochSec * 1000))
+  const at = (type: string) => parts.find((p) => p.type === type)!.value
+  return `${at('year')}${at('month')}${at('day')}-${at('hour')}${at('minute')}`
+}
+
+export type SessionPaths = {
+  dir: string
+  samples: string
+  frames: string
+  meta: string
+}
+
+/** 一场一个目录：<base>/<handle>/<JST 时间戳>/{samples.jsonl, frames/, session.json} */
+export function sessionPaths(
+  baseDir: string,
+  handle: string,
+  startedAt: number | null,
+): SessionPaths {
+  const safe = handle.replace(/[^a-z0-9._-]/gi, '_')
+  const stamp = startedAt == null ? 'unknown' : stampInTokyo(startedAt)
+  const dir = `${baseDir}/${safe}/${stamp}`
+  return {
+    dir,
+    samples: `${dir}/samples.jsonl`,
+    frames: `${dir}/frames`,
+    meta: `${dir}/session.json`,
+  }
+}

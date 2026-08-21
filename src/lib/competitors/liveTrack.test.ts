@@ -7,6 +7,7 @@ import {
   roomEnded,
   nextWatchdog,
   initialWatchdog,
+  sessionPaths,
   type ProbeSample,
   type DrainHealth,
 } from './liveTrack.ts'
@@ -187,4 +188,26 @@ test('nextWatchdog: 抖动过再正常结束时 reinjects 原样留着（本场�
   const r = nextWatchdog(shaky, health({ roomEnded: true }))
   assert.equal(r.action, 'end')
   assert.equal(r.state.reinjects, 1)
+})
+
+test('sessionPaths: 目录名用日本时间的 YYYYMMDD-HHmm', () => {
+  // 1786533600 = 2026-08-12T11:20:00Z = JST 20:20
+  const p = sessionPaths('/base', 'blank.s9', 1_786_533_600)
+  assert.equal(p.dir, '/base/blank.s9/20260812-2020')
+  assert.equal(p.samples, '/base/blank.s9/20260812-2020/samples.jsonl')
+  assert.equal(p.frames, '/base/blank.s9/20260812-2020/frames')
+  assert.equal(p.meta, '/base/blank.s9/20260812-2020/session.json')
+})
+
+test('sessionPaths: JST 深夜档归到 JST 当天，不被 UTC 拉回前一天', () => {
+  // 1786548000 = 2026-08-12T15:20:00Z = JST 08-13 00:20
+  assert.equal(sessionPaths('/base', 'x', 1_786_548_000).dir, '/base/x/20260813-0020')
+})
+
+test('sessionPaths: handle 里的危险字符换成下划线', () => {
+  assert.equal(sessionPaths('/base', 'a/b c', 1_786_533_600).dir, '/base/a_b_c/20260812-2020')
+})
+
+test('sessionPaths: 开播时间未知时用 unknown 占位，仍然能落盘', () => {
+  assert.equal(sessionPaths('/base', 'x', null).dir, '/base/x/unknown')
 })
