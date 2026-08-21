@@ -8,6 +8,7 @@
 // 零 IO、零时钟：now 由调用方注入，才能把跨日、跨时区的行为钉死在单测里。
 import { timeZoneForLocale } from '../time/localeZone.ts'
 import { summarizeLiveHabit } from './liveSlots.ts'
+import { STALE_DAYS, competitorName } from './summary.ts'
 import { shotUptimeParts } from './types.ts'
 import type { CompetitorBoard, CompetitorWithHistory } from './types.ts'
 
@@ -78,11 +79,23 @@ export interface AskShots {
   lastUptimeMinutes: number | null
 }
 
+export interface AskHealth {
+  /** 距最近一次主页指标采集的天数；从未采集为 null。 */
+  metricsAgeDays: number | null
+  stale: boolean
+}
+
 export interface AskCompetitor {
   handle: string
+  name: string
+  region: string
+  isChild: boolean
+  parentHandle: string | null
+  members: number | null
   followers: AskFollowers
   liveHabit: AskLiveHabit
   shots: AskShots
+  health: AskHealth
 }
 
 /** Date → 指定时区的 YYYY-MM-DD。不用 toISOString（那是 UTC）。 */
@@ -168,23 +181,74 @@ function shotsOf(c: CompetitorWithHistory): AskShots {
   }
 }
 
+interface FlatEntry {
+  c: CompetitorWithHistory
+  parentHandle: string | null
+}
+
+/** 把 related 里的子主播摊平成独立条目——它们各有自己的粉丝与开播数据，
+ *  嵌套结构会让模型难以做跨账号比较。父子关系用 parentHandle 保留。 */
+function flatten(list: CompetitorWithHistory[], parentHandle: string | null): FlatEntry[] {
+  const out: FlatEntry[] = []
+  for (const c of list) {
+    out.push({ c, parentHandle })
+    out.push(...flatten(c.related ?? [], c.handle))
+  }
+  return out
+}
+
+function healthOf(f: AskFollowers, todayTokyo: string): AskHealth {
+  if (f.on == null) return { metricsAgeDays: null, stale: true }
+  const age = daysBetween(f.on, todayTokyo)
+  return { metricsAgeDays: age, stale: age > STALE_DAYS }
+}
+
 export function buildAskContext(board: CompetitorBoard, now: Date, locale: string): AskContext {
   const displayTimeZone = timeZoneForLocale(locale)
+  const todayTokyo = dayIn(now, SHOT_TZ)
+  const flat = flatten(board.competitors, null)
+
+  const competitors: AskCompetitor[] = flat.map(({ c, parentHandle }) => {
+    const followers = followersOf(c)
+    return {
+      handle: c.handle,
+      name: competitorName(c),
+      region: c.region,
+      isChild: parentHandle != null,
+      parentHandle,
+      members: c.member_count,
+      followers,
+      liveHabit: liveHabitOf(c, displayTimeZone),
+      shots: shotsOf(c),
+      health: healthOf(followers, todayTokyo),
+    }
+  })
+
+  const metricsDays = new Set<string>()
+  const shotDays = new Set<string>()
+  const sessions = new Set<string>()
+  for (const { c } of flat) {
+    for (const p of c.history) metricsDays.add(p.captured_on)
+    for (const s of c.shots) {
+      if (s.shot_on != null) shotDays.add(s.shot_on)
+      if (s.stream_started_at != null) sessions.add(s.stream_started_at)
+    }
+  }
+
   return {
     meta: {
-      todayTokyo: dayIn(now, SHOT_TZ),
+      todayTokyo,
       displayTimeZone,
       coverage: {
-        competitors: 0, roots: board.competitors.length, withMetrics: 0,
-        metricsDays: 0, shotDays: 0, sessionsWithStartTime: 0,
+        competitors: competitors.length,
+        roots: board.competitors.length,
+        withMetrics: competitors.filter((x) => x.followers.latest != null).length,
+        metricsDays: metricsDays.size,
+        shotDays: shotDays.size,
+        sessionsWithStartTime: sessions.size,
       },
       captureNote: CAPTURE_NOTE,
     },
-    competitors: board.competitors.map((c) => ({
-      handle: c.handle,
-      followers: followersOf(c),
-      liveHabit: liveHabitOf(c, displayTimeZone),
-      shots: shotsOf(c),
-    })),
+    competitors,
   }
 }
