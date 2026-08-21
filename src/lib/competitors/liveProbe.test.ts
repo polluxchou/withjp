@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, clipRect, defaultProbeConfig, probeSource } from './liveProbe.ts'
+import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect, defaultProbeConfig, probeSource } from './liveProbe.ts'
 
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
@@ -294,4 +294,52 @@ test('clipRect: 带上元素在页面里的偏移', () => {
 
 test('CLIP_FACTORY_SRC 是可解析的 JS', () => {
   assert.doesNotThrow(() => new Function(`return (${CLIP_FACTORY_SRC})`))
+})
+
+/** 假的 <video> + getComputedStyle，用来驱动 CLIP_FACTORY_SRC 本尊。 */
+function makeVideoDoc(
+  box: { x: number; y: number; width: number; height: number },
+  vw: number, vh: number, fit: string, pos: string, readyState = 2,
+) {
+  const video = {
+    muted: false, volume: 1,
+    videoWidth: vw, videoHeight: vh, readyState,
+    getBoundingClientRect: () => box,
+  }
+  return {
+    video,
+    doc: { querySelector: (s: string) => (s === 'video' ? video : null) },
+    win: { getComputedStyle: () => ({ objectFit: fit, objectPosition: pos }) },
+  }
+}
+
+const clipFactory = new Function(`return (${CLIP_FACTORY_SRC})`)() as (
+  win: unknown, doc: unknown,
+) => { hasVideo: boolean; ready: boolean; muted?: boolean; fit?: string; clip: Rect | null }
+
+test('CLIP_FACTORY_SRC 与 clipRect 对每个分支算出同一个矩形（两份算式必须同步改）', () => {
+  const box = { x: 100, y: 50, width: 800, height: 600 }
+  const cases: [string, string, number, number][] = [
+    ['contain', '50% 50%', 1920, 1080],
+    ['contain', '50% 0%', 1080, 1920],
+    ['cover', '50% 50%', 1920, 1080],
+    ['fill', '50% 50%', 1920, 1080],
+  ]
+  for (const [fit, pos, vw, vh] of cases) {
+    const { doc, win } = makeVideoDoc(box, vw, vh, fit, pos)
+    assert.deepEqual(
+      clipFactory(win, doc).clip,
+      clipRect(box, vw, vh, fit, pos),
+      `${fit} / ${pos}：页内算式和纯函数漂了，改一处没改另一处`,
+    )
+  }
+})
+
+test('CLIP_FACTORY_SRC: 静音，且 readyState<2 时不给 clip', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 1920, 1080, 'contain', '50% 50%', 1)
+  const r = clipFactory(win, doc)
+  assert.equal(video.muted, true, '挂一整场不能出声')
+  assert.equal(r.ready, false)
+  assert.equal(r.clip, null, 'ready=false 还给 clip，调用方拿它去截就是一张黑帧')
 })

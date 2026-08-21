@@ -207,6 +207,8 @@ function pct(s: string | undefined): number {
  * 由 <video> 的盒子矩形 + 视频原始尺寸 + object-fit/object-position，
  * 算出画面在页面坐标系里的真实矩形。截图 clip 用它，避免把播放器的黑边也截进去。
  * 抽成纯函数是为了能测 —— 页面里那份（CLIP_FACTORY_SRC）走同样的算式。
+ * 契约：objectPosition 要传 getComputedStyle 读出来的形式 —— 一对百分比/长度，
+ * 不是 `top` 这种 CSS 关键字。页内调用方就是这么传的；关键字不在支持范围内。
  */
 export function clipRect(
   box: Rect,
@@ -256,9 +258,17 @@ export const CLIP_FACTORY_SRC = `function (win, doc) {
   var cs = win.getComputedStyle(v)
   var iw = v.videoWidth, ih = v.videoHeight
   if (!iw || !ih) return { hasVideo: true, ready: false, clip: null }
+  // readyState<2 = 有尺寸但还没画出第一帧。这时给出 clip 会诱使调用方拿它去截 ——
+  // 截到的是黑帧。未就绪一律不给 clip，让「能不能截」只有 ready 一个判据。
+  if (v.readyState < 2) return { hasVideo: true, ready: false, muted: !!v.muted, clip: null }
   var boxRatio = r.width / r.height, imgRatio = iw / ih
   var fit = cs.objectFit || 'contain'
   var w, h
+  // fit 只认 cover/fill，其余（含 contain）一律按「按比例撑满盒子」处理。
+  // none/scale-down 没实现 —— 它们要用视频原始尺寸而不是按比例适配，
+  // 直播播放器几乎不会用这两个值，所以先不为没见过的分支加代码；
+  // 把 fit 原样报回去（见下面 return 里的 fit 字段），Task 10 第一次真实
+  // 运行核对页面计算出的 object-fit 究竟是什么，能证实这个假设或者推翻它。
   if (fit === 'cover') {
     if (imgRatio > boxRatio) { h = r.height; w = r.height * imgRatio }
     else { w = r.width; h = r.width / imgRatio }
@@ -273,8 +283,9 @@ export const CLIP_FACTORY_SRC = `function (win, doc) {
   var fy = pct(p[1]) / 100
   return {
     hasVideo: true,
-    ready: v.readyState >= 2,
+    ready: true,
     muted: !!v.muted,
+    fit: fit,
     clip: {
       x: Math.round(r.x + (r.width - w) * fx),
       y: Math.round(r.y + (r.height - h) * fy),
