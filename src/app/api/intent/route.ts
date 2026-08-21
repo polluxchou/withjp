@@ -5,12 +5,9 @@ import { executeIntent, executeWorkTaskIntent } from '@/lib/intent/executor'
 import { logIntentViolation } from '@/lib/intent/audit'
 import { parseVenueIntent, type VenueParseItem } from '@/lib/venue/venue-intent'
 import { VENUE_ITEM_TYPE_OPTIONS } from '@/venue/layoutData'
+import { MAX_INPUT_CHARS, sanitizeIntentText } from '@/lib/intent/input-gate'
 
 const VENUE_TYPE_SET = new Set(VENUE_ITEM_TYPE_OPTIONS.map((o) => o.value as string))
-
-const MAX_INPUT_CHARS = 1000
-// eslint-disable-next-line no-control-regex
-const CONTROL_CHARS = /[\x00-\x08\x0B-\x1F\x7F-\x9F]/g
 
 // POST /api/intent
 export async function POST(req: NextRequest) {
@@ -24,25 +21,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ kind: 'error', code: 'bad_request', message: 'invalid JSON body' }, { status: 400 })
   }
 
-  const rawText = (body.text ?? '').trim()
-  if (!rawText) {
-    return NextResponse.json({ kind: 'error', code: 'bad_request', message: 'text is required' }, { status: 400 })
-  }
-  if (rawText.length > MAX_INPUT_CHARS) {
-    await logIntentViolation({
-      userId:  user.id,
-      stage:   'input_gate',
-      reason:  `text length ${rawText.length} > ${MAX_INPUT_CHARS}`,
-      rawText: rawText.slice(0, MAX_INPUT_CHARS),
-    })
-    return NextResponse.json(
-      { kind: 'error', code: 'bad_request', message: `text 长度上限为 ${MAX_INPUT_CHARS} 字` },
-      { status: 400 },
-    )
-  }
-
-  const text = rawText.normalize('NFKC').replace(CONTROL_CHARS, ' ').trim()
-  if (!text) {
+  const gated = sanitizeIntentText(body.text ?? '', MAX_INPUT_CHARS)
+  if (!gated.ok) {
+    const rawText = (body.text ?? '').trim()
+    if (gated.reason === 'empty') {
+      return NextResponse.json({ kind: 'error', code: 'bad_request', message: 'text is required' }, { status: 400 })
+    }
+    if (gated.reason === 'too_long') {
+      await logIntentViolation({
+        userId:  user.id,
+        stage:   'input_gate',
+        reason:  `text length ${gated.length} > ${MAX_INPUT_CHARS}`,
+        rawText: rawText.slice(0, MAX_INPUT_CHARS),
+      })
+      return NextResponse.json(
+        { kind: 'error', code: 'bad_request', message: `text 长度上限为 ${MAX_INPUT_CHARS} 字` },
+        { status: 400 },
+      )
+    }
     await logIntentViolation({
       userId:  user.id,
       stage:   'input_gate',
@@ -51,6 +47,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({ kind: 'error', code: 'bad_request', message: 'text is empty after sanitization' }, { status: 400 })
   }
+  const text = gated.text
 
   const todayISO = new Date().toISOString().slice(0, 10)
   const ctx = { userId: user.id, channel: 'web' as const, rawText: text }
