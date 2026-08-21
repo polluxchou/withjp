@@ -503,3 +503,14 @@ test('coverage: 主竞品与子主播都计入 competitors，roots 只数顶层'
     metricsDays: 1, shotDays: 2, sessionsWithStartTime: 2,
   })
 })
+
+test('coverage: 两个不同竞品共享同一开播时刻时按 (竞品,时刻) 计数,不会被去重成 1', () => {
+  const ctx = buildAskContext(
+    board([
+      comp({ id: 'id-1', handle: 'alpha', shots: [shot({ id: 'a1', stream_started_at: '2026-08-19T12:00:00Z' })] }),
+      comp({ id: 'id-2', handle: 'beta', shots: [shot({ id: 'b1', stream_started_at: '2026-08-19T12:00:00Z' })] }),
+    ]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.equal(ctx.meta.coverage.sessionsWithStartTime, 2)
+})

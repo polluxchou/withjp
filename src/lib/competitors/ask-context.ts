@@ -312,7 +312,9 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
     for (const p of c.history) metricsDays.add(p.captured_on)
     for (const s of c.shots) {
       if (s.shot_on != null) shotDays.add(s.shot_on)
-      if (s.stream_started_at != null) sessions.add(s.stream_started_at)
+      // 场次的身份是 (竞品, 开播时刻)，不是裸时刻——两个竞品凑巧在同一秒开播
+      // 是真实可能发生的巧合，不该被去重塌成一场。
+      if (s.stream_started_at != null) sessions.add(`${c.id}|${s.stream_started_at}`)
     }
   }
 
