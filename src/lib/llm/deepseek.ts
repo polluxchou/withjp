@@ -20,12 +20,27 @@ export type DeepseekResult =
 const DEFAULT_MODEL = 'deepseek-chat'
 const TIMEOUT_MS = 60_000
 
+// 形如 https://user:pass@host/... 的 URL：undici 会在构造 Request 时直接拒绝，
+// 并把带明文凭据的完整 URL 塞进 err.message。
+const URL_WITH_CREDENTIALS_RE = /\/\/[^/@\s]+@/
+
+// 这个错误字符串是用户可见的：端点把它原样透传，面板用一个「复制报错」按钮
+// 展示给人看，可能进聊天记录或工单。任何可能带着用户名密码的 URL 片段都要
+// 先脱敏——这不是过度防御，undici 在 baseUrl 带凭据时就是把完整 URL 明文
+// 写进 TypeError.message，见下面 deepseekChat 里的 guard。
+export function redactCredentials(message: string): string {
+  return message.replace(/\/\/[^/@\s]+@/g, '//***@')
+}
+
 export async function deepseekChat(systemPrompt: string, turns: ChatTurn[]): Promise<DeepseekResult> {
   const apiKey = process.env.DEEPSEEK_API_KEY
   if (!apiKey) {
     return { ok: false, code: 'not_configured', message: 'DEEPSEEK_API_KEY is not configured' }
   }
   const baseUrl = (process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '')
+  if (URL_WITH_CREDENTIALS_RE.test(baseUrl)) {
+    return { ok: false, code: 'not_configured', message: 'DEEPSEEK_BASE_URL must not contain credentials' }
+  }
   const model = process.env.DEEPSEEK_MODEL ?? DEFAULT_MODEL
 
   const controller = new AbortController()
@@ -46,14 +61,18 @@ export async function deepseekChat(systemPrompt: string, turns: ChatTurn[]): Pro
     })
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText)
-      return { ok: false, code: 'upstream', message: `DeepSeek ${res.status}: ${text.slice(0, 500)}` }
+      return { ok: false, code: 'upstream', message: redactCredentials(`DeepSeek ${res.status}: ${text.slice(0, 500)}`) }
     }
     const data = await res.json() as { choices?: { message?: { content?: string } }[] }
     const answer = data.choices?.[0]?.message?.content?.trim()
     if (!answer) return { ok: false, code: 'upstream', message: 'DeepSeek returned an empty answer' }
     return { ok: true, answer }
   } catch (err) {
-    return { ok: false, code: 'upstream', message: err instanceof Error ? err.message : String(err) }
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { ok: false, code: 'upstream', message: `DeepSeek request timed out after ${TIMEOUT_MS / 1000}s` }
+    }
+    const message = err instanceof Error ? err.message : String(err)
+    return { ok: false, code: 'upstream', message: redactCredentials(message) }
   } finally {
     clearTimeout(timer)
   }
