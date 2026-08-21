@@ -123,6 +123,52 @@ test('followers: 完全没有快照时全为 null', () => {
   })
 })
 
+test('followers: 跨度超过 FOLLOWERS_MAX_SPAN_DAYS(21 天/三个采集周期)时 confidence 降级,但仍保留 delta 与 prev', () => {
+  // 309 天跨度：真实生产库里的一个反例——两条快照隔了近一年，delta 依然会算出来，
+  // 但那读起来像"最近涨了 6 万"，实际是近一年的累计,必须挡掉才能进比较结论。
+  const ctx = buildAskContext(
+    board([comp({ history: [point('2025-10-15', 200000), point('2026-08-20', 260000)] })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const f = ctx.competitors[0].followers
+  assert.equal(f.spanDays, 309)
+  assert.equal(f.confidence, 'insufficient')
+  assert.equal(f.delta, 60000)
+  assert.equal(f.prev, 200000)
+})
+
+test('followers: delta 为 0 时必须是数字 0,不能读成 null(持平也是数据)', () => {
+  const ctx = buildAskContext(
+    board([comp({ history: [point('2026-08-10', 240000), point('2026-08-17', 240000)] })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const f = ctx.competitors[0].followers
+  assert.equal(f.delta, 0)
+  assert.notEqual(f.delta, null)
+  assert.equal(f.confidence, 'ok')
+})
+
+test('顺序无关: history 与 shots 倒序输入,followers/capturedDates/lastOn 结果不变', () => {
+  const now = new Date('2026-08-20T01:00:00Z')
+  const history = [point('2026-08-10', 241000), point('2026-08-17', 246200)]
+  const shots = [
+    shot({ id: 'a', shot_on: '2026-08-19' }),
+    shot({ id: 'b', shot_on: '2026-08-17' }),
+  ]
+
+  const forward = buildAskContext(board([comp({ history, shots })]), now, 'zh')
+  const reversed = buildAskContext(
+    board([comp({ history: [...history].reverse(), shots: [...shots].reverse() })]),
+    now, 'zh',
+  )
+
+  assert.deepEqual(reversed.competitors[0].followers, forward.competitors[0].followers)
+  assert.deepEqual(reversed.competitors[0].shots.capturedDates, forward.competitors[0].shots.capturedDates)
+  assert.equal(reversed.competitors[0].shots.lastOn, forward.competitors[0].shots.lastOn)
+})
+
 function shot(over: Partial<CompetitorShot> = {}): CompetitorShot {
   return {
     id: over.id ?? 'shot-1',

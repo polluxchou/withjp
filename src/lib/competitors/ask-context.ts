@@ -11,7 +11,7 @@ import { recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
 import { RULER_WINDOW_DAYS } from './regionRuler.ts'
 import { STALE_DAYS, competitorName } from './summary.ts'
 import { shotUptimeParts } from './types.ts'
-import type { CompetitorBoard, CompetitorWithHistory } from './types.ts'
+import type { CompetitorBoard, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
 const DAY_MS = 86_400_000
 
@@ -135,14 +135,28 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000)
 }
 
+/**
+ * 两个快照之间的跨度超过这个天数就不算「最近变化」——三个采集周期
+ * （主页指标周采一次）。生产库实测全部 21 个有 ≥2 条快照的账号跨度都
+ * 没超过 7 天，这个上限今天不吃掉任何真实数据，只挡未来数据断档后
+ * 冒出的「跨度 309 天」这种会被读成"最近涨了六万"的假近况。
+ */
+export const FOLLOWERS_MAX_SPAN_DAYS = 21
+
 const EMPTY_FOLLOWERS: AskFollowers = {
   latest: null, on: null, prev: null, prevOn: null,
   delta: null, spanDays: null, confidence: 'insufficient',
 }
 
-/** history 按 captured_on 升序（见 assemble.ts），所以最新的在末尾。 */
-function followersOf(c: CompetitorWithHistory): AskFollowers {
-  const pts = c.history.filter((p): p is typeof p & { followers: number } => p.followers != null)
+/**
+ * history 按 captured_on 升序是 assemble.ts 的约定，但这里不依赖调用方保证——
+ * 本地重新排序一次，谁传乱序进来都不会把 latest/prev 认反。
+ */
+export function followersOf(history: HistoryPoint[]): AskFollowers {
+  const pts = history
+    .filter((p): p is HistoryPoint & { followers: number } => p.followers != null)
+    .slice()
+    .sort((a, b) => a.captured_on.localeCompare(b.captured_on))
   if (pts.length === 0) return EMPTY_FOLLOWERS
 
   const last = pts[pts.length - 1]
@@ -151,14 +165,17 @@ function followersOf(c: CompetitorWithHistory): AskFollowers {
   }
 
   const prev = pts[pts.length - 2]
+  const spanDays = daysBetween(prev.captured_on, last.captured_on)
   return {
     latest: last.followers,
     on: last.captured_on,
     prev: prev.followers,
     prevOn: prev.captured_on,
     delta: last.followers - prev.followers,
-    spanDays: daysBetween(prev.captured_on, last.captured_on),
-    confidence: 'ok',
+    spanDays,
+    // 跨度太长时 delta/prev 仍然原样保留（事实性问题可能还想用到它们）——
+    // 只是 confidence 降级，prompt 层会据此挡掉"最近怎么样"这类比较结论。
+    confidence: spanDays > FOLLOWERS_MAX_SPAN_DAYS ? 'insufficient' : 'ok',
   }
 }
 
@@ -222,8 +239,14 @@ interface FlatEntry {
   parentHandle: string | null
 }
 
-/** 把 related 里的子主播摊平成独立条目——它们各有自己的粉丝与开播数据，
- *  嵌套结构会让模型难以做跨账号比较。父子关系用 parentHandle 保留。 */
+/**
+ * 把 related 里的子主播摊平成独立条目——它们各有自己的粉丝与开播数据，
+ * 嵌套结构会让模型难以做跨账号比较。父子关系用 parentHandle 保留。
+ *
+ * 递归不做防环处理：依赖 assemble.ts 保证 related 是一棵无环树
+ * （下探发现的子账号 parent_id 只会指向顶层竞品，不会反过来指回子孙），
+ * 这个前提一旦被打破这里会死循环——这是文档而非代码修复。
+ */
 function flatten(list: CompetitorWithHistory[], parentHandle: string | null): FlatEntry[] {
   const out: FlatEntry[] = []
   for (const c of list) {
@@ -245,7 +268,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
   const flat = flatten(board.competitors, null)
 
   const competitors: AskCompetitor[] = flat.map(({ c, parentHandle }) => {
-    const followers = followersOf(c)
+    const followers = followersOf(c.history)
     return {
       handle: c.handle,
       name: competitorName(c),
