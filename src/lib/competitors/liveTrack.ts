@@ -93,3 +93,39 @@ export function normalizeSample(p: ProbeSample, startedAt: number | null): Sampl
     },
   }
 }
+
+/** 一轮排空之后观察到的健康状况。 */
+export type DrainHealth = {
+  /** 本轮从探针取回几个采样点 */
+  samples: number
+  observerAlive: boolean
+  hasVideo: boolean
+  /** roomEnded() 的结论 */
+  roomEnded: boolean
+}
+
+export type WatchdogState = { reinjects: number }
+export type WatchdogAction = 'ok' | 'reinject' | 'end'
+
+const MAX_REINJECTS = 2
+
+export function initialWatchdog(): WatchdogState {
+  return { reinjects: 0 }
+}
+
+/**
+ * 看门狗一步。
+ * status 码判结束最可靠，命中就立即收工，不浪费两轮重注入。
+ * 其余异常一律先试重注入 —— 探针掉了比直播结束常见得多（页面局部重渲染就够）。
+ * 重注入两次仍然没数据，才判下播。
+ */
+export function nextWatchdog(
+  state: WatchdogState,
+  h: DrainHealth,
+): { state: WatchdogState; action: WatchdogAction } {
+  if (h.roomEnded) return { state, action: 'end' }
+  const healthy = h.samples > 0 && h.observerAlive && h.hasVideo
+  if (healthy) return { state: { reinjects: 0 }, action: 'ok' }
+  if (state.reinjects >= MAX_REINJECTS) return { state, action: 'end' }
+  return { state: { reinjects: state.reinjects + 1 }, action: 'reinject' }
+}

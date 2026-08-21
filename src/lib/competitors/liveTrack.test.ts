@@ -2,7 +2,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { normalizeSample, roomEnded, type ProbeSample } from './liveTrack.ts'
+import {
+  normalizeSample,
+  roomEnded,
+  nextWatchdog,
+  initialWatchdog,
+  type ProbeSample,
+  type DrainHealth,
+} from './liveTrack.ts'
 
 test('roomEnded: 只有 status 4 且无 2 才算结束', () => {
   assert.equal(roomEnded('{"status":4}'), true)
@@ -98,4 +105,58 @@ test('normalizeSample: 四个选择器的命中情况整组带进 raw', () => {
   assert.deepEqual(s.raw.selectors_ok, {
     viewer: '[data-e2e="x"]', followers: null, likes: null, chatHost: '.chat',
   })
+})
+
+const health = (over: Partial<DrainHealth> = {}): DrainHealth => ({
+  samples: 1,
+  observerAlive: true,
+  hasVideo: true,
+  roomEnded: false,
+  ...over,
+})
+
+test('nextWatchdog: 一切正常 → ok', () => {
+  const r = nextWatchdog(initialWatchdog(), health())
+  assert.equal(r.action, 'ok')
+  assert.equal(r.state.reinjects, 0)
+})
+
+test('nextWatchdog: 页面判定已结束 → 立即 end，不重注入', () => {
+  const r = nextWatchdog(initialWatchdog(), health({ roomEnded: true, samples: 5 }))
+  assert.equal(r.action, 'end')
+})
+
+test('nextWatchdog: 排空为空 → 先重注入', () => {
+  const r = nextWatchdog(initialWatchdog(), health({ samples: 0 }))
+  assert.equal(r.action, 'reinject')
+  assert.equal(r.state.reinjects, 1)
+})
+
+test('nextWatchdog: observer 掉了 → 重注入', () => {
+  assert.equal(nextWatchdog(initialWatchdog(), health({ observerAlive: false })).action, 'reinject')
+})
+
+test('nextWatchdog: video 没了 → 重注入', () => {
+  assert.equal(nextWatchdog(initialWatchdog(), health({ hasVideo: false })).action, 'reinject')
+})
+
+test('nextWatchdog: 连续三轮不健康 → 第三轮判 end', () => {
+  const st = initialWatchdog()
+  const bad = health({ samples: 0 })
+  let r = nextWatchdog(st, bad)
+  assert.equal(r.action, 'reinject')
+  r = nextWatchdog(r.state, bad)
+  assert.equal(r.action, 'reinject')
+  r = nextWatchdog(r.state, bad)
+  assert.equal(r.action, 'end')
+})
+
+test('nextWatchdog: 重注入后恢复健康 → 计数器清零，能再扛两次', () => {
+  let r = nextWatchdog(initialWatchdog(), health({ samples: 0 }))
+  assert.equal(r.state.reinjects, 1)
+  r = nextWatchdog(r.state, health())
+  assert.equal(r.action, 'ok')
+  assert.equal(r.state.reinjects, 0)
+  r = nextWatchdog(r.state, health({ samples: 0 }))
+  assert.equal(r.action, 'reinject')
 })
