@@ -686,7 +686,7 @@ git commit -m "feat(live-track): 场次落盘路径(JST 时间戳目录)+ 单测
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { PROBE_FACTORY_SRC, PROBE_VERSION, defaultProbeConfig } from './liveProbe.ts'
+import { PROBE_FACTORY_SRC, PROBE_VERSION, defaultProbeConfig, probeSource } from './liveProbe.ts'
 
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
@@ -710,9 +710,18 @@ function makeWin(nowMs = 1_000_000) {
   const win = {
     observers,
     disconnects: 0,
+    intervals: [] as { cb: () => void; ms: number; id: number; cleared: boolean }[],
     now: nowMs,
     Date: { now: () => nowMs },
-    setInterval: () => 0,
+    setInterval: (cb: () => void, ms: number) => {
+      const id = win.intervals.length + 1
+      win.intervals.push({ cb, ms, id, cleared: false })
+      return id
+    },
+    clearInterval: (id: number) => {
+      const found = win.intervals.find((i) => i.id === id)
+      if (found) found.cleared = true
+    },
     MutationObserver: class {
       cb: (recs: unknown[]) => void
       entry: { target: unknown; cb: (recs: unknown[]) => void; active: boolean } | null = null
@@ -725,7 +734,11 @@ function makeWin(nowMs = 1_000_000) {
       // 在假 DOM 里根本表现不出来，测试就成了摆设。
       disconnect() { win.disconnects += 1; if (this.entry) this.entry.active = false }
     },
-  } as Record<string, unknown> & { observers: typeof observers; disconnects: number }
+  } as Record<string, unknown> & {
+    observers: typeof observers
+    disconnects: number
+    intervals: { cb: () => void; ms: number; id: number; cleared: boolean }[]
+  }
   return win
 }
 
@@ -857,6 +870,30 @@ test('探针：换版本重注入会断开上一版的 observer', () => {
   assert.equal(win.disconnects, 1, '上一版的 observer 必须断开，否则它会一直对着没人读的计数器烧 CPU')
 })
 
+test('探针：intervalMs>0 时按该间隔挂定时器，回调等价于 tick', () => {
+  const doc = makeDoc({ '.chat': el(''), '.v': el('88') })
+  const win = makeWin()
+  factory(win, doc, cfg({ intervalMs: 60_000, chatHost: ['.chat'], viewer: ['.v'], followers: [], likes: [], speaker: [] }))
+  const lw = (win as Record<string, any>).__lw
+  assert.equal(win.intervals.length, 1)
+  assert.equal(win.intervals[0].ms, 60_000, '间隔传错会让整场采样节奏错乱')
+  win.intervals[0].cb() // 定时器到点
+  const s = lw.drain()
+  assert.equal(s.length, 1, '定时器回调必须真的产出一个采样点')
+  assert.equal(s[0].viewer, '88')
+})
+
+test('探针：换版本重注入会清掉上一版的定时器，不只是断 observer', () => {
+  const doc = makeDoc({ '.chat': el('') })
+  const win = makeWin()
+  const base = { intervalMs: 60_000, chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }
+  factory(win, doc, cfg({ ...base, version: 1 }))
+  factory(win, doc, cfg({ ...base, version: 2 }))
+  assert.equal(win.intervals.length, 2)
+  assert.equal(win.intervals[0].cleared, true, '旧定时器不清掉会一直往没人读的 buf 里 push')
+  assert.equal(win.intervals[1].cleared, false)
+})
+
 test('探针：找不到弹幕容器时仍然安装、仍能采数字，只是 attached=false', () => {
   const doc = makeDoc({ '[data-e2e="live-people-count"]': el('88') })
   const win = makeWin()
@@ -885,6 +922,16 @@ test('探针：drain 取走后缓冲区清空', () => {
 
 test('PROBE_VERSION 是正整数（重注入幂等靠它）', () => {
   assert.ok(Number.isInteger(PROBE_VERSION) && PROBE_VERSION > 0)
+})
+
+test('probeSource: 组装出的表达式能被解析成可调用的工厂', () => {
+  const src = probeSource({ ...defaultProbeConfig(), intervalMs: 60_000 })
+  assert.match(src, /^\(function \(win, doc, cfg\)/)
+  assert.doesNotThrow(() => new Function(`return ${src.replace(/\(window, document, /, '(arguments[0], arguments[1], ')}`))
+})
+
+test('probeSource: intervalMs 非正数直接抛错，不产出永不打点的探针', () => {
+  assert.throws(() => probeSource({ ...defaultProbeConfig(), intervalMs: 0 }), /intervalMs/)
 })
 ```
 
@@ -935,6 +982,14 @@ export function defaultProbeConfig(): ProbeConfig {
   return {
     version: PROBE_VERSION,
     intervalMs: 60_000,
+    // person-count 有歧义：sweep-live.mjs 的 extractLiveMeta 记录过，登录态下
+    // 这个 data-e2e 在左侧"已关注"侧栏里每个正在直播的关注对象各出现一份，
+    // 不是页面唯一节点 —— 该脚本因此没有直接选它，而是正则匹配相邻的
+    // live-side-nav-name 把 handle 对上号才取数。这里用的是裸 querySelector，
+    // 命中的是 DOM 顺序里第一个，同时有两个关注对象在播时可能拿到别人的人数，
+    // 而 selectorsOk.viewer 照样显示命中、看不出问题。
+    // 第一次真实运行必须用肉眼核对页面上显示的在线人数与探针读到的是否一致，
+    // 不能只看 selectorsOk.viewer 非空就当验证通过。
     viewer: [
       '[data-e2e="live-people-count"]',
       '[data-e2e="person-count"]',
@@ -955,6 +1010,9 @@ export function defaultProbeConfig(): ProbeConfig {
     speaker: [
       '[data-e2e="message-owner-name"]',
     ],
+    // 未经验证的猜测：如果弹幕列表是在容器下再深一层重渲染，而不是直接
+    // 往这层 append 子节点，childList 观察不到、msgs 会整场停在 0 —— 现象上
+    // 和"房间很安静没人发弹幕"完全一样，得留意第一次真实运行的 msgs 是否合理。
     chatSubtree: false,
   }
 }
@@ -991,7 +1049,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     return { sel: null, el: null }
   }
   var st = { msgs: 0, seen: Object.create(null), nSpeakers: 0, buf: [],
-             host: null, hostSel: null, obs: null, speakerSel: null }
+             host: null, hostSel: null, obs: null, speakerSel: null, timer: null }
   // 只认真正的发言人选择器。以前这里有个「取首个冒号之前」的兜底，已经去掉：
   // 系统消息、礼物提示、正文里带 http:// 或时间比分的普通弹幕，都会被它编造成
   // 一个假发言人；不同真人发的相似内容又会被并成同一个。engagement 指标宁可为空
@@ -1051,6 +1109,10 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     st.msgs = 0
     st.seen = Object.create(null)
     st.nSpeakers = 0
+    // speakerSel 每分钟归零重猜：这分钟一条弹幕都没有时，它和真「选择器一直没
+    // 命中过」长得一模一样，都是 speakers:null + selectorsOk.speaker:null。
+    // 这是预期行为、不是缺陷 —— 靠同一行的 chat_msgs:0 才能分清是"没人说话"
+    // 还是"选择器失配"，selectorsOk.speaker 本身不能当成逐分钟的选择器健康信号读。
     st.speakerSel = null
   }
   var ok = attach()
@@ -1061,14 +1123,25 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     reattach: attach,
     alive: alive,
     drain: function () { var out = st.buf; st.buf = []; return out },
-    disconnect: function () { if (st.obs) { st.obs.disconnect(); st.obs = null } }
+    disconnect: function () {
+      if (st.obs) { st.obs.disconnect(); st.obs = null }
+      // 定时器和 observer 是同一族的泄漏：不清掉，旧版本的 tick 会永远往一个
+      // 再也没人 drain 的 buf 里 push，直到 tab 关掉。上一轮只修了 observer 那半。
+      if (st.timer !== null) { win.clearInterval(st.timer); st.timer = null }
+    }
   }
-  if (cfg.intervalMs > 0) win.setInterval(tick, cfg.intervalMs)
+  if (cfg.intervalMs > 0) st.timer = win.setInterval(tick, cfg.intervalMs)
   return { reused: false, attached: ok, version: cfg.version }
 }`
 
 /** 拼出注入用的完整表达式。 */
 export function probeSource(cfg: ProbeConfig): string {
+  // intervalMs<=0 是测试专用（外部手动 tick）。真注进页面就是一个「挂载成功、
+  // observerAlive 为真、却永远不自动打点」的探针 —— drain 永远空，看门狗两轮之后
+  // 误判下播。静默失败比直接炸难查得多，所以在注入前就拦住。
+  if (!(cfg.intervalMs > 0)) {
+    throw new Error(`probeSource: intervalMs 必须为正数（收到 ${cfg.intervalMs}）—— 0 只用于测试里手动 tick`)
+  }
   return `(${PROBE_FACTORY_SRC})(window, document, ${JSON.stringify(cfg)})`
 }
 ```
@@ -1079,7 +1152,7 @@ export function probeSource(cfg: ProbeConfig): string {
 node --test --experimental-strip-types src/lib/competitors/liveProbe.test.ts
 ```
 
-预期：`# pass 11`、`# fail 0`。
+预期：`# pass 15`、`# fail 0`。
 
 - [ ] **Step 5: 把测试文件登记进 `package.json`**
 
@@ -1278,7 +1351,7 @@ export function clipSource(): string {
 node --test --experimental-strip-types src/lib/competitors/liveProbe.test.ts
 ```
 
-预期：`# pass 19`、`# fail 0`。
+预期：`# pass 23`、`# fail 0`。
 
 - [ ] **Step 5: 提交**
 
@@ -1643,6 +1716,12 @@ node --experimental-strip-types scripts/live-watch/track-room.ts --handle <在�
 head -1 ~/live-watch/<handle>/*/samples.jsonl | python3 -m json.tool
 ```
 
+**先做一件事：肉眼核对。** 页面上显示的在线人数，和 `raw.viewer_text` 读到的，必须是同一个数。
+`[data-e2e="person-count"]` 在登录态下**每个已关注且在播的主播各有一份**（`sweep-live.mjs` 的
+`extractLiveMeta` 就是因为这个才要配 `live-side-nav-name` 的 handle 文本二次匹配），而探针用的是裸
+`querySelector`，取 DOM 里第一个。同时有两个关注对象在播时，它会稳稳地报出**别人的**在线人数，
+`selectors_ok.viewer` 照样显示命中——数据形态上和真命中一模一样。只看选择器非空不算验证通过。
+
 看 `raw.selectors_ok.viewer`：
 - 不是 `null` → **游客态可用**。把命中的那个选择器记进结论文档，`defaultProbeConfig()` 里把它挪到候选表第一位。
 - 是 `null` → 游客态读不到。用干净小号登录（**只登录，不关注**）后重跑一次；仍为 `null` 则需要给 `viewer` 候选表补上侧栏那条路径（形如「`live-side-nav-name` 文本等于 handle 的那一项旁边的 `person-count`」，单条 CSS 选择器表达不了，需要给探针加一个「按文本匹配兄弟节点」的取值方式）——这属于计划外改动，先记录，再决定。
@@ -1651,6 +1730,10 @@ head -1 ~/live-watch/<handle>/*/samples.jsonl | python3 -m json.tool
 
 看同一批采样点的 `chat_msgs` 与 `raw.observer_alive`：
 - `chat_msgs` 逐分钟有合理非零值、`observer_alive` 恒为 `true` → **稳定**，互动热度字段保留。
+- `chat_msgs` 恒为 0 **但 `selectors_ok.chatHost` 非空** → 容器命中了却数不到东西，多半是 `chatSubtree: false`
+  猜错了：弹幕不是直接 append 子节点，而是更深一层重渲染。这种情况和「这个房间弹幕真的很少」在数据上
+  完全无法区分，**必须人眼看一眼页面上弹幕是不是在滚**。是在滚而 `chat_msgs` 为 0，就把 `chatSubtree`
+  改成 `true` 重跑。
 - `chat_msgs` 恒为 0 → 弹幕容器选择器没命中（`selectors_ok.chatHost` 会是 `null`）。在浏览器里手动找到真实容器，补进 `chatHost` 候选表重跑。
 - `observer_alive` 中途变 `false` → 容器被整体替换。把 `defaultProbeConfig()` 的 `chatSubtree` 改成 `true`、`chatHost` 换成更稳定的祖先节点后重跑；仍不稳则按 spec 第 11 节②的最后一档处理——互动热度整组降级为「尽力而为」，在结论文档里写明，第三期报表不把它当核心指标。
 
