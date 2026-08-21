@@ -706,19 +706,32 @@ function makeDoc(map: Record<string, FakeEl>) {
 }
 
 function makeWin(nowMs = 1_000_000) {
-  const observers: { target: unknown; cb: (recs: unknown[]) => void }[] = []
-  return {
+  const observers: { target: unknown; cb: (recs: unknown[]) => void; active: boolean }[] = []
+  const win = {
     observers,
+    disconnects: 0,
     now: nowMs,
     Date: { now: () => nowMs },
     setInterval: () => 0,
     MutationObserver: class {
       cb: (recs: unknown[]) => void
+      entry: { target: unknown; cb: (recs: unknown[]) => void; active: boolean } | null = null
       constructor(cb: (recs: unknown[]) => void) { this.cb = cb }
-      observe(target: unknown) { observers.push({ target, cb: this.cb }) }
-      disconnect() {}
+      observe(target: unknown) {
+        this.entry = { target, cb: this.cb, active: true }
+        observers.push(this.entry)
+      }
+      // 断开要真的失效，不能只记个数 —— 否则「旧 observer 还在数」这种 bug
+      // 在假 DOM 里根本表现不出来，测试就成了摆设。
+      disconnect() { win.disconnects += 1; if (this.entry) this.entry.active = false }
     },
-  } as Record<string, unknown> & { observers: typeof observers }
+  } as Record<string, unknown> & { observers: typeof observers; disconnects: number }
+  return win
+}
+
+/** 投递一批变更给所有**还活着**的 observer，断开过的收不到。 */
+function emit(win: { observers: { cb: (recs: unknown[]) => void; active: boolean }[] }, records: unknown[]) {
+  for (const o of win.observers) if (o.active) o.cb(records)
 }
 
 /** 把源码文本变成可调用的工厂 —— 和注入页面时走的是同一份字符串。 */
@@ -746,8 +759,8 @@ test('探针：累计弹幕条数，tick 后清零', () => {
   factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
   const lw = (win as Record<string, any>).__lw
 
-  win.observers[0].cb([{ addedNodes: [msgNode('a'), msgNode('b')] }])
-  win.observers[0].cb([{ addedNodes: [msgNode('c')] }])
+  emit(win, [{ addedNodes: [msgNode('a'), msgNode('b')] }])
+  emit(win, [{ addedNodes: [msgNode('c')] }])
   lw.tick()
   assert.equal(lw.drain()[0].msgs, 3)
 
@@ -763,7 +776,7 @@ test('探针：发言人去重，按 tick 分桶', () => {
   factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
   const lw = (win as Record<string, any>).__lw
 
-  win.observers[0].cb([{ addedNodes: [msgNode('ann'), msgNode('ann'), msgNode('bob')] }])
+  emit(win, [{ addedNodes: [msgNode('ann'), msgNode('ann'), msgNode('bob')] }])
   lw.tick()
   const s = lw.drain()[0]
   assert.equal(s.msgs, 3)
