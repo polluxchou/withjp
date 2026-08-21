@@ -230,13 +230,24 @@
     "switchHint": "按固定汇率切换显示币种（1 USD = 7 CNY；1 CNY = 20 JPY）"
   },
   "intent": {
-    "openButtonLabel": "用文字操作",
     "venuePlaceholder": "用一句话改场地（仅当前画布）。例：新增 空间「主直播间」5×8 米 / 把化妆间旋转90度 / 删除车库通道",
     "venueConfirm": "应用到画布",
     "venueCancel": "取消",
-    "openButtonTooltip": "自然语言操作 (⌘K)",
-    "modalTitle": "用一句话操作",
-    "placeholder": "用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元",
+    "bubbleLabel": "用文字操作 (⌘K)",
+    "panelTitle": "用文字操作",
+    "panelCollapse": "收起",
+    "venueScopeTag": "当前画布",
+    "composerPlaceholder": "说一句话，我来执行",
+    "composerHint": "Enter 发送 · Shift+Enter 换行",
+    "emptyGreeting": "说一句话就行。目前支持支出管理和工时任务，示例：",
+    "examples": [
+      "Q3 薪资中 MC 占了多少",
+      "新增差旅费 5月10日打车 320 元",
+      "上个月支出最大的三类是什么"
+    ],
+    "appliedNote": "已应用",
+    "cancelledNote": "已取消",
+    "thinking": "正在理解…",
     "sendButtonLabel": "发送",
     "query": {
       "emptyDenom": {
@@ -263,13 +274,6 @@
       "groupValueCol": "值",
       "groupCountCol": "条数",
       "sampleHint": "已返回 {count} 条样例。完整筛选请到支出列表页操作。"
-    },
-    "clarification": {
-      "tableLabel": "候选记录",
-      "dateCol": "日期",
-      "nameCol": "名称",
-      "amountCol": "金额",
-      "buyerCol": "经办人"
     },
     "emptyHint": {
       "suggestionsHeader": "可以这样调整："
