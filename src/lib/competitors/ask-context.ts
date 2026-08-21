@@ -256,9 +256,16 @@ function flatten(list: CompetitorWithHistory[], parentHandle: string | null): Fl
   return out
 }
 
-function healthOf(f: AskFollowers, todayTokyo: string): AskHealth {
-  if (f.on == null) return { metricsAgeDays: null, stale: true }
-  const age = daysBetween(f.on, todayTokyo)
+/**
+ * 新鲜度看 c.latest.captured_on（最后一次采集，不管有没有解析出粉丝数），
+ * 而不是 followers.on（最后一条有粉丝数的记录）——两者在 parseCount 解析失败、
+ * 写出 followers:null 的行时会分岔。看板自己的「待更新」徽标（summary.ts 的
+ * summarizeBoard）用的就是前者，这里必须对齐，否则同一屏对同一个账号
+ * 新鲜不新鲜会给出两个矛盾的答案。
+ */
+function healthOf(latestCapturedOn: string | null, todayTokyo: string): AskHealth {
+  if (latestCapturedOn == null) return { metricsAgeDays: null, stale: true }
+  const age = daysBetween(latestCapturedOn, todayTokyo)
   return { metricsAgeDays: age, stale: age > STALE_DAYS }
 }
 
@@ -279,7 +286,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
       followers,
       liveHabit: liveHabitOf(c, displayTimeZone, now),
       shots: shotsOf(c),
-      health: healthOf(followers, todayTokyo),
+      health: healthOf(c.latest?.captured_on ?? null, todayTokyo),
     }
   })
 
