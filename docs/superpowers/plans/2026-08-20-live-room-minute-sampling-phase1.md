@@ -14,7 +14,11 @@
 
 ## 前置说明（实现者必读）
 
-**1. 测试文件必须登记到 `package.json`。** 本仓的 `test` 脚本是一份**显式文件清单**（`package.json:16` 那一行很长的 `node --test ...`），新增 `.test.ts` 不会被自动发现。忘了加，测试就是没跑。这一行也是本仓历史上最容易产生 PR 冲突的地方——rebase 时优先检查它。
+**1. 测试文件必须登记到 `package.json` 的 `test` 脚本。** 它是一份**显式文件清单**（那一行很长的 `node --test ...`，当前在第 17 行，但**按内容定位、别信行号**），新增 `.test.ts` 不会被自动发现。忘了加，测试就是没跑。这一行也是本仓历史上最容易产生 PR 冲突的地方——rebase 时优先检查它。
+
+**1b. 这个仓库里禁止用 `git stash`。** 主仓和多个 worktree 共享同一份 stash 栈，里面存着别人的在途改动、以及被刻意留档的废弃改动。一次 `git stash pop` 就可能把别人的东西弹进你的工作区，并**消耗掉那条归档**。本任务链里已经踩过一次（一个标着「pollux 定不发」的废弃 CSS 修复被弹了出来）。要和 base commit 对比，用 `git worktree add --detach <sha> /tmp/xxx` 开临时目录，用完 `git worktree remove --force`。
+
+**1c. 提交只用显式路径。** 永远不要 `git add -A` 或 `git add .` —— 这个工作区可能有不属于你任务的改动。逐个列出你自己创建/修改的文件。
 
 **2. 纯函数模块的约定。** 看 `src/lib/competitors/metrics.ts` 开头那句注释：「纯函数，零 import：供采集脚本（`--experimental-strip-types`）与视图共用」。新建的 lib 文件遵守同一约定——可以 import 同目录的其它纯函数模块，不要 import React、Supabase、Next 的任何东西，否则脚本侧会炸。
 
@@ -22,7 +26,13 @@
 
 **4. 提交前跑门禁。** `npm run test:copy`（含 i18n / 裸中文 / 设计 token / lint 四项）。注意 `check-style-tokens.mjs` 只扫 `src/`，且它会把注释里形如 `#249` 的东西误判成裸 hex 色值——写 PR 编号一律写成 `PR 249`，别带井号。
 
-**5. `sweep-live.mjs` 未入库。** 它只存在于 pollux 主仓的工作区（`/Users/fengzhou/Code/newWith/scripts/live-watch/sweep-live.mjs`），origin/main 上没有。本计划**不修改它**，而是把要复用的两段逻辑（下播判定、静音+精裁）作为新代码写进 `src/lib/competitors/`，附测试。将来 `sweep-live.mjs` 入库时应改成 import 这两份共享实现，那是另一个 PR 的事。
+**4b. 每个任务提交前必须跑 `npx tsc --noEmit`。** `node --test --experimental-strip-types` **只剥类型、不做类型检查**，测试全绿不代表能编译。CI（`.github/workflows/check.yml`）有独立的 Type check 步骤，漏了就是红灯。
+
+本仓最常踩的是 **TS2802**：直接 `for...of` 迭代 `matchAll()` / `Set` / `Map` 会报「can only be iterated through when using --downlevelIteration」。修法是用 `Array.from(...)` 包一层——已有两次先例（`23f35c0` org-link、`4ad3b80` weekly.ts）。本计划 Task 1 又踩了同一个坑。凡是写迭代的地方都先想一下这条。
+
+**5. 状态码判法现在有三份拷贝，本计划只新增第三份、不合并。** `sweep-live.mjs` 原本只存在于 pollux 的工作区，已在本分支的基线提交 `fe200ff` 入库；加上 `cdp-probe.mjs`，仓库里现在有两份逐字相同的「status 4 且无 2」正则。本计划 Task 1 把它作为**带测试的共享实现**写进 `src/lib/competitors/liveTrack.ts`，Task 6 同理处理静音+精裁矩形。
+
+**本计划不修改那两个 `.mjs`。** 它们是每周竞品采集在用的工具，改动风险大于收益，而且改法涉及运行命令要加 `--experimental-strip-types`（`.mjs` import `.ts` 需要），会波及记录采集流程的 skill 文档。把「让两个 `.mjs` 改用共享实现」留成独立的后续 PR。
 
 ---
 
@@ -42,7 +52,7 @@
 
 | 文件 | 改动 |
 | --- | --- |
-| `package.json:16` | `test` 清单追加两个新测试文件 |
+| `package.json` 的 `test` 脚本行 | `test` 清单追加两个新测试文件 |
 
 **边界**：`liveTrack.ts` 与 `liveProbe.ts` 之间零依赖。`liveProbe.ts` 只产出**字符串**（要注入页面的源码），不执行任何 DOM 操作；`liveTrack.ts` 只处理**已经取回 Node 侧的数据**。runner 是唯一同时依赖两者、且唯一碰 CDP 的文件。
 
@@ -55,7 +65,7 @@
 **Files:**
 - Create: `src/lib/competitors/liveTrack.ts`
 - Create: `src/lib/competitors/liveTrack.test.ts`
-- Modify: `package.json:16`
+- Modify: `package.json` 的 `test` 脚本行
 
 - [ ] **Step 1: 写失败的测试**
 
@@ -136,7 +146,7 @@ node --test --experimental-strip-types src/lib/competitors/liveTrack.test.ts
 
 - [ ] **Step 5: 把测试文件登记进 `package.json`**
 
-在 `package.json:16` 的 `test` 值里，紧跟在 `src/lib/competitors/shotUptime.test.ts` 之后插入一个空格加 `src/lib/competitors/liveTrack.test.ts`。改完确认整份测试仍然全绿：
+在 `package.json` 的 `test` 脚本行 的 `test` 值里，紧跟在 `src/lib/competitors/shotUptime.test.ts` 之后插入一个空格加 `src/lib/competitors/liveTrack.test.ts`。改完确认整份测试仍然全绿：
 
 ```bash
 npm test 2>&1 | tail -5
@@ -571,7 +581,7 @@ git commit -m "feat(live-track): 场次落盘路径(JST 时间戳目录)+ 单测
 **Files:**
 - Create: `src/lib/competitors/liveProbe.ts`
 - Create: `src/lib/competitors/liveProbe.test.ts`
-- Modify: `package.json:16`
+- Modify: `package.json` 的 `test` 脚本行
 
 - [ ] **Step 1: 写失败的测试**
 
@@ -912,7 +922,7 @@ node --test --experimental-strip-types src/lib/competitors/liveProbe.test.ts
 
 - [ ] **Step 5: 把测试文件登记进 `package.json`**
 
-在 `package.json:16` 的 `test` 值里，紧跟在刚加的 `src/lib/competitors/liveTrack.test.ts` 之后插入 ` src/lib/competitors/liveProbe.test.ts`。然后：
+在 `package.json` 的 `test` 脚本行 的 `test` 值里，紧跟在刚加的 `src/lib/competitors/liveTrack.test.ts` 之后插入 ` src/lib/competitors/liveProbe.test.ts`。然后：
 
 ```bash
 npm test 2>&1 | tail -5
@@ -1421,8 +1431,10 @@ npm run test:copy
 
 - [ ] **Step 3: 提交（若门禁触发了修改）**
 
+逐个列出被门禁改动的文件，**不要 `git add -A`**（见前置说明 1c）：
+
 ```bash
-git add -A
+git add <被门禁改到的具体文件路径>
 git commit -m "chore(live-track): 过 test:copy 门禁"
 ```
 
