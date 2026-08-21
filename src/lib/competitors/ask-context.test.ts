@@ -230,6 +230,15 @@ test('顺序无关: history 与 shots 倒序输入,followers/capturedDates/lastO
   assert.equal(reversed.competitors[0].shots.lastOn, forward.competitors[0].shots.lastOn)
 })
 
+test('followersOf: 直接单测，不必经过 buildAskContext/comp()/board() 造出整棵档案树', () => {
+  const f = followersOf([point('2026-08-10', 241000), point('2026-08-17', 246200)])
+  assert.equal(f.latest, 246200)
+  assert.equal(f.on, '2026-08-17')
+  assert.equal(f.delta, 5200)
+  assert.equal(f.spanDays, 7)
+  assert.equal(f.confidence, 'ok')
+})
+
 function shot(over: Partial<CompetitorShot> = {}): CompetitorShot {
   return {
     id: over.id ?? 'shot-1',
@@ -451,6 +460,16 @@ test('shots: 没有任何截图时形状完整且不抛异常', () => {
     total: 0, capturedDates: [], lastOn: null, peakViewersAllTime: null,
     lastShotUptimeMinutes: null, lastShotUptimeAt: null,
   })
+})
+
+test('shotsOf: 直接单测，不必经过 buildAskContext/comp()/board() 造出整棵档案树', () => {
+  const s = shotsOf([
+    shot({ id: 'a', shot_on: '2026-08-19', viewer_count: 300 }),
+    shot({ id: 'b', shot_on: '2026-08-17', viewer_count: 900 }),
+  ])
+  assert.deepEqual(s.capturedDates, ['2026-08-19', '2026-08-17'])
+  assert.equal(s.lastOn, '2026-08-19')
+  assert.equal(s.peakViewersAllTime, 900)
 })
 
 test('身份字段：显示名三级回退 快照名 → 竞品名 → handle', () => {
