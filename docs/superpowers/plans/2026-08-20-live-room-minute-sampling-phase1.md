@@ -276,6 +276,8 @@ export type SelectorHits = {
   followers: string | null
   likes: string | null
   chatHost: string | null
+  /** 发言人选择器；没命中过就是 null，此时 speakers 也必须是 null */
+  speaker: string | null
 }
 
 /** 探针从页面交回的一条原始读数。字段都可能读不到 —— 读不到就是 null。 */
@@ -287,8 +289,8 @@ export type ProbeSample = {
   likes: string | null
   /** 本分钟弹幕条数 */
   msgs: number
-  /** 本分钟去重后的发言人数 */
-  speakers: number
+  /** 本分钟去重后的发言人数。没有可靠的发言人选择器时是 null —— 不是 0，也不靠猜 */
+  speakers: number | null
   observerAlive: boolean
   /** 各字段实际命中了候选表里的哪个选择器；没命中是 null */
   selectorsOk: SelectorHits
@@ -302,7 +304,7 @@ export type Sample = {
   follower_count: number | null
   like_total: number | null
   chat_msgs: number
-  chat_speakers: number
+  chat_speakers: number | null
   raw: {
     observer_alive: boolean
     selectors_ok: SelectorHits
@@ -912,8 +914,13 @@ export function defaultProbeConfig(): ProbeConfig {
  * 也保证注入后除了 win.__lw 之外不碰页面上的任何东西。
  */
 export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
-  if (win.__lw && win.__lw.version === cfg.version) {
-    return { reused: true, attached: !!win.__lw.attached, version: cfg.version }
+  if (win.__lw) {
+    if (win.__lw.version === cfg.version) {
+      return { reused: true, attached: !!win.__lw.attached, version: cfg.version }
+    }
+    // 版本变了要整个重建。先断开上一版的 observer —— 否则它会永远挂在旧节点上，
+    // 对着一个再也没人读的计数器烧 CPU，每条弹幕烧一次，直到这个 tab 关掉。
+    if (typeof win.__lw.disconnect === 'function') win.__lw.disconnect()
   }
   function textOf(node) {
     return node && node.textContent ? String(node.textContent).trim() : ''
@@ -932,17 +939,19 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     }
     return { sel: null, el: null }
   }
-  var st = { msgs: 0, seen: Object.create(null), nSpeakers: 0, buf: [], host: null, hostSel: null }
+  var st = { msgs: 0, seen: Object.create(null), nSpeakers: 0, buf: [],
+             host: null, hostSel: null, obs: null, speakerSel: null }
+  // 只认真正的发言人选择器。以前这里有个「取首个冒号之前」的兜底，已经去掉：
+  // 系统消息、礼物提示、正文里带 http:// 或时间比分的普通弹幕，都会被它编造成
+  // 一个假发言人；不同真人发的相似内容又会被并成同一个。engagement 指标宁可为空
+  // 也不能是编的 —— 没命中就让 speakers 报 null，selectorsOk.speaker 也报 null。
   function speakerOf(node) {
+    if (!node || !node.querySelector) return null
     for (var i = 0; i < cfg.speaker.length; i++) {
-      if (node && node.querySelector) {
-        var w = textOf(node.querySelector(cfg.speaker[i]))
-        if (w) return w
-      }
+      var w = textOf(node.querySelector(cfg.speaker[i]))
+      if (w) { st.speakerSel = cfg.speaker[i]; return w }
     }
-    var whole = textOf(node)
-    var c = whole.indexOf(':')
-    return c > 0 ? whole.slice(0, c).trim() : null
+    return null
   }
   function count(node) {
     st.msgs += 1
@@ -950,6 +959,8 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     if (who && !st.seen[who]) { st.seen[who] = 1; st.nSpeakers += 1 }
   }
   function attach() {
+    // 重挂之前先断开旧的，否则 reattach 之后每条弹幕会被两个 observer 各数一次
+    if (st.obs) { st.obs.disconnect(); st.obs = null }
     var f = firstEl(cfg.chatHost)
     if (!f.el) return false
     st.host = f.el
@@ -961,6 +972,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
       }
     })
     obs.observe(f.el, { childList: true, subtree: !!cfg.chatSubtree })
+    st.obs = obs
     return true
   }
   function alive() {
@@ -977,13 +989,18 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
       followers: f.text,
       likes: l.text,
       msgs: st.msgs,
-      speakers: st.nSpeakers,
+      // 没有可靠的发言人选择器就报 null，别把 0 当成「没人说话」
+      speakers: st.speakerSel ? st.nSpeakers : null,
       observerAlive: alive(),
-      selectorsOk: { viewer: v.sel, followers: f.sel, likes: l.sel, chatHost: st.hostSel }
+      selectorsOk: {
+        viewer: v.sel, followers: f.sel, likes: l.sel,
+        chatHost: st.hostSel, speaker: st.speakerSel
+      }
     })
     st.msgs = 0
     st.seen = Object.create(null)
     st.nSpeakers = 0
+    st.speakerSel = null
   }
   var ok = attach()
   win.__lw = {
@@ -992,6 +1009,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     tick: tick,
     reattach: attach,
     alive: alive,
+    disconnect: function () { if (st.obs) { st.obs.disconnect(); st.obs = null } },
     drain: function () { var out = st.buf; st.buf = []; return out }
   }
   if (cfg.intervalMs > 0) win.setInterval(tick, cfg.intervalMs)
@@ -1402,8 +1420,12 @@ async function main() {
     })
     wd = step.state
     if (step.action === 'reinject') {
-      console.error('！探针失联，重注入')
-      await evaluate(pc, probeSource(defaultProbeConfig()))
+      // 注意不能直接重 eval probeSource：版本号相同时工厂会 reused:true 原样返回，
+      // 什么都不做 —— 那样两次「重注入」全是空转，恢复路径等于没有。
+      // 先让页内的探针自己重挂 observer；只有 __lw 整个没了（页面刷新过）才整份重注。
+      console.error('！探针失联，重挂')
+      const reattached = await evaluate(pc, 'window.__lw ? (window.__lw.reattach(), true) : false')
+      if (!reattached) await evaluate(pc, probeSource(defaultProbeConfig()))
     } else if (step.action === 'end') {
       console.error('✓ 判定下播，收工')
       break
