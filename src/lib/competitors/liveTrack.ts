@@ -9,7 +9,7 @@
  */
 export function roomEnded(html: string): boolean {
   const codes = new Set<number>()
-  for (const m of html.matchAll(/"(?:status|liveStatus|live_status)"\s*:\s*(\d)/g)) {
+  for (const m of Array.from(html.matchAll(/"(?:status|liveStatus|live_status)"\s*:\s*(\d)/g))) {
     codes.add(Number(m[1]))
   }
   return codes.has(4) && !codes.has(2)
