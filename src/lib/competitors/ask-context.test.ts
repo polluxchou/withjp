@@ -181,6 +181,24 @@ test('followers: 跨度超过 FOLLOWERS_MAX_SPAN_DAYS(21 天/三个采集周期)
   assert.equal(f.prev, 200000)
 })
 
+test('followers: 跨度边界——正好 21 天仍是 ok，22 天降级为 insufficient（与 STALE_DAYS「正好等于不算」同一约定）', () => {
+  const now = new Date('2026-08-20T01:00:00Z')
+
+  const exactly21 = buildAskContext(
+    board([comp({ history: [point('2026-07-30', 200000), point('2026-08-20', 210000)] })]), now, 'zh',
+  )
+  const f21 = exactly21.competitors[0].followers
+  assert.equal(f21.spanDays, 21)
+  assert.equal(f21.confidence, 'ok')
+
+  const at22 = buildAskContext(
+    board([comp({ history: [point('2026-07-29', 200000), point('2026-08-20', 210000)] })]), now, 'zh',
+  )
+  const f22 = at22.competitors[0].followers
+  assert.equal(f22.spanDays, 22)
+  assert.equal(f22.confidence, 'insufficient')
+})
+
 test('followers: delta 为 0 时必须是数字 0,不能读成 null(持平也是数据)', () => {
   const ctx = buildAskContext(
     board([comp({ history: [point('2026-08-10', 240000), point('2026-08-17', 240000)] })]),
