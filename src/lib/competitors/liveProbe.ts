@@ -194,3 +194,97 @@ export function probeSource(cfg: ProbeConfig): string {
   }
   return `(${PROBE_FACTORY_SRC})(window, document, ${JSON.stringify(cfg)})`
 }
+
+export type Rect = { x: number; y: number; width: number; height: number }
+
+/** object-position 的一个分量，解析不出来退回 50（CSS 默认居中）。 */
+function pct(s: string | undefined): number {
+  const n = parseFloat(s ?? '')
+  return Number.isFinite(n) ? n : 50
+}
+
+/**
+ * 由 <video> 的盒子矩形 + 视频原始尺寸 + object-fit/object-position，
+ * 算出画面在页面坐标系里的真实矩形。截图 clip 用它，避免把播放器的黑边也截进去。
+ * 抽成纯函数是为了能测 —— 页面里那份（CLIP_FACTORY_SRC）走同样的算式。
+ */
+export function clipRect(
+  box: Rect,
+  videoWidth: number,
+  videoHeight: number,
+  objectFit: string,
+  objectPosition: string,
+): Rect {
+  const boxRatio = box.width / box.height
+  const imgRatio = videoWidth / videoHeight
+  let w: number
+  let h: number
+  if (objectFit === 'cover') {
+    if (imgRatio > boxRatio) { h = box.height; w = box.height * imgRatio }
+    else { w = box.width; h = box.width / imgRatio }
+  } else if (objectFit === 'fill') {
+    w = box.width; h = box.height
+  } else {
+    if (imgRatio > boxRatio) { w = box.width; h = box.width / imgRatio }
+    else { h = box.height; w = box.height * imgRatio }
+  }
+  // 解析不出来才退回 50%（CSS 默认居中）。不能写 `parseFloat(x) || 50` ——
+  // 那会把显式的 0%（画面靠上/靠左）当成假值改判成居中。
+  const p = objectPosition.split(' ')
+  const fx = pct(p[0]) / 100
+  const fy = pct(p[1]) / 100
+  return {
+    x: Math.round(box.x + (box.width - w) * fx),
+    y: Math.round(box.y + (box.height - h) * fy),
+    width: Math.round(w),
+    height: Math.round(h),
+  }
+}
+
+/**
+ * 页面里执行的版本：顺手把播放器静音（挂一整场不能出声），
+ * 并回报 video 是否就绪。videoWidth>0 且 readyState>=2 才算能截。
+ * 算式与 clipRect 保持一致 —— 改一处必须改两处。
+ */
+export const CLIP_FACTORY_SRC = `function (win, doc) {
+  function pct(s) { var n = parseFloat(s); return isFinite(n) ? n : 50 }
+  var v = doc.querySelector('video')
+  if (!v) return { hasVideo: false, ready: false, clip: null }
+  v.muted = true
+  v.volume = 0
+  var r = v.getBoundingClientRect()
+  var cs = win.getComputedStyle(v)
+  var iw = v.videoWidth, ih = v.videoHeight
+  if (!iw || !ih) return { hasVideo: true, ready: false, clip: null }
+  var boxRatio = r.width / r.height, imgRatio = iw / ih
+  var fit = cs.objectFit || 'contain'
+  var w, h
+  if (fit === 'cover') {
+    if (imgRatio > boxRatio) { h = r.height; w = r.height * imgRatio }
+    else { w = r.width; h = r.width / imgRatio }
+  } else if (fit === 'fill') {
+    w = r.width; h = r.height
+  } else {
+    if (imgRatio > boxRatio) { w = r.width; h = r.width / imgRatio }
+    else { h = r.height; w = r.height * imgRatio }
+  }
+  var p = (cs.objectPosition || '50% 50%').split(' ')
+  var fx = pct(p[0]) / 100
+  var fy = pct(p[1]) / 100
+  return {
+    hasVideo: true,
+    ready: v.readyState >= 2,
+    muted: !!v.muted,
+    clip: {
+      x: Math.round(r.x + (r.width - w) * fx),
+      y: Math.round(r.y + (r.height - h) * fy),
+      width: Math.round(w),
+      height: Math.round(h)
+    }
+  }
+}`
+
+/** 拼出注入用的完整表达式。 */
+export function clipSource(): string {
+  return `(${CLIP_FACTORY_SRC})(window, document)`
+}

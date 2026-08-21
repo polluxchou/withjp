@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { PROBE_FACTORY_SRC, PROBE_VERSION, defaultProbeConfig, probeSource } from './liveProbe.ts'
+import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, clipRect, defaultProbeConfig, probeSource } from './liveProbe.ts'
 
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
@@ -248,4 +248,50 @@ test('probeSource: 组装出的表达式能被解析成可调用的工厂', () =
 
 test('probeSource: intervalMs 非正数直接抛错，不产出永不打点的探针', () => {
   assert.throws(() => probeSource({ ...defaultProbeConfig(), intervalMs: 0 }), /intervalMs/)
+})
+
+test('clipRect: contain 且画面比盒子更宽 → 左右满、上下留黑边', () => {
+  // 盒子 800x600（比例 1.333），画面 1920x1080（比例 1.778）→ 宽度吃满，高度 800/1.778=450
+  const r = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'contain', '50% 50%')
+  assert.deepEqual(r, { x: 0, y: 75, width: 800, height: 450 })
+})
+
+test('clipRect: contain 且画面更高 → 上下满、左右留黑边', () => {
+  // 盒子 800x600，画面 1080x1920（比例 0.5625）→ 高度吃满 600，宽度 600*0.5625=337.5→338
+  const r = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1080, 1920, 'contain', '50% 50%')
+  assert.deepEqual(r, { x: 231, y: 0, width: 338, height: 600 })
+})
+
+test('clipRect: cover 会溢出盒子（裁掉两侧），矩形比盒子大是预期行为', () => {
+  const r = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'cover', '50% 50%')
+  assert.equal(r.height, 600)
+  assert.ok(r.width > 800, 'cover 下宽度应溢出')
+})
+
+test('clipRect: fill 直接等于盒子', () => {
+  const r = clipRect({ x: 10, y: 20, width: 800, height: 600 }, 1920, 1080, 'fill', '50% 50%')
+  assert.deepEqual(r, { x: 10, y: 20, width: 800, height: 600 })
+})
+
+test('clipRect: object-position 靠上时黑边全落在下方', () => {
+  const r = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'contain', '50% 0%')
+  assert.equal(r.y, 0)
+})
+
+test('clipRect: object-position 解析不出来才退回居中（显式 0% 不能被当成假值）', () => {
+  // 'center' 解析不出数字 → 两轴都退回 50%,等同居中
+  const fallback = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'contain', 'center')
+  assert.equal(fallback.y, 75)
+  // 显式 0% 必须真的贴顶,不能被 `|| 50` 改判成居中
+  const top = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'contain', '50% 0%')
+  assert.equal(top.y, 0)
+})
+
+test('clipRect: 带上元素在页面里的偏移', () => {
+  const r = clipRect({ x: 100, y: 50, width: 800, height: 600 }, 1920, 1080, 'contain', '50% 50%')
+  assert.deepEqual(r, { x: 100, y: 125, width: 800, height: 450 })
+})
+
+test('CLIP_FACTORY_SRC 是可解析的 JS', () => {
+  assert.doesNotThrow(() => new Function(`return (${CLIP_FACTORY_SRC})`))
 })
