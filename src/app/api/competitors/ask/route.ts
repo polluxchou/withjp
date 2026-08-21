@@ -4,13 +4,7 @@ import { getCompetitorBoard, httpStatusForError } from '@/lib/competitors/servic
 import { buildAskContext } from '@/lib/competitors/ask-context'
 import { buildSystemPrompt } from '@/lib/competitors/ask-prompt'
 import { deepseekChat } from '@/lib/llm/deepseek'
-import { parseAskBody, trimHistory } from '@/lib/competitors/ask-validate'
-
-// 历史上限：超出丢最早的一轮。数据包本身约 15k token，再让历史无限增长会顶穿
-// 上下文窗口，也会让每轮成本随对话长度线性上涨。见 ask-validate.ts 的
-// trimHistory：裁剪时会继续丢掉窗口开头悬空的 assistant 消息，保证送进模型
-// 的窗口以 user 开头。
-const MAX_TURNS = 20
+import { MAX_TURNS, parseAskBody, trimHistory } from '@/lib/competitors/ask-validate'
 
 // POST /api/competitors/ask — 无状态问答：body { messages: {role,content}[], locale?: string }
 // 每轮由前端把完整对话历史发上来，这里重新拼一份数据包 + system prompt，
@@ -30,12 +24,21 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) {
     return NextResponse.json({ error: 'bad_request', message: parsed.message }, { status: 400 })
   }
+  // 历史上限见 ask-validate.ts 的 MAX_TURNS 注释：数据包本身约 15k token，
+  // 再让历史无限增长会顶穿上下文窗口，也会让每轮成本随对话长度线性上涨。
+  // trimHistory 裁剪时会继续丢掉窗口开头悬空的 assistant 消息，保证送进
+  // 模型的窗口以 user 开头。
   const turns = trimHistory(parsed.turns, MAX_TURNS)
 
   const boardRes = await getCompetitorBoard(user.id)
   if (boardRes.error) {
+    // 真实错误只留服务端日志——boardRes.error.message 是 Supabase/Postgrest
+    // 原始报错，可能带表名、约束名等内部细节。这条错误此前唯一能落地的地方
+    // 是用户复制粘贴的"复制报错"按钮，服务端反而没有任何 console.error，
+    // 出故障时只能等用户上报一段裁剪过的错误文案。
+    console.error('[api/competitors/ask] getCompetitorBoard failed', boardRes.error)
     return NextResponse.json(
-      { error: 'board', message: boardRes.error.message },
+      { error: 'board', message: 'Failed to load competitor board data' },
       { status: httpStatusForError(boardRes.error.code) },
     )
   }
