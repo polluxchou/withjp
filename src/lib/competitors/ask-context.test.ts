@@ -200,6 +200,39 @@ test('liveHabit: 钟点随界面语言换算，同一时刻中日相差一小时
   assert.equal(ja.competitors[0].liveHabit.slots[0].at, '21:28')
 })
 
+test('liveHabit: 窗口外的历史场次不冒充「常见」——门槛与 regionRuler 共用同一个 14 天窗口', () => {
+  // 三场都在 2026-02，now 是 2026-08-20：早就过了 RULER_WINDOW_DAYS，
+  // 场次数够但太旧，不能说这就是「现在」的作息。
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [
+        shot({ id: 's1', stream_started_at: '2026-02-19T12:28:00Z' }),
+        shot({ id: 's2', stream_started_at: '2026-02-18T12:30:00Z' }),
+        shot({ id: 's3', stream_started_at: '2026-02-17T12:26:00Z' }),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const h = ctx.competitors[0].liveHabit
+  assert.equal(h.confidence, 'insufficient')
+  assert.deepEqual(h.slots, [])
+})
+
+test('liveHabit: 未来时刻的开播记录（脏数据）被排除，不会成为 latestStartedAt', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [
+        shot({ id: 'future', stream_started_at: '2026-08-25T12:00:00Z' }), // now 之后
+        shot({ id: 's1', stream_started_at: '2026-08-19T12:28:00Z' }),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  assert.equal(ctx.competitors[0].liveHabit.latestStartedAt, '2026-08-19T12:28:00Z')
+})
+
 test('shots: capturedDates 去重降序，不截断，null 日期不进列表', () => {
   const ctx = buildAskContext(
     board([comp({
