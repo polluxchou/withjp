@@ -87,6 +87,7 @@ DeepSeek transport 自带一个 minimal shim（`src/lib/llm/deepseek.ts`），**
     "coverage": {
       "competitors": 34, "roots": 23,
       "withMetrics": 29, "metricsDays": 9,
+      // 场次按 (竞品, 开播时刻) 去重。只按时刻去重会把同秒开播的两家并成一家。
       "shotDays": 13, "sessionsWithStartTime": 52
     },
     "captureNote": "主页指标为每周人工触发采集；直播截图为半自动采集，仅在人工发起时抓取。日期缺失只代表未采集，不代表未开播。"
@@ -96,6 +97,10 @@ DeepSeek transport 自带一个 minimal shim（`src/lib/llm/deepseek.ts`），**
       "handle": "solulune",
       "name": "Solulune",
       "region": "日本",
+      // region 是建档时的人工值、从不随采集刷新，库里有实测 3/23 的错误率
+      // （见 §6「地区不能裸给」）。observedLanguage 与 regionMismatch 是它的交叉校验面。
+      "observedLanguage": "ja",
+      "regionMismatch": false,
       "isChild": false,
       "parentHandle": null,
       "members": 12,
@@ -103,21 +108,26 @@ DeepSeek transport 自带一个 minimal shim（`src/lib/llm/deepseek.ts`），**
         "latest": 246200, "on": "2026-08-17",
         "prev": 241000, "prevOn": "2026-08-10",
         "delta": 5200, "spanDays": 7,
-        "confidence": "ok"                   // 快照 < 2 → "insufficient"，此时 delta/prev 为 null
+        "confidence": "ok"                   // 快照 < 2 或 spanDays > 21 → "insufficient"
       },
       "liveHabit": {
         "slots": [{ "at": "21:30", "sessions": 5 }],
         "sessions": 7,
         "latestStartedAt": "2026-08-19T12:28:00Z",
-        "confidence": "ok"                   // 无档达到 SLOT_MIN_SESSIONS → "insufficient"
+        "confidence": "ok",                  // 窗口内无档达到 SLOT_MIN_SESSIONS → "insufficient"
+        "windowDays": 14,                    // = regionRuler 的 RULER_WINDOW_DAYS
+        "recentSessions": ["2026-08-19T12:28:00Z", "…"]   // 窗口内最近几场，供人核对新鲜度
       },
       "shots": {
         "total": 18,
         "capturedDates": ["2026-08-19", "2026-08-17", "…"],   // 完整列表，不截断
         "lastOn": "2026-08-19",
-        "peakViewers": 934,
-        "lastUptimeMinutes": 96
+        "peakViewersAllTime": 934,           // 全量历史峰值，不是最近一场的
+        "lastShotUptimeMinutes": 96          // 截图那一刻已播多久（场次长度的下界）
       },
+      // metricsAgeDays 基于 latest.captured_on（= 最近一次采集，无论有没有读到粉丝数），
+      // 与看板「待更新」徽标同源。不能用「最近一次带粉丝数的采集」——parseCount
+      // 失败会写 followers 为 null 的行，两个口径会让同一屏自相矛盾。
       "health": { "metricsAgeDays": 3, "stale": false }
     }
   ]
@@ -129,9 +139,13 @@ DeepSeek transport 自带一个 minimal shim（`src/lib/llm/deepseek.ts`），**
 | 用途 | 复用 |
 |---|---|
 | 开播档次 | `summarizeLiveHabit(startedAts, timeZone, minSessions)` — `src/lib/competitors/liveSlots.ts:83` |
+| 档次新鲜度窗口 | `RULER_WINDOW_DAYS = 14` — `regionRuler.ts:16`（**直接 import，不另立常量**） |
+| 档次证据（原始场次） | `recentSessionStarts` — `liveSlots.ts:73` |
 | 周粉丝点 | `bucketFollowersByWeek` — `weekly.ts:20` |
 | 看板健康度 | `summarizeBoard` / `STALE_DAYS = 7` — `summary.ts:78` |
+| 天数差 | `daysBetween` — `summary.ts`（原为私有，本次导出复用，不再各写一份） |
 | 已播时长 | `shotUptimeParts` — `types.ts` |
+| 地区交叉校验 | `checkProfileLanguage` — `profileLanguage.ts:29` |
 | 显示名回退 | `competitorName` — `summary.ts:74` |
 
 子主播（`parent_id` 非空）作为独立条目进包，带 `parentHandle` 指回父竞品，让模型能回答「XX 团下面那个主播」。
@@ -142,14 +156,26 @@ DeepSeek transport 自带一个 minimal shim（`src/lib/llm/deepseek.ts`），**
 
 用户确认的策略是**混合**：硬事实直答并附口径，需要推论的卡门槛。
 
-落地方式是把门槛判定**全部前移到 `buildAskContext`**，模型拿不到能推论的原料：
+落地方式是把门槛判定**全部前移到 `buildAskContext`**，模型拿不到能推论的原料。
 
-| 问题类型 | 门槛 | 不达标时 |
-|---|---|---|
-| 开播作息（"一般几点开播"） | 一档 ≥ `SLOT_MIN_SESSIONS`(3) 场 | `confidence: "insufficient"`，`slots` 为空，只给 `latestStartedAt` |
-| 涨粉（"涨了多少 / 涨得快不快"） | ≥ 2 个快照 | `confidence: "insufficient"`，`delta` 为 `null` |
-| 某天是否有截图 | 无门槛，硬事实 | 直接查 `capturedDates` |
-| 采集健康度 | 无门槛，硬事实 | 直接给 `metricsAgeDays` |
+门槛有**两个维度**：样本够不够多，以及样本新不新。
+
+| 问题类型 | 数量门槛 | 新鲜度门槛 | 不达标时 |
+|---|---|---|---|
+| 开播作息（"一般几点开播"） | 一档 ≥ `SLOT_MIN_SESSIONS`(3) 场 | 场次须落在最近 `RULER_WINDOW_DAYS`(14) 天内 | `confidence: "insufficient"`，`slots` 为空，只给窗口内的 `latestStartedAt` |
+| 涨粉（"涨了多少 / 涨得快不快"） | ≥ 2 个快照 | 两点相隔 ≤ `FOLLOWERS_MAX_SPAN_DAYS`(21) 天 | `confidence: "insufficient"`，`delta`/`prev`/`spanDays` 仍照给（硬事实），但禁止用于比较 |
+| 某天是否有截图 | 无门槛，硬事实 | — | 直接查 `capturedDates` |
+| 采集健康度 | 无门槛，硬事实 | — | 直接给 `metricsAgeDays` |
+
+**新鲜度这一维是评审补回来的，不是原设计里就有的。** 第一版只卡了场次数量，结果半年前连播三场、之后再没播过的账号照样拿到 `confidence: "ok"` 的开播档次——而同一张卡片上的「同地区标尺」因为有 14 天窗口，对这个账号什么都不显示。同屏两处对同一件事给出矛盾结论。窗口常量因此**直接 import `regionRuler.ts` 的 `RULER_WINDOW_DAYS`**，而不是另立一个同值常量，让两者在构造上不可能跑偏。
+
+阈值取值都对着生产库量过，当下都是零代价、只在数据真放旧时才收紧：44 场直播全在最近 3 天内，「≥3 场」的账号数在 14/30/全量三个窗口下都是 7 个；21 个有 ≥2 快照的账号最大跨度 7 天。
+
+### 地区不能裸给
+
+`region` 是建档时的人工值、从不随采集刷新。`migrations/20260819000000_competitor_snapshot_language.sql` 记着一次真实事故：23 个顶层竞品全被填成 `JP`，其中 3 个其实是韩国团，错了一个月没人发现。UI 早就为此加了 `checkProfileLanguage` 交叉校验和不一致徽标。
+
+所以上下文包里 `region` 必须与 `observedLanguage`、`regionMismatch` 同行下发。否则「哪几个是韩国团」会得到一句流畅、自信、错误、且提问者无从核对的回答——与数字类失效模式同源，只是载体是分类值。
 
 system prompt 中的对应规则：
 
@@ -230,6 +256,14 @@ DeepSeek（用户既定偏好：性价比 + 中文措辞自然 + 自带硬盘上
 - 钟点按 `locale` 切换时区：同一 `stream_started_at`，zh 与 ja 得到相差一小时的 `at`
 - 父子结构：子主播独立成条目并带 `parentHandle`
 - 空看板 / 全无数据的账号不抛异常
+- 新鲜度门槛：场次全在 14 天窗口外 → `slots` 为空且 `insufficient`；两快照相隔 309 天 → `insufficient`
+- 未来时刻的脏数据被排除，不会变成 `latestStartedAt`
+- `health.metricsAgeDays` 跟随 `latest.captured_on`，而不是「最近一次带粉丝数的采集」
+- `delta === 0`（真持平）与 `null`（未知）可区分
+- `regionMismatch` 的 true / false 两侧
+- 两个竞品同秒开播时 `sessionsWithStartTime === 2`
+
+**入参顺序无关性必须显式断言。** 打乱 `shots`/`history` 的顺序后，`capturedDates`、`lastOn`、`followers.latest`、`lastShotUptimeMinutes` 都不得改变。这条是评审用可运行探针打出来的教训：原实现依赖「`shots` 已按 `shot_on` 降序」，但 `shot_on` 只精确到天，同一天内的次序取决于未指定的库行序（两条写入路径的 `sort_order` 都硬编码 0，查询也没有 `ORDER BY`），同一场直播的两张截图能让「上一场播了多久」在 40 分钟和 200 分钟之间摇摆。凡是依赖调用方排序的聚合，都要么本地重排、要么按字段取极值——并用双向顺序的测试钉死。
 
 **不测**：LLM 输出内容本身。
 
