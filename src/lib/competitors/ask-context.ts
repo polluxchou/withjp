@@ -7,10 +7,13 @@
 //
 // 零 IO、零时钟：now 由调用方注入，才能把跨日、跨时区的行为钉死在单测里。
 import { timeZoneForLocale } from '../time/localeZone.ts'
-import { summarizeLiveHabit } from './liveSlots.ts'
+import { recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
+import { RULER_WINDOW_DAYS } from './regionRuler.ts'
 import { STALE_DAYS, competitorName } from './summary.ts'
 import { shotUptimeParts } from './types.ts'
 import type { CompetitorBoard, CompetitorWithHistory } from './types.ts'
+
+const DAY_MS = 86_400_000
 
 /** 截图日期列（shot_on）按东京业务日落库，日期比较必须用同一个日历。 */
 const SHOT_TZ = 'Asia/Tokyo'
@@ -60,10 +63,18 @@ export interface AskLiveSlot {
 
 export interface AskLiveHabit {
   slots: AskLiveSlot[]
-  /** 去重后的总场次（同一场的多张截图只算一次）。 */
+  /** 窗口内去重后的总场次（同一场的多张截图只算一次）。 */
   sessions: number
+  /** 窗口内的最近一场开播时刻；窗口外/未来时刻的脏数据不参与。 */
   latestStartedAt: string | null
   confidence: Confidence
+  /**
+   * 门槛窗口天数，直接复用 regionRuler.ts 的 RULER_WINDOW_DAYS——同一张卡片上
+   * 「开播作息」与「同地区标尺」两处对同一件事的新鲜度判断绝不能各定义一份、各自跑偏。
+   */
+  windowDays: number
+  /** 窗口内去重后最近几场的时刻（降序），给人核对这个档次是不是「新鲜」的证据。 */
+  recentSessions: string[]
 }
 
 export interface AskShots {
@@ -152,16 +163,32 @@ function followersOf(c: CompetitorWithHistory): AskFollowers {
 }
 
 /**
- * 开播作息。门槛沿用 liveSlots 的 SLOT_MIN_SESSIONS（默认 3 场才成档）——
- * 不达标时 slots 为空，模型就没有任何可用来谈"规律"的原料，只剩最近一场这个硬事实。
+ * 开播作息。两道门槛都要过：场次够（SLOT_MIN_SESSIONS）**且**够新鲜
+ * （RULER_WINDOW_DAYS 内）。只卡场次不卡新鲜度的话，半年前连播三场、之后再没
+ * 开播过的账号也会被判定成「有规律」——那是历史事实，不是"现在"的作息。
+ * 与 regionRuler.ts 的标尺共用同一条窗口规则，两处对"新鲜"的定义不能各跑各的。
  */
-function liveHabitOf(c: CompetitorWithHistory, timeZone: string): AskLiveHabit {
-  const habit = summarizeLiveHabit(c.shots.map((s) => s.stream_started_at), timeZone)
+function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): AskLiveHabit {
+  const nowMs = now.getTime()
+  const cutoff = nowMs - RULER_WINDOW_DAYS * DAY_MS
+  // 镜像 regionRuler.ts 的窗口过滤：t <= nowMs 这道守卫挡掉未来时刻的脏数据，
+  // 否则一条写错的未来时间戳会顶替真实的最近一场。
+  const starts = c.shots
+    .map((s) => s.stream_started_at)
+    .filter((iso): iso is string => {
+      if (!iso) return false
+      const t = Date.parse(iso)
+      return !Number.isNaN(t) && t >= cutoff && t <= nowMs
+    })
+
+  const habit = summarizeLiveHabit(starts, timeZone)
   return {
     slots: habit.slots.map((s) => ({ at: s.label, sessions: s.count })),
     sessions: habit.sessions,
     latestStartedAt: habit.latestStartedAt,
     confidence: habit.slots.length > 0 ? 'ok' : 'insufficient',
+    windowDays: RULER_WINDOW_DAYS,
+    recentSessions: recentSessionStarts(starts, 5),
   }
 }
 
@@ -227,7 +254,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
       parentHandle,
       members: c.member_count,
       followers,
-      liveHabit: liveHabitOf(c, displayTimeZone),
+      liveHabit: liveHabitOf(c, displayTimeZone, now),
       shots: shotsOf(c),
       health: healthOf(followers, todayTokyo),
     }
