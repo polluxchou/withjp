@@ -3,7 +3,8 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus } from 'lucide-react'
+import { MessageSquareText, Plus } from 'lucide-react'
+import AskPanel from './AskPanel'
 import CompetitorCard from './CompetitorCard'
 import CompetitorNavBar from './CompetitorNavBar'
 import CompetitorSummaryBar from './CompetitorSummaryBar'
@@ -65,6 +66,9 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   // 选中态常驻,不再是"跳过去闪一下"的临时高亮:芯片和卡片共用这一个 id,
   // 滚了半天也能一眼看出自己停在哪个号上。换一个号才让上一个熄灭。
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  // 「问数据」侧栏。非模态,开着也能继续滚看板——面板自己不锁滚动,见 AskPanel。
+  const [askOpen, setAskOpen] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
@@ -194,6 +198,12 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
       ) : (
         <div className="space-y-3">
           {summary && <CompetitorSummaryBar summary={summary} />}
+          <div className="flex justify-end">
+            <Button variant="secondary" size="sm" onClick={() => setAskOpen(true)}>
+              <MessageSquareText className="h-3.5 w-3.5" />
+              {t('ask.open')}
+            </Button>
+          </div>
           {/* 账号导航条与日期轴合成一整块吸顶:
               - 导航条常驻,才能连着跳好几个账号而不用每次滚回顶部;
               - 日期轴本来就必须吸顶(格子里不显示日期文字,滚走了就没法对应列);
@@ -227,6 +237,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
           ))}
         </div>
       )}
+      <AskPanel open={askOpen} onClose={() => setAskOpen(false)} />
     </div>
   )
 }

@@ -1714,7 +1714,27 @@
     "navFilterPlaceholder": "筛选账号名",
     "navNoMatch": "无匹配账号",
     "navMissingShot": "当天无截图",
-    "navJumpTo": "跳到 {name}"
+    "navJumpTo": "跳到 {name}",
+    "ask": {
+      "open": "问数据",
+      "title": "问竞品数据",
+      "close": "关闭",
+      "placeholder": "例：上周谁涨粉最快 / solulune 一般几点开播",
+      "send": "发送",
+      "thinking": "正在查…",
+      "emptyHint": "只回答已采集到的数据，不做推测。可以这样问：",
+      "example1": "上周谁涨粉最快",
+      "example2": "solulune 一般几点开播",
+      "example3": "哪些竞品的数据该更新了",
+      "errorNotConfigured": "对话功能尚未配置，请联系管理员设置 DEEPSEEK_API_KEY。",
+      "errorUpstream": "没能拿到回答，可以再试一次。",
+      "errorBadRequest": "这句话没能发出去，换一句再试。",
+      "errorUnauthorized": "登录状态已过期，请重新登录后再试。",
+      "errorBoard": "竞品数据加载失败，请稍后再试。",
+      "copyError": "复制报错",
+      "copyTooltip": "复制完整错误信息发给开发者",
+      "copied": "已复制"
+    }
   },
   "site": {
     "meta": {
