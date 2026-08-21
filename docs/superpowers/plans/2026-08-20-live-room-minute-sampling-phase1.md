@@ -223,6 +223,30 @@ test('normalizeSample: 采样早于开播时间时 elapsed 不为负，钳到 0'
   const s = normalizeSample(probeSample(), 1_786_536_900) // 开播晚于采样 300 秒
   assert.equal(s.elapsed_seconds, 0)
 })
+
+test('normalizeSample: 钳到 0 时把钳之前的负值留在 raw，不静默吞掉 startTime 解析错', () => {
+  const s = normalizeSample(probeSample(), 1_786_536_900)
+  assert.equal(s.raw.elapsed_before_clamp, -300)
+})
+
+test('normalizeSample: 没发生钳制时 elapsed_before_clamp 是 null', () => {
+  assert.equal(normalizeSample(probeSample(), 1_786_536_000).raw.elapsed_before_clamp, null)
+  assert.equal(normalizeSample(probeSample(), null).raw.elapsed_before_clamp, null)
+})
+
+test('normalizeSample: raw 原样保留三个字段的页面原文，供排查选择器漂移', () => {
+  const s = normalizeSample(probeSample(), 1_786_536_000)
+  assert.equal(s.raw.viewer_text, '1.2K')
+  assert.equal(s.raw.followers_text, '34.5M')
+  assert.equal(s.raw.likes_text, '2,340')
+})
+
+test('normalizeSample: 四个选择器的命中情况整组带进 raw', () => {
+  const s = normalizeSample(probeSample(), 1_786_536_000)
+  assert.deepEqual(s.raw.selectors_ok, {
+    viewer: '[data-e2e="x"]', followers: null, likes: null, chatHost: '.chat',
+  })
+})
 ```
 
 - [ ] **Step 2: 跑测试，确认它失败**
@@ -242,6 +266,18 @@ import { parseCount } from './metrics.ts'
 ```
 
 ```ts
+/**
+ * 探针每次打点报回的「各字段命中了哪个候选选择器」，没命中是 null。
+ * 键是固定的四个 —— 候选表会随实测增补，但字段本身不会变，所以用闭合类型而非
+ * Record<string, ...>：写错一个键名要在编译期就炸，别等到报表上少一列才发现。
+ */
+export type SelectorHits = {
+  viewer: string | null
+  followers: string | null
+  likes: string | null
+  chatHost: string | null
+}
+
 /** 探针从页面交回的一条原始读数。字段都可能读不到 —— 读不到就是 null。 */
 export type ProbeSample = {
   /** 探针打点时刻，epoch 毫秒 */
@@ -254,8 +290,8 @@ export type ProbeSample = {
   /** 本分钟去重后的发言人数 */
   speakers: number
   observerAlive: boolean
-  /** 每个字段实际命中了候选表里的哪个选择器；没命中是 null */
-  selectorsOk: Record<string, string | null>
+  /** 各字段实际命中了候选表里的哪个选择器；没命中是 null */
+  selectorsOk: SelectorHits
 }
 
 /** 规范化后的一分钟采样点。落 JSONL 用的就是这个形状。 */
@@ -269,7 +305,9 @@ export type Sample = {
   chat_speakers: number
   raw: {
     observer_alive: boolean
-    selectors_ok: Record<string, string | null>
+    selectors_ok: SelectorHits
+    /** 发生了负值钳制时，记下钳之前的值；没钳制是 null */
+    elapsed_before_clamp: number | null
     viewer_text: string | null
     followers_text: string | null
     likes_text: string | null
@@ -282,11 +320,10 @@ export type Sample = {
  * 而不是猜一个值 —— 报表 x 轴靠它，猜错整条曲线就错位。
  */
 export function normalizeSample(p: ProbeSample, startedAt: number | null): Sample {
-  const elapsed =
-    startedAt == null ? null : Math.max(0, Math.round(p.t / 1000) - startedAt)
+  const delta = startedAt == null ? null : Math.round(p.t / 1000) - startedAt
   return {
     sampled_at: new Date(p.t).toISOString(),
-    elapsed_seconds: elapsed,
+    elapsed_seconds: delta == null ? null : Math.max(0, delta),
     viewer_count: parseCount(p.viewer),
     follower_count: parseCount(p.followers),
     like_total: parseCount(p.likes),
@@ -295,6 +332,10 @@ export function normalizeSample(p: ProbeSample, startedAt: number | null): Sampl
     raw: {
       observer_alive: p.observerAlive,
       selectors_ok: p.selectorsOk,
+      // 负值被钳到 0 时留痕。startTime 解析错会让一堆采样点全堆在 elapsed 0，
+      // 而第二期入库带 unique(session_id, elapsed_seconds) —— 那时才以插入冲突
+      // 的形式爆出来就太晚了。在这里记一笔，排查和报表都看得见。
+      elapsed_before_clamp: delta != null && delta < 0 ? delta : null,
       viewer_text: p.viewer,
       followers_text: p.followers,
       likes_text: p.likes,
@@ -309,7 +350,7 @@ export function normalizeSample(p: ProbeSample, startedAt: number | null): Sampl
 node --test --experimental-strip-types src/lib/competitors/liveTrack.test.ts
 ```
 
-预期：`# pass 11`、`# fail 0`。
+预期：`# pass 15`、`# fail 0`。
 
 - [ ] **Step 5: 提交**
 
