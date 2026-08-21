@@ -274,7 +274,8 @@ test('liveHabit: 三场同档达到门槛，confidence 为 ok', () => {
   assert.equal(h.slots[0].at, '20:28')
   assert.equal(h.slots[0].sessions, 3)
   assert.equal(h.sessionsInWindow, 3)
-  assert.equal(h.latestStartedAt, '2026-08-19T12:28:00Z')
+  assert.equal(h.sessionsAllTime, 3)
+  assert.equal(h.latestStartedAtLocal, '2026-08-19 20:28')
 })
 
 test('liveHabit: 同一场的多张截图只算一次场次', () => {
@@ -300,7 +301,7 @@ test('liveHabit: 不足三场时 slots 为空且 confidence 为 insufficient，�
   const h = ctx.competitors[0].liveHabit
   assert.equal(h.confidence, 'insufficient')
   assert.deepEqual(h.slots, [])
-  assert.equal(h.latestStartedAt, '2026-08-19T12:28:00Z')
+  assert.equal(h.latestStartedAtLocal, '2026-08-19 20:28')
 })
 
 test('liveHabit: 钟点随界面语言换算，同一时刻中日相差一小时', () => {
@@ -316,7 +317,7 @@ test('liveHabit: 钟点随界面语言换算，同一时刻中日相差一小时
   assert.equal(ja.competitors[0].liveHabit.slots[0].at, '21:28')
 })
 
-test('liveHabit: 窗口只挡"规律"不挡"事实"——场次太旧时 slots/sessionsInWindow 归零，但 latestStartedAt 仍如实报告', () => {
+test('liveHabit: 窗口只挡"规律"不挡"事实"——场次太旧时 slots/sessionsInWindow 归零，但 latestStartedAtLocal 仍如实报告', () => {
   // 三场都在 2026-02，now 是 2026-08-20：早就过了 RULER_WINDOW_DAYS，
   // 场次数够但太旧，不能说这就是「现在」的作息——这一半是推论，该被窗口挡住。
   // 但"上一次开播是什么时候"是硬事实，不该被同一道窗口连带删掉：
@@ -337,10 +338,11 @@ test('liveHabit: 窗口只挡"规律"不挡"事实"——场次太旧时 slots/s
   assert.equal(h.confidence, 'insufficient')
   assert.deepEqual(h.slots, [])
   assert.equal(h.sessionsInWindow, 0)
-  assert.equal(h.latestStartedAt, '2026-02-19T12:28:00Z')
+  assert.equal(h.sessionsAllTime, 3)
+  assert.equal(h.latestStartedAtLocal, '2026-02-19 20:28')
 })
 
-test('liveHabit: 未来时刻的开播记录（脏数据）被排除，不会成为 latestStartedAt', () => {
+test('liveHabit: 未来时刻的开播记录（脏数据）被排除，不会成为 latestStartedAtLocal', () => {
   const ctx = buildAskContext(
     board([comp({
       shots: [
@@ -351,10 +353,10 @@ test('liveHabit: 未来时刻的开播记录（脏数据）被排除，不会成
     new Date('2026-08-20T01:00:00Z'),
     'zh',
   )
-  assert.equal(ctx.competitors[0].liveHabit.latestStartedAt, '2026-08-19T12:28:00Z')
+  assert.equal(ctx.competitors[0].liveHabit.latestStartedAtLocal, '2026-08-19 20:28')
 })
 
-test('liveHabit: recentSessions 只取窗口内的场次，窗口外的旧场次不会混进来', () => {
+test('liveHabit: recentSessionsLocal 只取窗口内的场次，窗口外的旧场次不会混进来', () => {
   const ctx = buildAskContext(
     board([comp({
       shots: [
@@ -364,7 +366,7 @@ test('liveHabit: recentSessions 只取窗口内的场次，窗口外的旧场次
     })]),
     new Date('2026-08-20T01:00:00Z'), 'zh',
   )
-  assert.deepEqual(ctx.competitors[0].liveHabit.recentSessions, ['2026-08-19T12:00:00Z'])
+  assert.deepEqual(ctx.competitors[0].liveHabit.recentSessionsLocal, ['2026-08-19 20:00'])
 })
 
 test('liveHabit: windowDays 与 regionRuler 的 RULER_WINDOW_DAYS 是同一个值(导入复用,不是抄一份字面量)', () => {
@@ -380,7 +382,67 @@ test('liveHabit: 窗口边界——恰好落在 cutoff 那一刻的场次仍算�
     board([comp({ shots: [shot({ stream_started_at: atCutoff })] })]),
     now, 'zh',
   )
-  assert.deepEqual(ctx.competitors[0].liveHabit.recentSessions, [atCutoff])
+  // atCutoff 在 zh(Asia/Shanghai, +8h) 下是 09:00，同一天。
+  assert.deepEqual(ctx.competitors[0].liveHabit.recentSessionsLocal, ['2026-08-06 09:00'])
+})
+
+test('liveHabit.latestStartedAtLocal: UTC 与本地日期跨天时按当地日历显示，不是原样透传', () => {
+  // UTC 15:30 == 东京次日 00:30——passthrough(直接透传 ISO)会显示成 "2026-08-19 15:30"，
+  // 正确答案应该是 "2026-08-20 00:30"。
+  const ctx = buildAskContext(
+    board([comp({ shots: [shot({ stream_started_at: '2026-08-19T15:30:00Z' })] })]),
+    new Date('2026-08-21T00:00:00Z'), 'ja',
+  )
+  assert.equal(ctx.competitors[0].liveHabit.latestStartedAtLocal, '2026-08-20 00:30')
+})
+
+test('liveHabit.latestStartedAtLocal: 同一时刻在 zh/ja 下相差一小时', () => {
+  const startedAt = '2026-08-19T12:28:00Z'
+  const now = new Date('2026-08-20T01:00:00Z')
+  const zh = buildAskContext(board([comp({ shots: [shot({ stream_started_at: startedAt })] })]), now, 'zh')
+  const ja = buildAskContext(board([comp({ shots: [shot({ stream_started_at: startedAt })] })]), now, 'ja')
+  assert.equal(zh.competitors[0].liveHabit.latestStartedAtLocal, '2026-08-19 20:28')
+  assert.equal(ja.competitors[0].liveHabit.latestStartedAtLocal, '2026-08-19 21:28')
+})
+
+test('liveHabit.latestStartedAtLocal: 跨年记录带正确的年份，不会被读成今年', () => {
+  const ctx = buildAskContext(
+    board([comp({ shots: [shot({ stream_started_at: '2025-11-03T12:00:00Z' })] })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.equal(ctx.competitors[0].liveHabit.latestStartedAtLocal, '2025-11-03 20:00')
+})
+
+test('liveHabit.recentSessionsLocal: 保持按时刻降序（新的在前）', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [
+        shot({ id: 's1', stream_started_at: '2026-08-17T12:00:00Z' }),
+        shot({ id: 's2', stream_started_at: '2026-08-19T12:00:00Z' }),
+        shot({ id: 's3', stream_started_at: '2026-08-18T12:00:00Z' }),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.deepEqual(ctx.competitors[0].liveHabit.recentSessionsLocal, [
+    '2026-08-19 20:00', '2026-08-18 20:00', '2026-08-17 20:00',
+  ])
+})
+
+test('liveHabit: sessionsAllTime 不设窗口，sessionsInWindow 只数窗口内，未来时刻两边都不算', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [
+        shot({ id: 'old', stream_started_at: '2026-02-01T12:00:00Z' }), // 窗口外
+        shot({ id: 'recent', stream_started_at: '2026-08-19T12:00:00Z' }), // 窗口内
+        shot({ id: 'future', stream_started_at: '2026-08-25T12:00:00Z' }), // 未来,两边都不算
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  const h = ctx.competitors[0].liveHabit
+  assert.equal(h.sessionsAllTime, 2)
+  assert.equal(h.sessionsInWindow, 1)
 })
 
 test('shots: capturedDates 去重降序，不截断，null 日期不进列表', () => {
@@ -440,7 +502,7 @@ test('shots: 采集时刻最新但未标日期的截图仍参与 lastShotUptimeM
   assert.equal(ctx.competitors[0].shots.lastShotUptimeMinutes, 210)
 })
 
-test('shots: lastShotUptimeAt 标注 lastShotUptimeMinutes 所属的采集时刻,不能默认等于 lastOn', () => {
+test('shots: lastShotUptimeAtLocal 标注 lastShotUptimeMinutes 所属的采集时刻,不能默认等于 lastOn', () => {
   // 最新一张(08-19)没有开播时刻算不出时长；上一张(08-12)才算得出 180 分钟。
   // 数据包里若只有 lastShotUptimeMinutes 没有归属时刻,模型会默认把这个数字
   // 配到 lastOn(08-19)头上,读成"8/19 已经播了 3 小时"——实际差了 7 天。
@@ -451,14 +513,22 @@ test('shots: lastShotUptimeAt 标注 lastShotUptimeMinutes 所属的采集时刻
   const s = ctx.competitors[0].shots
   assert.equal(s.lastOn, '2026-08-19')
   assert.equal(s.lastShotUptimeMinutes, 180)
-  assert.equal(s.lastShotUptimeAt, '2026-08-12T14:00:00Z')
+  assert.equal(s.lastShotUptimeAtLocal, '2026-08-12 22:00')
+})
+
+test('shots.lastShotUptimeAtLocal: UTC 与本地日期跨天时按当地日历显示，不是原样透传', () => {
+  // UTC 16:00 == 东京次日 01:00——passthrough 会显示 "2026-08-19 16:00"，
+  // 正确答案是 "2026-08-20 01:00"。
+  const s = shot({ id: 'a', shot_on: '2026-08-19', stream_started_at: '2026-08-19T12:00:00Z', captured_at: '2026-08-19T16:00:00Z' })
+  const ctx = buildAskContext(board([comp({ shots: [s] })]), new Date('2026-08-20T02:00:00Z'), 'ja')
+  assert.equal(ctx.competitors[0].shots.lastShotUptimeAtLocal, '2026-08-20 01:00')
 })
 
 test('shots: 没有任何截图时形状完整且不抛异常', () => {
   const ctx = buildAskContext(board([comp({})]), new Date('2026-08-20T01:00:00Z'), 'zh')
   assert.deepEqual(ctx.competitors[0].shots, {
     total: 0, capturedDates: [], lastOn: null, peakViewersAllTime: null,
-    lastShotUptimeMinutes: null, lastShotUptimeAt: null,
+    lastShotUptimeMinutes: null, lastShotUptimeAtLocal: null,
   })
 })
 
@@ -466,7 +536,7 @@ test('shotsOf: 直接单测，不必经过 buildAskContext/comp()/board() 造出
   const s = shotsOf([
     shot({ id: 'a', shot_on: '2026-08-19', viewer_count: 300 }),
     shot({ id: 'b', shot_on: '2026-08-17', viewer_count: 900 }),
-  ])
+  ], 'Asia/Shanghai')
   assert.deepEqual(s.capturedDates, ['2026-08-19', '2026-08-17'])
   assert.equal(s.lastOn, '2026-08-19')
   assert.equal(s.peakViewersAllTime, 900)

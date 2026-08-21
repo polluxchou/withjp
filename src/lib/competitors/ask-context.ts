@@ -66,24 +66,34 @@ export interface AskLiveHabit {
   slots: AskLiveSlot[]
   /**
    * 窗口内（windowDays 天）去重后的场次数——这是推论侧的证据，决定 slots
-   * 能不能成档。不是账号总共播过多少场，那是 meta.coverage.sessionsWithStartTime。
+   * 能不能成档。不是账号总共播过多少场，那是 sessionsAllTime。
    */
   sessionsInWindow: number
   /**
-   * 最近一场开播时刻——这是硬事实，不受 windowDays 门槛限制，只挡未来时刻的
-   * 脏数据（t <= now）。哪怕半年前才播过一次、早就够不上"规律"，"上一次是什么
-   * 时候"这件事本身依然存在，不能因为推不出规律就连事实都不说——那会让这个
-   * 字段和 meta.coverage.sessionsWithStartTime 在同一份数据包里自相矛盾。
+   * 不设窗口、去重后的总场次数（只挡未来时刻的脏数据）。单独放在账号层级，
+   * 是为了让 sessionsInWindow 的 0（或任何比它小的数）不必去 meta.coverage
+   * 里找解释——两个数字并排放着，"窗口内 vs 全部"这件事自己就说清楚了。
    */
-  latestStartedAt: string | null
+  sessionsAllTime: number
+  /**
+   * 最近一场开播时刻（YYYY-MM-DD HH:mm，已按 meta.displayTimeZone 换算）——
+   * 这是硬事实，不受 windowDays 门槛限制，只挡未来时刻的脏数据（t <= now）。
+   * 哪怕半年前才播过一次、早就够不上"规律"，"上一次是什么时候"这件事本身
+   * 依然存在，不能因为推不出规律就连事实都不说——那会让这个字段和
+   * meta.coverage.sessionsWithStartTime 在同一份数据包里自相矛盾。
+   */
+  latestStartedAtLocal: string | null
   confidence: Confidence
   /**
    * 门槛窗口天数，直接复用 regionRuler.ts 的 RULER_WINDOW_DAYS——同一张卡片上
    * 「开播作息」与「同地区标尺」两处对同一件事的新鲜度判断绝不能各定义一份、各自跑偏。
    */
   windowDays: number
-  /** 窗口内去重后最近几场的时刻（降序），给人核对这个档次是不是「新鲜」的证据。 */
-  recentSessions: string[]
+  /**
+   * 窗口内去重后最近几场的时刻（YYYY-MM-DD HH:mm，已按 meta.displayTimeZone
+   * 换算，降序），给人核对这个档次是不是「新鲜」的证据。
+   */
+  recentSessionsLocal: string[]
 }
 
 export interface AskShots {
@@ -99,14 +109,17 @@ export interface AskShots {
   peakViewersAllTime: number | null
   /**
    * 「已播时长」——某一张截图那一刻已经播了多久，不是这场直播总共播了多久
-   * （后续可能还在播，这只是一个下限）。归属的采集时刻见 lastShotUptimeAt，
+   * （后续可能还在播，这只是一个下限）。归属的采集时刻见 lastShotUptimeAtLocal，
    * **不一定是 lastOn 那天**：lastOn 是最新有日期的截图，这个时长取的是全部
    * 截图里 captured_at 最大的那张——如果最新那张恰好没有开播时刻算不出时长，
    * 这里会落到更早一张身上。两个字段没有绑定关系，不能默认配对。
    */
   lastShotUptimeMinutes: number | null
-  /** lastShotUptimeMinutes 所属那张截图的 captured_at，供核对它到底是哪一次采集。 */
-  lastShotUptimeAt: string | null
+  /**
+   * lastShotUptimeMinutes 所属那张截图的采集时刻（YYYY-MM-DD HH:mm，已按
+   * meta.displayTimeZone 换算），供核对它到底是哪一次采集。
+   */
+  lastShotUptimeAtLocal: string | null
 }
 
 export interface AskHealth {
@@ -147,6 +160,36 @@ export function dayIn(date: Date, timeZone: string): string {
   }).formatToParts(date)
   const at = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
   return `${at('year')}-${at('month')}-${at('day')}`
+}
+
+/**
+ * UTC 时刻（ISO）→ 指定时区的「YYYY-MM-DD HH:mm」（24 小时制，含年份）。
+ *
+ * 不复用 localeZone.ts 的 formatDayTimeInLocaleZone：那个函数按 locale（不是
+ * 已解出的 timeZone）找时区、且只出 "MM-DD HH:mm"——本文件内部的聚合函数
+ * （liveHabitOf/shotsOf）拿到的是 buildAskContext 已经调过一次
+ * timeZoneForLocale 之后的 timeZone，不是原始 locale，硬套那个函数要么得
+ * 多传一个参数把 locale 又带回来，要么在这里反查 locale，两种都别扭。
+ * 年份不能省：latestStartedAtLocal 可能是几个月甚至跨年前的记录，省略年份
+ * 会把两个不同年份的同一个月日读成同一天——而这里的读者是模型，不会像人
+ * 一样自动脑补"当然是今年"。
+ *
+ * 时刻非法或缺失返回 null。
+ */
+function localDateTime(iso: string | null, timeZone: string): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+    hourCycle: 'h23', // 不用 hour12:false —— 那在部分实现里会把 0 点渲染成 24
+  }).formatToParts(d)
+  const at = (type: string) => parts.find((p) => p.type === type)?.value
+  const [yyyy, mm, dd, hh, mi] = [at('year'), at('month'), at('day'), at('hour'), at('minute')]
+  if (!yyyy || !mm || !dd || !hh || !mi) return null
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
 }
 
 /**
@@ -195,11 +238,18 @@ export function followersOf(history: HistoryPoint[]): AskFollowers {
 
 /**
  * 开播作息。窗口只挡"这是不是规律"这一层推论（slots/sessionsInWindow/
- * recentSessions），不挡"上一次是什么时候"这个硬事实（latestStartedAt）——
- * 半年前连播三场、之后再没开播过的账号，"够不上规律"是真的，但"上一次开播
- * 是 2 月"也是真的，两者不能因为共用一次过滤就被同一刀切掉。
+ * recentSessionsLocal），不挡"上一次是什么时候/总共播过几场"这两个硬事实
+ * （latestStartedAtLocal/sessionsAllTime）——半年前连播三场、之后再没开播过
+ * 的账号，"够不上规律"是真的，但"上一次开播是 2 月"也是真的，两者不能因为
+ * 共用一次过滤就被同一刀切掉。
  * 推论侧与 regionRuler.ts 的标尺共用同一条窗口规则，两处对"新鲜"的定义
  * 不能各跑各的；事实侧只挡未来时刻的脏数据（t <= now），不设下限。
+ *
+ * 三个给模型直接读的时刻字段（latestStartedAtLocal/recentSessionsLocal，
+ * 以及 shotsOf 里的 lastShotUptimeAtLocal）在这里就地转换成 timeZone 下的
+ * 本地时间——prompt 层禁止模型做算术，时区换算也是算术，模型没有第二次机会
+ * 把 UTC 时刻转成人话，必须在喂给它之前转好，否则它只能原样报出 UTC 时刻，
+ * 读者会拿着 zh/ja 界面读出一个差 7-9 小时的错误钟点。
  */
 function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): AskLiveHabit {
   const nowMs = now.getTime()
@@ -214,8 +264,11 @@ function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): Ask
       return !Number.isNaN(t) && t <= nowMs
     })
   // ISO 8601 定长同格式，字符串比较即时刻比较（同 liveSlots.ts 的做法）。
-  const latestStartedAt = allStarts.length
-    ? allStarts.reduce((a, b) => (b > a ? b : a))
+  // 排序/取最大值都在格式化之前对原始 ISO 做——格式化后的字符串在固定时区下
+  // 恰好也保序，但排序逻辑不该依赖这个巧合。
+  const distinctAllStarts = Array.from(new Set(allStarts))
+  const latestStartedAt = distinctAllStarts.length
+    ? distinctAllStarts.reduce((a, b) => (b > a ? b : a))
     : null
 
   // 推论：窗口内的场次才够格谈"规律"，镜像 regionRuler.ts 的窗口过滤。
@@ -225,15 +278,16 @@ function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): Ask
   return {
     slots: habit.slots.map((s) => ({ at: s.label, sessions: s.count })),
     sessionsInWindow: habit.sessions,
-    latestStartedAt,
+    sessionsAllTime: distinctAllStarts.length,
+    latestStartedAtLocal: localDateTime(latestStartedAt, timeZone),
     confidence: habit.slots.length > 0 ? 'ok' : 'insufficient',
     windowDays: RULER_WINDOW_DAYS,
-    recentSessions: recentSessionStarts(windowedStarts, 5),
+    recentSessionsLocal: recentSessionStarts(windowedStarts, 5).map((iso) => localDateTime(iso, timeZone)!),
   }
 }
 
 /** 只收截图列表本身——测试也就不用为了几张图造出整棵档案树（同 summary.ts 的取舍）。 */
-export function shotsOf(shots: CompetitorShot[]): AskShots {
+export function shotsOf(shots: CompetitorShot[], timeZone: string): AskShots {
   const dates = Array.from(
     new Set(shots.map((s) => s.shot_on).filter((d): d is string => d != null)),
   ).sort((a, b) => b.localeCompare(a))
@@ -242,6 +296,7 @@ export function shotsOf(shots: CompetitorShot[]): AskShots {
 
   // 按 captured_at（采集时刻）取最大值，不按数组顺序或 shot_on（那只精确到天）——
   // shot_on 相同的同一天可能有多张截图，写入时 sort_order 恒为 0，数组顺序不可信。
+  // 取最大值这一步用原始 ISO 比较，格式化留到最后一步。
   let last: { at: string; minutes: number } | null = null
   for (const s of shots) {
     const parts = shotUptimeParts(s.stream_started_at, s.captured_at)
@@ -255,7 +310,7 @@ export function shotsOf(shots: CompetitorShot[]): AskShots {
     lastOn: dates[0] ?? null,
     peakViewersAllTime: viewers.length ? Math.max(...viewers) : null,
     lastShotUptimeMinutes: last?.minutes ?? null,
-    lastShotUptimeAt: last?.at ?? null,
+    lastShotUptimeAtLocal: localDateTime(last?.at ?? null, timeZone),
   }
 }
 
@@ -312,7 +367,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
       members: c.member_count,
       followers,
       liveHabit: liveHabitOf(c, displayTimeZone, now),
-      shots: shotsOf(c.shots),
+      shots: shotsOf(c.shots, displayTimeZone),
       health: healthOf(c.latest?.captured_on ?? null, todayTokyo),
     }
   })
