@@ -8,6 +8,7 @@
 // 零 IO、零时钟：now 由调用方注入，才能把跨日、跨时区的行为钉死在单测里。
 import { timeZoneForLocale } from '../time/localeZone.ts'
 import { summarizeLiveHabit } from './liveSlots.ts'
+import { shotUptimeParts } from './types.ts'
 import type { CompetitorBoard, CompetitorWithHistory } from './types.ts'
 
 /** 截图日期列（shot_on）按东京业务日落库，日期比较必须用同一个日历。 */
@@ -64,10 +65,24 @@ export interface AskLiveHabit {
   confidence: Confidence
 }
 
+export interface AskShots {
+  total: number
+  /**
+   * 已采集到截图的日期，降序去重，**不截断**。
+   * 这是「某天没记录只代表没采集」这条口径的物证：模型必须能看到完整的
+   * 采集日历，才能如实回答"那天有没有采到"，而不是被迫猜"有没有开播"。
+   */
+  capturedDates: string[]
+  lastOn: string | null
+  peakViewers: number | null
+  lastUptimeMinutes: number | null
+}
+
 export interface AskCompetitor {
   handle: string
   followers: AskFollowers
   liveHabit: AskLiveHabit
+  shots: AskShots
 }
 
 /** Date → 指定时区的 YYYY-MM-DD。不用 toISOString（那是 UTC）。 */
@@ -130,6 +145,29 @@ function liveHabitOf(c: CompetitorWithHistory, timeZone: string): AskLiveHabit {
   }
 }
 
+function shotsOf(c: CompetitorWithHistory): AskShots {
+  const dates = Array.from(
+    new Set(c.shots.map((s) => s.shot_on).filter((d): d is string => d != null)),
+  ).sort((a, b) => b.localeCompare(a))
+
+  const viewers = c.shots.map((s) => s.viewer_count).filter((v): v is number => v != null)
+
+  // shots 已按 shot_on 降序（assemble.ts），第一张能算出时长的就是最近一场。
+  let lastUptimeMinutes: number | null = null
+  for (const s of c.shots) {
+    const parts = shotUptimeParts(s.stream_started_at, s.captured_at)
+    if (parts) { lastUptimeMinutes = parts.h * 60 + parts.m; break }
+  }
+
+  return {
+    total: c.shots.length,
+    capturedDates: dates,
+    lastOn: dates[0] ?? null,
+    peakViewers: viewers.length ? Math.max(...viewers) : null,
+    lastUptimeMinutes,
+  }
+}
+
 export function buildAskContext(board: CompetitorBoard, now: Date, locale: string): AskContext {
   const displayTimeZone = timeZoneForLocale(locale)
   return {
@@ -146,6 +184,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
       handle: c.handle,
       followers: followersOf(c),
       liveHabit: liveHabitOf(c, displayTimeZone),
+      shots: shotsOf(c),
     })),
   }
 }

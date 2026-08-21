@@ -199,3 +199,59 @@ test('liveHabit: 钟点随界面语言换算，同一时刻中日相差一小时
   assert.equal(zh.competitors[0].liveHabit.slots[0].at, '20:28')
   assert.equal(ja.competitors[0].liveHabit.slots[0].at, '21:28')
 })
+
+test('shots: capturedDates 去重降序，不截断，null 日期不进列表', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [
+        shot({ id: 'a', shot_on: '2026-08-19' }),
+        shot({ id: 'b', shot_on: '2026-08-19' }),
+        shot({ id: 'c', shot_on: '2026-08-17' }),
+        shot({ id: 'd', shot_on: null }),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const s = ctx.competitors[0].shots
+  assert.equal(s.total, 4)
+  assert.deepEqual(s.capturedDates, ['2026-08-19', '2026-08-17'])
+  assert.equal(s.lastOn, '2026-08-19')
+})
+
+test('shots: peakViewers 取最大值，全 null 时为 null', () => {
+  const withViewers = buildAskContext(
+    board([comp({
+      shots: [shot({ id: 'a', viewer_count: 312 }), shot({ id: 'b', viewer_count: 934 })],
+    })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.equal(withViewers.competitors[0].shots.peakViewers, 934)
+
+  const none = buildAskContext(
+    board([comp({ shots: [shot({ id: 'a' })] })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.equal(none.competitors[0].shots.peakViewers, null)
+})
+
+test('shots: lastUptimeMinutes 取最近一张有完整时刻的截图', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      // shots 已按 shot_on 降序（assemble.ts），这里照此顺序给。
+      shots: [
+        shot({ id: 'a', shot_on: '2026-08-19', stream_started_at: '2026-08-19T12:00:00Z', captured_at: '2026-08-19T13:36:00Z' }),
+        shot({ id: 'b', shot_on: '2026-08-17', stream_started_at: '2026-08-17T12:00:00Z', captured_at: '2026-08-17T12:30:00Z' }),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.equal(ctx.competitors[0].shots.lastUptimeMinutes, 96)
+})
+
+test('shots: 没有任何截图时形状完整且不抛异常', () => {
+  const ctx = buildAskContext(board([comp({})]), new Date('2026-08-20T01:00:00Z'), 'zh')
+  assert.deepEqual(ctx.competitors[0].shots, {
+    total: 0, capturedDates: [], lastOn: null, peakViewers: null, lastUptimeMinutes: null,
+  })
+})
