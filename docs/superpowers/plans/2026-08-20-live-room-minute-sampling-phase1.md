@@ -357,7 +357,7 @@ export function normalizeSample(p: ProbeSample, startedAt: number | null): Sampl
 node --test --experimental-strip-types src/lib/competitors/liveTrack.test.ts
 ```
 
-预期：`# pass 25`、`# fail 0`（Task 5 与 Task 6 的用例都在这个文件里）。
+预期：`# pass 29`、`# fail 0`（Task 5 与 Task 6 的用例都在这个文件里）。
 
 - [ ] **Step 5: 提交**
 
@@ -691,7 +691,7 @@ git commit -m "feat(live-track): 场次落盘路径(JST 时间戳目录)+ 单测
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect, defaultProbeConfig, probeSource } from './liveProbe.ts'
+import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect, clipSource, defaultProbeConfig, probeSource } from './liveProbe.ts'
 
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
@@ -981,6 +981,14 @@ test('clipRect: 带上元素在页面里的偏移', () => {
   assert.deepEqual(r, { x: 100, y: 125, width: 800, height: 450 })
 })
 
+test('clipRect: 两条边各自取整，不把黑边多裁进来一列', () => {
+  // 真实画面横跨 x 229.701 → 370.299。分别 round 位置和尺寸会得到 x=230,width=141
+  // （右边缘 371，多吃一列 70% 是黑边的像素）；按边取整得 x=230,width=140。
+  // 第二期要拿 dHash 给截图去重，多一列黑边会扰动哈希。
+  const r = clipRect({ x: 0, y: 0, width: 600, height: 400 }, 200, 569, 'contain', '50% 50%')
+  assert.deepEqual(r, { x: 230, y: 0, width: 140, height: 400 })
+})
+
 test('CLIP_FACTORY_SRC 是可解析的 JS', () => {
   assert.doesNotThrow(() => new Function(`return (${CLIP_FACTORY_SRC})`))
 })
@@ -1012,15 +1020,20 @@ test('CLIP_FACTORY_SRC 与 clipRect 对每个分支算出同一个矩形（两�
     ['contain', '50% 50%', 1920, 1080],
     ['contain', '50% 0%', 1080, 1920],
     ['cover', '50% 50%', 1920, 1080],
+    // cover 且视频比盒子更「窄高」——之前所有 cover 用例都是 1920x1080，
+    // else 分支(视频比盒子更窄)在两份算式里都没被走到过，漂了也测不出来。
+    ['cover', '50% 50%', 1080, 1920],
     ['fill', '50% 50%', 1920, 1080],
   ]
   for (const [fit, pos, vw, vh] of cases) {
-    const { doc, win } = makeVideoDoc(box, vw, vh, fit, pos)
+    const { doc, win, video } = makeVideoDoc(box, vw, vh, fit, pos)
     assert.deepEqual(
       clipFactory(win, doc).clip,
       clipRect(box, vw, vh, fit, pos),
       `${fit} / ${pos}：页内算式和纯函数漂了，改一处没改另一处`,
     )
+    // 静音只在「未就绪」那条路径上测过，就绪路径的回归查不出来 —— 这里补上。
+    assert.equal(video.muted, true, `${fit} / ${pos}：就绪路径也必须静音`)
   }
 })
 
@@ -1031,6 +1044,28 @@ test('CLIP_FACTORY_SRC: 静音，且 readyState<2 时不给 clip', () => {
   assert.equal(video.muted, true, '挂一整场不能出声')
   assert.equal(r.ready, false)
   assert.equal(r.clip, null, 'ready=false 还给 clip，调用方拿它去截就是一张黑帧')
+})
+
+test('CLIP_FACTORY_SRC: 页面上没有 <video> 时如实报告，不编造矩形', () => {
+  const r = clipFactory({ getComputedStyle: () => ({}) }, { querySelector: () => null })
+  assert.equal(r.hasVideo, false)
+  assert.equal(r.ready, false)
+  assert.equal(r.clip, null)
+})
+
+test('CLIP_FACTORY_SRC: video 在但还没拿到尺寸时不给 clip，且照样静音', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 0, 0, 'contain', '50% 50%')
+  const r = clipFactory(win, doc)
+  assert.equal(r.hasVideo, true)
+  assert.equal(r.ready, false)
+  assert.equal(r.clip, null)
+  assert.equal(video.muted, true, '还没出画面也要先静音，别让它出声')
+})
+
+test('clipSource: 组装出的表达式能被解析', () => {
+  assert.match(clipSource(), /^\(function \(win, doc\)/)
+  assert.doesNotThrow(() => new Function(`return ${clipSource().replace('(window, document)', '(arguments[0], arguments[1])')}`))
 })
 ```
 
@@ -1284,12 +1319,14 @@ export function clipRect(
   const p = objectPosition.split(' ')
   const fx = pct(p[0]) / 100
   const fy = pct(p[1]) / 100
-  return {
-    x: Math.round(box.x + (box.width - w) * fx),
-    y: Math.round(box.y + (box.height - h) * fy),
-    width: Math.round(w),
-    height: Math.round(h),
-  }
+  // 分别 round 位置和尺寸，误差会在远边叠加，最多把一整列黑边裁进画面
+  // （实测：box 600x400、视频 200x569、contain 居中，真实右边缘 370.3，
+  // 独立 round 会给出 371）。改成两条边各自 round、尺寸取差值。
+  const x0 = Math.round(box.x + (box.width - w) * fx)
+  const y0 = Math.round(box.y + (box.height - h) * fy)
+  const x1 = Math.round(box.x + (box.width - w) * fx + w)
+  const y1 = Math.round(box.y + (box.height - h) * fy + h)
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 
 /**
@@ -1306,7 +1343,7 @@ export const CLIP_FACTORY_SRC = `function (win, doc) {
   var r = v.getBoundingClientRect()
   var cs = win.getComputedStyle(v)
   var iw = v.videoWidth, ih = v.videoHeight
-  if (!iw || !ih) return { hasVideo: true, ready: false, clip: null }
+  if (!iw || !ih) return { hasVideo: true, ready: false, muted: !!v.muted, clip: null }
   // readyState<2 = 有尺寸但还没画出第一帧。这时给出 clip 会诱使调用方拿它去截 ——
   // 截到的是黑帧。未就绪一律不给 clip，让「能不能截」只有 ready 一个判据。
   if (v.readyState < 2) return { hasVideo: true, ready: false, muted: !!v.muted, clip: null }
@@ -1330,17 +1367,23 @@ export const CLIP_FACTORY_SRC = `function (win, doc) {
   var p = (cs.objectPosition || '50% 50%').split(' ')
   var fx = pct(p[0]) / 100
   var fy = pct(p[1]) / 100
+  // 分别 round 位置和尺寸，误差会在远边叠加，最多把一整列黑边裁进画面
+  // （实测：box 600x400、视频 200x569、contain 居中，真实右边缘 370.3，
+  // 独立 round 会给出 371）。改成两条边各自 round、尺寸取差值。
+  var x0 = Math.round(r.x + (r.width - w) * fx)
+  var y0 = Math.round(r.y + (r.height - h) * fy)
+  var x1 = Math.round(r.x + (r.width - w) * fx + w)
+  var y1 = Math.round(r.y + (r.height - h) * fy + h)
+  // fit/pos 原样报回去：这套算式建立在「fit 是 cover/contain/fill 之一、
+  // pos 是 getComputedStyle 归一化过的百分比」两个假设上，报回去是为了让
+  // 第一次真实运行能证实或推翻它们 —— 而不是继续靠猜。
   return {
     hasVideo: true,
     ready: true,
     muted: !!v.muted,
     fit: fit,
-    clip: {
-      x: Math.round(r.x + (r.width - w) * fx),
-      y: Math.round(r.y + (r.height - h) * fy),
-      width: Math.round(w),
-      height: Math.round(h)
-    }
+    pos: cs.objectPosition || '50% 50%',
+    clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
   }
 }`
 
@@ -1708,6 +1751,10 @@ async function main() {
   let wd: WatchdogState = initialWatchdog()
   let total = 0
   let lastShotAt = 0
+  // 精裁算式假设 object-fit 是 cover/contain/fill、object-position 回来的是百分比。
+  // 这两条都没在真实页面上验过，所以原样记进 session.json，让第一场把它们坐实。
+  let objectFit: string | null = null
+  let objectPosition: string | null = null
   const startedTracking = Date.now()
 
   for (;;) {
@@ -1729,6 +1776,7 @@ async function main() {
     const info = await evaluate(pc, clipSource())
     // 必须同时看 ready：视频拿到尺寸但还没画出第一帧时，拿那个矩形去截就是黑帧
     if (info?.ready && info.clip?.width > 50) clip = info.clip
+    if (info?.fit) { objectFit = info.fit; objectPosition = info.pos ?? null }
 
     if (heavy && startedAt != null && readStartTime(html) !== startedAt) {
       console.error('！开播时间变了 —— 对方重开了一场，本场收工（新场次请重新启动）')
@@ -1768,6 +1816,8 @@ async function main() {
     tracking_ended_at: new Date().toISOString(),
     sample_count: total,
     expected_count: Math.round((Date.now() - startedTracking) / drainEvery),
+    object_fit: objectFit,
+    object_position: objectPosition,
   }, null, 2))
   console.error(`✓ 收工：${total} 个采样点 → ${paths.samples}`)
 
@@ -1955,6 +2005,18 @@ cat ~/live-watch/<handle>/*/session.json
 
 `sample_count / expected_count` 应达到 90% 以上（本期验收线）。达不到就看 stderr 里「探针失联，重注入」出现了几次、在什么时间点。
 
+- [ ] **Step 6b: 核对精裁算式的两条假设**
+
+```bash
+cat ~/live-watch/<handle>/*/session.json | python3 -m json.tool | grep object_
+```
+
+- `object_fit` 是 `cover`/`contain`/`fill` 之一 → 精裁算式覆盖到了，没问题。
+- 是 `none` 或 `scale-down` → **算式会算错**（这两个要用视频原始尺寸而不是按比例适配，当前实现把它们并进了 contain 分支）。截图会裁偏，需要给 `clipRect` 和 `CLIP_FACTORY_SRC` 各补一个分支。
+- `object_position` 是百分比对（如 `50% 50%`）→ 没问题。带 `px` 这类绝对长度 → `pct` 会把像素当百分比用，裁偏，同样要改。
+
+这两条是 Task 6 明确记录下来的未验证假设，`fit`/`pos` 就是为了让这一步能坐实它们才报回来的。
+
 - [ ] **Step 7: 写结论文档**
 
 创建 `docs/records/2026-08-XX-live-track-first-run.md`，逐条写明：
@@ -1964,6 +2026,7 @@ cat ~/live-watch/<handle>/*/session.json
 3. 连挂：是否被中断、中断形式、看门狗有没有正确恢复
 4. 完整度：`sample_count / expected_count`，缺样集中在哪几段
 5. 截图：候选帧总数，人眼扫一遍看有多少张是「内容不同」的——这个数直接决定第二期去重阈值怎么定
+6. 精裁：`session.json` 里的 `object_fit` / `object_position` 实测值，以及截图边缘有没有黑边残留
 
 - [ ] **Step 8: 提交**
 

@@ -371,7 +371,7 @@ test('CLIP_FACTORY_SRC: video 在但还没拿到尺寸时不给 clip，且照样
   assert.equal(r.hasVideo, true)
   assert.equal(r.ready, false)
   assert.equal(r.clip, null)
-  assert.equal(video.muted, true, '还没出画面也要先静音,别让它出声')
+  assert.equal(video.muted, true, '还没出画面也要先静音，别让它出声')
 })
 
 test('clipSource: 组装出的表达式能被解析', () => {
