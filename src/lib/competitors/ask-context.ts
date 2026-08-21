@@ -64,9 +64,17 @@ export interface AskLiveSlot {
 
 export interface AskLiveHabit {
   slots: AskLiveSlot[]
-  /** 窗口内去重后的总场次（同一场的多张截图只算一次）。 */
-  sessions: number
-  /** 窗口内的最近一场开播时刻；窗口外/未来时刻的脏数据不参与。 */
+  /**
+   * 窗口内（windowDays 天）去重后的场次数——这是推论侧的证据，决定 slots
+   * 能不能成档。不是账号总共播过多少场，那是 meta.coverage.sessionsWithStartTime。
+   */
+  sessionsInWindow: number
+  /**
+   * 最近一场开播时刻——这是硬事实，不受 windowDays 门槛限制，只挡未来时刻的
+   * 脏数据（t <= now）。哪怕半年前才播过一次、早就够不上"规律"，"上一次是什么
+   * 时候"这件事本身依然存在，不能因为推不出规律就连事实都不说——那会让这个
+   * 字段和 meta.coverage.sessionsWithStartTime 在同一份数据包里自相矛盾。
+   */
   latestStartedAt: string | null
   confidence: Confidence
   /**
@@ -183,32 +191,41 @@ export function followersOf(history: HistoryPoint[]): AskFollowers {
 }
 
 /**
- * 开播作息。两道门槛都要过：场次够（SLOT_MIN_SESSIONS）**且**够新鲜
- * （RULER_WINDOW_DAYS 内）。只卡场次不卡新鲜度的话，半年前连播三场、之后再没
- * 开播过的账号也会被判定成「有规律」——那是历史事实，不是"现在"的作息。
- * 与 regionRuler.ts 的标尺共用同一条窗口规则，两处对"新鲜"的定义不能各跑各的。
+ * 开播作息。窗口只挡"这是不是规律"这一层推论（slots/sessionsInWindow/
+ * recentSessions），不挡"上一次是什么时候"这个硬事实（latestStartedAt）——
+ * 半年前连播三场、之后再没开播过的账号，"够不上规律"是真的，但"上一次开播
+ * 是 2 月"也是真的，两者不能因为共用一次过滤就被同一刀切掉。
+ * 推论侧与 regionRuler.ts 的标尺共用同一条窗口规则，两处对"新鲜"的定义
+ * 不能各跑各的；事实侧只挡未来时刻的脏数据（t <= now），不设下限。
  */
 function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): AskLiveHabit {
   const nowMs = now.getTime()
   const cutoff = nowMs - RULER_WINDOW_DAYS * DAY_MS
-  // 镜像 regionRuler.ts 的窗口过滤：t <= nowMs 这道守卫挡掉未来时刻的脏数据，
-  // 否则一条写错的未来时间戳会顶替真实的最近一场。
-  const starts = c.shots
+
+  // 硬事实：只挡未来时刻的脏数据，不设下限——半年前的一场开播依然是「事实」。
+  const allStarts = c.shots
     .map((s) => s.stream_started_at)
     .filter((iso): iso is string => {
       if (!iso) return false
       const t = Date.parse(iso)
-      return !Number.isNaN(t) && t >= cutoff && t <= nowMs
+      return !Number.isNaN(t) && t <= nowMs
     })
+  // ISO 8601 定长同格式，字符串比较即时刻比较（同 liveSlots.ts 的做法）。
+  const latestStartedAt = allStarts.length
+    ? allStarts.reduce((a, b) => (b > a ? b : a))
+    : null
 
-  const habit = summarizeLiveHabit(starts, timeZone)
+  // 推论：窗口内的场次才够格谈"规律"，镜像 regionRuler.ts 的窗口过滤。
+  const windowedStarts = allStarts.filter((iso) => Date.parse(iso) >= cutoff)
+  const habit = summarizeLiveHabit(windowedStarts, timeZone)
+
   return {
     slots: habit.slots.map((s) => ({ at: s.label, sessions: s.count })),
-    sessions: habit.sessions,
-    latestStartedAt: habit.latestStartedAt,
+    sessionsInWindow: habit.sessions,
+    latestStartedAt,
     confidence: habit.slots.length > 0 ? 'ok' : 'insufficient',
     windowDays: RULER_WINDOW_DAYS,
-    recentSessions: recentSessionStarts(starts, 5),
+    recentSessions: recentSessionStarts(windowedStarts, 5),
   }
 }
 

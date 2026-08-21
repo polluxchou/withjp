@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildAskContext, dayIn } from './ask-context.ts'
+import { buildAskContext, dayIn, followersOf, shotsOf } from './ask-context.ts'
+import { RULER_WINDOW_DAYS } from './regionRuler.ts'
 import type { CompetitorBoard, CompetitorShot, CompetitorSnapshot, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
 /** 造一条字段齐全的快照，只覆盖测试关心的部分。 */
@@ -245,7 +246,7 @@ test('liveHabit: 三场同档达到门槛，confidence 为 ok', () => {
   assert.equal(h.slots.length, 1)
   assert.equal(h.slots[0].at, '20:28')
   assert.equal(h.slots[0].sessions, 3)
-  assert.equal(h.sessions, 3)
+  assert.equal(h.sessionsInWindow, 3)
   assert.equal(h.latestStartedAt, '2026-08-19T12:28:00Z')
 })
 
@@ -260,7 +261,7 @@ test('liveHabit: 同一场的多张截图只算一次场次', () => {
     new Date('2026-08-20T01:00:00Z'),
     'zh',
   )
-  assert.equal(ctx.competitors[0].liveHabit.sessions, 1)
+  assert.equal(ctx.competitors[0].liveHabit.sessionsInWindow, 1)
 })
 
 test('liveHabit: 不足三场时 slots 为空且 confidence 为 insufficient，但保留最近一场', () => {
@@ -288,9 +289,12 @@ test('liveHabit: 钟点随界面语言换算，同一时刻中日相差一小时
   assert.equal(ja.competitors[0].liveHabit.slots[0].at, '21:28')
 })
 
-test('liveHabit: 窗口外的历史场次不冒充「常见」——门槛与 regionRuler 共用同一个 14 天窗口', () => {
+test('liveHabit: 窗口只挡"规律"不挡"事实"——场次太旧时 slots/sessionsInWindow 归零，但 latestStartedAt 仍如实报告', () => {
   // 三场都在 2026-02，now 是 2026-08-20：早就过了 RULER_WINDOW_DAYS，
-  // 场次数够但太旧，不能说这就是「现在」的作息。
+  // 场次数够但太旧，不能说这就是「现在」的作息——这一半是推论，该被窗口挡住。
+  // 但"上一次开播是什么时候"是硬事实，不该被同一道窗口连带删掉：
+  // 那会让 liveHabit 说"没有记录"，同时 coverage.sessionsWithStartTime 说"有三场"，
+  // 同一份数据包自相矛盾。
   const ctx = buildAskContext(
     board([comp({
       shots: [
@@ -305,6 +309,8 @@ test('liveHabit: 窗口外的历史场次不冒充「常见」——门槛与 re
   const h = ctx.competitors[0].liveHabit
   assert.equal(h.confidence, 'insufficient')
   assert.deepEqual(h.slots, [])
+  assert.equal(h.sessionsInWindow, 0)
+  assert.equal(h.latestStartedAt, '2026-02-19T12:28:00Z')
 })
 
 test('liveHabit: 未来时刻的开播记录（脏数据）被排除，不会成为 latestStartedAt', () => {
@@ -319,6 +325,35 @@ test('liveHabit: 未来时刻的开播记录（脏数据）被排除，不会成
     'zh',
   )
   assert.equal(ctx.competitors[0].liveHabit.latestStartedAt, '2026-08-19T12:28:00Z')
+})
+
+test('liveHabit: recentSessions 只取窗口内的场次，窗口外的旧场次不会混进来', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [
+        shot({ id: 'old', stream_started_at: '2026-02-01T12:00:00Z' }), // 远在窗口外
+        shot({ id: 'recent', stream_started_at: '2026-08-19T12:00:00Z' }),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.deepEqual(ctx.competitors[0].liveHabit.recentSessions, ['2026-08-19T12:00:00Z'])
+})
+
+test('liveHabit: windowDays 与 regionRuler 的 RULER_WINDOW_DAYS 是同一个值(导入复用,不是抄一份字面量)', () => {
+  const ctx = buildAskContext(board([comp({})]), new Date('2026-08-20T01:00:00Z'), 'zh')
+  assert.equal(ctx.competitors[0].liveHabit.windowDays, RULER_WINDOW_DAYS)
+})
+
+test('liveHabit: 窗口边界——恰好落在 cutoff 那一刻的场次仍算窗口内(>=，不是 >)', () => {
+  const now = new Date('2026-08-20T01:00:00Z')
+  // RULER_WINDOW_DAYS=14 天，cutoff = now - 14 天 = 2026-08-06T01:00:00Z，精确落在边界上。
+  const atCutoff = '2026-08-06T01:00:00Z'
+  const ctx = buildAskContext(
+    board([comp({ shots: [shot({ stream_started_at: atCutoff })] })]),
+    now, 'zh',
+  )
+  assert.deepEqual(ctx.competitors[0].liveHabit.recentSessions, [atCutoff])
 })
 
 test('shots: capturedDates 去重降序，不截断，null 日期不进列表', () => {
