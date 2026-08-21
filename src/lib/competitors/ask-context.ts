@@ -8,6 +8,7 @@
 // 零 IO、零时钟：now 由调用方注入，才能把跨日、跨时区的行为钉死在单测里。
 import { timeZoneForLocale } from '../time/localeZone.ts'
 import { recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
+import { checkProfileLanguage } from './profileLanguage.ts'
 import { RULER_WINDOW_DAYS } from './regionRuler.ts'
 import { STALE_DAYS, competitorName } from './summary.ts'
 import { shotUptimeParts } from './types.ts'
@@ -107,6 +108,18 @@ export interface AskCompetitor {
   handle: string
   name: string
   region: string
+  /**
+   * 主页语言观测值（原样，未观测为 null）——只是辅助参考，不是权威地区。
+   * 权威值仍是 region；见 profileLanguage.ts 顶部注释。
+   */
+  observedLanguage: string | null
+  /**
+   * 语言能明确推出地区、且与人工填的 region 冲突时为 true。生产库真实事故：
+   * 23 个顶层竞品全被人工填成 JP，其中 3 个其实是韩国团，错了一个月没人发现
+   * （见 migrations/20260819000000_competitor_snapshot_language.sql）。
+   * 模型不能只拿到裸 region、把这类冲突悄悄说圆——必须能看到这面交叉校验。
+   */
+  regionMismatch: boolean
   isChild: boolean
   parentHandle: string | null
   members: number | null
@@ -280,6 +293,8 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
       handle: c.handle,
       name: competitorName(c),
       region: c.region,
+      observedLanguage: c.latest?.language ?? null,
+      regionMismatch: checkProfileLanguage(c.latest?.language, c.region)?.mismatch ?? false,
       isChild: parentHandle != null,
       parentHandle,
       members: c.member_count,
