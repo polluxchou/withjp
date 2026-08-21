@@ -87,6 +87,20 @@ function readStartTime(html: string): number | null {
   return m ? Number(m[1]) : null
 }
 
+/**
+ * 精裁一张直播画面。黑屏时字节数会异常小（实测阈值 120KB），重试几次。
+ * 返回 null 表示这一轮没截到 —— 不阻塞采集，下一轮再说。
+ */
+async function capture(pc: Conn, clip: any): Promise<Buffer | null> {
+  for (let a = 0; a < 3; a++) {
+    const { data } = await pc.send('Page.captureScreenshot', { format: 'png', clip: { ...clip, scale: 1 } })
+    const buf = Buffer.from(data, 'base64')
+    if (buf.length >= 120 * 1024) return buf
+    await sleep(3000)
+  }
+  return null
+}
+
 /** 「不在播」不是异常，是正常结果 —— 用它把早退和真错误区分开，退出码也不同。 */
 class NotLive extends Error {}
 
@@ -168,6 +182,17 @@ async function main() {
       // 只能落到三轮不健康的慢路上 —— 中间两轮还在往没有直播间 DOM 的页面里重注探针。
       // URL 是这种情况下唯一还可信的信号，每轮都读，很便宜。
       const href = String((await evaluate(pc, 'location.href')) ?? '')
+
+      // 截图：按 --shot-every 的节奏，落本地候选帧。收敛与入库是第二期的事。
+      if (Date.now() - lastShotAt >= shotEvery && clip) {
+        const buf = await capture(pc, clip)
+        if (buf) {
+          const elapsed = startedAt != null ? Math.round(Date.now() / 1000) - startedAt : total * 60
+          await writeFile(`${paths.frames}/${String(elapsed).padStart(6, '0')}.png`, buf)
+          lastShotAt = Date.now()
+        }
+      }
+
       const step = nextWatchdog(wd, {
         samples: batch.length,
         observerAlive: alive,
