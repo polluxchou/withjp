@@ -72,6 +72,11 @@ test('normalizeSample: 读不到的字段是 null，不是 0', () => {
   assert.equal(s.like_total, null)
 })
 
+test('normalizeSample: msgs 为 null（弹幕容器选择器没命中过）时原样透传到 chat_msgs，不是 0', () => {
+  const s = normalizeSample(probeSample({ msgs: null }), 1_786_536_000)
+  assert.equal(s.chat_msgs, null)
+})
+
 test('normalizeSample: 自检信息原样带进 raw，供报表判可信度', () => {
   const s = normalizeSample(probeSample({ observerAlive: false }), 1_786_536_000)
   assert.equal(s.raw.observer_alive, false)
@@ -188,6 +193,46 @@ test('nextWatchdog: 抖动过再正常结束时 reinjects 原样留着（本场�
   const r = nextWatchdog(shaky, health({ roomEnded: true }))
   assert.equal(r.action, 'end')
   assert.equal(r.state.reinjects, 1)
+})
+
+test('nextWatchdog: 三种收工原因各自可辨认', () => {
+  const byRoomEnded = nextWatchdog(initialWatchdog(), health({ roomEnded: true }))
+  assert.equal(byRoomEnded.reason, 'room_ended')
+  assert.equal(byRoomEnded.state.endReason, 'room_ended')
+
+  const byUrlChanged = nextWatchdog(initialWatchdog(), health({ onRoomUrl: false }))
+  assert.equal(byUrlChanged.reason, 'url_changed')
+  assert.equal(byUrlChanged.state.endReason, 'url_changed')
+
+  const bad = health({ samples: 0 })
+  let r = nextWatchdog(initialWatchdog(), bad)
+  r = nextWatchdog(r.state, bad)
+  r = nextWatchdog(r.state, bad)
+  assert.equal(r.reason, 'watchdog_exhausted')
+  assert.equal(r.state.endReason, 'watchdog_exhausted')
+})
+
+test('nextWatchdog: totalReinjects 跨越一次恢复继续累计，reinjects 只反映最近一段', () => {
+  const bad = health({ samples: 0 })
+  let r = nextWatchdog(initialWatchdog(), bad) // 第 1 次抖动
+  assert.equal(r.state.reinjects, 1)
+  assert.equal(r.state.totalReinjects, 1)
+  r = nextWatchdog(r.state, health()) // 恢复健康，reinjects 清零
+  assert.equal(r.state.reinjects, 0)
+  assert.equal(r.state.totalReinjects, 1, '恢复不清 totalReinjects —— 这是本场抖过的凭据')
+  r = nextWatchdog(r.state, bad) // 第 2 次抖动（新一段）
+  assert.equal(r.state.reinjects, 1, '本段只抖了一次')
+  assert.equal(r.state.totalReinjects, 2, '但全场累计是两次')
+})
+
+test('nextWatchdog: 吸收态之后重复调用，原因不变', () => {
+  const ended = nextWatchdog(initialWatchdog(), health({ roomEnded: true }))
+  assert.equal(ended.reason, 'room_ended')
+  // 即便这一轮的信号看着像别的原因，吸收态下也不会重新判定
+  const again = nextWatchdog(ended.state, health({ onRoomUrl: false }))
+  assert.equal(again.action, 'end')
+  assert.equal(again.reason, 'room_ended', '收工原因定格在第一次判死的那个，不会被后续信号改写')
+  assert.equal(again.state.endReason, 'room_ended')
 })
 
 test('sessionPaths: 目录名用日本时间的 YYYYMMDD-HHmm', () => {

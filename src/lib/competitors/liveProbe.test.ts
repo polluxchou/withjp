@@ -226,6 +226,20 @@ test('探针：找不到弹幕容器时仍然安装、仍能采数字，只是 a
   assert.equal(s.observerAlive, false)
 })
 
+test('探针：弹幕容器选择器没命中时 msgs 报 null，不是 0（跟 speakers 同一个道理）', () => {
+  const doc = makeDoc({ '[data-e2e="live-people-count"]': el('88') })
+  const win = makeWin()
+  factory(win, doc, cfg({
+    chatHost: ['.chat-not-here'],
+    viewer: ['[data-e2e="live-people-count"]'],
+    followers: [], likes: [], speaker: [],
+  }))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  const s = lw.drain()[0]
+  assert.equal(s.msgs, null, '选择器没命中过，编造一个 0 会和"房间很安静"混为一谈')
+})
+
 test('探针：drain 取走后缓冲区清空', () => {
   const doc = makeDoc({ '.chat': el('') })
   const win = makeWin()

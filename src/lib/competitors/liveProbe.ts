@@ -147,7 +147,8 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
       viewer: v.text,
       followers: f.text,
       likes: l.text,
-      msgs: st.msgs,
+      // 弹幕容器选择器没命中过就报 null，别把 0 当成"房间很安静"——跟下面 speakers 同一个道理
+      msgs: st.hostSel ? st.msgs : null,
       // 没有可靠的发言人选择器就报 null，别把 0 当成「没人说话」
       speakers: st.speakerSel ? st.nSpeakers : null,
       observerAlive: alive(),

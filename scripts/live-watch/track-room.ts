@@ -14,7 +14,7 @@ import { homedir } from 'node:os'
 
 import {
   initialWatchdog, nextWatchdog, normalizeSample, roomEnded, sessionPaths,
-  type ProbeSample, type WatchdogState,
+  type EndReason, type ProbeSample, type WatchdogState,
 } from '../../src/lib/competitors/liveTrack.ts'
 import { clipSource, defaultProbeConfig, probeSource } from '../../src/lib/competitors/liveProbe.ts'
 
@@ -82,9 +82,16 @@ async function pageHtml(pc: Conn): Promise<string> {
   return outerHTML as string
 }
 
+/**
+ * 本场开播时间。和 roomEnded 面对同一份 HTML、同一类风险 —— 结束页和推荐位会混进
+ * 别的房间的 JSON。这个值扛着场次身份、全场 elapsed 基准、以及「是不是重开了一场」
+ * 三件事，比它在 sweep-live.mjs 里只用来显示时长时重得多，所以读到多个不同值时
+ * 一律返回 null：宁可没有，也不要一个把整条曲线系统性平移的错值。
+ */
 function readStartTime(html: string): number | null {
-  const m = html.match(/"startTime":(\d{10})/)
-  return m ? Number(m[1]) : null
+  const all = Array.from(html.matchAll(/"startTime":(\d{10})/g)).map((m) => Number(m[1]))
+  const distinct = Array.from(new Set(all))
+  return distinct.length === 1 ? distinct[0] : null
 }
 
 /**
@@ -104,6 +111,18 @@ async function capture(pc: Conn, clip: any): Promise<Buffer | null> {
     if (a < 2) await sleep(3000) // 只在还有下一次尝试时才等；最后一次失败直接返回，别白等 3s
   }
   return null
+}
+
+/** 事件日志用的时间点标记：不追求精确，只要操作员事后能定位"大概第几分钟"。 */
+function fmtElapsed(sec: number): string {
+  return `约第 ${Math.floor(sec / 60)} 分钟`
+}
+
+/** session.json 里 end_reason 是给机器/报表看的枚举值，这里翻成操作员一眼看懂的一句话。 */
+const END_REASON_LABEL: Record<EndReason, string> = {
+  room_ended: '页面判定已结束',
+  url_changed: '页面被导航走',
+  watchdog_exhausted: '重注入耗尽仍无数据（不代表真的下播了）',
 }
 
 /** 「不在播」不是异常，是正常结果 —— 用它把早退和真错误区分开，退出码也不同。 */
@@ -145,11 +164,20 @@ async function main() {
     let wd: WatchdogState = initialWatchdog()
     let total = 0
     let lastShotAt = 0
+    let framesCaptured = 0
+    let framesFailed = 0
+    // session.json 用；watchdog 的三种收工信号（EndReason）之外，还有一种它管不到的
+    // "重开新场"（heavy 轮读到不同 startTime），类型故意比 EndReason 宽一格。
+    let endReason: EndReason | 'stream_restarted' | null = null
+    // 给三条事件日志标时点用：取最近一次成功算出 elapsed_seconds 的采样点；
+    // 一条样本都还没有时退回「跟踪开始以来的秒数」，好歹不是完全没有时间感。
+    let lastElapsed: number | null = null
     // 精裁算式假设 object-fit 是 cover/contain/fill、object-position 回来的是百分比。
     // 这两条都没在真实页面上验过，所以原样记进 session.json，让第一场把它们坐实。
     let objectFit: string | null = null
     let objectPosition: string | null = null
     const startedTracking = Date.now()
+    const elapsedMarker = () => fmtElapsed(lastElapsed ?? Math.round((Date.now() - startedTracking) / 1000))
     // 整页 HTML 读一次很贵（几 MB），10 分钟一次就够。用墙上时间判 ——
     // total 是累计采样点数不是轮数：一轮抓到两条会跨过 10 的倍数（该读的那次被跳过），
     // 一轮抓到零条又会在同一个数上连续命中（连读两次整页），首轮 total=0 还会立刻触发。
@@ -164,8 +192,9 @@ async function main() {
         const s = normalizeSample(p, startedAt)
         await appendFile(paths.samples, JSON.stringify(s) + '\n')
         total += 1
+        if (s.elapsed_seconds != null) lastElapsed = s.elapsed_seconds
         console.error(
-          `  ${s.elapsed_seconds ?? '?'}s 在线${s.viewer_count ?? '?'} 粉${s.follower_count ?? '?'} 弹幕${s.chat_msgs}/${s.chat_speakers}人`,
+          `  ${s.elapsed_seconds ?? '?'}s 在线${s.viewer_count ?? '?'} 粉${s.follower_count ?? '?'} 弹幕${s.chat_msgs ?? '?'}/${s.chat_speakers}人`,
         )
       }
 
@@ -177,8 +206,12 @@ async function main() {
       if (info?.ready && info.clip?.width > 50) clip = info.clip
       if (info?.fit) { objectFit = info.fit; objectPosition = info.pos ?? null }
 
-      if (heavy && startedAt != null && readStartTime(html) !== startedAt) {
-        console.error('！开播时间变了 —— 对方重开了一场，本场收工（新场次请重新启动）')
+      const nowStart = heavy ? readStartTime(html) : null
+      // 只有读到明确的单一值、且和开场那次不同，才算对方重开了一场。
+      // 读出多个值时 readStartTime 返回 null —— 那是「读不准」，不是「变了」。
+      if (heavy && startedAt != null && nowStart != null && nowStart !== startedAt) {
+        endReason = 'stream_restarted'
+        console.error(`！开播时间变了 —— 对方重开了一场，本场收工（新场次请重新启动，${elapsedMarker()}）`)
         break
       }
 
@@ -197,6 +230,7 @@ async function main() {
         // 帧本来就是可丢的候选，黑屏期间少几张远比拖慢整个采集循环划算。
         lastShotAt = Date.now()
         if (buf) {
+          framesCaptured += 1
           // 开播时间未知时退回「进房以来的秒数」（tracking_started_at 起算），
           // 含义和「开播以来的秒数」不同，只是给候选帧一个单调递增、不会撞车的
           // 排序键，不是权威时间戳——真要按时间对齐，第二期靠 samples.jsonl 关联。
@@ -208,6 +242,8 @@ async function main() {
             ? Math.round(Date.now() / 1000) - startedAt
             : Math.round((Date.now() - startedTracking) / 1000)
           await writeFile(`${paths.frames}/${String(elapsed).padStart(6, '0')}.png`, buf)
+        } else {
+          framesFailed += 1
         }
       }
 
@@ -223,11 +259,14 @@ async function main() {
         // 注意不能直接重 eval probeSource：版本号相同时工厂会 reused:true 原样返回，
         // 什么都不做 —— 那样两次「重注入」全是空转，恢复路径等于没有。
         // 先让页内的探针自己重挂 observer；只有 __lw 整个没了（页面刷新过）才整份重注。
-        console.error('！探针失联，重挂')
-        const reattached = await evaluate(pc, 'window.__lw ? (window.__lw.reattach(), true) : false')
-        if (!reattached) await evaluate(pc, probeSource(defaultProbeConfig()))
+        console.error(`！探针失联，重挂（${elapsedMarker()}）`)
+        const reattached = await evaluate(pc, 'window.__lw ? window.__lw.reattach() : null')
+        // null = __lw 整个没了（页面刷新过），要整份重注；false = 还在但没找到聊天容器。
+        if (reattached === null) await evaluate(pc, probeSource(defaultProbeConfig()))
       } else if (step.action === 'end') {
-        console.error('✓ 判定下播，收工')
+        endReason = step.reason ?? null
+        const label = step.reason ? END_REASON_LABEL[step.reason] : '原因未知'
+        console.error(`✓ 判定下播，收工（${label}，${elapsedMarker()}）`)
         break
       }
     }
@@ -241,6 +280,12 @@ async function main() {
       expected_count: Math.round((Date.now() - startedTracking) / drainEvery),
       object_fit: objectFit,
       object_position: objectPosition,
+      // 收工证据：为什么停的、这场抖动过几次、截图候选帧成功/失败各多少张。
+      // 光看 sample_count 分不清"真下播"和"看门狗放弃了"，这四个字段就是留给操作员的答案。
+      end_reason: endReason,
+      total_reinjects: wd.totalReinjects,
+      frames_captured: framesCaptured,
+      frames_failed: framesFailed,
     }, null, 2))
     console.error(`✓ 收工：${total} 个采样点 → ${paths.samples}`)
   } finally {

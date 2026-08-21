@@ -38,8 +38,8 @@ export type ProbeSample = {
   viewer: string | null
   followers: string | null
   likes: string | null
-  /** 本分钟弹幕条数 */
-  msgs: number
+  /** 本分钟弹幕条数。弹幕容器选择器没命中过就是 null —— 不是 0，跟 speakers 同一个道理 */
+  msgs: number | null
   /** 本分钟去重后的发言人数。没有可靠的发言人选择器时是 null —— 不是 0，也不靠猜 */
   speakers: number | null
   observerAlive: boolean
@@ -54,7 +54,8 @@ export type Sample = {
   viewer_count: number | null
   follower_count: number | null
   like_total: number | null
-  chat_msgs: number
+  /** 弹幕容器选择器没命中过就是 null —— 不是 0，跟 chat_speakers 同一个道理 */
+  chat_msgs: number | null
   chat_speakers: number | null
   raw: {
     observer_alive: boolean
@@ -108,19 +109,26 @@ export type DrainHealth = {
   onRoomUrl: boolean
 }
 
+export type EndReason = 'room_ended' | 'url_changed' | 'watchdog_exhausted'
+
 /**
- * reinjects 的语义是「距上次健康以来连续不健康的轮数」，不是「本场累计重注入次数」——
- * 健康一次就清零。二者当前恒等，因为每个不健康轮次只有 reinject 和 end 两种去向；
- * 将来若加入第三种不重注探针的补救动作（比如整页 reload），这个字段就必须拆开。
- * ended 是收工闩：一旦为真，后续调用恒返回 end。
+ * reinjects 的语义是「距上次健康以来连续不健康的轮数」，健康一次就清零；
+ * totalReinjects 不清零，是「这场一共抖过几次」的凭据 —— 判断本场有没有被打断
+ * 全靠它，而 reinjects 收尾时几乎总是 0 或 2，看不出中间发生过什么。
+ * ended 是收工闩；endReason 记下当初是被哪种信号判死的。
  */
-export type WatchdogState = { reinjects: number; ended: boolean }
+export type WatchdogState = {
+  reinjects: number
+  totalReinjects: number
+  ended: boolean
+  endReason: EndReason | null
+}
 export type WatchdogAction = 'ok' | 'reinject' | 'end'
 
 const MAX_REINJECTS = 2
 
 export function initialWatchdog(): WatchdogState {
-  return { reinjects: 0, ended: false }
+  return { reinjects: 0, totalReinjects: 0, ended: false, endReason: null }
 }
 
 /**
@@ -132,20 +140,35 @@ export function initialWatchdog(): WatchdogState {
  * 掉了的话重新注入探针并不能把丢失的 DOM 变回来，实际语义是「再等一轮看它能不能自愈，
  * 等不到就放弃」——结果是对的，只是动作名把因果讲得比实际笃定。
  * 重注入两次仍然没数据，才判下播。
+ * 三种收工信号(roomEnded/url_changed/watchdog_exhausted)长得完全不一样、后果也不一样——
+ * 前两种是"直播确实结束了"，最后一种只是"探针连续两轮没能恢复，我们放弃了"，不代表
+ * 主播真的下播。action 只报 'end' 会把三者混成一种，所以额外带上 reason。
  */
 export function nextWatchdog(
   state: WatchdogState,
   h: DrainHealth,
-): { state: WatchdogState; action: WatchdogAction } {
+): { state: WatchdogState; action: WatchdogAction; reason?: EndReason | null } {
   // 吸收态优先：收工过就不再改主意
-  if (state.ended) return { state, action: 'end' }
+  if (state.ended) return { state, action: 'end', reason: state.endReason }
   // status 码判结束最可靠；URL 变了说明页面整个被导航走，rehydration 读不到、
   // 探针也无处可注 —— 这两种都立即收工，不浪费两轮重注入。
-  if (h.roomEnded || !h.onRoomUrl) return { state: { ...state, ended: true }, action: 'end' }
+  if (h.roomEnded || !h.onRoomUrl) {
+    const reason: EndReason = h.roomEnded ? 'room_ended' : 'url_changed'
+    return { state: { ...state, ended: true, endReason: reason }, action: 'end', reason }
+  }
   const healthy = h.samples > 0 && h.observerAlive && h.hasVideo
-  if (healthy) return { state: { reinjects: 0, ended: false }, action: 'ok' }
-  if (state.reinjects >= MAX_REINJECTS) return { state: { ...state, ended: true }, action: 'end' }
-  return { state: { reinjects: state.reinjects + 1, ended: false }, action: 'reinject' }
+  if (healthy) return { state: { ...state, reinjects: 0 }, action: 'ok' }
+  if (state.reinjects >= MAX_REINJECTS) {
+    return {
+      state: { ...state, ended: true, endReason: 'watchdog_exhausted' },
+      action: 'end',
+      reason: 'watchdog_exhausted',
+    }
+  }
+  return {
+    state: { ...state, reinjects: state.reinjects + 1, totalReinjects: state.totalReinjects + 1 },
+    action: 'reinject',
+  }
 }
 
 /**
