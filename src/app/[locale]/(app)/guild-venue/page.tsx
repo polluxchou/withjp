@@ -53,7 +53,7 @@ import Modal from '@/components/ui/Modal'
 import VenueCanvas from '@/venue/VenueCanvas'
 import Venue3DCanvas from '@/venue/Venue3DCanvas'
 import VenueInspector, { type PlacedItemSummary } from '@/venue/VenueInspector'
-import { registerVenueIntent } from '@/components/intent/CommandBar'
+import { registerVenueIntent } from '@/components/intent/CommandPanel'
 import { useRouter } from '@/i18n/navigation'
 import type { Item } from '@/lib/items/types'
 import type { Expense } from '@/lib/types'
@@ -326,7 +326,7 @@ export default function GuildVenuePage() {
     ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
     : -1
 
-  // Expose the current canvas to the global command bar ("用文字操作") so it can
+  // Expose the current canvas to the global command panel ("用文字操作") so it can
   // scope NL instructions to this floor and apply the parsed action via commit.
   const layoutRef = useRef(layout)
   layoutRef.current = layout
