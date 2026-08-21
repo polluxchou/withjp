@@ -413,10 +413,25 @@ test('shots: 采集时刻最新但未标日期的截图仍参与 lastShotUptimeM
   assert.equal(ctx.competitors[0].shots.lastShotUptimeMinutes, 210)
 })
 
+test('shots: lastShotUptimeAt 标注 lastShotUptimeMinutes 所属的采集时刻,不能默认等于 lastOn', () => {
+  // 最新一张(08-19)没有开播时刻算不出时长；上一张(08-12)才算得出 180 分钟。
+  // 数据包里若只有 lastShotUptimeMinutes 没有归属时刻,模型会默认把这个数字
+  // 配到 lastOn(08-19)头上,读成"8/19 已经播了 3 小时"——实际差了 7 天。
+  const newestNoStart = shot({ id: 'a', shot_on: '2026-08-19', stream_started_at: null, captured_at: '2026-08-19T13:00:00Z' })
+  const olderWithStart = shot({ id: 'b', shot_on: '2026-08-12', stream_started_at: '2026-08-12T11:00:00Z', captured_at: '2026-08-12T14:00:00Z' })
+
+  const ctx = buildAskContext(board([comp({ shots: [newestNoStart, olderWithStart] })]), new Date('2026-08-20T01:00:00Z'), 'zh')
+  const s = ctx.competitors[0].shots
+  assert.equal(s.lastOn, '2026-08-19')
+  assert.equal(s.lastShotUptimeMinutes, 180)
+  assert.equal(s.lastShotUptimeAt, '2026-08-12T14:00:00Z')
+})
+
 test('shots: 没有任何截图时形状完整且不抛异常', () => {
   const ctx = buildAskContext(board([comp({})]), new Date('2026-08-20T01:00:00Z'), 'zh')
   assert.deepEqual(ctx.competitors[0].shots, {
-    total: 0, capturedDates: [], lastOn: null, peakViewersAllTime: null, lastShotUptimeMinutes: null,
+    total: 0, capturedDates: [], lastOn: null, peakViewersAllTime: null,
+    lastShotUptimeMinutes: null, lastShotUptimeAt: null,
   })
 })
 

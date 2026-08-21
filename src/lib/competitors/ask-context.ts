@@ -98,12 +98,15 @@ export interface AskShots {
   /** 全部截图里的在线人数峰值（不是最近一场的峰值——这是全量历史最大值）。 */
   peakViewersAllTime: number | null
   /**
-   * 最近一次采集时刻的「已播时长」——是截图那一刻已经播了多久，
-   * 不是这场直播总共播了多久（后续可能还在播，这只是一个下限）。
-   * 按 captured_at 取最大值，不依赖数组顺序：shot_on 精度只到天，同一天
-   * 多张截图在库里的相对顺序不保证（两条写入路径的 sort_order 都硬编码 0）。
+   * 「已播时长」——某一张截图那一刻已经播了多久，不是这场直播总共播了多久
+   * （后续可能还在播，这只是一个下限）。归属的采集时刻见 lastShotUptimeAt，
+   * **不一定是 lastOn 那天**：lastOn 是最新有日期的截图，这个时长取的是全部
+   * 截图里 captured_at 最大的那张——如果最新那张恰好没有开播时刻算不出时长，
+   * 这里会落到更早一张身上。两个字段没有绑定关系，不能默认配对。
    */
   lastShotUptimeMinutes: number | null
+  /** lastShotUptimeMinutes 所属那张截图的 captured_at，供核对它到底是哪一次采集。 */
+  lastShotUptimeAt: string | null
 }
 
 export interface AskHealth {
@@ -252,6 +255,7 @@ export function shotsOf(shots: CompetitorShot[]): AskShots {
     lastOn: dates[0] ?? null,
     peakViewersAllTime: viewers.length ? Math.max(...viewers) : null,
     lastShotUptimeMinutes: last?.minutes ?? null,
+    lastShotUptimeAt: last?.at ?? null,
   }
 }
 
