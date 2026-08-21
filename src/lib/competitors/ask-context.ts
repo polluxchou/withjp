@@ -75,8 +75,15 @@ export interface AskShots {
    */
   capturedDates: string[]
   lastOn: string | null
-  peakViewers: number | null
-  lastUptimeMinutes: number | null
+  /** 全部截图里的在线人数峰值（不是最近一场的峰值——这是全量历史最大值）。 */
+  peakViewersAllTime: number | null
+  /**
+   * 最近一次采集时刻的「已播时长」——是截图那一刻已经播了多久，
+   * 不是这场直播总共播了多久（后续可能还在播，这只是一个下限）。
+   * 按 captured_at 取最大值，不依赖数组顺序：shot_on 精度只到天，同一天
+   * 多张截图在库里的相对顺序不保证（两条写入路径的 sort_order 都硬编码 0）。
+   */
+  lastShotUptimeMinutes: number | null
 }
 
 export interface AskHealth {
@@ -165,19 +172,21 @@ function shotsOf(c: CompetitorWithHistory): AskShots {
 
   const viewers = c.shots.map((s) => s.viewer_count).filter((v): v is number => v != null)
 
-  // shots 已按 shot_on 降序（assemble.ts），第一张能算出时长的就是最近一场。
-  let lastUptimeMinutes: number | null = null
+  // 按 captured_at（采集时刻）取最大值，不按数组顺序或 shot_on（那只精确到天）——
+  // shot_on 相同的同一天可能有多张截图，写入时 sort_order 恒为 0，数组顺序不可信。
+  let last: { at: string; minutes: number } | null = null
   for (const s of c.shots) {
     const parts = shotUptimeParts(s.stream_started_at, s.captured_at)
-    if (parts) { lastUptimeMinutes = parts.h * 60 + parts.m; break }
+    if (!parts || s.captured_at == null) continue
+    if (last == null || s.captured_at > last.at) last = { at: s.captured_at, minutes: parts.h * 60 + parts.m }
   }
 
   return {
     total: c.shots.length,
     capturedDates: dates,
     lastOn: dates[0] ?? null,
-    peakViewers: viewers.length ? Math.max(...viewers) : null,
-    lastUptimeMinutes,
+    peakViewersAllTime: viewers.length ? Math.max(...viewers) : null,
+    lastShotUptimeMinutes: last?.minutes ?? null,
   }
 }
 
