@@ -275,13 +275,6 @@
       "groupCountCol": "件数",
       "sampleHint": "{count} 件のサンプルを返しました。全件絞り込みは支出一覧ページで操作してください。"
     },
-    "clarification": {
-      "tableLabel": "候補レコード",
-      "dateCol": "日付",
-      "nameCol": "名称",
-      "amountCol": "金額",
-      "buyerCol": "担当者"
-    },
     "emptyHint": {
       "suggestionsHeader": "こう調整してみましょう："
     },
