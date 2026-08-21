@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { PROBE_FACTORY_SRC, PROBE_VERSION, defaultProbeConfig } from './liveProbe.ts'
+import { PROBE_FACTORY_SRC, PROBE_VERSION, defaultProbeConfig, probeSource } from './liveProbe.ts'
 
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
@@ -26,9 +26,18 @@ function makeWin(nowMs = 1_000_000) {
   const win = {
     observers,
     disconnects: 0,
+    intervals: [] as { cb: () => void; ms: number; id: number; cleared: boolean }[],
     now: nowMs,
     Date: { now: () => nowMs },
-    setInterval: () => 0,
+    setInterval: (cb: () => void, ms: number) => {
+      const id = win.intervals.length + 1
+      win.intervals.push({ cb, ms, id, cleared: false })
+      return id
+    },
+    clearInterval: (id: number) => {
+      const found = win.intervals.find((i) => i.id === id)
+      if (found) found.cleared = true
+    },
     MutationObserver: class {
       cb: (recs: unknown[]) => void
       entry: { target: unknown; cb: (recs: unknown[]) => void; active: boolean } | null = null
@@ -41,7 +50,11 @@ function makeWin(nowMs = 1_000_000) {
       // 在假 DOM 里根本表现不出来，测试就成了摆设。
       disconnect() { win.disconnects += 1; if (this.entry) this.entry.active = false }
     },
-  } as Record<string, unknown> & { observers: typeof observers; disconnects: number }
+  } as Record<string, unknown> & {
+    observers: typeof observers
+    disconnects: number
+    intervals: { cb: () => void; ms: number; id: number; cleared: boolean }[]
+  }
   return win
 }
 
@@ -173,6 +186,30 @@ test('探针：换版本重注入会断开上一版的 observer', () => {
   assert.equal(win.disconnects, 1, '上一版的 observer 必须断开，否则它会一直对着没人读的计数器烧 CPU')
 })
 
+test('探针：intervalMs>0 时按该间隔挂定时器，回调等价于 tick', () => {
+  const doc = makeDoc({ '.chat': el(''), '.v': el('88') })
+  const win = makeWin()
+  factory(win, doc, cfg({ intervalMs: 60_000, chatHost: ['.chat'], viewer: ['.v'], followers: [], likes: [], speaker: [] }))
+  const lw = (win as Record<string, any>).__lw
+  assert.equal(win.intervals.length, 1)
+  assert.equal(win.intervals[0].ms, 60_000, '间隔传错会让整场采样节奏错乱')
+  win.intervals[0].cb() // 定时器到点
+  const s = lw.drain()
+  assert.equal(s.length, 1, '定时器回调必须真的产出一个采样点')
+  assert.equal(s[0].viewer, '88')
+})
+
+test('探针：换版本重注入会清掉上一版的定时器，不只是断 observer', () => {
+  const doc = makeDoc({ '.chat': el('') })
+  const win = makeWin()
+  const base = { intervalMs: 60_000, chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }
+  factory(win, doc, cfg({ ...base, version: 1 }))
+  factory(win, doc, cfg({ ...base, version: 2 }))
+  assert.equal(win.intervals.length, 2)
+  assert.equal(win.intervals[0].cleared, true, '旧定时器不清掉会一直往没人读的 buf 里 push')
+  assert.equal(win.intervals[1].cleared, false)
+})
+
 test('探针：找不到弹幕容器时仍然安装、仍能采数字，只是 attached=false', () => {
   const doc = makeDoc({ '[data-e2e="live-people-count"]': el('88') })
   const win = makeWin()
@@ -201,4 +238,14 @@ test('探针：drain 取走后缓冲区清空', () => {
 
 test('PROBE_VERSION 是正整数（重注入幂等靠它）', () => {
   assert.ok(Number.isInteger(PROBE_VERSION) && PROBE_VERSION > 0)
+})
+
+test('probeSource: 组装出的表达式能被解析成可调用的工厂', () => {
+  const src = probeSource({ ...defaultProbeConfig(), intervalMs: 60_000 })
+  assert.match(src, /^\(function \(win, doc, cfg\)/)
+  assert.doesNotThrow(() => new Function(`return ${src.replace(/\(window, document, /, '(arguments[0], arguments[1], ')}`))
+})
+
+test('probeSource: intervalMs 非正数直接抛错，不产出永不打点的探针', () => {
+  assert.throws(() => probeSource({ ...defaultProbeConfig(), intervalMs: 0 }), /intervalMs/)
 })

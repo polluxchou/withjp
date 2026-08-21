@@ -32,6 +32,14 @@ export function defaultProbeConfig(): ProbeConfig {
   return {
     version: PROBE_VERSION,
     intervalMs: 60_000,
+    // person-count 有歧义：sweep-live.mjs 的 extractLiveMeta 记录过，登录态下
+    // 这个 data-e2e 在左侧"已关注"侧栏里每个正在直播的关注对象各出现一份，
+    // 不是页面唯一节点 —— 该脚本因此没有直接选它，而是正则匹配相邻的
+    // live-side-nav-name 把 handle 对上号才取数。这里用的是裸 querySelector，
+    // 命中的是 DOM 顺序里第一个，同时有两个关注对象在播时可能拿到别人的人数，
+    // 而 selectorsOk.viewer 照样显示命中、看不出问题。
+    // 第一次真实运行必须用肉眼核对页面上显示的在线人数与探针读到的是否一致，
+    // 不能只看 selectorsOk.viewer 非空就当验证通过。
     viewer: [
       '[data-e2e="live-people-count"]',
       '[data-e2e="person-count"]',
@@ -52,6 +60,9 @@ export function defaultProbeConfig(): ProbeConfig {
     speaker: [
       '[data-e2e="message-owner-name"]',
     ],
+    // 未经验证的猜测：如果弹幕列表是在容器下再深一层重渲染，而不是直接
+    // 往这层 append 子节点，childList 观察不到、msgs 会整场停在 0 —— 现象上
+    // 和"房间很安静没人发弹幕"完全一样，得留意第一次真实运行的 msgs 是否合理。
     chatSubtree: false,
   }
 }
@@ -88,7 +99,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     return { sel: null, el: null }
   }
   var st = { msgs: 0, seen: Object.create(null), nSpeakers: 0, buf: [],
-             host: null, hostSel: null, obs: null, speakerSel: null }
+             host: null, hostSel: null, obs: null, speakerSel: null, timer: null }
   // 只认真正的发言人选择器。以前这里有个「取首个冒号之前」的兜底，已经去掉：
   // 系统消息、礼物提示、正文里带 http:// 或时间比分的普通弹幕，都会被它编造成
   // 一个假发言人；不同真人发的相似内容又会被并成同一个。engagement 指标宁可为空
@@ -148,6 +159,10 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     st.msgs = 0
     st.seen = Object.create(null)
     st.nSpeakers = 0
+    // speakerSel 每分钟归零重猜：这分钟一条弹幕都没有时，它和真「选择器一直没
+    // 命中过」长得一模一样，都是 speakers:null + selectorsOk.speaker:null。
+    // 这是预期行为、不是缺陷 —— 靠同一行的 chat_msgs:0 才能分清是"没人说话"
+    // 还是"选择器失配"，selectorsOk.speaker 本身不能当成逐分钟的选择器健康信号读。
     st.speakerSel = null
   }
   var ok = attach()
@@ -158,13 +173,24 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     reattach: attach,
     alive: alive,
     drain: function () { var out = st.buf; st.buf = []; return out },
-    disconnect: function () { if (st.obs) { st.obs.disconnect(); st.obs = null } }
+    disconnect: function () {
+      if (st.obs) { st.obs.disconnect(); st.obs = null }
+      // 定时器和 observer 是同一族的泄漏：不清掉，旧版本的 tick 会永远往一个
+      // 再也没人 drain 的 buf 里 push，直到 tab 关掉。上一轮只修了 observer 那半。
+      if (st.timer !== null) { win.clearInterval(st.timer); st.timer = null }
+    }
   }
-  if (cfg.intervalMs > 0) win.setInterval(tick, cfg.intervalMs)
+  if (cfg.intervalMs > 0) st.timer = win.setInterval(tick, cfg.intervalMs)
   return { reused: false, attached: ok, version: cfg.version }
 }`
 
 /** 拼出注入用的完整表达式。 */
 export function probeSource(cfg: ProbeConfig): string {
+  // intervalMs<=0 是测试专用（外部手动 tick）。真注进页面就是一个「挂载成功、
+  // observerAlive 为真、却永远不自动打点」的探针 —— drain 永远空，看门狗两轮之后
+  // 误判下播。静默失败比直接炸难查得多，所以在注入前就拦住。
+  if (!(cfg.intervalMs > 0)) {
+    throw new Error(`probeSource: intervalMs 必须为正数（收到 ${cfg.intervalMs}）—— 0 只用于测试里手动 tick`)
+  }
   return `(${PROBE_FACTORY_SRC})(window, document, ${JSON.stringify(cfg)})`
 }
