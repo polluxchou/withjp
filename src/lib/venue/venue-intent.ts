@@ -1,40 +1,11 @@
 import { z } from 'zod'
+import { llmJson } from '@/lib/llm/json'
 import {
   VENUE_ITEM_TYPE_OPTIONS,
   VENUE_ITEM_STATUS_OPTIONS,
   type VenueAction,
   type VenueItemType,
 } from '@/venue/layoutData'
-
-// ── Minimal Gemini transport (mirrors src/lib/intent/parser.ts) ─
-
-function geminiApiKey(): string {
-  const key = process.env.GEMINI_API_KEY
-  if (!key) throw new Error('GEMINI_API_KEY is not configured')
-  return key
-}
-
-function geminiBaseUrl(): string {
-  return (process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com').replace(/\/$/, '')
-}
-
-async function geminiJson(model: string, prompt: string): Promise<string> {
-  const url = `${geminiBaseUrl()}/v1beta/models/${model}:generateContent?key=${geminiApiKey()}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0 },
-    }),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Gemini ${res.status}: ${text}`)
-  }
-  const data = await res.json()
-  return (data.candidates?.[0]?.content?.parts?.[0]?.text as string) ?? ''
-}
 
 // ── Schema (matches VenueAction in layoutData) ────────────────
 
@@ -119,7 +90,10 @@ ${itemList}
 指令：${JSON.stringify(text)}`
 
   try {
-    const raw = await geminiJson('gemini-2.5-flash', prompt)
+    // 场地解析刻意留在 gemini-2.5-flash，不跟意图解析一起换 DeepSeek：它解析
+    // 错会静默把画布改坏（用户看到的是一句看似合理的 summary，点确认就应用
+    // 了）。要换的话走同一个 llmJson，改这一行即可。
+    const raw = await llmJson({ provider: 'gemini', model: 'gemini-2.5-flash' }, prompt)
     const obj = JSON.parse(raw) as { op?: string; reason?: string }
     if (obj.op === 'none' || !obj.op) {
       return { ok: false, reason: obj.reason || '无法识别为场地操作' }
