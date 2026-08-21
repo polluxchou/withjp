@@ -366,9 +366,13 @@ git commit -m "feat(live-track): 采样点规范化(文本计数转数字/距开
 每分钟排空之后判断：继续、重注入探针、还是判定下播收工。做成纯状态机，因为这是最容易写错、又最难在真实直播里复现的部分。
 
 规则：
+- 已经判过 `end` → 恒定 `end`。**`end` 是吸收态**：判完之后哪怕又读到健康数据也不回头，否则一次调度竞态就能把已经收工的场次「复活」。
 - 读到 `status:4` 且无 `2` → 立即 `end`（这是最可靠的下播信号）
+- **当前 tab 的 URL 已经不是目标直播间 → 立即 `end`。** 页面被整个导航走时（重定向、房间不存在、被弹去别处）rehydration JSON 根本读不到，`roomEnded` 会一直返回 `false`，只能落到三轮不健康的慢路上——而中间那两轮是在往一个没有直播间 DOM 的页面里重注探针，纯属浪费。URL 是这种情况下唯一还可信的信号。
 - 本轮有采样点、observer 活着、`<video>` 还在 → 计数器归零，`ok`
 - 否则算一次不健康：重注入次数还没到 2 次 → `reinject`；已经到 2 次 → `end`
+
+注意 `reinject` 这个动作名只对「排空为空」这一种成因是字面准确的——重注探针确实是它的解法。对 `observerAlive`/`hasVideo` 两种成因，重注入救不回丢掉的 DOM 节点，实际语义是「再等一轮看它自不自愈，不自愈就收工」。结果是对的，但别被动作名误导。
 
 **Files:**
 - Modify: `src/lib/competitors/liveTrack.ts`
@@ -386,6 +390,7 @@ const health = (over: Partial<DrainHealth> = {}): DrainHealth => ({
   observerAlive: true,
   hasVideo: true,
   roomEnded: false,
+  onRoomUrl: true,
   ...over,
 })
 
@@ -426,13 +431,40 @@ test('nextWatchdog: 连续三轮不健康 → 第三轮判 end', () => {
 })
 
 test('nextWatchdog: 重注入后恢复健康 → 计数器清零，能再扛两次', () => {
-  let r = nextWatchdog(initialWatchdog(), health({ samples: 0 }))
+  const bad = health({ samples: 0 })
+  let r = nextWatchdog(initialWatchdog(), bad)
   assert.equal(r.state.reinjects, 1)
   r = nextWatchdog(r.state, health())
   assert.equal(r.action, 'ok')
   assert.equal(r.state.reinjects, 0)
-  r = nextWatchdog(r.state, health({ samples: 0 }))
+  // 标题说「能再扛两次」，就真的驱动两次、第三次才 end —— 别让标题比断言承诺得多
+  r = nextWatchdog(r.state, bad)
   assert.equal(r.action, 'reinject')
+  r = nextWatchdog(r.state, bad)
+  assert.equal(r.action, 'reinject')
+  r = nextWatchdog(r.state, bad)
+  assert.equal(r.action, 'end')
+})
+
+test('nextWatchdog: 页面被导航走 → 立即 end，不浪费两轮重注入', () => {
+  const r = nextWatchdog(initialWatchdog(), health({ onRoomUrl: false }))
+  assert.equal(r.action, 'end')
+  assert.equal(r.state.ended, true)
+})
+
+test('nextWatchdog: end 是吸收态，判过之后读到健康数据也不回头', () => {
+  const ended = nextWatchdog(initialWatchdog(), health({ roomEnded: true })).state
+  assert.equal(ended.ended, true)
+  const again = nextWatchdog(ended, health())
+  assert.equal(again.action, 'end', '已经收工的场次不能被一次调度竞态复活')
+})
+
+test('nextWatchdog: 抖动过再正常结束时 reinjects 原样留着（本场抖动过的凭据）', () => {
+  const shaky = nextWatchdog(initialWatchdog(), health({ samples: 0 })).state
+  assert.equal(shaky.reinjects, 1)
+  const r = nextWatchdog(shaky, health({ roomEnded: true }))
+  assert.equal(r.action, 'end')
+  assert.equal(r.state.reinjects, 1)
 })
 ```
 
@@ -457,15 +489,23 @@ export type DrainHealth = {
   hasVideo: boolean
   /** roomEnded() 的结论 */
   roomEnded: boolean
+  /** 当前 tab 的 URL 仍然是目标直播间；false = 页面已被导航走 */
+  onRoomUrl: boolean
 }
 
-export type WatchdogState = { reinjects: number }
+/**
+ * reinjects 的语义是「距上次健康以来连续不健康的轮数」，不是「本场累计重注入次数」——
+ * 健康一次就清零。二者当前恒等，因为每个不健康轮次只有 reinject 和 end 两种去向；
+ * 将来若加入第三种不重注探针的补救动作（比如整页 reload），这个字段就必须拆开。
+ * ended 是收工闩：一旦为真，后续调用恒返回 end。
+ */
+export type WatchdogState = { reinjects: number; ended: boolean }
 export type WatchdogAction = 'ok' | 'reinject' | 'end'
 
 const MAX_REINJECTS = 2
 
 export function initialWatchdog(): WatchdogState {
-  return { reinjects: 0 }
+  return { reinjects: 0, ended: false }
 }
 
 /**
@@ -478,11 +518,15 @@ export function nextWatchdog(
   state: WatchdogState,
   h: DrainHealth,
 ): { state: WatchdogState; action: WatchdogAction } {
-  if (h.roomEnded) return { state, action: 'end' }
+  // 吸收态优先：收工过就不再改主意
+  if (state.ended) return { state, action: 'end' }
+  // status 码判结束最可靠；URL 变了说明页面整个被导航走，rehydration 读不到、
+  // 探针也无处可注 —— 这两种都立即收工，不浪费两轮重注入。
+  if (h.roomEnded || !h.onRoomUrl) return { state: { ...state, ended: true }, action: 'end' }
   const healthy = h.samples > 0 && h.observerAlive && h.hasVideo
-  if (healthy) return { state: { reinjects: 0 }, action: 'ok' }
-  if (state.reinjects >= MAX_REINJECTS) return { state, action: 'end' }
-  return { state: { reinjects: state.reinjects + 1 }, action: 'reinject' }
+  if (healthy) return { state: { reinjects: 0, ended: false }, action: 'ok' }
+  if (state.reinjects >= MAX_REINJECTS) return { state: { ...state, ended: true }, action: 'end' }
+  return { state: { reinjects: state.reinjects + 1, ended: false }, action: 'reinject' }
 }
 ```
 
@@ -492,7 +536,7 @@ export function nextWatchdog(
 node --test --experimental-strip-types src/lib/competitors/liveTrack.test.ts
 ```
 
-预期：`# pass 18`、`# fail 0`。
+预期：`# pass 25`、`# fail 0`。
 
 - [ ] **Step 5: 提交**
 
@@ -602,7 +646,7 @@ export function sessionPaths(
 node --test --experimental-strip-types src/lib/competitors/liveTrack.test.ts
 ```
 
-预期：`# pass 22`、`# fail 0`。
+预期：`# pass 29`、`# fail 0`。
 
 - [ ] **Step 5: 提交**
 
@@ -1338,11 +1382,16 @@ async function main() {
     }
 
     const alive = (await evaluate(pc, 'window.__lw ? window.__lw.alive() : false')) === true
+    // 页面被整个导航走时 rehydration JSON 读不到，roomEnded 会一直是 false，
+    // 只能落到三轮不健康的慢路上 —— 中间两轮还在往没有直播间 DOM 的页面里重注探针。
+    // URL 是这种情况下唯一还可信的信号，每轮都读，很便宜。
+    const href = String((await evaluate(pc, 'location.href')) ?? '')
     const step = nextWatchdog(wd, {
       samples: batch.length,
       observerAlive: alive,
       hasVideo: !!info?.hasVideo,
       roomEnded: heavy ? roomEnded(html) : false,
+      onRoomUrl: href.includes(`/@${handle}/live`),
     })
     wd = step.state
     if (step.action === 'reinject') {
