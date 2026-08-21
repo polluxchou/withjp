@@ -219,40 +219,48 @@ test('shots: capturedDates 去重降序，不截断，null 日期不进列表', 
   assert.equal(s.lastOn, '2026-08-19')
 })
 
-test('shots: peakViewers 取最大值，全 null 时为 null', () => {
+test('shots: peakViewersAllTime 取最大值，全 null 时为 null', () => {
   const withViewers = buildAskContext(
     board([comp({
       shots: [shot({ id: 'a', viewer_count: 312 }), shot({ id: 'b', viewer_count: 934 })],
     })]),
     new Date('2026-08-20T01:00:00Z'), 'zh',
   )
-  assert.equal(withViewers.competitors[0].shots.peakViewers, 934)
+  assert.equal(withViewers.competitors[0].shots.peakViewersAllTime, 934)
 
   const none = buildAskContext(
     board([comp({ shots: [shot({ id: 'a' })] })]),
     new Date('2026-08-20T01:00:00Z'), 'zh',
   )
-  assert.equal(none.competitors[0].shots.peakViewers, null)
+  assert.equal(none.competitors[0].shots.peakViewersAllTime, null)
 })
 
-test('shots: lastUptimeMinutes 取最近一张有完整时刻的截图', () => {
-  const ctx = buildAskContext(
-    board([comp({
-      // shots 已按 shot_on 降序（assemble.ts），这里照此顺序给。
-      shots: [
-        shot({ id: 'a', shot_on: '2026-08-19', stream_started_at: '2026-08-19T12:00:00Z', captured_at: '2026-08-19T13:36:00Z' }),
-        shot({ id: 'b', shot_on: '2026-08-17', stream_started_at: '2026-08-17T12:00:00Z', captured_at: '2026-08-17T12:30:00Z' }),
-      ],
-    })]),
-    new Date('2026-08-20T01:00:00Z'), 'zh',
-  )
-  assert.equal(ctx.competitors[0].shots.lastUptimeMinutes, 96)
+test('shots: lastShotUptimeMinutes 只认 captured_at 的最大值，与数组顺序无关', () => {
+  // 同一场（都是 11:30 开播），两张截图的采集时刻不同：40 分钟那张与 200 分钟那张。
+  // shot_on 精度只到天，同一天多张截图在库里的相对顺序不保证
+  // （两条写入路径的 sort_order 都硬编码 0，见 record-live-shot.mjs / service.ts）。
+  const early = shot({ id: 'a', shot_on: '2026-08-19', stream_started_at: '2026-08-19T11:30:00Z', captured_at: '2026-08-19T12:10:00Z' })
+  const late = shot({ id: 'b', shot_on: '2026-08-19', stream_started_at: '2026-08-19T11:30:00Z', captured_at: '2026-08-19T14:50:00Z' })
+
+  const orderA = buildAskContext(board([comp({ shots: [early, late] })]), new Date('2026-08-20T01:00:00Z'), 'zh')
+  const orderB = buildAskContext(board([comp({ shots: [late, early] })]), new Date('2026-08-20T01:00:00Z'), 'zh')
+
+  assert.equal(orderA.competitors[0].shots.lastShotUptimeMinutes, 200)
+  assert.equal(orderB.competitors[0].shots.lastShotUptimeMinutes, 200)
+})
+
+test('shots: 采集时刻最新但未标日期的截图仍参与 lastShotUptimeMinutes 判定', () => {
+  const dated = shot({ id: 'a', shot_on: '2026-08-19', stream_started_at: '2026-08-19T11:30:00Z', captured_at: '2026-08-19T12:10:00Z' })
+  const undatedNewest = shot({ id: 'b', shot_on: null, stream_started_at: '2026-08-19T11:30:00Z', captured_at: '2026-08-19T15:00:00Z' })
+
+  const ctx = buildAskContext(board([comp({ shots: [dated, undatedNewest] })]), new Date('2026-08-20T01:00:00Z'), 'zh')
+  assert.equal(ctx.competitors[0].shots.lastShotUptimeMinutes, 210)
 })
 
 test('shots: 没有任何截图时形状完整且不抛异常', () => {
   const ctx = buildAskContext(board([comp({})]), new Date('2026-08-20T01:00:00Z'), 'zh')
   assert.deepEqual(ctx.competitors[0].shots, {
-    total: 0, capturedDates: [], lastOn: null, peakViewers: null, lastUptimeMinutes: null,
+    total: 0, capturedDates: [], lastOn: null, peakViewersAllTime: null, lastShotUptimeMinutes: null,
   })
 })
 
