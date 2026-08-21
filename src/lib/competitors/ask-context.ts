@@ -7,6 +7,7 @@
 //
 // 零 IO、零时钟：now 由调用方注入，才能把跨日、跨时区的行为钉死在单测里。
 import { timeZoneForLocale } from '../time/localeZone.ts'
+import { summarizeLiveHabit } from './liveSlots.ts'
 import type { CompetitorBoard, CompetitorWithHistory } from './types.ts'
 
 /** 截图日期列（shot_on）按东京业务日落库，日期比较必须用同一个日历。 */
@@ -49,9 +50,24 @@ export interface AskFollowers {
   confidence: Confidence
 }
 
+export interface AskLiveSlot {
+  /** HH:mm，已按 meta.displayTimeZone 换算。 */
+  at: string
+  sessions: number
+}
+
+export interface AskLiveHabit {
+  slots: AskLiveSlot[]
+  /** 去重后的总场次（同一场的多张截图只算一次）。 */
+  sessions: number
+  latestStartedAt: string | null
+  confidence: Confidence
+}
+
 export interface AskCompetitor {
   handle: string
   followers: AskFollowers
+  liveHabit: AskLiveHabit
 }
 
 /** Date → 指定时区的 YYYY-MM-DD。不用 toISOString（那是 UTC）。 */
@@ -100,11 +116,26 @@ function followersOf(c: CompetitorWithHistory): AskFollowers {
   }
 }
 
+/**
+ * 开播作息。门槛沿用 liveSlots 的 SLOT_MIN_SESSIONS（默认 3 场才成档）——
+ * 不达标时 slots 为空，模型就没有任何可用来谈"规律"的原料，只剩最近一场这个硬事实。
+ */
+function liveHabitOf(c: CompetitorWithHistory, timeZone: string): AskLiveHabit {
+  const habit = summarizeLiveHabit(c.shots.map((s) => s.stream_started_at), timeZone)
+  return {
+    slots: habit.slots.map((s) => ({ at: s.label, sessions: s.count })),
+    sessions: habit.sessions,
+    latestStartedAt: habit.latestStartedAt,
+    confidence: habit.slots.length > 0 ? 'ok' : 'insufficient',
+  }
+}
+
 export function buildAskContext(board: CompetitorBoard, now: Date, locale: string): AskContext {
+  const displayTimeZone = timeZoneForLocale(locale)
   return {
     meta: {
       todayTokyo: dayIn(now, SHOT_TZ),
-      displayTimeZone: timeZoneForLocale(locale),
+      displayTimeZone,
       coverage: {
         competitors: 0, roots: board.competitors.length, withMetrics: 0,
         metricsDays: 0, shotDays: 0, sessionsWithStartTime: 0,
@@ -114,6 +145,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
     competitors: board.competitors.map((c) => ({
       handle: c.handle,
       followers: followersOf(c),
+      liveHabit: liveHabitOf(c, displayTimeZone),
     })),
   }
 }

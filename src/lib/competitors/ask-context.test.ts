@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { buildAskContext } from './ask-context.ts'
-import type { CompetitorBoard, CompetitorWithHistory } from './types.ts'
+import type { CompetitorBoard, CompetitorShot, CompetitorWithHistory } from './types.ts'
 
 /** 造一个字段齐全的竞品，只覆盖测试关心的部分。 */
 function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory {
@@ -121,4 +121,81 @@ test('followers: 完全没有快照时全为 null', () => {
     latest: null, on: null, prev: null, prevOn: null,
     delta: null, spanDays: null, confidence: 'insufficient',
   })
+})
+
+function shot(over: Partial<CompetitorShot> = {}): CompetitorShot {
+  return {
+    id: over.id ?? 'shot-1',
+    competitor_id: 'id-1',
+    image_url: 'https://example.test/a.jpg',
+    shot_on: over.shot_on ?? null,
+    tag: null,
+    caption: '',
+    sort_order: over.sort_order ?? 0,
+    created_at: '2026-08-19T13:00:00Z',
+    viewer_count: over.viewer_count ?? null,
+    stream_started_at: over.stream_started_at ?? null,
+    captured_at: over.captured_at ?? null,
+  }
+}
+
+test('liveHabit: 三场同档达到门槛，confidence 为 ok', () => {
+  // 三场都在东京 21:2x → zh 界面（上海，比东京晚一小时）应显示 20:2x。
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [
+        shot({ id: 's1', stream_started_at: '2026-08-19T12:28:00Z' }),
+        shot({ id: 's2', stream_started_at: '2026-08-18T12:30:00Z' }),
+        shot({ id: 's3', stream_started_at: '2026-08-17T12:26:00Z' }),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const h = ctx.competitors[0].liveHabit
+  assert.equal(h.confidence, 'ok')
+  assert.equal(h.slots.length, 1)
+  assert.equal(h.slots[0].at, '20:28')
+  assert.equal(h.slots[0].sessions, 3)
+  assert.equal(h.sessions, 3)
+  assert.equal(h.latestStartedAt, '2026-08-19T12:28:00Z')
+})
+
+test('liveHabit: 同一场的多张截图只算一次场次', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [
+        shot({ id: 's1', stream_started_at: '2026-08-19T12:28:00Z' }),
+        shot({ id: 's2', stream_started_at: '2026-08-19T12:28:00Z' }),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  assert.equal(ctx.competitors[0].liveHabit.sessions, 1)
+})
+
+test('liveHabit: 不足三场时 slots 为空且 confidence 为 insufficient，但保留最近一场', () => {
+  const ctx = buildAskContext(
+    board([comp({ shots: [shot({ stream_started_at: '2026-08-19T12:28:00Z' })] })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const h = ctx.competitors[0].liveHabit
+  assert.equal(h.confidence, 'insufficient')
+  assert.deepEqual(h.slots, [])
+  assert.equal(h.latestStartedAt, '2026-08-19T12:28:00Z')
+})
+
+test('liveHabit: 钟点随界面语言换算，同一时刻中日相差一小时', () => {
+  const shots = [
+    shot({ id: 's1', stream_started_at: '2026-08-19T12:28:00Z' }),
+    shot({ id: 's2', stream_started_at: '2026-08-18T12:30:00Z' }),
+    shot({ id: 's3', stream_started_at: '2026-08-17T12:26:00Z' }),
+  ]
+  const now = new Date('2026-08-20T01:00:00Z')
+  const zh = buildAskContext(board([comp({ shots })]), now, 'zh')
+  const ja = buildAskContext(board([comp({ shots })]), now, 'ja')
+  assert.equal(zh.competitors[0].liveHabit.slots[0].at, '20:28')
+  assert.equal(ja.competitors[0].liveHabit.slots[0].at, '21:28')
 })
