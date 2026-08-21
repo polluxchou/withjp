@@ -179,7 +179,7 @@ git commit -m "feat(live-track): 下播判定 roomEnded(状态码 4 且无 2)+ �
 import { normalizeSample, type ProbeSample } from './liveTrack.ts'
 
 const probeSample = (over: Partial<ProbeSample> = {}): ProbeSample => ({
-  t: 1_755_000_600_000, // 2026-08-12T12:10:00Z
+  t: 1_786_536_600_000, // 2026-08-12T12:10:00Z
   viewer: '1.2K',
   followers: '34.5M',
   likes: '2,340',
@@ -191,7 +191,7 @@ const probeSample = (over: Partial<ProbeSample> = {}): ProbeSample => ({
 })
 
 test('normalizeSample: 文本计数转数字，算出距开播秒数', () => {
-  const s = normalizeSample(probeSample(), 1_755_000_000) // 开播比采样早 600 秒
+  const s = normalizeSample(probeSample(), 1_786_536_000) // 开播比采样早 600 秒
   assert.equal(s.viewer_count, 1200)
   assert.equal(s.follower_count, 34_500_000)
   assert.equal(s.like_total, 2340)
@@ -206,21 +206,21 @@ test('normalizeSample: 开播时间未知则 elapsed_seconds 为 null，不猜',
 })
 
 test('normalizeSample: 读不到的字段是 null，不是 0', () => {
-  const s = normalizeSample(probeSample({ viewer: null, followers: '', likes: 'N/A' }), 1_755_000_000)
+  const s = normalizeSample(probeSample({ viewer: null, followers: '', likes: 'N/A' }), 1_786_536_000)
   assert.equal(s.viewer_count, null)
   assert.equal(s.follower_count, null)
   assert.equal(s.like_total, null)
 })
 
 test('normalizeSample: 自检信息原样带进 raw，供报表判可信度', () => {
-  const s = normalizeSample(probeSample({ observerAlive: false }), 1_755_000_000)
+  const s = normalizeSample(probeSample({ observerAlive: false }), 1_786_536_000)
   assert.equal(s.raw.observer_alive, false)
   assert.equal(s.raw.selectors_ok.viewer, '[data-e2e="x"]')
   assert.equal(s.raw.selectors_ok.followers, null)
 })
 
 test('normalizeSample: 采样早于开播时间时 elapsed 不为负，钳到 0', () => {
-  const s = normalizeSample(probeSample(), 1_755_000_900) // 开播晚于采样 300 秒
+  const s = normalizeSample(probeSample(), 1_786_536_900) // 开播晚于采样 300 秒
   assert.equal(s.elapsed_seconds, 0)
 })
 ```
@@ -478,8 +478,8 @@ git commit -m "feat(live-track): 看门狗状态机(重注入两次仍无数据�
 import { sessionPaths } from './liveTrack.ts'
 
 test('sessionPaths: 目录名用日本时间的 YYYYMMDD-HHmm', () => {
-  // 1755000000 = 2026-08-12T11:20:00Z = JST 20:20
-  const p = sessionPaths('/base', 'blank.s9', 1_755_000_000)
+  // 1786533600 = 2026-08-12T11:20:00Z = JST 20:20
+  const p = sessionPaths('/base', 'blank.s9', 1_786_533_600)
   assert.equal(p.dir, '/base/blank.s9/20260812-2020')
   assert.equal(p.samples, '/base/blank.s9/20260812-2020/samples.jsonl')
   assert.equal(p.frames, '/base/blank.s9/20260812-2020/frames')
@@ -487,12 +487,12 @@ test('sessionPaths: 目录名用日本时间的 YYYYMMDD-HHmm', () => {
 })
 
 test('sessionPaths: JST 深夜档归到 JST 当天，不被 UTC 拉回前一天', () => {
-  // 1755014400 = 2026-08-12T15:20:00Z = JST 08-13 00:20
-  assert.equal(sessionPaths('/base', 'x', 1_755_014_400).dir, '/base/x/20260813-0020')
+  // 1786548000 = 2026-08-12T15:20:00Z = JST 08-13 00:20
+  assert.equal(sessionPaths('/base', 'x', 1_786_548_000).dir, '/base/x/20260813-0020')
 })
 
 test('sessionPaths: handle 里的危险字符换成下划线', () => {
-  assert.equal(sessionPaths('/base', 'a/b c', 1_755_000_000).dir, '/base/a_b_c/20260812-2020')
+  assert.equal(sessionPaths('/base', 'a/b c', 1_786_533_600).dir, '/base/a_b_c/20260812-2020')
 })
 
 test('sessionPaths: 开播时间未知时用 unknown 占位，仍然能落盘', () => {
