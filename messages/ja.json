@@ -230,13 +230,24 @@
     "switchHint": "固定レートで表示通貨を切り替え（1 USD = 7 CNY；1 CNY = 20 JPY）"
   },
   "intent": {
-    "openButtonLabel": "テキストで操作",
     "venuePlaceholder": "一言で会場を編集（現在のキャンバスのみ）。例：スペース「スタジオA」5×8m を追加 / 化粧室を90度回転 / ガレージ通路を削除",
     "venueConfirm": "キャンバスに適用",
     "venueCancel": "キャンセル",
-    "openButtonTooltip": "自然言語で操作 (⌘K)",
-    "modalTitle": "一言で操作する",
-    "placeholder": "一文で操作してください（v1は支出管理のみ対応）。例：Q3の給与のうちMCはどのくらい / 5月10日の交通費 320元を追加",
+    "bubbleLabel": "テキストで操作 (⌘K)",
+    "panelTitle": "テキストで操作",
+    "panelCollapse": "折りたたむ",
+    "venueScopeTag": "現在のキャンバス",
+    "composerPlaceholder": "一言で伝えてください。こちらで実行します",
+    "composerHint": "Enter で送信 · Shift+Enter で改行",
+    "emptyGreeting": "一言で大丈夫です。現在は支出管理と稼働タスクに対応しています。例：",
+    "examples": [
+      "Q3の給与のうちMCはどのくらい",
+      "5月10日の交通費 320元を追加",
+      "先月の支出が多かった上位3カテゴリ"
+    ],
+    "appliedNote": "適用しました",
+    "cancelledNote": "キャンセルしました",
+    "thinking": "確認しています…",
     "sendButtonLabel": "送信",
     "query": {
       "emptyDenom": {
@@ -263,13 +274,6 @@
       "groupValueCol": "値",
       "groupCountCol": "件数",
       "sampleHint": "{count} 件のサンプルを返しました。全件絞り込みは支出一覧ページで操作してください。"
-    },
-    "clarification": {
-      "tableLabel": "候補レコード",
-      "dateCol": "日付",
-      "nameCol": "名称",
-      "amountCol": "金額",
-      "buyerCol": "担当者"
     },
     "emptyHint": {
       "suggestionsHeader": "こう調整してみましょう："

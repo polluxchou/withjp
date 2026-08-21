@@ -1,46 +1,25 @@
 import { ExpenseIntentSchema, WorkTaskCreateIntentSchema, type ExpenseIntent, type WorkTaskCreateIntent } from './schema'
-
-// ── Gemini transport ──────────────────────────────────────────
-// Minimal local shim — keeps src/lib/agents/providers.ts unchanged.
-
-function geminiApiKey(): string {
-  const key = process.env.GEMINI_API_KEY
-  if (!key) throw new Error('GEMINI_API_KEY is not configured')
-  return key
-}
-
-function geminiBaseUrl(): string {
-  return (process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com').replace(/\/$/, '')
-}
-
-async function geminiJson(model: string, prompt: string): Promise<string> {
-  const url = `${geminiBaseUrl()}/v1beta/models/${model}:generateContent?key=${geminiApiKey()}`
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents:         [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0 },
-    }),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Gemini ${res.status}: ${text}`)
-  }
-  const data = await res.json()
-  return (data.candidates?.[0]?.content?.parts?.[0]?.text as string) ?? ''
-}
+import { MAX_PRIOR_OUTCOME_CHARS, type PriorContext } from './conversation'
+import { describeModel, llmJson, type LlmModel } from '@/lib/llm/json'
+import { STRONG_MODEL, fastModel } from '@/lib/llm/models'
 
 // ── Model selection ───────────────────────────────────────────
-
-const MODEL_FLASH = 'gemini-2.5-flash'
-const MODEL_PRO   = 'gemini-2.5-pro'
+// 传输层与档位选择都在 src/lib/llm/ 下（本文件原有的 Gemini shim 已并入
+// llmJson —— venue-intent.ts 里那份功能相同的拷贝也一起消掉了）。
+//
+// 快档默认 deepseek-chat，可用 INTENT_FAST_PROVIDER=gemini 退回 flash；
+// 强档恒为 gemini-2.5-pro，写操作与降级都走它。
 
 // ── Public types ──────────────────────────────────────────────
 
 export interface ParserContext {
   todayISO: string                  // YYYY-MM-DD
   userTimezoneOffset?: string       // e.g. '+08:00'; for prompt context only
+  // 上一轮对话（只带一轮）。用于消解「改成 350」「那再加一笔」这类指代。
+  // 来源是客户端，属不可信输入：它只进 prompt，不影响任何授权判断，也不
+  // 绕过 executor 的字段校验与 per-op 闸门——写操作照旧走 pending_actions
+  // 暂存 + 显式确认。这是可以接受客户端传上下文的唯一理由。
+  priorTurn?: PriorContext
 }
 
 export type ClassifiedKind = 'write' | 'query' | 'unknown'
@@ -68,7 +47,7 @@ async function classify(text: string): Promise<IntentKind> {
 
 输入：${JSON.stringify(text)}`
   try {
-    const raw = await geminiJson(MODEL_FLASH, prompt)
+    const raw = await llmJson(fastModel(), prompt)
     const obj = JSON.parse(raw) as { kind?: string }
     if (obj.kind === 'write' || obj.kind === 'query') return obj.kind
     return 'unknown'
@@ -139,6 +118,20 @@ const RULES = `
 7. 只输出 JSON，不要 markdown 围栏，不要解释文字。
 `
 
+// 上一轮的 prompt 片段。没有上一轮时返回空串，prompt 与改造前逐字一致——
+// 单轮场景的行为不因本次改动漂移。
+function priorHint(prior: PriorContext | undefined): string {
+  if (!prior) return ''
+  return [
+    '',
+    '【上一轮对话】仅用于消解本句里的指代（「改成 350」「那再加一笔」「上一条」）。',
+    `上一轮用户说：${JSON.stringify(prior.text)}`,
+    `系统回了：${JSON.stringify(prior.outcome.slice(0, MAX_PRIOR_OUTCOME_CHARS))}`,
+    '如果本句自身信息完整，忽略上一轮。',
+    '',
+  ].join('\n')
+}
+
 function buildExtractPrompt(text: string, ctx: ParserContext, kind: IntentKind): string {
   const hint = kind === 'write'
     ? '本句话已被分类为"写操作"（create / update / delete）。'
@@ -148,21 +141,23 @@ function buildExtractPrompt(text: string, ctx: ParserContext, kind: IntentKind):
   return `今天是 ${ctx.todayISO}。
 
 ${hint}
-
+${priorHint(ctx.priorTurn)}
 ${SCHEMA_DOC}
 ${RULES}
 
 用户输入：${JSON.stringify(text)}`
 }
 
+// model 由调用方显式传入。改造前这里按 kind 推导（query → flash），导致
+// parseExpenseIntent 的降级分支复用同一个 kind 时又选回了快档 —— 见下方。
 async function extract(
-  text: string,
-  ctx: ParserContext,
-  kind: IntentKind,
+  text:  string,
+  ctx:   ParserContext,
+  kind:  IntentKind,
+  model: LlmModel,
 ): Promise<{ raw: string; modelUsed: string }> {
-  const model = kind === 'query' ? MODEL_FLASH : MODEL_PRO
-  const raw = await geminiJson(model, buildExtractPrompt(text, ctx, kind))
-  return { raw, modelUsed: model }
+  const raw = await llmJson(model, buildExtractPrompt(text, ctx, kind))
+  return { raw, modelUsed: describeModel(model) }
 }
 
 // ── Public entry ──────────────────────────────────────────────
@@ -175,8 +170,9 @@ export async function parseExpenseIntent(
   try {
     const kind = await classify(text)
 
-    // First attempt: cost-tier picked by classification.
-    const first = await extract(text, ctx, kind)
+    // 快档只用于查询；写操作直接上强档（写错了要落库，不省这一次调用的钱）。
+    const firstModel = kind === 'query' ? fastModel() : STRONG_MODEL
+    const first = await extract(text, ctx, kind, firstModel)
     const firstParsed = tryParse(first.raw)
     if (firstParsed.success) {
       return {
@@ -188,17 +184,21 @@ export async function parseExpenseIntent(
       }
     }
 
-    // Fallback: re-run on pro if we used flash.
-    if (first.modelUsed !== MODEL_PRO) {
-      const second = await extract(text, ctx, kind)
-      // ^ same prompt; pro will re-extract.
+    // 降级：首轮不是强档时，显式用强档重跑一次。
+    //
+    // 改造前这里复用 extract 的 kind 推导（query → flash），于是 kind === 'query'
+    // 时「降级」其实是再跑一遍同一个快档模型 —— temperature 0 下同 prompt 同模型
+    // 近似确定性，那次重试基本是空转，却把 modelUsed 报成了 pro。换成 DeepSeek
+    // 之后这条正是整个降级设计的意义所在（从 DeepSeek 逃到 Gemini pro）。
+    if (describeModel(firstModel) !== describeModel(STRONG_MODEL)) {
+      const second = await extract(text, ctx, kind, STRONG_MODEL)
       const secondParsed = tryParse(second.raw)
       if (secondParsed.success) {
         return {
           ok:          true,
           intent:      secondParsed.data,
           classifiedAs: kind,
-          modelUsed:    MODEL_PRO,
+          modelUsed:    second.modelUsed,
           durationMs:   Date.now() - t0,
         }
       }
@@ -249,7 +249,7 @@ function stripFences(s: string): string {
 // Determines whether input is about expenses or work tasks before
 // routing to the appropriate parser.
 
-export async function classifyEntity(text: string): Promise<EntityKind> {
+export async function classifyEntity(text: string, prior?: PriorContext): Promise<EntityKind> {
   const prompt = `判断下面这句话的意图类型。
 
 判断核心原则：
@@ -260,10 +260,10 @@ export async function classifyEntity(text: string): Promise<EntityKind> {
 判断顺序：先问"这是在记一笔账吗？"——如果是，expense；如果是在描述要做某件事，work_task。
 
 只返回 JSON：{"entity":"expense"} 或 {"entity":"work_task"} 或 {"entity":"unknown"}。
-
+${priorHint(prior)}
 输入：${JSON.stringify(text)}`
   try {
-    const raw = await geminiJson(MODEL_FLASH, prompt)
+    const raw = await llmJson(fastModel(), prompt)
     const obj = JSON.parse(raw) as { entity?: string }
     if (obj.entity === 'expense' || obj.entity === 'work_task') return obj.entity
     return 'unknown'
@@ -315,11 +315,11 @@ export async function parseWorkTaskIntent(
 ): Promise<WorkTaskParserResult> {
   const t0 = Date.now()
   try {
-    const prompt = `今天是 ${ctx.todayISO}。\n\n${WORK_TASK_SCHEMA_DOC}\n${WORK_TASK_RULES}\n\n用户输入：${JSON.stringify(text)}`
-    const raw    = await geminiJson(MODEL_PRO, prompt)
+    const prompt = `今天是 ${ctx.todayISO}。\n\n${WORK_TASK_SCHEMA_DOC}\n${WORK_TASK_RULES}\n${priorHint(ctx.priorTurn)}\n用户输入：${JSON.stringify(text)}`
+    const raw    = await llmJson(STRONG_MODEL, prompt)
     const parsed = tryParseWorkTask(raw)
     if (parsed.success) {
-      return { ok: true, intent: parsed.data, modelUsed: MODEL_PRO, durationMs: Date.now() - t0 }
+      return { ok: true, intent: parsed.data, modelUsed: describeModel(STRONG_MODEL), durationMs: Date.now() - t0 }
     }
     return { ok: false, reason: parsed.error, durationMs: Date.now() - t0 }
   } catch (e) {
