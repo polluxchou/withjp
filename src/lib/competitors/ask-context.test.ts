@@ -423,6 +423,52 @@ test('health: 最新快照 followers 为 null 时仍以 latest.captured_on 算�
   assert.equal(ctx.competitors[0].followers.on, '2026-08-05')
 })
 
+test('regionMismatch: 主页语言能推出地区且与人工地区冲突时为 true', () => {
+  // 生产事故原型：_k.queens 在库里被填成 JP，主页语言其实是 ko。
+  const ctx = buildAskContext(
+    board([comp({
+      region: 'JP',
+      history: [point('2026-08-17', 50000)],
+      latest: snap({ captured_on: '2026-08-17', followers: 50000, language: 'ko' }),
+    })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  const c = ctx.competitors[0]
+  assert.equal(c.observedLanguage, 'ko')
+  assert.equal(c.regionMismatch, true)
+})
+
+test('regionMismatch: 语言与地区一致、或语言推不出地区、或从未观测到语言时都为 false', () => {
+  const now = new Date('2026-08-20T01:00:00Z')
+
+  const consistent = buildAskContext(
+    board([comp({
+      region: 'JP',
+      history: [point('2026-08-17', 50000)],
+      latest: snap({ captured_on: '2026-08-17', followers: 50000, language: 'ja' }),
+    })]),
+    now, 'zh',
+  )
+  assert.equal(consistent.competitors[0].regionMismatch, false)
+
+  const crossRegionLanguage = buildAskContext(
+    board([comp({
+      region: 'JP',
+      history: [point('2026-08-17', 50000)],
+      latest: snap({ captured_on: '2026-08-17', followers: 50000, language: 'en' }),
+    })]),
+    now, 'zh',
+  )
+  assert.equal(crossRegionLanguage.competitors[0].regionMismatch, false)
+
+  const noObservation = buildAskContext(
+    board([comp({ region: 'JP', history: [point('2026-08-17', 50000)] })]),
+    now, 'zh',
+  )
+  assert.equal(noObservation.competitors[0].regionMismatch, false)
+  assert.equal(noObservation.competitors[0].observedLanguage, null)
+})
+
 test('父子：子主播独立成条目并带 parentHandle，isChild 为 true', () => {
   const child = comp({ id: 'c-1', handle: 'kid', parent_id: 'id-1' })
   const ctx = buildAskContext(
