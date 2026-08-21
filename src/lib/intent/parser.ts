@@ -1,41 +1,14 @@
 import { ExpenseIntentSchema, WorkTaskCreateIntentSchema, type ExpenseIntent, type WorkTaskCreateIntent } from './schema'
 import { MAX_PRIOR_OUTCOME_CHARS, type PriorContext } from './conversation'
-
-// ── Gemini transport ──────────────────────────────────────────
-// Minimal local shim — keeps src/lib/agents/providers.ts unchanged.
-
-function geminiApiKey(): string {
-  const key = process.env.GEMINI_API_KEY
-  if (!key) throw new Error('GEMINI_API_KEY is not configured')
-  return key
-}
-
-function geminiBaseUrl(): string {
-  return (process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com').replace(/\/$/, '')
-}
-
-async function geminiJson(model: string, prompt: string): Promise<string> {
-  const url = `${geminiBaseUrl()}/v1beta/models/${model}:generateContent?key=${geminiApiKey()}`
-  const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents:         [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0 },
-    }),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Gemini ${res.status}: ${text}`)
-  }
-  const data = await res.json()
-  return (data.candidates?.[0]?.content?.parts?.[0]?.text as string) ?? ''
-}
+import { describeModel, llmJson, type LlmModel } from '@/lib/llm/json'
+import { STRONG_MODEL, fastModel } from '@/lib/llm/models'
 
 // ── Model selection ───────────────────────────────────────────
-
-const MODEL_FLASH = 'gemini-2.5-flash'
-const MODEL_PRO   = 'gemini-2.5-pro'
+// 传输层与档位选择都在 src/lib/llm/ 下（本文件原有的 Gemini shim 已并入
+// llmJson —— venue-intent.ts 里那份功能相同的拷贝也一起消掉了）。
+//
+// 快档默认 deepseek-chat，可用 INTENT_FAST_PROVIDER=gemini 退回 flash；
+// 强档恒为 gemini-2.5-pro，写操作与降级都走它。
 
 // ── Public types ──────────────────────────────────────────────
 
@@ -74,7 +47,7 @@ async function classify(text: string): Promise<IntentKind> {
 
 输入：${JSON.stringify(text)}`
   try {
-    const raw = await geminiJson(MODEL_FLASH, prompt)
+    const raw = await llmJson(fastModel(), prompt)
     const obj = JSON.parse(raw) as { kind?: string }
     if (obj.kind === 'write' || obj.kind === 'query') return obj.kind
     return 'unknown'
@@ -175,14 +148,16 @@ ${RULES}
 用户输入：${JSON.stringify(text)}`
 }
 
+// model 由调用方显式传入。改造前这里按 kind 推导（query → flash），导致
+// parseExpenseIntent 的降级分支复用同一个 kind 时又选回了快档 —— 见下方。
 async function extract(
-  text: string,
-  ctx: ParserContext,
-  kind: IntentKind,
+  text:  string,
+  ctx:   ParserContext,
+  kind:  IntentKind,
+  model: LlmModel,
 ): Promise<{ raw: string; modelUsed: string }> {
-  const model = kind === 'query' ? MODEL_FLASH : MODEL_PRO
-  const raw = await geminiJson(model, buildExtractPrompt(text, ctx, kind))
-  return { raw, modelUsed: model }
+  const raw = await llmJson(model, buildExtractPrompt(text, ctx, kind))
+  return { raw, modelUsed: describeModel(model) }
 }
 
 // ── Public entry ──────────────────────────────────────────────
@@ -195,8 +170,9 @@ export async function parseExpenseIntent(
   try {
     const kind = await classify(text)
 
-    // First attempt: cost-tier picked by classification.
-    const first = await extract(text, ctx, kind)
+    // 快档只用于查询；写操作直接上强档（写错了要落库，不省这一次调用的钱）。
+    const firstModel = kind === 'query' ? fastModel() : STRONG_MODEL
+    const first = await extract(text, ctx, kind, firstModel)
     const firstParsed = tryParse(first.raw)
     if (firstParsed.success) {
       return {
@@ -208,17 +184,21 @@ export async function parseExpenseIntent(
       }
     }
 
-    // Fallback: re-run on pro if we used flash.
-    if (first.modelUsed !== MODEL_PRO) {
-      const second = await extract(text, ctx, kind)
-      // ^ same prompt; pro will re-extract.
+    // 降级：首轮不是强档时，显式用强档重跑一次。
+    //
+    // 改造前这里复用 extract 的 kind 推导（query → flash），于是 kind === 'query'
+    // 时「降级」其实是再跑一遍同一个快档模型 —— temperature 0 下同 prompt 同模型
+    // 近似确定性，那次重试基本是空转，却把 modelUsed 报成了 pro。换成 DeepSeek
+    // 之后这条正是整个降级设计的意义所在（从 DeepSeek 逃到 Gemini pro）。
+    if (describeModel(firstModel) !== describeModel(STRONG_MODEL)) {
+      const second = await extract(text, ctx, kind, STRONG_MODEL)
       const secondParsed = tryParse(second.raw)
       if (secondParsed.success) {
         return {
           ok:          true,
           intent:      secondParsed.data,
           classifiedAs: kind,
-          modelUsed:    MODEL_PRO,
+          modelUsed:    second.modelUsed,
           durationMs:   Date.now() - t0,
         }
       }
@@ -283,7 +263,7 @@ export async function classifyEntity(text: string, prior?: PriorContext): Promis
 ${priorHint(prior)}
 输入：${JSON.stringify(text)}`
   try {
-    const raw = await geminiJson(MODEL_FLASH, prompt)
+    const raw = await llmJson(fastModel(), prompt)
     const obj = JSON.parse(raw) as { entity?: string }
     if (obj.entity === 'expense' || obj.entity === 'work_task') return obj.entity
     return 'unknown'
@@ -336,10 +316,10 @@ export async function parseWorkTaskIntent(
   const t0 = Date.now()
   try {
     const prompt = `今天是 ${ctx.todayISO}。\n\n${WORK_TASK_SCHEMA_DOC}\n${WORK_TASK_RULES}\n${priorHint(ctx.priorTurn)}\n用户输入：${JSON.stringify(text)}`
-    const raw    = await geminiJson(MODEL_PRO, prompt)
+    const raw    = await llmJson(STRONG_MODEL, prompt)
     const parsed = tryParseWorkTask(raw)
     if (parsed.success) {
-      return { ok: true, intent: parsed.data, modelUsed: MODEL_PRO, durationMs: Date.now() - t0 }
+      return { ok: true, intent: parsed.data, modelUsed: describeModel(STRONG_MODEL), durationMs: Date.now() - t0 }
     }
     return { ok: false, reason: parsed.error, durationMs: Date.now() - t0 }
   } catch (e) {
