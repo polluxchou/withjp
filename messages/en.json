@@ -1714,7 +1714,27 @@
     "navFilterPlaceholder": "Filter by name",
     "navNoMatch": "No matching account",
     "navMissingShot": "no shot that day",
-    "navJumpTo": "Jump to {name}"
+    "navJumpTo": "Jump to {name}",
+    "ask": {
+      "open": "Ask the data",
+      "title": "Ask about competitors",
+      "close": "Close",
+      "placeholder": "e.g. Who grew fastest last week / When does solulune usually go live",
+      "send": "Send",
+      "thinking": "Looking it up…",
+      "emptyHint": "Answers come only from captured data — no guessing. Try asking:",
+      "example1": "Who grew fastest last week",
+      "example2": "When does solulune usually go live",
+      "example3": "Which competitors are due for a refresh",
+      "errorNotConfigured": "Chat is not configured yet. Ask an admin to set DEEPSEEK_API_KEY.",
+      "errorUpstream": "Could not get an answer. Try again.",
+      "errorBadRequest": "That message could not be sent. Try rephrasing it.",
+      "errorUnauthorized": "Your session has expired. Please sign in again.",
+      "errorBoard": "Could not load competitor data. Try again later.",
+      "copyError": "Copy error",
+      "copyTooltip": "Copy the full error and send it to a developer",
+      "copied": "Copied"
+    }
   },
   "site": {
     "meta": {
