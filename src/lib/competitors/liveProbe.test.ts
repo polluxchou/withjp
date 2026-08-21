@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect, defaultProbeConfig, probeSource } from './liveProbe.ts'
+import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect, clipSource, defaultProbeConfig, probeSource } from './liveProbe.ts'
 
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
@@ -292,6 +292,14 @@ test('clipRect: 带上元素在页面里的偏移', () => {
   assert.deepEqual(r, { x: 100, y: 125, width: 800, height: 450 })
 })
 
+test('clipRect: 两条边各自取整，不把黑边多裁进来一列', () => {
+  // 真实画面横跨 x 229.701 → 370.299。分别 round 位置和尺寸会得到 x=230,width=141
+  // （右边缘 371，多吃一列 70% 是黑边的像素）；按边取整得 x=230,width=140。
+  // 第二期要拿 dHash 给截图去重，多一列黑边会扰动哈希。
+  const r = clipRect({ x: 0, y: 0, width: 600, height: 400 }, 200, 569, 'contain', '50% 50%')
+  assert.deepEqual(r, { x: 230, y: 0, width: 140, height: 400 })
+})
+
 test('CLIP_FACTORY_SRC 是可解析的 JS', () => {
   assert.doesNotThrow(() => new Function(`return (${CLIP_FACTORY_SRC})`))
 })
@@ -323,15 +331,20 @@ test('CLIP_FACTORY_SRC 与 clipRect 对每个分支算出同一个矩形（两�
     ['contain', '50% 50%', 1920, 1080],
     ['contain', '50% 0%', 1080, 1920],
     ['cover', '50% 50%', 1920, 1080],
+    // cover 且视频比盒子更「窄高」——之前所有 cover 用例都是 1920x1080，
+    // else 分支(视频比盒子更窄)在两份算式里都没被走到过，漂了也测不出来。
+    ['cover', '50% 50%', 1080, 1920],
     ['fill', '50% 50%', 1920, 1080],
   ]
   for (const [fit, pos, vw, vh] of cases) {
-    const { doc, win } = makeVideoDoc(box, vw, vh, fit, pos)
+    const { doc, win, video } = makeVideoDoc(box, vw, vh, fit, pos)
     assert.deepEqual(
       clipFactory(win, doc).clip,
       clipRect(box, vw, vh, fit, pos),
       `${fit} / ${pos}：页内算式和纯函数漂了，改一处没改另一处`,
     )
+    // 静音只在「未就绪」那条路径上测过，就绪路径的回归查不出来 —— 这里补上。
+    assert.equal(video.muted, true, `${fit} / ${pos}：就绪路径也必须静音`)
   }
 })
 
@@ -342,4 +355,26 @@ test('CLIP_FACTORY_SRC: 静音，且 readyState<2 时不给 clip', () => {
   assert.equal(video.muted, true, '挂一整场不能出声')
   assert.equal(r.ready, false)
   assert.equal(r.clip, null, 'ready=false 还给 clip，调用方拿它去截就是一张黑帧')
+})
+
+test('CLIP_FACTORY_SRC: 页面上没有 <video> 时如实报告，不编造矩形', () => {
+  const r = clipFactory({ getComputedStyle: () => ({}) }, { querySelector: () => null })
+  assert.equal(r.hasVideo, false)
+  assert.equal(r.ready, false)
+  assert.equal(r.clip, null)
+})
+
+test('CLIP_FACTORY_SRC: video 在但还没拿到尺寸时不给 clip，且照样静音', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 0, 0, 'contain', '50% 50%')
+  const r = clipFactory(win, doc)
+  assert.equal(r.hasVideo, true)
+  assert.equal(r.ready, false)
+  assert.equal(r.clip, null)
+  assert.equal(video.muted, true, '还没出画面也要先静音,别让它出声')
+})
+
+test('clipSource: 组装出的表达式能被解析', () => {
+  assert.match(clipSource(), /^\(function \(win, doc\)/)
+  assert.doesNotThrow(() => new Function(`return ${clipSource().replace('(window, document)', '(arguments[0], arguments[1])')}`))
 })

@@ -235,12 +235,14 @@ export function clipRect(
   const p = objectPosition.split(' ')
   const fx = pct(p[0]) / 100
   const fy = pct(p[1]) / 100
-  return {
-    x: Math.round(box.x + (box.width - w) * fx),
-    y: Math.round(box.y + (box.height - h) * fy),
-    width: Math.round(w),
-    height: Math.round(h),
-  }
+  // 分别 round 位置和尺寸，误差会在远边叠加，最多把一整列黑边裁进画面
+  // （实测：box 600x400、视频 200x569、contain 居中，真实右边缘 370.3，
+  // 独立 round 会给出 371）。改成两条边各自 round、尺寸取差值。
+  const x0 = Math.round(box.x + (box.width - w) * fx)
+  const y0 = Math.round(box.y + (box.height - h) * fy)
+  const x1 = Math.round(box.x + (box.width - w) * fx + w)
+  const y1 = Math.round(box.y + (box.height - h) * fy + h)
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 
 /**
@@ -257,7 +259,7 @@ export const CLIP_FACTORY_SRC = `function (win, doc) {
   var r = v.getBoundingClientRect()
   var cs = win.getComputedStyle(v)
   var iw = v.videoWidth, ih = v.videoHeight
-  if (!iw || !ih) return { hasVideo: true, ready: false, clip: null }
+  if (!iw || !ih) return { hasVideo: true, ready: false, muted: !!v.muted, clip: null }
   // readyState<2 = 有尺寸但还没画出第一帧。这时给出 clip 会诱使调用方拿它去截 ——
   // 截到的是黑帧。未就绪一律不给 clip，让「能不能截」只有 ready 一个判据。
   if (v.readyState < 2) return { hasVideo: true, ready: false, muted: !!v.muted, clip: null }
@@ -281,17 +283,23 @@ export const CLIP_FACTORY_SRC = `function (win, doc) {
   var p = (cs.objectPosition || '50% 50%').split(' ')
   var fx = pct(p[0]) / 100
   var fy = pct(p[1]) / 100
+  // 分别 round 位置和尺寸，误差会在远边叠加，最多把一整列黑边裁进画面
+  // （实测：box 600x400、视频 200x569、contain 居中，真实右边缘 370.3，
+  // 独立 round 会给出 371）。改成两条边各自 round、尺寸取差值。
+  var x0 = Math.round(r.x + (r.width - w) * fx)
+  var y0 = Math.round(r.y + (r.height - h) * fy)
+  var x1 = Math.round(r.x + (r.width - w) * fx + w)
+  var y1 = Math.round(r.y + (r.height - h) * fy + h)
+  // fit/pos 原样报回去：这套算式建立在「fit 是 cover/contain/fill 之一、
+  // pos 是 getComputedStyle 归一化过的百分比」两个假设上，报回去是为了让
+  // 第一次真实运行能证实或推翻它们 —— 而不是继续靠猜。
   return {
     hasVideo: true,
     ready: true,
     muted: !!v.muted,
     fit: fit,
-    clip: {
-      x: Math.round(r.x + (r.width - w) * fx),
-      y: Math.round(r.y + (r.height - h) * fy),
-      width: Math.round(w),
-      height: Math.round(h)
-    }
+    pos: cs.objectPosition || '50% 50%',
+    clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
   }
 }`
 
