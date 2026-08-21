@@ -255,3 +255,69 @@ test('shots: 没有任何截图时形状完整且不抛异常', () => {
     total: 0, capturedDates: [], lastOn: null, peakViewers: null, lastUptimeMinutes: null,
   })
 })
+
+test('身份字段：显示名三级回退 快照名 → 竞品名 → handle', () => {
+  const now = new Date('2026-08-20T01:00:00Z')
+  const bare = buildAskContext(board([comp({ handle: 'alpha' })]), now, 'zh')
+  assert.equal(bare.competitors[0].name, 'alpha')
+
+  const named = buildAskContext(
+    board([comp({ handle: 'alpha', display_name: 'Alpha 团' })]), now, 'zh',
+  )
+  assert.equal(named.competitors[0].name, 'Alpha 团')
+})
+
+test('health: 超过 7 天未采集算陈旧，正好 7 天不算', () => {
+  const now = new Date('2026-08-20T01:00:00Z') // 东京 2026-08-20
+  const fresh = buildAskContext(
+    board([comp({ history: [point('2026-08-13', 100)] })]), now, 'zh',
+  )
+  assert.equal(fresh.competitors[0].health.metricsAgeDays, 7)
+  assert.equal(fresh.competitors[0].health.stale, false)
+
+  const stale = buildAskContext(
+    board([comp({ history: [point('2026-08-12', 100)] })]), now, 'zh',
+  )
+  assert.equal(stale.competitors[0].health.metricsAgeDays, 8)
+  assert.equal(stale.competitors[0].health.stale, true)
+})
+
+test('health: 从未采集过指标时 age 为 null 且算陈旧', () => {
+  const ctx = buildAskContext(board([comp({})]), new Date('2026-08-20T01:00:00Z'), 'zh')
+  assert.deepEqual(ctx.competitors[0].health, { metricsAgeDays: null, stale: true })
+})
+
+test('父子：子主播独立成条目并带 parentHandle，isChild 为 true', () => {
+  const child = comp({ id: 'c-1', handle: 'kid', parent_id: 'id-1' })
+  const ctx = buildAskContext(
+    board([comp({ handle: 'alpha', related: [child] })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.equal(ctx.competitors.length, 2)
+  assert.equal(ctx.competitors[0].handle, 'alpha')
+  assert.equal(ctx.competitors[0].isChild, false)
+  assert.equal(ctx.competitors[0].parentHandle, null)
+  assert.equal(ctx.competitors[1].handle, 'kid')
+  assert.equal(ctx.competitors[1].isChild, true)
+  assert.equal(ctx.competitors[1].parentHandle, 'alpha')
+})
+
+test('coverage: 主竞品与子主播都计入 competitors，roots 只数顶层', () => {
+  const child = comp({
+    id: 'c-1', handle: 'kid', parent_id: 'id-1',
+    shots: [shot({ id: 'k1', shot_on: '2026-08-18', stream_started_at: '2026-08-18T12:00:00Z' })],
+  })
+  const ctx = buildAskContext(
+    board([comp({
+      handle: 'alpha',
+      history: [point('2026-08-17', 1000)],
+      shots: [shot({ id: 'a1', shot_on: '2026-08-19', stream_started_at: '2026-08-19T12:00:00Z' })],
+      related: [child],
+    })]),
+    new Date('2026-08-20T01:00:00Z'), 'zh',
+  )
+  assert.deepEqual(ctx.meta.coverage, {
+    competitors: 2, roots: 1, withMetrics: 1,
+    metricsDays: 1, shotDays: 2, sessionsWithStartTime: 2,
+  })
+})
