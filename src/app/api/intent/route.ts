@@ -6,6 +6,7 @@ import { logIntentViolation } from '@/lib/intent/audit'
 import { parseVenueIntent, type VenueParseItem } from '@/lib/venue/venue-intent'
 import { VENUE_ITEM_TYPE_OPTIONS } from '@/venue/layoutData'
 import { MAX_INPUT_CHARS, sanitizeIntentText } from '@/lib/intent/input-gate'
+import { MAX_PRIOR_OUTCOME_CHARS, type PriorContext } from '@/lib/intent/conversation'
 
 const VENUE_TYPE_SET = new Set(VENUE_ITEM_TYPE_OPTIONS.map((o) => o.value as string))
 
@@ -14,7 +15,12 @@ export async function POST(req: NextRequest) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
 
-  let body: { text?: string; scope?: string; venueItems?: { id: string; name: string; type: string }[] }
+  let body: {
+    text?: string
+    scope?: string
+    venueItems?: { id: string; name: string; type: string }[]
+    prior?: { text?: string; outcome?: string }
+  }
   try {
     body = await req.json()
   } catch {
@@ -49,6 +55,24 @@ export async function POST(req: NextRequest) {
   }
   const text = gated.text
 
+  // prior 走与 text 完全相同的清洗；任一段不合法就整体丢弃 prior（降级成
+  // 单轮），不因为上下文脏了就让整次请求失败——上下文是增强项，不是必需项。
+  let priorTurn: PriorContext | undefined
+  if (body.prior?.text && body.prior?.outcome) {
+    const pText    = sanitizeIntentText(body.prior.text, MAX_INPUT_CHARS)
+    const pOutcome = sanitizeIntentText(body.prior.outcome, MAX_PRIOR_OUTCOME_CHARS)
+    if (pText.ok && pOutcome.ok) {
+      priorTurn = { text: pText.text, outcome: pOutcome.text }
+    } else {
+      await logIntentViolation({
+        userId:  user.id,
+        stage:   'input_gate',
+        reason:  `prior discarded: text=${pText.ok ? 'ok' : pText.reason}, outcome=${pOutcome.ok ? 'ok' : pOutcome.reason}`,
+        rawText: text.slice(0, 200),
+      })
+    }
+  }
+
   const todayISO = new Date().toISOString().slice(0, 10)
   const ctx = { userId: user.id, channel: 'web' as const, rawText: text }
 
@@ -67,10 +91,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Classify entity first, then route to the right parser.
-  const entity = await classifyEntity(text)
+  const entity = await classifyEntity(text, priorTurn)
 
   if (entity === 'work_task') {
-    const parsed = await parseWorkTaskIntent(text, { todayISO })
+    const parsed = await parseWorkTaskIntent(text, { todayISO, priorTurn })
     if (!parsed.ok) {
       await logIntentViolation({ userId: user.id, stage: 'parser', reason: parsed.reason, rawText: text })
       return NextResponse.json({ kind: 'error', code: 'parser_failed', message: parsed.reason }, { status: 200 })
@@ -80,7 +104,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Default: expense (also handles 'unknown' — fall back to expense parser)
-  const parsed = await parseExpenseIntent(text, { todayISO })
+  const parsed = await parseExpenseIntent(text, { todayISO, priorTurn })
   if (!parsed.ok) {
     await logIntentViolation({ userId: user.id, stage: 'parser', reason: parsed.reason, rawText: text })
     return NextResponse.json({ kind: 'error', code: 'parser_failed', message: parsed.reason }, { status: 200 })

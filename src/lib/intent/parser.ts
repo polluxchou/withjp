@@ -1,4 +1,5 @@
 import { ExpenseIntentSchema, WorkTaskCreateIntentSchema, type ExpenseIntent, type WorkTaskCreateIntent } from './schema'
+import { MAX_PRIOR_OUTCOME_CHARS, type PriorContext } from './conversation'
 
 // ── Gemini transport ──────────────────────────────────────────
 // Minimal local shim — keeps src/lib/agents/providers.ts unchanged.
@@ -41,6 +42,11 @@ const MODEL_PRO   = 'gemini-2.5-pro'
 export interface ParserContext {
   todayISO: string                  // YYYY-MM-DD
   userTimezoneOffset?: string       // e.g. '+08:00'; for prompt context only
+  // 上一轮对话（只带一轮）。用于消解「改成 350」「那再加一笔」这类指代。
+  // 来源是客户端，属不可信输入：它只进 prompt，不影响任何授权判断，也不
+  // 绕过 executor 的字段校验与 per-op 闸门——写操作照旧走 pending_actions
+  // 暂存 + 显式确认。这是可以接受客户端传上下文的唯一理由。
+  priorTurn?: PriorContext
 }
 
 export type ClassifiedKind = 'write' | 'query' | 'unknown'
@@ -139,6 +145,20 @@ const RULES = `
 7. 只输出 JSON，不要 markdown 围栏，不要解释文字。
 `
 
+// 上一轮的 prompt 片段。没有上一轮时返回空串，prompt 与改造前逐字一致——
+// 单轮场景的行为不因本次改动漂移。
+function priorHint(prior: PriorContext | undefined): string {
+  if (!prior) return ''
+  return [
+    '',
+    '【上一轮对话】仅用于消解本句里的指代（「改成 350」「那再加一笔」「上一条」）。',
+    `上一轮用户说：${JSON.stringify(prior.text)}`,
+    `系统回了：${JSON.stringify(prior.outcome.slice(0, MAX_PRIOR_OUTCOME_CHARS))}`,
+    '如果本句自身信息完整，忽略上一轮。',
+    '',
+  ].join('\n')
+}
+
 function buildExtractPrompt(text: string, ctx: ParserContext, kind: IntentKind): string {
   const hint = kind === 'write'
     ? '本句话已被分类为"写操作"（create / update / delete）。'
@@ -148,7 +168,7 @@ function buildExtractPrompt(text: string, ctx: ParserContext, kind: IntentKind):
   return `今天是 ${ctx.todayISO}。
 
 ${hint}
-
+${priorHint(ctx.priorTurn)}
 ${SCHEMA_DOC}
 ${RULES}
 
@@ -249,7 +269,7 @@ function stripFences(s: string): string {
 // Determines whether input is about expenses or work tasks before
 // routing to the appropriate parser.
 
-export async function classifyEntity(text: string): Promise<EntityKind> {
+export async function classifyEntity(text: string, prior?: PriorContext): Promise<EntityKind> {
   const prompt = `判断下面这句话的意图类型。
 
 判断核心原则：
@@ -260,7 +280,7 @@ export async function classifyEntity(text: string): Promise<EntityKind> {
 判断顺序：先问"这是在记一笔账吗？"——如果是，expense；如果是在描述要做某件事，work_task。
 
 只返回 JSON：{"entity":"expense"} 或 {"entity":"work_task"} 或 {"entity":"unknown"}。
-
+${priorHint(prior)}
 输入：${JSON.stringify(text)}`
   try {
     const raw = await geminiJson(MODEL_FLASH, prompt)
@@ -315,7 +335,7 @@ export async function parseWorkTaskIntent(
 ): Promise<WorkTaskParserResult> {
   const t0 = Date.now()
   try {
-    const prompt = `今天是 ${ctx.todayISO}。\n\n${WORK_TASK_SCHEMA_DOC}\n${WORK_TASK_RULES}\n\n用户输入：${JSON.stringify(text)}`
+    const prompt = `今天是 ${ctx.todayISO}。\n\n${WORK_TASK_SCHEMA_DOC}\n${WORK_TASK_RULES}\n${priorHint(ctx.priorTurn)}\n用户输入：${JSON.stringify(text)}`
     const raw    = await geminiJson(MODEL_PRO, prompt)
     const parsed = tryParseWorkTask(raw)
     if (parsed.success) {
