@@ -247,7 +247,8 @@ test('规则11:isChild/parentHandle 的团属关系;coverage.roots 与 coverage.
 
 test('规则12:跨账号排名 followers.latest 时,采集日期不同,要附上 on', () => {
   assert.ok(FLAT_RULES.includes(flat('各账号的 on(采集日期)并不相同')))
-  assert.ok(FLAT_RULES.includes(flat('9 个不同的采集日')))
+  // 采集日数量以包里的实时值为准,不许把"今天恰好是 9 天"这种快照数字焊死进散文
+  assert.ok(FLAT_RULES.includes(flat('meta.coverage.metricsDays 为准')))
 })
 
 test('规则13:未收录账号按 handle 与 name 双路匹配,给相近账号,不编造', () => {
