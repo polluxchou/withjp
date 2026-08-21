@@ -576,6 +576,13 @@ test('sessionPaths: JST 深夜档归到 JST 当天，不被 UTC 拉回前一天'
   assert.equal(sessionPaths('/base', 'x', 1_786_548_000).dir, '/base/x/20260813-0020')
 })
 
+test('sessionPaths: 正午夜 00:00 JST 渲染成 0000，不是 2400', () => {
+  // 1786546800 = 2026-08-12T15:00:00Z = JST 08-13 00:00 整。
+  // 部分 ICU 构建在 hour12:false 下会把午夜渲染成 "24"，那样目录会变成 20260813-2400。
+  // 这是操作员本机跑的 CLI、不是版本锁定的 CI，换台机器就可能翻车 —— 用测试钉住。
+  assert.equal(sessionPaths('/base', 'x', 1_786_546_800).dir, '/base/x/20260813-0000')
+})
+
 test('sessionPaths: handle 里的危险字符换成下划线', () => {
   assert.equal(sessionPaths('/base', 'a/b c', 1_786_533_600).dir, '/base/a_b_c/20260812-2020')
 })
