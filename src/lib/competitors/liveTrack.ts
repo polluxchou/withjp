@@ -19,7 +19,7 @@ export function roomEnded(html: string): boolean {
 
 /**
  * 探针每次打点报回的「各字段命中了哪个候选选择器」，没命中是 null。
- * 键是固定的四个 —— 候选表会随实测增补，但字段本身不会变，所以用闭合类型而非
+ * 键是固定的五个 —— 候选表会随实测增补，但字段本身不会变，所以用闭合类型而非
  * Record<string, ...>：写错一个键名要在编译期就炸，别等到报表上少一列才发现。
  */
 export type SelectorHits = {
@@ -27,6 +27,8 @@ export type SelectorHits = {
   followers: string | null
   likes: string | null
   chatHost: string | null
+  /** 发言人选择器；没命中过就是 null，此时 speakers 也必须是 null */
+  speaker: string | null
 }
 
 /** 探针从页面交回的一条原始读数。字段都可能读不到 —— 读不到就是 null。 */
@@ -38,8 +40,8 @@ export type ProbeSample = {
   likes: string | null
   /** 本分钟弹幕条数 */
   msgs: number
-  /** 本分钟去重后的发言人数 */
-  speakers: number
+  /** 本分钟去重后的发言人数。没有可靠的发言人选择器时是 null —— 不是 0，也不靠猜 */
+  speakers: number | null
   observerAlive: boolean
   /** 各字段实际命中了候选表里的哪个选择器；没命中是 null */
   selectorsOk: SelectorHits
@@ -53,7 +55,7 @@ export type Sample = {
   follower_count: number | null
   like_total: number | null
   chat_msgs: number
-  chat_speakers: number
+  chat_speakers: number | null
   raw: {
     observer_alive: boolean
     selectors_ok: SelectorHits

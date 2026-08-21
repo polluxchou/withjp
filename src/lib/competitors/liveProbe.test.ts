@@ -7,7 +7,7 @@ import { PROBE_FACTORY_SRC, PROBE_VERSION, defaultProbeConfig } from './liveProb
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
 
-type FakeEl = { textContent: string }
+type FakeEl = { textContent: string; querySelector?: (s: string) => FakeEl | null }
 
 function el(textContent: string): FakeEl {
   return { textContent }
@@ -23,8 +23,9 @@ function makeDoc(map: Record<string, FakeEl>) {
 
 function makeWin(nowMs = 1_000_000) {
   const observers: { target: unknown; cb: (recs: unknown[]) => void }[] = []
-  return {
+  const win = {
     observers,
+    disconnects: 0,
     now: nowMs,
     Date: { now: () => nowMs },
     setInterval: () => 0,
@@ -32,9 +33,10 @@ function makeWin(nowMs = 1_000_000) {
       cb: (recs: unknown[]) => void
       constructor(cb: (recs: unknown[]) => void) { this.cb = cb }
       observe(target: unknown) { observers.push({ target, cb: this.cb }) }
-      disconnect() {}
+      disconnect() { win.disconnects += 1 }
     },
-  } as Record<string, unknown> & { observers: typeof observers }
+  } as Record<string, unknown> & { observers: typeof observers; disconnects: number }
+  return win
 }
 
 /** 把源码文本变成可调用的工厂 —— 和注入页面时走的是同一份字符串。 */
@@ -42,9 +44,12 @@ const factory = new Function(`return (${PROBE_FACTORY_SRC})`)() as (
   win: unknown, doc: unknown, cfg: unknown,
 ) => { reused: boolean; attached: boolean }
 
-/** 造一条弹幕节点：没有 querySelector，探针会退化成「首个冒号之前当发言人」。 */
+/** 造一条弹幕节点：带 querySelector，能被 speaker 选择器命中。 */
 function msgNode(speaker: string): FakeEl {
-  return { textContent: speaker + ': hi' }
+  return {
+    textContent: speaker + ': hi',
+    querySelector: (s: string) => (s === '.who' ? el(speaker) : null),
+  } as FakeEl
 }
 
 const cfg = (over: Record<string, unknown> = {}) => ({
@@ -75,8 +80,7 @@ test('探针：发言人去重，按 tick 分桶', () => {
   const chat = el('')
   const doc = makeDoc({ '.chat': chat })
   const win = makeWin()
-  // speaker 选择器留空 → 退化成用整条文本冒号前的部分当发言人标识
-  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: ['.who'] }))
   const lw = (win as Record<string, any>).__lw
 
   win.observers[0].cb([{ addedNodes: [msgNode('ann'), msgNode('ann'), msgNode('bob')] }])
@@ -84,6 +88,20 @@ test('探针：发言人去重，按 tick 分桶', () => {
   const s = lw.drain()[0]
   assert.equal(s.msgs, 3)
   assert.equal(s.speakers, 2, '同一个人刷三条只算一个发言人')
+})
+
+test('探针：没有发言人选择器命中时 speakers 报 null，不用冒号去猜', () => {
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: ['.nope'] }))
+  const lw = (win as Record<string, any>).__lw
+  win.observers[0].cb([{ addedNodes: [msgNode('ann'), msgNode('bob')] }])
+  lw.tick()
+  const s = lw.drain()[0]
+  assert.equal(s.msgs, 2, '条数照数，这个不依赖发言人选择器')
+  assert.equal(s.speakers, null, '编造的发言人数比没有更糟')
+  assert.equal(s.selectorsOk.speaker, null)
 })
 
 test('探针：选择器候选表按顺序回退，并报回命中的那个', () => {
@@ -120,6 +138,29 @@ test('探针：同版本重复注入不重复挂 observer', () => {
   const again = factory(win, doc, c)
   assert.equal(again.reused, true)
   assert.equal(win.observers.length, 1, '重复注入挂两个 observer 会让弹幕double count')
+})
+
+test('探针：reattach 不会让弹幕被两个 observer 各数一次', () => {
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: ['.who'] }))
+  const lw = (win as Record<string, any>).__lw
+  lw.reattach()
+  // 旧 observer 已断开，只有最新那个还在数
+  win.observers[win.observers.length - 1].cb([{ addedNodes: [msgNode('ann')] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 1, 'reattach 之后重复计数就说明旧 observer 没断开')
+})
+
+test('探针：换版本重注入会断开上一版的 observer', () => {
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  const base = { chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: ['.who'] }
+  factory(win, doc, cfg({ ...base, version: 1 }))
+  factory(win, doc, cfg({ ...base, version: 2 }))
+  assert.equal(win.disconnects, 1, '上一版的 observer 必须断开，否则它会一直对着没人读的计数器烧 CPU')
 })
 
 test('探针：找不到弹幕容器时仍然安装、仍能采数字，只是 attached=false', () => {

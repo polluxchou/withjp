@@ -46,7 +46,7 @@ const probeSample = (over: Partial<ProbeSample> = {}): ProbeSample => ({
   msgs: 17,
   speakers: 9,
   observerAlive: true,
-  selectorsOk: { viewer: '[data-e2e="x"]', followers: null, likes: null, chatHost: '.chat' },
+  selectorsOk: { viewer: '[data-e2e="x"]', followers: null, likes: null, chatHost: '.chat', speaker: null },
   ...over,
 })
 
@@ -101,10 +101,10 @@ test('normalizeSample: raw 原样保留三个字段的页面原文，供排查�
   assert.equal(s.raw.likes_text, '2,340')
 })
 
-test('normalizeSample: 四个选择器的命中情况整组带进 raw', () => {
+test('normalizeSample: 五个选择器的命中情况整组带进 raw', () => {
   const s = normalizeSample(probeSample(), 1_786_536_000)
   assert.deepEqual(s.raw.selectors_ok, {
-    viewer: '[data-e2e="x"]', followers: null, likes: null, chatHost: '.chat',
+    viewer: '[data-e2e="x"]', followers: null, likes: null, chatHost: '.chat', speaker: null,
   })
 })
 

@@ -16,7 +16,7 @@ export type ProbeConfig = {
   likes: string[]
   /** 弹幕列表容器 */
   chatHost: string[]
-  /** 弹幕节点内的发言人元素；留空则退化为「整条文本首个冒号之前」 */
+  /** 弹幕节点内的发言人元素；一个都没命中就不猜，speakers 报 null */
   speaker: string[]
   /** 弹幕容器是否需要监听子树（容器频繁重建时打开） */
   chatSubtree: boolean
@@ -62,8 +62,13 @@ export function defaultProbeConfig(): ProbeConfig {
  * 也保证注入后除了 win.__lw 之外不碰页面上的任何东西。
  */
 export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
-  if (win.__lw && win.__lw.version === cfg.version) {
-    return { reused: true, attached: !!win.__lw.attached, version: cfg.version }
+  if (win.__lw) {
+    if (win.__lw.version === cfg.version) {
+      return { reused: true, attached: !!win.__lw.attached, version: cfg.version }
+    }
+    // 版本变了要整个重建。先断开上一版的 observer —— 否则它会永远挂在旧节点上，
+    // 对着一个再也没人读的计数器烧 CPU，每条弹幕烧一次，直到这个 tab 关掉。
+    if (typeof win.__lw.disconnect === 'function') win.__lw.disconnect()
   }
   function textOf(node) {
     return node && node.textContent ? String(node.textContent).trim() : ''
@@ -82,17 +87,19 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     }
     return { sel: null, el: null }
   }
-  var st = { msgs: 0, seen: Object.create(null), nSpeakers: 0, buf: [], host: null, hostSel: null }
+  var st = { msgs: 0, seen: Object.create(null), nSpeakers: 0, buf: [],
+             host: null, hostSel: null, obs: null, speakerSel: null }
+  // 只认真正的发言人选择器。以前这里有个「取首个冒号之前」的兜底，已经去掉：
+  // 系统消息、礼物提示、正文里带 http:// 或时间比分的普通弹幕，都会被它编造成
+  // 一个假发言人；不同真人发的相似内容又会被并成同一个。engagement 指标宁可为空
+  // 也不能是编的 —— 没命中就让 speakers 报 null，selectorsOk.speaker 也报 null。
   function speakerOf(node) {
+    if (!node || !node.querySelector) return null
     for (var i = 0; i < cfg.speaker.length; i++) {
-      if (node && node.querySelector) {
-        var w = textOf(node.querySelector(cfg.speaker[i]))
-        if (w) return w
-      }
+      var w = textOf(node.querySelector(cfg.speaker[i]))
+      if (w) { st.speakerSel = cfg.speaker[i]; return w }
     }
-    var whole = textOf(node)
-    var c = whole.indexOf(':')
-    return c > 0 ? whole.slice(0, c).trim() : null
+    return null
   }
   function count(node) {
     st.msgs += 1
@@ -100,6 +107,8 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     if (who && !st.seen[who]) { st.seen[who] = 1; st.nSpeakers += 1 }
   }
   function attach() {
+    // 重挂之前先断开旧的，否则 reattach 之后每条弹幕会被两个 observer 各数一次
+    if (st.obs) { st.obs.disconnect(); st.obs = null }
     var f = firstEl(cfg.chatHost)
     if (!f.el) return false
     st.host = f.el
@@ -111,6 +120,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
       }
     })
     obs.observe(f.el, { childList: true, subtree: !!cfg.chatSubtree })
+    st.obs = obs
     return true
   }
   function alive() {
@@ -127,13 +137,18 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
       followers: f.text,
       likes: l.text,
       msgs: st.msgs,
-      speakers: st.nSpeakers,
+      // 没有可靠的发言人选择器就报 null，别把 0 当成「没人说话」
+      speakers: st.speakerSel ? st.nSpeakers : null,
       observerAlive: alive(),
-      selectorsOk: { viewer: v.sel, followers: f.sel, likes: l.sel, chatHost: st.hostSel }
+      selectorsOk: {
+        viewer: v.sel, followers: f.sel, likes: l.sel,
+        chatHost: st.hostSel, speaker: st.speakerSel
+      }
     })
     st.msgs = 0
     st.seen = Object.create(null)
     st.nSpeakers = 0
+    st.speakerSel = null
   }
   var ok = attach()
   win.__lw = {
@@ -142,7 +157,8 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     tick: tick,
     reattach: attach,
     alive: alive,
-    drain: function () { var out = st.buf; st.buf = []; return out }
+    drain: function () { var out = st.buf; st.buf = []; return out },
+    disconnect: function () { if (st.obs) { st.obs.disconnect(); st.obs = null } }
   }
   if (cfg.intervalMs > 0) win.setInterval(tick, cfg.intervalMs)
   return { reused: false, attached: ok, version: cfg.version }
