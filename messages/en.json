@@ -1725,6 +1725,8 @@
       "errorNotConfigured": "Chat is not configured yet. Ask an admin to set DEEPSEEK_API_KEY.",
       "errorUpstream": "Could not get an answer. Try again.",
       "errorBadRequest": "That message could not be sent. Try rephrasing it.",
+      "errorUnauthorized": "Your session has expired. Please sign in again.",
+      "errorBoard": "Could not load competitor data. Try again later.",
       "copyError": "Copy error",
       "copyTooltip": "Copy the full error and send it to a developer",
       "copied": "Copied"
