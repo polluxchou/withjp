@@ -1725,6 +1725,8 @@
       "errorNotConfigured": "对话功能尚未配置，请联系管理员设置 DEEPSEEK_API_KEY。",
       "errorUpstream": "没能拿到回答，可以再试一次。",
       "errorBadRequest": "这句话没能发出去，换一句再试。",
+      "errorUnauthorized": "登录状态已过期，请重新登录后再试。",
+      "errorBoard": "竞品数据加载失败，请稍后再试。",
       "copyError": "复制报错",
       "copyTooltip": "复制完整错误信息发给开发者",
       "copied": "已复制"

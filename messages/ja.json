@@ -1490,6 +1490,8 @@
       "errorNotConfigured": "チャット機能が未設定です。管理者に DEEPSEEK_API_KEY の設定を依頼してください。",
       "errorUpstream": "回答を取得できませんでした。もう一度お試しください。",
       "errorBadRequest": "このメッセージは送信できませんでした。言い換えてお試しください。",
+      "errorUnauthorized": "セッションの有効期限が切れました。再度ログインしてください。",
+      "errorBoard": "競合データの読み込みに失敗しました。しばらくしてからもう一度お試しください。",
       "copyError": "エラーをコピー",
       "copyTooltip": "エラー全文をコピーして開発者に送る",
       "copied": "コピーしました"
