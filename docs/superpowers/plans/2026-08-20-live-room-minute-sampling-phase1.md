@@ -26,6 +26,11 @@
 
 **4. 提交前跑门禁。** `npm run test:copy`（含 i18n / 裸中文 / 设计 token / lint 四项）。注意 `check-style-tokens.mjs` 只扫 `src/`，且它会把注释里形如 `#249` 的东西误判成裸 hex 色值——写 PR 编号一律写成 `PR 249`，别带井号。
 
+**4a. 跨文件 import 类型必须写内联 `type` 修饰符。** `import { Rect }`（Rect 是 `export type`）能过 `tsc`，
+但 `node --experimental-strip-types` 会在模块实例化阶段报 `does not provide an export named 'Rect'` ——
+类型擦除不做跨模块解析，光看本文件判断不出它是类型。写成 `import { type Rect, clipRect } from './x.ts'`
+两边都过。测试和脚本都是这么跑的，所以这条一定会撞上。
+
 **4b. 每个任务提交前必须跑 `npx tsc --noEmit`。** `node --test --experimental-strip-types` **只剥类型、不做类型检查**，测试全绿不代表能编译。CI（`.github/workflows/check.yml`）有独立的 Type check 步骤，漏了就是红灯。
 
 本仓最常踩的是 **TS2802**：直接 `for...of` 迭代 `matchAll()` / `Set` / `Map` 会报「can only be iterated through when using --downlevelIteration」。修法是用 `Array.from(...)` 包一层——已有两次先例（`23f35c0` org-link、`4ad3b80` weekly.ts）。本计划 Task 1 又踩了同一个坑。凡是写迭代的地方都先想一下这条。
@@ -352,7 +357,7 @@ export function normalizeSample(p: ProbeSample, startedAt: number | null): Sampl
 node --test --experimental-strip-types src/lib/competitors/liveTrack.test.ts
 ```
 
-预期：`# pass 15`、`# fail 0`。
+预期：`# pass 25`、`# fail 0`（Task 5 与 Task 6 的用例都在这个文件里）。
 
 - [ ] **Step 5: 提交**
 
@@ -686,7 +691,7 @@ git commit -m "feat(live-track): 场次落盘路径(JST 时间戳目录)+ 单测
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { PROBE_FACTORY_SRC, PROBE_VERSION, defaultProbeConfig, probeSource } from './liveProbe.ts'
+import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect, defaultProbeConfig, probeSource } from './liveProbe.ts'
 
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
@@ -933,6 +938,100 @@ test('probeSource: 组装出的表达式能被解析成可调用的工厂', () =
 test('probeSource: intervalMs 非正数直接抛错，不产出永不打点的探针', () => {
   assert.throws(() => probeSource({ ...defaultProbeConfig(), intervalMs: 0 }), /intervalMs/)
 })
+
+test('clipRect: contain 且画面比盒子更宽 → 左右满、上下留黑边', () => {
+  // 盒子 800x600（比例 1.333），画面 1920x1080（比例 1.778）→ 宽度吃满，高度 800/1.778=450
+  const r = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'contain', '50% 50%')
+  assert.deepEqual(r, { x: 0, y: 75, width: 800, height: 450 })
+})
+
+test('clipRect: contain 且画面更高 → 上下满、左右留黑边', () => {
+  // 盒子 800x600，画面 1080x1920（比例 0.5625）→ 高度吃满 600，宽度 600*0.5625=337.5→338
+  const r = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1080, 1920, 'contain', '50% 50%')
+  assert.deepEqual(r, { x: 231, y: 0, width: 338, height: 600 })
+})
+
+test('clipRect: cover 会溢出盒子（裁掉两侧），矩形比盒子大是预期行为', () => {
+  const r = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'cover', '50% 50%')
+  assert.equal(r.height, 600)
+  assert.ok(r.width > 800, 'cover 下宽度应溢出')
+})
+
+test('clipRect: fill 直接等于盒子', () => {
+  const r = clipRect({ x: 10, y: 20, width: 800, height: 600 }, 1920, 1080, 'fill', '50% 50%')
+  assert.deepEqual(r, { x: 10, y: 20, width: 800, height: 600 })
+})
+
+test('clipRect: object-position 靠上时黑边全落在下方', () => {
+  const r = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'contain', '50% 0%')
+  assert.equal(r.y, 0)
+})
+
+test('clipRect: object-position 解析不出来才退回居中（显式 0% 不能被当成假值）', () => {
+  // 'center' 解析不出数字 → 两轴都退回 50%,等同居中
+  const fallback = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'contain', 'center')
+  assert.equal(fallback.y, 75)
+  // 显式 0% 必须真的贴顶,不能被 `|| 50` 改判成居中
+  const top = clipRect({ x: 0, y: 0, width: 800, height: 600 }, 1920, 1080, 'contain', '50% 0%')
+  assert.equal(top.y, 0)
+})
+
+test('clipRect: 带上元素在页面里的偏移', () => {
+  const r = clipRect({ x: 100, y: 50, width: 800, height: 600 }, 1920, 1080, 'contain', '50% 50%')
+  assert.deepEqual(r, { x: 100, y: 125, width: 800, height: 450 })
+})
+
+test('CLIP_FACTORY_SRC 是可解析的 JS', () => {
+  assert.doesNotThrow(() => new Function(`return (${CLIP_FACTORY_SRC})`))
+})
+
+/** 假的 <video> + getComputedStyle，用来驱动 CLIP_FACTORY_SRC 本尊。 */
+function makeVideoDoc(
+  box: { x: number; y: number; width: number; height: number },
+  vw: number, vh: number, fit: string, pos: string, readyState = 2,
+) {
+  const video = {
+    muted: false, volume: 1,
+    videoWidth: vw, videoHeight: vh, readyState,
+    getBoundingClientRect: () => box,
+  }
+  return {
+    video,
+    doc: { querySelector: (s: string) => (s === 'video' ? video : null) },
+    win: { getComputedStyle: () => ({ objectFit: fit, objectPosition: pos }) },
+  }
+}
+
+const clipFactory = new Function(`return (${CLIP_FACTORY_SRC})`)() as (
+  win: unknown, doc: unknown,
+) => { hasVideo: boolean; ready: boolean; muted?: boolean; fit?: string; clip: Rect | null }
+
+test('CLIP_FACTORY_SRC 与 clipRect 对每个分支算出同一个矩形（两份算式必须同步改）', () => {
+  const box = { x: 100, y: 50, width: 800, height: 600 }
+  const cases: [string, string, number, number][] = [
+    ['contain', '50% 50%', 1920, 1080],
+    ['contain', '50% 0%', 1080, 1920],
+    ['cover', '50% 50%', 1920, 1080],
+    ['fill', '50% 50%', 1920, 1080],
+  ]
+  for (const [fit, pos, vw, vh] of cases) {
+    const { doc, win } = makeVideoDoc(box, vw, vh, fit, pos)
+    assert.deepEqual(
+      clipFactory(win, doc).clip,
+      clipRect(box, vw, vh, fit, pos),
+      `${fit} / ${pos}：页内算式和纯函数漂了，改一处没改另一处`,
+    )
+  }
+})
+
+test('CLIP_FACTORY_SRC: 静音，且 readyState<2 时不给 clip', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 1920, 1080, 'contain', '50% 50%', 1)
+  const r = clipFactory(win, doc)
+  assert.equal(video.muted, true, '挂一整场不能出声')
+  assert.equal(r.ready, false)
+  assert.equal(r.clip, null, 'ready=false 还给 clip，调用方拿它去截就是一张黑帧')
+})
 ```
 
 - [ ] **Step 2: 跑测试，确认它失败**
@@ -1144,6 +1243,111 @@ export function probeSource(cfg: ProbeConfig): string {
   }
   return `(${PROBE_FACTORY_SRC})(window, document, ${JSON.stringify(cfg)})`
 }
+
+export type Rect = { x: number; y: number; width: number; height: number }
+
+/** object-position 的一个分量，解析不出来退回 50（CSS 默认居中）。 */
+function pct(s: string | undefined): number {
+  const n = parseFloat(s ?? '')
+  return Number.isFinite(n) ? n : 50
+}
+
+/**
+ * 由 <video> 的盒子矩形 + 视频原始尺寸 + object-fit/object-position，
+ * 算出画面在页面坐标系里的真实矩形。截图 clip 用它，避免把播放器的黑边也截进去。
+ * 抽成纯函数是为了能测 —— 页面里那份（CLIP_FACTORY_SRC）走同样的算式。
+ * 契约：objectPosition 要传 getComputedStyle 读出来的形式 —— 一对百分比/长度，
+ * 不是 `top` 这种 CSS 关键字。页内调用方就是这么传的；关键字不在支持范围内。
+ */
+export function clipRect(
+  box: Rect,
+  videoWidth: number,
+  videoHeight: number,
+  objectFit: string,
+  objectPosition: string,
+): Rect {
+  const boxRatio = box.width / box.height
+  const imgRatio = videoWidth / videoHeight
+  let w: number
+  let h: number
+  if (objectFit === 'cover') {
+    if (imgRatio > boxRatio) { h = box.height; w = box.height * imgRatio }
+    else { w = box.width; h = box.width / imgRatio }
+  } else if (objectFit === 'fill') {
+    w = box.width; h = box.height
+  } else {
+    if (imgRatio > boxRatio) { w = box.width; h = box.width / imgRatio }
+    else { h = box.height; w = box.height * imgRatio }
+  }
+  // 解析不出来才退回 50%（CSS 默认居中）。不能写 `parseFloat(x) || 50` ——
+  // 那会把显式的 0%（画面靠上/靠左）当成假值改判成居中。
+  const p = objectPosition.split(' ')
+  const fx = pct(p[0]) / 100
+  const fy = pct(p[1]) / 100
+  return {
+    x: Math.round(box.x + (box.width - w) * fx),
+    y: Math.round(box.y + (box.height - h) * fy),
+    width: Math.round(w),
+    height: Math.round(h),
+  }
+}
+
+/**
+ * 页面里执行的版本：顺手把播放器静音（挂一整场不能出声），
+ * 并回报 video 是否就绪。videoWidth>0 且 readyState>=2 才算能截。
+ * 算式与 clipRect 保持一致 —— 改一处必须改两处。
+ */
+export const CLIP_FACTORY_SRC = `function (win, doc) {
+  function pct(s) { var n = parseFloat(s); return isFinite(n) ? n : 50 }
+  var v = doc.querySelector('video')
+  if (!v) return { hasVideo: false, ready: false, clip: null }
+  v.muted = true
+  v.volume = 0
+  var r = v.getBoundingClientRect()
+  var cs = win.getComputedStyle(v)
+  var iw = v.videoWidth, ih = v.videoHeight
+  if (!iw || !ih) return { hasVideo: true, ready: false, clip: null }
+  // readyState<2 = 有尺寸但还没画出第一帧。这时给出 clip 会诱使调用方拿它去截 ——
+  // 截到的是黑帧。未就绪一律不给 clip，让「能不能截」只有 ready 一个判据。
+  if (v.readyState < 2) return { hasVideo: true, ready: false, muted: !!v.muted, clip: null }
+  var boxRatio = r.width / r.height, imgRatio = iw / ih
+  var fit = cs.objectFit || 'contain'
+  var w, h
+  // fit 只认 cover/fill，其余（含 contain）一律按「按比例撑满盒子」处理。
+  // none/scale-down 没实现 —— 它们要用视频原始尺寸而不是按比例适配，
+  // 直播播放器几乎不会用这两个值，所以先不为没见过的分支加代码；
+  // 把 fit 原样报回去（见下面 return 里的 fit 字段），Task 10 第一次真实
+  // 运行核对页面计算出的 object-fit 究竟是什么，能证实这个假设或者推翻它。
+  if (fit === 'cover') {
+    if (imgRatio > boxRatio) { h = r.height; w = r.height * imgRatio }
+    else { w = r.width; h = r.width / imgRatio }
+  } else if (fit === 'fill') {
+    w = r.width; h = r.height
+  } else {
+    if (imgRatio > boxRatio) { w = r.width; h = r.width / imgRatio }
+    else { h = r.height; w = r.height * imgRatio }
+  }
+  var p = (cs.objectPosition || '50% 50%').split(' ')
+  var fx = pct(p[0]) / 100
+  var fy = pct(p[1]) / 100
+  return {
+    hasVideo: true,
+    ready: true,
+    muted: !!v.muted,
+    fit: fit,
+    clip: {
+      x: Math.round(r.x + (r.width - w) * fx),
+      y: Math.round(r.y + (r.height - h) * fy),
+      width: Math.round(w),
+      height: Math.round(h)
+    }
+  }
+}`
+
+/** 拼出注入用的完整表达式。 */
+export function clipSource(): string {
+  return `(${CLIP_FACTORY_SRC})(window, document)`
+}
 ```
 
 - [ ] **Step 4: 跑测试，确认全绿**
@@ -1351,7 +1555,7 @@ export function clipSource(): string {
 node --test --experimental-strip-types src/lib/competitors/liveProbe.test.ts
 ```
 
-预期：`# pass 23`、`# fail 0`。
+预期：同上，25 全绿。
 
 - [ ] **Step 5: 提交**
 
@@ -1523,7 +1727,8 @@ async function main() {
     const heavy = total % 10 === 0
     const html = heavy ? await pageHtml(pc) : ''
     const info = await evaluate(pc, clipSource())
-    if (info?.clip?.width > 50) clip = info.clip
+    // 必须同时看 ready：视频拿到尺寸但还没画出第一帧时，拿那个矩形去截就是黑帧
+    if (info?.ready && info.clip?.width > 50) clip = info.clip
 
     if (heavy && startedAt != null && readStartTime(html) !== startedAt) {
       console.error('！开播时间变了 —— 对方重开了一场，本场收工（新场次请重新启动）')
