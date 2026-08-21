@@ -6,6 +6,15 @@
 
 **Architecture:** 纯逻辑（页面数据规范化、看门狗状态机、下播判定、路径生成、探针源码）放 `src/lib/competitors/`，用 `node --test` 覆盖；CDP 胶水放 `scripts/live-watch/track-room.ts`，靠一场真实直播验证。探针以字符串注入直播间页面，因此写成「工厂函数源码」——注入时用真 `window`/`document` 调用，测试时用假 DOM 调用，同一份代码两边跑。
 
+> **状态：Task 1–9 已实现并合入本分支（2026-08-21）。Task 10 是真机运行，待人工执行。**
+>
+> 落地产物：`src/lib/competitors/liveTrack.ts`、`src/lib/competitors/liveProbe.ts`、
+> `scripts/live-watch/track-room.ts`。全仓 634 测试全绿，`tsc --noEmit` 与 `npm run test:copy` 均通过。
+>
+> **以仓库里的文件为准。** 下面各任务内嵌的代码块是执行过程中的快照，多轮代码审查带来的
+> 修改（收工原因、累计重挂、startTime 读不准就不猜、截图节流、孤儿 tab、定时器泄漏等）
+> 已经落在文件里，但没有逐字回填进本文档的每一个代码块。要看当前实现请直接读源文件。
+
 **Tech Stack:** Node 26 内置 test runner（`node --test --experimental-strip-types`）、Chrome DevTools Protocol（裸 WebSocket，无 puppeteer）、TypeScript 类型剥离运行（不编译）。
 
 **本期不做：** 数据库、截图内容去重、LLM 打标、报表页。全部留给第二、三期，且第二三期的计划要等本期三项验证有结论后再写——验证结果会改变它们的形状。
