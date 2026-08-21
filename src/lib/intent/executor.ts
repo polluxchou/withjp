@@ -89,7 +89,7 @@ export type ExecuteResult =
   | { kind: 'error'; code: ExecuteErrorCode; message: string }
 
 export type ExecuteErrorCode =
-  | 'parser_failed'      // Gemini could not produce a valid intent
+  | 'parser_failed'      // no model on the ladder produced a valid intent
   | 'executor_failed'    // staging or applying the intent failed
   | 'bad_request'        // empty body / invalid JSON
   | 'unknown'
