@@ -75,3 +75,27 @@ test('normalizeSample: 采样早于开播时间时 elapsed 不为负，钳到 0'
   const s = normalizeSample(probeSample(), 1_786_536_900) // 开播晚于采样 300 秒
   assert.equal(s.elapsed_seconds, 0)
 })
+
+test('normalizeSample: 钳到 0 时把钳之前的负值留在 raw，不静默吞掉 startTime 解析错', () => {
+  const s = normalizeSample(probeSample(), 1_786_536_900)
+  assert.equal(s.raw.elapsed_before_clamp, -300)
+})
+
+test('normalizeSample: 没发生钳制时 elapsed_before_clamp 是 null', () => {
+  assert.equal(normalizeSample(probeSample(), 1_786_536_000).raw.elapsed_before_clamp, null)
+  assert.equal(normalizeSample(probeSample(), null).raw.elapsed_before_clamp, null)
+})
+
+test('normalizeSample: raw 原样保留三个字段的页面原文，供排查选择器漂移', () => {
+  const s = normalizeSample(probeSample(), 1_786_536_000)
+  assert.equal(s.raw.viewer_text, '1.2K')
+  assert.equal(s.raw.followers_text, '34.5M')
+  assert.equal(s.raw.likes_text, '2,340')
+})
+
+test('normalizeSample: 四个选择器的命中情况整组带进 raw', () => {
+  const s = normalizeSample(probeSample(), 1_786_536_000)
+  assert.deepEqual(s.raw.selectors_ok, {
+    viewer: '[data-e2e="x"]', followers: null, likes: null, chatHost: '.chat',
+  })
+})
