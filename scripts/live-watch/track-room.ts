@@ -93,10 +93,15 @@ function readStartTime(html: string): number | null {
  */
 async function capture(pc: Conn, clip: any): Promise<Buffer | null> {
   for (let a = 0; a < 3; a++) {
-    const { data } = await pc.send('Page.captureScreenshot', { format: 'png', clip: { ...clip, scale: 1 } })
-    const buf = Buffer.from(data, 'base64')
-    if (buf.length >= 120 * 1024) return buf
-    await sleep(3000)
+    try {
+      const { data } = await pc.send('Page.captureScreenshot', { format: 'png', clip: { ...clip, scale: 1 } })
+      const buf = Buffer.from(data, 'base64')
+      if (buf.length >= 120 * 1024) return buf
+    } catch (e) {
+      // 截图挂了只丢一帧，不能连累整场采集 —— 样本是产出，帧是可丢的候选。
+      process.stderr.write(`  截图失败(第 ${a + 1} 次): ${(e as Error).message}\n`)
+    }
+    if (a < 2) await sleep(3000) // 只在还有下一次尝试时才等；最后一次失败直接返回，别白等 3s
   }
   return null
 }
@@ -183,13 +188,26 @@ async function main() {
       // URL 是这种情况下唯一还可信的信号，每轮都读，很便宜。
       const href = String((await evaluate(pc, 'location.href')) ?? '')
 
-      // 截图：按 --shot-every 的节奏，落本地候选帧。收敛与入库是第二期的事。
+      // 截图：按 --shot-every 的节奏落本地候选帧。
       if (Date.now() - lastShotAt >= shotEvery && clip) {
         const buf = await capture(pc, clip)
+        // 成败都推进节流点。失败不推进的话会反过来变成「越失败试得越勤」——
+        // shotEvery(默认 150s) 比 drainEvery(60s) 长，正常时每 2~3 轮才截一次，
+        // 一旦持续黑屏就塌缩成每轮都跑满三次重试、每轮多堵十秒，而且没有出口。
+        // 帧本来就是可丢的候选，黑屏期间少几张远比拖慢整个采集循环划算。
+        lastShotAt = Date.now()
         if (buf) {
-          const elapsed = startedAt != null ? Math.round(Date.now() / 1000) - startedAt : total * 60
+          // 开播时间未知时退回「进房以来的秒数」（tracking_started_at 起算），
+          // 含义和「开播以来的秒数」不同，只是给候选帧一个单调递增、不会撞车的
+          // 排序键，不是权威时间戳——真要按时间对齐，第二期靠 samples.jsonl 关联。
+          // 原来用 total*60 是拿采样点数冒充时间：某轮排空为零时 total 不动，
+          // 两次截图就会算出同一个文件名、后一张静默覆盖前一张；如果这个房间的
+          // rehydration 里根本没有 startTime，那就是每一张都在踩这个坑，不是偶发。
+          // 墙上时间单调递增、轮次间隔≥60s，不会撞车。
+          const elapsed = startedAt != null
+            ? Math.round(Date.now() / 1000) - startedAt
+            : Math.round((Date.now() - startedTracking) / 1000)
           await writeFile(`${paths.frames}/${String(elapsed).padStart(6, '0')}.png`, buf)
-          lastShotAt = Date.now()
         }
       }
 
