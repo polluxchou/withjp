@@ -10,9 +10,9 @@ import { timeZoneForLocale } from '../time/localeZone.ts'
 import { recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
 import { checkProfileLanguage } from './profileLanguage.ts'
 import { RULER_WINDOW_DAYS } from './regionRuler.ts'
-import { STALE_DAYS, competitorName } from './summary.ts'
+import { STALE_DAYS, competitorName, daysBetween } from './summary.ts'
 import { shotUptimeParts } from './types.ts'
-import type { CompetitorBoard, CompetitorWithHistory, HistoryPoint } from './types.ts'
+import type { CompetitorBoard, CompetitorShot, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
 const DAY_MS = 86_400_000
 
@@ -139,16 +139,6 @@ export function dayIn(date: Date, timeZone: string): string {
 }
 
 /**
- * 两个 YYYY-MM-DD 相差的整天数。走 Date.UTC 而不是 new Date(str)——
- * 后者按本地时区解析，跨夏令时的地区会有 ±1 天误差（同 summary.ts 的做法）。
- */
-export function daysBetween(from: string, to: string): number {
-  const [fy, fm, fd] = from.split('-').map(Number)
-  const [ty, tm, td] = to.split('-').map(Number)
-  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000)
-}
-
-/**
  * 两个快照之间的跨度超过这个天数就不算「最近变化」——三个采集周期
  * （主页指标周采一次）。生产库实测全部 21 个有 ≥2 条快照的账号跨度都
  * 没超过 7 天，这个上限今天不吃掉任何真实数据，只挡未来数据断档后
@@ -222,24 +212,25 @@ function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): Ask
   }
 }
 
-function shotsOf(c: CompetitorWithHistory): AskShots {
+/** 只收截图列表本身——测试也就不用为了几张图造出整棵档案树（同 summary.ts 的取舍）。 */
+export function shotsOf(shots: CompetitorShot[]): AskShots {
   const dates = Array.from(
-    new Set(c.shots.map((s) => s.shot_on).filter((d): d is string => d != null)),
+    new Set(shots.map((s) => s.shot_on).filter((d): d is string => d != null)),
   ).sort((a, b) => b.localeCompare(a))
 
-  const viewers = c.shots.map((s) => s.viewer_count).filter((v): v is number => v != null)
+  const viewers = shots.map((s) => s.viewer_count).filter((v): v is number => v != null)
 
   // 按 captured_at（采集时刻）取最大值，不按数组顺序或 shot_on（那只精确到天）——
   // shot_on 相同的同一天可能有多张截图，写入时 sort_order 恒为 0，数组顺序不可信。
   let last: { at: string; minutes: number } | null = null
-  for (const s of c.shots) {
+  for (const s of shots) {
     const parts = shotUptimeParts(s.stream_started_at, s.captured_at)
     if (!parts || s.captured_at == null) continue
     if (last == null || s.captured_at > last.at) last = { at: s.captured_at, minutes: parts.h * 60 + parts.m }
   }
 
   return {
-    total: c.shots.length,
+    total: shots.length,
     capturedDates: dates,
     lastOn: dates[0] ?? null,
     peakViewersAllTime: viewers.length ? Math.max(...viewers) : null,
@@ -300,7 +291,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
       members: c.member_count,
       followers,
       liveHabit: liveHabitOf(c, displayTimeZone, now),
-      shots: shotsOf(c),
+      shots: shotsOf(c.shots),
       health: healthOf(c.latest?.captured_on ?? null, todayTokyo),
     }
   })

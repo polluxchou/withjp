@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildAskContext } from './ask-context.ts'
+import { buildAskContext, dayIn } from './ask-context.ts'
 import type { CompetitorBoard, CompetitorShot, CompetitorSnapshot, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
 /** 造一条字段齐全的快照，只覆盖测试关心的部分。 */
@@ -87,6 +87,14 @@ test('meta.displayTimeZone 跟界面语言走', () => {
 test('meta.captureNote 始终存在且点明「缺席只代表未采集」', () => {
   const ctx = buildAskContext(board([]), new Date('2026-08-19T15:30:00Z'), 'zh')
   assert.ok(ctx.meta.captureNote.includes('不代表未开播'))
+})
+
+test('dayIn: 跨越 America/Los_Angeles 夏令时切换日,按当地日历而非固定偏移换算', () => {
+  // 切换前(PST, UTC-8):当地 01:30 == UTC 09:30,仍是 03-08。
+  assert.equal(dayIn(new Date('2026-03-08T09:30:00Z'), 'America/Los_Angeles'), '2026-03-08')
+  // 切换后次日(PDT, UTC-7):当地 00:00 == UTC 07:00。若误用固定 -8 偏移会
+  // 算成本地 2026-03-07 23:00,错报前一天。
+  assert.equal(dayIn(new Date('2026-03-09T07:00:00Z'), 'America/Los_Angeles'), '2026-03-09')
 })
 
 test('空看板不抛异常，competitors 为空数组', () => {
