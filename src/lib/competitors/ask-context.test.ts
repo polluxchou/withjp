@@ -3,10 +3,44 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { buildAskContext } from './ask-context.ts'
-import type { CompetitorBoard, CompetitorShot, CompetitorWithHistory } from './types.ts'
+import type { CompetitorBoard, CompetitorShot, CompetitorSnapshot, CompetitorWithHistory, HistoryPoint } from './types.ts'
+
+/** 造一条字段齐全的快照，只覆盖测试关心的部分。 */
+function snap(over: Partial<CompetitorSnapshot> = {}): CompetitorSnapshot {
+  const captured_on = over.captured_on ?? '2026-08-17'
+  return {
+    id: over.id ?? 'snap-1',
+    competitor_id: over.competitor_id ?? 'id-1',
+    captured_on,
+    followers: over.followers ?? null,
+    likes: over.likes ?? null,
+    videos: over.videos ?? null,
+    following: over.following ?? null,
+    display_name: over.display_name ?? null,
+    bio: over.bio ?? null,
+    language: over.language ?? null,
+    region: over.region ?? null,
+    verified: over.verified ?? null,
+    raw: over.raw ?? null,
+    captured_at: over.captured_at ?? `${captured_on}T00:00:00Z`,
+  }
+}
+
+/**
+ * 真实数据里 latest 与 history 的最后一条永远来自同一行（assemble.ts 从同一批
+ * rows 里同时算出两者）。测试只声明 history 时，latest 照此规则自动派生，
+ * 而不是各写各的、悄悄制造出两者不一致的假数据——除非显式传 over.latest 来
+ * 测的就是"两者不一致"这件事本身（例如最新一条 followers 为 null 时）。
+ */
+function latestFromHistory(history: HistoryPoint[]): CompetitorSnapshot | null {
+  if (history.length === 0) return null
+  const last = [...history].sort((a, b) => a.captured_on.localeCompare(b.captured_on)).at(-1)!
+  return snap({ captured_on: last.captured_on, followers: last.followers, likes: last.likes, videos: last.videos })
+}
 
 /** 造一个字段齐全的竞品，只覆盖测试关心的部分。 */
 function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory {
+  const history = over.history ?? []
   return {
     id: over.id ?? 'id-1',
     platform: 'tiktok',
@@ -25,8 +59,8 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     mc_note: null,
     online_note: null,
     latest_videos: null,
-    latest: over.latest ?? null,
-    history: over.history ?? [],
+    latest: over.latest ?? latestFromHistory(history),
+    history,
     shots: over.shots ?? [],
     weekly: over.weekly ?? [],
     related: over.related ?? [],
@@ -372,6 +406,21 @@ test('health: 超过 7 天未采集算陈旧，正好 7 天不算', () => {
 test('health: 从未采集过指标时 age 为 null 且算陈旧', () => {
   const ctx = buildAskContext(board([comp({})]), new Date('2026-08-20T01:00:00Z'), 'zh')
   assert.deepEqual(ctx.competitors[0].health, { metricsAgeDays: null, stale: true })
+})
+
+test('health: 最新快照 followers 为 null 时仍以 latest.captured_on 算新鲜度，不退回上一条有粉丝数的记录', () => {
+  // parseCount 解析失败会写出 followers:null 的行（record-profile-snapshot.mjs）——
+  // 这一行仍然是"采集过"，新鲜度要认它，不能因为它没有粉丝数就当没采集过、
+  // 退回去用上一条有数字的旧记录（那正是看板徽标与这里曾经的分歧所在）。
+  const ctx = buildAskContext(
+    board([comp({ history: [point('2026-08-05', 240000), point('2026-08-19', null)] })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  assert.equal(ctx.competitors[0].health.metricsAgeDays, 1)
+  assert.equal(ctx.competitors[0].health.stale, false)
+  // followers 块是另一套口径，仍然指向最后一条有粉丝数的记录——两者刻意不同步。
+  assert.equal(ctx.competitors[0].followers.on, '2026-08-05')
 })
 
 test('父子：子主播独立成条目并带 parentHandle，isChild 为 true', () => {
