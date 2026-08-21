@@ -112,6 +112,7 @@ const health = (over: Partial<DrainHealth> = {}): DrainHealth => ({
   observerAlive: true,
   hasVideo: true,
   roomEnded: false,
+  onRoomUrl: true,
   ...over,
 })
 
@@ -152,11 +153,38 @@ test('nextWatchdog: 连续三轮不健康 → 第三轮判 end', () => {
 })
 
 test('nextWatchdog: 重注入后恢复健康 → 计数器清零，能再扛两次', () => {
-  let r = nextWatchdog(initialWatchdog(), health({ samples: 0 }))
+  const bad = health({ samples: 0 })
+  let r = nextWatchdog(initialWatchdog(), bad)
   assert.equal(r.state.reinjects, 1)
   r = nextWatchdog(r.state, health())
   assert.equal(r.action, 'ok')
   assert.equal(r.state.reinjects, 0)
-  r = nextWatchdog(r.state, health({ samples: 0 }))
+  // 标题说「能再扛两次」，就真的驱动两次、第三次才 end —— 别让标题比断言承诺得多
+  r = nextWatchdog(r.state, bad)
   assert.equal(r.action, 'reinject')
+  r = nextWatchdog(r.state, bad)
+  assert.equal(r.action, 'reinject')
+  r = nextWatchdog(r.state, bad)
+  assert.equal(r.action, 'end')
+})
+
+test('nextWatchdog: 页面被导航走 → 立即 end，不浪费两轮重注入', () => {
+  const r = nextWatchdog(initialWatchdog(), health({ onRoomUrl: false }))
+  assert.equal(r.action, 'end')
+  assert.equal(r.state.ended, true)
+})
+
+test('nextWatchdog: end 是吸收态，判过之后读到健康数据也不回头', () => {
+  const ended = nextWatchdog(initialWatchdog(), health({ roomEnded: true })).state
+  assert.equal(ended.ended, true)
+  const again = nextWatchdog(ended, health())
+  assert.equal(again.action, 'end', '已经收工的场次不能被一次调度竞态复活')
+})
+
+test('nextWatchdog: 抖动过再正常结束时 reinjects 原样留着（本场抖动过的凭据）', () => {
+  const shaky = nextWatchdog(initialWatchdog(), health({ samples: 0 })).state
+  assert.equal(shaky.reinjects, 1)
+  const r = nextWatchdog(shaky, health({ roomEnded: true }))
+  assert.equal(r.action, 'end')
+  assert.equal(r.state.reinjects, 1)
 })

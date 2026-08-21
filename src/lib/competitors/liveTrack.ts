@@ -102,30 +102,46 @@ export type DrainHealth = {
   hasVideo: boolean
   /** roomEnded() 的结论 */
   roomEnded: boolean
+  /** 当前 tab 的 URL 仍然是目标直播间；false = 页面已被导航走 */
+  onRoomUrl: boolean
 }
 
-export type WatchdogState = { reinjects: number }
+/**
+ * reinjects 的语义是「距上次健康以来连续不健康的轮数」，不是「本场累计重注入次数」——
+ * 健康一次就清零。二者当前恒等，因为每个不健康轮次只有 reinject 和 end 两种去向；
+ * 将来若加入第三种不重注探针的补救动作（比如整页 reload），这个字段就必须拆开。
+ * ended 是收工闩：一旦为真，后续调用恒返回 end。
+ */
+export type WatchdogState = { reinjects: number; ended: boolean }
 export type WatchdogAction = 'ok' | 'reinject' | 'end'
 
 const MAX_REINJECTS = 2
 
 export function initialWatchdog(): WatchdogState {
-  return { reinjects: 0 }
+  return { reinjects: 0, ended: false }
 }
 
 /**
  * 看门狗一步。
- * status 码判结束最可靠，命中就立即收工，不浪费两轮重注入。
+ * status 码判结束最可靠，命中就立即收工，不浪费两轮重注入；URL 被导航走同理立即收工——
+ * 页面都不在了，rehydration 读不到、探针也无处可注，慢慢耗完两轮重注入毫无意义。
  * 其余异常一律先试重注入 —— 探针掉了比直播结束常见得多（页面局部重渲染就够）。
+ * 但要注意 reinject 这个动作名只对 samples===0 那种情况名副其实：observerAlive/hasVideo
+ * 掉了的话重新注入探针并不能把丢失的 DOM 变回来，实际语义是「再等一轮看它能不能自愈，
+ * 等不到就放弃」——结果是对的，只是动作名把因果讲得比实际笃定。
  * 重注入两次仍然没数据，才判下播。
  */
 export function nextWatchdog(
   state: WatchdogState,
   h: DrainHealth,
 ): { state: WatchdogState; action: WatchdogAction } {
-  if (h.roomEnded) return { state, action: 'end' }
+  // 吸收态优先：收工过就不再改主意
+  if (state.ended) return { state, action: 'end' }
+  // status 码判结束最可靠；URL 变了说明页面整个被导航走，rehydration 读不到、
+  // 探针也无处可注 —— 这两种都立即收工，不浪费两轮重注入。
+  if (h.roomEnded || !h.onRoomUrl) return { state: { ...state, ended: true }, action: 'end' }
   const healthy = h.samples > 0 && h.observerAlive && h.hasVideo
-  if (healthy) return { state: { reinjects: 0 }, action: 'ok' }
-  if (state.reinjects >= MAX_REINJECTS) return { state, action: 'end' }
-  return { state: { reinjects: state.reinjects + 1 }, action: 'reinject' }
+  if (healthy) return { state: { reinjects: 0, ended: false }, action: 'ok' }
+  if (state.reinjects >= MAX_REINJECTS) return { state: { ...state, ended: true }, action: 'end' }
+  return { state: { reinjects: state.reinjects + 1, ended: false }, action: 'reinject' }
 }
