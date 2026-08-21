@@ -6,7 +6,7 @@ import { buildAskContext } from './ask-context.ts'
 import type { CompetitorBoard, CompetitorWithHistory } from './types.ts'
 
 /** 造一个字段齐全的竞品，只覆盖测试关心的部分。 */
-export function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory {
+function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory {
   return {
     id: over.id ?? 'id-1',
     platform: 'tiktok',
@@ -33,7 +33,7 @@ export function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithH
   }
 }
 
-export function board(competitors: CompetitorWithHistory[]): CompetitorBoard {
+function board(competitors: CompetitorWithHistory[]): CompetitorBoard {
   return { competitors, canEdit: true }
 }
 
@@ -60,4 +60,65 @@ test('空看板不抛异常，competitors 为空数组', () => {
   assert.deepEqual(ctx.competitors, [])
   assert.equal(ctx.meta.coverage.competitors, 0)
   assert.equal(ctx.meta.coverage.roots, 0)
+})
+
+function point(captured_on: string, followers: number | null) {
+  return { captured_on, followers, likes: null, videos: null }
+}
+
+test('followers: 两个及以上快照给出 delta 与 spanDays，confidence 为 ok', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      handle: 'solulune',
+      history: [point('2026-08-10', 241000), point('2026-08-17', 246200)],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const f = ctx.competitors[0].followers
+  assert.equal(f.latest, 246200)
+  assert.equal(f.on, '2026-08-17')
+  assert.equal(f.prev, 241000)
+  assert.equal(f.prevOn, '2026-08-10')
+  assert.equal(f.delta, 5200)
+  assert.equal(f.spanDays, 7)
+  assert.equal(f.confidence, 'ok')
+})
+
+test('followers: 只有一个快照时 delta 为 null 且 confidence 为 insufficient', () => {
+  const ctx = buildAskContext(
+    board([comp({ history: [point('2026-08-17', 246200)] })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const f = ctx.competitors[0].followers
+  assert.equal(f.latest, 246200)
+  assert.equal(f.prev, null)
+  assert.equal(f.prevOn, null)
+  assert.equal(f.delta, null)
+  assert.equal(f.spanDays, null)
+  assert.equal(f.confidence, 'insufficient')
+})
+
+test('followers: followers 为 null 的快照不参与计算', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      history: [point('2026-08-10', 241000), point('2026-08-17', null)],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const f = ctx.competitors[0].followers
+  assert.equal(f.latest, 241000)
+  assert.equal(f.on, '2026-08-10')
+  assert.equal(f.confidence, 'insufficient')
+})
+
+test('followers: 完全没有快照时全为 null', () => {
+  const ctx = buildAskContext(board([comp({})]), new Date('2026-08-20T01:00:00Z'), 'zh')
+  const f = ctx.competitors[0].followers
+  assert.deepEqual(f, {
+    latest: null, on: null, prev: null, prevOn: null,
+    delta: null, spanDays: null, confidence: 'insufficient',
+  })
 })
