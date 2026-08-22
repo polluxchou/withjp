@@ -1,14 +1,21 @@
-import { ExpenseIntentSchema, WorkTaskCreateIntentSchema, type ExpenseIntent, type WorkTaskCreateIntent } from './schema'
-import { MAX_PRIOR_OUTCOME_CHARS, type PriorContext } from './conversation'
-import { describeModel, llmJson, type LlmModel } from '@/lib/llm/json'
-import { STRONG_MODEL, fastModel } from '@/lib/llm/models'
+import { ExpenseIntentSchema, WorkTaskCreateIntentSchema, type ExpenseIntent, type WorkTaskCreateIntent } from './schema.ts'
+import { MAX_PRIOR_OUTCOME_CHARS, type PriorContext } from './conversation.ts'
+import { describeModel, llmJson } from '../llm/json.ts'
+import { fastModel, modelLadder, strongModel } from '../llm/models.ts'
 
 // ── Model selection ───────────────────────────────────────────
 // 传输层与档位选择都在 src/lib/llm/ 下（本文件原有的 Gemini shim 已并入
 // llmJson —— venue-intent.ts 里那份功能相同的拷贝也一起消掉了）。
+// import 用相对路径带 .ts 后缀而不是 @/ 别名：node --test 不解析别名，
+// 这是本文件能被单测覆盖的前提。
 //
-// 快档默认 deepseek-chat，可用 INTENT_FAST_PROVIDER=gemini 退回 flash；
-// 强档恒为 gemini-2.5-pro，写操作与降级都走它。
+// 快档默认 deepseek-chat（INTENT_FAST_PROVIDER=gemini 退回 flash）；强档
+// 默认也是 deepseek-chat（INTENT_STRONG_PROVIDER=gemini 退回 pro）——
+// 2026-08 Gemini 项目月度消费上限耗尽后，凡升到 pro 的解析在生产全部 429。
+//
+// 每次解析都沿 modelLadder 走：首选 → 强档 → 跨供应商逃生档。抛异常
+// （429/宕机/缺 key）与输出过不了 schema 都前进到下一档，全梯失败才把
+// parser_failed 报给用户。
 
 // ── Public types ──────────────────────────────────────────────
 
@@ -20,6 +27,12 @@ export interface ParserContext {
   // 绕过 executor 的字段校验与 per-op 闸门——写操作照旧走 pending_actions
   // 暂存 + 显式确认。这是可以接受客户端传上下文的唯一理由。
   priorTurn?: PriorContext
+}
+
+// 测试注入口：node --test 下没有网络，把 llmJson 换成假实现才能测到
+// 「单家供应商整体 429 → 沿梯子换供应商」这条路径。生产调用方不传。
+export interface ParserDeps {
+  llm?: typeof llmJson
 }
 
 export type ClassifiedKind = 'write' | 'query' | 'unknown'
@@ -37,7 +50,7 @@ export type WorkTaskParserResult =
 
 type IntentKind = ClassifiedKind
 
-async function classify(text: string): Promise<IntentKind> {
+async function classify(text: string, llm: typeof llmJson): Promise<IntentKind> {
   const prompt = `判断下面这句话是"写操作"还是"查询"。
 - 写操作：创建、修改、删除一条或多条支出记录。
 - 查询：询问支出数据、汇总、占比、列表。
@@ -46,14 +59,20 @@ async function classify(text: string): Promise<IntentKind> {
 如果完全无法判断，返回 {"kind":"unknown"}。
 
 输入：${JSON.stringify(text)}`
-  try {
-    const raw = await llmJson(fastModel(), prompt)
-    const obj = JSON.parse(raw) as { kind?: string }
-    if (obj.kind === 'write' || obj.kind === 'query') return obj.kind
-    return 'unknown'
-  } catch {
-    return 'unknown'
+  // 分类是增强项：抛异常（供应商级故障）或输出连 JSON 都不是时沿梯子换档，
+  // 全梯失败退回 unknown（抽取阶段会自选 op），错误不往上抛。合法 JSON 但
+  // kind 答非所问不换档 —— 那是模型的判断，不是故障。
+  for (const model of modelLadder(fastModel(), strongModel())) {
+    try {
+      const raw = await llm(model, prompt)
+      const obj = JSON.parse(raw) as { kind?: string }
+      if (obj.kind === 'write' || obj.kind === 'query') return obj.kind
+      return 'unknown'
+    } catch {
+      continue
+    }
   }
+  return 'unknown'
 }
 
 // ── Extraction stage ──────────────────────────────────────────
@@ -148,73 +167,51 @@ ${RULES}
 用户输入：${JSON.stringify(text)}`
 }
 
-// model 由调用方显式传入。改造前这里按 kind 推导（query → flash），导致
-// parseExpenseIntent 的降级分支复用同一个 kind 时又选回了快档 —— 见下方。
-async function extract(
-  text:  string,
-  ctx:   ParserContext,
-  kind:  IntentKind,
-  model: LlmModel,
-): Promise<{ raw: string; modelUsed: string }> {
-  const raw = await llmJson(model, buildExtractPrompt(text, ctx, kind))
-  return { raw, modelUsed: describeModel(model) }
-}
-
 // ── Public entry ──────────────────────────────────────────────
 
 export async function parseExpenseIntent(
   text: string,
-  ctx: ParserContext,
+  ctx:  ParserContext,
+  deps?: ParserDeps,
 ): Promise<ParserResult> {
-  const t0 = Date.now()
+  const t0  = Date.now()
+  const llm = deps?.llm ?? llmJson
   try {
-    const kind = await classify(text)
+    const kind = await classify(text, llm)
 
     // 快档只用于查询；写操作直接上强档（写错了要落库，不省这一次调用的钱）。
-    const firstModel = kind === 'query' ? fastModel() : STRONG_MODEL
-    const first = await extract(text, ctx, kind, firstModel)
-    const firstParsed = tryParse(first.raw)
-    if (firstParsed.success) {
-      return {
-        ok:          true,
-        intent:      firstParsed.data,
-        classifiedAs: kind,
-        modelUsed:    first.modelUsed,
-        durationMs:   Date.now() - t0,
-      }
-    }
-
-    // 降级：首轮不是强档时，显式用强档重跑一次。
     //
-    // 改造前这里复用 extract 的 kind 推导（query → flash），于是 kind === 'query'
-    // 时「降级」其实是再跑一遍同一个快档模型 —— temperature 0 下同 prompt 同模型
-    // 近似确定性，那次重试基本是空转，却把 modelUsed 报成了 pro。换成 DeepSeek
-    // 之后这条正是整个降级设计的意义所在（从 DeepSeek 逃到 Gemini pro）。
-    if (describeModel(firstModel) !== describeModel(STRONG_MODEL)) {
-      const second = await extract(text, ctx, kind, STRONG_MODEL)
-      const secondParsed = tryParse(second.raw)
-      if (secondParsed.success) {
+    // 之后沿梯子逐档尝试：llm 抛异常（429/宕机/缺 key）或输出过不了 schema
+    // 都前进到下一档 —— 梯子保证后面总有另一家供应商。改造前抛异常直接落到
+    // 外层 catch 变成 parser_failed，降级只覆盖 schema 失败；2026-08 Gemini
+    // 月度消费上限耗尽时，凡走强档的解析因此全军覆没。
+    const firstModel = kind === 'query' ? fastModel() : strongModel()
+    const failures: string[] = []
+    for (const model of modelLadder(firstModel, strongModel())) {
+      let raw: string
+      try {
+        raw = await llm(model, buildExtractPrompt(text, ctx, kind))
+      } catch (e) {
+        // llmJson 的错误信息自带 provider:model 前缀，不重复加。
+        failures.push(e instanceof Error ? e.message : String(e))
+        continue
+      }
+      const parsed = tryParse(raw)
+      if (parsed.success) {
         return {
-          ok:          true,
-          intent:      secondParsed.data,
+          ok:           true,
+          intent:       parsed.data,
           classifiedAs: kind,
-          modelUsed:    second.modelUsed,
+          modelUsed:    describeModel(model),
           durationMs:   Date.now() - t0,
         }
       }
-      return {
-        ok:        false,
-        reason:    `Schema validation failed twice. Last error: ${secondParsed.error}`,
-        durationMs: Date.now() - t0,
-      }
+      failures.push(`${describeModel(model)} schema validation failed: ${parsed.error}`)
     }
-
-    return {
-      ok:         false,
-      reason:     `Schema validation failed: ${firstParsed.error}`,
-      durationMs: Date.now() - t0,
-    }
+    return { ok: false, reason: failures.join(' | '), durationMs: Date.now() - t0 }
   } catch (e) {
+    // 梯子内部的失败都已折叠成 failures；这里只兜 prompt 拼装等意料外的抛错，
+    // 维持 parseExpenseIntent 对外不抛的承诺。
     return {
       ok:         false,
       reason:     e instanceof Error ? e.message : String(e),
@@ -249,7 +246,7 @@ function stripFences(s: string): string {
 // Determines whether input is about expenses or work tasks before
 // routing to the appropriate parser.
 
-export async function classifyEntity(text: string, prior?: PriorContext): Promise<EntityKind> {
+export async function classifyEntity(text: string, prior?: PriorContext, deps?: ParserDeps): Promise<EntityKind> {
   const prompt = `判断下面这句话的意图类型。
 
 判断核心原则：
@@ -262,14 +259,20 @@ export async function classifyEntity(text: string, prior?: PriorContext): Promis
 只返回 JSON：{"entity":"expense"} 或 {"entity":"work_task"} 或 {"entity":"unknown"}。
 ${priorHint(prior)}
 输入：${JSON.stringify(text)}`
-  try {
-    const raw = await llmJson(fastModel(), prompt)
-    const obj = JSON.parse(raw) as { entity?: string }
-    if (obj.entity === 'expense' || obj.entity === 'work_task') return obj.entity
-    return 'unknown'
-  } catch {
-    return 'unknown'
+  // 与 classify 同一套梯子语义：供应商级故障换档，全梯失败退 unknown
+  // （路由层会把 unknown 兜底到支出解析），合法但答非所问不换档。
+  const llm = deps?.llm ?? llmJson
+  for (const model of modelLadder(fastModel(), strongModel())) {
+    try {
+      const raw = await llm(model, prompt)
+      const obj = JSON.parse(raw) as { entity?: string }
+      if (obj.entity === 'expense' || obj.entity === 'work_task') return obj.entity
+      return 'unknown'
+    } catch {
+      continue
+    }
   }
+  return 'unknown'
 }
 
 // ── Work task parser ──────────────────────────────────────────
@@ -312,16 +315,30 @@ const WORK_TASK_RULES = `
 export async function parseWorkTaskIntent(
   text: string,
   ctx:  ParserContext,
+  deps?: ParserDeps,
 ): Promise<WorkTaskParserResult> {
-  const t0 = Date.now()
+  const t0  = Date.now()
+  const llm = deps?.llm ?? llmJson
   try {
     const prompt = `今天是 ${ctx.todayISO}。\n\n${WORK_TASK_SCHEMA_DOC}\n${WORK_TASK_RULES}\n${priorHint(ctx.priorTurn)}\n用户输入：${JSON.stringify(text)}`
-    const raw    = await llmJson(STRONG_MODEL, prompt)
-    const parsed = tryParseWorkTask(raw)
-    if (parsed.success) {
-      return { ok: true, intent: parsed.data, modelUsed: describeModel(STRONG_MODEL), durationMs: Date.now() - t0 }
+    // 与支出抽取同一套梯子语义：抛异常或 schema 不过都往下走一档。改造前
+    // 这里单发强档、schema 失败不重试，供应商 429 直接变 parser_failed。
+    const failures: string[] = []
+    for (const model of modelLadder(strongModel(), strongModel())) {
+      let raw: string
+      try {
+        raw = await llm(model, prompt)
+      } catch (e) {
+        failures.push(e instanceof Error ? e.message : String(e))
+        continue
+      }
+      const parsed = tryParseWorkTask(raw)
+      if (parsed.success) {
+        return { ok: true, intent: parsed.data, modelUsed: describeModel(model), durationMs: Date.now() - t0 }
+      }
+      failures.push(`${describeModel(model)} ${parsed.error}`)
     }
-    return { ok: false, reason: parsed.error, durationMs: Date.now() - t0 }
+    return { ok: false, reason: failures.join(' | '), durationMs: Date.now() - t0 }
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : String(e), durationMs: Date.now() - t0 }
   }
