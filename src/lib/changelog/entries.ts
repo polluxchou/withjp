@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-08-22',
+    items: [
+      {
+        kind: 'fix',
+        scope: '场地布置',
+        title: '场地画布的一句话操作恢复可用,并获得跨供应商容灾',
+        details:
+          '此前场地指令解析固定使用 Gemini,本月 Gemini 项目消费上限耗尽后这个功能整体不可用。现在与支出/任务的意图解析一致:默认走 DeepSeek,它出故障时自动切换到 Gemini 备援档,两家同时挂掉才会报错,报错信息会逐档列出原因。识别为「不是场地操作」的回答不会触发切换,不多花时间也不多花钱。',
+      },
+    ],
+  },
+  {
     date: '2026-08-21',
     items: [
       {
