@@ -240,6 +240,17 @@ export default function ShotLightbox({
         </button>
       </div>
 
+      {/* 画面内容备注：Claude 人眼核实截图时顺手写的一句话概括(≤200 字)，供人回看时
+          不用重新点开图自己认。人工上传的截图这个字段是空串，整段不出现。 */}
+      {selected.caption && (
+        <p
+          onClick={(e) => e.stopPropagation()}
+          className="max-w-[90vw] whitespace-pre-wrap text-center text-xs text-white/80 sm:max-w-[640px]"
+        >
+          {selected.caption}
+        </p>
+      )}
+
       <div className="flex items-center gap-3 text-xs text-white" onClick={(e) => e.stopPropagation()}>
         <span>{t('shotIndexOf', { index: selectedIndex + 1, total: shots.length })}</span>
         {/* 自动采集的直播态：在线人数 + 截图时已播时长。人工上传的截图这两项为 null,整段不出现。 */}
