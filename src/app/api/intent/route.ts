@@ -114,6 +114,16 @@ export async function POST(req: NextRequest) {
     const messages = [...history, { role: 'user', content: text }]
     const result = await runAskConversation(user.id, { messages, locale: body.locale })
     if (!result.ok) {
+      // 只审计 bad_request：那是 parseAskBody 判定客户端发来的 messages/
+      // locale 形状不对，属于「畸形输入」，与下面 work_task/expense 分支
+      // 的 parser_failed 审计同一件事的性质（都是把可疑输入落一条审计）。
+      // stage 用 input_gate 而不是这份路由里别处沿用的 'parser'——那个 stage
+      // 记的是"LLM 解析结果过不了 schema"，这里从没调过模型，parseAskBody
+      // 是纯校验，语义上更贴近 input_gate 的定义。not_configured/upstream
+      // 不落审计：那是环境配置缺失/上游服务故障，不是可疑输入。
+      if (result.code === 'bad_request') {
+        await logIntentViolation({ userId: user.id, stage: 'input_gate', reason: result.message, rawText: text })
+      }
       return NextResponse.json({ kind: 'error', code: result.code, message: result.message }, { status: 200 })
     }
     return NextResponse.json({ kind: 'competitor_answer', answer: result.answer }, { status: 200 })

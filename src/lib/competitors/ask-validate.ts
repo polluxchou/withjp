@@ -1,5 +1,7 @@
 // src/lib/competitors/ask-validate.ts
-// 纯函数：校验 /api/competitors/ask 的请求体，并把历史裁到能喂给模型的窗口。
+// 纯函数：校验竞品问答的请求体，并把历史裁到能喂给模型的窗口。调用方是
+// ask-service.ts 的 runAskConversation（原先是独立的 POST /api/competitors/ask
+// 路由，该路由已随 AskPanel 抽屉一起下线，逻辑并入 runAskConversation）。
 //
 // 抽成纯函数（不依赖 next/server）单独放一个文件，是因为这段是分支重的安全
 // 边界——挡 role:'system' 注入、超长/非法内容、超大数组、locale 原型链探测——
@@ -22,8 +24,8 @@ export type ParsedAskBody =
 export const MAX_CONTENT = 2000
 
 /**
- * 真正送进模型的历史窗口大小，route.ts 的 trimHistory 调用直接复用这个
- * 常量（不在那边另写一份），MAX_MESSAGES 与它的倍数关系才不会因为两处
+ * 真正送进模型的历史窗口大小，ask-service.ts 的 trimHistory 调用直接复用
+ * 这个常量（不在那边另写一份），MAX_MESSAGES 与它的倍数关系才不会因为两处
  * 各改一次而跑偏。
  */
 export const MAX_TURNS = 20
@@ -57,7 +59,7 @@ function isTurnShape(v: unknown): v is AskTurn {
 }
 
 /**
- * 校验 /api/competitors/ask 的 JSON 请求体。
+ * 校验竞品问答的请求体（调用方见本文件顶部注释）。
  *
  * 只接受 { messages: {role,content}[], locale?: string }。返回的 turns 是
  * 全新对象（只挑 role/content 两个字段的值，逐条 map 出来，不是原始输入的

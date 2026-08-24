@@ -187,3 +187,29 @@ test('askHistoryOf：默认 limit 是 20', () => {
 test('askHistoryOf：空消息流返回空数组', () => {
   assert.deepEqual(askHistoryOf([]), [])
 })
+
+test('askHistoryOf：limit=0 不会退化成 slice(-0)==slice(0) 返回全部——钳到空数组，同 trimHistory 已钉住的陷阱', () => {
+  const turns: Turn[] = [
+    { id: '1', role: 'user',  text: 'q1' },
+    { id: '2', role: 'agent', result: { kind: 'competitor_answer', answer: 'a1' } },
+  ]
+  assert.deepEqual(askHistoryOf(turns, 0), [])
+})
+
+test('askHistoryOf：limit 为负数时同样返回空数组', () => {
+  const turns: Turn[] = [{ id: '1', role: 'user', text: 'q1' }]
+  assert.deepEqual(askHistoryOf(turns, -5), [])
+})
+
+test('askHistoryOf：竞品答案回放进历史前裁到 2000 字符，避免下一轮请求被 parseAskBody 的 MAX_CONTENT 整体拒收', () => {
+  const longAnswer = 'x'.repeat(2500)
+  const turns: Turn[] = [
+    { id: '1', role: 'user',  text: 'solulune 数据详情' },
+    { id: '2', role: 'agent', result: { kind: 'competitor_answer', answer: longAnswer } },
+  ]
+  const history = askHistoryOf(turns)
+  assert.equal(history.length, 2)
+  assert.equal(history[1].role, 'assistant')
+  assert.equal(history[1].content.length, 2000)
+  assert.equal(history[1].content, longAnswer.slice(0, 2000))
+})
