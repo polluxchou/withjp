@@ -7,6 +7,7 @@ import { parseVenueIntent, type VenueParseItem } from '@/lib/venue/venue-intent'
 import { VENUE_ITEM_TYPE_OPTIONS } from '@/venue/layoutData'
 import { MAX_INPUT_CHARS, sanitizeIntentText } from '@/lib/intent/input-gate'
 import { MAX_PRIOR_OUTCOME_CHARS, type PriorContext } from '@/lib/intent/conversation'
+import { runAskConversation } from '@/lib/competitors/ask-service'
 
 const VENUE_TYPE_SET = new Set(VENUE_ITEM_TYPE_OPTIONS.map((o) => o.value as string))
 
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest) {
     scope?: string
     venueItems?: { id: string; name: string; type: string }[]
     prior?: { text?: string; outcome?: string }
+    // 竞品问答分支专用：完整对话历史与界面语言。两者都是不可信输入，服务端
+    // 不在这里做任何形状/内容校验——runAskConversation 内部的 parseAskBody
+    // 才是唯一的校验点（role 白名单、内容长度上限、locale 白名单），本路由
+    // 只负责把它们原样递过去。见下方 competitor 分支的注释。
+    history?: { role: string; content: string }[]
+    locale?: string
   }
   try {
     body = await req.json()
@@ -92,6 +99,25 @@ export async function POST(req: NextRequest) {
 
   // Classify entity first, then route to the right parser.
   const entity = await classifyEntity(text, priorTurn)
+
+  if (entity === 'competitor') {
+    // history 是竞品问答的多轮上下文（客户端用 askHistoryOf 派生），与上面
+    // 的 prior 是两套独立机制：prior 只带「上一轮」给支出/工时任务解析器
+    // 消解指代，history 带的是完整的竞品问答轮次给 runAskConversation。
+    //
+    // 这里只做「是不是数组」这一层防御——防的是 [...history] 在 history
+    // 不是数组时（例如客户端发了个数字/对象）直接抛 TypeError 把整个请求
+    // 拖成 500；这不是在校验消息形状。数组内每条消息的 role/content 是否
+    // 合法，一律留给 runAskConversation 内部的 parseAskBody 去挡——那是
+    // 唯一允许对这份数据做校验判断的地方，本路由不重复一份更弱的校验。
+    const history = Array.isArray(body.history) ? body.history : []
+    const messages = [...history, { role: 'user', content: text }]
+    const result = await runAskConversation(user.id, { messages, locale: body.locale })
+    if (!result.ok) {
+      return NextResponse.json({ kind: 'error', code: result.code, message: result.message }, { status: 200 })
+    }
+    return NextResponse.json({ kind: 'competitor_answer', answer: result.answer }, { status: 200 })
+  }
 
   if (entity === 'work_task') {
     const parsed = await parseWorkTaskIntent(text, { todayISO, priorTurn })
