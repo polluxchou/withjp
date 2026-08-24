@@ -160,3 +160,27 @@ test('实体分类：全部供应商都失败时才退 unknown，且不抛', asy
     assert.equal(await classifyEntity('安排小王明天去转账', undefined, { llm }), 'unknown')
   })
 })
+
+test('实体分类：竞品问题判定为 competitor，路由到竞品问答分支', async () => {
+  await withEnv(DEFAULT_ENV, async () => {
+    const llm = async () => JSON.stringify({ entity: 'competitor' })
+    assert.equal(await classifyEntity('solulune 昨天开播了吗', undefined, { llm }), 'competitor')
+  })
+})
+
+test('实体分类：deepseek 整体 429 时换供应商，竞品判断依然生效', async () => {
+  await withEnv(DEFAULT_ENV, async () => {
+    const llm = async (m: LlmModel) => {
+      if (m.provider === 'deepseek') throw new Error('deepseek:deepseek-chat 429: rate limited')
+      return JSON.stringify({ entity: 'competitor' })
+    }
+    assert.equal(await classifyEntity('solulune 昨天开播了吗', undefined, { llm }), 'competitor')
+  })
+})
+
+test('实体分类：答非所问（乱值）时退成 unknown，不会被误判成 competitor', async () => {
+  await withEnv(DEFAULT_ENV, async () => {
+    const llm = async () => JSON.stringify({ entity: 'garbage' })
+    assert.equal(await classifyEntity('随便说点什么', undefined, { llm }), 'unknown')
+  })
+})

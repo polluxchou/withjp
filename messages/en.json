@@ -239,11 +239,11 @@
     "venueScopeTag": "Current canvas",
     "composerPlaceholder": "Say it in one line and I'll do it",
     "composerHint": "Enter to send · Shift+Enter for a new line",
-    "emptyGreeting": "Just say it. Expenses and work tasks are supported today. For example:",
+    "emptyGreeting": "Just say it. Expenses, work tasks, and competitor data questions are supported today. For example:",
     "examples": [
       "How much of Q3 salary went to MC",
       "Add a travel expense: taxi May 10, ¥320",
-      "Top three spend categories last month"
+      "Did solulune go live yesterday"
     ],
     "appliedNote": "Applied",
     "cancelledNote": "Cancelled",
@@ -1716,24 +1716,9 @@
     "navMissingShot": "no shot that day",
     "navJumpTo": "Jump to {name}",
     "ask": {
-      "open": "Ask the data",
-      "title": "Ask about competitors",
-      "close": "Close",
-      "placeholder": "e.g. Who grew fastest last week / When does solulune usually go live",
-      "send": "Send",
-      "thinking": "Looking it up…",
-      "emptyHint": "Answers come only from captured data — no guessing. Try asking:",
-      "example1": "Who grew fastest last week",
-      "example2": "When does solulune usually go live",
-      "example3": "Which competitors are due for a refresh",
       "errorNotConfigured": "Chat is not configured yet. Ask an admin to set DEEPSEEK_API_KEY.",
       "errorUpstream": "Could not get an answer. Try again.",
-      "errorBadRequest": "That message could not be sent. Try rephrasing it.",
-      "errorUnauthorized": "Your session has expired. Please sign in again.",
-      "errorBoard": "Could not load competitor data. Try again later.",
-      "copyError": "Copy error",
-      "copyTooltip": "Copy the full error and send it to a developer",
-      "copied": "Copied"
+      "errorBoard": "Could not load competitor data. Try again later."
     }
   },
   "site": {
