@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-08-23',
+    items: [
+      {
+        kind: 'improve',
+        scope: '竞品监测',
+        title: '两个对话入口合并成一个:直接在全局气泡里问竞品数据',
+        details:
+          '此前问竞品数据要单独打开「问数据」侧栏,和支出/工时任务的全局对话气泡是两套入口。现在合并成一个:在任意页面打开右下角的气泡,直接问「solulune 昨天开播了吗」这类问题就会识别成竞品问答并给出答案,和支出、工时任务共用同一条消息流。原来的「问数据」按钮与侧栏已下线。',
+      },
+    ],
+  },
+  {
     date: '2026-08-22',
     items: [
       {
