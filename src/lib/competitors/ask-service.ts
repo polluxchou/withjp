@@ -19,13 +19,30 @@ export type AskServiceResult =
   | { ok: true; answer: string }
   | { ok: false; code: 'not_configured' | 'upstream' | 'board' | 'bad_request'; message: string }
 
+// 测试注入口，同 parser.ts 的 ParserDeps 惯例：node --test 下没有网络/DB，
+// 把 board/chat 换成假实现才能测到「parseAskBody 真的挡在最前面、绕不过去」
+// 这类边界（见 ask-service.test.ts）。生产调用方不传。
+export interface AskServiceDeps {
+  board?: typeof getCompetitorBoard
+  chat?:  typeof deepseekChat
+}
+
 /**
  * 跑一轮竞品问答对话。rawBody 是未校验的输入（{ messages, locale? }）——
  * parseAskBody 是这份数据在成为 prompt 的一部分之前唯一的校验点：role 白名单、
  * 内容长度上限、locale 白名单。调用方（/api/intent 的 competitor 分支）不得
  * 在这之前自己再做一遍更弱的校验，见本文件调用方的注释。
+ *
+ * 这一点此前只有 ask-validate.test.ts 单测到 parseAskBody 本身，没有任何
+ * 测试断言 runAskConversation 真的调用了它——评审用一份把 parseAskBody 换成
+ * 透传的探针验证过，全部 738 个单测照样绿。deps 参数就是为了让
+ * ask-service.test.ts 能钉住「不校验就绝不该碰到 board/chat」这条边界。
  */
-export async function runAskConversation(userId: string, rawBody: unknown): Promise<AskServiceResult> {
+export async function runAskConversation(
+  userId: string,
+  rawBody: unknown,
+  deps?: AskServiceDeps,
+): Promise<AskServiceResult> {
   const parsed = parseAskBody(rawBody)
   if (!parsed.ok) {
     return { ok: false, code: 'bad_request', message: parsed.message }
@@ -34,7 +51,8 @@ export async function runAskConversation(userId: string, rawBody: unknown): Prom
   // 再让历史无限增长会顶穿上下文窗口，也会让每轮成本随对话长度线性上涨。
   const turns = trimHistory(parsed.turns, MAX_TURNS)
 
-  const boardRes = await getCompetitorBoard(userId)
+  const board = deps?.board ?? getCompetitorBoard
+  const boardRes = await board(userId)
   if (boardRes.error) {
     // 真实错误只留服务端日志——boardRes.error.message 是 Supabase/Postgrest
     // 原始报错，可能带表名、约束名等内部细节，不能透传给客户端。
@@ -46,7 +64,8 @@ export async function runAskConversation(userId: string, rawBody: unknown): Prom
   // 依赖 Asia/Tokyo，不能用 todayLocal()（读运行环境时区，在 Vercel 上是
   // UTC），见 ask-context.ts 顶部注释与设计文档 §7。
   const ctx = buildAskContext(boardRes.data, new Date(), parsed.locale)
-  const result = await deepseekChat(buildSystemPrompt(ctx, parsed.locale), turns)
+  const chat = deps?.chat ?? deepseekChat
+  const result = await chat(buildSystemPrompt(ctx, parsed.locale), turns)
 
   // deepseekChat 内部已经对 message 做过凭据脱敏（见 deepseek.ts 的
   // redactCredentials），这里原样透传即可。not_configured/upstream 两个
