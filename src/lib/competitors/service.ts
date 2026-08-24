@@ -1,8 +1,15 @@
 // src/lib/competitors/service.ts
-import { createServerClient } from '@/lib/supabase/server'
-import { assembleBoard, parseHandleFromUrl } from './assemble'
-import { isValidShotDate } from './shotGrid'
-import type { Competitor, CompetitorSnapshot, CompetitorShot, CompetitorBoard, CompetitorPlatform } from './types'
+//
+// createServerClient 改走相对路径导入（原为 @/lib/supabase/server 别名）：
+// ask-service.test.ts 需要静态 import 到本文件才能测 runAskConversation 的
+// 校验边界（见该文件顶部注释），node --test 不解析 tsconfig 的 @/ 别名。
+// server.ts 本身只依赖 @supabase/supabase-js 这个真实包，没有 next/headers
+// 之类只能在请求生命周期里跑的依赖，relative 导入在 node --test 下能正常
+// 解析到底，不影响 Next.js 构建时的行为。
+import { createServerClient } from '../supabase/server.ts'
+import { assembleBoard, parseHandleFromUrl } from './assemble.ts'
+import { isValidShotDate } from './shotGrid.ts'
+import type { Competitor, CompetitorSnapshot, CompetitorShot, CompetitorBoard, CompetitorPlatform } from './types.ts'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
 export interface ServiceError { code: ServiceErrorCode; message: string }

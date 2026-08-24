@@ -239,11 +239,11 @@
     "venueScopeTag": "現在のキャンバス",
     "composerPlaceholder": "一言で伝えてください。こちらで実行します",
     "composerHint": "Enter で送信 · Shift+Enter で改行",
-    "emptyGreeting": "一言で大丈夫です。現在は支出管理と稼働タスクに対応しています。例：",
+    "emptyGreeting": "一言で大丈夫です。現在は支出管理・稼働タスク・競合データへの質問に対応しています。例：",
     "examples": [
       "Q3の給与のうちMCはどのくらい",
       "5月10日の交通費 320元を追加",
-      "先月の支出が多かった上位3カテゴリ"
+      "solulune は昨日配信した？"
     ],
     "appliedNote": "適用しました",
     "cancelledNote": "キャンセルしました",
@@ -1481,24 +1481,9 @@
     "navMissingShot": "当日のスクショなし",
     "navJumpTo": "{name} へ移動",
     "ask": {
-      "open": "データに聞く",
-      "title": "競合データに聞く",
-      "close": "閉じる",
-      "placeholder": "例：先週いちばん伸びたのは / solulune はいつも何時から配信",
-      "send": "送信",
-      "thinking": "確認中…",
-      "emptyHint": "取得済みのデータだけで答えます。推測はしません。例えば：",
-      "example1": "先週いちばん伸びたのは",
-      "example2": "solulune はいつも何時から配信",
-      "example3": "データの更新が必要な競合は",
       "errorNotConfigured": "チャット機能が未設定です。管理者に DEEPSEEK_API_KEY の設定を依頼してください。",
       "errorUpstream": "回答を取得できませんでした。もう一度お試しください。",
-      "errorBadRequest": "このメッセージは送信できませんでした。言い換えてお試しください。",
-      "errorUnauthorized": "セッションの有効期限が切れました。再度ログインしてください。",
-      "errorBoard": "競合データの読み込みに失敗しました。しばらくしてからもう一度お試しください。",
-      "copyError": "エラーをコピー",
-      "copyTooltip": "エラー全文をコピーして開発者に送る",
-      "copied": "コピーしました"
+      "errorBoard": "競合データの読み込みに失敗しました。しばらくしてからもう一度お試しください。"
     }
   },
   "items": {

@@ -36,7 +36,7 @@ export interface ParserDeps {
 }
 
 export type ClassifiedKind = 'write' | 'query' | 'unknown'
-export type EntityKind     = 'expense' | 'work_task' | 'unknown'
+export type EntityKind     = 'expense' | 'work_task' | 'competitor' | 'unknown'
 
 export type ParserResult =
   | { ok: true;  intent: ExpenseIntent; classifiedAs: ClassifiedKind; modelUsed: string;  durationMs: number }
@@ -252,11 +252,12 @@ export async function classifyEntity(text: string, prior?: PriorContext, deps?: 
 判断核心原则：
 - expense（支出记录）：用户在【记录】一笔已发生或即将发生的财务流水，重点是"钱从哪来/到哪去、花了多少"。典型特征：出现金额数字、"新增支出/费用"、"记一笔"、"报销"等记账动作。
 - work_task（工作任务）：用户在【描述一件需要完成的工作】，重点是"做什么事、谁来做"。即使这件事涉及钱（如"去付款"、"完成转账"、"处理费用"），只要核心是一项待办工作而非记账，就应该分类为 work_task。典型特征：以动词开头描述动作（完成/安排/处理/跟进/确认等），或提到负责人/截止日期。
+- competitor（竞品数据问答）：用户在【询问竞品/对手账号】的数据情况，而不是记账或安排工作。典型特征：提到具体竞品/主播名或"竞品"字样，问粉丝数、涨粉情况、开播时间/作息、直播截图、所属地区/团队规模、数据是否过期等。例如「solulune 昨天开播了吗」「上周谁涨粉最快」「XX 团一般几点开播」。
 - unknown：无法判断。
 
-判断顺序：先问"这是在记一笔账吗？"——如果是，expense；如果是在描述要做某件事，work_task。
+判断顺序：先问"这是在记一笔账吗？"——如果是，expense；否则问"这是在问竞品的数据情况吗？"——如果是，competitor；否则如果是在描述要做某件事，work_task；都不是则 unknown。
 
-只返回 JSON：{"entity":"expense"} 或 {"entity":"work_task"} 或 {"entity":"unknown"}。
+只返回 JSON：{"entity":"expense"} 或 {"entity":"work_task"} 或 {"entity":"competitor"} 或 {"entity":"unknown"}。
 ${priorHint(prior)}
 输入：${JSON.stringify(text)}`
   // 与 classify 同一套梯子语义：供应商级故障换档，全梯失败退 unknown
@@ -266,7 +267,7 @@ ${priorHint(prior)}
     try {
       const raw = await llm(model, prompt)
       const obj = JSON.parse(raw) as { entity?: string }
-      if (obj.entity === 'expense' || obj.entity === 'work_task') return obj.entity
+      if (obj.entity === 'expense' || obj.entity === 'work_task' || obj.entity === 'competitor') return obj.entity
       return 'unknown'
     } catch {
       continue
