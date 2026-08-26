@@ -1,4 +1,4 @@
-import { defaultLocale } from '../../i18n/routing.ts'
+import { defaultLocale, locales } from '../../i18n/routing.ts'
 
 // /auth/callback redirects here after exchanging the recovery code. `next`
 // comes from a query param an attacker could tamper with. Blacklisting
@@ -23,4 +23,11 @@ function isSameSiteRelativePath(next: string): boolean {
 export function resolveCallbackRedirect(next: string | null): string {
   if (next && isSameSiteRelativePath(next)) return next
   return `/${defaultLocale}/reset-password`
+}
+
+// Used by /auth/callback to decide whether it's safe to attach the
+// short-lived recovery-proof token to a resolved redirect target — only
+// the reset-password page should ever receive it (see recovery-proof.ts).
+export function isResetPasswordPath(path: string): boolean {
+  return locales.some((locale) => path === `/${locale}/reset-password`)
 }

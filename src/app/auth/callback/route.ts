@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-server'
-import { resolveCallbackRedirect } from '@/lib/auth/reset-redirect'
+import { resolveCallbackRedirect, isResetPasswordPath } from '@/lib/auth/reset-redirect'
 import { createRecoveryProof } from '@/lib/auth/recovery-proof'
 import { defaultLocale } from '@/i18n/routing'
 
@@ -13,14 +13,19 @@ export async function GET(request: Request) {
     const supabase = await createAuthServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      const destination = new URL(resolveCallbackRedirect(next), url.origin)
-      // Proves to /reset-password that this visit came from a fresh,
-      // successful code exchange — not just any already-logged-in session
-      // (see src/lib/auth/recovery-proof.ts for why this exists).
-      destination.searchParams.set(
-        'proof',
-        createRecoveryProof(process.env.SUPABASE_SERVICE_ROLE_KEY!)
-      )
+      const target = resolveCallbackRedirect(next)
+      const destination = new URL(target, url.origin)
+      // Only attach the short-lived recovery-proof token when we're actually
+      // sending the user to /reset-password — resolveCallbackRedirect allows
+      // any same-site path (open-redirect protection, not path-pinning), so
+      // attaching it unconditionally would leak the token onto whatever other
+      // same-site page a crafted `next` value points to.
+      if (isResetPasswordPath(target)) {
+        destination.searchParams.set(
+          'proof',
+          createRecoveryProof(process.env.SUPABASE_SERVICE_ROLE_KEY!)
+        )
+      }
       return NextResponse.redirect(destination)
     }
   }
