@@ -32,6 +32,7 @@ export default function LoginPage() {
   const [error, setError]               = useState('')
   const [notice, setNotice]             = useState('')
   const [loading, setLoading]           = useState(false)
+  const [resettingPassword, setResettingPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -84,6 +85,7 @@ export default function LoginPage() {
       setError(t('resetEmailRequired'))
       return
     }
+    setResettingPassword(true)
     try {
       const { supabase } = await import('@/lib/supabase/client')
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
@@ -93,6 +95,8 @@ export default function LoginPage() {
       setNotice(t('resetEmailSent'))
     } catch {
       setError(t('resetEmailFailed'))
+    } finally {
+      setResettingPassword(false)
     }
   }
 
@@ -269,6 +273,7 @@ export default function LoginPage() {
                        moving the visual baseline */
                     className="-mr-2 px-2 py-1 text-[10px] tracking-[0.15em] text-zinc-400 hover:text-zinc-700 transition-colors uppercase"
                     onClick={handleForgotPassword}
+                    disabled={resettingPassword}
                   >
                     {t('forgot')}
                   </button>
