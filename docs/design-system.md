@@ -193,6 +193,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
      | `src/venue/VenueCanvas.tsx` | 场馆 2D 平面图：纸面/网格/家具类型色属工程制图语义，非 UI chrome |
      | `src/venue/Venue3DCanvas.client.tsx` | 场馆 3D 视图：three.js 材质/场景色同上，需与 2D 同色系对齐 |
      | `src/app/[locale]/login/page.tsx` | 登录页是独立营销位，不属后台设计系统辖区 |
+     | `src/app/[locale]/reset-password/page.tsx` | 忘记密码是登录前的公开验证流程，与登录页同属独立营销位（不进后台设计系统辖区） |
 
    - 两个 venue 画布文件（`VenueCanvas.tsx` / `Venue3DCanvas.client.tsx`）的 DOM/画布配色是**成套**的（桌面灰↔纸面白↔网格线；3D 容器底↔场景 `<color>`），源码就地有成对注释，改一处必须同步另一处
    - **基线机制已退役**：2026-08-11（UI 改造 PR4）存量清零后删除 `scripts/style-tokens-baseline.json`，`--update-baseline` / `--allow-increase` 一并从脚本移除；此后欠账不再有「记账」出口，只有上面两种显式豁免
