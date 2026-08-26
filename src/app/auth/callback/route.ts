@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-server'
 import { resolveCallbackRedirect } from '@/lib/auth/reset-redirect'
+import { createRecoveryProof } from '@/lib/auth/recovery-proof'
 import { defaultLocale } from '@/i18n/routing'
 
 export async function GET(request: Request) {
@@ -12,7 +13,15 @@ export async function GET(request: Request) {
     const supabase = await createAuthServerClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(new URL(resolveCallbackRedirect(next), url.origin))
+      const destination = new URL(resolveCallbackRedirect(next), url.origin)
+      // Proves to /reset-password that this visit came from a fresh,
+      // successful code exchange — not just any already-logged-in session
+      // (see src/lib/auth/recovery-proof.ts for why this exists).
+      destination.searchParams.set(
+        'proof',
+        createRecoveryProof(process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      )
+      return NextResponse.redirect(destination)
     }
   }
 

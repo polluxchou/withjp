@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { Eye, EyeOff } from 'lucide-react'
@@ -15,23 +16,37 @@ export default function ResetPasswordPage() {
   const [checkingSession, setCheckingSession] = useState(true)
   const [hasSession, setHasSession] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const t = useTranslations('auth')
   const tCommon = useTranslations('common')
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const { supabase } = await import('@/lib/supabase/client')
+      const proof = searchParams.get('proof')
+      if (!proof) {
+        if (!cancelled) {
+          setHasSession(false)
+          setCheckingSession(false)
+        }
+        return
+      }
+
+      const [{ supabase }, verifyResponse] = await Promise.all([
+        import('@/lib/supabase/client'),
+        fetch(`/api/auth/verify-recovery-proof?proof=${encodeURIComponent(proof)}`),
+      ])
+      const { valid } = await verifyResponse.json()
       const { data: { user } } = await supabase.auth.getUser()
       if (!cancelled) {
-        setHasSession(!!user)
+        setHasSession(!!user && valid)
         setCheckingSession(false)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
