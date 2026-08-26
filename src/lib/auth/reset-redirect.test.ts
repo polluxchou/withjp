@@ -19,6 +19,9 @@ test('resolveCallbackRedirect rejects absolute URLs to prevent open redirects', 
   assert.equal(resolveCallbackRedirect('https://evil.example.com'), '/zh/reset-password')
 })
 
-test('resolveCallbackRedirect rejects backslash variants that URL parsers normalize to protocol-relative', () => {
+test('resolveCallbackRedirect rejects values that URL parsing would normalize to a different host', () => {
   assert.equal(resolveCallbackRedirect('/\\/evil.com'), '/zh/reset-password')
+  assert.equal(resolveCallbackRedirect('/\t/evil.com'), '/zh/reset-password')
+  assert.equal(resolveCallbackRedirect('/\n/evil.com'), '/zh/reset-password')
+  assert.equal(resolveCallbackRedirect('/\r/evil.com'), '/zh/reset-password')
 })
