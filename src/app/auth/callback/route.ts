@@ -21,6 +21,10 @@ export async function GET(request: Request) {
       // attaching it unconditionally would leak the token onto whatever other
       // same-site page a crafted `next` value points to.
       if (isResetPasswordPath(target)) {
+        // Reusing the service-role key as HMAC secret is deliberate: it's already a
+        // server-only secret nothing client-side can read, HMAC is one-way (doesn't
+        // expose the key), and these tokens are short-lived enough that a future key
+        // rotation naturally invalidates them rather than breaking anything.
         destination.searchParams.set(
           'proof',
           createRecoveryProof(process.env.SUPABASE_SERVICE_ROLE_KEY!)

@@ -32,15 +32,25 @@ export default function ResetPasswordPage() {
         return
       }
 
-      const [{ supabase }, verifyResponse] = await Promise.all([
-        import('@/lib/supabase/client'),
-        fetch(`/api/auth/verify-recovery-proof?proof=${encodeURIComponent(proof)}`),
-      ])
-      const { valid } = await verifyResponse.json()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!cancelled) {
-        setHasSession(!!user && valid)
-        setCheckingSession(false)
+      try {
+        const [{ supabase }, verifyResponse] = await Promise.all([
+          import('@/lib/supabase/client'),
+          fetch(`/api/auth/verify-recovery-proof?proof=${encodeURIComponent(proof)}`),
+        ])
+        const { valid } = await verifyResponse.json()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!cancelled) {
+          setHasSession(!!user && valid)
+          setCheckingSession(false)
+        }
+      } catch {
+        // Network blip, transient 5xx, or malformed response — treat the
+        // same as "no valid recovery session" rather than leaving the user
+        // stuck on the loading spinner forever.
+        if (!cancelled) {
+          setHasSession(false)
+          setCheckingSession(false)
+        }
       }
     })()
     return () => {

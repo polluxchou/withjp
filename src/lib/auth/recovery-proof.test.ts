@@ -39,3 +39,10 @@ test('malformed tokens are rejected without throwing', () => {
   assert.equal(verifyRecoveryProof(SECRET, 'not-a-valid-token', NOW), false)
   assert.equal(verifyRecoveryProof(SECRET, 'abc.def.ghi', NOW), false)
 })
+
+test('a signature with the wrong length is rejected without throwing', () => {
+  const proof = createRecoveryProof(SECRET, NOW)
+  const [expiresAtStr] = proof.split('.')
+  const truncated = `${expiresAtStr}.abc123`
+  assert.equal(verifyRecoveryProof(SECRET, truncated, NOW), false)
+})
