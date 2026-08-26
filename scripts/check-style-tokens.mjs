@@ -29,6 +29,7 @@ const WHITELIST = [
   'src/venue/VenueCanvas.tsx', // 场馆 2D 平面图：纸面/网格/家具类型色属工程制图语义，非 UI chrome（spec §6「不动的」）
   'src/venue/Venue3DCanvas.client.tsx', // 场馆 3D 视图：three.js 材质/场景色同上，且需与 2D 同色系对齐（spec §6）
   'src/app/[locale]/login/page.tsx', // 登录页是独立营销位，不属后台设计系统辖区（spec §6「不动的」）
+  'src/app/[locale]/reset-password/page.tsx', // 忘记密码流程的一部分,与登录页同属独立营销位,视觉刻意保持一致（spec §6「不动的」）
 ]
 
 const PATTERNS = [
