@@ -1617,7 +1617,7 @@
     "railLibrary": "オブジェクトライブラリ",
     "railLayers": "レイヤー",
     "inspectorTitle": "プロパティ",
-    "noSelectionTitle": "オブジェクト未選択",
+    "noSelectionTitle": "キャンバス",
     "noSelectionBody": "キャンバスまたはエリア一覧からオブジェクトを選択すると、名称・種別・ステータス・位置・サイズ・回転・備考を編集できます。",
     "deleteItem": "オブジェクトを削除",
     "fieldName": "名称",
@@ -1653,7 +1653,6 @@
       "light_grille4_stand": "グリッド(スタンド)"
     },
     "addMarker": "マーカー",
-    "canvasActions": "キャンバス操作",
     "viewBookmarks": "クイックビュー",
     "viewSwitchNext": "次のビューに切り替え",
     "viewSaveCurrent": "現在のビューを保存",

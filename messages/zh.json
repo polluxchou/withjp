@@ -1422,7 +1422,7 @@
     "railLibrary": "对象库",
     "railLayers": "图层",
     "inspectorTitle": "属性",
-    "noSelectionTitle": "未选择对象",
+    "noSelectionTitle": "画布",
     "noSelectionBody": "从画布或区域列表中选择一个对象后，可编辑名称、类型、状态、位置、尺寸、旋转和备注。",
     "deleteItem": "删除对象",
     "fieldName": "名称",
@@ -1458,7 +1458,6 @@
       "light_grille4_stand": "格栅灯(支架)"
     },
     "addMarker": "标识",
-    "canvasActions": "画布操作",
     "viewBookmarks": "快速视图",
     "viewSwitchNext": "切换到下一个视图",
     "viewSaveCurrent": "保存当前视图",
