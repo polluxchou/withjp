@@ -1422,7 +1422,7 @@
     "railLibrary": "Library",
     "railLayers": "Layers",
     "inspectorTitle": "Inspector",
-    "noSelectionTitle": "No item selected",
+    "noSelectionTitle": "Canvas",
     "noSelectionBody": "Select an item from the canvas or list to edit its name, type, status, position, size, rotation, and note.",
     "deleteItem": "Delete item",
     "fieldName": "Name",
@@ -1458,7 +1458,6 @@
       "light_grille4_stand": "Grille light (stand)"
     },
     "addMarker": "Marker",
-    "canvasActions": "Canvas actions",
     "viewBookmarks": "Saved views",
     "viewSwitchNext": "Switch to next view",
     "viewSaveCurrent": "Save current view",
