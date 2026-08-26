@@ -4,6 +4,8 @@ import test from 'node:test'
 import {
   MIDDLEWARE_MATCHER,
   matchesAppMiddlewarePath,
+  PUBLIC_PATHS,
+  isAuthCallbackPath,
 } from './middleware-matcher.ts'
 
 test('matcher includes API routes so host routing can isolate the public domain', () => {
@@ -28,4 +30,15 @@ test('matcher excludes Next internals and static assets', () => {
   assert.equal(matchesAppMiddlewarePath('/favicon.ico'), false)
   assert.equal(matchesAppMiddlewarePath('/icon.svg'), false)
   assert.equal(matchesAppMiddlewarePath('/images/logo.png'), false)
+})
+
+test('PUBLIC_PATHS includes the auth self-service pages', () => {
+  assert.deepEqual(PUBLIC_PATHS, ['/login', '/reset-password', '/_next', '/api'])
+})
+
+test('isAuthCallbackPath matches the auth callback route and its subpaths', () => {
+  assert.equal(isAuthCallbackPath('/auth/callback'), true)
+  assert.equal(isAuthCallbackPath('/auth'), true)
+  assert.equal(isAuthCallbackPath('/authors'), false)
+  assert.equal(isAuthCallbackPath('/zh/login'), false)
 })
