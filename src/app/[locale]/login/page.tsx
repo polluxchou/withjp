@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useRouter } from '@/i18n/navigation'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { Eye, EyeOff, Zap, ArrowRight, Check } from 'lucide-react'
 
 const REMEMBER_KEY = 'cg_remembered_email'
@@ -29,9 +30,12 @@ export default function LoginPage() {
   const [password, setPassword]         = useState('')
   const [remember, setRemember]         = useState(false)
   const [error, setError]               = useState('')
+  const [notice, setNotice]             = useState('')
   const [loading, setLoading]           = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const locale = useLocale()
   const t = useTranslations('auth')
   const tNav = useTranslations('nav')
   const time = useClock()
@@ -43,6 +47,11 @@ export default function LoginPage() {
       setRemember(true)
     }
   }, [])
+
+  useEffect(() => {
+    if (searchParams.get('resetError') === '1') setError(t('resetLinkExpired'))
+    if (searchParams.get('resetSuccess') === '1') setNotice(t('resetPasswordSuccess'))
+  }, [searchParams, t])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,6 +76,25 @@ export default function LoginPage() {
   }
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+  const handleForgotPassword = async () => {
+    setError('')
+    setNotice('')
+    if (!emailValid) {
+      setError(t('resetEmailRequired'))
+      return
+    }
+    try {
+      const { supabase } = await import('@/lib/supabase/client')
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/${locale}/reset-password`,
+      })
+      if (resetError) throw resetError
+      setNotice(t('resetEmailSent'))
+    } catch {
+      setError(t('resetEmailFailed'))
+    }
+  }
 
   return (
     <div className="min-h-screen lg:min-h-[100dvh] grid lg:grid-cols-[1.05fr_1fr] [min-height:100dvh]">
@@ -195,6 +223,12 @@ export default function LoginPage() {
                 </div>
               )}
 
+              {notice && (
+                <div className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-3 py-2.5">
+                  {notice}
+                </div>
+              )}
+
               {/* Email */}
               <div>
                 <label className="block text-[10px] tracking-[0.2em] text-zinc-500 font-semibold uppercase mb-2">
@@ -234,7 +268,7 @@ export default function LoginPage() {
                     /* px/py give a finger-sized tap target on mobile without
                        moving the visual baseline */
                     className="-mr-2 px-2 py-1 text-[10px] tracking-[0.15em] text-zinc-400 hover:text-zinc-700 transition-colors uppercase"
-                    onClick={() => alert(t('forgotPasswordAlert'))}
+                    onClick={handleForgotPassword}
                   >
                     {t('forgot')}
                   </button>
