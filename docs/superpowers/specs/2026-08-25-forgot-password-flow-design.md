@@ -1,7 +1,7 @@
 # 忘记密码自助找回流程 — 设计
 
 - 日期：2026-08-25
-- 状态：待实现
+- 状态：已实现（含实现期间发现并修复的安全缺口，见文末「实现偏差」）
 - 关联：内部管理后台（newWith），Next.js + Supabase Auth
 
 ## 背景
@@ -83,3 +83,19 @@ Supabase Dashboard → Authentication → URL Configuration（这部分是项目
 - 单测：`/auth/callback` 路由对 code 交换成功/失败两种情况的跳转行为（mock supabase server client）
 - 单测：`/reset-password` 页面表单校验（两次密码不一致、长度不足时不允许提交）
 - 手动验证（配置改好后）：完整走一遍"忘记密码 → 收邮件 → 点链接 → 设新密码 → 用新密码登录"全链路
+
+## 实现偏差：recovery-proof 机制（原设计没有，落地时补的安全修复）
+
+原设计（上面的架构与数据流）里，`/reset-password` 判断"能不能改密码"只看`supabase.auth.getUser()` 是否返回一个 session。实现完、走完整分支复审后发现这条判断有个真实缺口：**它没有区分"这个 session 是不是通过邮件重置链接建立的"**。只要用户当前有任何有效 session（包括后台平时登录用的 session、或者在共享设备上被劫持的 session），都能不提供旧密码、不走邮件验证，直接访问 `/reset-password` 改掉密码——相当于把"临时拿到一个会话"升级成了"永久改密码锁死原账号"，而这正是「范围」一节明确排除在外的"已登录改密码"功能，被意外做成了一个没有任何入口 UI、没有防护的暗门。
+
+**为什么不能直接用 Supabase 官方的 `PASSWORD_RECOVERY` 事件或 JWT `amr` 字段**：逐行读了 `@supabase/auth-js` 源码后确认，这两种官方推荐的检测方式都要求浏览器端 `auth-js` 客户端自己解析出 URL 里的 `type=recovery` 标记（老式的隐式授权/hash fragment 流程）。本项目走的是**服务端** `exchangeCodeForSession`（`/auth/callback` route handler 里做，写 cookie），浏览器端客户端在 `/reset-password` 页面加载时只是从 cookie 发现"已经有个 session"，并不会经历"解析 recovery URL"这一步，所以这两个官方信号在这套架构下都不会触发。
+
+**实际采用的修复**：`/auth/callback` 在 `exchangeCodeForSession` 成功、且确认跳转目标就是 `/reset-password` 页面时（`isResetPasswordPath`，避免 token 跟着任意同站 `next` 泄露到无关页面），签发一个 2 分钟有效期、HMAC-SHA256 签名的一次性 "recovery proof" token（`src/lib/auth/recovery-proof.ts`，密钥复用了项目里已有的 `SUPABASE_SERVICE_ROLE_KEY`），附在跳转 URL 的 `?proof=` 参数上；新增一个无状态校验接口 `src/app/api/auth/verify-recovery-proof/route.ts`；`/reset-password` 页面必须同时满足"session 有效"和"`proof` 校验通过"两个条件才放行改密码表单，否则一律按"没有有效重置会话"处理。
+
+**涉及文件**（原「新增/修改文件」清单之外新增的）：
+- `src/lib/auth/recovery-proof.ts` + `recovery-proof.test.ts`（HMAC 签发/校验纯函数）
+- `src/app/api/auth/verify-recovery-proof/route.ts`（无状态校验 endpoint）
+- `src/lib/auth/reset-redirect.ts` 新增 `isResetPasswordPath`（判断跳转目标是否确实是 reset-password 页，决定要不要挂 `proof`）
+- `src/app/auth/callback/route.ts`、`src/app/[locale]/reset-password/page.tsx` 相应改动
+
+**这段对「不在这次范围内的配置改动」一节没有影响**：`proof` 参数挂在项目自己签发的内部跳转 URL 上，不经过 Supabase 的 Redirect URL 校验，不需要在 Supabase Dashboard 额外配置。
