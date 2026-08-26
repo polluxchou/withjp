@@ -1127,7 +1127,6 @@ export default function GuildVenuePage() {
                 </div>
                 )}
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-ink-700">{t('canvasActions')}</p>
                   <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
                   <Button variant="secondary" onClick={exportJson} className="w-full justify-center">
                     <Download className="w-4 h-4" strokeWidth={1.5} />
