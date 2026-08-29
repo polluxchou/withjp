@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Menu, X } from 'lucide-react'
 import { Link, usePathname } from '@/i18n/navigation'
 import { SITE_NAV, RECRUIT_HREF, isNavActive } from '@/lib/site/nav'
+import { lockViewportScroll } from '@/lib/ui/scrollLock'
 import LocaleSwitch from './LocaleSwitch'
 import ThemeToggle from './ThemeToggle'
 import LogoVeil from './LogoVeil'
@@ -28,6 +29,44 @@ export default function SiteHeader({ locale }: { locale: string }) {
     setVeil(false)
     setDrawer(false)
   }, [])
+
+  // 路由变化时关抽屉/幕布。菜单项的 onClick=leave 只覆盖点击导航，浏览器
+  // 返回/前进手势不经过它——不兜住的话，划返回后新页面上抽屉还开着、滚动
+  // 还锁着。（Sidebar.tsx 的移动端抽屉同款兜底。）
+  useEffect(() => {
+    setDrawer(false)
+    setVeil(false)
+  }, [pathname])
+
+  // 抽屉打开期间锁页面滚动，走全站共用的 lockViewportScroll()（锁 <html>、
+  // 含滚动条槽宽补偿与引用计数，见该文件头注释）。此前不锁：菜单开着时手指
+  // 在面板上滑动会带着底下页面一起滚。
+  useEffect(() => {
+    if (!drawer) return
+    return lockViewportScroll()
+  }, [drawer])
+
+  // ≥lg 时抽屉本体是 display:none（lg:hidden），但 state 还挂着——开着抽屉
+  // 把窗口拉宽（或平板转横屏）跨过断点时，不强制归位的话滚动锁会锁死在一个
+  // 看不见的抽屉上，页面从此滚不动。
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const onChange = () => {
+      if (mq.matches) setDrawer(false)
+    }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  // Escape 关抽屉：窄桌面窗口里用键盘的人不该被迫去点 ✕。
+  useEffect(() => {
+    if (!drawer) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawer(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [drawer])
 
   return (
     <>
@@ -118,6 +157,20 @@ export default function SiteHeader({ locale }: { locale: string }) {
           </div>
         )}
       </header>
+
+      {/* 抽屉遮罩：压暗页面、点击关抽屉。此前没有它，菜单下方露出的内容可被
+          直接误触（点空白想关菜单，结果点进了底下的链接）。
+          必须放在 <header> 外面——header 的 backdrop-blur 会为 fixed 后代建立
+          containing block，放里面 inset-0 就只盖住顶栏自己。
+          z-30：官网层级为 内容 0 < 遮罩 30 < 顶栏/抽屉 40 < 三角幕 60，登记见
+          docs/design-system.md §8。 */}
+      {drawer && (
+        <div
+          aria-hidden="true"
+          onClick={() => setDrawer(false)}
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+        />
+      )}
 
       <LogoVeil open={veil} onClose={closeVeil} />
     </>

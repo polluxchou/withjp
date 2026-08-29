@@ -213,3 +213,5 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 3. **深浅双主题**：`<html data-theme="light">` 覆盖 `--site-*` 一组变量即可，组件不写任何 `dark:` 变体。`--site-fg` 是 RGB 三元组，透明度阶梯（`text-site-fg/78` 等）随主题自动翻转；`--site-hot` / `--site-on-hot` / `--site-map-*` 是刻意不翻转的常量。
 4. **透明度阶梯必须登记**：官网用到 8/15/22/35/55/62/65/66/68/72/78 这些非 5 的倍数档位，已在 `tailwind.config.ts` 的 `theme.extend.opacity` 登记。**未登记的 `/N` 修饰符 Tailwind 不报错、直接不生成类**（与 §7.1 同一类静默失效）。
 5. **改了 `tailwind.config.ts` 必须重启 dev server**：Next 的 PostCSS 管线会缓存配置，只改配置不重启时新 token 的类名不会生成，浏览器里表现为「类名在 DOM 上但没颜色」。落地时踩过一次（`text-site-on-accent` 静默失效），排查方式是往页面插一个只带该类名的探针元素读 `getComputedStyle`。
+6. **官网 z-index 层级表**（唯一登记处，与 §3 后台表互不相通）：内容 0 · 抽屉遮罩 30 · 粘性顶栏（含窄屏抽屉本体）40 · logo 三角幕 60。遮罩与抽屉的关系同后台（遮罩是抽屉层的内部构成，恒随抽屉一起出现/消失）。
+7. **viewport 独立**：根 layout 的 `viewport-fit=cover` 只服务内部后台（那边配了 safe-area 兜底）；官网在 `site/layout.tsx` 显式退回 `viewportFit: 'auto'`，官网组件里**不应出现** `env(safe-area-inset-*)`——需要用到时先回头改这条约定。
