@@ -145,12 +145,16 @@ export default async function SiteVisionPage({ params }: { params: { locale: str
           <HairlineGrid cols={2} className="mb-12">
             {captains.map((captain, i) => (
               <GridCell key={captain.name} tone="panel" className="grid gap-6 p-[26px] sm:grid-cols-[200px_minmax(0,1fr)]">
+                {/* sizes 的窄端不是 200px：sm 以下 [200px_1fr] 两栏塌成单栏，图占满
+                    格子整宽 = 100vw − 区块留白48 − 网格描边2 − 格子内边距52 − 蓝图框
+                    描边2（375 视口实测渲染 271px）。声明写小了，1.5x 屏会按 200px
+                    选低档 srcset 造成欠采样发糊。 */}
                 <div className="relative h-[250px]">
                   <SiteImage
                     src={CAPTAIN_IMAGES[i]}
                     alt={captain.name}
                     placeholder={captain.name}
-                    sizes="200px"
+                    sizes="(min-width: 640px) 200px, calc(100vw - 104px)"
                     className="h-full w-full"
                   />
                 </div>
