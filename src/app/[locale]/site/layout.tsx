@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
 import { Barlow, Barlow_Condensed } from 'next/font/google'
@@ -27,6 +27,18 @@ const barlowCondensed = Barlow_Condensed({
   variable: '--font-barlow-condensed',
   display: 'swap',
 })
+
+// 根 layout 为内部后台声明了 viewport-fit=cover（后台的 Sidebar/Modal 等都配了
+// env(safe-area-inset-*) 兜底），官网组件没有任何 safe-area 处理——继承 cover
+// 会让 sticky 顶栏顶进 iPhone 刘海机的状态栏、logo 和系统时间叠在一起，横屏时
+// 内容伸进圆角。官网没有需要画到系统 UI 底下的东西，这里整段退回 auto。
+// viewportFit 必须**显式**写 auto：Next 的 viewport 按段解析时，缺省字段会漏用
+// 根上的 cover。
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'auto',
+}
 
 export async function generateMetadata({
   params,
