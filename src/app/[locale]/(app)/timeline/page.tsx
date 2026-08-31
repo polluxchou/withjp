@@ -7,6 +7,7 @@ import { differenceInDays } from 'date-fns/differenceInDays'
 import { eachMonthOfInterval } from 'date-fns/eachMonthOfInterval'
 import { endOfMonth } from 'date-fns/endOfMonth'
 import { format } from 'date-fns/format'
+import { formatDayStamp } from '@/lib/time/dayStamp'
 import { startOfMonth } from 'date-fns/startOfMonth'
 import Header from '@/components/layout/Header'
 import Modal from '@/components/ui/Modal'
@@ -303,10 +304,10 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
                   {(m.owner_agent as { name?: string } | null | undefined)?.name ?? t('table.ownerEmpty')}
                 </Td>
                 <Td className="text-ink-400 text-xs">
-                  {format(new Date(m.start_date), 'MMM d, yyyy')}
+                  {formatDayStamp(m.start_date)}
                 </Td>
                 <Td className="text-ink-400 text-xs">
-                  {format(new Date(m.target_date), 'MMM d, yyyy')}
+                  {formatDayStamp(m.target_date)}
                 </Td>
                 {/* 已完成的行,这一列改说「什么时候完成的、比目标早还是晚」——
                     对一个已经交付的节点,倒计时既没有意义,还会因为目标日期已过
@@ -315,7 +316,7 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
                   {m.completed_date ? (
                     <>
                       <div className="text-ink-700">
-                        {format(new Date(m.completed_date), 'MMM d, yyyy')}
+                        {formatDayStamp(m.completed_date)}
                       </div>
                       {note && (
                         <div className={delta! > 0 ? 'text-warning-text' : 'text-ink-400'}>{note}</div>
@@ -412,7 +413,7 @@ function GanttView({ milestones }: { milestones: Milestone[] }) {
                   <div
                     style={{ position: 'absolute', left: LABEL_WIDTH + left, width, top: 8, height: 24 }}
                     className={`${barClass} rounded-field cursor-pointer hover:opacity-80 transition-opacity flex items-center overflow-hidden`}
-                    title={`${m.title} — ${format(new Date(m.start_date), 'MMM d')} → ${format(new Date(m.target_date), 'MMM d, yyyy')}`}>
+                    title={`${m.title} — ${formatDayStamp(m.start_date, 'MMM d')} → ${formatDayStamp(m.target_date)}`}>
                     <span className="text-white text-xs px-2 truncate leading-none">{m.title}</span>
                   </div>
                 </Link>

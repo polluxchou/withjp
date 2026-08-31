@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { useParams, useRouter } from 'next/navigation'
 import { Link } from '@/i18n/navigation'
-import { format } from 'date-fns/format'
+import { formatDayStamp } from '@/lib/time/dayStamp'
 import Header from '@/components/layout/Header'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -241,13 +241,13 @@ export default function MilestoneDetailPage() {
         <div className="bg-surface border border-line rounded-card p-4">
           <div className="text-xs text-ink-400 mb-1">{t('detail.startDate')}</div>
           <div className="text-sm font-medium text-ink-900">
-            {format(new Date(milestone.start_date), 'MMM d, yyyy')}
+            {formatDayStamp(milestone.start_date)}
           </div>
         </div>
         <div className="bg-surface border border-line rounded-card p-4">
           <div className="text-xs text-ink-400 mb-1">{t('detail.targetDate')}</div>
           <div className="text-sm font-medium text-ink-900">
-            {format(new Date(milestone.target_date), 'MMM d, yyyy')}
+            {formatDayStamp(milestone.target_date)}
           </div>
         </div>
         {/* 完成日期 —— 未完成时留一个「—」占位,不做条件渲染:四张卡的栅格
@@ -255,9 +255,7 @@ export default function MilestoneDetailPage() {
         <div className="bg-surface border border-line rounded-card p-4">
           <div className="text-xs text-ink-400 mb-1">{t('detail.completedDate')}</div>
           <div className="text-sm font-medium text-ink-900">
-            {milestone.completed_date
-              ? format(new Date(milestone.completed_date), 'MMM d, yyyy')
-              : '—'}
+            {formatDayStamp(milestone.completed_date)}
           </div>
           {completionNote && (
             <div className={`text-xs mt-0.5 ${completionDelta! > 0 ? 'text-warning-text' : 'text-ink-400'}`}>
@@ -394,7 +392,7 @@ export default function MilestoneDetailPage() {
                     <MilestoneTypeBadge   type={c.type}     size="sm" />
                     <MilestoneStatusBadge status={c.status} size="sm" />
                     <span className="text-xs text-ink-400">
-                      {format(new Date(c.target_date), 'MMM d, yyyy')}
+                      {formatDayStamp(c.target_date)}
                     </span>
                   </div>
                 </div>
