@@ -44,6 +44,13 @@ test('normalizeDayStamp 对非法输入返回 undefined，让调用方能报 400
   assert.equal(normalizeDayStamp(42), undefined)
 })
 
+test('normalizeDayStamp 挡住会静默进位的越界日期', () => {
+  // Date 对 13 月直接判非法，但 2/30、4/31 这类是「格式合法、日历不存在」，
+  // 会被悄悄进位成 3/2、5/1 —— 回读一遍才拦得住
+  assert.equal(normalizeDayStamp('2026-02-30'), undefined)
+  assert.equal(normalizeDayStamp('2026-04-31'), undefined)
+})
+
 // ── fallbackStatus ────────────────────────────────────────────
 
 test('fallbackStatus：目标日期已过 → missed', () => {
