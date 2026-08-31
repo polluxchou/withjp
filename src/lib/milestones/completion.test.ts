@@ -93,6 +93,31 @@ test('fallbackStatus：恰好 7 天整后到期不算 at_risk，与 GET 的时�
   )
 })
 
+test('fallbackStatus：目标日期当天的零点整不算逾期,那一天还没过完', () => {
+  // now 恰好 === target_date 这一瞬间(定时兜底如果正好在 UTC 零点跑到)。
+  // 「今天到期」不是「已经逾期」—— 判定用严格小于才对。
+  const noon = new Date('2026-09-07T00:00:00.000Z')
+  assert.equal(
+    fallbackStatus({ start_date: day('2026-06-01'), target_date: day('2026-09-07') }, noon),
+    'at_risk',
+  )
+  // 再晚 1 毫秒才算逾期
+  assert.equal(
+    fallbackStatus(
+      { start_date: day('2026-06-01'), target_date: day('2026-09-07') },
+      new Date('2026-09-07T00:00:00.001Z'),
+    ),
+    'missed',
+  )
+})
+
+test('fallbackStatus：开始日期恰好到点即算已开始 → active,而不是还停在 planned', () => {
+  const dates = { start_date: day('2026-09-01'), target_date: day('2026-12-01') }
+  assert.equal(fallbackStatus(dates, new Date('2026-09-01T00:00:00.000Z')), 'active')
+  // 差 1 毫秒还没开始
+  assert.equal(fallbackStatus(dates, new Date('2026-08-31T23:59:59.999Z')), 'planned')
+})
+
 // ── resolveCompletion ─────────────────────────────────────────
 
 const PREV_OPEN = { ...DATES, status: 'active' as const, completed_date: null }
