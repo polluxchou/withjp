@@ -49,6 +49,7 @@ import { Plus, Target, AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Milestone, MilestoneStatus, MilestoneType } from '@/lib/types'
 import { AT_RISK_DAYS } from '@/lib/milestones/constants'
+import { completionDeltaDays } from '@/lib/milestones/completion'
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -271,7 +272,7 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
             <Th>{t('table.owner')}</Th>
             <Th>{t('table.start')}</Th>
             <Th>{t('table.target')}</Th>
-            <Th>{t('table.daysLeft')}</Th>
+            <Th>{t('table.daysLeftOrCompleted')}</Th>
             <Th />
           </Tr>
         </THead>
@@ -279,6 +280,12 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
           {milestones.map(m => {
             const daysLeft = m.days_until_target ?? 0
             const daysColor = daysLeft < 0 ? 'text-danger-text' : daysLeft <= AT_RISK_DAYS ? 'text-warning-text' : 'text-ink-500'
+            const delta = completionDeltaDays(m.completed_date, m.target_date)
+            const note =
+              delta === null ? null
+                : delta > 0 ? t('table.lateBy',  { days: delta })
+                : delta < 0 ? t('table.earlyBy', { days: -delta })
+                : t('table.onTime')
             return (
               <Tr key={m.id}>
                 <Td>
@@ -301,8 +308,24 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
                 <Td className="text-ink-400 text-xs">
                   {format(new Date(m.target_date), 'MMM d, yyyy')}
                 </Td>
-                <Td className={`text-xs font-medium ${daysColor}`}>
-                  {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
+                {/* 已完成的行,这一列改说「什么时候完成的、比目标早还是晚」——
+                    对一个已经交付的节点,倒计时既没有意义,还会因为目标日期已过
+                    而显示成红色的逾期天数。 */}
+                <Td className="text-xs font-medium">
+                  {m.completed_date ? (
+                    <>
+                      <div className="text-ink-700">
+                        {format(new Date(m.completed_date), 'MMM d, yyyy')}
+                      </div>
+                      {note && (
+                        <div className={delta! > 0 ? 'text-warning-text' : 'text-ink-400'}>{note}</div>
+                      )}
+                    </>
+                  ) : (
+                    <span className={daysColor}>
+                      {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
+                    </span>
+                  )}
                 </Td>
                 <Td align="right">
                   <div className="flex items-center justify-end gap-3">
@@ -428,7 +451,12 @@ function buildCurveData(milestones: Milestone[]): CurvePoint[] {
   if (milestones.length === 0) return []
 
   const starts  = milestones.map(m => new Date(m.start_date).getTime())
-  const targets = milestones.map(m => new Date(m.target_date).getTime())
+  // 延期完成的节点,完成日期可能落在所有目标日期之后 —— 右边界不带上它,
+  // 那条已完成曲线会在图外抬升,看上去像永远差着最后一个节点没做完。
+  const targets = milestones.flatMap(m => [
+    new Date(m.target_date).getTime(),
+    ...(m.completed_date ? [new Date(m.completed_date).getTime()] : []),
+  ])
   const minDate = startOfMonth(new Date(Math.min(...starts)))
   const maxDate = endOfMonth(addMonths(new Date(Math.max(...targets)), 1))
 
@@ -443,9 +471,12 @@ function buildCurveData(milestones: Milestone[]): CurvePoint[] {
       new Date(m.target_date).getTime() <= monthEnd
     ).length
 
-    // Milestones with status='completed' AND target_date in or before this month
+    // 已完成的累计按**真实完成日期**归月(老数据没有 completed_date 时回落到
+    // 目标日期),这样「计划 vs 实际」的缺口反映的是真实交付节奏,而不是
+    // 每个节点原本该完成的月份。
     const completed = milestones.filter(m =>
-      m.status === 'completed' && new Date(m.target_date).getTime() <= monthEnd
+      m.status === 'completed' &&
+      new Date(m.completed_date ?? m.target_date).getTime() <= monthEnd
     ).length
 
     // Milestones in-flight this month (started by monthEnd, not yet due before monthStart)

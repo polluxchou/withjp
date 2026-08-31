@@ -25,6 +25,7 @@ import {
 } from '@/components/milestones/MilestoneStatusBadge'
 import { ArrowLeft, CheckSquare, Users, Bot, Target, ChevronRight } from 'lucide-react'
 import { AT_RISK_DAYS } from '@/lib/milestones/constants'
+import { completionDeltaDays } from '@/lib/milestones/completion'
 import type { MilestoneStatus, MilestoneLevel, MilestoneDetail, Milestone } from '@/lib/types'
 
 // ── Page ──────────────────────────────────────────────────────
@@ -85,7 +86,11 @@ export default function MilestoneDetailPage() {
         body:    JSON.stringify({ status: newStatus }),
       })
       const json = await res.json()
-      if (res.ok && json.data) setMilestone(m => m ? { ...m, status: json.data.status } : m)
+      // 状态与完成日期在服务端是成对推导的(resolveCompletion),所以回写也必须成对:
+      // 只回写 status 会让「点已完成→自动填今天」这一步在刷新前看不见。
+      if (res.ok && json.data) {
+        setMilestone(m => m ? { ...m, status: json.data.status, completed_date: json.data.completed_date } : m)
+      }
     } catch (err) {
       console.error('Failed to update milestone status:', err)
     } finally {
@@ -142,6 +147,15 @@ export default function MilestoneDetailPage() {
   const daysColor = daysLeft < 0 ? 'text-danger-text' : daysLeft <= AT_RISK_DAYS ? 'text-warning-text' : 'text-ink-700'
 
   const metric = milestone.success_metric as { name?: string; target?: string; unit?: string }
+
+  // 完成日期 − 目标日期。在组件里现算而不是读接口字段:状态选择器会就地改
+  // completed_date,接口下发的快照那一刻就过期了。
+  const completionDelta = completionDeltaDays(milestone.completed_date, milestone.target_date)
+  const completionNote =
+    completionDelta === null ? null
+      : completionDelta > 0 ? t('detail.completedLate',  { days: completionDelta })
+      : completionDelta < 0 ? t('detail.completedEarly', { days: -completionDelta })
+      : t('detail.completedOnTime')
 
   return (
     <div className="max-w-5xl">
@@ -223,7 +237,7 @@ export default function MilestoneDetailPage() {
       </div>
 
       {/* Dates + owner */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-surface border border-line rounded-card p-4">
           <div className="text-xs text-ink-400 mb-1">{t('detail.startDate')}</div>
           <div className="text-sm font-medium text-ink-900">
@@ -235,6 +249,21 @@ export default function MilestoneDetailPage() {
           <div className="text-sm font-medium text-ink-900">
             {format(new Date(milestone.target_date), 'MMM d, yyyy')}
           </div>
+        </div>
+        {/* 完成日期 —— 未完成时留一个「—」占位,不做条件渲染:四张卡的栅格
+            少一张会让「负责代理」跳位,而这张卡的空缺本身就是有信息量的。 */}
+        <div className="bg-surface border border-line rounded-card p-4">
+          <div className="text-xs text-ink-400 mb-1">{t('detail.completedDate')}</div>
+          <div className="text-sm font-medium text-ink-900">
+            {milestone.completed_date
+              ? format(new Date(milestone.completed_date), 'MMM d, yyyy')
+              : '—'}
+          </div>
+          {completionNote && (
+            <div className={`text-xs mt-0.5 ${completionDelta! > 0 ? 'text-warning-text' : 'text-ink-400'}`}>
+              {completionNote}
+            </div>
+          )}
         </div>
         <div className="bg-surface border border-line rounded-card p-4">
           <div className="text-xs text-ink-400 mb-1">{t('detail.ownerAgent')}</div>

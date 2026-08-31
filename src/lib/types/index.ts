@@ -208,6 +208,8 @@ export interface Milestone {
   parent_milestone_id: string | null
   start_date: string
   target_date: string
+  /** 实际完成日期。非空 ⇔ status === 'completed'（见 lib/milestones/completion.ts）。 */
+  completed_date: string | null
   status: MilestoneStatus
   priority: MilestonePriority
   success_metric: Record<string, unknown>

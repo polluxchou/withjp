@@ -108,3 +108,14 @@ test('shouldNavigateTimelinePress requires a second tap for touch-like input', (
     armedMilestoneId: 'a',
   }), true)
 })
+
+test('已完成压过风险判定：高风险等级的节点做完之后不再显示成红点', () => {
+  assert.equal(getTimelineVisual(ms({ status: 'completed', risk_level: 'high' }), TODAY).tone, 'success')
+})
+
+test('已完成压过逾期判定：延期完成的节点不显示成高风险', () => {
+  assert.equal(
+    getTimelineVisual(ms({ status: 'completed', target_date: localIso(2026, 4, 1) }), TODAY).tone,
+    'success',
+  )
+})
