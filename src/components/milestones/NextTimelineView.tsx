@@ -4,6 +4,7 @@ import { useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { format } from 'date-fns/format'
+import { formatDayStamp } from '@/lib/time/dayStamp'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import type { Milestone } from '@/lib/types'
 import {
@@ -446,8 +447,8 @@ function TimelineDot({
   const visual = getTimelineVisual(milestone)
   const cls = TONE_CLASS[visual.tone]
   const title = isCluster
-    ? `${t('nextView.clusterCount', { count })} · ${format(new Date(milestone.target_date), 'MMM d')}`
-    : `${milestone.title} · ${format(new Date(milestone.target_date), 'MMM d')}`
+    ? `${t('nextView.clusterCount', { count })} · ${formatDayStamp(milestone.target_date, 'MMM d')}`
+    : `${milestone.title} · ${formatDayStamp(milestone.target_date, 'MMM d')}`
   const dotClass = visual.hollow
     ? `border-2 ${cls.hollow}`
     : cls.dot
@@ -544,7 +545,7 @@ function FocusDetail({ milestone }: { milestone: Milestone }) {
             <p className="text-xs text-ink-700 mt-1 line-clamp-2">{milestone.description}</p>
           )}
           <div className="flex items-center gap-3 flex-wrap mt-2 text-xs text-ink-500">
-            <span>{format(new Date(milestone.target_date), 'MMM d, yyyy')}</span>
+            <span>{formatDayStamp(milestone.target_date)}</span>
             <span>{owner?.name ? `${owner.name}${owner.role ? ` (${owner.role})` : ''}` : t('nextView.ownerUnassigned')}</span>
             <span className={cls.text}>{t(`nextView.toneLabel.${visual.tone}`)}</span>
           </div>
