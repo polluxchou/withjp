@@ -51,6 +51,7 @@ interface FormState {
   involved_agent_ids: string[]
   start_date: string
   target_date: string
+  completed_date: string
   metric_name: string
   metric_target: string
   metric_unit: string
@@ -77,6 +78,7 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
     involved_agent_ids: initial?.involved_agent_ids ?? [],
     start_date:         toDateInput(initial?.start_date) || todayStr(),
     target_date:        toDateInput(initial?.target_date) || threeMonthsStr(),
+    completed_date:     toDateInput(initial?.completed_date ?? undefined),
     metric_name:        metric?.name   ?? '',
     metric_target:      metric?.target ?? '',
     metric_unit:        metric?.unit   ?? '',
@@ -109,6 +111,10 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
       setError(t('form.errDateOrder'))
       return
     }
+    if (form.completed_date && new Date(form.completed_date) < new Date(form.start_date)) {
+      setError(t('form.errCompletedBeforeStart'))
+      return
+    }
 
     setSaving(true)
     setError(null)
@@ -124,6 +130,9 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
       involved_agent_ids: form.involved_agent_ids,
       start_date:         `${form.start_date}T00:00:00.000Z`,
       target_date:        `${form.target_date}T00:00:00.000Z`,
+      // 留空 = 未完成。这个 null 是有意义的写入(服务端据此把状态回退重算),
+      // 不能因为「值为空」就从 payload 里省掉。
+      completed_date:     form.completed_date ? `${form.completed_date}T00:00:00.000Z` : null,
       success_metric:     form.metric_name
         ? { name: form.metric_name, target: form.metric_target, unit: form.metric_unit }
         : {},
@@ -204,8 +213,10 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
         </Field>
       </div>
 
-      {/* Dates */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Dates —— 完成日期与前两者同排：填上它就等于把节点标记为已完成
+          (状态由服务端的 resolveCompletion 单点推导),清空则按起止日期回退。
+          所以这里没有独立的「状态」下拉,状态在详情页的状态选择器上改。 */}
+      <div className="grid grid-cols-3 gap-3">
         <Field label={t('form.startDate')}>
           <Input type="date" value={form.start_date}
             onChange={e => set('start_date', e.target.value)} />
@@ -213,6 +224,10 @@ export default function MilestoneForm({ initial, onSuccess, onCancel }: Props) {
         <Field label={t('form.targetDate')}>
           <Input type="date" value={form.target_date}
             onChange={e => set('target_date', e.target.value)} />
+        </Field>
+        <Field label={t('form.completedDate')} hint={t('form.completedDateHint')}>
+          <Input type="date" value={form.completed_date}
+            onChange={e => set('completed_date', e.target.value)} />
         </Field>
       </div>
 
