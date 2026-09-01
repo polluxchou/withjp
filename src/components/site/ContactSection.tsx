@@ -1,9 +1,16 @@
+import type { ReactNode } from 'react'
 import BlueprintFrame from './BlueprintFrame'
 import SiteButton from './SiteButton'
 import { contactCtaVariant } from '@/lib/site/contact'
 import type { SiteContactSection as ContactSectionData } from '@/lib/site/contact'
 
-export default function ContactSection({ section }: { section: ContactSectionData }) {
+export default function ContactSection({
+  section,
+  autoLink,
+}: {
+  section: ContactSectionData
+  autoLink: (text: string) => ReactNode
+}) {
   return (
     <BlueprintFrame
       tone="soft"
@@ -16,9 +23,9 @@ export default function ContactSection({ section }: { section: ContactSectionDat
         <h2 className="mb-4 mt-5 font-serif-jp text-[clamp(30px,3vw,42px)] leading-[1.35]">
           {section.title}
         </h2>
-        <p className="max-w-[560px] text-[15px] leading-[2] text-site-fg/72">{section.body}</p>
+        <p className="max-w-[560px] text-[15px] leading-[2] text-site-fg/72">{autoLink(section.body)}</p>
         {section.note && (
-          <p className="mt-7 text-[14px] tracking-[0.08em] text-site-fg/45">{section.note}</p>
+          <p className="mt-7 text-[14px] tracking-[0.08em] text-site-fg/45">{autoLink(section.note)}</p>
         )}
         {section.cta && section.ctaHref && (
           <SiteButton

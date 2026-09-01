@@ -7,6 +7,7 @@ import ContactSection from '@/components/site/ContactSection'
 import BlueprintFrame from '@/components/site/BlueprintFrame'
 import StudioMap, { type StudioMapLabels } from '@/components/site/StudioMap'
 import { buildContactSections, type SiteContactSectionCopy } from '@/lib/site/contact'
+import { createAutoLinker } from '@/lib/site/autoLink'
 
 export async function generateMetadata({
   params,
@@ -22,13 +23,14 @@ export default function SiteContactPage({ params }: { params: { locale: string }
   const t = useTranslations('site.contact')
   const sections = buildContactSections(t.raw('sections') as SiteContactSectionCopy[])
   const officeRows = t.raw('office.rows') as { label: string; value: string }[]
+  const autoLink = createAutoLinker()
 
   return (
     <SiteSection divider={false} className="pb-20 lg:pb-24">
       <SectionHead eyebrow={t('eyebrow')} title={t('title')} size="page" className="mb-10 lg:mb-14" />
       <div className="space-y-8 lg:space-y-10">
         {sections.map((section) => (
-          <ContactSection key={section.id} section={section} />
+          <ContactSection key={section.id} section={section} autoLink={autoLink} />
         ))}
 
         {/* ══ OFFICE ══ 左边规格表、右边示意图，共用一个蓝图框。
@@ -40,7 +42,7 @@ export default function SiteContactPage({ params }: { params: { locale: string }
               {t('office.eyebrow')}
             </div>
             <h2 className="mb-3 mt-3.5 font-serif-jp text-[26px] lg:text-[30px]">{t('office.title')}</h2>
-            <p className="mb-6 text-[15px] leading-[2] text-site-fg/72">{t('office.body')}</p>
+            <p className="mb-6 text-[15px] leading-[2] text-site-fg/72">{autoLink(t('office.body'))}</p>
             <div className="grid gap-px border border-site-line bg-site-line">
               {officeRows.map((row) => (
                 <div

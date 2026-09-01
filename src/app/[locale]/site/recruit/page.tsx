@@ -5,6 +5,7 @@ import type { SiteRecruitRow } from '@/lib/site/content'
 import SiteSection from '@/components/site/SiteSection'
 import BlueprintFrame from '@/components/site/BlueprintFrame'
 import ApplicationForm from '@/components/site/ApplicationForm'
+import { createAutoLinker } from '@/lib/site/autoLink'
 
 export async function generateMetadata({
   params,
@@ -20,6 +21,7 @@ export default function SiteRecruitPage({ params }: { params: { locale: string }
   const t = useTranslations('site.recruit')
   const rows = t.raw('rows') as SiteRecruitRow[]
   const payCols = t.raw('payCols') as string[]
+  const autoLink = createAutoLinker()
 
   return (
     <>
@@ -43,7 +45,7 @@ export default function SiteRecruitPage({ params }: { params: { locale: string }
                 <div className="font-condensed text-[15px] tracking-[0.16em] text-site-accent">
                   {row.label}
                 </div>
-                <p className="text-[15px] leading-[1.9]">{row.body}</p>
+                <p className="text-[15px] leading-[1.9]">{autoLink(row.body)}</p>
               </div>
             ))}
           </div>
@@ -56,7 +58,7 @@ export default function SiteRecruitPage({ params }: { params: { locale: string }
             <div className="grid gap-7 sm:grid-cols-3">
               {payCols.map((col, i) => (
                 <p key={i} className="text-[14px] leading-[1.95] text-site-fg/72">
-                  {col}
+                  {autoLink(col)}
                 </p>
               ))}
             </div>
