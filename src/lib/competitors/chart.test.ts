@@ -5,10 +5,17 @@ import { buildWeeklyCurve } from './chart.ts'
 
 const wk =(week_start: string, followers: number) => ({ week_start, followers })
 
+// yPct 现在可空（null = 该周缺采）。下面这些用例的输入都没有缺采周，所以取值前
+// 先把不变量断言出来，既满足类型收窄，也让「这里不该有缺口」写进测试。
+const yOf = (p: { yPct: number | null }): number => {
+  assert.notEqual(p.yPct, null)
+  return p.yPct as number
+}
+
 test('buildWeeklyCurve: 空输入返回空点集与空折线', () => {
   const c = buildWeeklyCurve([])
   assert.deepEqual(c.points, [])
-  assert.equal(c.polyline, '')
+  assert.deepEqual(c.segments, [])
 })
 
 test('buildWeeklyCurve: 单点居中，不画折线', () => {
@@ -16,7 +23,7 @@ test('buildWeeklyCurve: 单点居中，不画折线', () => {
   assert.equal(c.points.length, 1)
   assert.equal(c.points[0].xPct, 50)
   assert.equal(c.points[0].yPct, 50)
-  assert.equal(c.polyline, '')
+  assert.deepEqual(c.segments, [])
 })
 
 test('buildWeeklyCurve: x 按内缩均分，首尾不贴边（避免圆点/标签被裁）', () => {
@@ -33,14 +40,14 @@ test('buildWeeklyCurve: 最小量程让 +1.1% 只占约两成高度，而非顶�
     wk('2026-07-14', 26600), wk('2026-07-21', 26600),
     wk('2026-07-28', 26600), wk('2026-08-04', 26900),
   ])
-  const flat = c.points[0].yPct
-  const peak = c.points[3].yPct
+  const flat = yOf(c.points[0])
+  const peak = yOf(c.points[3])
   // 对称于中线，且落差远小于满高
   assert.equal(flat, 61.15)
   assert.equal(peak, 38.85)
   assert.ok(flat - peak < 25, `落差 ${flat - peak} 应远小于满高`)
   // 且没有任何点被钉在边界上
-  for (const p of c.points) assert.ok(p.yPct > 5 && p.yPct < 95)
+  for (const p of c.points) assert.ok(yOf(p) > 5 && yOf(p) < 95)
 })
 
 test('buildWeeklyCurve: 四周全等时走中线，不凭空造斜坡', () => {
@@ -63,7 +70,7 @@ test('buildWeeklyCurve: 大幅波动时上下各留 25% 白', () => {
 
 test('buildWeeklyCurve: 值越大 yPct 越小（大值在上）', () => {
   const c = buildWeeklyCurve([wk('2026-07-14', 10), wk('2026-07-21', 90)])
-  assert.ok(c.points[1].yPct < c.points[0].yPct)
+  assert.ok(yOf(c.points[1]) < yOf(c.points[0]))
 })
 
 test('buildWeeklyCurve: 刻度取 M/D，直接切字符串不经 Date（否则时区会推错一天）', () => {
@@ -86,9 +93,9 @@ test('buildWeeklyCurve: 过滤非有限粉丝数', () => {
   assert.deepEqual(c.points.map((p) => p.week_start), ['2026-07-14', '2026-08-04'])
 })
 
-test('buildWeeklyCurve: polyline 与点集同坐标，保证圆点/刻度与折线对齐', () => {
+test('buildWeeklyCurve: 折线与点集同坐标，保证圆点/刻度与折线对齐', () => {
   const c = buildWeeklyCurve([wk('2026-07-14', 100), wk('2026-07-21', 200)])
-  assert.equal(c.polyline, c.points.map((p) => `${p.xPct},${p.yPct}`).join(' '))
+  assert.deepEqual(c.segments, [c.points.map((p) => `${p.xPct},${p.yPct}`).join(' ')])
 })
 
 // align:'cell' —— 让圆点落在 n 等分格的中心，好和刻度行的等分 grid 逐列对齐。
@@ -141,5 +148,70 @@ test("buildWeeklyCurve: align:'cell' 只改横向，纵向与 polyline 口径不
   const edge = buildWeeklyCurve(rows)
   const cell = buildWeeklyCurve(rows, { align: 'cell' })
   assert.deepEqual(cell.points.map((p) => p.yPct), edge.points.map((p) => p.yPct))
-  assert.equal(cell.polyline, cell.points.map((p) => `${p.xPct},${p.yPct}`).join(' '))
+  assert.deepEqual(cell.segments, [cell.points.map((p) => `${p.xPct},${p.yPct}`).join(' ')])
+})
+
+// 缺采周（followers: null）——占住槽位、不画点、把折线断开。
+const gap = (week_start: string) => ({ week_start, followers: null })
+
+test('buildWeeklyCurve: 缺采周占住槽位，槽位数不变、圆点数减少', () => {
+  const c = buildWeeklyCurve(
+    [wk('2026-08-10', 1), gap('2026-08-17'), wk('2026-08-24', 3), wk('2026-08-31', 4)],
+    { align: 'cell' },
+  )
+  assert.equal(c.points.length, 4)
+  assert.deepEqual(c.points.map((p) => p.xPct), [12.5, 37.5, 62.5, 87.5])
+  assert.deepEqual(c.points.map((p) => p.followers), [1, null, 3, 4])
+  assert.equal(c.points[1].yPct, null)
+  assert.ok(c.points.filter((p) => p.yPct !== null).length === 3)
+})
+
+test('buildWeeklyCurve: 折线不横跨空档——缺采周左侧的孤点不成线', () => {
+  const c = buildWeeklyCurve(
+    [wk('2026-08-10', 1), gap('2026-08-17'), wk('2026-08-24', 3), wk('2026-08-31', 4)],
+    { align: 'cell' },
+  )
+  // 8/10 左段只有 1 个真点 → 不成线；只剩 8/24–8/31 这一段
+  assert.equal(c.segments.length, 1)
+  assert.equal(c.segments[0].split(' ').length, 2)
+  assert.ok(c.segments[0].startsWith('62.5,'), c.segments[0])
+})
+
+test('buildWeeklyCurve: 孤立单点不产出线段（前后都是缺采）', () => {
+  const c = buildWeeklyCurve([wk('2026-08-10', 1), gap('2026-08-17'), wk('2026-08-24', 3)])
+  assert.deepEqual(c.segments, [])
+  assert.equal(c.points.length, 3)
+})
+
+test('buildWeeklyCurve: 两段各自 ≥2 点时产出两条线段', () => {
+  const c = buildWeeklyCurve([
+    wk('2026-08-03', 1), wk('2026-08-10', 2), gap('2026-08-17'), wk('2026-08-24', 3), wk('2026-08-31', 4),
+  ], { align: 'cell' })
+  assert.equal(c.segments.length, 2)
+  assert.ok(c.segments.every((seg) => seg.split(' ').length === 2))
+})
+
+test('buildWeeklyCurve: 缺采周不参与量程（y 轴不被 null 拉歪）', () => {
+  const withGap = buildWeeklyCurve([wk('2026-08-10', 100), gap('2026-08-17'), wk('2026-08-24', 200)])
+  const noGap = buildWeeklyCurve([wk('2026-08-10', 100), wk('2026-08-24', 200)])
+  assert.equal(withGap.points[0].yPct, noGap.points[0].yPct)
+  assert.equal(withGap.points[2].yPct, noGap.points[1].yPct)
+})
+
+test('buildWeeklyCurve: 全是缺采周返回空点集', () => {
+  assert.deepEqual(buildWeeklyCurve([gap('2026-08-10'), gap('2026-08-17')]), { points: [], segments: [] })
+})
+
+test('buildWeeklyCurve: null 保留为缺口，NaN/Infinity 仍按脏数据丢弃', () => {
+  const c = buildWeeklyCurve([
+    wk('2026-08-03', 100), gap('2026-08-10'),
+    wk('2026-08-17', Number.NaN), wk('2026-08-24', Number.POSITIVE_INFINITY), wk('2026-08-31', 200),
+  ])
+  assert.deepEqual(c.points.map((p) => p.week_start), ['2026-08-03', '2026-08-10', '2026-08-31'])
+  assert.deepEqual(c.points.map((p) => p.followers), [100, null, 200])
+})
+
+test("buildWeeklyCurve: align:'cell' 的格心按槽位数算（含缺采周）", () => {
+  const c = buildWeeklyCurve([wk('2026-08-10', 1), gap('2026-08-17'), gap('2026-08-24'), wk('2026-08-31', 4)], { align: 'cell' })
+  assert.deepEqual(c.points.map((p) => p.xPct), [12.5, 37.5, 62.5, 87.5])
 })
