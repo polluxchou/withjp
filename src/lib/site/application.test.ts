@@ -5,8 +5,6 @@ import {
   isBotSubmission,
   LIMITS,
   DANCE_SKILL_LEVELS,
-  DANCE_YEARS_MIN,
-  DANCE_YEARS_MAX,
 } from './application.ts'
 import { hashIp } from './application-ip-hash.ts'
 
@@ -222,19 +220,35 @@ test('舞蹈年限：0 是合法值且落成数字 0 而不是 null', () => {
 })
 
 test('舞蹈年限：边界值 0 与 36 都通过，字符串数字也接受', () => {
-  assert.equal(validateApplication({ ...valid, danceYears: DANCE_YEARS_MIN }).ok, true)
-  assert.equal(validateApplication({ ...valid, danceYears: DANCE_YEARS_MAX }).ok, true)
+  assert.equal(validateApplication({ ...valid, danceYears: LIMITS.danceYearsMin }).ok, true)
+  assert.equal(validateApplication({ ...valid, danceYears: LIMITS.danceYearsMax }).ok, true)
   const asString = validateApplication({ ...valid, danceYears: '20' })
   assert.equal(asString.ok, true)
   if (asString.ok) assert.equal(asString.value.danceYears, 20)
 })
 
 test('舞蹈年限：越界或非整数报 invalidChoice', () => {
-  for (const bad of [DANCE_YEARS_MIN - 1, DANCE_YEARS_MAX + 1, 5.5, 'abc', '3.5']) {
+  for (const bad of [LIMITS.danceYearsMin - 1, LIMITS.danceYearsMax + 1, 5.5, 'abc', '3.5']) {
     const r = validateApplication({ ...valid, danceYears: bad })
     assert.equal(r.ok, false, `expected ${JSON.stringify(bad)} to be rejected`)
     if (!r.ok) assert.equal(r.fields.danceYears, 'invalidChoice')
   }
+})
+
+test('舞蹈年限：非标量形状（数组/对象/布尔）一律报 invalidChoice', () => {
+  for (const bad of [[1, 2], {}, true]) {
+    const r = validateApplication({ ...valid, danceYears: bad })
+    assert.equal(r.ok, false, `expected ${JSON.stringify(bad)} to be rejected`)
+    if (!r.ok) assert.equal(r.fields.danceYears, 'invalidChoice')
+  }
+})
+
+test('舞蹈能力类型：数组这类非字符串值按未选择处理，落成 null', () => {
+  // asTrimmed() 只认字符串，其它类型一律当空串处理——和其它非字符串输入行为一致，
+  // 不应该报错（跟 danceYears 不同：那边任何非空的非法输入都要拦）。
+  const r = validateApplication({ ...valid, danceSkillLevel: ['x'] })
+  assert.equal(r.ok, true)
+  if (r.ok) assert.equal(r.value.danceSkillLevel, null)
 })
 
 test('员工类：即使传了舞蹈字段也静默丢弃，不落库不报错', () => {

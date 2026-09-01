@@ -23,9 +23,6 @@ export const DANCE_SKILL_LEVELS = [
 ] as const
 export type DanceSkillLevel = (typeof DANCE_SKILL_LEVELS)[number]
 
-export const DANCE_YEARS_MIN = 0
-export const DANCE_YEARS_MAX = 36
-
 export const LIMITS = {
   name: 30,
   residence: 60,
@@ -34,6 +31,8 @@ export const LIMITS = {
   email: 254,
   ageMin: 16,
   ageMax: 60,
+  danceYearsMin: 0,
+  danceYearsMax: 36,
   /** 比这更快提交的不可能是人在填表 */
   minElapsedMs: 3000,
 } as const
@@ -165,7 +164,7 @@ export function validateApplication(input: ApplicationInput): ValidationResult {
       } else if (typeof rawDanceYears === 'string' && /^\d+$/.test(rawDanceYears.trim())) {
         danceYearsValue = Number(rawDanceYears.trim())
       }
-      if (!Number.isInteger(danceYearsValue) || danceYearsValue < DANCE_YEARS_MIN || danceYearsValue > DANCE_YEARS_MAX) {
+      if (!Number.isInteger(danceYearsValue) || danceYearsValue < LIMITS.danceYearsMin || danceYearsValue > LIMITS.danceYearsMax) {
         fields.danceYears = 'invalidChoice'
       } else {
         danceYears = danceYearsValue
