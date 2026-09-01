@@ -6,24 +6,30 @@
 
 export interface WeeklyCurvePoint {
   week_start: string
-  followers: number
+  /** null = 该周缺采（占住槽位但不画点）；与 yPct 同时为 null */
+  followers: number | null
   /** 横向位置（0–100），含左右内缩 */
   xPct: number
-  /** 纵向位置（0–100，0 = 顶部） */
-  yPct: number
+  /** 纵向位置（0–100，0 = 顶部）；缺采的周为 null */
+  yPct: number | null
   /** 日期刻度文案 M/D */
   tick: string
 }
 
 export interface WeeklyCurve {
   points: WeeklyCurvePoint[]
-  /** <polyline points>；不足 2 点时为空串 */
-  polyline: string
+  /**
+   * 每段连续有数据的 <polyline points>。缺采的周把折线断开，所以是数组而非单串——
+   * 一条横跨空档的直线会把「两周的变化」画成「一周的变化」。
+   * 不足 2 点的段不产出（孤立的点只画圆点）。
+   */
+  segments: string[]
 }
 
 interface WeeklyCurveInput {
   week_start: string
-  followers: number
+  /** null 表示该周缺采：占位但不参与量程与折线 */
+  followers: number | null
 }
 
 interface WeeklyCurveOptions {
@@ -67,10 +73,15 @@ export function buildWeeklyCurve(
   weekly: WeeklyCurveInput[],
   { inset = 8, minSpanRatio = 0.05, padRatio = 0.25, align = 'edge' }: WeeklyCurveOptions = {},
 ): WeeklyCurve {
-  const rows = (Array.isArray(weekly) ? weekly : []).filter((w) => w && Number.isFinite(w.followers))
-  if (rows.length === 0) return { points: [], polyline: '' }
+  // null 是「这周缺采」的有效输入，占住槽位；NaN/Infinity 是脏数据，照旧丢掉。
+  const rows = (Array.isArray(weekly) ? weekly : []).filter(
+    (w) => w && (w.followers === null || Number.isFinite(w.followers)),
+  )
+  const values = rows
+    .map((w) => w.followers)
+    .filter((v): v is number => v !== null)
+  if (values.length === 0) return { points: [], segments: [] }
 
-  const values = rows.map((w) => w.followers)
   const max = Math.max(...values)
   const min = Math.min(...values)
   const mid = (max + min) / 2
@@ -88,12 +99,23 @@ export function buildWeeklyCurve(
     followers: w.followers,
     xPct: rows.length > 1 ? round2(lead + i * step) : 50,
     // span 为 0 只可能是所有值都是 0，此时落中线避免除零
-    yPct: span > 0 ? round2(100 - ((w.followers - domainMin) / span) * 100) : 50,
+    yPct:
+      w.followers === null ? null : span > 0 ? round2(100 - ((w.followers - domainMin) / span) * 100) : 50,
     tick: weekTick(w.week_start),
   }))
 
-  return {
-    points,
-    polyline: points.length > 1 ? points.map((p) => `${p.xPct},${p.yPct}`).join(' ') : '',
+  // 按缺采周切段：只有连续 ≥2 个真点才成线。
+  const segments: string[] = []
+  let run: string[] = []
+  for (const p of points) {
+    if (p.yPct === null) {
+      if (run.length > 1) segments.push(run.join(' '))
+      run = []
+      continue
+    }
+    run.push(`${p.xPct},${p.yPct}`)
   }
+  if (run.length > 1) segments.push(run.join(' '))
+
+  return { points, segments }
 }
