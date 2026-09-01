@@ -2334,8 +2334,17 @@
     "columns": {
       "age": "年龄",
       "email": "邮箱",
-      "commuteMode": "通勤方式"
-    }
+      "commuteMode": "通勤方式",
+      "danceSkillLevel": "舞蹈能力",
+      "danceYears": "舞蹈年限"
+    },
+    "danceSkillLevels": {
+      "barely_touched": "接触较少",
+      "long_term_hobby": "长期爱好",
+      "professional_training": "专业培训",
+      "teaching_level": "教学级别"
+    },
+    "danceYearsNone": "无"
   },
   "siteNews": {
     "title": "官网内容 · 新闻",

@@ -2334,8 +2334,17 @@
     "columns": {
       "age": "Age",
       "email": "Email",
-      "commuteMode": "Commute"
-    }
+      "commuteMode": "Commute",
+      "danceSkillLevel": "Dance skill",
+      "danceYears": "Dance experience"
+    },
+    "danceSkillLevels": {
+      "barely_touched": "Rarely practiced",
+      "long_term_hobby": "Long-term hobby",
+      "professional_training": "Professional training",
+      "teaching_level": "Instructor level"
+    },
+    "danceYearsNone": "None"
   },
   "siteNews": {
     "title": "Site Content · News",

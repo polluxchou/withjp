@@ -2334,8 +2334,17 @@
     "columns": {
       "age": "年齢",
       "email": "メール",
-      "commuteMode": "通勤手段"
-    }
+      "commuteMode": "通勤手段",
+      "danceSkillLevel": "ダンス経験",
+      "danceYears": "ダンス経験年数"
+    },
+    "danceSkillLevels": {
+      "barely_touched": "ほとんど経験なし",
+      "long_term_hobby": "長く続けている趣味",
+      "professional_training": "専門トレーニング経験あり",
+      "teaching_level": "指導できるレベル"
+    },
+    "danceYearsNone": "なし"
   },
   "siteNews": {
     "title": "サイトコンテンツ・ニュース",
