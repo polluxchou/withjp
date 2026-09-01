@@ -13,6 +13,7 @@ import SiteSection from '@/components/site/SiteSection'
 import HairlineGrid, { GridCell } from '@/components/site/HairlineGrid'
 import SiteImage from '@/components/site/SiteImage'
 import MemberCard from '@/components/site/MemberCard'
+import { createAutoLinker } from '@/lib/site/autoLink'
 
 const CAPTAIN_IMAGES = ['/site/ayatsuki-portrait.webp', '/site/yukiha-portrait.webp']
 
@@ -70,6 +71,7 @@ export default async function SiteVisionPage({ params }: { params: { locale: str
   const eras = t.raw('eras') as SiteEra[]
   const principles = t.raw('principles') as SitePrinciple[]
   const captains = tm.raw('captains') as SiteCaptain[]
+  const autoLink = createAutoLinker()
   const members = await fetchMembers(
     params.locale as Locale,
     tm('unrevealedName'),
@@ -85,8 +87,8 @@ export default async function SiteVisionPage({ params }: { params: { locale: str
           {t('title')}
         </h1>
         {/* 信念句单独成段：它是宣言的第二层，和下面的说明段落挤在一个 <p> 里会读丢。 */}
-        <p className="mt-6 max-w-[760px] font-serif-jp text-[19px] leading-[1.9]">{t('statement')}</p>
-        <p className="mt-4 max-w-[760px] text-[17px] leading-[2.1] text-site-fg/78">{t('lead')}</p>
+        <p className="mt-6 max-w-[760px] font-serif-jp text-[19px] leading-[1.9]">{autoLink(t('statement'))}</p>
+        <p className="mt-4 max-w-[760px] text-[17px] leading-[2.1] text-site-fg/78">{autoLink(t('lead'))}</p>
       </SiteSection>
 
       <SiteSection divider={false} className="pt-0 lg:pt-0">
@@ -112,7 +114,7 @@ export default async function SiteVisionPage({ params }: { params: { locale: str
             <GridCell key={era.value} className="px-7 py-[34px]">
               <div className="font-condensed text-[42px] leading-none text-site-accent">{era.value}</div>
               <div className="mb-2 mt-3 font-serif-jp text-[20px]">{era.title}</div>
-              <p className="text-[14px] leading-[1.85] text-site-fg/66">{era.body}</p>
+              <p className="text-[14px] leading-[1.85] text-site-fg/66">{autoLink(era.body)}</p>
             </GridCell>
           ))}
         </HairlineGrid>
@@ -125,7 +127,7 @@ export default async function SiteVisionPage({ params }: { params: { locale: str
             <div key={p.label}>
               <div className="font-condensed text-[13px] tracking-[0.2em] text-site-accent">{p.label}</div>
               <div className="mb-3 mt-2.5 font-serif-jp text-[22px]">{p.title}</div>
-              <p className="text-[14px] leading-[1.9] text-site-fg/68">{p.body}</p>
+              <p className="text-[14px] leading-[1.9] text-site-fg/68">{autoLink(p.body)}</p>
             </div>
           ))}
         </div>
@@ -164,7 +166,7 @@ export default async function SiteVisionPage({ params }: { params: { locale: str
                   </div>
                   <div className="mb-0.5 mt-2.5 font-condensed text-[34px] tracking-[0.08em]">{captain.name}</div>
                   <div className="mb-2.5 font-serif-jp text-[19px] text-site-fg/72">{captain.jp}</div>
-                  <p className="text-[14px] leading-[1.9] text-site-fg/66">{captain.body}</p>
+                  <p className="text-[14px] leading-[1.9] text-site-fg/66">{autoLink(captain.body)}</p>
                 </div>
               </GridCell>
             ))}
