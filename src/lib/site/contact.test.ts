@@ -32,7 +32,7 @@ test('Japanese contact copy preserves the three screenshot sections in order', (
   )
   assert.equal(sections[0].rows[0].value, 'カイロン株式会社（Chiron Co., Ltd.）')
   assert.equal(sections[1].rows[0].value, '吉光片羽株式会社')
-  assert.equal(sections[2].rows[1].value, 'business@echoamp.jp')
+  assert.equal(sections[2].rows[1].value, 'business@echowith.jp')
 })
 
 test('Contact lists no representative names in any locale', () => {
@@ -76,8 +76,8 @@ test('contact actions become locale-safe internal and external links', () => {
   const sections = buildContactSections(ja.site.contact.sections)
   assert.equal(sections[0].ctaHref, '/site/recruit')
   assert.equal(sections[1].ctaHref, '/site/recruit/staff')
-  assert.equal(sections[2].ctaHref, 'mailto:business@echoamp.jp')
-  assert.equal(sections[2].rows[1].href, 'mailto:business@echoamp.jp')
+  assert.equal(sections[2].ctaHref, 'mailto:business@echowith.jp')
+  assert.equal(sections[2].rows[1].href, 'mailto:business@echowith.jp')
   assert.deepEqual(sections.map(({ id }) => id), ['contact-01', 'contact-02', 'contact-03'])
 })
 
@@ -107,7 +107,7 @@ test('Contact sections 01 and 02 expose their company websites in every locale',
       { value: kikkouWebsite?.value, href: kikkouWebsite?.href, link: kikkouWebsite?.link },
       { value: 'https://kikkou.jp/', href: 'https://kikkou.jp/', link: 'external' },
     )
-    assert.equal(sections[2].rows[1].href, 'mailto:business@echoamp.jp')
+    assert.equal(sections[2].rows[1].href, 'mailto:business@echowith.jp')
   }
 })
 
@@ -167,7 +167,7 @@ test('Contact section 03 uses the approved client copy in every locale', () => {
       eyebrow: 'FOR CLIENT',
       title: '法人・ブランド様へ',
       body: '楽曲制作、着ぐるみ技術、商業ライブ配信のご相談、広告事業のご提携、不正行為・コンプライアンスに関する通報をメールで承ります。',
-      cta: 'business@echoamp.jp',
+      cta: 'business@echowith.jp',
       services: '楽曲制作／着ぐるみ技術／商業ライブ配信／広告事業のご提携／不正行為・コンプライアンスに関する通報',
       hours: '平日 10:00–19:00（JST）／日本語・中国語',
     },
@@ -187,7 +187,7 @@ test('Contact section 03 uses the approved client copy in every locale', () => {
       eyebrow: '客户合作',
       title: '企业及品牌合作',
       body: '我们接受有关乐曲制作、皮套人技术、商业直播咨询、广告业务合作，以及不诚信行为与合规投诉的邮件联系。',
-      cta: 'business@echoamp.jp',
+      cta: 'business@echowith.jp',
       services: '乐曲制作／皮套人技术／商业直播咨询／广告业务合作／不诚信行为与合规投诉',
       hours: '工作日 10:00–19:00（日本时间）／中文・日文',
     },
@@ -207,7 +207,7 @@ test('Contact section 03 uses the approved client copy in every locale', () => {
       eyebrow: 'FOR CLIENT',
       title: 'For Businesses & Brands',
       body: 'For music production, mascot costume technology, commercial livestreaming, advertising partnerships, or reports of misconduct and compliance concerns, please contact us by email.',
-      cta: 'business@echoamp.jp',
+      cta: 'business@echowith.jp',
       services: 'Music production / mascot costume technology / commercial livestreaming / advertising partnerships / misconduct and compliance reports',
       hours: 'Weekdays 10:00–19:00 (JST) / Japanese & Chinese',
     },
