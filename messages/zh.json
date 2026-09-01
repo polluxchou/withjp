@@ -2135,6 +2135,17 @@
         "contact": "联系方式",
         "contactHint": "LINE ID、邮箱或社交账号任一",
         "experience": "经验・社交账号",
+        "danceSkillLevel": "舞蹈能力类型",
+        "danceSkillLevelOptions": {
+          "barely_touched": "接触较少",
+          "long_term_hobby": "长期爱好",
+          "professional_training": "专业培训",
+          "teaching_level": "教学级别"
+        },
+        "danceYears": "舞蹈年限",
+        "danceYearsOptions": {
+          "none": "无"
+        },
         "consent": "我同意公司为招募选拔目的使用以上信息。",
         "submit": "提交",
         "submitting": "提交中…",
@@ -2146,6 +2157,7 @@
           "tooLong": "超出字数上限",
           "outOfRange": "请填写 16–60 之间的数字",
           "invalidAge": "请填写半角数字",
+          "invalidChoice": "请从列表中选择",
           "consent": "需要你的同意",
           "rateLimited": "提交过于频繁，请稍后再试。",
           "network": "提交失败，请检查网络后重试。"
@@ -2322,8 +2334,17 @@
     "columns": {
       "age": "年龄",
       "email": "邮箱",
-      "commuteMode": "通勤方式"
-    }
+      "commuteMode": "通勤方式",
+      "danceSkillLevel": "舞蹈能力",
+      "danceYears": "舞蹈年限"
+    },
+    "danceSkillLevels": {
+      "barely_touched": "接触较少",
+      "long_term_hobby": "长期爱好",
+      "professional_training": "专业培训",
+      "teaching_level": "教学级别"
+    },
+    "danceYearsNone": "无"
   },
   "siteNews": {
     "title": "官网内容 · 新闻",

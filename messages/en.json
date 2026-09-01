@@ -2135,6 +2135,17 @@
         "contact": "How to reach you",
         "contactHint": "LINE ID, email or a social account",
         "experience": "Experience / socials",
+        "danceSkillLevel": "Dance skill level",
+        "danceSkillLevelOptions": {
+          "barely_touched": "Rarely practiced",
+          "long_term_hobby": "Long-term hobby",
+          "professional_training": "Professional training",
+          "teaching_level": "Instructor level"
+        },
+        "danceYears": "Years of dance experience",
+        "danceYearsOptions": {
+          "none": "None"
+        },
         "consent": "I agree that the information above may be used for recruitment screening.",
         "submit": "Submit",
         "submitting": "Sending…",
@@ -2146,6 +2157,7 @@
           "tooLong": "Too long",
           "outOfRange": "Enter a number between 16 and 60",
           "invalidAge": "Digits only",
+          "invalidChoice": "Please choose from the list",
           "consent": "Your consent is required",
           "rateLimited": "Too many submissions right now. Please try again shortly.",
           "network": "Could not send. Check your connection and try again."
@@ -2322,8 +2334,17 @@
     "columns": {
       "age": "Age",
       "email": "Email",
-      "commuteMode": "Commute"
-    }
+      "commuteMode": "Commute",
+      "danceSkillLevel": "Dance skill",
+      "danceYears": "Dance experience"
+    },
+    "danceSkillLevels": {
+      "barely_touched": "Rarely practiced",
+      "long_term_hobby": "Long-term hobby",
+      "professional_training": "Professional training",
+      "teaching_level": "Instructor level"
+    },
+    "danceYearsNone": "None"
   },
   "siteNews": {
     "title": "Site Content · News",
