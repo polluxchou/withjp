@@ -27,7 +27,7 @@ function ipSalt(): string {
   // 兜底值让功能在未配置环境变量时仍可用（限流照常生效），但同一 IP 的指纹在
   // 不同部署间可预测，所以生产必须配。
   console.warn('[site] SITE_APPLICATION_IP_SALT is not set, falling back to a shared default salt')
-  return 'echoamp-site-default-salt'
+  return 'echowith-site-default-salt'
 }
 
 export interface SubmitMeta {

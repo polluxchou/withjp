@@ -7,7 +7,7 @@
  */
 export type SiteTheme = 'dark' | 'light'
 
-export const THEME_STORAGE_KEY = 'echoamp-site-theme'
+export const THEME_STORAGE_KEY = 'echowith-site-theme'
 
 export function isSiteTheme(value: unknown): value is SiteTheme {
   return value === 'dark' || value === 'light'

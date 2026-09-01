@@ -1746,9 +1746,9 @@
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
-      "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp 是以大阪为据点的 TikTok LIVE Creator Network。以双队长制为核心，招募并培养女子直播创作者，从舞蹈训练、直播运营到原创内容制作全部自有完成。"
+      "titleDefault": "EchoWith OSAKA ／ TikTok LIVE Creator Network",
+      "titleTemplate": "%s ｜ EchoWith OSAKA",
+      "description": "EchoWith 是以大阪为据点的 TikTok LIVE Creator Network。以双队长制为核心，招募并培养女子直播创作者，从舞蹈训练、直播运营到原创内容制作全部自有完成。"
     },
     "nav": {
       "top": "TOP",
@@ -1769,7 +1769,7 @@
       "menuLabel": "语言选项"
     },
     "veil": {
-      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "eyebrow": "ECHOWITH OSAKA ／ VISION 2027",
       "line1": "在大阪，找出最有才华的",
       "line2": "能唱能跳的直播者。"
     },
@@ -1782,7 +1782,7 @@
       "recruit": "RECRUIT",
       "contact": "CONTACT",
       "social": "TIKTOK ／ X ／ LINE",
-      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+      "copyright": "© 2026 ECHOWITH OSAKA — ECHO FROM OSAKA NIGHT"
     },
     "ticker": {
       "items": [
@@ -1798,9 +1798,9 @@
       "title1": "在大阪，打造",
       "title2": "女子唱跳直播团。",
       "tagline": "ECHO FROM OSAKA NIGHT",
-      "lead": "招募、训练、直播、内容制作。EchoAmp 与创作者一起成长。",
+      "lead": "招募、训练、直播、内容制作。EchoWith 与创作者一起成长。",
       "ctaApply": "报名",
-      "ctaAbout": "了解 EchoAmp",
+      "ctaAbout": "了解 EchoWith",
       "heroCaption": "把大阪的灯火，搬进直播间。",
       "heroPlaceholder": "主视觉／MoonDollz 关键视觉",
       "stats": [
@@ -1827,7 +1827,7 @@
         "title": "团队的舞台",
         "more": "READ MORE →"
       },
-      "visionBody": "我们相信，直播是一种属于团队的舞台。EchoAmp 想让热爱唱跳表演的人聚在一起，通过持续直播，共同形成属于团队的风格与文化。",
+      "visionBody": "我们相信，直播是一种属于团队的舞台。EchoWith 想让热爱唱跳表演的人聚在一起，通过持续直播，共同形成属于团队的风格与文化。",
       "visionCards": [
         {
           "no": "1 张专辑",
@@ -1882,7 +1882,7 @@
         "eyebrow": "05 ／ TECHNOLOGY",
         "title": "皮套直播技术"
       },
-      "techBody": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把它做到了可运营的水平：动作联动加实时演出，全部自有。这是 EchoAmp 独有的差异化领域之一。",
+      "techBody": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把它做到了可运营的水平：动作联动加实时演出，全部自有。这是 EchoWith 独有的差异化领域之一。",
       "techCta": "查看技术",
       "techPlaceholder": "皮套／动作捕捉现场照片",
       "bannerEyebrow": "RECRUIT ／ 二次招募",
@@ -1910,7 +1910,7 @@
       "eyebrow": "VISION ／ 2027",
       "title": "在大阪，找到最有才华的唱跳直播创作者。",
       "statement": "我们相信，直播是一种属于团队的舞台。",
-      "lead": "EchoAmp 希望把热爱唱歌、舞蹈与表演的人聚在一起，通过持续的直播，共同创造属于团队的风格与文化，并找到真正喜欢她们、愿意陪伴团队成长的观众。",
+      "lead": "EchoWith 希望把热爱唱歌、舞蹈与表演的人聚在一起，通过持续的直播，共同创造属于团队的风格与文化，并找到真正喜欢她们、愿意陪伴团队成长的观众。",
       "imagePlaceholder": "道顿堀／新世界夜景照片",
       "imageAlt": "大阪夜色插画：从高处俯瞰的城市夜景，霓虹楼群与高架路灯带向远方延伸，中景一座点亮的观光塔",
       "eras": [
@@ -2069,7 +2069,7 @@
           "title": "皮套直播技术",
           "en": "SUIT LIVE TECHNOLOGY",
           "short": "造型、动作、声音与实时演出一体自有。日本国内案例尚少的差异化领域。",
-          "body": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把这套 know-how 沉淀在公司内部：造型、动作、声音与实时演出一体运营，不依赖演出者露脸，持续培育角色 IP。这是 EchoAmp 独有的差异化领域之一。"
+          "body": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把这套 know-how 沉淀在公司内部：造型、动作、声音与实时演出一体运营，不依赖演出者露脸，持续培育角色 IP。这是 EchoWith 独有的差异化领域之一。"
         }
       ],
       "subItems": [
@@ -2138,9 +2138,9 @@
         "consent": "我同意公司为招募选拔目的使用以上信息。",
         "submit": "提交",
         "submitting": "提交中…",
-        "lineNote": "也可以通过 LINE 报名：@echoamp_osaka",
+        "lineNote": "也可以通过 LINE 报名：@echowith_osaka",
         "successTitle": "感谢你的报名。",
-        "successBody": "我们会在确认内容后于 2–3 周内联系你。如需加急，请直接联系 LINE（@echoamp_osaka）。",
+        "successBody": "我们会在确认内容后于 2–3 周内联系你。如需加急，请直接联系 LINE（@echowith_osaka）。",
         "errors": {
           "required": "请填写",
           "tooLong": "超出字数上限",
@@ -2237,7 +2237,7 @@
           "eyebrow": "客户合作",
           "title": "企业及品牌合作",
           "body": "我们接受有关乐曲制作、皮套人技术、商业直播咨询、广告业务合作，以及不诚信行为与合规投诉的邮件联系。",
-          "cta": "business@echoamp.jp",
+          "cta": "business@echowith.jp",
           "action": "email",
           "rows": [
             {
@@ -2246,7 +2246,7 @@
             },
             {
               "label": "联系方式",
-              "value": "business@echoamp.jp",
+              "value": "business@echowith.jp",
               "link": "email"
             },
             {
@@ -2277,7 +2277,7 @@
         "map": {
           "station": "新大阪站",
           "walk": "步行 5 分 ／ 400m",
-          "studio": "ECHOAMP STUDIO",
+          "studio": "ECHOWITH STUDIO",
           "areaEn": "SHIN-OSAKA AREA",
           "areaJp": "大阪市淀川区・新大阪一带",
           "north": "N ↑",
