@@ -78,7 +78,7 @@ export default function SiteHeader({ locale }: { locale: string }) {
             onClick={leave}
             className="mr-auto flex items-baseline gap-2"
           >
-            <span className="font-condensed text-[26px] font-bold tracking-[0.02em]">ECHOAMP</span>
+            <span className="font-condensed text-[26px] font-bold tracking-[0.02em]">ECHOWITH</span>
             <span className="font-condensed text-[12px] tracking-[0.28em] text-site-accent">OSAKA</span>
           </Link>
 

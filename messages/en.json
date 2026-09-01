@@ -1746,9 +1746,9 @@
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
-      "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp is an Osaka-based TikTok LIVE Creator Network. Through our dual-captain system, we recruit and develop female live creators — from dance training to livestream operations and original content production."
+      "titleDefault": "EchoWith OSAKA ／ TikTok LIVE Creator Network",
+      "titleTemplate": "%s ｜ EchoWith OSAKA",
+      "description": "EchoWith is an Osaka-based TikTok LIVE Creator Network. Through our dual-captain system, we recruit and develop female live creators — from dance training to livestream operations and original content production."
     },
     "nav": {
       "top": "TOP",
@@ -1769,7 +1769,7 @@
       "menuLabel": "Language options"
     },
     "veil": {
-      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "eyebrow": "ECHOWITH OSAKA ／ VISION 2027",
       "line1": "Finding Osaka's most gifted",
       "line2": "performers who sing and dance."
     },
@@ -1782,7 +1782,7 @@
       "recruit": "RECRUIT",
       "contact": "CONTACT",
       "social": "TIKTOK ／ X ／ LINE",
-      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+      "copyright": "© 2026 ECHOWITH OSAKA — ECHO FROM OSAKA NIGHT"
     },
     "ticker": {
       "items": [
@@ -1798,9 +1798,9 @@
       "title1": "BUILDING FEMALE SINGING & DANCE",
       "title2": "LIVE GROUPS IN OSAKA.",
       "tagline": "ECHO FROM OSAKA NIGHT",
-      "lead": "Recruitment, training, livestreaming, and content production. EchoAmp grows together with its creators.",
+      "lead": "Recruitment, training, livestreaming, and content production. EchoWith grows together with its creators.",
       "ctaApply": "APPLY",
-      "ctaAbout": "ABOUT ECHOAMP",
+      "ctaAbout": "ABOUT ECHOWITH",
       "heroCaption": "BRING THE LIGHTS OF OSAKA INTO LIVE.",
       "heroPlaceholder": "Hero image / MoonDollz key visual",
       "stats": [
@@ -1827,7 +1827,7 @@
         "title": "THE TEAM'S STAGE",
         "more": "READ MORE →"
       },
-      "visionBody": "We believe live streaming is a stage built for a team. EchoAmp brings together people who love music, dance, and performance, building a style and culture of their own through continuous live shows.",
+      "visionBody": "We believe live streaming is a stage built for a team. EchoWith brings together people who love music, dance, and performance, building a style and culture of their own through continuous live shows.",
       "visionCards": [
         {
           "no": "1 ALBUM",
@@ -1882,7 +1882,7 @@
         "eyebrow": "05 ／ TECHNOLOGY",
         "title": "SUIT LIVE TECHNOLOGY"
       },
-      "techBody": "Costumed-suit (kigurumi) streaming still has few precedents in Japan. We brought it in house to an operable level, with motion linkage and real-time staging. One of EchoAmp's own differentiators.",
+      "techBody": "Costumed-suit (kigurumi) streaming still has few precedents in Japan. We brought it in house to an operable level, with motion linkage and real-time staging. One of EchoWith's own differentiators.",
       "techCta": "See the tech",
       "techPlaceholder": "Suit / motion-capture session photo",
       "bannerEyebrow": "RECRUIT ／ SECOND ROUND",
@@ -1910,7 +1910,7 @@
       "eyebrow": "VISION ／ 2027",
       "title": "Find Osaka's most talented singing and dancing live creators.",
       "statement": "We believe live streaming is a stage built for a team.",
-      "lead": "EchoAmp brings together people who love music, dance, and performance. Through continuous live shows, they build a style and culture of their own—and find the audience who truly loves the team and wants to grow with them.",
+      "lead": "EchoWith brings together people who love music, dance, and performance. Through continuous live shows, they build a style and culture of their own—and find the audience who truly loves the team and wants to grow with them.",
       "imagePlaceholder": "Night view of Dotonbori / Shinsekai",
       "imageAlt": "Illustrated Osaka night skyline seen from above, neon-lit blocks and elevated expressway lights running into the distance, a lit observation tower in the mid-ground",
       "eras": [
@@ -2069,7 +2069,7 @@
           "title": "Suit live technology",
           "en": "SUIT LIVE TECHNOLOGY",
           "short": "Fabrication, motion, voice and real-time staging in house — a field with few precedents in Japan.",
-          "body": "Costumed-suit (kigurumi) streaming still has few precedents in Japan, and we keep that know-how in house: fabrication, motion, voice and real-time staging run as one, so a character IP can grow continuously without depending on the performer's face. One of EchoAmp's own differentiators."
+          "body": "Costumed-suit (kigurumi) streaming still has few precedents in Japan, and we keep that know-how in house: fabrication, motion, voice and real-time staging run as one, so a character IP can grow continuously without depending on the performer's face. One of EchoWith's own differentiators."
         }
       ],
       "subItems": [
@@ -2138,9 +2138,9 @@
         "consent": "I agree that the information above may be used for recruitment screening.",
         "submit": "Submit",
         "submitting": "Sending…",
-        "lineNote": "You can also apply via LINE: @echoamp_osaka",
+        "lineNote": "You can also apply via LINE: @echowith_osaka",
         "successTitle": "Thank you for applying.",
-        "successBody": "We will review your entry and get back to you within 2–3 weeks. If it is urgent, reach us on LINE (@echoamp_osaka).",
+        "successBody": "We will review your entry and get back to you within 2–3 weeks. If it is urgent, reach us on LINE (@echowith_osaka).",
         "errors": {
           "required": "Required",
           "tooLong": "Too long",
@@ -2237,7 +2237,7 @@
           "eyebrow": "FOR CLIENT",
           "title": "For Businesses & Brands",
           "body": "For music production, mascot costume technology, commercial livestreaming, advertising partnerships, or reports of misconduct and compliance concerns, please contact us by email.",
-          "cta": "business@echoamp.jp",
+          "cta": "business@echowith.jp",
           "action": "email",
           "rows": [
             {
@@ -2246,7 +2246,7 @@
             },
             {
               "label": "Contact",
-              "value": "business@echoamp.jp",
+              "value": "business@echowith.jp",
               "link": "email"
             },
             {
@@ -2277,7 +2277,7 @@
         "map": {
           "station": "Shin-Osaka",
           "walk": "5 min walk ／ 400m",
-          "studio": "ECHOAMP STUDIO",
+          "studio": "ECHOWITH STUDIO",
           "areaEn": "SHIN-OSAKA AREA",
           "areaJp": "Yodogawa-ku, Osaka",
           "north": "N ↑",
