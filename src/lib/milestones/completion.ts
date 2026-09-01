@@ -64,23 +64,109 @@ export function normalizeDayStamp(input: unknown): string | null | undefined {
   return `${ymd}T00:00:00.000Z`
 }
 
-/**
- * 没有完成日期时，节点该处于哪个状态。
- *
- * 与 GET /api/milestones 的时间兜底（route.ts:syncStatusByTime）同一套阈值，
- * 唯一的差别：那里从不把 planned 推进成 active（开工是人的动作，不该由定时任务
- * 代劳），而这里是「取消完成」后的重算 —— 既然它一度被标为完成，开始日期已过
- * 就按 active 还原，回到 planned 反而是丢信息。
- */
-export function fallbackStatus(dates: MilestoneDates, now: Date): MilestoneStatus {
-  const tick = now.getTime()
-  const target = new Date(dates.target_date).getTime()
-  const start = new Date(dates.start_date).getTime()
+/** 完成日期为空的行只能落在这四个状态里 —— 用类型兜住不变式的一半。 */
+export type OpenMilestoneStatus = Exclude<MilestoneStatus, 'completed'>
 
-  if (Number.isFinite(target) && target < tick) return 'missed'
-  if (Number.isFinite(target) && target < tick + AT_RISK_DAYS * DAY_MS) return 'at_risk'
-  if (Number.isFinite(start) && start <= tick) return 'active'
-  return 'planned'
+/**
+ * 只由目标日期决定的「时间态」；`null` = 此刻时间不施加任何覆盖。
+ *
+ * missed / at_risk 是定时任务贴上去的标签，不承载人的判断（非日期原因的风险
+ * 有自己的列 risk_level）—— 这是 recomputeStatusByTime 敢把这两个状态整个
+ * 推翻重算的前提。
+ */
+function timeDerivedStatus(targetDate: string, now: Date): 'missed' | 'at_risk' | null {
+  const tick = now.getTime()
+  const target = new Date(targetDate).getTime()
+  if (!Number.isFinite(target)) return null
+  if (target < tick) return 'missed'
+  if (target < tick + AT_RISK_DAYS * DAY_MS) return 'at_risk'
+  return null
+}
+
+/**
+ * 没有完成日期时，节点该处于哪个状态 —— 纯粹由起止日期推导，不看原状态。
+ *
+ * 用在「取消完成」之后：那一刻原状态是 completed，不含任何 planned/active 的
+ * 底态信息，所以全部重新推。既然它一度被标为完成，开始日期已过就按 active
+ * 还原，回到 planned 反而是丢信息。
+ *
+ * 定时重算请用 recomputeStatusByTime —— 两者共用阈值，但那里必须保留人工设定
+ * 的 planned/active，不能照这里的规则把 planned 推成 active。
+ */
+export function fallbackStatus(dates: MilestoneDates, now: Date): OpenMilestoneStatus {
+  const overlay = timeDerivedStatus(dates.target_date, now)
+  if (overlay) return overlay
+  const start = new Date(dates.start_date).getTime()
+  return Number.isFinite(start) && start <= now.getTime() ? 'active' : 'planned'
+}
+
+/**
+ * 定时重算：一行「未完成」的节点此刻该是什么状态。
+ *
+ * GET /api/milestones 的时间兜底（route.ts:syncStatusByTime）走这条。原先那里
+ * 只有单向推进（→ missed、→ at_risk），没有任何反向路径，于是把目标日期往后
+ * 改之后节点永远留在 missed / at_risk，列表上同时显示「已逾期」和「剩 15 天」。
+ *
+ * 规则分两层：
+ *  1. 时间态优先 —— 目标日期已过 → missed，AT_RISK_DAYS 内到期 → at_risk；
+ *  2. 时间不施加覆盖时（目标日期还远），planned / active 是人工设定的底态，
+ *     原样保留；missed / at_risk 是上一轮时间态的残留，不带底态信息，按
+ *     fallbackStatus 重建。
+ *
+ * 第 2 条是与 fallbackStatus 唯一的分歧点：这里绝不把 planned 推进成 active
+ * （开工是人的动作，不该由定时任务代劳），也绝不把人工提前置为 active 的节点
+ * 降回 planned。
+ *
+ * 返回类型排除了 completed —— 调用方只喂 completed_date is null 的行，重算既
+ * 不该凭空造出 completed，也顺手把旁路写入留下的「completed 却没有完成日期」
+ * 的坏行修回一个开放态。
+ */
+export function recomputeStatusByTime(
+  row: MilestoneDates & { status: MilestoneStatus },
+  now: Date,
+): OpenMilestoneStatus {
+  const overlay = timeDerivedStatus(row.target_date, now)
+  if (overlay) return overlay
+  if (row.status === 'planned' || row.status === 'active') return row.status
+  return fallbackStatus(row, now)
+}
+
+export interface RecomputableMilestone extends MilestoneDates {
+  id: string
+  status: MilestoneStatus
+}
+
+export interface StatusRecomputeGroup {
+  status: OpenMilestoneStatus
+  ids: string[]
+}
+
+/** 组的输出次序固定，不随入参顺序漂 —— 断言与日志比对才稳。 */
+const RECOMPUTE_GROUP_ORDER: OpenMilestoneStatus[] = ['missed', 'at_risk', 'active', 'planned']
+
+/**
+ * 把一批「未完成」的节点折成「按目标状态分组的待改 id」。
+ *
+ * 状态没变的行一律不出现在结果里：定时兜底每分钟都会跑，全量盲写会把 12 行
+ * 的表写成 12 次无谓 UPDATE，也会让 updated_at 之类的审计字段失去意义。
+ */
+export function planStatusRecompute(
+  rows: RecomputableMilestone[],
+  now: Date,
+): StatusRecomputeGroup[] {
+  const byStatus = new Map<OpenMilestoneStatus, string[]>()
+  for (const row of rows) {
+    const next = recomputeStatusByTime(row, now)
+    if (next === row.status) continue
+    const ids = byStatus.get(next)
+    if (ids) ids.push(row.id)
+    else byStatus.set(next, [row.id])
+  }
+
+  return RECOMPUTE_GROUP_ORDER.flatMap((status) => {
+    const ids = byStatus.get(status)
+    return ids ? [{ status, ids }] : []
+  })
 }
 
 /**
