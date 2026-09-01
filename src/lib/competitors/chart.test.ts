@@ -90,3 +90,56 @@ test('buildWeeklyCurve: polyline 与点集同坐标，保证圆点/刻度与折�
   const c = buildWeeklyCurve([wk('2026-07-14', 100), wk('2026-07-21', 200)])
   assert.equal(c.polyline, c.points.map((p) => `${p.xPct},${p.yPct}`).join(' '))
 })
+
+// align:'cell' —— 让圆点落在 n 等分格的中心，好和刻度行的等分 grid 逐列对齐。
+// 'edge'（默认）保持内缩语义，供无标签的 compact 稀疏图继续使用。
+
+test("buildWeeklyCurve: align 默认为 'edge'，内缩语义不变", () => {
+  const rows = [wk('2026-07-14', 1), wk('2026-07-21', 2), wk('2026-07-28', 3), wk('2026-08-04', 4)]
+  assert.deepEqual(buildWeeklyCurve(rows, { inset: 8 }).points.map((p) => p.xPct), [8, 36, 64, 92])
+  assert.deepEqual(
+    buildWeeklyCurve(rows, { inset: 8, align: 'edge' }).points.map((p) => p.xPct),
+    [8, 36, 64, 92],
+  )
+})
+
+test("buildWeeklyCurve: align:'cell' 四点落在四等分格中心", () => {
+  const c = buildWeeklyCurve(
+    [wk('2026-07-14', 1), wk('2026-07-21', 2), wk('2026-07-28', 3), wk('2026-08-04', 4)],
+    { align: 'cell' },
+  )
+  assert.deepEqual(c.points.map((p) => p.xPct), [12.5, 37.5, 62.5, 87.5])
+})
+
+test("buildWeeklyCurve: align:'cell' 对任意点数都取 (2i+1)/2n 的格心", () => {
+  for (const n of [2, 3, 4]) {
+    const rows = Array.from({ length: n }, (_, i) => wk(`2026-07-${14 + i * 7}`, i + 1))
+    const expected = rows.map((_, i) => Math.round((((2 * i + 1) * 100) / (2 * n)) * 100) / 100)
+    assert.deepEqual(
+      buildWeeklyCurve(rows, { align: 'cell' }).points.map((p) => p.xPct),
+      expected,
+      `n=${n}`,
+    )
+  }
+})
+
+test("buildWeeklyCurve: align:'cell' 单点仍居中", () => {
+  const c = buildWeeklyCurve([wk('2026-07-14', 26600)], { align: 'cell' })
+  assert.deepEqual(c.points.map((p) => p.xPct), [50])
+})
+
+test("buildWeeklyCurve: align:'cell' 下 inset 失效（格心由点数决定，不受内缩影响）", () => {
+  const rows = [wk('2026-07-14', 1), wk('2026-07-21', 2), wk('2026-07-28', 3), wk('2026-08-04', 4)]
+  assert.deepEqual(
+    buildWeeklyCurve(rows, { align: 'cell', inset: 20 }).points.map((p) => p.xPct),
+    buildWeeklyCurve(rows, { align: 'cell' }).points.map((p) => p.xPct),
+  )
+})
+
+test("buildWeeklyCurve: align:'cell' 只改横向，纵向与 polyline 口径不变", () => {
+  const rows = [wk('2026-07-14', 100), wk('2026-07-21', 200), wk('2026-07-28', 300)]
+  const edge = buildWeeklyCurve(rows)
+  const cell = buildWeeklyCurve(rows, { align: 'cell' })
+  assert.deepEqual(cell.points.map((p) => p.yPct), edge.points.map((p) => p.yPct))
+  assert.equal(cell.polyline, cell.points.map((p) => `${p.xPct},${p.yPct}`).join(' '))
+})
