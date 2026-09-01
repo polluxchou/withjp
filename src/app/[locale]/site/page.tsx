@@ -15,6 +15,7 @@ import StatGrid from '@/components/site/StatGrid'
 import Ticker from '@/components/site/Ticker'
 import PulseDot from '@/components/site/PulseDot'
 import { NewsCard } from '@/components/site/NewsRow'
+import { createAutoLinker } from '@/lib/site/autoLink'
 
 // 首页 LATEST 三格取自 site_news（Task 10 起）；无限期缓存，只经由后台写接口的
 // revalidatePath 按需失效（news-service.ts 的 revalidateNewsPages），这里不
@@ -78,6 +79,8 @@ export default async function SiteTopPage({ params }: { params: { locale: string
   const services = tServices.raw('items') as SiteServiceItem[]
   const ticker = tTicker.raw('items') as string[]
 
+  const autoLink = createAutoLinker()
+
   return (
     <>
       {/* ══ HERO ══ */}
@@ -125,7 +128,7 @@ export default async function SiteTopPage({ params }: { params: { locale: string
               </span>
             </div>
 
-            <p className="mb-10 max-w-[520px] text-[16px] leading-[1.9] text-site-fg/78">{t('lead')}</p>
+            <p className="mb-10 max-w-[520px] text-[16px] leading-[1.9] text-site-fg/78">{autoLink(t('lead'))}</p>
 
             <div className="mb-11 flex flex-wrap gap-3.5">
               <SiteButton href={RECRUIT_HREF} variant="hot" size="lg">
@@ -185,7 +188,7 @@ export default async function SiteTopPage({ params }: { params: { locale: string
       <SiteSection className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start lg:gap-16">
         <div>
           <SectionHead eyebrow={t('visionHead.eyebrow')} title={t('visionHead.title')} />
-          <p className="mt-6 text-[16px] leading-[2] text-site-fg/78">{t('visionBody')}</p>
+          <p className="mt-6 text-[16px] leading-[2] text-site-fg/78">{autoLink(t('visionBody'))}</p>
           <Link
             href={`${SITE_BASE}/vision`}
             className="mt-7 inline-block font-condensed text-[15px] tracking-[0.16em] text-site-accent transition-colors hover:text-site-fg"
@@ -198,7 +201,7 @@ export default async function SiteTopPage({ params }: { params: { locale: string
             <GridCell key={card.no} className="px-[26px] py-[30px]">
               <div className="font-condensed text-[13px] tracking-[0.2em] text-site-accent">{card.no}</div>
               <div className="mb-2 mt-2.5 font-serif-jp text-[22px]">{card.title}</div>
-              <p className="text-[14px] leading-[1.8] text-site-fg/68">{card.body}</p>
+              <p className="text-[14px] leading-[1.8] text-site-fg/68">{autoLink(card.body)}</p>
             </GridCell>
           ))}
         </HairlineGrid>
@@ -209,7 +212,7 @@ export default async function SiteTopPage({ params }: { params: { locale: string
         <SectionHead
           eyebrow={t('projectHead.eyebrow')}
           title={t('projectHead.title')}
-          sub={t('projectHead.sub')}
+          sub={autoLink(t('projectHead.sub'))}
           moreHref={`${SITE_BASE}/vision`}
           moreLabel={t('projectHead.more')}
           className="mb-9"
@@ -238,11 +241,11 @@ export default async function SiteTopPage({ params }: { params: { locale: string
                   className="grid gap-4 bg-site-panel px-[22px] py-5 sm:grid-cols-[88px_1fr] sm:items-baseline"
                 >
                   <div className="font-condensed text-[20px] tracking-[0.14em]">{term.term}</div>
-                  <p className="text-[14px] leading-[1.8] text-site-fg/70">{term.body}</p>
+                  <p className="text-[14px] leading-[1.8] text-site-fg/70">{autoLink(term.body)}</p>
                 </div>
               ))}
             </div>
-            <p className="text-[13px] leading-[1.8] text-site-fg/50">{t('projectNote')}</p>
+            <p className="text-[13px] leading-[1.8] text-site-fg/50">{autoLink(t('projectNote'))}</p>
           </div>
         </div>
       </SiteSection>
@@ -269,7 +272,7 @@ export default async function SiteTopPage({ params }: { params: { locale: string
                 <div className="mb-3.5 font-condensed text-[13px] tracking-[0.18em] text-site-fg/50">
                   {service.en}
                 </div>
-                <p className="text-[14px] leading-[1.9] text-site-fg/68">{service.short}</p>
+                <p className="text-[14px] leading-[1.9] text-site-fg/68">{autoLink(service.short)}</p>
               </Link>
             </GridCell>
           ))}
@@ -280,7 +283,7 @@ export default async function SiteTopPage({ params }: { params: { locale: string
       <SiteSection className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-14">
         <div>
           <SectionHead eyebrow={t('techHead.eyebrow')} title={t('techHead.title')} />
-          <p className="mb-7 mt-4 text-[16px] leading-[2] text-site-fg/78">{t('techBody')}</p>
+          <p className="mb-7 mt-4 text-[16px] leading-[2] text-site-fg/78">{autoLink(t('techBody'))}</p>
           <SiteButton href={`${SITE_BASE}/services`} variant="ghost" size="md" weight="normal">
             {t('techCta')}
           </SiteButton>

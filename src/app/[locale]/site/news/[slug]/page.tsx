@@ -16,6 +16,7 @@ import {
 import SiteSection from '@/components/site/SiteSection'
 import SiteImage from '@/components/site/SiteImage'
 import SiteButton from '@/components/site/SiteButton'
+import { createAutoLinker } from '@/lib/site/autoLink'
 
 // 内容来自 site_news 表（Task 10 起）：无限期缓存，只经由后台写接口的
 // revalidatePath 按需失效（news-service.ts 的 revalidateNewsPages），这里不
@@ -93,6 +94,7 @@ export default async function SiteArticlePage({ params }: { params: { locale: st
   if (!article) notFound()
 
   const t = await getTranslations('site.news')
+  const autoLink = createAutoLinker()
 
   return (
     <SiteSection divider={false} className="pb-20 lg:pb-24">
@@ -126,10 +128,10 @@ export default async function SiteArticlePage({ params }: { params: { locale: st
       </div>
 
       <div className="mt-9 max-w-[760px]">
-        <p className="font-serif-jp text-[18px] leading-[1.9] text-site-fg/78">{article.lead}</p>
+        <p className="font-serif-jp text-[18px] leading-[1.9] text-site-fg/78">{autoLink(article.lead)}</p>
         {article.body.map((paragraph, i) => (
           <p key={i} className="mt-6 text-[15px] leading-[2] text-site-fg/72">
-            {paragraph}
+            {autoLink(paragraph)}
           </p>
         ))}
       </div>
