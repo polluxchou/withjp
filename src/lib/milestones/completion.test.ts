@@ -5,9 +5,12 @@ import {
   completionDeltaDays,
   fallbackStatus,
   normalizeDayStamp,
+  planStatusRecompute,
+  recomputeStatusByTime,
   resolveCompletion,
   tokyoDayStamp,
 } from './completion.ts'
+import type { MilestoneStatus } from '../types/index.ts'
 
 const NOW = new Date('2026-08-31T03:00:00.000Z') // 东京时间 8/31 12:00
 
@@ -88,6 +91,31 @@ test('fallbackStatus：恰好 7 天整后到期不算 at_risk，与 GET 的时�
     fallbackStatus({ start_date: day('2026-06-01'), target_date: '2026-09-07T02:59:59.000Z' }, NOW),
     'at_risk',
   )
+})
+
+test('fallbackStatus：目标日期当天的零点整不算逾期,那一天还没过完', () => {
+  // now 恰好 === target_date 这一瞬间(定时兜底如果正好在 UTC 零点跑到)。
+  // 「今天到期」不是「已经逾期」—— 判定用严格小于才对。
+  const noon = new Date('2026-09-07T00:00:00.000Z')
+  assert.equal(
+    fallbackStatus({ start_date: day('2026-06-01'), target_date: day('2026-09-07') }, noon),
+    'at_risk',
+  )
+  // 再晚 1 毫秒才算逾期
+  assert.equal(
+    fallbackStatus(
+      { start_date: day('2026-06-01'), target_date: day('2026-09-07') },
+      new Date('2026-09-07T00:00:00.001Z'),
+    ),
+    'missed',
+  )
+})
+
+test('fallbackStatus：开始日期恰好到点即算已开始 → active,而不是还停在 planned', () => {
+  const dates = { start_date: day('2026-09-01'), target_date: day('2026-12-01') }
+  assert.equal(fallbackStatus(dates, new Date('2026-09-01T00:00:00.000Z')), 'active')
+  // 差 1 毫秒还没开始
+  assert.equal(fallbackStatus(dates, new Date('2026-08-31T23:59:59.999Z')), 'planned')
 })
 
 // ── resolveCompletion ─────────────────────────────────────────
@@ -195,4 +223,149 @@ test('completionDeltaDays：没有完成日期或日期非法时返回 null', ()
 
 test('completionDeltaDays 按日界取整，同一天的不同时刻不产生 ±1 天漂移', () => {
   assert.equal(completionDeltaDays('2026-09-30T23:00:00.000Z', '2026-09-30T01:00:00.000Z'), 0)
+})
+
+// ── recomputeStatusByTime ─────────────────────────────────────
+//
+// 定时重算与「取消完成」的还原共用阈值,但语境不同:还原时没有可信的底态
+// (刚从 completed 下来),而定时重算面对的行可能带着人工设定的 planned/active。
+// 下面这组用例把两者的差别钉住 —— 尤其是第 6 条:开始日期已过也不许把
+// planned 推成 active。
+
+const STUCK_MISSED_NEAR = { start_date: day('2026-05-11'), target_date: day('2026-09-07'), status: 'missed' as const }
+const STUCK_MISSED_FAR  = { start_date: day('2026-07-24'), target_date: day('2026-09-15'), status: 'missed' as const }
+const STUCK_AT_RISK     = { start_date: day('2026-08-17'), target_date: day('2026-11-30'), status: 'at_risk' as const }
+
+test('recomputeStatusByTime：目标日期已过 → missed（正向推进照旧）', () => {
+  assert.equal(
+    recomputeStatusByTime({ start_date: day('2026-08-17'), target_date: day('2026-08-28'), status: 'active' }, NOW),
+    'missed',
+  )
+})
+
+test('recomputeStatusByTime：7 天内到期 → at_risk（正向推进照旧）', () => {
+  assert.equal(
+    recomputeStatusByTime({ start_date: day('2026-06-01'), target_date: day('2026-09-03'), status: 'active' }, NOW),
+    'at_risk',
+  )
+})
+
+test('recomputeStatusByTime：卡死的 missed 在目标日期推远后回到 active', () => {
+  // 真实卡死行「银行注册」:target 被改到 2026-09-15(15 天后),状态却留在 missed
+  assert.equal(recomputeStatusByTime(STUCK_MISSED_FAR, NOW), 'active')
+})
+
+test('recomputeStatusByTime：卡死的 missed 在目标日期推进到 7 天窗口内时降为 at_risk', () => {
+  // 真实卡死行「和陈昊、小兽完成代理协议签约」:target 2026-09-07,列表上
+  // 同时显示「已逾期」和「剩 7 天」
+  assert.equal(recomputeStatusByTime(STUCK_MISSED_NEAR, NOW), 'at_risk')
+})
+
+test('recomputeStatusByTime：卡死的 at_risk 在目标日期推远后回到 active', () => {
+  // 真实卡死行「场地装修 — 直播工作室」:target 2026-11-30(91 天后)仍是 at_risk
+  assert.equal(recomputeStatusByTime(STUCK_AT_RISK, NOW), 'active')
+})
+
+test('recomputeStatusByTime：planned 且开始日期已过 → 仍是 planned,定时任务不代劳「开工」', () => {
+  // 与 fallbackStatus 的唯一分歧点。开始日期只是计划,没开工就是没开工 ——
+  // 真实行「0号直播间设备采买」(start 2026-08-15 已过)必须留在 planned。
+  const notStarted = { start_date: day('2026-08-15'), target_date: day('2026-09-15'), status: 'planned' as const }
+  assert.equal(recomputeStatusByTime(notStarted, NOW), 'planned')
+  // 同一组日期交给 fallbackStatus(还原语境)则会算成 active —— 两个语境确实不同
+  assert.equal(fallbackStatus(notStarted, NOW), 'active')
+})
+
+test('recomputeStatusByTime：active 且开始日期还没到 → 保持 active,不被降级成 planned', () => {
+  // 人工提前开工是有效信息,定时重算不该把它抹掉
+  assert.equal(
+    recomputeStatusByTime({ start_date: day('2026-10-01'), target_date: day('2026-12-01'), status: 'active' }, NOW),
+    'active',
+  )
+})
+
+test('recomputeStatusByTime：从时间态还原时,开始日期未到则回到 planned', () => {
+  assert.equal(
+    recomputeStatusByTime({ start_date: day('2026-10-01'), target_date: day('2026-12-01'), status: 'missed' }, NOW),
+    'planned',
+  )
+})
+
+test('recomputeStatusByTime：恰好 7 天整后到期不算 at_risk,与 fallbackStatus 同一个开区间', () => {
+  const dates = { start_date: day('2026-06-01'), status: 'active' as const }
+  assert.equal(recomputeStatusByTime({ ...dates, target_date: '2026-09-07T03:00:00.000Z' }, NOW), 'active')
+  assert.equal(recomputeStatusByTime({ ...dates, target_date: '2026-09-07T02:59:59.000Z' }, NOW), 'at_risk')
+})
+
+test('recomputeStatusByTime：不变式 —— 永不返回 completed', () => {
+  // 调用方只喂 completed_date is null 的行,所以 status='completed' 只可能是
+  // 旁路写入留下的坏行(打破了 completed ⇔ 完成日期非空)。重算应当把它修回
+  // 一个开放态,而不是原样放行 —— 更不能凭空造出 completed。
+  const statuses: MilestoneStatus[] = ['planned', 'active', 'at_risk', 'completed', 'missed']
+  const targets = [day('2026-08-01'), day('2026-09-03'), day('2026-09-15'), day('2026-12-01')]
+  for (const status of statuses) {
+    for (const target_date of targets) {
+      for (const start_date of [day('2026-06-01'), day('2026-10-01')]) {
+        assert.notEqual(
+          recomputeStatusByTime({ start_date, target_date, status }, NOW),
+          'completed',
+          `重算产出了 completed：${JSON.stringify({ status, start_date, target_date })}`,
+        )
+      }
+    }
+  }
+  assert.equal(
+    recomputeStatusByTime({ start_date: day('2026-06-01'), target_date: day('2026-12-01'), status: 'completed' }, NOW),
+    'active',
+  )
+})
+
+// ── planStatusRecompute ───────────────────────────────────────
+
+test('planStatusRecompute：只产出真正变了的行,状态没变的不写库', () => {
+  const groups = planStatusRecompute(
+    [
+      { id: 'far',     ...STUCK_MISSED_FAR },                                                    // missed  → active
+      { id: 'overdue', start_date: day('2026-08-17'), target_date: day('2026-08-28'), status: 'missed' }, // 仍 missed
+      { id: 'planned', start_date: day('2026-08-15'), target_date: day('2026-09-15'), status: 'planned' }, // 仍 planned
+    ],
+    NOW,
+  )
+  assert.deepEqual(groups, [{ status: 'active', ids: ['far'] }])
+})
+
+test('planStatusRecompute：同一目标状态的多行合并成一组,组序稳定', () => {
+  const groups = planStatusRecompute(
+    [
+      { id: 'a', ...STUCK_MISSED_FAR },  // → active
+      { id: 'b', ...STUCK_MISSED_NEAR }, // → at_risk
+      { id: 'c', ...STUCK_AT_RISK },     // → active
+      { id: 'd', start_date: day('2026-10-01'), target_date: day('2026-12-01'), status: 'at_risk' }, // → planned
+    ],
+    NOW,
+  )
+  // 组序按固定的状态次序输出(不随入参顺序漂移),便于断言与日志比对
+  assert.deepEqual(groups, [
+    { status: 'at_risk', ids: ['b'] },
+    { status: 'active',  ids: ['a', 'c'] },
+    { status: 'planned', ids: ['d'] },
+  ])
+})
+
+test('planStatusRecompute：全都不需要改时返回空数组,一条 UPDATE 都不发', () => {
+  assert.deepEqual(
+    planStatusRecompute(
+      [
+        { id: 'a', start_date: day('2026-08-17'), target_date: day('2026-08-28'), status: 'missed' },
+        { id: 'b', start_date: day('2026-06-01'), target_date: day('2026-09-03'), status: 'at_risk' },
+        { id: 'c', start_date: day('2026-08-15'), target_date: day('2026-09-15'), status: 'planned' },
+        { id: 'd', ...DATES, status: 'active' },
+      ],
+      NOW,
+    ),
+    [],
+  )
+})
+
+test('planStatusRecompute：空入参返回空数组', () => {
+  assert.deepEqual(planStatusRecompute([], NOW), [])
 })
