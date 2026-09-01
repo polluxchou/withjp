@@ -57,6 +57,13 @@ export const CHANGELOG: DailyChangelog[] = [
         details:
           '风险等级不会随着节点完成而清零,导致一个标了「高风险」的节点即使做完了,在时间轴上仍然是红色的高风险圆点。改为完成状态优先判定。',
       },
+      {
+        kind: 'improve',
+        scope: '对外官网',
+        title: '品牌名 EchoAmp 全面更名为 EchoWith',
+        details:
+          '官网三语文案里出现的品牌名(标题、页脚、VISION/TIKTOK LIVE 页正文等)全部由 EchoAmp 改为 EchoWith,招募页 LINE 报名账号与联系邮箱同步换成对应的 EchoWith 域名/账号。',
+      },
     ],
   },
   {
