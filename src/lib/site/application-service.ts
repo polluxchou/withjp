@@ -64,6 +64,8 @@ export async function submitApplication(
       experience: value.experience,
       email: value.email,
       commute_mode: value.commuteMode,
+      dance_skill_level: value.danceSkillLevel,
+      dance_years: value.danceYears,
       locale: value.locale,
       ip_hash,
       user_agent: meta.userAgent?.slice(0, 400) ?? null,

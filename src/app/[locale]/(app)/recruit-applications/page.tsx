@@ -10,8 +10,8 @@ import Tag from '@/components/ui/Tag'
 import EmptyState from '@/components/ui/EmptyState'
 import { ApplicationTabs, ApplicationErrorState } from '@/components/recruit-applications/ApplicationControls'
 import { toneOf } from '@/lib/ui/status-tone'
-import type { ApplicationKind, CommuteMode } from '@/lib/site/application'
-import { Calendar, Cake, MapPin, Mail, Navigation, FileText } from 'lucide-react'
+import type { ApplicationKind, CommuteMode, DanceSkillLevel } from '@/lib/site/application'
+import { Calendar, Cake, MapPin, Mail, Navigation, FileText, Music, Timer } from 'lucide-react'
 
 // 对外官网 RECRUIT 表单的投递。只读：本轮不做状态流转（那是后续需求），
 // 这一页存在的意义是让投递不至于躺在库里没人看见。
@@ -32,6 +32,8 @@ type ApplicationRow = {
   contact: string
   email: string | null
   commute_mode: CommuteMode | null
+  dance_skill_level: DanceSkillLevel | null
+  dance_years: number | null
   experience: string | null
   locale: string
   status: string
@@ -42,7 +44,7 @@ async function getApplications(tab: ApplicationTab): Promise<{ applications: App
   const db = createServerClient()
   let query = db
     .from('site_applications')
-    .select('id, kind, name, age, residence, contact, email, commute_mode, experience, locale, status, created_at')
+    .select('id, kind, name, age, residence, contact, email, commute_mode, dance_skill_level, dance_years, experience, locale, status, created_at')
     .order('created_at', { ascending: false })
     .limit(200)
   query = tab === 'creator' ? query.eq('kind', 'creator') : query.neq('kind', 'creator')
@@ -139,6 +141,22 @@ export default async function RecruitApplicationsPage({
                           text: application.age !== null ? String(application.age) : notProvided,
                         },
                         { icon: <MapPin />, text: application.residence || notProvided },
+                        {
+                          icon: metaIconWithLabel(<Music />, t('columns.danceSkillLevel')),
+                          text: application.dance_skill_level
+                            ? t(`danceSkillLevels.${application.dance_skill_level}`)
+                            : notProvided,
+                        },
+                        {
+                          icon: metaIconWithLabel(<Timer />, t('columns.danceYears')),
+                          mono: true,
+                          text:
+                            application.dance_years !== null
+                              ? application.dance_years === 0
+                                ? t('danceYearsNone')
+                                : String(application.dance_years)
+                              : notProvided,
+                        },
                         { icon: <FileText />, text: application.experience || notProvided },
                       ]
                     : [

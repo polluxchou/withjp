@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import type { ApplicationFields, FieldError } from '@/lib/site/application'
+import { DANCE_SKILL_LEVELS, type ApplicationFields, type FieldError } from '@/lib/site/application'
 import BlueprintFrame from './BlueprintFrame'
 import SiteButton from './SiteButton'
 
@@ -35,6 +35,8 @@ export default function ApplicationForm() {
       residence: data.get('residence'),
       contact: data.get('contact'),
       experience: data.get('experience'),
+      danceSkillLevel: data.get('danceSkillLevel'),
+      danceYears: data.get('danceYears'),
       consent: data.get('consent') === 'on',
       locale,
       hp: data.get('hp'),
@@ -106,6 +108,38 @@ export default function ApplicationForm() {
           />
         </Field>
 
+        <Field
+          label={t('danceSkillLevel')}
+          error={fields.danceSkillLevel}
+          labelId={`${uid}-dance-skill-label`}
+          t={t}
+        >
+          <div
+            role="radiogroup"
+            aria-labelledby={`${uid}-dance-skill-label`}
+            className="flex flex-wrap gap-x-6 gap-y-2"
+          >
+            {DANCE_SKILL_LEVELS.map((level) => (
+              <label
+                key={level}
+                className="flex cursor-pointer items-center gap-2 text-[14px] text-site-fg/86"
+              >
+                <input type="radio" name="danceSkillLevel" value={level} className="accent-site-accent" />
+                {t(`danceSkillLevelOptions.${level}`)}
+              </label>
+            ))}
+          </div>
+        </Field>
+
+        <Field label={t('danceYears')} error={fields.danceYears} htmlFor={`${uid}-dance-years`} t={t}>
+          <select id={`${uid}-dance-years`} name="danceYears" defaultValue="" className={FIELD_CLS}>
+            <option value="" disabled hidden>{t('danceYears')}</option>
+            {Array.from({ length: 37 }, (_, n) => n).map((n) => (
+              <option key={n} value={n}>{n === 0 ? t('danceYearsOptions.none') : n}</option>
+            ))}
+          </select>
+        </Field>
+
         {/* honeypot：真人看不见所以永远是空的。用 absolute 移出视口而不是
             display:none —— 后者会被一些爬虫识别并跳过。 */}
         <input
@@ -140,28 +174,38 @@ export default function ApplicationForm() {
 /**
  * 视觉标签必须是真 <label htmlFor>，不能用 span：span 关联不到输入框
  * （input.labels 为空），屏幕阅读器读不出字段名、点标签也不会聚焦。
+ * radio group 例外——它没有单个控件可以让 htmlFor 指过去，改用 labelId
+ * 由外层 role="radiogroup" + aria-labelledby 指回来。
  */
 function Field({
   label,
   hint,
   error,
   htmlFor,
+  labelId,
   t,
   children,
 }: {
   label: string
   hint?: string
   error?: FieldError
-  htmlFor: string
+  htmlFor?: string
+  labelId?: string
   t: (key: string) => string
   children: React.ReactNode
 }) {
   return (
     <div>
       <div className="mb-1.5 flex flex-wrap items-baseline gap-2">
-        <label htmlFor={htmlFor} className="text-[13px] tracking-[0.06em] text-site-fg/60">
-          {label}
-        </label>
+        {htmlFor ? (
+          <label htmlFor={htmlFor} className="text-[13px] tracking-[0.06em] text-site-fg/60">
+            {label}
+          </label>
+        ) : (
+          <span id={labelId} className="text-[13px] tracking-[0.06em] text-site-fg/60">
+            {label}
+          </span>
+        )}
         {hint && <span className="text-[12px] text-site-fg/40">{hint}</span>}
         {error && <span className="text-[12px] text-site-hot">{t(`errors.${error}`)}</span>}
       </div>
