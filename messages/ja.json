@@ -2135,6 +2135,17 @@
         "contact": "ご連絡先",
         "contactHint": "LINE ID・メール・SNS アカウントのいずれか",
         "experience": "経験・SNS",
+        "danceSkillLevel": "ダンス経験レベル",
+        "danceSkillLevelOptions": {
+          "barely_touched": "ほとんど経験なし",
+          "long_term_hobby": "長く続けている趣味",
+          "professional_training": "専門トレーニング経験あり",
+          "teaching_level": "指導できるレベル"
+        },
+        "danceYears": "ダンス経験年数",
+        "danceYearsOptions": {
+          "none": "なし"
+        },
         "consent": "応募選考の目的で、入力内容を利用することに同意します。",
         "submit": "送信する",
         "submitting": "送信中…",
@@ -2146,6 +2157,7 @@
           "tooLong": "文字数が上限を超えています",
           "outOfRange": "16〜60 の範囲で入力してください",
           "invalidAge": "半角数字で入力してください",
+          "invalidChoice": "リストから選択してください",
           "consent": "同意が必要です",
           "rateLimited": "送信が集中しています。しばらくしてからお試しください。",
           "network": "送信に失敗しました。通信環境をご確認ください。"
