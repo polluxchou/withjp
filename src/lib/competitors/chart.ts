@@ -33,6 +33,14 @@ interface WeeklyCurveOptions {
   minSpanRatio?: number
   /** 数据跨度之上、上下各留白的比例 */
   padRatio?: number
+  /**
+   * 横向定位口径。
+   * 'edge'（默认）：首尾按 inset 内缩，给端点圆点留出不被裁的余量——无标签的
+   *   compact 稀疏图用它。
+   * 'cell'：把 n 个点放到 n 等分格的中心，于是圆点与刻度行的等分 grid 逐列对齐；
+   *   此时 inset 不再生效（格心只由点数决定）。
+   */
+  align?: 'edge' | 'cell'
 }
 
 const ISO_DATE = /^\d{4}-(\d{2})-(\d{2})$/
@@ -57,7 +65,7 @@ function weekTick(weekStart: string): string {
  */
 export function buildWeeklyCurve(
   weekly: WeeklyCurveInput[],
-  { inset = 8, minSpanRatio = 0.05, padRatio = 0.25 }: WeeklyCurveOptions = {},
+  { inset = 8, minSpanRatio = 0.05, padRatio = 0.25, align = 'edge' }: WeeklyCurveOptions = {},
 ): WeeklyCurve {
   const rows = (Array.isArray(weekly) ? weekly : []).filter((w) => w && Number.isFinite(w.followers))
   if (rows.length === 0) return { points: [], polyline: '' }
@@ -70,11 +78,15 @@ export function buildWeeklyCurve(
   const span = Math.max((max - min) * (1 + 2 * padRatio), minSpan)
   const domainMin = mid - span / 2
 
-  const step = rows.length > 1 ? (100 - 2 * inset) / (rows.length - 1) : 0
+  // 'cell' 取 lead = 100/(2n)，于是 step = 100/n、第 i 点落在 (2i+1)·100/(2n)——
+  // 正好是 n 等分格的中心。刻度行用等分 grid 时（保证相邻标签不可能重叠），
+  // 圆点才和它下面的日期/数值同列。'edge' 保持原来的内缩语义。
+  const lead = align === 'cell' ? 100 / (2 * rows.length) : inset
+  const step = rows.length > 1 ? (100 - 2 * lead) / (rows.length - 1) : 0
   const points: WeeklyCurvePoint[] = rows.map((w, i) => ({
     week_start: w.week_start,
     followers: w.followers,
-    xPct: rows.length > 1 ? round2(inset + i * step) : 50,
+    xPct: rows.length > 1 ? round2(lead + i * step) : 50,
     // span 为 0 只可能是所有值都是 0，此时落中线避免除零
     yPct: span > 0 ? round2(100 - ((w.followers - domainMin) / span) * 100) : 50,
     tick: weekTick(w.week_start),

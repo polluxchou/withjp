@@ -34,7 +34,9 @@ function CurveLine({ polyline }: { polyline: string }) {
 
 export default function WeeklyFollowersCurve({ weekly, compact = false }: { weekly: WeeklyPoint[]; compact?: boolean }) {
   const t = useTranslations('competitors')
-  const curve = buildWeeklyCurve(weekly.slice(-4))
+  // 非 compact 才用 'cell'：刻度行是等分 grid，圆点必须落在同一批格心上才逐列对齐。
+  // compact 是 96×20px 稀疏图，没有圆点也没有刻度行，继续走内缩口径。
+  const curve = buildWeeklyCurve(weekly.slice(-4), compact ? {} : { align: 'cell' })
   const pts = curve.points
   const latest = pts.length ? pts[pts.length - 1].followers : null
   const prev = pts.length >= 2 ? pts[pts.length - 2].followers : null
@@ -97,29 +99,22 @@ export default function WeeklyFollowersCurve({ weekly, compact = false }: { week
                 </span>
               </span>
             ))}
-            {/* 端点数值只标首尾两点（中间靠 hover），且贴容器左右边缘而非居中于
-                圆点——窄列下居中会把标签推出容器被裁掉。 */}
-            {pts.length > 1 && [pts[0], pts[pts.length - 1]].map((p, i) => (
-              <span
-                key={`edge-${p.week_start}`}
-                className={`absolute text-micro font-medium tabular-nums text-ink-700 ${
-                  i === 0 ? 'left-0' : 'right-0'
-                } ${p.yPct < 50 ? 'translate-y-1.5' : '-translate-y-5'}`}
-                style={{ top: `${p.yPct}%` }}
-              >
-                {formatCount(p.followers)}
-              </span>
-            ))}
           </div>
-          <div className="relative mt-1 h-4">
+          {/* 日期与数值同列的等分 grid：相邻标签不可能重叠（最坏只是单格 truncate），
+              比 absolute left:x% 居中稳——后者在窄列（卡片 1/4 宽）下会互相压。
+              列数是运行时值，只能走 style：动态拼 grid-cols-[...] 类名 Tailwind
+              扫不到、会静默失效。精确值仍由圆点的 hover 提示给出。 */}
+          <div
+            className="mt-1 grid"
+            style={{ gridTemplateColumns: `repeat(${pts.length}, minmax(0, 1fr))` }}
+          >
             {pts.map((p) => (
-              <span
-                key={p.week_start}
-                className="absolute -translate-x-1/2 text-micro tabular-nums text-ink-400"
-                style={{ left: `${p.xPct}%` }}
-              >
-                {p.tick}
-              </span>
+              <div key={p.week_start} className="min-w-0 text-center">
+                <div className="text-micro tabular-nums text-ink-400">{p.tick}</div>
+                <div className="truncate text-micro font-medium tabular-nums text-ink-700">
+                  {formatCount(p.followers)}
+                </div>
+              </div>
             ))}
           </div>
         </div>
