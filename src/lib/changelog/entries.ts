@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-09-01',
+    items: [
+      {
+        kind: 'feat',
+        scope: '对外官网',
+        title: '招募表单新增「舞蹈能力类型」与「舞蹈年限」两项选填信息',
+        details:
+          '主播应募表单在「经验・社交账号」之后新增两个选填字段：舞蹈能力类型（接触较少／长期爱好／专业培训／教学级别四选一）与舞蹈年限（0–36 年的选择器，不支持手工输入，0 显示为「无」）。后台「官网应募」列表的主播投递记录同步展示这两项。',
+      },
+    ],
+  },
+  {
     date: '2026-08-31',
     items: [
       {
