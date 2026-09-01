@@ -37,6 +37,7 @@ import ProfileEditor from '@/components/profile/ProfileEditor'
 import NotificationBell from '@/components/notifications/NotificationBell'
 import type { AgentRole, UserProfile } from '@/lib/types'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
+import { notifyNavReset } from '@/lib/ui/navReset'
 import { ACCENT_CHIP } from '@/lib/ui/accent'
 import type { Accent } from '@/lib/ui/accent'
 
@@ -239,6 +240,7 @@ function CollapsedNavLeaf({
       <Link
         href={item.href}
         aria-label={label}
+        onClick={active ? () => notifyNavReset() : undefined}
         className={`flex items-center justify-center rounded-field px-2 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
           active ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink-500 hover:text-ink-900 hover:bg-line-soft'
         }`}
@@ -390,6 +392,7 @@ export default function Sidebar() {
       <Link
         key={item.href}
         href={item.href}
+        onClick={active ? () => notifyNavReset() : undefined}
         className={`flex items-center rounded-field text-sm transition-colors gap-3 py-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
           indented ? 'pl-9 pr-3' : 'px-3'
         } ${active ? 'bg-primary-soft text-primary-hover font-semibold' : 'font-medium text-ink-500 hover:text-ink-900 hover:bg-line-soft'}`}
