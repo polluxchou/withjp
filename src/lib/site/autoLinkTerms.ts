@@ -1,9 +1,11 @@
 export type AutoLinkTerm = { term: string; url: string }
 
 // 官网文案里第一次出现哪个品牌英文名要自动加粗+链接到对方官网，就在这里登记
-// 一条。目前只有 Polyjuice 这一条。
+// 一条。目前只有 PolyjuiceAvatar 这一条——注意品牌名是不带空格的复合词
+// "PolyjuiceAvatar"（域名 polyjuiceavatar.com 同款拼法），已发布的新闻正文
+// 里也是这么写的，不是分开的 "Polyjuice"。
 export const AUTO_LINK_TERMS: readonly AutoLinkTerm[] = [
-  { term: 'Polyjuice', url: 'https://polyjuiceavatar.com' },
+  { term: 'PolyjuiceAvatar', url: 'https://polyjuiceavatar.com' },
 ]
 
 export type AutoLinkSplit = { before: string; match: string; url: string; after: string }
