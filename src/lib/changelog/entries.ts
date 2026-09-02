@@ -36,6 +36,12 @@ export const CHANGELOG: DailyChangelog[] = [
         details:
           '首页「PROJECT / MOONDOLLZ」区块的配图换成新的月夜和装主题插画，其余文案与排版不变。',
       },
+      {
+        kind: 'improve',
+        scope: '对外官网',
+        title: '首页 03 PROJECT 配图微调',
+        details: '同一张 MOONDOLLZ 概念插画换成微调后的版本（整体调暗，构图不变）。',
+      },
     ],
   },
   {
