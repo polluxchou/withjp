@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-09-02',
+    items: [
+      {
+        kind: 'feat',
+        scope: '对外官网',
+        title: '首页 03 PROJECT 区块换上 MOONDOLLZ 概念插画',
+        details:
+          '首页「PROJECT / MOONDOLLZ」区块的配图换成新的月夜和装主题插画，其余文案与排版不变。',
+      },
+    ],
+  },
+  {
     date: '2026-09-01',
     items: [
       {
