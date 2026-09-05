@@ -16,7 +16,12 @@ import WorkloadWeekView from '@/components/work-tasks/WorkloadWeekView'
 import WorkloadMonthView from '@/components/work-tasks/WorkloadMonthView'
 import SalaryManager from '@/components/work-tasks/SalaryManager'
 import { Play, RefreshCw, CheckSquare, Settings, X } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+// useRouter 用 next-intl 那个：它会自动带上 locale 前缀，next/navigation 的
+// 会把用户踢到没有 locale 的路径上。
+import { useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
+import { hrefWithQuery, resolveNavQuery } from '@/lib/nav/nav'
 import { toDateStr } from '@/lib/work-tasks/cost'
 import { toneOf } from '@/lib/ui/status-tone'
 import { FOCUS_RING } from '@/lib/ui/recipes'
@@ -46,7 +51,20 @@ export default function TasksPage() {
   const [showSalary, setShowSalary] = useState(false)
 
   // ── Main tab ───────────────────────────────────────────────────
-  const [mainTab, setMainTab] = useState<'ai' | 'workload'>('workload')
+  // tab 状态挂在 URL 上：侧栏的「人员任务与工时」和「AI 任务」是这一页的两个
+  // 深链入口（@/lib/nav/nav 的 QUERY_SPECS 登记了 view 的合法值与默认值，
+  // 导航高亮和这里的回退共用那一份口径，不会跑偏）。
+  //
+  // 必须是从 URL 派生而不是 useState + 初始值：用户在本页时点侧栏另一个入口，
+  // URL 变了但组件没卸载，useState 的初始值不会重跑，tab 会卡住不动。
+  const searchParams = useSearchParams()
+  const router       = useRouter()
+  const mainTab: 'ai' | 'workload' =
+    resolveNavQuery('/tasks', 'view', searchParams.get('view')) === 'ai' ? 'ai' : 'workload'
+  const setMainTab = useCallback(
+    (v: 'ai' | 'workload') => { router.replace(hrefWithQuery({ href: '/tasks', query: { view: v } })) },
+    [router],
+  )
 
   // ── AI tasks load ──────────────────────────────────────────────
   // Same error-surfacing idiom as creators/pipeline pages (design-system.md
