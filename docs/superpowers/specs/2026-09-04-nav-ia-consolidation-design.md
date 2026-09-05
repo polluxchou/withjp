@@ -80,9 +80,11 @@
 
 `NAV` 常量和 `isActive` 判定现在埋在 490 行的 `Sidebar.tsx` 里，没有测试覆盖。本轮引入 query 参与 active 判定，逻辑会更绕。
 
-**采用**：抽到 `src/lib/nav/nav.ts`，导出 `NAV`、`NAV_ACCENT`、`accentOf`、`isNavActive`，配单测。对齐官网侧 `src/lib/site/nav.ts` 的既有做法（那边也是纯函数 + `nav.test.ts`）。
+**采用**：把**纯逻辑**抽到 `src/lib/nav/nav.ts`——类型定义、`isGroup`、`QUERY_SPECS`、`resolveNavQuery`、`hrefWithQuery`、`isNavActive`——配单测。对齐官网侧 `src/lib/site/nav.ts` 的既有做法（那边也是纯函数 + `nav.test.ts`）。
 
-`Sidebar.tsx` 只保留渲染，不再持有结构定义。
+**`NAV` 常量和 `NAV_ACCENT` 留在 `Sidebar.tsx`**：`NAV` 每一项都持有 lucide 图标**组件实例**，搬进 `lib/` 会让 `nav.test.ts` 在 `node --test --experimental-strip-types` 下把 lucide-react 和 react 一起加载进来。本仓 78 个测试文件无一例外只 import 纯 `.ts` 模块。为了让一个数据常量可测而给测试链引入 React，不划算——真正需要测的是 query 匹配逻辑，那部分抽干净了。
+
+`NavLeaf.icon` 的类型标注用 `import type { LucideIcon }`，纯类型引用，strip-types 会整条擦掉，不产生运行时依赖。
 
 ### 3. 保留 `/team/assignments`
 
@@ -109,15 +111,25 @@ type NavLeaf = {
 1. 先按现有规则匹配 pathname（`exact` 精确匹配，`/` 特判，否则 `startsWith`）。
 2. pathname 不匹配 → false。
 3. leaf 没有 `query` → true（现有行为不变）。
-4. leaf 有 `query` → 逐个 key 比对当前 URL 的对应参数值；**参数缺失时按页面默认值兜底**，否则首次进 `/tasks`（无 query）两个入口都不高亮。
+4. leaf 有 `query` → 逐个 key 比对当前 URL 的对应参数值；**参数缺失或取值非法时按页面默认值兜底**，否则首次进 `/tasks`（无 query）或 `?view=bogus` 时两个入口都不高亮。
 
-默认值在 `nav.ts` 里显式登记一张表，与 `/tasks` 页面 `mainTab` 的初值回退保持同一口径：
+兜底走 `nav.ts` 里唯一一张登记表，`/tasks` 页面的 `mainTab` 也调同一个函数——两边不可能跑偏：
 
 ```
-const QUERY_DEFAULTS: Record<string, Record<string, string>> = {
-  '/tasks': { view: 'workload' },
+type QuerySpec = { default: string; values: readonly string[] }
+
+const QUERY_SPECS = {
+  '/tasks': { view: { default: 'workload', values: ['workload', 'ai'] } },
+}
+
+export function resolveNavQuery(href, name, raw) {
+  const spec = QUERY_SPECS[href]?.[name]
+  if (!spec) return raw
+  return raw !== null && spec.values.includes(raw) ? raw : spec.default
 }
 ```
+
+**顺带收紧 pathname 前缀匹配**：现有实现是裸 `path.startsWith(href)`，`/team` 会误亮在假想的 `/teamfoo` 上。改成官网侧同款 `path === href || path.startsWith(href + '/')`。当前 NAV 里没有任何一条路由是另一条的裸前缀延长，所以这是行为等价的加固，不改变今天的任何高亮结果。
 
 单测覆盖：无 query 的 leaf 行为不回归、`?view=ai` 只高亮 AI 任务、`?view=workload` 只高亮人员任务、裸 `/tasks` 走默认值高亮人员任务、`exact` 语义、`/` 特判。
 
@@ -128,7 +140,9 @@ const QUERY_DEFAULTS: Record<string, Record<string, string>> = {
 - `Link href` 带 query 的 leaf 要拼成 `` `${href}?${new URLSearchParams(query)}` ``。
 - `isActive` 改调 `isNavActive`，需要 `useSearchParams()`。
 
-**风险点**：`useSearchParams()` 在 App Router 里静态渲染时要求 Suspense 边界。Sidebar 在 `(app)/layout` 下，页面大多 `force-dynamic`，但**必须跑 `npm run build` 实测确认**，不能推断。若构建报错，退路是读 `window.location.search` + 客户端 state（首帧高亮延后一拍，可接受）。
+**风险点（已大幅降低，仍需实测）**：`useSearchParams()` 在 App Router 里静态预渲染时要求 Suspense 边界。查证结果：`src/app/[locale]/(app)/layout.tsx` 第 1 行就是 `export const dynamic = 'force-dynamic'`，段级声明覆盖该 layout 下所有路由，不会发生静态预渲染。**仍必须跑 `npm run build` 确认**，不能靠这条推导就宣布安全。若构建报错，退路是读 `window.location.search` + 客户端 state（首帧高亮延后一拍，可接受）。
+
+注意 `useSearchParams` 来自 `next/navigation`，不是 `@/i18n/navigation`（后者只导出 `Link`/`redirect`/`usePathname`/`useRouter`/`getPathname`）。`usePathname` 仍用 next-intl 那个——它返回去掉 locale 前缀的路径，`NAV` 里的 href 才对得上。
 
 ### `src/app/[locale]/(app)/tasks/page.tsx`
 
