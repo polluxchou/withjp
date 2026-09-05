@@ -1,11 +1,16 @@
 'use client'
 
 import { Link, usePathname } from '@/i18n/navigation'
+// usePathname 必须用 next-intl 那个（返回去掉 locale 前缀的路径，NAV 的 href
+// 才对得上）；useSearchParams next-intl 没导出，走 next/navigation。
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   Users,
+  UsersRound,
+  Sparkles,
   CheckSquare,
   GitBranch,
   Bot,
@@ -31,7 +36,8 @@ import {
   Menu,
   X,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import type { NavGroup, NavItem, NavLeaf } from '@/lib/nav/nav'
+import { hrefWithQuery, isGroup, isNavActive } from '@/lib/nav/nav'
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -40,10 +46,6 @@ import { lockViewportScroll } from '@/lib/ui/scrollLock'
 import { notifyNavReset } from '@/lib/ui/navReset'
 import { ACCENT_CHIP } from '@/lib/ui/accent'
 import type { Accent } from '@/lib/ui/accent'
-
-type NavLeaf  = { href: string; key: string; icon: LucideIcon; exact?: boolean }
-type NavGroup = { key: string; icon: LucideIcon; children: readonly NavLeaf[] }
-type NavItem  = NavLeaf | NavGroup
 
 // messages/*.json "roles" 命名空间已登记的角色键（对齐 workspace 页
 // isKnownRole 模式）。`satisfies Record<AgentRole, true>` 强制这里覆盖
@@ -58,46 +60,35 @@ function isRegisteredRole(role: string): role is AgentRole {
   return Object.hasOwn(REGISTERED_ROLE_KEYS, role)
 }
 
-const isGroup = (item: NavItem): item is NavGroup => 'children' in item
-
 // `as const satisfies` 保留字面量 key 类型（供下方 NAV_ACCENT 派生），同时仍按
 // NavItem 结构校验每一项。
+//
+// 一级入口按业务归属组织，不按模块堆叠（docs/superpowers/specs/
+// 2026-09-04-nav-ia-consolidation-design.md）。/tasks 出现两次是有意的：
+// 那一页有「人员工时」和「AI 任务」两个 tab，分属两条业务线，靠 query 拆成
+// 两个入口——所以下面的渲染必须用 item.key 而不是 item.href 做 React key。
 const NAV = [
-  { href: '/',          key: 'dashboard', icon: LayoutDashboard },
+  { href: '/', key: 'workbench', icon: LayoutDashboard },
   {
-    key: 'creators',
+    key: 'creatorOps',
     icon: Users,
     children: [
-      { href: '/creators',    key: 'creatorsList', icon: Users, exact: true },
-      { href: '/competitors', key: 'competitors',  icon: Radar },
       // 官网 RECRUIT 表单的投递：招募来的人最终进 creators，归在同一组
       { href: '/recruit-applications', key: 'recruitApplications', icon: Inbox },
+      { href: '/creators',    key: 'creatorsList',   icon: Users, exact: true },
+      { href: '/pipeline',    key: 'lifecycleBoard', icon: GitBranch },
+      { href: '/competitors', key: 'competitors',    icon: Radar },
     ],
   },
-  // 官网内容后台管理入口（新闻 + 成员）。Task 9 先建了新闻，当时是单条 leaf；
-  // Task 11 补上成员管理页，改成带两个 child 的 group。
   {
-    key: 'siteContent',
-    icon: Newspaper,
+    key: 'teamwork',
+    icon: UsersRound,
     children: [
-      { href: '/site-content/news',    key: 'siteContentNews', icon: Newspaper, exact: true },
-      { href: '/site-content/members', key: 'siteMembers',     icon: Users },
+      { href: '/tasks',    key: 'workTasks',  icon: CheckSquare,   query: { view: 'workload' } },
+      { href: '/timeline', key: 'milestones', icon: CalendarRange },
+      { href: '/team/org', key: 'teamOrg',    icon: Network },
     ],
   },
-  { href: '/pipeline',  key: 'pipeline',  icon: GitBranch },
-  { href: '/timeline',  key: 'timeline',  icon: CalendarRange },
-  { href: '/tasks',     key: 'tasks',     icon: CheckSquare },
-  { href: '/workspace', key: 'workspace', icon: MessageSquare },
-  {
-    key: 'team',
-    icon: Bot,
-    children: [
-      { href: '/team',             key: 'teamAgents',      icon: Bot, exact: true },
-      { href: '/team/assignments', key: 'teamAssignments', icon: ClipboardList },
-      { href: '/team/org', key: 'teamOrg', icon: Network },
-    ],
-  },
-  { href: '/knowledge', key: 'knowledge', icon: BookOpen },
   {
     key: 'costManagement',
     icon: Wallet,
@@ -108,7 +99,27 @@ const NAV = [
       { href: '/finance-forecast', key: 'financeForecast', icon: TrendingUp },
     ],
   },
-  { href: '/config',    key: 'config',    icon: Settings },
+  {
+    key: 'aiAssistant',
+    icon: Bot,
+    children: [
+      { href: '/workspace',        key: 'aiChat',          icon: MessageSquare },
+      { href: '/tasks',            key: 'aiTasks',         icon: Sparkles, query: { view: 'ai' } },
+      { href: '/team/assignments', key: 'teamAssignments', icon: ClipboardList },
+      { href: '/team',             key: 'teamAgents',      icon: Bot, exact: true },
+      { href: '/knowledge',        key: 'knowledge',       icon: BookOpen },
+    ],
+  },
+  // 官网内容后台管理入口（新闻 + 成员）
+  {
+    key: 'siteContent',
+    icon: Newspaper,
+    children: [
+      { href: '/site-content/news',    key: 'siteContentNews', icon: Newspaper, exact: true },
+      { href: '/site-content/members', key: 'siteMembers',     icon: Users },
+    ],
+  },
+  { href: '/config', key: 'settings', icon: Settings },
 ] as const satisfies readonly NavItem[]
 
 // 从 NAV 派生一级菜单 key 的字面量联合——NAV_ACCENT 漏登记某个一级菜单时
@@ -122,12 +133,23 @@ type ChildNavKey = NavGroupLit['children'][number]['key']
 type NavAccentMap = Record<TopNavKey, Accent> & Partial<Record<ChildNavKey, Accent>>
 
 const NAV_ACCENT: NavAccentMap = {
-  dashboard: 'mauve', creators: 'pink', siteContent: 'violet', pipeline: 'blue', timeline: 'violet',
-  tasks: 'green', workspace: 'blue', team: 'violet', knowledge: 'amber',
-  costManagement: 'green', config: 'mauve',
-  expenses: 'violet', items: 'amber', venue: 'violet', financeForecast: 'green',
-  teamAgents: 'violet', teamAssignments: 'blue', teamOrg: 'green',
+  // 一级入口（§1.4 六色板，7 个入口所以 mauve 用两次：首尾的工作台与系统设置）
+  workbench: 'mauve', creatorOps: 'pink', teamwork: 'blue', costManagement: 'green',
+  aiAssistant: 'violet', siteContent: 'amber', settings: 'mauve',
+  // 子项覆盖色。未登记的子项继承所属一级入口的色（见 accentOf 调用处的
+  // parentAccent）。这里登记的几条，是为了让原本身为一级入口、有固定色的项
+  // 降级成子项后保住原色，用户不会觉得「这东西被换了个颜色」。
   recruitApplications: 'pink',
+  lifecycleBoard: 'blue',   // 原一级菜单 pipeline
+  workTasks: 'green',       // 原一级菜单 tasks
+  milestones: 'violet',     // 原一级菜单 timeline
+  teamOrg: 'green',
+  expenses: 'violet', items: 'amber', venue: 'violet', financeForecast: 'green',
+  aiChat: 'blue',           // 原一级菜单 workspace
+  aiTasks: 'green',
+  teamAssignments: 'blue',
+  teamAgents: 'violet',
+  knowledge: 'amber',       // 原一级菜单 knowledge
 }
 
 // 渲染处 item.key 的类型是普通 string（NavLeaf/NavGroup 接口未按字面量收窄），
@@ -135,7 +157,7 @@ const NAV_ACCENT: NavAccentMap = {
 const accentOf = (key: string): Accent | undefined =>
   (NAV_ACCENT as Partial<Record<string, Accent>>)[key]
 
-// `NAV` 的字面量元组类型有 10 个互不相同的成员形状，`isGroup` 的 union 收窄在
+// `NAV` 的字面量元组类型有 7 个互不相同的成员形状，`isGroup` 的 union 收窄在
 // 那么多互异字面量上不可靠（TS 无法可靠证明每个叶子字面量都不满足 NavGroup
 // 形状）；渲染遍历改用这个收窄到 NavLeaf|NavGroup 两种形状的别名，`isGroup`
 // 收窄恢复正常，同时 `NAV` 本身仍保留字面量类型供上方 key 派生使用。
@@ -166,11 +188,11 @@ function CollapsedNavGroup({
   item: NavGroup
   label: string
   childLabel: (key: string) => string
-  isActive: (href: string, exact?: boolean) => boolean
+  isActive: (leaf: Pick<NavLeaf, 'href' | 'exact' | 'query'>) => boolean
 }) {
   const [top, setTop] = useState<number | null>(null)
   const GroupIcon = item.icon
-  const hasActiveChild = item.children.some((c) => isActive(c.href, c.exact))
+  const hasActiveChild = item.children.some((c) => isActive(c))
   const accent = accentOf(item.key) ?? 'mauve'
   return (
     <div
@@ -195,13 +217,13 @@ function CollapsedNavGroup({
           <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink-400">{label}</div>
           {item.children.map((child) => {
             const ChildIcon = child.icon
-            const active = isActive(child.href, child.exact)
+            const active = isActive(child)
             // 未单独登记的子项（如 creatorsList/competitors）继承所属一级菜单的 accent。
             const childAccent = accentOf(child.key) ?? accent
             return (
               <Link
-                key={child.href}
-                href={child.href}
+                key={child.key}
+                href={hrefWithQuery(child)}
                 className={`flex items-center gap-2 rounded-field px-2 py-1.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
                   active ? 'bg-primary-soft text-primary-hover font-semibold' : 'text-ink-700 hover:bg-line-soft hover:text-ink-900'
                 }`}
@@ -238,7 +260,7 @@ function CollapsedNavLeaf({
       onMouseLeave={() => setTop(null)}
     >
       <Link
-        href={item.href}
+        href={hrefWithQuery(item)}
         aria-label={label}
         onClick={active ? () => notifyNavReset() : undefined}
         className={`flex items-center justify-center rounded-field px-2 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
@@ -263,6 +285,7 @@ function CollapsedNavLeaf({
 
 export default function Sidebar() {
   const path = usePathname()
+  const searchParams = useSearchParams()
   const t = useTranslations('nav')
   const tRoles = useTranslations('roles')
   const tSidebar = useTranslations('sidebar')
@@ -371,10 +394,11 @@ export default function Sidebar() {
     localStorage.setItem(LS_KEY, effectiveCollapsed ? '1' : '0')
   }, [effectiveCollapsed, hydrated, isMobile])
 
-  // `exact` matches the pathname exactly — needed when one nav href is a prefix
-  // of a sibling (e.g. /team vs /team/assignments) so both don't light up.
-  const isActive = (href: string, exact = false) =>
-    exact ? path === href : href === '/' ? path === '/' : path.startsWith(href)
+  // 激活判定在 @/lib/nav/nav（有单测）。`exact` 处理「某个 href 是兄弟项前缀」
+  // 的情况（/team vs /team/assignments）；带 query 的项（/tasks 的两个 tab 入口）
+  // 还要看 URL 参数，且参数缺失时按页面默认 tab 算，否则裸 /tasks 两条都不亮。
+  const leafActive = (leaf: Pick<NavLeaf, 'href' | 'exact' | 'query'>) =>
+    isNavActive(path, searchParams, leaf)
 
   // Render a single navigable item. `indented` nudges it right so children of
   // a group read as a sub-level; when the sidebar is icon-only we skip the
@@ -382,16 +406,16 @@ export default function Sidebar() {
   // `parentAccent` — 未单独登记 accent 的子项继承所属一级菜单的 accent；
   // 顶层调用不传，回退 mauve（design-system §1.4：只有一级菜单强制固定一色）。
   const renderLeaf = (item: NavLeaf, indented = false, parentAccent?: Accent) => {
-    const active = isActive(item.href, item.exact)
+    const active = leafActive(item)
     if (effectiveCollapsed) {
-      return <CollapsedNavLeaf key={item.href} item={item} label={t(item.key)} active={active} />
+      return <CollapsedNavLeaf key={item.key} item={item} label={t(item.key)} active={active} />
     }
     const Icon = item.icon
     const accent = accentOf(item.key) ?? parentAccent ?? 'mauve'
     return (
       <Link
-        key={item.href}
-        href={item.href}
+        key={item.key}
+        href={hrefWithQuery(item)}
         onClick={active ? () => notifyNavReset() : undefined}
         className={`flex items-center rounded-field text-sm transition-colors gap-3 py-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
           indented ? 'pl-9 pr-3' : 'px-3'
@@ -509,13 +533,13 @@ export default function Sidebar() {
                 item={item}
                 label={t(item.key)}
                 childLabel={(k) => t(k)}
-                isActive={isActive}
+                isActive={leafActive}
               />
             )
           }
 
           const GroupIcon     = item.icon
-          const hasActiveChild = item.children.some((c) => isActive(c.href, c.exact))
+          const hasActiveChild = item.children.some((c) => leafActive(c))
           const open = openGroups[item.key] ?? hasActiveChild
           const accent = accentOf(item.key) ?? 'mauve'
           return (
