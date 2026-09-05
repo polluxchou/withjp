@@ -199,8 +199,29 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               - 日期轴本来就必须吸顶(格子里不显示日期文字,滚走了就没法对应列);
               - 两者各自 sticky top-0 会重叠,所以吸顶提到这一层统一做。
               不透明底色必须在这层:否则卡片会从吸顶块底下穿过去。
-              data-sticky-head 是给导航条量高度用的锚点偏移量来源,见 CompetitorNavBar。*/}
-          <div data-sticky-head className="sticky top-0 z-10 bg-atmosphere pt-2">
+              data-sticky-head 是给导航条量高度用的锚点偏移量来源,见 CompetitorNavBar。
+
+              translateZ(0) 不是装饰,是把这一块强制提升成独立合成层。
+
+              症状:iOS(WKWebView,含 iOS Chrome)上这两行偶尔会跟着内容一起滚走,
+              过一会儿自己归位。只在两种操作之后出现——点账号芯片跳转、开过图片
+              灯箱或侧边抽屉——平白往下滚不会犯。
+
+              推断:iOS 的滚动跑在独立线程,sticky 由预先算好的 scrolling tree 定位。
+              上面两种操作都会扰动视口滚动容器(前者是平滑滚动在途时又发一次硬
+              scrollTo,外加吸顶块内部的芯片行同时在做 rAF 横向滚动动画;后者是
+              lockViewportScroll 把 <html> 的 overflow 开了又关)。tree 重建期间
+              sticky 退化成静态定位,重建完才归位。独立合成层由滚动线程直接处理,
+              能扛过这个重建窗口。
+
+              旁证:全库另一处 sticky 是官网 SiteHeader,它靠 backdrop-blur-lg 白捡了
+              一个合成层,同一台设备同一个浏览器上从不脱顶(已实测)。
+
+              **这条是假设驱动的修法,没有自动化测试兜得住**——iOS 渲染时序在
+              node --test 和桌面浏览器里都复现不了,只能真机验。如果真机上照旧犯,
+              说明假设错了,删掉这个 class 即可,再转去逐个处理上面括号里那三个
+              扰动源(它们各自也都是可独立收拾的)。*/}
+          <div data-sticky-head className="sticky top-0 z-10 bg-atmosphere pt-2 [transform:translateZ(0)]">
             <CompetitorNavBar targets={navTargets} selectedId={selectedId} onJump={setSelectedId} />
             <ShotDateStrip
               axis={shotAxis}
