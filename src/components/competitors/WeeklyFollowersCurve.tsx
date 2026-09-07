@@ -7,8 +7,12 @@ import { formatCount } from '@/lib/competitors/metrics'
 import type { WeeklyPoint } from '@/lib/competitors/types'
 import { fillWeekSlots } from '@/lib/competitors/weekly'
 
-/** 曲线画多少个日历周。与 i18n 的 weeklyFollowers 文案（「近4周」）保持一致。 */
-const WEEKS = 4
+/**
+ * 曲线画多少个日历周。改这个数**必须同步改** i18n 的 weeklyFollowers 文案
+ * （zh/en/ja 三处的「近N周」），否则标题和图上画的周数会对不上。
+ * 也要重新量窄宽度：刻度行是 N 等分格，N 越大每格越窄（见下方 grid 注释）。
+ */
+const WEEKS = 5
 
 /**
  * 折线只负责形状：坐标归一化到 0–100 后非等比铺满容器，线宽靠

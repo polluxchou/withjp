@@ -1674,7 +1674,7 @@
     "deleteConfirm": "Delete this competitor and all its snapshots?",
     "deleteShotConfirm": "Delete this screenshot?",
     "actionFailed": "Action failed",
-    "weeklyFollowers": "Followers · last 4 wks",
+    "weeklyFollowers": "Followers · last 5 wks",
     "weeklyDelta": "{pct}%/wk",
     "weeklyPointTip": "Week of {date} · {count}",
     "weeklyEmpty": "No follower data",
