@@ -1674,7 +1674,7 @@
     "deleteConfirm": "确定删除该竞品及其全部打点？",
     "deleteShotConfirm": "确定删除这张截图？",
     "actionFailed": "操作失败",
-    "weeklyFollowers": "粉丝 · 近4周",
+    "weeklyFollowers": "粉丝 · 近5周",
     "weeklyDelta": "{pct}%/周",
     "weeklyPointTip": "{date} 起 · {count}",
     "weeklyEmpty": "暂无粉丝数据",
