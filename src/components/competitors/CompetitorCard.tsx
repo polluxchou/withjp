@@ -298,9 +298,12 @@ export default function CompetitorCard({
       </div>
 
       {/* 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开。
-          曲线列取 1fr/2fr 而非 1fr/3fr:周曲线的刻度行要在一行里放下 4 组日期+数值,
-          1fr/3fr 在 1024px 下每格只有 33px,放不下 6 字符的 112.2K(需 38.6px)。 */}
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3 max-lg:grid-cols-1">
+          曲线列的比例是被刻度行的可读性逼出来的,不是版式偏好:刻度行要在一行里放下
+          5 组日期+数值,每格至少 38.6px 才装得下 6 字符的 112.2K。1024px 视口下实测
+          1fr/3fr 每格 26px、1fr/2fr 35.5px 都会 truncate,2fr/3fr 才够(43.4px)。
+          代价是相册列从 2/3 降到 3/5,缩略图窄约 13%(75px→65px,aspect-[9/16] 保持)。
+          改这个比例或改 WeeklyFollowersCurve 的 WEEKS 都要重量一次窄宽度。 */}
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 max-lg:grid-cols-1">
         <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
         <ShotAlbum
           competitorId={c.id}
