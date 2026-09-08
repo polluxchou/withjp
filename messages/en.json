@@ -1571,7 +1571,10 @@
         "improve": "Polish",
         "security": "Security",
         "infra": "Infra"
-      }
+      },
+      "filterAll": "All",
+      "searchPlaceholder": "Search title, details, or module…",
+      "noResults": "No matching entries"
     }
   },
   "discussions": {

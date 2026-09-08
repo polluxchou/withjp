@@ -1337,7 +1337,10 @@
         "improve": "改善",
         "security": "セキュリティ",
         "infra": "インフラ"
-      }
+      },
+      "filterAll": "すべて",
+      "searchPlaceholder": "タイトル・説明・モジュールで検索…",
+      "noResults": "該当する記録がありません"
     }
   },
   "discussions": {
