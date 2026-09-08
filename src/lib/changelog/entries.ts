@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-09-08',
+    items: [
+      {
+        kind: 'feat',
+        scope: '更新日志',
+        title: '支持按类型筛选、关键词搜索',
+        details:
+          '新增/优化/修复/安全/基础设施五种类型可多选筛选，叠加一个搜标题、说明或模块名的关键词框，条目多了也能快速定位。',
+      },
+    ],
+  },
+  {
     date: '2026-09-07',
     items: [
       {

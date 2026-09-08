@@ -1571,7 +1571,10 @@
         "improve": "优化",
         "security": "安全",
         "infra": "基础设施"
-      }
+      },
+      "filterAll": "全部",
+      "searchPlaceholder": "搜索标题、说明或模块…",
+      "noResults": "没有匹配的记录"
     }
   },
   "discussions": {
