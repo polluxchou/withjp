@@ -201,9 +201,12 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               不透明底色必须在这层:否则卡片会从吸顶块底下穿过去。
               data-sticky-head 是给导航条量高度用的锚点偏移量来源,见 CompetitorNavBar。
 
-              这里刻意不加 transform / will-change,别再往回加。
+              这里刻意不加 transform / will-change,别再往回加。下面复述那个类名时也
+              刻意不写 Tailwind 的方括号任意属性形式:JIT 扫的是源码文本、不分注释与 JSX,
+              照原样写会把这条规则重新生成进产物 CSS(已实测在线上 CSS 里躺着一条没人用的
+              transform: translateZ(0))。
 
-              PR 280 曾加过 [transform:translateZ(0)],想靠「强制提升独立合成层」绕过
+              PR 280 曾加过一个 transform: translateZ(0) 的工具类,想靠「强制提升独立合成层」绕过
               iOS 上「这两行偶尔跟着内容滚走、过一会儿自己归位」的毛病。真机结论是
               那条假设错了,而且换来一个更糟的失效方式:iOS(WKWebView,含 iOS Chrome)
               上平白下滑就会把整块定在错误的偏移上,只有最后一行日期露在视口里,
