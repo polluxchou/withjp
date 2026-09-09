@@ -201,27 +201,22 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               不透明底色必须在这层:否则卡片会从吸顶块底下穿过去。
               data-sticky-head 是给导航条量高度用的锚点偏移量来源,见 CompetitorNavBar。
 
-              translateZ(0) 不是装饰,是把这一块强制提升成独立合成层。
+              这里刻意不加 transform / will-change,别再往回加。
 
-              症状:iOS(WKWebView,含 iOS Chrome)上这两行偶尔会跟着内容一起滚走,
-              过一会儿自己归位。只在两种操作之后出现——点账号芯片跳转、开过图片
-              灯箱或侧边抽屉——平白往下滚不会犯。
+              PR 280 曾加过 [transform:translateZ(0)],想靠「强制提升独立合成层」绕过
+              iOS 上「这两行偶尔跟着内容滚走、过一会儿自己归位」的毛病。真机结论是
+              那条假设错了,而且换来一个更糟的失效方式:iOS(WKWebView,含 iOS Chrome)
+              上平白下滑就会把整块定在错误的偏移上,只有最后一行日期露在视口里,
+              搜索框和账号芯片整行都看不见 —— 从「偶尔、会自己好」变成「一直、不会好」。
 
-              推断:iOS 的滚动跑在独立线程,sticky 由预先算好的 scrolling tree 定位。
-              上面两种操作都会扰动视口滚动容器(前者是平滑滚动在途时又发一次硬
-              scrollTo,外加吸顶块内部的芯片行同时在做 rAF 横向滚动动画;后者是
-              lockViewportScroll 把 <html> 的 overflow 开了又关)。tree 重建期间
-              sticky 退化成静态定位,重建完才归位。独立合成层由滚动线程直接处理,
-              能扛过这个重建窗口。
+              解释得通:合成层由滚动线程按**布局时算好的**吸顶约束定位,而这一块在首帧
+              之后还会挪位——统计条要等挂载后才出现(见上方 today 的注释),它一冒出来
+              整块就往下移一截。约束一旦过期,滚动线程不会自己纠正;不提升合成层时
+              每次滚动都走主线程重新算,反而不会错。
 
-              旁证:全库另一处 sticky 是官网 SiteHeader,它靠 backdrop-blur-lg 白捡了
-              一个合成层,同一台设备同一个浏览器上从不脱顶(已实测)。
-
-              **这条是假设驱动的修法,没有自动化测试兜得住**——iOS 渲染时序在
-              node --test 和桌面浏览器里都复现不了,只能真机验。如果真机上照旧犯,
-              说明假设错了,删掉这个 class 即可,再转去逐个处理上面括号里那三个
-              扰动源(它们各自也都是可独立收拾的)。*/}
-          <div data-sticky-head className="sticky top-0 z-10 bg-atmosphere pt-2 [transform:translateZ(0)]">
+              如果「偶尔脱顶」再现,下一步是逐个收拾扰动源(芯片行的 rAF 横滚、jump 里
+              连发的两次 scrollTo、灯箱/抽屉的 lockViewportScroll),而不是再提合成层。*/}
+          <div data-sticky-head className="sticky top-0 z-10 bg-atmosphere pt-2">
             <CompetitorNavBar targets={navTargets} selectedId={selectedId} onJump={setSelectedId} />
             <ShotDateStrip
               axis={shotAxis}
