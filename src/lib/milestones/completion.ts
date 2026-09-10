@@ -223,3 +223,35 @@ export function completionDeltaDays(
   if (Number.isNaN(done.getTime()) || Number.isNaN(target.getTime())) return null
   return Math.round((done.setUTCHours(0, 0, 0, 0) - target.setUTCHours(0, 0, 0, 0)) / DAY_MS)
 }
+
+export interface MilestoneTiming {
+  completed: boolean
+  days: number | null
+  label: 'status.completed' | 'detail.completedOnTime' | 'detail.completedEarly' | 'detail.completedLate' | 'table.overdue' | 'table.daysShort'
+  tone: 'success' | 'warning' | 'danger' | 'neutral'
+}
+
+/** Completed milestones report delivery timing; only open milestones count down from today. */
+export function getMilestoneTiming(
+  milestone: Pick<CompletionState, 'status'> & { completed_date?: string | null; target_date: string },
+  daysLeft: number,
+): MilestoneTiming {
+  if (milestone.completed_date || milestone.status === 'completed') {
+    const delta = completionDeltaDays(milestone.completed_date, milestone.target_date)
+    return {
+      completed: true,
+      days: delta === null ? null : Math.abs(delta),
+      label: delta === null ? 'status.completed'
+        : delta > 0 ? 'detail.completedLate'
+        : delta < 0 ? 'detail.completedEarly'
+        : 'detail.completedOnTime',
+      tone: delta !== null && delta > 0 ? 'warning' : 'success',
+    }
+  }
+  return {
+    completed: false,
+    days: Math.abs(daysLeft),
+    label: daysLeft < 0 ? 'table.overdue' : 'table.daysShort',
+    tone: daysLeft < 0 ? 'danger' : daysLeft <= AT_RISK_DAYS ? 'warning' : 'neutral',
+  }
+}
