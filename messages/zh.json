@@ -854,6 +854,28 @@
         "success": "已完成",
         "neutral": "计划中"
       }
+    },
+    "list": {
+      "overview": "时间总览",
+      "overviewHint": "按目标日期排列 · 点击节点关联列表",
+      "targetAxis": "节点目标日期时间轴",
+      "today": "今天",
+      "clusterLabel": "{count} 个相近节点，点击选择",
+      "nodeLabel": "节点 {number}：{title}，目标 {date}",
+      "selected": "已选中：{title}",
+      "selectionHint": "点击编号定位节点；相近日期的节点合并展示。",
+      "priority": "{value}优先级",
+      "unassigned": "未分配",
+      "more": "更多操作",
+      "deleteFailed": "删除失败，请重试。",
+      "timing": "时间状态",
+      "groups": {
+        "overdue": "需要处理",
+        "due": "即将到期",
+        "active": "进行中",
+        "planned": "计划中",
+        "completed": "已完成"
+      }
     }
   },
   "tasks": {
