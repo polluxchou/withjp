@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   completionDeltaDays,
+  getMilestoneTiming,
   fallbackStatus,
   normalizeDayStamp,
   planStatusRecompute,
@@ -19,6 +20,40 @@ function day(iso: string): string {
 }
 
 const DATES = { start_date: day('2026-06-01'), target_date: day('2026-09-30') }
+
+test('completed milestones use actual completion timing even 31 days after their target', () => {
+  const milestone = { status: 'completed' as const, target_date: day('2026-08-10'), completed_date: day('2026-08-10') }
+  assert.deepEqual(getMilestoneTiming(milestone, -31), {
+    completed: true, days: 0, label: 'detail.completedOnTime', tone: 'success',
+  })
+  assert.deepEqual(getMilestoneTiming(milestone, -100), getMilestoneTiming(milestone, -31))
+  assert.deepEqual(getMilestoneTiming({ ...milestone, completed_date: day('2026-08-08') }, -31), {
+    completed: true, days: 2, label: 'detail.completedEarly', tone: 'success',
+  })
+  assert.deepEqual(getMilestoneTiming({ ...milestone, completed_date: day('2026-08-13') }, -31), {
+    completed: true, days: 3, label: 'detail.completedLate', tone: 'warning',
+  })
+})
+
+test('completion date is authoritative and legacy completed rows never show a countdown', () => {
+  const milestone = { status: 'missed' as const, target_date: day('2026-08-10'), completed_date: day('2026-08-10') }
+  assert.equal(getMilestoneTiming(milestone, -31).completed, true)
+  assert.deepEqual(getMilestoneTiming({ ...milestone, status: 'completed', completed_date: null }, -31), {
+    completed: true, days: null, label: 'status.completed', tone: 'success',
+  })
+})
+
+test('open milestones retain overdue and remaining days after completion is cleared', () => {
+  const milestone = { status: 'active' as const, target_date: day('2026-08-10'), completed_date: null }
+  for (const daysLeft of [-31, 0, 3, 10]) {
+    assert.deepEqual(getMilestoneTiming(milestone, daysLeft), {
+      completed: false,
+      days: Math.abs(daysLeft),
+      label: daysLeft < 0 ? 'table.overdue' : 'table.daysShort',
+      tone: daysLeft < 0 ? 'danger' : daysLeft <= 7 ? 'warning' : 'neutral',
+    })
+  }
+})
 
 // ── tokyoDayStamp ─────────────────────────────────────────────
 
