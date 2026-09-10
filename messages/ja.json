@@ -854,6 +854,28 @@
         "success": "完了",
         "neutral": "計画中"
       }
+    },
+    "list": {
+      "overview": "タイムライン概要",
+      "overviewHint": "目標日順 · ノードを選ぶと一覧へ移動",
+      "targetAxis": "ノードの目標日タイムライン",
+      "today": "今日",
+      "clusterLabel": "日付が近い {count} 件のノードから選択",
+      "nodeLabel": "ノード {number}：{title}、目標日 {date}",
+      "selected": "選択中：{title}",
+      "selectionHint": "番号を選ぶと該当ノードへ移動します。近い日付はまとめて表示します。",
+      "priority": "優先度：{value}",
+      "unassigned": "未割り当て",
+      "more": "その他の操作",
+      "deleteFailed": "削除できませんでした。もう一度お試しください。",
+      "timing": "日程状況",
+      "groups": {
+        "overdue": "対応が必要",
+        "due": "まもなく期限",
+        "active": "進行中",
+        "planned": "計画中",
+        "completed": "完了"
+      }
     }
   },
   "tasks": {
