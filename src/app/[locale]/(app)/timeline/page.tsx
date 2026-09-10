@@ -25,6 +25,7 @@ import ErrorState from '@/components/ui/ErrorState'
 import { toneOf } from '@/lib/ui/status-tone'
 import { AXIS, GRID, seriesColor } from '@/lib/chart-theme'
 import MilestoneForm from '@/components/milestones/MilestoneForm'
+import MilestoneTiming from '@/components/milestones/MilestoneTiming'
 import NextTimelineView from '@/components/milestones/NextTimelineView'
 import {
   MilestoneStatusBadge,
@@ -280,7 +281,6 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
         <TBody>
           {milestones.map(m => {
             const daysLeft = m.days_until_target ?? 0
-            const daysColor = daysLeft < 0 ? 'text-danger-text' : daysLeft <= AT_RISK_DAYS ? 'text-warning-text' : 'text-ink-500'
             const delta = completionDeltaDays(m.completed_date, m.target_date)
             const note =
               delta === null ? null
@@ -323,9 +323,7 @@ function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdate
                       )}
                     </>
                   ) : (
-                    <span className={daysColor}>
-                      {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
-                    </span>
+                    <MilestoneTiming milestone={m} daysLeft={daysLeft} />
                   )}
                 </Td>
                 <Td align="right">

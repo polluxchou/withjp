@@ -16,6 +16,7 @@ import ErrorState from '@/components/ui/ErrorState'
 import EmptyState from '@/components/ui/EmptyState'
 import { toneOf } from '@/lib/ui/status-tone'
 import MilestoneForm from '@/components/milestones/MilestoneForm'
+import MilestoneTiming from '@/components/milestones/MilestoneTiming'
 import {
   MilestoneStatusBadge,
   MilestonePriorityBadge,
@@ -24,7 +25,6 @@ import {
   MILESTONE_STATUSES,
 } from '@/components/milestones/MilestoneStatusBadge'
 import { ArrowLeft, CheckSquare, Users, Bot, Target, ChevronRight } from 'lucide-react'
-import { AT_RISK_DAYS } from '@/lib/milestones/constants'
 import { completionDeltaDays } from '@/lib/milestones/completion'
 import type { MilestoneStatus, MilestoneLevel, MilestoneDetail, Milestone } from '@/lib/types'
 
@@ -143,9 +143,6 @@ export default function MilestoneDetailPage() {
     ? Math.round((task_progress.done / task_progress.total) * 100)
     : 0
 
-  const daysLeft  = milestone.days_until_target ?? 0
-  const daysColor = daysLeft < 0 ? 'text-danger-text' : daysLeft <= AT_RISK_DAYS ? 'text-warning-text' : 'text-ink-700'
-
   const metric = milestone.success_metric as { name?: string; target?: string; unit?: string }
 
   // 完成日期 − 目标日期。在组件里现算而不是读接口字段:状态选择器会就地改
@@ -222,11 +219,7 @@ export default function MilestoneDetailPage() {
 
         {/* Days left */}
         <div className="bg-surface border border-line rounded-card p-4 text-center">
-          <div className="text-xs text-ink-500 mb-1">{t('detail.daysUntilTarget')}</div>
-          <div className={`text-2xl font-bold tabular-nums ${daysColor}`}>
-            {daysLeft < 0 ? Math.abs(daysLeft) : daysLeft}
-          </div>
-          <div className="text-xs text-ink-400">{daysLeft < 0 ? t('detail.overdue') : t('detail.remaining')}</div>
+          <MilestoneTiming milestone={milestone} daysLeft={milestone.days_until_target ?? 0} detail />
         </div>
 
         {/* Level */}
