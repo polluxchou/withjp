@@ -16,7 +16,6 @@ import Tabs from '@/components/ui/Tabs'
 import { Select } from '@/components/ui/Field'
 import { CountChip } from '@/components/ui/FilterChip'
 import { Stat, StatBand } from '@/components/ui/Stat'
-import { Table, THead, TBody, Th, Tr, Td } from '@/components/ui/Table'
 import SectionCard from '@/components/ui/SectionCard'
 import Tag from '@/components/ui/Tag'
 import EmptyState from '@/components/ui/EmptyState'
@@ -25,12 +24,9 @@ import ErrorState from '@/components/ui/ErrorState'
 import { toneOf } from '@/lib/ui/status-tone'
 import { AXIS, GRID, seriesColor } from '@/lib/chart-theme'
 import MilestoneForm from '@/components/milestones/MilestoneForm'
-import MilestoneTiming from '@/components/milestones/MilestoneTiming'
+import MilestoneListView from '@/components/milestones/MilestoneListView'
 import NextTimelineView from '@/components/milestones/NextTimelineView'
 import {
-  MilestoneStatusBadge,
-  MilestonePriorityBadge,
-  MilestoneTypeBadge,
   MILESTONE_STATUSES,
   STATUS_LABEL_KEY,
   STATUS_FILL_CLASS,
@@ -51,7 +47,6 @@ import { Plus, Target, AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { Milestone, MilestoneStatus, MilestoneType } from '@/lib/types'
 import { AT_RISK_DAYS } from '@/lib/milestones/constants'
-import { completionDeltaDays } from '@/lib/milestones/completion'
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -96,7 +91,7 @@ export default function TimelinePage() {
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [loading, setLoading]       = useState(true)
   const [loadError, setLoadError]   = useState<string | null>(null)
-  const [view, setView]             = useState<'next' | 'list' | 'gantt' | 'curve'>('next')
+  const [view, setView]             = useState<'next' | 'list' | 'gantt' | 'curve'>('list')
   const [showForm, setShowForm]     = useState(false)
   const [statusFilter, setStatusFilter] = useState<MilestoneStatus | 'all'>('all')
   const [typeFilter,   setTypeFilter]   = useState<MilestoneType   | 'all'>('all')
@@ -127,7 +122,7 @@ export default function TimelinePage() {
   // Shared three-state gate (design-system §6.3) — loading/error/empty look
   // and behave the same across all four view tabs. `null` means "there's
   // real data, render the tab's own content instead". LoadingState keeps
-  // the row-skeleton specifically for the 'list' tab (Table's real shape is
+  // the row-skeleton specifically for the 'list' tab (the compact row shape is
   // known there); the other three tabs (next/gantt/curve) fall back to the
   // generic spinner since their layouts vary too much to skeleton
   // meaningfully (same rationale as expenses/page.tsx's own threeState).
@@ -152,8 +147,8 @@ export default function TimelinePage() {
           <Tabs
             label={t('title')}
             items={[
-              { value: 'next',  label: t('view.next') },
               { value: 'list',  label: t('view.list') },
+              { value: 'next',  label: t('view.next') },
               { value: 'gantt', label: t('view.gantt') },
               { value: 'curve', label: t('view.curve') },
             ]}
@@ -169,7 +164,7 @@ export default function TimelinePage() {
       />
 
       {/* At-risk alert */}
-      {atRiskCount > 0 && (
+      {view !== 'list' && atRiskCount > 0 && (
         <div className="flex items-center gap-2 mb-4 rounded-card border border-warning-border bg-warning-soft px-4 py-2.5">
           <AlertTriangle className="w-4 h-4 text-warning-text flex-shrink-0" strokeWidth={1.5} />
           <p className="text-sm text-warning-text">
@@ -228,7 +223,7 @@ export default function TimelinePage() {
         view === 'next' ? (
           <NextTimelineView milestones={milestones} />
         ) : view === 'list' ? (
-          <ListView milestones={milestones} onUpdated={load} />
+          <MilestoneListView milestones={milestones} onUpdated={load} expandCompleted={statusFilter === 'completed'} />
         ) : view === 'gantt' ? (
           <GanttView milestones={milestones} />
         ) : (
@@ -244,106 +239,6 @@ export default function TimelinePage() {
         />
       </Modal>
     </div>
-  )
-}
-
-// ── List view ─────────────────────────────────────────────────
-
-function ListView({ milestones, onUpdated }: { milestones: Milestone[]; onUpdated: () => void }) {
-  const t = useTranslations('timeline')
-  const handleDelete = async (id: string) => {
-    if (!confirm(t('deleteConfirm'))) return
-    try {
-      const res = await fetch(`/api/milestones/${id}`, { method: 'DELETE' })
-      if (res.ok) onUpdated()
-      else console.error('Failed to delete milestone:', res.status)
-    } catch (err) {
-      console.error('Failed to delete milestone:', err)
-    }
-  }
-
-  return (
-    <SectionCard padding="none">
-      <Table label={t('title')} minWidth={880}>
-        <THead>
-          <Tr>
-            <Th>{t('table.milestone')}</Th>
-            <Th>{t('table.type')}</Th>
-            <Th>{t('table.status')}</Th>
-            <Th>{t('table.priority')}</Th>
-            <Th>{t('table.owner')}</Th>
-            <Th>{t('table.start')}</Th>
-            <Th>{t('table.target')}</Th>
-            <Th>{t('table.daysLeftOrCompleted')}</Th>
-            <Th />
-          </Tr>
-        </THead>
-        <TBody>
-          {milestones.map(m => {
-            const daysLeft = m.days_until_target ?? 0
-            const delta = completionDeltaDays(m.completed_date, m.target_date)
-            const note =
-              delta === null ? null
-                : delta > 0 ? t('table.lateBy',  { days: delta })
-                : delta < 0 ? t('table.earlyBy', { days: -delta })
-                : t('table.onTime')
-            return (
-              <Tr key={m.id}>
-                <Td>
-                  <Link href={`/timeline/${m.id}`} className="font-medium text-ink-900 hover:text-primary transition-colors">
-                    {m.title}
-                  </Link>
-                  {m.description && (
-                    <p className="text-xs text-ink-400 mt-0.5 line-clamp-1">{m.description}</p>
-                  )}
-                </Td>
-                <Td><MilestoneTypeBadge type={m.type} size="sm" /></Td>
-                <Td><MilestoneStatusBadge status={m.status} size="sm" /></Td>
-                <Td><MilestonePriorityBadge priority={m.priority} size="sm" /></Td>
-                <Td className="text-ink-500 text-xs">
-                  {(m.owner_agent as { name?: string } | null | undefined)?.name ?? t('table.ownerEmpty')}
-                </Td>
-                <Td className="text-ink-400 text-xs">
-                  {formatDayStamp(m.start_date)}
-                </Td>
-                <Td className="text-ink-400 text-xs">
-                  {formatDayStamp(m.target_date)}
-                </Td>
-                {/* 已完成的行,这一列改说「什么时候完成的、比目标早还是晚」——
-                    对一个已经交付的节点,倒计时既没有意义,还会因为目标日期已过
-                    而显示成红色的逾期天数。 */}
-                <Td className="text-xs font-medium">
-                  {m.completed_date ? (
-                    <>
-                      <div className="text-ink-700">
-                        {formatDayStamp(m.completed_date)}
-                      </div>
-                      {note && (
-                        <div className={delta! > 0 ? 'text-warning-text' : 'text-ink-400'}>{note}</div>
-                      )}
-                    </>
-                  ) : (
-                    <MilestoneTiming milestone={m} daysLeft={daysLeft} />
-                  )}
-                </Td>
-                <Td align="right">
-                  <div className="flex items-center justify-end gap-3">
-                    <Link href={`/timeline/${m.id}`}
-                      className="text-xs text-primary font-medium hover:text-primary-hover">
-                      {t('table.view')}
-                    </Link>
-                    <button type="button" onClick={() => handleDelete(m.id)}
-                      className="text-xs text-ink-400 hover:text-danger-text transition-colors">
-                      {t('table.delete')}
-                    </button>
-                  </div>
-                </Td>
-              </Tr>
-            )
-          })}
-        </TBody>
-      </Table>
-    </SectionCard>
   )
 }
 
@@ -564,7 +459,7 @@ function CurveView({ milestones }: { milestones: Milestone[] }) {
           large colored KPI digits read as a rainbow, not a signal), with
           `missed` the one value that flips to danger tone since an overdue
           milestone is an unambiguous negative outcome (same convention as
-          ListView's own overdue daysColor). */}
+          the list's overdue timing label). */}
       <div className="mb-5">
         <StatBand>
           <Stat label={t('curve.kpiTotal')}     value={total}  note={pct(total)} />

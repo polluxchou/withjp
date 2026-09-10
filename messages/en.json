@@ -854,6 +854,28 @@
         "success": "Completed",
         "neutral": "Planned"
       }
+    },
+    "list": {
+      "overview": "Timeline overview",
+      "overviewHint": "Target dates · Select a milestone to locate its row",
+      "targetAxis": "Milestone target date timeline",
+      "today": "Today",
+      "clusterLabel": "{count} nearby milestones, select to choose",
+      "nodeLabel": "Milestone {number}: {title}, target {date}",
+      "selected": "Selected: {title}",
+      "selectionHint": "Select a number to locate a milestone; nearby dates are grouped.",
+      "priority": "{value} priority",
+      "unassigned": "Unassigned",
+      "more": "More actions",
+      "deleteFailed": "Could not delete. Please try again.",
+      "timing": "Timing",
+      "groups": {
+        "overdue": "Needs attention",
+        "due": "Due soon",
+        "active": "In progress",
+        "planned": "Planned",
+        "completed": "Completed"
+      }
     }
   },
   "tasks": {
