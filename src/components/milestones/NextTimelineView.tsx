@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation'
 import { format } from 'date-fns/format'
 import { formatDayStamp } from '@/lib/time/dayStamp'
 import SegmentedControl from '@/components/ui/SegmentedControl'
+import MilestoneTiming from '@/components/milestones/MilestoneTiming'
 import type { Milestone } from '@/lib/types'
 import {
   DAY_MS,
@@ -509,7 +510,7 @@ function TimelineCard({
           {isCluster ? t('nextView.clusterCount', { count }) : milestone.title}
         </p>
         <span className={`text-[10px] font-semibold whitespace-nowrap ${cls.text}`}>
-          {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
+          <MilestoneTiming milestone={milestone} daysLeft={daysLeft} />
         </span>
       </div>
       <p className="text-[10px] text-ink-500 mt-1 truncate">
@@ -551,7 +552,7 @@ function FocusDetail({ milestone }: { milestone: Milestone }) {
           </div>
         </div>
         <div className={`text-xs font-semibold whitespace-nowrap ${cls.text}`}>
-          {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
+          <MilestoneTiming milestone={milestone} daysLeft={daysLeft} />
         </div>
       </div>
     </div>
