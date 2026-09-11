@@ -70,7 +70,18 @@ function makeConn(wsUrl) {
 // 值可能是缩写（"28.9K"/"1.2M"），原样传给下游 record 脚本的 parseCount 处理。
 function textOf(html, e2e) {
   const m = html.match(new RegExp(`data-e2e="${e2e}"[^>]*>([^<]*)<`))
-  return m ? m[1].trim() : null
+  if (!m) return null
+  const t = m[1].trim()
+  return t === '' ? null : t   // 元素已挂载但还没填值 → 当作没读到，别回传空串
+}
+// followers 的"已水合"判据。计数元素会**先挂载成 0 或空**、值随后才填进去，
+// 而 `[^<]*` 连空串也匹配、`=== null` 的守卫又放行 "0"，两处叠加就会把一个
+// 渲染中间态当成真实粉丝数回传（实测 1tb.boiz 读到 followers=0，重读为 5792；
+// 若写进库就是曲线上一个断崖式假点）。所以就绪判据必须是"有值且不为 0"。
+// 真·0 粉账号极罕见（竞品库里没有），宁可多轮询几次也不要写进一个假 0。
+function followersHydrated(html) {
+  const v = textOf(html, 'followers-count')
+  return v !== null && v !== '0'
 }
 // 主页语言（账号的应用语言设置）。它**不在**渲染后的 DOM 上，而在 rehydration
 // JSON 里 —— outerHTML 包含 script 标签，所以同一份 html 就能拿到，不必多跑一趟。
@@ -96,8 +107,8 @@ function extractProfile(html) {
   const followers = textOf(html, 'followers-count')
   const following = textOf(html, 'following-count')
   const likes = textOf(html, 'likes-count')
-  // 计数元素在 = 正常主页；缺 followers-count 视为没渲染成功/被拦
-  if (followers === null) {
+  // 计数元素有值 = 正常主页；缺 followers-count（或值还是渲染中间态的 0）视为没渲染成功/被拦
+  if (followers === null || followers === '0') {
     // 只用明确的挑战 DOM 判验证码，避免 i18n 文案误报
     if (/<[^>]+(class|id)="[^"]*captcha[^"]*"/i.test(html) || html.includes('secsdk-captcha')) return { _fail: 'captcha' }
     if (/data-e2e="[^"]*login[^"]*"/i.test(html)) return { _fail: 'login_wall' }
@@ -129,13 +140,14 @@ async function main() {
   for (const handle of handles) {
     try {
       await page.send('Page.navigate', { url: `https://www.tiktok.com/@${handle}` })
-      // 客户端渲染：轮询到 followers-count 出现（或超时 ~18s）
+      // 客户端渲染：轮询到 followers-count **有值且不为 0**（或超时 ~18s）。
+      // 只判元素存在不够 —— 它会先挂载成 0，早退就会采到渲染中间态。
       let outerHTML = ''
       for (let i = 0; i < 9; i++) {
         await sleep(2000)
         const { root } = await page.send('DOM.getDocument', { depth: 1 })
         ;({ outerHTML } = await page.send('DOM.getOuterHTML', { nodeId: root.nodeId }))
-        if (outerHTML.includes('data-e2e="followers-count"')) break
+        if (followersHydrated(outerHTML)) break
       }
       const p = extractProfile(outerHTML)
       if (p._fail) {
