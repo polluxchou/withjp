@@ -1,32 +1,32 @@
 // src/components/competitors/ShotLightbox.tsx
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
 import { todayLocal } from '@/lib/competitors/localDate'
-import { LIGHTBOX_VISIBLE, clampWindowStart, visibleCountFor } from '@/lib/competitors/shotGrid'
-import { shotDockSections } from '@/lib/competitors/shotDock'
+import { lightboxNeighbors } from '@/lib/competitors/lightboxLayout'
+import { shotOverlaySections } from '@/lib/competitors/shotOverlay'
 import { formatDayTimeInLocaleZone } from '@/lib/time/localeZone'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
 
 /**
- * 版式分三层，三层之间互不影响位置：
+ * 一张主图 + 宽屏时两侧各露一张。所有信息都叠在主图身上。
  *
- *   A 固定 chrome —— 左上计数、右上关闭，absolute 定位到遮罩四角，不进 flex 流。
- *   B 舞台        —— flex-1，图片在剩余空间里居中。
- *   C 底部条      —— 贴底，装 caption / 直播态 / 编辑区。
+ * 为什么不是「并排三张等大 + 底部一条说明」（本组件此前两版的形态）：
+ * 三张一样大时，底部那条说明描述的只是选中那张，看的人得先弄清楚它在说谁 ——
+ * `1/3` 这个数字其实就是在补救这个歧义。改成主图 + 明显更小更暗的邻图之后，
+ * 谁是主角由尺寸和明度直接说清楚，说明贴在主图身上，归属不需要任何补救。
  *
- * 为什么非得这么分：改版前这三样挤在同一行 `flex items-center gap-3` 里，
- * 而那一行没有 flex-wrap。实测 375×812 下这一行的 max-content 宽度是
- * 自动采集态 722px、人工上传态 425px，可用宽只有 327px —— 关闭键左边缘落在
- * x=432，整个在屏幕外，手机上根本点不到（只能靠点遮罩关）。同时因为整行居中，
- * 两态之间 297px 的宽度差会让关闭键左右各漂 ~148px：翻一张图按钮就换地方。
+ * 尺寸判据（放不放得下邻图、主图多高）全在 lib/competitors/lightboxLayout.ts，
+ * 渐变层渲染哪几段在 lib/competitors/shotOverlay.ts，两者都是纯函数且有测试。
  *
- * 所以规则是：底部条只允许向上长高，不允许改变任何按钮的位置；关闭与计数
- * 钉死在四角，与「这张图有没有识别内容」完全解耦。
+ * 下面几个 vh 字面量必须与那两个常量同步（Tailwind 只认字面量，不能插值）：
+ *   max-h-[80vh] ↔ MAIN_MAX_VH     主图折叠态
+ *   max-h-[62vh] ↔ MAIN_EDITING_NARROW_VH 窄屏编辑态(≥sm 不缩,靠整列变高把图顶上去)
+ *   max-h-[50vh] ↔ MAIN_MAX_VH × PEEK_SCALE  邻图
  */
 export default function ShotLightbox({
   shots, canEdit, onClose, onChanged,
@@ -40,69 +40,63 @@ export default function ShotLightbox({
   const tCommon = useTranslations('common')
   // 开播时刻按界面语言换算（ja=日本 / zh=北京 / en=加州），库里是 UTC。
   const locale = useLocale()
-  const [start, setStart] = useState(0)
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
-  // 惰性初始化而不是先给 3 再用 effect 纠正:后者会让手机上先画出三连排、
-  // 下一帧才塌回单图。灯箱只在用户点开某天后才渲染,不参与 SSR,所以这里
-  // 读 window 不会有 hydration 不一致;guard 只是防御性的。
-  const [perView, setPerView] = useState(() =>
+  // 惰性初始化而不是先给一个默认值再用 effect 纠正:后者会让宽屏上先画出没有邻图的
+  // 一帧、下一帧才把两侧补进来。灯箱只在用户点开某天后才渲染,不参与 SSR,
+  // 所以这里读 window 不会有 hydration 不一致;guard 只是防御性的。
+  const [viewport, setViewport] = useState(() =>
     typeof window === 'undefined'
-      ? LIGHTBOX_VISIBLE
-      : visibleCountFor(window.innerWidth, window.innerHeight, LIGHTBOX_VISIBLE),
+      ? { w: 0, h: 0 }
+      : { w: window.innerWidth, h: window.innerHeight },
   )
   const [dateInput, setDateInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // 编辑区默认折叠。改日期、删图都是低频操作,而它俩(尤其原生 date 控件)是
-  // 这条底部条里最占横向空间的一块;常年摊开等于让高频的「看图」给低频的
-  // 「修数据」让位。折叠还顺带把删除键从关闭键旁边挪走了 —— 破坏性操作和
-  // 退出操作原先紧挨着,是误触的现成温床。
+  // 编辑区默认折叠。改日期、删图都是低频操作,常年摊开等于让高频的"看图"给低频的
+  // "修数据"让位;折叠还顺带把删除键从关闭键旁边挪走了。
   const [editOpen, setEditOpen] = useState(false)
   const [captionOpen, setCaptionOpen] = useState(false)
-  // 只有真的被截断才给「展开」:一行就完的 caption 后面挂个展开钮是纯噪音。
+  // 只有真的被截断才给"展开":一行就完的备注后面挂个展开钮是纯噪音。
   const [captionClipped, setCaptionClipped] = useState(false)
   const captionRef = useRef<HTMLParagraphElement | null>(null)
-  // 视口变化后 caption 的折行数会变,得重测一次。单开一个计数器而不是复用
-  // perView:宽度变了但并排张数没变的情况很常见(750→900 都是 2 张)。
-  const [measureTick, setMeasureTick] = useState(0)
 
-  // 渲染期夹逼,不放 useEffect:effect 版本在 shots 变短时会先渲染出
-  // 越界的一帧(整个灯箱闪掉),effect 跑完才回来。
-  const from = clampWindowStart(start, shots.length, perView)
-  const visible = shots.slice(from, from + perView)
-
-  // 兜底到窗口首张,一次覆盖"选中项被删"与"选中项滑出窗口"两种情况。
+  // 选中项兜底到第一张,一次覆盖"选中项被删"与"刚打开还没选"两种情况。
   // 删除不可逆,作用对象必须永远在画面里。
-  const selected = visible.find((s) => s.id === pickedId) ?? visible[0]
+  const selected = shots.find((s) => s.id === pickedId) ?? shots[0]
+  const index = selected ? shots.findIndex((s) => s.id === selected.id) : -1
 
-  // 窗口里任何一张没就位就整排不显示。未加载的 img 固有尺寸是 0x0,外层按钮
-  // 会塌成零宽 —— 当天三张里慢到一张,画面上就只剩两张,被读成"这天只有两张"。
-  // 单图时代这个行为一直存在,只是看不出来(就一张图,你只会觉得在加载)。
-  const allVisibleReady = visible.every((s) => settled.has(s.id))
+  const neighbors = lightboxNeighbors(viewport.w, viewport.h, shots.length, index)
+  const leftShot = neighbors.left ? shots[index - 1] : undefined
+  const rightShot = neighbors.right ? shots[index + 1] : undefined
 
-  // 依赖两个原始值而不是 selected 对象本身:调用方每次渲染换引用也不会重复触发,
+  // 主图和要画的邻图全部就位才显示。未加载的 img 固有尺寸是 0x0,外层会塌成零宽 ——
+  // 邻图塌掉时画面上就只剩主图,会被读成"这边没有了",而不是"还在加载"。
+  const shown = [selected, leftShot, rightShot].filter(Boolean) as CompetitorShot[]
+  const allReady = shown.length > 0 && shown.every((s) => settled.has(s.id))
+
+  // 依赖原始值而不是 selected 对象本身:调用方每次渲染换引用也不会重复触发,
   // 同时满足 exhaustive-deps(依赖数组不参与类型检查,靠 lint 兜底,别写成对象)。
   const selectedId = selected?.id
   const selectedShotOn = selected?.shot_on ?? ''
   const selectedCaption = selected?.caption ?? ''
 
-  // 底部条渲染哪几段。判据是纯函数,测试在 lib/competitors/shotDock.test.ts:
-  // 三段全空时整条不渲染 —— 只读 + 人工上传那一态画面上只剩图和四角的 chrome。
-  const dock = shotDockSections(selected, canEdit)
+  // 渐变层渲染哪几段。四段全空(只读 + 人工上传 + 当天仅此一张)时整层不画,
+  // 画面上只剩左上角那两颗胶囊。
+  const ov = shotOverlaySections(selected, canEdit, shots.length)
 
   useEffect(() => {
     setDateInput(selectedShotOn)
     setError(null)
-    // 换一张图就收起 caption:上一张的展开态套到新 caption 上没有意义。
+    // 换一张图就收起备注:上一张的展开态套到新备注上没有意义。
     // 编辑区反过来保持不动 —— 清理某天的多张图时会连着删好几张。
     setCaptionOpen(false)
   }, [selectedId, selectedShotOn])
 
-  // 预加载当天全部截图,顺带记录每张的"已结束"状态。预加载整天(通常 3-6 张)
-  // 而不只是当前窗口,是为了让窗口外的图提前开始下载,滑过去时多半已在缓存里。
-  // 注意这只是"多半":实测若在某张下载完成前就按箭头滑到它,仍会看到加载态。
-  // onerror 也记为已结束:否则一张 404 的图会把整排永远卡在加载态(已实测)。
+  // 预加载当天全部截图。预加载整天(通常 3-6 张)而不只是当前三张,是为了让画面外的图
+  // 提前开始下载,翻过去时多半已在缓存里。注意这只是"多半":实测若在某张下载完成前就
+  // 翻到它,仍会看到加载态。onerror 也记为已结束:否则一张 404 的图会把画面永远
+  // 卡在加载态(已实测)。
   useEffect(() => {
     let alive = true
     const loaders = shots.map((s) => {
@@ -122,13 +116,10 @@ export default function ShotLightbox({
     }
   }, [shots])
 
-  // 旋转屏幕或改窗口大小时重算并排张数:横竖屏切换会让"放不放得下三张"整个反过来
-  // (竖屏平板放不下、横过来就放得下)。
+  // 旋转屏幕或改窗口大小时重新判断放不放得下邻图:横竖屏切换会让结论整个反过来
+  // (竖屏平板放不下、横过来就放得下)。顺带触发备注的截断重测。
   useEffect(() => {
-    const measure = () => {
-      setPerView(visibleCountFor(window.innerWidth, window.innerHeight, LIGHTBOX_VISIBLE))
-      setMeasureTick((n) => n + 1)
-    }
+    const measure = () => setViewport({ w: window.innerWidth, h: window.innerHeight })
     window.addEventListener('resize', measure)
     window.addEventListener('orientationchange', measure)
     return () => {
@@ -137,7 +128,7 @@ export default function ShotLightbox({
     }
   }, [])
 
-  // caption 有没有被 line-clamp 截断。展开态下 scrollHeight === clientHeight,
+  // 备注有没有被 line-clamp 截断。展开态下 scrollHeight === clientHeight,
   // 测不出来也不必测 —— 能展开就说明刚才截断过,直接留着收起钮。
   useEffect(() => {
     if (captionOpen) return
@@ -145,13 +136,32 @@ export default function ShotLightbox({
     if (!el) { setCaptionClipped(false); return }
     // +1 容差:子像素行高会让没截断的段落也差出零点几 px。
     setCaptionClipped(el.scrollHeight > el.clientHeight + 1)
-  }, [selectedId, selectedCaption, captionOpen, measureTick])
+  }, [selectedId, selectedCaption, captionOpen, viewport.w, viewport.h, editOpen])
+
+  // 翻页:纯 index 位移,夹逼到两端。没有窗口概念了,比改版前的"窗口起点 + 选中项"
+  // 两套状态简单得多。
+  const step = useCallback((direction: -1 | 1) => {
+    setPickedId((prev) => {
+      const at = shots.findIndex((s) => s.id === prev)
+      const from = at >= 0 ? at : 0
+      const next = Math.min(Math.max(from + direction, 0), shots.length - 1)
+      return shots[next]?.id ?? prev
+    })
+  }, [shots])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return }
+      // 左右方向键翻页:画面已经是个横向轮播,方向键是这个形态的默认预期。
+      // 焦点在日期输入框里时不抢 —— 那里左右键是移动光标。
+      const tag = (e.target as HTMLElement | null)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === 'ArrowLeft') step(-1)
+      if (e.key === 'ArrowRight') step(1)
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, step])
 
   // 灯箱打开期间锁掉底层页面滚动。遮罩盖住整屏但不吃滚轮事件,在图上滚会把
   // 下面的竞品列表滚走 —— 关掉灯箱才发现位置全变了,而日期列是靠位置对应的。
@@ -159,30 +169,15 @@ export default function ShotLightbox({
   // 走全站共用的 lockViewportScroll():锁 <html>、补滚动条槽宽避免横向跳、
   // 解锁读回原内联值。锁哪个元素为什么这么选、以及验证时必须用真实滚轮事件
   // (window.scrollTo 会给假阴性),都写在 lib/ui/scrollLock.ts 的头注释里。
-  //
-  // 早先这里的注释断言「给 body 加 overflow:hidden 完全不起作用」——那句是错的。
-  // 后来用真实滚轮实测:CSS 的 overflow 视口传播规则下,<html> 两轴都是 visible 时
-  // UA 改用 body 的 overflow 作用于视口,所以 body 锁同样拦得住(Sidebar 的移动端
-  // 抽屉一直靠它)。选 documentElement 的真实理由是它无条件成立,不依赖那个前提。
   useEffect(() => lockViewportScroll(), [])
 
   if (!selected) return null
 
-  const atStart = from <= 0
-  const atEnd = from + perView >= shots.length
-  const selectedIndex = shots.findIndex((s) => s.id === selected.id)
+  const atStart = index <= 0
+  const atEnd = index >= shots.length - 1
   const startedAt = formatDayTimeInLocaleZone(selected.stream_started_at, locale)
   const uptime = shotUptimeParts(selected.stream_started_at, selected.captured_at)
-
-  // 箭头既翻窗口也换选中:选中新进来的那一张,读作"看下一张",
-  // 与改版前单图模式的心智模型一致。
-  const step = (direction: -1 | 1) => {
-    const next = clampWindowStart(from + direction, shots.length, perView)
-    const win = shots.slice(next, next + perView)
-    const pick = direction === 1 ? win[win.length - 1] : win[0]
-    setStart(next)
-    if (pick) setPickedId(pick.id)
-  }
+  const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
 
   const saveDate = async () => {
     setBusy(true)
@@ -213,8 +208,8 @@ export default function ShotLightbox({
       const res = await fetch(`/api/competitors/shots/${selected.id}`, { method: 'DELETE' })
       if (!res.ok) { setError(t('actionFailed')); return }
       await onChanged()
-      // 只在删掉最后一张时才关。否则清理某天的多张图要"开→删→关→再开"
-      // 循环一遍;留着不关的话,refetch 后 shots 变短、窗口与选中都会自动夹逼兜底。
+      // 只在删掉最后一张时才关。否则清理某天的多张图要"开→删→关→再开"循环一遍;
+      // 留着不关的话,refetch 后 shots 变短、选中项会自动兜底到第一张。
       if (shots.length <= 1) onClose()
     } catch {
       setError(t('actionFailed'))
@@ -223,9 +218,26 @@ export default function ShotLightbox({
     }
   }
 
+  // 邻图绝对定位挂在主图两侧,不进正常流 —— 让它们参与布局的话,首张(只有右邻)与
+  // 中间张(左右都有)的整组宽度不同,居中后主图会左右漂移约 112px(1280×800 实测)。
+  // 主图恒定居中,是这一版最要紧的一条:画面里唯一的主体不该因为"翻到第几张"换位置。
+  const peek = (shot: CompetitorShot, side: 'left' | 'right') => (
+    <button
+      type="button"
+      onClick={(e) => { stop(e); setPickedId(shot.id) }}
+      aria-label={side === 'left' ? t('prevShot') : t('nextShot')}
+      className={`absolute top-1/2 hidden -translate-y-1/2 rounded-lg opacity-40 transition-opacity hover:opacity-75 focus:outline-none focus-visible:opacity-75 focus-visible:ring-2 focus-visible:ring-primary-ring sm:block ${
+        side === 'left' ? 'right-full mr-4' : 'left-full ml-4'
+      }`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={shot.image_url} alt="" className="max-h-[50vh] max-w-none rounded-lg" />
+    </button>
+  )
+
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3 py-3"
       onClick={onClose}
       role="dialog"
       aria-label={selected.shot_on ?? t('undated')}
@@ -236,203 +248,213 @@ export default function ShotLightbox({
         全套 focus trap 在 components/ui/Modal.tsx,这里用不上,Esc 关闭已够。
       */}
 
-      {/* ── A 层:固定 chrome ──────────────────────────────────────────
-          计数与关闭钉在四角,位置只跟视口有关,跟这张图有没有 caption / 直播态
-          无关。计数条 pointer-events-none,点它等于点遮罩(关闭),不留死角。 */}
-      <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-btn bg-black/55 px-2.5 py-1 text-xs tabular-nums text-white backdrop-blur">
-        {t('shotIndexOf', { index: selectedIndex + 1, total: shots.length })}
-      </span>
+      {/* 关闭键钉死右上角,位置只跟视口有关,跟这张图有什么内容无关。 */}
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); onClose() }}
+        onClick={(e) => { stop(e); onClose() }}
         aria-label={t('closeShot')}
-        className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring sm:h-10 sm:w-10"
+        className="absolute right-3 top-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring sm:h-10 sm:w-10"
       >
         <X size={18} />
       </button>
 
-      {/* ── B 层:舞台 ────────────────────────────────────────────────
-          min-h-0 才能让 flex-1 真的压缩(默认 min-height:auto 会撑破容器)。
-          不在这一层 stopPropagation:图两侧的空白点下去应该关闭灯箱,跟改版前
-          一致;拦截只做在真正的内容那一格上。 */}
-      <div className="flex min-h-0 flex-1 items-center justify-center px-3 py-3">
-        <div className="flex max-h-full items-center gap-3" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            onClick={() => step(-1)}
-            disabled={atStart}
-            aria-label={t('prevShot')}
-            className="shrink-0 rounded-icon bg-black/50 p-2 text-white disabled:opacity-30"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          {/*
-            并排 perView 张(由视口算出,手机与竖屏平板为 1)。当天不足这么多就有几张排几张——
-            这一行在舞台里居中,所以不足 3 张时会自然居中,不需要占位空格。
-            min-w-0 是为了极窄视口下等比缩小而不是横向溢出。
+      {/* 翻页箭头贴视口两侧,不跟着图的宽度跑。窄屏上邻图不出,全靠它们翻。 */}
+      {!atStart && (
+        <button
+          type="button"
+          onClick={(e) => { stop(e); step(-1) }}
+          aria-label={t('prevShot')}
+          className="absolute left-2 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-icon bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring sm:h-10 sm:w-10"
+        >
+          <ChevronLeft size={20} />
+        </button>
+      )}
+      {!atEnd && (
+        <button
+          type="button"
+          onClick={(e) => { stop(e); step(1) }}
+          aria-label={t('nextShot')}
+          className="absolute right-2 top-1/2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-icon bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring sm:h-10 sm:w-10"
+        >
+          <ChevronRight size={20} />
+        </button>
+      )}
 
-            max-h-[64vh] 必须与 shotGrid.ts 的 IMAGE_MAX_VH 同步,那边靠它反推单张宽度
-            算并排容量。底部条另有 max-h-[30vh] 上限,12+64+3+30 < 100vh,两者不会打架。
-          */}
-          {allVisibleReady ? (
-            visible.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setPickedId(s.id)}
-                aria-pressed={s.id === selected.id}
-                aria-label={s.caption || s.tag || s.shot_on || t('undated')}
-                className={`min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring ${
-                  s.id === selected.id ? 'ring-2 ring-primary' : ''
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={s.image_url}
-                  alt={s.caption || s.tag || ''}
-                  className="max-h-[64vh] max-w-full rounded-lg"
-                />
-              </button>
-            ))
-          ) : (
-            <div
-              role="status"
-              className="flex h-[64vh] items-center justify-center gap-2 px-24 text-xs text-white"
-            >
-              <Loader2 size={16} className="animate-spin" />
-              <span>{tCommon('loading')}</span>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => step(1)}
-            disabled={atEnd}
-            aria-label={t('nextShot')}
-            className="shrink-0 rounded-icon bg-black/50 p-2 text-white disabled:opacity-30"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-      </div>
+      {allReady ? (
+        <div className="flex max-w-full items-center justify-center">
+          {/* 主列:主图 +(编辑展开时)图下方的编辑区。整列在舞台里居中,所以展开编辑区
+              会把主图往上顶 —— 这正是"编辑时主图上移"的实现方式,不需要额外的位移。
+              relative 是给两侧绝对定位的邻图当定位参照。 */}
+          <div className="relative flex min-w-0 flex-col items-stretch gap-3" onClick={stop}>
+            {leftShot && peek(leftShot, 'left')}
+            {rightShot && peek(rightShot, 'right')}
+            <div className="relative min-w-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selected.image_url}
+                alt={selected.caption || selected.tag || ''}
+                className={`max-w-full rounded-card ${editOpen ? 'max-h-[62vh] sm:max-h-[80vh]' : 'max-h-[80vh]'}`}
+              />
 
-      {/* ── C 层:底部条 ──────────────────────────────────────────────
-          手机上贴底通栏(rounded-t-card),宽度由视口决定而不是由内容决定 ——
-          改版前那种「内容撑到 722px、按钮被推出屏幕」在结构上就不可能再发生;
-          桌面收成一张浮起的卡。max-h-[30vh] + overflow-y-auto 是给展开后的长
-          caption 兜底,不让它把舞台顶掉。 */}
-      {dock.any && (
-        <div className="sm:px-6 sm:pb-6" onClick={(e) => e.stopPropagation()}>
-          <div
-            className="mx-auto flex max-h-[30vh] w-full max-w-[720px] flex-col gap-2 overflow-y-auto rounded-t-card bg-black/55 px-3 pt-2.5 text-xs text-white backdrop-blur sm:rounded-card"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.625rem)' }}
-          >
-            {/* 画面内容备注：Claude 人眼核实截图时顺手写的一句话概括(≤200 字)，供人回看时
-                不用重新点开图自己认。人工上传的截图这个字段是空串，整段不出现。 */}
-            {dock.caption && (
-              <div>
-                <p
-                  ref={captionRef}
-                  className={`whitespace-pre-wrap text-white/85 ${captionOpen ? '' : 'line-clamp-2'}`}
+              {/* 日期与序号并排贴左上。序号不能放右上 —— 手机上主图占满时会和
+                  关闭键叠在一起(静态稿实测撞上了)。 */}
+              <div className="absolute left-2.5 top-2.5 flex max-w-[calc(100%-4rem)] items-center gap-1.5">
+                <span
+                  className={`truncate rounded-btn px-2.5 py-1 text-xs font-semibold tabular-nums backdrop-blur ${
+                    selected.shot_on ? 'bg-black/60 text-white' : 'bg-warning-dot text-ink-900'
+                  }`}
                 >
-                  {selected.caption}
-                </p>
-                {(captionClipped || captionOpen) && (
-                  <button
-                    type="button"
-                    onClick={() => setCaptionOpen((v) => !v)}
-                    aria-expanded={captionOpen}
-                    className="mt-0.5 rounded-btn text-white/70 underline underline-offset-2 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
-                  >
-                    {captionOpen ? t('captionLess') : t('captionMore')}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* 自动采集的直播态。人工上传的截图这几项为 null,整段不出现。
-                开播时刻是直播间自己报的 stream_started_at(同一场的多张截图值一致),
-                时长只说明「截图时已播多久」,看不出对方的开播作息,所以两个都给。 */}
-            {dock.meta && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums text-white/80">
-                {selected.viewer_count != null && (
-                  <span>{t('shotViewers', { count: selected.viewer_count })}</span>
-                )}
-                {startedAt && <span>{t('shotStartedAt', { time: startedAt })}</span>}
-                {/* 不足 1 小时只显示分钟,免得出现"0时20分" */}
-                {uptime && (
-                  <span>
-                    {uptime.h > 0
-                      ? t('shotUptime', { h: uptime.h, m: uptime.m })
-                      : t('shotUptimeMin', { m: uptime.m })}
+                  {selected.shot_on ?? t('undated')}
+                </span>
+                {shots.length > 1 && (
+                  <span className="rounded-btn bg-black/60 px-2 py-1 text-xs tabular-nums text-white backdrop-blur">
+                    {t('shotIndexOf', { index: index + 1, total: shots.length })}
                   </span>
                 )}
               </div>
-            )}
 
-            {dock.edit && (
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setEditOpen((v) => !v)}
-                    aria-expanded={editOpen}
-                    className={`inline-flex h-9 items-center gap-1.5 rounded-btn border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring sm:h-8 ${
-                      editOpen ? 'border-transparent bg-white/15' : 'border-white/25 hover:bg-white/10'
-                    }`}
-                  >
-                    <Pencil size={14} />
-                    {tCommon('edit')}
-                  </button>
-                </div>
-                {editOpen && (
-                  <>
-                    <div className="h-px bg-white/15" />
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* 手机上日期控件独占一行:iOS 的原生 date 控件很宽,
-                          跟保存钮挤一行会把后者压到换行,读起来像两个无关按钮。 */}
-                      <label className="flex w-full items-center gap-1.5 sm:w-auto">
-                        <span className="shrink-0 text-white/80">{t('shotDate')}</span>
-                        <input
-                          type="date"
-                          value={dateInput}
-                          max={todayLocal()}
-                          onChange={(e) => setDateInput(e.target.value)}
-                          className="min-w-0 flex-1 rounded-field border border-line-strong px-2 py-1 text-ink-900 sm:flex-none"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={saveDate}
-                        disabled={busy}
-                        className="inline-flex h-9 items-center rounded-btn bg-primary-gradient px-3 font-medium text-white transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-8"
-                      >
-                        {t('saveShotDate')}
-                      </button>
-                      {/* 破坏性操作:手机上给足 44px 触达区,并靠 ml-auto 推到最右,
-                          与保存钮之间永远留着一段空白。关闭键在右上角,跟它隔了整个舞台。 */}
-                      <button
-                        type="button"
-                        onClick={removeSelected}
-                        disabled={busy}
-                        aria-label={t('delete')}
-                        className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/50 text-white transition-colors hover:bg-danger-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-8 sm:w-8"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+              {/* 底部渐变层。四段全空时整层不画。 */}
+              {ov.footer && (
+                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-b-card bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pb-3 pt-10 text-xs text-white">
+                  {/* 自动采集的直播态。开播时刻是直播间自己报的 stream_started_at
+                      (同一场的多张截图值一致),时长只说明「截图时已播多久」,
+                      看不出对方的开播作息,所以两个都给。 */}
+                  {ov.live && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums text-white/75">
+                      {selected.viewer_count != null && (
+                        <span>{t('shotViewers', { count: selected.viewer_count })}</span>
+                      )}
+                      {startedAt && <span>{t('shotStartedAt', { time: startedAt })}</span>}
+                      {/* 不足 1 小时只显示分钟,免得出现"0时20分" */}
+                      {uptime && (
+                        <span>
+                          {uptime.h > 0
+                            ? t('shotUptime', { h: uptime.h, m: uptime.m })
+                            : t('shotUptimeMin', { m: uptime.m })}
+                        </span>
+                      )}
                     </div>
-                  </>
+                  )}
+
+                  {/* 画面内容备注：Claude 人眼核实截图时顺手写的一句话概括(≤200 字)，
+                      供人回看时不用重新点开图自己认。人工上传的截图这个字段是空串。 */}
+                  {ov.caption && (
+                    <div>
+                      <p
+                        ref={captionRef}
+                        className={`whitespace-pre-wrap ${
+                          captionOpen ? 'max-h-[28vh] overflow-y-auto' : 'line-clamp-2'
+                        }`}
+                      >
+                        {selected.caption}
+                      </p>
+                      {(captionClipped || captionOpen) && (
+                        <button
+                          type="button"
+                          onClick={() => setCaptionOpen((v) => !v)}
+                          aria-expanded={captionOpen}
+                          className="mt-0.5 rounded-btn text-white/70 underline underline-offset-2 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
+                        >
+                          {captionOpen ? t('captionLess') : t('captionMore')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {(ov.strip || ov.edit) && (
+                    <div className="flex items-center gap-1.5">
+                      {/* 胶片条:当天全部张数直接可见,序号写在片上。只读 + 人工上传的多张
+                          也要留着它 —— 否则画面上没有任何"共几张"的交代。 */}
+                      {ov.strip && (
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+                          {shots.map((s, i) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setPickedId(s.id)}
+                              aria-pressed={s.id === selected.id}
+                              aria-label={t('shotIndexOf', { index: i + 1, total: shots.length })}
+                              className={`relative h-9 w-6 shrink-0 overflow-hidden rounded-field border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring ${
+                                s.id === selected.id ? 'border-primary' : 'border-transparent opacity-60'
+                              }`}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={s.image_url} alt="" className="h-full w-full object-cover" />
+                              <span className="absolute inset-x-0 bottom-0 bg-black/60 text-center text-[9px] leading-3 tabular-nums text-white">
+                                {i + 1}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {ov.edit && (
+                        <button
+                          type="button"
+                          onClick={() => setEditOpen((v) => !v)}
+                          aria-expanded={editOpen}
+                          className={`ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-btn border px-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring sm:h-8 ${
+                            editOpen ? 'border-transparent bg-white/20' : 'border-white/30 bg-black/40 hover:bg-white/10'
+                          }`}
+                        >
+                          <Pencil size={14} />
+                          {tCommon('edit')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 编辑区在**图的下方**,不叠在图上:叠着的版本实测会盖住主图 51%,
+                一边改日期一边看不见图。宽度跟着主图(items-stretch),读作"改的就是它"。 */}
+            {ov.edit && editOpen && (
+              <div className="flex flex-wrap items-center gap-2 rounded-card bg-black/55 px-3 py-2.5 text-xs text-white backdrop-blur">
+                {/* 手机上日期控件独占一行:iOS 的原生 date 控件很宽,跟保存钮挤一行
+                    会把后者压到换行,读起来像两个无关按钮。 */}
+                <label className="flex w-full items-center gap-1.5 sm:w-auto">
+                  <span className="shrink-0 text-white/80">{t('shotDate')}</span>
+                  <input
+                    type="date"
+                    value={dateInput}
+                    max={todayLocal()}
+                    onChange={(e) => setDateInput(e.target.value)}
+                    className="min-w-0 flex-1 rounded-field border border-line-strong px-2 py-1 text-ink-900 sm:flex-none"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={saveDate}
+                  disabled={busy}
+                  className="inline-flex h-9 items-center rounded-btn bg-primary-gradient px-3 font-medium text-white transition-opacity hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-8"
+                >
+                  {t('saveShotDate')}
+                </button>
+                {/* 破坏性操作:手机上给足 44px 触达区,靠 ml-auto 推到最右。
+                    关闭键在右上角,跟它隔着整张图。 */}
+                <button
+                  type="button"
+                  onClick={removeSelected}
+                  disabled={busy}
+                  aria-label={t('delete')}
+                  className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/50 text-white transition-colors hover:bg-danger-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-8 sm:w-8"
+                >
+                  <Trash2 size={18} />
+                </button>
+                {/* 错误挂在编辑区内部而不是外面:挂外面的话它一出现就把整列往上顶一次。 */}
+                {error && (
+                  <p role="status" className="w-full rounded-field bg-danger-strong px-2 py-1 text-white">
+                    {error}
+                  </p>
                 )}
               </div>
             )}
-
-            {/* 错误挂在底部条内部而不是外面:挂外面的话它一出现就把整列往上顶一次,
-                等于操作成功与否都会让画面跳。 */}
-            {error && (
-              <p role="status" className="rounded-field bg-danger-strong px-2 py-1 text-white">
-                {error}
-              </p>
-            )}
           </div>
+        </div>
+      ) : (
+        <div role="status" className="flex items-center gap-2 text-xs text-white" onClick={stop}>
+          <Loader2 size={16} className="animate-spin" />
+          <span>{tCommon('loading')}</span>
         </div>
       )}
     </div>
