@@ -1486,6 +1486,8 @@
     "closeShot": "閉じる",
     "shotDate": "日付",
     "saveShotDate": "日付を保存",
+    "captionMore": "もっと見る",
+    "captionLess": "閉じる",
     "shotDateInvalid": "日付の形式が不正です",
     "upload": "アップロード",
     "orPaste": "貼り付け",
