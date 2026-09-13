@@ -1720,6 +1720,8 @@
     "closeShot": "关闭",
     "shotDate": "截图日期",
     "saveShotDate": "保存日期",
+    "captionMore": "展开",
+    "captionLess": "收起",
     "shotDateInvalid": "日期格式不对",
     "upload": "上传",
     "orPaste": "或粘贴",

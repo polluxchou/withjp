@@ -1720,6 +1720,8 @@
     "closeShot": "Close",
     "shotDate": "Shot date",
     "saveShotDate": "Save date",
+    "captionMore": "More",
+    "captionLess": "Less",
     "shotDateInvalid": "Invalid date format",
     "upload": "Upload",
     "orPaste": "or paste",
