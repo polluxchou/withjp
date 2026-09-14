@@ -3,12 +3,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { lightboxNeighbors } from '@/lib/competitors/lightboxLayout'
 import { shotOverlaySections } from '@/lib/competitors/shotOverlay'
+import { dayZipName, shotFileName } from '@/lib/competitors/shotDownload'
+import { fetchBytes, saveBlob } from '@/lib/competitors/downloadFile'
+import { buildZip } from '@/lib/competitors/zip'
 import { formatDayTimeInLocaleZone } from '@/lib/time/localeZone'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
 
@@ -29,9 +32,13 @@ import { lockViewportScroll } from '@/lib/ui/scrollLock'
  *   max-h-[50vh] ↔ MAIN_MAX_VH × PEEK_SCALE  邻图
  */
 export default function ShotLightbox({
-  shots, canEdit, onClose, onChanged,
+  shots, handle, dateKey, canEdit, onClose, onChanged,
 }: {
   shots: CompetitorShot[]
+  /** 对方平台上的用户名。只用于下载文件名。 */
+  handle: string
+  /** 当天的日期键（未标日期那一列为 UNDATED_KEY）。只用于打包文件名。 */
+  dateKey: string
   canEdit: boolean
   onClose: () => void
   onChanged: () => void | Promise<void>
@@ -60,6 +67,12 @@ export default function ShotLightbox({
   // 只有真的被截断才给"展开":一行就完的备注后面挂个展开钮是纯噪音。
   const [captionClipped, setCaptionClipped] = useState(false)
   const captionRef = useRef<HTMLParagraphElement | null>(null)
+  // 仅看图：把日期/序号胶囊、渐变层、邻图全收起来,只留主图和右上角两颗钮。
+  // TikTok 直播截图最要紧的礼物栏、排行榜、评论都压在画面下缘,而渐变层正好
+  // 盖在那儿(常态占主图 32%) —— 这个模式存在的理由就是把那块让出来。
+  const [cleanView, setCleanView] = useState(false)
+  // 下载进度。打包一天六张(每张上限 5MB)要花几秒,不给反馈会被当成没点上。
+  const [saving, setSaving] = useState<{ done: number; total: number } | null>(null)
 
   // 选中项兜底到第一张,一次覆盖"选中项被删"与"刚打开还没选"两种情况。
   // 删除不可逆,作用对象必须永远在画面里。
@@ -151,7 +164,16 @@ export default function ShotLightbox({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return }
+      if (e.key === 'Escape') {
+        // Esc 分两段:先退出仅看图,再关灯箱。一键直接关掉的话,进了仅看图就等于
+        // 把"退出这个模式"和"关掉整个灯箱"绑成同一个动作,想回到信息层只能重开。
+        //
+        // 判断写在 updater 外面:React 会重复调用 setState 的 updater(StrictMode 下
+        // 必然如此),把 onClose() 这种副作用塞进去会被调两次。
+        if (cleanView) setCleanView(false)
+        else onClose()
+        return
+      }
       // 左右方向键翻页:画面已经是个横向轮播,方向键是这个形态的默认预期。
       // 焦点在日期输入框里时不抢 —— 那里左右键是移动光标。
       const tag = (e.target as HTMLElement | null)?.tagName
@@ -161,7 +183,7 @@ export default function ShotLightbox({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, step])
+  }, [onClose, step, cleanView])
 
   // 灯箱打开期间锁掉底层页面滚动。遮罩盖住整屏但不吃滚轮事件,在图上滚会把
   // 下面的竞品列表滚走 —— 关掉灯箱才发现位置全变了,而日期列是靠位置对应的。
@@ -197,6 +219,42 @@ export default function ShotLightbox({
       setError(t('actionFailed'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  // 单张：先取回字节再存。跨源地址上的 download 属性会被忽略(点下去变成新标签页
+  // 打开图片),必须先变成同源 blob —— 细节在 lib/competitors/downloadFile.ts。
+  const downloadOne = async () => {
+    setSaving({ done: 0, total: 1 })
+    setError(null)
+    try {
+      const bytes = await fetchBytes(selected.image_url)
+      saveBlob(bytes, shotFileName(handle, selected, index, shots.length), 'application/octet-stream')
+    } catch {
+      setError(t('downloadFailed'))
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  // 当天打包。逐张顺序取而不是 Promise.all:一天最多几张,顺序取能报出真实进度,
+  // 而并发取六个 5MB 在弱网上更容易整批超时。任一张失败就整批放弃 —— 悄悄少一张的
+  // 压缩包比直接失败更糟,人不会发现。
+  const downloadDay = async () => {
+    setSaving({ done: 0, total: shots.length })
+    setError(null)
+    try {
+      const entries = []
+      for (let i = 0; i < shots.length; i++) {
+        const data = await fetchBytes(shots[i].image_url)
+        entries.push({ name: shotFileName(handle, shots[i], i, shots.length), data })
+        setSaving({ done: i + 1, total: shots.length })
+      }
+      saveBlob(buildZip(entries), dayZipName(handle, selected.shot_on ?? dateKey), 'application/zip')
+    } catch {
+      setError(t('downloadFailed'))
+    } finally {
+      setSaving(null)
     }
   }
 
@@ -248,15 +306,71 @@ export default function ShotLightbox({
         全套 focus trap 在 components/ui/Modal.tsx,这里用不上,Esc 关闭已够。
       */}
 
-      {/* 关闭键钉死右上角,位置只跟视口有关,跟这张图有什么内容无关。 */}
-      <button
-        type="button"
-        onClick={(e) => { stop(e); onClose() }}
-        aria-label={t('closeShot')}
-        className="absolute right-3 top-3 z-20 inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring sm:h-10 sm:w-10"
-      >
-        <X size={18} />
-      </button>
+      {/* 错误浮条。绝对定位所以不占流、不顶版式;放在这一层而不是编辑区里面,是因为
+          下载失败时编辑区多半是收起的 —— 挂在里面等于报了个没人看得见的错(实测踩到)。
+          仅看图模式下也照样显示:那时候更需要知道刚才那下为什么没反应。 */}
+      {error && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-4">
+          <p role="status" className="rounded-btn bg-danger-strong px-3 py-1.5 text-xs text-white shadow-pop">
+            {error}
+          </p>
+        </div>
+      )}
+
+      {/* 右上角一组:下载 / 打包 / 仅看图 / 关闭。位置只跟视口有关,跟这张图有什么
+          内容无关。下载两颗在仅看图模式下收起 —— 那个模式的整个意思就是"只剩图"。 */}
+      <div className="absolute right-3 top-3 z-20 flex items-center gap-1.5" onClick={stop}>
+        {!cleanView && (
+          <>
+            <button
+              type="button"
+              onClick={downloadOne}
+              disabled={saving !== null}
+              aria-label={t('downloadShot')}
+              title={t('downloadShot')}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-10 sm:w-10"
+            >
+              {saving && saving.total === 1
+                ? <Loader2 size={18} className="animate-spin" />
+                : <Download size={18} />}
+            </button>
+            {shots.length > 1 && (
+              <button
+                type="button"
+                onClick={downloadDay}
+                disabled={saving !== null}
+                aria-label={t('downloadDay', { count: shots.length })}
+                title={saving && saving.total > 1
+                  ? t('downloading', { done: saving.done, total: saving.total })
+                  : t('downloadDay', { count: shots.length })}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-10 sm:w-10"
+              >
+                {saving && saving.total > 1
+                  ? <span className="text-xs tabular-nums">{saving.done}/{saving.total}</span>
+                  : <Package size={18} />}
+              </button>
+            )}
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => setCleanView((v) => !v)}
+          aria-pressed={cleanView}
+          aria-label={cleanView ? t('exitViewOnly') : t('viewOnly')}
+          title={cleanView ? t('exitViewOnly') : t('viewOnly')}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-10 sm:w-10"
+        >
+          {cleanView ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={t('closeShot')}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/55 text-white backdrop-blur transition-colors hover:bg-black/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-10 sm:w-10"
+        >
+          <X size={18} />
+        </button>
+      </div>
 
       {/* 翻页箭头贴视口两侧,不跟着图的宽度跑。窄屏上邻图不出,全靠它们翻。 */}
       {!atStart && (
@@ -286,19 +400,35 @@ export default function ShotLightbox({
               会把主图往上顶 —— 这正是"编辑时主图上移"的实现方式,不需要额外的位移。
               relative 是给两侧绝对定位的邻图当定位参照。 */}
           <div className="relative flex min-w-0 flex-col items-stretch gap-3" onClick={stop}>
-            {leftShot && peek(leftShot, 'left')}
-            {rightShot && peek(rightShot, 'right')}
+            {!cleanView && leftShot && peek(leftShot, 'left')}
+            {!cleanView && rightShot && peek(rightShot, 'right')}
             <div className="relative min-w-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={selected.image_url}
-                alt={selected.caption || selected.tag || ''}
-                className={`max-w-full rounded-card ${editOpen ? 'max-h-[62vh] sm:max-h-[80vh]' : 'max-h-[80vh]'}`}
-              />
+              {/* 点图切换仅看图:看图应用里"轻点画面收起界面"是默认预期,而且在手机上
+                  比够到右上角那颗钮方便得多。用 button 包住是为了键盘也能触达。
+                  仅看图下邻图收起,让出来的横向空间给主图,上限从 80vh 提到 92vh。 */}
+              <button
+                type="button"
+                onClick={() => setCleanView((v) => !v)}
+                aria-pressed={cleanView}
+                aria-label={cleanView ? t('exitViewOnly') : t('viewOnly')}
+                className="block max-w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selected.image_url}
+                  alt={selected.caption || selected.tag || ''}
+                  className={`max-w-full rounded-card ${
+                    cleanView
+                      ? 'max-h-[92vh]'
+                      : editOpen ? 'max-h-[62vh] sm:max-h-[80vh]' : 'max-h-[80vh]'
+                  }`}
+                />
+              </button>
 
               {/* 日期与序号并排贴左上。序号不能放右上 —— 手机上主图占满时会和
                   关闭键叠在一起(静态稿实测撞上了)。 */}
-              <div className="absolute left-2.5 top-2.5 flex max-w-[calc(100%-4rem)] items-center gap-1.5">
+              {!cleanView && (
+              <div className="absolute left-2.5 top-2.5 flex max-w-[calc(100%-12rem)] items-center gap-1.5">
                 <span
                   className={`truncate rounded-btn px-2.5 py-1 text-xs font-semibold tabular-nums backdrop-blur ${
                     selected.shot_on ? 'bg-black/60 text-white' : 'bg-warning-dot text-ink-900'
@@ -312,9 +442,10 @@ export default function ShotLightbox({
                   </span>
                 )}
               </div>
+              )}
 
-              {/* 底部渐变层。四段全空时整层不画。 */}
-              {ov.footer && (
+              {/* 底部渐变层。四段全空时整层不画;仅看图下一律不画。 */}
+              {!cleanView && ov.footer && (
                 <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-b-card bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pb-3 pt-10 text-xs text-white">
                   {/* 自动采集的直播态。开播时刻是直播间自己报的 stream_started_at
                       (同一场的多张截图值一致),时长只说明「截图时已播多久」,
@@ -441,12 +572,6 @@ export default function ShotLightbox({
                 >
                   <Trash2 size={18} />
                 </button>
-                {/* 错误挂在编辑区内部而不是外面:挂外面的话它一出现就把整列往上顶一次。 */}
-                {error && (
-                  <p role="status" className="w-full rounded-field bg-danger-strong px-2 py-1 text-white">
-                    {error}
-                  </p>
-                )}
               </div>
             )}
           </div>
