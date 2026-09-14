@@ -131,9 +131,11 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
 }
 
 export default function ShotAlbum({
-  competitorId, shots, canEdit, onChanged, dateWindow, selectedDate,
+  competitorId, handle, shots, canEdit, onChanged, dateWindow, selectedDate,
 }: {
   competitorId: string
+  /** 对方平台上的用户名。只用于下载文件名 —— 截图离开系统后，文件名是它唯一剩下的上下文。 */
+  handle: string
   shots: CompetitorShot[]
   canEdit: boolean
   onChanged: () => void
@@ -179,6 +181,8 @@ export default function ShotAlbum({
           // key 保证换一天就重新挂载,窗口起点与选中项(start / pickedId)
           // 不会带着上一天的值过来
           key={openDate}
+          handle={handle}
+          dateKey={openDate}
           shots={grouped.get(openDate) ?? []}
           canEdit={canEdit}
           onClose={() => setOpenDate(null)}
