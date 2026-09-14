@@ -307,6 +307,7 @@ export default function CompetitorCard({
         <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
         <ShotAlbum
           competitorId={c.id}
+          handle={c.handle}
           shots={c.shots}
           canEdit={canEdit}
           onChanged={onChanged}
