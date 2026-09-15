@@ -135,3 +135,29 @@ export function planDimensionChain(
 
   return { segments, anchor: nearEdge }
 }
+
+// 贪心区间装箱:按顺序把每个标签放进「能放下它的最小排号」。第 0 排紧贴链线,
+// 排号越大越靠外。窄段因此自动让到上一排,后面的宽段又能落回第 0 排。
+export function layoutChainLabels(
+  segments: DimensionChainSegment[],
+  options: {
+    labelWidth: (segment: DimensionChainSegment, index: number) => number
+    minGap: number
+  },
+): number[] {
+  const rowEnds: number[] = []
+  return segments.map((segment, index) => {
+    const width = options.labelWidth(segment, index)
+    const mid = (segment.start + segment.end) / 2
+    const left = mid - width / 2
+    const right = mid + width / 2
+    for (let row = 0; row < rowEnds.length; row++) {
+      if (left >= rowEnds[row] + options.minGap) {
+        rowEnds[row] = right
+        return row
+      }
+    }
+    rowEnds.push(right)
+    return rowEnds.length - 1
+  })
+}

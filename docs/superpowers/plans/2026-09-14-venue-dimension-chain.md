@@ -429,17 +429,21 @@ test('layoutChainLabels: 窄段被推到上一排', () => {
 })
 
 test('layoutChainLabels: 窄段让开后,后面的宽段回到第 0 排', () => {
-  const rows = layoutChainLabels([seg(0, 200), seg(200, 220), seg(220, 600)], {
+  // 标签宽 50:第 2 段(中点 210)还挤得进第 0 排,第 3 段(中点 230)挤不进被推到
+  // 第 1 排,第 4 段(中点 420)离得够远又落回第 0 排
+  const rows = layoutChainLabels([seg(0, 200), seg(200, 220), seg(220, 240), seg(240, 600)], {
     labelWidth: () => 50,
     minGap: 4,
   })
-  assert.deepEqual(rows, [0, 1, 0])
+  assert.deepEqual(rows, [0, 0, 1, 0])
 })
 
 test('layoutChainLabels: 同一排内的标签不重叠', () => {
-  const segments = [seg(0, 200), seg(200, 220), seg(220, 600), seg(600, 620), seg(620, 1000)]
+  // 连着三个窄段,逼出三排,才真的检验得到「同排不重叠」
+  const segments = [seg(0, 200), seg(200, 220), seg(220, 240), seg(240, 260), seg(260, 600)]
   const width = 50
   const rows = layoutChainLabels(segments, { labelWidth: () => width, minGap: 4 })
+  assert.equal(Math.max(...rows), 2, '这组数据应当用到三排')
   const byRow = new Map<number, { left: number; right: number }[]>()
   segments.forEach((segment, index) => {
     const mid = (segment.start + segment.end) / 2
