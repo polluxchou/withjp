@@ -166,6 +166,31 @@ test('planDimensionChain: 传入带深覆盖自动值', () => {
   )
 })
 
+test('planDimensionChain: 相邻两片同属一个组件时合并成一段', () => {
+  // wing 的左边线(200)在 hall 身上切了一刀,但 wing 面积更大、争不到那一段的
+  // 归属,于是 [0,200] 和 [200,1000] 都属于 hall——必须合并成一段,不能出两段
+  const plan = planDimensionChain([
+    item({ id: 'hall', x: 0, y: 0, width: 1000, height: 1000 }),
+    item({ id: 'wing', x: 200, y: 10, width: 1000, height: 1500, type: 'renovation' }),
+  ], 'horizontal')
+  assert.deepEqual(strip(plan.segments), [
+    { start: 0, end: 1000, itemId: 'hall' },
+    { start: 1000, end: 1200, itemId: 'wing' },
+  ])
+})
+
+test('planDimensionChain: 不足半厘米的碎段被丢掉,不产生噪声空隙', () => {
+  const plan = planDimensionChain([
+    item({ id: 'a', x: 0, y: 0, width: 500, height: 400 }),
+    item({ id: 'b', x: 500.3, y: 0, width: 399.7, height: 400 }),
+  ], 'horizontal')
+  assert.deepEqual(strip(plan.segments), [
+    { start: 0, end: 500, itemId: 'a' },
+    { start: 500.3, end: 900, itemId: 'b' },
+  ])
+  assert.ok(plan.segments.every((s) => s.itemId !== null), '0.3cm 的缝不该冒出一个空隙段')
+})
+
 const seg = (start: number, end: number): DimensionChainSegment => ({
   start,
   end,
