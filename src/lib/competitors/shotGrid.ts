@@ -11,6 +11,38 @@ export const SHOT_WINDOW_SIZE = 5
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
+ * 截图日期最多能往后选几天。
+ *
+ * 允许未来日期不是笔误：团队分布在不同时区，而 shot_on 记的是**直播当地**那一天。
+ * 加州的人（UTC-7）看到的"今天"比日本晚一天，日本 09-14 凌晨那场直播，他要归档时
+ * 本地时钟还停在 09-13 —— 只开放到"今天"的话，这一天他根本选不到。
+ *
+ * 仍然留一个上限而不是完全放开：再往后就不是时区差了，而是手滑，
+ * 一个 2027 年的日期会在日期轴上拉出一列没人能解释的孤儿。
+ */
+export const SHOT_DATE_FUTURE_DAYS = 3
+
+/**
+ * 在 YYYY-MM-DD 上加减天数，跨月跨年跨闰年都按日历天走。
+ *
+ * 走 Date.UTC 而不是本地时区的 Date：本地时区在夏令时切换那天只有 23 或 25 小时，
+ * 用 `d.setDate(d.getDate() + n)` 那一套在边界上会算出前一天（美西 3 月 8 日、
+ * 11 月 1 日各一次，团队里有人在加州）。当成 UTC 上的纯日历日就没有这个坑。
+ *
+ * 认不出的输入原样返回：产出 "NaN-NaN-NaN" 会被塞进 input 的 max，
+ * 让整个日期控件静默失效 —— 那种失效在界面上没有任何痕迹。
+ */
+export function shiftDate(ymd: string, days: number): string {
+  const t = Date.parse(ymd + 'T00:00:00Z')
+  if (Number.isNaN(t)) return ymd
+  // 回读比对一次就够：能原样回读的输入，必然是规范写法的 YYYY-MM-DD 且是真实日历日。
+  // 这一句同时挡掉了 2026-02-30(被 Date 自动进位)、2026-9-13(非规范写法)、
+  // 空串与乱码 —— 再在前面加一道正则守卫是死代码,突变探针证实过没有任何测试能杀它。
+  if (new Date(t).toISOString().slice(0, 10) !== ymd) return ymd
+  return new Date(t + days * 86_400_000).toISOString().slice(0, 10)
+}
+
+/**
  * shot_on 是否合法：null / undefined 或真实存在的 YYYY-MM-DD 日历日。
  *
  * 这是**写入前的入参守卫**，不是通用的格式判定：null 表示"显式清空日期"、

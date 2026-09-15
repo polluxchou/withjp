@@ -3,12 +3,14 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  SHOT_DATE_FUTURE_DAYS,
   UNDATED_KEY,
   collectShotDates,
   groupShotsByDate,
   isValidShotDate,
   missesShotOn,
   resolveAnchor,
+  shiftDate,
   windowOf,
 } from './shotGrid.ts'
 import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
@@ -275,4 +277,45 @@ test('missesShotOn: 轴为空或停在"未标日期"列时不标记', () => {
   assert.equal(missesShotOn([], null), false)
   assert.equal(missesShotOn([], UNDATED_KEY), false)
   assert.equal(missesShotOn([shotOn('2026-08-19')], UNDATED_KEY), false)
+})
+
+test('SHOT_DATE_FUTURE_DAYS: 截图日期可以往后选几天', () => {
+  assert.equal(SHOT_DATE_FUTURE_DAYS, 3)
+})
+
+test('shiftDate: 普通加减', () => {
+  assert.equal(shiftDate('2026-09-13', 3), '2026-09-16')
+  assert.equal(shiftDate('2026-09-13', 0), '2026-09-13')
+  assert.equal(shiftDate('2026-09-13', -3), '2026-09-10')
+})
+
+test('shiftDate: 跨月', () => {
+  assert.equal(shiftDate('2026-09-29', 3), '2026-10-02')
+  assert.equal(shiftDate('2026-10-01', -3), '2026-09-28')
+})
+
+test('shiftDate: 跨年', () => {
+  assert.equal(shiftDate('2026-12-30', 3), '2027-01-02')
+  assert.equal(shiftDate('2027-01-02', -3), '2026-12-30')
+})
+
+test('shiftDate: 闰年二月', () => {
+  // 2028 是闰年,27 号往后数三天要经过 2 月 29 日才到 3 月 1 日
+  assert.equal(shiftDate('2028-02-27', 3), '2028-03-01')
+  // 2026 不是闰年,同样的 27 号 +3 会落到 3 月 2 日
+  assert.equal(shiftDate('2026-02-27', 3), '2026-03-02')
+})
+
+test('shiftDate: 夏令时切换当天也按日历天算,不会差一天', () => {
+  // 用本地时区的 Date 做加减会在 DST 那天多/少一小时,再取日期就可能退回前一天。
+  // 美西 2026-03-08 是夏令时开始日,成员里有人在加州。
+  assert.equal(shiftDate('2026-03-07', 3), '2026-03-10')
+  assert.equal(shiftDate('2026-11-01', 1), '2026-11-02')
+})
+
+test('shiftDate: 非法输入原样返回,不产出 NaN 日期', () => {
+  // 返回 "NaN-NaN-NaN" 会被塞进 input 的 max,整个控件静默失效
+  assert.equal(shiftDate('', 3), '')
+  assert.equal(shiftDate('not-a-date', 3), 'not-a-date')
+  assert.equal(shiftDate('2026-02-30', 3), '2026-02-30')
 })
