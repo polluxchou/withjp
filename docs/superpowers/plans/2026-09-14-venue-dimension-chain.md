@@ -17,19 +17,19 @@
 ### Task 1: 分段算法 `planDimensionChain`
 
 **Files:**
-- Create: `src/venue/dimensionChain.ts`
-- Test: `src/venue/dimensionChain.test.ts`
+- Create: `src/venue/dimension-chain.ts`
+- Test: `src/venue/dimension-chain.test.ts`
 - Modify: `package.json`（`test` 脚本尾部登记新测试文件）
 
 - [ ] **Step 1: 写失败的测试**
 
-创建 `src/venue/dimensionChain.test.ts`：
+创建 `src/venue/dimension-chain.test.ts`：
 
 ```ts
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { planDimensionChain } from './dimensionChain.ts'
+import { planDimensionChain } from './dimension-chain.ts'
 import type { VenueItem, VenueItemType } from './layoutData.ts'
 
 function item(o: {
@@ -199,20 +199,20 @@ test('planDimensionChain: 传入带深覆盖自动值', () => {
 顶部 import 相应改成：
 
 ```ts
-import { autoChainBandDepth, planDimensionChain } from './dimensionChain.ts'
+import { autoChainBandDepth, planDimensionChain } from './dimension-chain.ts'
 ```
 
 - [ ] **Step 2: 跑测试确认它失败**
 
 Run:
 ```bash
-node --test --experimental-strip-types src/venue/dimensionChain.test.ts
+node --test --experimental-strip-types src/venue/dimension-chain.test.ts
 ```
-Expected: FAIL —— `Cannot find module './dimensionChain.ts'`
+Expected: FAIL —— `Cannot find module './dimension-chain.ts'`
 
 - [ ] **Step 3: 写实现**
 
-创建 `src/venue/dimensionChain.ts`：
+创建 `src/venue/dimension-chain.ts`：
 
 ```ts
 import { isVenueMarkerType, type VenueItem } from './layoutData'
@@ -357,16 +357,16 @@ export function planDimensionChain(
 
 Run:
 ```bash
-node --test --experimental-strip-types src/venue/dimensionChain.test.ts
+node --test --experimental-strip-types src/venue/dimension-chain.test.ts
 ```
 Expected: PASS，12 项全过
 
 - [ ] **Step 5: 把新测试文件登记进 `package.json`**
 
-`package.json` 的 `test` 脚本是一长串显式文件列表，**不登记就永远不会跑**。在 `src/venue/layoutData.test.ts` 之后插入 `src/venue/dimensionChain.test.ts`：
+`package.json` 的 `test` 脚本是一长串显式文件列表，**不登记就永远不会跑**。在 `src/venue/layoutData.test.ts` 之后插入 `src/venue/dimension-chain.test.ts`：
 
 ```
-... src/venue/layoutData.test.ts src/venue/dimensionChain.test.ts src/lib/venue/layout-sync.test.ts ...
+... src/venue/layoutData.test.ts src/venue/dimension-chain.test.ts src/lib/venue/layout-sync.test.ts ...
 ```
 
 - [ ] **Step 6: 跑全量测试**
@@ -380,7 +380,7 @@ Expected: `pass 921`（基线 909 + 新增 12），`fail 0`
 - [ ] **Step 7: 提交**
 
 ```bash
-git add src/venue/dimensionChain.ts src/venue/dimensionChain.test.ts package.json
+git add src/venue/dimension-chain.ts src/venue/dimension-chain.test.ts package.json
 git commit -m "feat(venue): 尺寸链分段算法
 
 贴边那一排组件按相邻组件切分,嵌套组件切开外层空间,整条链
@@ -396,12 +396,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 窄段的标签会互相压住。经典制图做法是错到第二、第三排并拉引线。这一步只做「谁去第几排」的纯计算，不碰字体度量。
 
 **Files:**
-- Modify: `src/venue/dimensionChain.ts`
-- Test: `src/venue/dimensionChain.test.ts`
+- Modify: `src/venue/dimension-chain.ts`
+- Test: `src/venue/dimension-chain.test.ts`
 
 - [ ] **Step 1: 写失败的测试**
 
-追加到 `src/venue/dimensionChain.test.ts` 末尾（顶部 import 改成 `import { layoutChainLabels, planDimensionChain } from './dimensionChain.ts'`）：
+追加到 `src/venue/dimension-chain.test.ts` 末尾（顶部 import 改成 `import { layoutChainLabels, planDimensionChain } from './dimension-chain.ts'`）：
 
 ```ts
 const seg = (start: number, end: number): DimensionChainSegment => ({
@@ -466,20 +466,20 @@ test('layoutChainLabels: 空输入返回空数组', () => {
 同时把顶部的 type import 补上 `DimensionChainSegment`：
 
 ```ts
-import type { DimensionChainSegment } from './dimensionChain.ts'
+import type { DimensionChainSegment } from './dimension-chain.ts'
 ```
 
 - [ ] **Step 2: 跑测试确认它失败**
 
 Run:
 ```bash
-node --test --experimental-strip-types src/venue/dimensionChain.test.ts
+node --test --experimental-strip-types src/venue/dimension-chain.test.ts
 ```
 Expected: FAIL —— `layoutChainLabels is not a function` 或导入报错
 
 - [ ] **Step 3: 写实现**
 
-追加到 `src/venue/dimensionChain.ts` 末尾：
+追加到 `src/venue/dimension-chain.ts` 末尾：
 
 ```ts
 // 贪心区间装箱:按顺序把每个标签放进「能放下它的最小排号」。第 0 排紧贴链线,
@@ -520,7 +520,7 @@ Expected: `pass 926`（Task 1 后的 921 + 新增 5），`fail 0`
 - [ ] **Step 5: 提交**
 
 ```bash
-git add src/venue/dimensionChain.ts src/venue/dimensionChain.test.ts
+git add src/venue/dimension-chain.ts src/venue/dimension-chain.test.ts
 git commit -m "feat(venue): 尺寸链标签贪心分排
 
 窄段标签互相压住时错到上一排,后面的宽段仍能落回第 0 排。
@@ -546,7 +546,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```tsx
 'use client'
 
-import { layoutChainLabels, type DimensionChainAxis, type DimensionChainSegment } from './dimensionChain'
+import { layoutChainLabels, type DimensionChainAxis, type DimensionChainSegment } from './dimension-chain'
 import { formatVenueMeasurement } from './layoutData'
 
 // 尺寸链专用青绿。与组件标尺的灰 #64748b、外轮廓总尺寸的红 #ef4444 是「三条标注
@@ -769,7 +769,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ```ts
 import DimensionChain from './DimensionChain'
-import { planDimensionChain } from './dimensionChain'
+import { planDimensionChain } from './dimension-chain'
 ```
 
 在 `type Props` 之前加导出类型：
@@ -866,7 +866,7 @@ export type VenueRulerOptions = {
 
 ```ts
 import VenueCanvas, { type VenueRulerOptions } from '@/venue/VenueCanvas'
-import { autoChainBandDepth } from '@/venue/dimensionChain'
+import { autoChainBandDepth } from '@/venue/dimension-chain'
 ```
 
 `formatVenueMeasurement` 已经在 `page.tsx:70` import 过了，不用再加。
@@ -1065,7 +1065,7 @@ npx next dev --port 3021
 浏览器打开 `http://localhost:3021/zh/guild-venue`，点工具栏的尺子按钮展开三档，逐条确认：
 
 1. **八种组合**：三个勾选项的 2³ 种组合都正确生效，互不牵连（尤其：只勾「尺寸链」时，组件标尺和红色总尺寸都必须消失）。
-2. **分段是否符合预期**：顶部链是否把贴上墙的柱子、化妆间、后门都切了出来；深处的楼梯有没有混进来。若柱子没被收进链里，说明贴边带太浅；若楼梯混进来了，说明太深——调 `dimensionChain.ts` 的 `BAND_DEPTH_RATIO` / `BAND_DEPTH_MAX`，改完回 Task 1 补一条对应的测试。
+2. **分段是否符合预期**：顶部链是否把贴上墙的柱子、化妆间、后门都切了出来；深处的楼梯有没有混进来。若柱子没被收进链里，说明贴边带太浅；若楼梯混进来了，说明太深——调 `dimension-chain.ts` 的 `BAND_DEPTH_RATIO` / `BAND_DEPTH_MAX`，改完回 Task 1 补一条对应的测试。
 3. **首尾相加**：链上各段数值相加，应当正好等于该方向的跨度。
 4. **三层不打架**：链线夹在组件标尺与红色总尺寸之间，没有压住任何一方。
 5. **缩放**：拉到 50% 和 300%，标签分排仍不重叠，链线仍贴在总尺寸内侧。

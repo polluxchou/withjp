@@ -26,7 +26,7 @@
 
 ## 分段算法
 
-放在新文件 `src/venue/dimensionChain.ts`，纯函数、不碰 React。
+放在新文件 `src/venue/dimension-chain.ts`，纯函数、不碰 React。
 
 ```ts
 export type DimensionChainAxis = 'horizontal' | 'vertical'
@@ -176,8 +176,8 @@ i18n 在 `messages/{zh,en,ja}.json` 的 `venue` 命名空间下新增：
 
 | 文件 | 动作 |
 | --- | --- |
-| `src/venue/dimensionChain.ts` | 新增。`planDimensionChain` + `layoutChainLabels`，纯函数。 |
-| `src/venue/dimensionChain.test.ts` | 新增。见下。 |
+| `src/venue/dimension-chain.ts` | 新增。`planDimensionChain` + `layoutChainLabels`，纯函数。 |
+| `src/venue/dimension-chain.test.ts` | 新增。见下。 |
 | `src/venue/DimensionChain.tsx` | 新增。SVG 渲染件。 |
 | `src/venue/VenueCanvas.tsx` | 改 props（`showRulers` → `rulerOptions`）、挂载尺寸链、`useMemo` 缓存两条链。 |
 | `src/app/[locale]/(app)/guild-venue/page.tsx` | 状态改成 `VenueRulerOptions`，新增 `RulerMenu` 弹层组件。 |
@@ -188,7 +188,7 @@ i18n 在 `messages/{zh,en,ja}.json` 的 `venue` 命名空间下新增：
 
 ## 测试
 
-`src/venue/dimensionChain.test.ts`（`node --test --experimental-strip-types`，纯类型 import 要写内联 `type`）：
+`src/venue/dimension-chain.test.ts`（`node --test --experimental-strip-types`，纯类型 import 要写内联 `type`）：
 
 1. 单个组件 → 一段，长度等于组件宽。
 2. 两个相邻组件 → 两段，无空隙段。

@@ -1,6 +1,6 @@
 'use client'
 
-import { layoutChainLabels, type DimensionChainAxis, type DimensionChainSegment } from './dimensionChain'
+import { layoutChainLabels, type DimensionChainAxis, type DimensionChainSegment } from './dimension-chain'
 import { formatVenueMeasurement } from './layoutData'
 
 // 尺寸链专用青绿。与组件标尺的灰 #64748b、外轮廓总尺寸的红 #ef4444 是「三条标注

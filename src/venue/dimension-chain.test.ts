@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { autoChainBandDepth, layoutChainLabels, planDimensionChain } from './dimensionChain.ts'
-import type { DimensionChainSegment } from './dimensionChain.ts'
+import { autoChainBandDepth, layoutChainLabels, planDimensionChain } from './dimension-chain.ts'
+import type { DimensionChainSegment } from './dimension-chain.ts'
 import type { VenueItem, VenueItemType } from './layoutData.ts'
 
 function item(o: {

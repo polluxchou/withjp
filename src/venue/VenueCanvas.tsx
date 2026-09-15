@@ -3,6 +3,8 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import type { ForwardedRef, PointerEvent } from 'react'
 import { useTranslations } from 'next-intl'
+import DimensionChain from './DimensionChain'
+import { planDimensionChain } from './dimension-chain'
 import {
   VENUE_ITEM_TYPE_OPTIONS,
   calculateVenueCanvasFit,
@@ -19,12 +21,24 @@ import {
   type VenueItemType,
 } from './layoutData'
 
+// 三档尺寸标注,互相独立。页面持有状态,画布只负责按开关渲染。
+export type VenueRulerOptions = {
+  // 每个组件自己的长宽标尺 + 选中两个组件时的间距标注
+  items: boolean
+  // 外轮廓总尺寸(红色,只统计空间类型)
+  totalBounds: boolean
+  // 尺寸链(青绿,贴边那一排组件的分段尺寸)
+  chain: boolean
+  // 贴边带深度(cm);null = 用自动值。工具栏滑杆一拨就变成具体数值。
+  chainBandDepth: number | null
+}
+
 type Props = {
   floor: VenueFloor
   selectedItemIds: string[]
   zoom: number
   showGrid: boolean
-  showRulers: boolean
+  rulerOptions: VenueRulerOptions
   onSelectItems: (itemIds: string[]) => void
   onItemChange: (itemId: string, patch: Partial<VenueItem>) => void
   onItemsMove: (itemIds: string[], delta: { x: number; y: number }) => void
@@ -85,7 +99,7 @@ const SELECTION_SCRIM_OPACITY = 0.18
 const SELECTION_ACCENT = '#f4511e'
 
 function VenueCanvas(
-  { floor, selectedItemIds, zoom, showGrid, showRulers, onSelectItems, onItemChange, onItemsMove, fitWidthReserve = 0, visibleTypes, itemName, scrollRef, snapEnabled = true }: Props,
+  { floor, selectedItemIds, zoom, showGrid, rulerOptions, onSelectItems, onItemChange, onItemsMove, fitWidthReserve = 0, visibleTypes, itemName, scrollRef, snapEnabled = true }: Props,
   ref: ForwardedRef<SVGSVGElement>,
 ) {
   const t = useTranslations('venue')
@@ -433,6 +447,17 @@ function VenueCanvas(
 
   const defaultRulerPlan: RulerPlan = { showWidth: true, widthSide: 'top', widthDashed: false, showHeight: true, heightSide: 'right', heightDashed: false }
 
+  // 尺寸链:关掉时不算,省掉每次拖拽的无谓计算。两条链共用同一个带深。
+  const chains = useMemo(
+    () => rulerOptions.chain
+      ? {
+          horizontal: planDimensionChain(items, 'horizontal', rulerOptions.chainBandDepth),
+          vertical: planDimensionChain(items, 'vertical', rulerOptions.chainBandDepth),
+        }
+      : null,
+    [items, rulerOptions.chain, rulerOptions.chainBandDepth],
+  )
+
   // Spotlight selection: dim everything except the selected layer(s), which render
   // on top with their area + share of the total space footprint.
   const selectedSet = new Set(selectedItemIds)
@@ -524,7 +549,7 @@ function VenueCanvas(
                 label={itemTypeLabels[item.type]}
                 itemName={itemName}
                 selected={false}
-                showRulers={showRulers}
+                showRulers={rulerOptions.items}
                 ruler={rulerPlan.get(item.id) ?? defaultRulerPlan}
                 scale={scale}
                 onPointerDown={(event) => startDrag(event, item)}
@@ -568,7 +593,7 @@ function VenueCanvas(
                 label={itemTypeLabels[item.type]}
                 itemName={itemName}
                 selected
-                showRulers={showRulers}
+                showRulers={rulerOptions.items}
                 ruler={selectedItems.length === 1
                   ? { ...(rulerPlan.get(item.id) ?? defaultRulerPlan), showWidth: true, showHeight: true }
                   : rulerPlan.get(item.id) ?? defaultRulerPlan}
@@ -615,10 +640,26 @@ function VenueCanvas(
                 />
               )
             })()}
-            {showRulers && selectedItems.length === 2 && !isVenueMarkerType(selectedItems[0].type) && !isVenueMarkerType(selectedItems[1].type) && (
+            {rulerOptions.items && selectedItems.length === 2 && !isVenueMarkerType(selectedItems[0].type) && !isVenueMarkerType(selectedItems[1].type) && (
               <PairDistanceRulers a={selectedItems[0]} b={selectedItems[1]} scale={scale} />
             )}
-            {showRulers && <TotalBoundsRulers items={floor.items} scale={scale} />}
+            {rulerOptions.totalBounds && <TotalBoundsRulers items={floor.items} scale={scale} />}
+            {chains && (
+              <>
+                <DimensionChain
+                  segments={chains.horizontal.segments}
+                  axis="horizontal"
+                  anchor={chains.horizontal.anchor}
+                  scale={scale}
+                />
+                <DimensionChain
+                  segments={chains.vertical.segments}
+                  axis="vertical"
+                  anchor={chains.vertical.anchor}
+                  scale={scale}
+                />
+              </>
+            )}
             {marquee && (() => {
               const rx = Math.min(marquee.start.x, marquee.current.x)
               const ry = Math.min(marquee.start.y, marquee.current.y)
