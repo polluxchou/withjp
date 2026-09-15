@@ -43,9 +43,13 @@ export type DimensionChainPlan = {
   anchor: number   // 近边坐标(横链=最小 y,竖链=最小 x),渲染层据此把链线摆到外侧
 }
 
+// 自动带深:该方向总跨度的 10%,夹在 0.6m–2.0m。页面也要调它来显示滑杆的自动位置。
+export function autoChainBandDepth(items: VenueItem[], axis: DimensionChainAxis): number
+
 export function planDimensionChain(
   items: VenueItem[],
   axis: DimensionChainAxis,
+  bandDepth?: number | null,   // null/省略 = 用自动值
 ): DimensionChainPlan
 ```
 
@@ -74,7 +78,9 @@ bandDepth  = clamp(0.10 * (farEdge - nearEdge), 60, 200)   // cm
 band       = candidates.filter(c => c.y <= nearEdge + bandDepth)
 ```
 
-10% 自适应 + 夹在 0.6m–2.0m，是这套规则**唯一**的可调参数。用户那层楼纵向跨 15.7m → 带深 1.57m：贴着上墙的柱子、化妆间、后门都在带内，深处的楼梯落在带外。
+10% 自适应 + 夹在 0.6m–2.0m，是这套规则**唯一**的经验参数。
+
+**这个自动值不可靠，所以它做成用户可调。** 把算法跑在还原的 1F 数据上（mock: https://claude.ai/artifact/1iVTB2bTVAJPzLv8AQXchm）得到：顶部链自动带深 1.36m，而驻车场上边线在 1.40m——差 4cm 落选，整个 5.8m 的驻车场被排除在链外。一个 4 厘米的差额能决定半个平面进不进链，这种参数不该写死在代码里由用户猜。结论：自动值只作缺省，工具栏的标注面板给一根滑杆，用户随时能拨（用户 2026-09-14 拍板）。
 
 ### 3. 谁切谁：面积小的赢
 
@@ -141,12 +147,16 @@ export type VenueRulerOptions = {
   items: boolean       // 组件标尺 + 双选间距
   totalBounds: boolean // 外轮廓总尺寸
   chain: boolean       // 尺寸链
+  // 贴边带深度(cm);null = 用自动值。滑杆一拨就从 null 变成具体数值。
+  chainBandDepth: number | null
 }
 ```
 
-页面 `useState<VenueRulerOptions>({ items: true, totalBounds: true, chain: false })`，与 `showGrid` 一样只活在会话内。
+页面 `useState<VenueRulerOptions>({ items: true, totalBounds: true, chain: false, chainBandDepth: null })`，与 `showGrid` 一样只活在会话内（不落库、不跟着布局同步）。
 
 工具栏那个 `Ruler` 按钮改成弹层：复刻 `page.tsx:1700` 的 `AddMenu` 写法（`useRef` + `mousedown` 关闭 + `position: fixed` 定位），面板里三个 checkbox。按钮的 `active` 取三者任一为真。
+
+勾上「尺寸链」后，面板里多出一行**贴边带滑杆**（勾掉就收起来，面板保持精简）：范围 0.3m–4.0m、步进 0.1m，右侧读数用等宽数字。`chainBandDepth === null` 时滑杆停在自动值上、读数显示「自动 1.36m」；**一拨滑杆就自动退出自动模式**（不用先去点什么开关——mock 上验证过，先点开关再拨的设计会让人以为滑杆坏了）。旁边一个「自动」小按钮可以随时把它设回 `null`。
 
 i18n 在 `messages/{zh,en,ja}.json` 的 `venue` 命名空间下新增：
 
@@ -155,6 +165,8 @@ i18n 在 `messages/{zh,en,ja}.json` 的 `venue` 命名空间下新增：
 | `rulerMenu.items` | 组件标尺 | Item rulers | 部材寸法 |
 | `rulerMenu.totalBounds` | 外轮廓总尺寸 | Overall size | 全体寸法 |
 | `rulerMenu.chain` | 尺寸链 | Dimension chain | 寸法チェーン |
+| `rulerMenu.bandDepth` | 贴边带 | Edge band | 外周帯 |
+| `rulerMenu.bandAuto` | 自动 | Auto | 自動 |
 
 现有 `venue.dimensionRulers`（尺寸标尺）留作按钮的 `aria-label` / `title`。
 
@@ -204,6 +216,6 @@ worktree 里主仓的 `preview_start` 会跑到主仓去，必须手动 `npx nex
 
 - 不动 3D 视图（`Venue3DCanvas`）。
 - 不做下边 / 右边的链——只做顶部 + 左侧。
-- 不给贴边带深度开 UI 调节入口，先用自适应公式，实机不满意再谈。
-- 开关不持久化（与现有 `showGrid` / `showRulers` 一致）。
+- 带深滑杆只调**当前会话**，不落库、不跟着布局同步、不做每层楼各记一个值（与现有 `showGrid` / `showRulers` 一致）。要持久化等实际用起来再说。
+- 顶链与左链共用同一个带深值，不分别给两根滑杆。
 - 不改外轮廓总尺寸「只算空间类型」的既有口径。

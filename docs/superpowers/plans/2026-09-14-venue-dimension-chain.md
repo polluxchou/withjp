@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 给场地布置 2D 画布加一条自动推导的「尺寸链」标注，并把原本捆在一起的尺寸标尺开关拆成三个互相独立的勾选项。
+**Goal:** 给场地布置 2D 画布加一条自动推导的「尺寸链」标注，把原本捆在一起的尺寸标尺开关拆成三个互相独立的勾选项，并给尺寸链的贴边带深度配一根可现场调的滑杆。
 
-**Architecture:** 分段算法是两个纯函数（`planDimensionChain` 负责把贴边那一排组件切成连续的尺寸段，`layoutChainLabels` 负责把标签贪心装箱到不重叠的排），单独成文件、单独测；SVG 渲染是一个只吃几何数字的哑组件；`VenueCanvas` 只负责把两者接起来。`showRulers: boolean` 换成 `VenueRulerOptions` 三元组。
+**Architecture:** 分段算法是两个纯函数（`planDimensionChain` 负责把贴边那一排组件切成连续的尺寸段，`layoutChainLabels` 负责把标签贪心装箱到不重叠的排），单独成文件、单独测；SVG 渲染是一个只吃几何数字的哑组件；`VenueCanvas` 只负责把两者接起来。`showRulers: boolean` 换成 `VenueRulerOptions`（三个开关 + 一个带深，带深为 `null` 时走自动值）。
 
 **Tech Stack:** Next.js 15 + React 19 + TypeScript，SVG 手写画布，`node --test --experimental-strip-types` 跑单测，next-intl 三语（zh/en/ja）。
 
@@ -140,11 +140,11 @@ test('planDimensionChain: vertical 轴上同样成立', () => {
     item({ id: 'hall', x: 0, y: 0, width: 1000, height: 1000 }),
     item({ id: 'office', x: 20, y: 400, width: 70, height: 70, type: 'corridor' }),
   ], 'vertical')
-  assert.deepEqual(strip(plan.segments), shape([
+  assert.deepEqual(strip(plan.segments), [
     { start: 0, end: 400, itemId: 'hall' },
     { start: 400, end: 470, itemId: 'office' },
     { start: 470, end: 1000, itemId: 'hall' },
-  ]))
+  ])
   assert.equal(plan.anchor, 0)
 })
 
@@ -153,13 +153,53 @@ test('planDimensionChain: 面积相同的重叠组件,owner 取 id 小的那个'
     item({ id: 'zz', x: 0, y: 0, width: 200, height: 200 }),
     item({ id: 'aa', x: 0, y: 0, width: 200, height: 200 }),
   ], 'horizontal')
-  assert.deepEqual(strip(plan.segments), shape([{ start: 0, end: 200, itemId: 'aa' }]))
+  assert.deepEqual(strip(plan.segments), [{ start: 0, end: 200, itemId: 'aa' }])
 })
 
 test('planDimensionChain: 没有可量组件时返回空链', () => {
   const plan = planDimensionChain([item({ id: 'door', x: 0, y: 0, width: 70, height: 20, type: 'door_inward' })], 'horizontal')
   assert.deepEqual(plan.segments, [])
 })
+
+test('autoChainBandDepth: 取总跨度 10%,并夹在 0.6m–2.0m', () => {
+  const tall = [item({ id: 'a', x: 0, y: 0, width: 100, height: 1000 })]
+  assert.equal(autoChainBandDepth(tall, 'horizontal'), 100)
+  // 跨度 300 → 30,夹到下限 60
+  const short = [item({ id: 'a', x: 0, y: 0, width: 100, height: 300 })]
+  assert.equal(autoChainBandDepth(short, 'horizontal'), 60)
+  // 跨度 5000 → 500,夹到上限 200
+  const huge = [item({ id: 'a', x: 0, y: 0, width: 100, height: 5000 })]
+  assert.equal(autoChainBandDepth(huge, 'horizontal'), 200)
+})
+
+test('planDimensionChain: 传入带深覆盖自动值', () => {
+  const items = [
+    item({ id: 'hall', x: 0, y: 0, width: 1000, height: 1000 }),
+    // 自动带深 100,这个组件在 140 处,自动模式下落选
+    item({ id: 'annex', x: 1000, y: 140, width: 500, height: 600, type: 'renovation' }),
+  ]
+  assert.deepEqual(
+    strip(planDimensionChain(items, 'horizontal').segments),
+    [{ start: 0, end: 1000, itemId: 'hall' }],
+    '自动带深下 annex 应落选',
+  )
+  assert.deepEqual(
+    strip(planDimensionChain(items, 'horizontal', 200).segments),
+    [
+      { start: 0, end: 1000, itemId: 'hall' },
+      { start: 1000, end: 1500, itemId: 'annex' },
+    ],
+    '带深放到 200 后 annex 应进链',
+  )
+})
+```
+
+> 最后两条测试盯的是带深滑杆：`annex` 在 1.40m 处、自动带深 1.00m，差 40cm 落选——这就是 mock 上驻车场差 4cm 落选那个临界情况的缩小版，把它钉成回归用例。
+
+顶部 import 相应改成：
+
+```ts
+import { autoChainBandDepth, planDimensionChain } from './dimensionChain.ts'
 ```
 
 - [ ] **Step 2: 跑测试确认它失败**
@@ -240,7 +280,7 @@ function ownerAt(band: Box[], position: number): string | null {
   return best ? best.id : null
 }
 
-export function planDimensionChain(items: VenueItem[], axis: DimensionChainAxis): DimensionChainPlan {
+function collectBoxes(items: VenueItem[], axis: DimensionChainAxis): Box[] {
   const horizontal = axis === 'horizontal'
   const boxes: Box[] = []
   for (const item of items) {
@@ -256,11 +296,34 @@ export function planDimensionChain(items: VenueItem[], axis: DimensionChainAxis)
       area: box.width * box.height,
     })
   }
+  return boxes
+}
+
+function clampBandDepth(span: number): number {
+  return Math.min(Math.max(span * BAND_DEPTH_RATIO, BAND_DEPTH_MIN), BAND_DEPTH_MAX)
+}
+
+// 页面也要调它:滑杆处于自动模式时,要停在这个值上并显示出来。
+export function autoChainBandDepth(items: VenueItem[], axis: DimensionChainAxis): number {
+  const boxes = collectBoxes(items, axis)
+  if (boxes.length === 0) return BAND_DEPTH_MIN
+  const nearEdge = Math.min(...boxes.map((b) => b.near))
+  const farEdge = Math.max(...boxes.map((b) => b.far))
+  return clampBandDepth(farEdge - nearEdge)
+}
+
+export function planDimensionChain(
+  items: VenueItem[],
+  axis: DimensionChainAxis,
+  // null/省略 = 用自动值。用户拨了滑杆就传具体数值进来。
+  bandDepthOverride?: number | null,
+): DimensionChainPlan {
+  const boxes = collectBoxes(items, axis)
   if (boxes.length === 0) return { segments: [], anchor: 0 }
 
   const nearEdge = Math.min(...boxes.map((b) => b.near))
   const farEdge = Math.max(...boxes.map((b) => b.far))
-  const bandDepth = Math.min(Math.max((farEdge - nearEdge) * BAND_DEPTH_RATIO, BAND_DEPTH_MIN), BAND_DEPTH_MAX)
+  const bandDepth = bandDepthOverride ?? clampBandDepth(farEdge - nearEdge)
   const band = boxes.filter((b) => b.near <= nearEdge + bandDepth)
   if (band.length === 0) return { segments: [], anchor: nearEdge }
 
@@ -296,7 +359,7 @@ Run:
 ```bash
 node --test --experimental-strip-types src/venue/dimensionChain.test.ts
 ```
-Expected: PASS，10 项全过
+Expected: PASS，12 项全过
 
 - [ ] **Step 5: 把新测试文件登记进 `package.json`**
 
@@ -312,7 +375,7 @@ Run:
 ```bash
 npm test 2>&1 | tail -8
 ```
-Expected: `pass 919`（基线 909 + 新增 10），`fail 0`
+Expected: `pass 921`（基线 909 + 新增 12），`fail 0`
 
 - [ ] **Step 7: 提交**
 
@@ -448,7 +511,7 @@ Run:
 ```bash
 npm test 2>&1 | tail -8
 ```
-Expected: `pass 924`（Task 1 后的 919 + 新增 5），`fail 0`
+Expected: `pass 926`（Task 1 后的 921 + 新增 5），`fail 0`
 
 - [ ] **Step 5: 提交**
 
@@ -639,7 +702,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     "rulerMenu": {
       "items": "组件标尺",
       "totalBounds": "外轮廓总尺寸",
-      "chain": "尺寸链"
+      "chain": "尺寸链",
+      "bandDepth": "贴边带",
+      "bandAuto": "自动"
     },
 ```
 
@@ -648,7 +713,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     "rulerMenu": {
       "items": "Item rulers",
       "totalBounds": "Overall size",
-      "chain": "Dimension chain"
+      "chain": "Dimension chain",
+      "bandDepth": "Edge band",
+      "bandAuto": "Auto"
     },
 ```
 
@@ -657,7 +724,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     "rulerMenu": {
       "items": "部材寸法",
       "totalBounds": "全体寸法",
-      "chain": "寸法チェーン"
+      "chain": "寸法チェーン",
+      "bandDepth": "外周帯",
+      "bandAuto": "自動"
     },
 ```
 
@@ -710,6 +779,8 @@ export type VenueRulerOptions = {
   totalBounds: boolean
   // 尺寸链(青绿,贴边那一排组件的分段尺寸)
   chain: boolean
+  // 贴边带深度(cm);null = 用自动值。工具栏滑杆一拨就变成具体数值。
+  chainBandDepth: number | null
 }
 ```
 
@@ -733,15 +804,15 @@ export type VenueRulerOptions = {
 在 `defaultRulerPlan`（`:434`）之后加链的计算。注意依赖用 `items`（已含类型过滤与拖拽实时位置），所以拖动时链会实时重算：
 
 ```ts
-  // 尺寸链:关掉时不算,省掉每次拖拽的无谓计算。
+  // 尺寸链:关掉时不算,省掉每次拖拽的无谓计算。两条链共用同一个带深。
   const chains = useMemo(
     () => rulerOptions.chain
       ? {
-          horizontal: planDimensionChain(items, 'horizontal'),
-          vertical: planDimensionChain(items, 'vertical'),
+          horizontal: planDimensionChain(items, 'horizontal', rulerOptions.chainBandDepth),
+          vertical: planDimensionChain(items, 'vertical', rulerOptions.chainBandDepth),
         }
       : null,
-    [items, rulerOptions.chain],
+    [items, rulerOptions.chain, rulerOptions.chainBandDepth],
   )
 ```
 
@@ -781,16 +852,31 @@ export type VenueRulerOptions = {
     items: true,
     totalBounds: true,
     chain: false,
+    chainBandDepth: null,
   })
 ```
 
 顶部 import 补上类型（与已有的 `VenueCanvas` 默认导入同一行来源）：
 
+`page.tsx:53` 现在是 `import VenueCanvas from '@/venue/VenueCanvas'`，改成：
+
 ```ts
 import VenueCanvas, { type VenueRulerOptions } from '@/venue/VenueCanvas'
+import { autoChainBandDepth } from '@/venue/dimensionChain'
 ```
 
-> 实现时先确认该文件里 `VenueCanvas` 的现有 import 写法，按其实际路径别名补 `{ type VenueRulerOptions }`，不要新开一行重复 import。
+`formatVenueMeasurement` 已经在 `page.tsx:70` import 过了，不用再加。
+
+滑杆处于自动模式时要显示自动值，页面自己算一份（口径跟画布一致：用已有的 `visibleFloor`，它是套过类型筛选的楼层，见 `page.tsx:308`）。放在 `visibleFloor` 定义之后：
+
+```ts
+  // 滑杆停在自动值上时要把这个数显示出来。顶链与左链的自动值可能不同,
+  // 这里取顶链的——滑杆是两条链共用的,拿一个有代表性的当缺省位置。
+  const chainAutoDepth = useMemo(
+    () => autoChainBandDepth(visibleFloor.items, 'horizontal'),
+    [visibleFloor.items],
+  )
+```
 
 `:1057` 的 `showRulers={showRulers}` 改成 `rulerOptions={rulerOptions}`。
 
@@ -803,7 +889,7 @@ import VenueCanvas, { type VenueRulerOptions } from '@/venue/VenueCanvas'
 ```
 换成
 ```tsx
-          <RulerMenu options={rulerOptions} onChange={setRulerOptions} />
+          <RulerMenu options={rulerOptions} onChange={setRulerOptions} autoDepth={chainAutoDepth} />
 ```
 
 在文件里 `AddMenu`（`:1700`）之后新增组件。弹层开关、点外面关闭、`position: fixed` 定位都照抄 `AddMenu`：
@@ -812,9 +898,12 @@ import VenueCanvas, { type VenueRulerOptions } from '@/venue/VenueCanvas'
 function RulerMenu({
   options,
   onChange,
+  autoDepth,
 }: {
   options: VenueRulerOptions
   onChange: (next: VenueRulerOptions) => void
+  // 自动带深(cm),仅用于滑杆处于自动模式时的显示与滑块位置
+  autoDepth: number
 }) {
   const t = useTranslations('venue')
   const [open, setOpen] = useState(false)
@@ -837,7 +926,7 @@ function RulerMenu({
     setOpen((value) => !value)
   }
 
-  const entries: { key: keyof VenueRulerOptions; label: string }[] = [
+  const entries: { key: 'items' | 'totalBounds' | 'chain'; label: string }[] = [
     { key: 'items', label: t('rulerMenu.items') },
     { key: 'totalBounds', label: t('rulerMenu.totalBounds') },
     { key: 'chain', label: t('rulerMenu.chain') },
@@ -880,6 +969,41 @@ function RulerMenu({
               <span>{entry.label}</span>
             </label>
           ))}
+          {options.chain && (
+            <div className="mt-1 border-t border-line-soft px-3 pb-1.5 pt-2">
+              <div className="flex items-center justify-between gap-2 text-xs text-ink-700">
+                <span>{t('rulerMenu.bandDepth')}</span>
+                <span className="font-semibold tabular-nums text-ink-900">
+                  {options.chainBandDepth === null
+                    ? `${t('rulerMenu.bandAuto')} ${formatVenueMeasurement(autoDepth)}`
+                    : formatVenueMeasurement(options.chainBandDepth)}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <input
+                  id="venue-chain-band-depth"
+                  type="range"
+                  min={30}
+                  max={400}
+                  step={10}
+                  value={options.chainBandDepth ?? Math.round(autoDepth)}
+                  aria-label={t('rulerMenu.bandDepth')}
+                  // 拨滑杆就等于「我要自己定」,顺手退出自动模式。别做成必须先点
+                  // 「自动」才能拨——mock 上试过,那样会让人以为滑杆是坏的。
+                  onChange={(event) => onChange({ ...options, chainBandDepth: Number(event.target.value) })}
+                  className="h-1 flex-1 accent-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...options, chainBandDepth: null })}
+                  disabled={options.chainBandDepth === null}
+                  className="shrink-0 rounded-field border border-line-strong px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:border-primary-border hover:text-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t('rulerMenu.bandAuto')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -887,7 +1011,9 @@ function RulerMenu({
 }
 ```
 
-> `Ruler` 图标已经在文件顶部 import 过（原按钮就在用）；`useEffect` / `useRef` / `useState` 同理。实现时确认一遍，缺哪个补哪个。按钮的 active/inactive 配色照搬 `ToolbarButton` 里的同名分支，不要自造新配色。
+> `Ruler` 图标（`page.tsx:38`）、`useCallback/useEffect/useMemo/useRef/useState`（`page.tsx:3`）、`formatVenueMeasurement`（`page.tsx:70`）都已经 import 过，不用再加。按钮的 active/inactive 配色照搬 `ToolbarButton:1921-1923` 的同名分支（active 是 `border-primary-border bg-primary-soft text-primary-hover`），不要自造新配色。
+>
+> 带深滑杆只在「尺寸链」勾上时才出现——勾掉就收起来，面板保持精简。
 
 - [ ] **Step 6: 类型检查 + lint + 全量测试**
 
@@ -895,7 +1021,7 @@ Run:
 ```bash
 npx tsc --noEmit && npm run test:lint && npm test 2>&1 | tail -6
 ```
-Expected: `tsc` 无输出；lint 零警告；`pass 924` / `fail 0`
+Expected: `tsc` 无输出；lint 零警告；`pass 926` / `fail 0`
 
 - [ ] **Step 7: 提交**
 
@@ -960,6 +1086,6 @@ PR 描述里附上两张截图和贴边带深度的实测结论。
 
 ## 风险与回头要确认的点
 
-- **贴边带深度的自动公式已知站在刀尖上，开工前需用户定夺。** 把算法跑在还原的 1F 数据上（mock: https://claude.ai/artifact/1iVTB2bTVAJPzLv8AQXchm）得到：顶部链自动带深 **1.36m**，而驻车场上边线在 **1.40m**——差 4cm 落选，整个 5.8m 的驻车场被排除在链外。公式 `clamp(10% × 该方向总跨度, 0.6m, 2.0m)` 在这份数据上不稳，**不要照着它直接定稿**。三条出路，由用户选：①改成固定值（用户在 mock 滑杆上定一个）；②带深不看总跨度，改看「最外层那个组件的进深」；③驻车场这类大块「区域」不走贴边带，单独按是否贴外轮廓收进链。选定之前 Task 1 的 `BAND_DEPTH_*` 常量只是占位。
+- **贴边带深度的自动公式不可靠，所以它做成了滑杆。** 把算法跑在还原的 1F 数据上（mock: https://claude.ai/artifact/1iVTB2bTVAJPzLv8AQXchm）得到：顶部链自动带深 **1.36m**，而驻车场上边线在 **1.40m**——差 4cm 落选，整个 5.8m 的驻车场被排除在链外。一个 4 厘米的差额能决定半个平面进不进链，这种参数不该写死让用户猜。**用户 2026-09-14 拍板：自动值只当缺省，工具栏给一根滑杆随时拨。** `BAND_DEPTH_*` 常量现在只影响缺省位置，不再是唯一真相。
 - **标签宽度是估算的**（`字符数 × 0.62 × 字号`），不是真实字体度量。窄段密集时可能仍有轻微重叠，实测发现就把 0.62 调大一点，而不是去改分排算法。
 - **尺寸链与红色总尺寸的端点不对齐是预期行为**——前者统计所有非标识组件，后者只统计空间类型。看到两条线不齐不要当 bug 修。
