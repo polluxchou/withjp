@@ -1625,6 +1625,13 @@
     "redo": "やり直す",
     "grid": "グリッド",
     "dimensionRulers": "寸法ルーラー",
+    "rulerMenu": {
+      "items": "部材寸法",
+      "totalBounds": "全体寸法",
+      "chain": "寸法チェーン",
+      "bandDepth": "外周帯",
+      "bandAuto": "自動"
+    },
     "snapEnabled": "エッジスナップ",
     "mergeAreas": "スペースを結合",
     "unmergeAreas": "スペースを分割",
