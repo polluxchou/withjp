@@ -207,7 +207,10 @@ export default function CompetitorDescriptions({
   return (
     <span
       ref={wrapRef}
-      className="relative shrink-0"
+      // inline-flex：这层是外侧 flex 行的项，块化后会带一个 24px 的行盒
+      // （继承 16px 字号的 line-height），里面的按钮按基线落位而非居中，
+      // 胶囊就会比行中线低 2px。做成 flex 容器后高度贴合内容，由外层 items-center 居中。
+      className="relative inline-flex shrink-0"
       onKeyDown={(e) => {
         if (e.key !== 'Escape' || !open) return
         e.stopPropagation()
@@ -222,7 +225,10 @@ export default function CompetitorDescriptions({
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={t('descriptionsLabel', { count })}
-        className={`rounded-btn ${FOCUS_RING}`}
+        // 与 RegionLiveRuler 同一处理：inline-flex 让按钮贴着胶囊本身，不留 24px 行盒的
+        // 余量。这枚当前靠 svg 无基线"碰巧"居中，不写死就会随首个子元素类型漂移；
+        // 顺带焦点环也从 24px 的空盒收紧到可见胶囊上。
+        className={`inline-flex rounded-btn ${FOCUS_RING}`}
       >
         {/* 有描述时连条数一起显示 —— 条数本身就是"这个号攒了多少观察"的信息。
             一条没有时（只有管理员看得到）退成一枚灰图标,不写 0。 */}
