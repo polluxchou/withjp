@@ -1,7 +1,7 @@
 // src/components/competitors/ShotLightbox.tsx
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Download, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
@@ -66,7 +66,14 @@ export default function ShotLightbox({
   const [captionOpen, setCaptionOpen] = useState(false)
   // 只有真的被截断才给"展开":一行就完的备注后面挂个展开钮是纯噪音。
   const [captionClipped, setCaptionClipped] = useState(false)
-  const captionRef = useRef<HTMLParagraphElement | null>(null)
+  // 用 state 存节点而不是 useRef。备注那段 <p> 被好几层开关决定挂不挂载
+  // (图没加载完时整个舞台都不画、仅看图时渐变层不画、这张图没备注时不画),
+  // 而 ref 赋值不触发重渲染 —— effect 依赖里漏掉任何一层开关,测量就永远停在
+  // "挂载前那次"的结果上。实测踩过:首屏 allReady 还是 false,<p> 不存在,
+  // 测出"没截断";等图加载完 <p> 挂上了,effect 却不会重跑,于是打开灯箱第一眼
+  // 永远没有展开钮,非得切一张图或改一次窗口大小才补出来。
+  // 存进 state 后,节点的挂载与卸载本身就是依赖变化,这一整类漏依赖不再可能。
+  const [captionEl, setCaptionEl] = useState<HTMLParagraphElement | null>(null)
   // 仅看图：把日期/序号胶囊、渐变层、邻图全收起来,只留主图和右上角两颗钮。
   // TikTok 直播截图最要紧的礼物栏、排行榜、评论都压在画面下缘,而渐变层正好
   // 盖在那儿(常态占主图 32%) —— 这个模式存在的理由就是把那块让出来。
@@ -145,11 +152,10 @@ export default function ShotLightbox({
   // 测不出来也不必测 —— 能展开就说明刚才截断过,直接留着收起钮。
   useEffect(() => {
     if (captionOpen) return
-    const el = captionRef.current
-    if (!el) { setCaptionClipped(false); return }
+    if (!captionEl) { setCaptionClipped(false); return }
     // +1 容差:子像素行高会让没截断的段落也差出零点几 px。
-    setCaptionClipped(el.scrollHeight > el.clientHeight + 1)
-  }, [selectedId, selectedCaption, captionOpen, viewport.w, viewport.h, editOpen])
+    setCaptionClipped(captionEl.scrollHeight > captionEl.clientHeight + 1)
+  }, [captionEl, selectedId, selectedCaption, captionOpen, viewport.w, viewport.h, editOpen])
 
   // 翻页:纯 index 位移,夹逼到两端。没有窗口概念了,比改版前的"窗口起点 + 选中项"
   // 两套状态简单得多。
@@ -472,7 +478,7 @@ export default function ShotLightbox({
                   {ov.caption && (
                     <div>
                       <p
-                        ref={captionRef}
+                        ref={setCaptionEl}
                         className={`whitespace-pre-wrap ${
                           captionOpen ? 'max-h-[28vh] overflow-y-auto' : 'line-clamp-2'
                         }`}
