@@ -238,7 +238,7 @@ test('layoutChainLabels: 同一排内的标签不重叠', () => {
     list.push({ left: mid - width / 2, right: mid + width / 2 })
     byRow.set(rows[index], list)
   })
-  for (const list of byRow.values()) {
+  for (const list of Array.from(byRow.values())) {
     for (let i = 1; i < list.length; i++) {
       assert.ok(list[i].left >= list[i - 1].right, '同排标签不得重叠')
     }
