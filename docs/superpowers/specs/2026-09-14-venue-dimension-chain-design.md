@@ -38,10 +38,15 @@ export type DimensionChainSegment = {
   itemId: string | null  // null 表示空隙段
 }
 
+export type DimensionChainPlan = {
+  segments: DimensionChainSegment[]
+  anchor: number   // 近边坐标(横链=最小 y,竖链=最小 x),渲染层据此把链线摆到外侧
+}
+
 export function planDimensionChain(
   items: VenueItem[],
   axis: DimensionChainAxis,
-): DimensionChainSegment[]
+): DimensionChainPlan
 ```
 
 `horizontal` = 顶部那条横链，`vertical` = 左侧那条竖链。下面按 `horizontal` 描述，`vertical` 把 x/y、width/height 对调即可。
@@ -92,8 +97,11 @@ band       = candidates.filter(c => c.y <= nearEdge + bandDepth)
 ```ts
 export function layoutChainLabels(
   segments: DimensionChainSegment[],
-  options: { labelWidth: (segment: DimensionChainSegment) => number; minGap: number },
-): { index: number; row: number }[]
+  options: {
+    labelWidth: (segment: DimensionChainSegment, index: number) => number
+    minGap: number
+  },
+): number[]   // 与 segments 一一对应的排号,0 = 紧贴链线
 ```
 
 贪心区间装箱：按顺序遍历，记录每一排已占用的最右端，把标签放进**能放下它的最小排号**。第 0 排就是链线正上方，往上逐排错开。窄段因此自动被推到第二、第三排并拉引线（示意图里那三个 `0.40m`）。
@@ -108,8 +116,7 @@ export function layoutChainLabels(
 <DimensionChain
   segments={...}
   axis="horizontal"
-  baseline={number}   // 链线所在的 y（横链）或 x（竖链）
-  anchor={number}     // 引线要拉到的那条近边
+  anchor={number}     // 近边坐标;链线位置由渲染层按 anchor - 50/scale 自行推出
   scale={number}
 />
 ```
