@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
+import CompetitorDescriptions from './CompetitorDescriptions'
 import ShotAlbum from './ShotAlbum'
 import RegionLiveRuler from './RegionLiveRuler'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
@@ -269,6 +270,14 @@ export default function CompetitorCard({
               {/* 地区标签兼作「同区开播时段」浮层的触发器（内部自带 shrink-0：
                   它是 flex 子项，默认会被压到换行——实测「日本」被挤成竖排两字）。 */}
               <RegionLiveRuler region={c.region} peers={regionPeers} currentId={c.id} />
+              {/* 风格描述紧跟在身份信息之后：它描述的是"这个号长什么样",
+                  和名字/认证/地区是同一类身份信息,不属于下面那行指标。 */}
+              <CompetitorDescriptions
+                competitorId={c.id}
+                descriptions={c.descriptions}
+                canEdit={canEdit}
+                onChanged={onChanged}
+              />
             </div>
           </div>
           {roleNode && (
