@@ -13,7 +13,6 @@
 // 需要 --experimental-strip-types：正文的校验规则直接 import 界面那份
 // descriptions.ts，两条写入路径共用同一个上限与空白处理，不各写一遍。
 
-import { createClient } from '@supabase/supabase-js'
 import { readFile } from 'node:fs/promises'
 import { BODY_MAX_CHARS, normalizeDescriptionBody } from '../../src/lib/competitors/descriptions.ts'
 
@@ -25,22 +24,24 @@ function opt(name, fallback = null) {
   return v === undefined || v.startsWith('--') ? true : v
 }
 
-// 生成日期按日本时间取，与截图的 shot_on 用同一套业务日（见 record-live-shot.mjs
-// 里 SHOT_TZ 的注释）：竞品全是日区团播，整条流水线的日期都按日区的一天分桶，
-// 这里跟着走才不会出现"同一轮跑出来的截图和描述差一天"。
-const TZ = 'Asia/Tokyo'
-function todayInTz() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(new Date())
-  const at = (type) => parts.find((x) => x.type === type).value
-  return `${at('year')}-${at('month')}-${at('day')}`
+// 生成日期取**本机**当天，不跟截图的 shot_on 那样按日本时间分桶。
+// 两者语义不同：shot_on 记的是"直播发生在日区的哪一天"，是业务日；generated_on
+// 记的是"这份总结什么时候产出的"，没有日区可言。若照搬 JST，本机 PDT 下午跑出来
+// 的描述会盖上明天的日戳，排到界面手写那条（走浏览器本地日期）的前面 —— 同一天
+// 两条写入路径对不上。要精确指定就用 --generated-on。
+//
+// 不用 toISOString()：那是 UTC，同样会在时区边界上差一天。
+function todayLocal() {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 const handle = opt('handle')
 const bodyArg = opt('body')
 const bodyFile = opt('body-file')
-const generatedOn = opt('generated-on', todayInTz())
+const generatedOn = opt('generated-on', todayLocal())
 const source = opt('source', 'auto')
 const dryRun = opt('dry-run') === true
 
@@ -63,9 +64,23 @@ if (!url || !key) {
   process.exit(1)
 }
 
-// 本机挂着 HTTPS_PROXY 时，经代理回来的响应体 gzip 不会被自动解压，postgrest-js
-// 拿到二进制当场崩。直接要求不压缩：这些请求的响应都只有几 KB，省下的带宽不值
-// 一次"为什么脚本在我机器上炸了"的排查。
+// 本机挂代理时要过两道坎，两道都得治，只治一道会换个姿势失败：
+// ① Node 内置 fetch(undici) 不认 HTTP_PROXY/HTTPS_PROXY，会直连 Supabase 的
+//    Cloudflare IP 然后 UND_ERR_CONNECT_TIMEOUT。接管全局 dispatcher 解决。
+// ② 但经代理回来的响应体是 gzip 且**不会**被自动解压（直连那条路径才会），
+//    postgrest-js 拿到 \x1F\x8B 开头的字节直接 JSON.parse 当场崩。所以再要求
+//    服务端别压缩 —— 这些响应都只有几 KB，省那点带宽不值一次排查。
+const usingProxy = Boolean(
+  process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy,
+)
+if (usingProxy) {
+  const { EnvHttpProxyAgent, setGlobalDispatcher } = await import('undici')
+  setGlobalDispatcher(new EnvHttpProxyAgent())
+}
+// 动态 import 且必须晚于上面那段：静态 import 会被提升到文件最前面执行，
+// supabase-js 就会在 dispatcher 换掉之前把旧的抓在手里。
+const { createClient } = await import('@supabase/supabase-js')
+
 // headers 必须过一遍 Headers 构造器：supabase-js 传进来的是 Headers 实例，
 // 对它做对象展开会得到 {}，apikey 与 Authorization 当场蒸发（实测报
 // "No API key found in request"）。
