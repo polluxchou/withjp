@@ -1419,6 +1419,13 @@
     "redo": "Redo",
     "grid": "Grid",
     "dimensionRulers": "Dimension rulers",
+    "rulerMenu": {
+      "items": "Item rulers",
+      "totalBounds": "Overall size",
+      "chain": "Dimension chain",
+      "bandDepth": "Edge band",
+      "bandAuto": "Auto"
+    },
     "snapEnabled": "Edge snapping",
     "mergeAreas": "Merge spaces",
     "unmergeAreas": "Unmerge spaces",

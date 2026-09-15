@@ -192,6 +192,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
      | `src/app/globals.css` | token CSS 变量定义处，hex 是 token 本身的取值 |
      | `src/venue/VenueCanvas.tsx` | 场馆 2D 平面图：纸面/网格/家具类型色属工程制图语义，非 UI chrome |
      | `src/venue/Venue3DCanvas.client.tsx` | 场馆 3D 视图：three.js 材质/场景色同上，需与 2D 同色系对齐 |
+     | `src/venue/DimensionChain.tsx` | 场馆尺寸链标注：青绿与组件标尺灰／总尺寸红同属工程制图语义，非 UI chrome |
      | `src/app/[locale]/login/page.tsx` | 登录页是独立营销位，不属后台设计系统辖区 |
      | `src/app/[locale]/reset-password/page.tsx` | 忘记密码是登录前的公开验证流程，与登录页同属独立营销位（不进后台设计系统辖区） |
 

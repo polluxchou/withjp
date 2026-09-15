@@ -1419,6 +1419,13 @@
     "redo": "重做",
     "grid": "网格",
     "dimensionRulers": "尺寸标尺",
+    "rulerMenu": {
+      "items": "组件标尺",
+      "totalBounds": "外轮廓总尺寸",
+      "chain": "尺寸链",
+      "bandDepth": "贴边带",
+      "bandAuto": "自动"
+    },
     "snapEnabled": "边缘吸附",
     "mergeAreas": "合并空间",
     "unmergeAreas": "拆分空间",
