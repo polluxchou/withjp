@@ -96,6 +96,7 @@ function competitor(
     shots,
     weekly: [],
     related,
+    descriptions: [],
   }
 }
 
