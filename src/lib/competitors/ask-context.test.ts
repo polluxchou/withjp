@@ -65,6 +65,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     shots: over.shots ?? [],
     weekly: over.weekly ?? [],
     related: over.related ?? [],
+    descriptions: over.descriptions ?? [],
   }
 }
 

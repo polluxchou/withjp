@@ -1543,7 +1543,19 @@
       "errorNotConfigured": "チャット機能が未設定です。管理者に DEEPSEEK_API_KEY の設定を依頼してください。",
       "errorUpstream": "回答を取得できませんでした。もう一度お試しください。",
       "errorBoard": "競合データの読み込みに失敗しました。しばらくしてからもう一度お試しください。"
-    }
+    },
+    "descriptionsTitle": "配信ルームの画風メモ",
+    "descriptionsLabel": "画風メモ（{count} 件）",
+    "descriptionsEmpty": "画風メモはまだありません",
+    "descriptionAdd": "追加",
+    "descriptionEdit": "メモを編集",
+    "descriptionDelete": "メモを削除",
+    "descriptionDeleteConfirm": "このメモを削除しますか？",
+    "descriptionDate": "生成日",
+    "descriptionPlaceholder": "この配信ルームの画づくり…",
+    "descriptionBodyRequired": "本文と日付の両方が必要です",
+    "descriptionSourceAuto": "自動生成",
+    "descriptionSourceManual": "手書き"
   },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",

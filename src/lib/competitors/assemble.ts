@@ -1,7 +1,9 @@
 // src/lib/competitors/assemble.ts
 import type {
-  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorBoard, CompetitorWithHistory, HistoryPoint,
+  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription,
+  CompetitorBoard, CompetitorWithHistory, HistoryPoint,
 } from './types.ts'
+import { sortDescriptions } from './descriptions.ts'
 import { bucketFollowersByWeek } from './weekly.ts'
 
 /** 从 URL / @handle / handle 中抽出不含 @ 的 handle；失败返回 null。 */
@@ -14,12 +16,13 @@ export function parseHandleFromUrl(input: string): string | null {
   return bare ? s : null
 }
 
-/** 把竞品 + 快照 + 截图组装成看板；下探发现的子账号（parent_id）挂到父的 related,首页只列顶层。 */
+/** 把竞品 + 快照 + 截图 + 风格描述组装成看板；下探发现的子账号（parent_id）挂到父的 related,首页只列顶层。 */
 export function assembleBoard(
   competitors: Competitor[],
   snapshots: CompetitorSnapshot[],
   shots: CompetitorShot[],
   canEdit: boolean,
+  descriptions: CompetitorDescription[] = [],
 ): CompetitorBoard {
   const snapsBy = new Map<string, CompetitorSnapshot[]>()
   for (const s of snapshots) {
@@ -32,6 +35,12 @@ export function assembleBoard(
     const arr = shotsBy.get(s.competitor_id) ?? []
     arr.push(s)
     shotsBy.set(s.competitor_id, arr)
+  }
+  const descsBy = new Map<string, CompetitorDescription[]>()
+  for (const d of descriptions) {
+    const arr = descsBy.get(d.competitor_id) ?? []
+    arr.push(d)
+    descsBy.set(d.competitor_id, arr)
   }
 
   const build = (c: Competitor): CompetitorWithHistory => {
@@ -50,7 +59,10 @@ export function assembleBoard(
       const cmp = b.shot_on.localeCompare(a.shot_on)
       return cmp !== 0 ? cmp : a.sort_order - b.sort_order
     })
-    return { ...c, latest, history, weekly, shots: shotRows, related: [] }
+    return {
+      ...c, latest, history, weekly, shots: shotRows, related: [],
+      descriptions: sortDescriptions(descsBy.get(c.id) ?? []),
+    }
   }
 
   const built = new Map<string, CompetitorWithHistory>()

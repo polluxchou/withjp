@@ -1784,7 +1784,19 @@
       "errorNotConfigured": "对话功能尚未配置，请联系管理员设置 DEEPSEEK_API_KEY。",
       "errorUpstream": "没能拿到回答，可以再试一次。",
       "errorBoard": "竞品数据加载失败，请稍后再试。"
-    }
+    },
+    "descriptionsTitle": "直播间风格描述",
+    "descriptionsLabel": "风格描述（{count} 条）",
+    "descriptionsEmpty": "还没有风格描述",
+    "descriptionAdd": "新增",
+    "descriptionEdit": "编辑描述",
+    "descriptionDelete": "删除描述",
+    "descriptionDeleteConfirm": "删除这条描述？",
+    "descriptionDate": "生成日期",
+    "descriptionPlaceholder": "这个直播间的画面风格…",
+    "descriptionBodyRequired": "正文和日期都要填",
+    "descriptionSourceAuto": "自动生成",
+    "descriptionSourceManual": "手写"
   },
   "site": {
     "meta": {
