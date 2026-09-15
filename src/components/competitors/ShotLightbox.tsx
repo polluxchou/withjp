@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Download, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
-import { todayLocal } from '@/lib/competitors/localDate'
+import { maxShotDate } from '@/lib/competitors/localDate'
 import { lightboxNeighbors } from '@/lib/competitors/lightboxLayout'
 import { shotOverlaySections } from '@/lib/competitors/shotOverlay'
 import { dayZipName, shotFileName } from '@/lib/competitors/shotDownload'
@@ -548,7 +548,7 @@ export default function ShotLightbox({
                   <input
                     type="date"
                     value={dateInput}
-                    max={todayLocal()}
+                    max={maxShotDate()}
                     onChange={(e) => setDateInput(e.target.value)}
                     className="min-w-0 flex-1 rounded-field border border-line-strong px-2 py-1 text-ink-900 sm:flex-none"
                   />
