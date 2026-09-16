@@ -31,7 +31,8 @@ export function bucketFollowersByWeek(history: WeekBucketInput[]): WeeklyPoint[]
     rows.sort((a, b) => a.captured_on.localeCompare(b.captured_on))
     const last = rows[rows.length - 1]
     if (last.followers == null) continue
-    points.push({ week_start, followers: last.followers })
+    // captured_on 跟着被选中的那条走（每周最后一次），不是周一、也不是该周最早那条。
+    points.push({ week_start, followers: last.followers, captured_on: last.captured_on })
   }
   points.sort((a, b) => a.week_start.localeCompare(b.week_start))
   return points
@@ -40,6 +41,8 @@ export function bucketFollowersByWeek(history: WeekBucketInput[]): WeeklyPoint[]
 export interface WeekSlot {
   week_start: string
   followers: number | null
+  /** 该周实际取用的采集日；缺采的周没有这一天，为 null。 */
+  captured_on: string | null
 }
 
 /** 把某个周一按周偏移，仍走 UTC——与 weekStartOf 同口径，避免本地时区推错一天。 */
@@ -67,15 +70,20 @@ export function fillWeekSlots(points: WeeklyPoint[], count: number): WeekSlot[] 
   )
   if (rows.length === 0 || !Number.isFinite(count) || count < 1) return []
 
-  const byWeek = new Map<string, number>()
-  for (const r of rows) byWeek.set(r.week_start, r.followers)
+  const byWeek = new Map<string, WeeklyPoint>()
+  for (const r of rows) byWeek.set(r.week_start, r)
   // 不依赖调用方保证升序
   const newest = Array.from(byWeek.keys()).sort()[byWeek.size - 1]
 
   const slots: WeekSlot[] = []
   for (let i = count - 1; i >= 0; i--) {
     const week_start = shiftWeeks(newest, -i)
-    slots.push({ week_start, followers: byWeek.get(week_start) ?? null })
+    const hit = byWeek.get(week_start)
+    slots.push({
+      week_start,
+      followers: hit?.followers ?? null,
+      captured_on: hit?.captured_on ?? null,
+    })
   }
   while (slots.length > 0 && slots[0].followers == null) slots.shift()
   return slots

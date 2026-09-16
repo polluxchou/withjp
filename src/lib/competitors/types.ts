@@ -98,6 +98,12 @@ export interface CompetitorDescription {
 export interface WeeklyPoint {
   week_start: string
   followers: number
+  /**
+   * 该周实际取用的那条快照的采集日（YYYY-MM-DD）。
+   * 与 week_start 区分开：后者是归一化出来的周一，只是图上的等距刻度；采集实际
+   * 发生在周中某天，提示框要报的是这一个，否则读者无从判断数据新鲜度。
+   */
+  captured_on: string
 }
 
 export interface CompetitorWithHistory extends Competitor {

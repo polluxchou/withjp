@@ -2,7 +2,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { buildWeeklyCurve, type WeeklyCurvePoint } from '@/lib/competitors/chart'
+import { buildWeeklyCurve, weeklyTipLabel, type WeeklyCurvePoint } from '@/lib/competitors/chart'
 import { formatCount } from '@/lib/competitors/metrics'
 import type { WeeklyPoint } from '@/lib/competitors/types'
 import { fillWeekSlots } from '@/lib/competitors/weekly'
@@ -65,12 +65,16 @@ export default function WeeklyFollowersCurve({ weekly, compact = false }: { week
   const delta = pct != null ? t('weeklyDelta', { pct: `${pct > 0 ? '+' : ''}${pct.toFixed(1)}` }) : null
   // 精确数字（非 26.9K 这样的压缩值）。显式传 locale：无参 toLocaleString 取运行时
   // 默认区域，SSR 与浏览器不一致会引发 hydration 不匹配。
-  // 缺采的周复用同一条文案、数值位给 formatCount(null) 的「—」，不新增 i18n key。
-  const tip = (p: WeeklyCurvePoint) =>
-    t('weeklyPointTip', {
-      date: p.week_start,
+  // 日期报的是真实采集日而非 x 轴那个周一刻度（我们并不在周一采数，拿周一当数据
+  // 日期会把新鲜度说早几天）；缺采的周没有采集日，由 weeklyTipLabel 退回「某周起」
+  // 的文案，数值位给 formatCount(null) 的「—」。
+  const tip = (p: WeeklyCurvePoint) => {
+    const label = weeklyTipLabel(p)
+    return t(label.key, {
+      date: label.date,
       count: p.followers == null ? formatCount(null) : p.followers.toLocaleString('zh-CN'),
     })
+  }
   // 圆点不进 tab 序（每张卡 4 个空按钮会污染键盘导航），改由整图一条可读序列
   // 一次给全；精确数字另有展开区的「历史打点」表格兜底。
   const seriesLabel = `${t('weeklyFollowers')} — ${pts.map(tip).join('; ')}`
