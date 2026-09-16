@@ -8,7 +8,7 @@ import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
 import { maxShotDate } from '@/lib/competitors/localDate'
 import { lightboxNeighbors } from '@/lib/competitors/lightboxLayout'
-import { shotOverlaySections } from '@/lib/competitors/shotOverlay'
+import { captionOverflowsClamp, shotOverlaySections } from '@/lib/competitors/shotOverlay'
 import { dayZipName, shotFileName } from '@/lib/competitors/shotDownload'
 import { fetchBytes, saveBlob } from '@/lib/competitors/downloadFile'
 import { buildZip } from '@/lib/competitors/zip'
@@ -63,7 +63,10 @@ export default function ShotLightbox({
   // 编辑区默认折叠。改日期、删图都是低频操作,常年摊开等于让高频的"看图"给低频的
   // "修数据"让位;折叠还顺带把删除键从关闭键旁边挪走了。
   const [editOpen, setEditOpen] = useState(false)
-  const [captionOpen, setCaptionOpen] = useState(false)
+  // 备注默认展开。折起来的那版实测下来读不完:画面上只有两行加一个「展开」,
+  // 而备注的全部价值就是"不用重新点开图自己认" —— 还要多点一下才看得到,
+  // 等于没写。想看干净画面有右上角的「仅看图」,比让每个人每次都点一下划算。
+  const [captionOpen, setCaptionOpen] = useState(true)
   // 只有真的被截断才给"展开":一行就完的备注后面挂个展开钮是纯噪音。
   const [captionClipped, setCaptionClipped] = useState(false)
   // 用 state 存节点而不是 useRef。备注那段 <p> 被好几层开关决定挂不挂载
@@ -108,9 +111,9 @@ export default function ShotLightbox({
   useEffect(() => {
     setDateInput(selectedShotOn)
     setError(null)
-    // 换一张图就收起备注:上一张的展开态套到新备注上没有意义。
+    // 换一张图把备注恢复成默认的展开态:上一张手动收起过,不该带到下一张。
     // 编辑区反过来保持不动 —— 清理某天的多张图时会连着删好几张。
-    setCaptionOpen(false)
+    setCaptionOpen(true)
   }, [selectedId, selectedShotOn])
 
   // 预加载当天全部截图。预加载整天(通常 3-6 张)而不只是当前三张,是为了让画面外的图
@@ -151,10 +154,11 @@ export default function ShotLightbox({
   // 备注有没有被 line-clamp 截断。展开态下 scrollHeight === clientHeight,
   // 测不出来也不必测 —— 能展开就说明刚才截断过,直接留着收起钮。
   useEffect(() => {
-    if (captionOpen) return
     if (!captionEl) { setCaptionClipped(false); return }
-    // +1 容差:子像素行高会让没截断的段落也差出零点几 px。
-    setCaptionClipped(captionEl.scrollHeight > captionEl.clientHeight + 1)
+    // 判据与当前展开/折叠无关(见 captionOverflowsClamp 的注释):默认展开之后,
+    // 旧的 scrollHeight > clientHeight 恒为 false,一行的备注也会挂出「收起」。
+    const lineHeight = Number.parseFloat(getComputedStyle(captionEl).lineHeight)
+    setCaptionClipped(captionOverflowsClamp(captionEl.scrollHeight, lineHeight))
   }, [captionEl, selectedId, selectedCaption, captionOpen, viewport.w, viewport.h, editOpen])
 
   // 翻页:纯 index 位移,夹逼到两端。没有窗口概念了,比改版前的"窗口起点 + 选中项"
@@ -480,12 +484,12 @@ export default function ShotLightbox({
                       <p
                         ref={setCaptionEl}
                         className={`whitespace-pre-wrap ${
-                          captionOpen ? 'max-h-[28vh] overflow-y-auto' : 'line-clamp-2'
+                          captionOpen ? 'max-h-[28vh] overflow-y-auto' : 'line-clamp-2' /* CAPTION_CLAMP_LINES */
                         }`}
                       >
                         {selected.caption}
                       </p>
-                      {(captionClipped || captionOpen) && (
+                      {captionClipped && (
                         <button
                           type="button"
                           onClick={() => setCaptionOpen((v) => !v)}

@@ -45,3 +45,28 @@ export function shotOverlaySections(
   const edit = has && canEdit
   return { live, caption, strip, edit, footer: live || caption || strip || edit }
 }
+
+/** 备注折叠时显示几行。与组件里的 `line-clamp-2` 同步。 */
+export const CAPTION_CLAMP_LINES = 2
+
+/**
+ * 这段备注的内容有没有超出折叠后的行数 —— 也就是"该不该给它一颗展开/收起钮"。
+ *
+ * 判据刻意与当前是展开还是折叠**无关**：只拿内容总高度跟"夹住的行数 × 行高"比。
+ * 备注默认是展开的，而展开态下 `scrollHeight === clientHeight`，旧写法
+ * `scrollHeight > clientHeight` 在那个状态恒为 false —— 结果是每条备注（哪怕只有
+ * 一行）都会挂出一颗「收起」，点下去什么也不会变。
+ *
+ * 1px 容差：子像素行高会让没超出的段落也差出零点几 px。
+ *
+ * 行高取不到（getComputedStyle 在极端情况下给 `normal` 或 0）时一律返回 false：
+ * 宁可少一颗按钮，也不要给每条备注都挂一颗点了没反应的。
+ */
+export function captionOverflowsClamp(
+  scrollHeight: number,
+  lineHeight: number,
+  lines: number = CAPTION_CLAMP_LINES,
+): boolean {
+  if (!Number.isFinite(scrollHeight) || !Number.isFinite(lineHeight) || lineHeight <= 0) return false
+  return scrollHeight > lineHeight * lines + 1
+}
