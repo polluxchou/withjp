@@ -131,6 +131,7 @@ async function main() {
       const v=document.querySelector('video');
       if(!v) return {hasVideo:false};
       v.muted=true; v.volume=0;
+      if(v.paused){ try{ v.play(); }catch(e){} }
       const r=v.getBoundingClientRect(), cs=getComputedStyle(v);
       const iw=v.videoWidth, ih=v.videoHeight;
       if(!iw||!ih) return {hasVideo:true, ready:false};
@@ -141,7 +142,8 @@ async function main() {
       else { if(imR>elR){cw=r.width;ch=r.width/imR;}else{ch=r.height;cw=r.height*imR;} }
       const p=(cs.objectPosition||'50% 50%').split(' ');
       const fx=(parseFloat(p[0])||50)/100, fy=(parseFloat(p[1])||50)/100;
-      return {hasVideo:true, ready:v.readyState>=2, muted:v.muted, vw:iw, vh:ih,
+      return {hasVideo:true, ready:v.readyState>=2, muted:v.muted, paused:v.paused,
+        currentTime:v.currentTime, vw:iw, vh:ih,
         clip:{x:Math.round(r.x+(r.width-cw)*fx), y:Math.round(r.y+(r.height-ch)*fy),
               width:Math.round(cw), height:Math.round(ch)}};
     })()`
@@ -158,6 +160,23 @@ async function main() {
       vinfo = await readVideo()
     }
 
+    // 活性检查：readyState>=2 + videoWidth>0 **不代表画面在动**。播放器被暂停时
+    // （人手按了暂停、或标签页被冻结）readyState 仍是 4、videoWidth 正常，截出来是一张
+    // 冻结在若干分钟前的帧，却会配上当前时间戳归档 —— 静默的数据污染。实测手动暂停
+    // atoz.girls 后 currentTime 卡在 1020.25 纹丝不动，而原有判据全部放行。
+    // 上面的 evalExpr 已尝试 v.play() 自动恢复；这里确认 currentTime 真的推进。
+    // 结果放进输出的 video.advancing，由调用方决定是否采信这张图。
+    let advancing = null
+    if (vinfo.hasVideo && vinfo.ready && vinfo.currentTime != null) {
+      const t0 = vinfo.currentTime
+      advancing = false
+      for (let i = 0; i < 5 && !advancing; i++) {
+        await sleep(1500)
+        const cur = await readVideo()
+        if (cur.currentTime != null && cur.currentTime - t0 > 0.3) { advancing = true; vinfo = cur }
+      }
+    }
+
     const { root } = await cdp.send('DOM.getDocument', { depth: 1 })
     const { outerHTML } = await cdp.send('DOM.getOuterHTML', { nodeId: root.nodeId })
     const signals = extractSignals(outerHTML)
@@ -167,7 +186,8 @@ async function main() {
     }
 
     const video = vinfo.hasVideo
-      ? { found: true, ready: Boolean(vinfo.ready), muted: Boolean(vinfo.muted), vw: vinfo.vw, vh: vinfo.vh, box: vinfo.clip }
+      ? { found: true, ready: Boolean(vinfo.ready), muted: Boolean(vinfo.muted),
+          paused: Boolean(vinfo.paused), advancing, vw: vinfo.vw, vh: vinfo.vh, box: vinfo.clip }
       : { found: false }
 
     let shot = null

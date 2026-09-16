@@ -9,9 +9,29 @@
 //
 // --dry-run 只查 competitor 档案并打印，不上传不插行。
 
-import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
+
+// Node 内置 fetch(undici) 不认 HTTP_PROXY/HTTPS_PROXY 环境变量，会直连目标 IP；
+// 本机这个直连在当前网络会 UND_ERR_CONNECT_TIMEOUT（curl/psql 不受影响，它们走系统代理）。
+// 有代理环境变量时显式接管，否则每次跑这个脚本都随机 fetch failed。
+// @supabase/supabase-js 必须**动态** import 且晚于这段 —— ESM 里静态 import 会被提升到
+// 文件最前执行，写在下面也会先跑，导致它内部捕获全局 fetch 时代理还没装上。
+const usingProxy = Boolean(process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy)
+if (usingProxy) {
+  const { EnvHttpProxyAgent, setGlobalDispatcher } = await import('undici')
+  setGlobalDispatcher(new EnvHttpProxyAgent())
+}
+const { createClient } = await import('@supabase/supabase-js')
+
+// 经代理转发时响应体是 gzip 却不会被自动解压（只有直连走 undici 默认路径才会），
+// postgrest-js/storage-js 拿到原始 gzip 字节当 JSON.parse 会直接炸（报错是
+// `Unexpected token '\x1F'`，即 gzip 魔数）。显式声明不要压缩，绕开这个缺口。
+const fetchNoCompression = (url, opts = {}) => {
+  const headers = new Headers(opts.headers)
+  headers.set('Accept-Encoding', 'identity')
+  return fetch(url, { ...opts, headers })
+}
 
 const BUCKET = 'competitor-shots'
 const MAX_BYTES = 5 * 1024 * 1024 // 与 upload-image.ts 的限制保持一致
@@ -62,7 +82,10 @@ if (!url || !key) {
   console.error('Run with: node --env-file=.env.local scripts/live-watch/record-live-shot.mjs ...')
   process.exit(1)
 }
-const db = createClient(url, key, { auth: { persistSession: false } })
+const db = createClient(url, key, {
+  auth: { persistSession: false },
+  ...(usingProxy ? { global: { fetch: fetchNoCompression } } : {}),
+})
 
 async function main() {
   const { data: comp, error: cErr } = await db
