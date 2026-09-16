@@ -19,6 +19,8 @@ export type ProbeConfig = {
   likes: string[]
   /** 弹幕列表容器 */
   chatHost: string[]
+  /** 弹幕节点本身的判据；subtree 模式下滤掉礼物/进场等非弹幕节点。空表示不过滤 */
+  message: string[]
   /** 弹幕节点内的发言人元素；一个都没命中就不猜，speakers 报 null */
   speaker: string[]
   /** 弹幕容器是否需要监听子树（容器频繁重建时打开） */
@@ -56,17 +58,26 @@ export function defaultProbeConfig(): ProbeConfig {
       '[data-e2e="live-like-count"]',
       '[data-e2e="like-count"]',
     ],
+    // 2026-09-16 在 1tb.boiz 房间实测：chat-room 与 live-chat-list 这两个**都不存在**，
+    // 是当初凭猜写进来的 —— 所以 observer 从来没挂上过，第一次真机运行读到的
+    // observer_alive 一直是 false、chat_msgs 一直是 null。真实容器是
+    // live-chat-container。
     chatHost: [
+      '[data-e2e="live-chat-container"]',
       '[data-e2e="chat-room"]',
       '[data-e2e="live-chat-list"]',
     ],
+    // 每条 chat-message 各自套一层 div，不是同一个列表下的兄弟节点，所以必须监听子树。
+    // 但开了 subtree，addedNodes 里就混进礼物动画、进场提示、系统横幅 —— 只有本身是
+    // 弹幕、或内部含一条弹幕的节点才计数，否则 msgs 被灌水，而它正是 engagement 的分子。
+    message: ['[data-e2e="chat-message"]'],
     speaker: [
       '[data-e2e="message-owner-name"]',
     ],
     // 未经验证的猜测：如果弹幕列表是在容器下再深一层重渲染，而不是直接
     // 往这层 append 子节点，childList 观察不到、msgs 会整场停在 0 —— 现象上
     // 和"房间很安静没人发弹幕"完全一样，得留意第一次真实运行的 msgs 是否合理。
-    chatSubtree: false,
+    chatSubtree: true,
   }
 }
 
@@ -216,7 +227,19 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     }
     return null
   }
+  // 是不是一条真弹幕：节点自己命中、或它内部含一条。没配 message 判据时退回旧行为
+  // （全都算），老配置的语义不被这次改动改变。
+  function isMessage(node) {
+    if (!cfg.message || !cfg.message.length) return true
+    if (!node || node.nodeType !== 1) return false
+    for (var i = 0; i < cfg.message.length; i++) {
+      if (node.matches && node.matches(cfg.message[i])) return true
+      if (node.querySelector && node.querySelector(cfg.message[i])) return true
+    }
+    return false
+  }
   function count(node) {
+    if (!isMessage(node)) return
     st.msgs += 1
     var who = speakerOf(node)
     if (who && !st.seen[who]) { st.seen[who] = 1; st.nSpeakers += 1 }

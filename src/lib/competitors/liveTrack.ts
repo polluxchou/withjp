@@ -43,6 +43,8 @@ export type ProbeSample = {
   /** 本分钟去重后的发言人数。没有可靠的发言人选择器时是 null —— 不是 0，也不靠猜 */
   speakers: number | null
   observerAlive: boolean
+  /** 同一时刻其它在播直播间的人数（左侧「已关注」侧栏）。没有侧栏就是 null */
+  co_live?: { handle: string; viewer: string | null }[] | null
   /** 各字段实际命中了候选表里的哪个选择器；没命中是 null */
   selectorsOk: SelectorHits
 }
@@ -57,6 +59,11 @@ export type Sample = {
   /** 弹幕容器选择器没命中过就是 null —— 不是 0，跟 chat_speakers 同一个道理 */
   chat_msgs: number | null
   chat_speakers: number | null
+  /**
+   * 同一时刻其它在播直播间的在线人数（来自左侧「已关注」侧栏）。没有侧栏就是 null。
+   * 单房间曲线只能说"它涨了"，配上这份同期横截面才能说"是它涨了还是大盘涨了"。
+   */
+  co_live: { handle: string; viewer: string | null }[] | null
   raw: {
     observer_alive: boolean
     selectors_ok: SelectorHits
@@ -83,6 +90,7 @@ export function normalizeSample(p: ProbeSample, startedAt: number | null): Sampl
     like_total: parseCount(p.likes),
     chat_msgs: p.msgs,
     chat_speakers: p.speakers,
+    co_live: p.co_live ?? null,
     raw: {
       observer_alive: p.observerAlive,
       selectors_ok: p.selectorsOk,
