@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { buildWeeklyCurve } from './chart.ts'
+import { buildWeeklyCurve, weeklyTipLabel } from './chart.ts'
 
 const wk =(week_start: string, followers: number) => ({ week_start, followers })
 
@@ -214,4 +214,31 @@ test('buildWeeklyCurve: null 保留为缺口，NaN/Infinity 仍按脏数据丢�
 test("buildWeeklyCurve: align:'cell' 的格心按槽位数算（含缺采周）", () => {
   const c = buildWeeklyCurve([wk('2026-08-10', 1), gap('2026-08-17'), gap('2026-08-24'), wk('2026-08-31', 4)], { align: 'cell' })
   assert.deepEqual(c.points.map((p) => p.xPct), [12.5, 37.5, 62.5, 87.5])
+})
+
+// —— 真实采集日 ——
+// 刻度仍用周一（等距的周格才看得出缺采的空档），但提示框要报数究竟是哪天采的。
+test('buildWeeklyCurve: 真实采集日透传到点上，没传就是 null', () => {
+  const c = buildWeeklyCurve([
+    { week_start: '2026-09-07', followers: 100, captured_on: '2026-09-09' },
+    { week_start: '2026-09-14', followers: 130, captured_on: '2026-09-16' },
+    wk('2026-09-21', 140),
+  ])
+  assert.deepEqual(c.points.map((p) => p.captured_on), ['2026-09-09', '2026-09-16', null])
+  // 刻度不受影响：仍是周一
+  assert.deepEqual(c.points.map((p) => p.tick), ['9/7', '9/14', '9/21'])
+})
+
+test('weeklyTipLabel: 有采集日就报采集日，用 captured 那条文案', () => {
+  assert.deepEqual(weeklyTipLabel({ week_start: '2026-09-14', captured_on: '2026-09-16' }), {
+    key: 'weeklyPointTipCaptured',
+    date: '2026-09-16',
+  })
+})
+
+test('weeklyTipLabel: 缺采的周没有采集日，退回「某周起」文案', () => {
+  assert.deepEqual(weeklyTipLabel({ week_start: '2026-09-14', captured_on: null }), {
+    key: 'weeklyPointTip',
+    date: '2026-09-14',
+  })
 })

@@ -44,10 +44,12 @@ test('assembleBoard: 挑最新快照 + 历史升序 + 周聚合', () => {
   assert.equal(board.canEdit, true)
   assert.equal(board.competitors[0].latest?.captured_on, '2026-08-03')
   assert.deepEqual(board.competitors[0].history.map((h) => h.captured_on), ['2026-07-27', '2026-07-29', '2026-08-03'])
-  // 两周：W(0727) 末点 30、W(0803) 末点 40
+  // 两周：W(0727) 末点 30、W(0803) 末点 40。
+  // captured_on 带的是被选中那条快照的真实日期——0729 是周三，不等于周一的 0727，
+  // 这一条钉住"提示框报的是采集日、不是周桶刻度"一路传到了装配层。
   assert.deepEqual(board.competitors[0].weekly, [
-    { week_start: '2026-07-27', followers: 30 },
-    { week_start: '2026-08-03', followers: 40 },
+    { week_start: '2026-07-27', followers: 30, captured_on: '2026-07-29' },
+    { week_start: '2026-08-03', followers: 40, captured_on: '2026-08-03' },
   ])
 })
 

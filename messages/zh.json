@@ -1709,6 +1709,7 @@
     "weeklyFollowers": "粉丝 · 近5周",
     "weeklyDelta": "{pct}%/周",
     "weeklyPointTip": "{date} 起 · {count}",
+    "weeklyPointTipCaptured": "{date} 采集 · {count}",
     "weeklyEmpty": "暂无粉丝数据",
     "shotDates": "截图日期",
     "earlierDates": "更早",
