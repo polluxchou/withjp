@@ -66,8 +66,26 @@ const caption = opt('caption', '')
 const dryRun = opt('dry-run') === true
 const replaceId = opt('replace') // 传 shot_id：上传新图 → 更新该行 image_url → 删旧桶文件
 
+// 直播态指标（可选，epoch 秒）。采集脚本探到什么就带什么 —— 不传就是 null，
+// 与人工上传的截图同形态。灯箱里「在线 N · 开播 hh:mm · 已播 Nh」那一行就是读这三个字段，
+// 不带的话自动采的图进库后那一行是空的，跟人工传的看不出区别。
+// 打不成数就直接退出，不要静默落 null：Number('abc') 是 NaN，而 JSON.stringify(NaN)
+// 序列化成 null —— 传错参数会安安静静写进一个空值，跟"没探到"分不出来。
+// 这正是 PR 259 堵的那类"判据通过、写进去是假值"的路径。
+const numArg = (name) => {
+  const raw = opt(name)
+  if (raw == null || raw === true) return null
+  const n = Number(raw)
+  if (!Number.isFinite(n)) { console.error(`--${name} 必须是数字，收到: ${raw}`); process.exit(2) }
+  return n
+}
+const viewerCount = numArg('viewer-count')
+const startedAtEpoch = numArg('started-at')
+const capturedAtEpoch = numArg('captured-at')
+const epochToIso = (s) => (s == null ? null : new Date(s * 1000).toISOString())
+
 if (!handle || (!file && !dryRun)) {
-  console.error('usage: record-live-shot.mjs --handle <handle> --file <shot.png> [--shot-on YYYY-MM-DD] [--tag live_auto] [--caption <text>] [--dry-run]')
+  console.error('usage: record-live-shot.mjs --handle <handle> --file <shot.png> [--shot-on YYYY-MM-DD] [--tag live_auto] [--caption <text>] [--viewer-count N] [--started-at EPOCH] [--captured-at EPOCH] [--dry-run]')
   process.exit(2)
 }
 if (!/^\d{4}-\d{2}-\d{2}$/.test(shotOn)) {
@@ -143,6 +161,9 @@ async function main() {
       shot_on: shotOn,
       tag,
       caption,
+      viewer_count: viewerCount,
+      stream_started_at: epochToIso(startedAtEpoch),
+      captured_at: epochToIso(capturedAtEpoch),
       sort_order: 0,
     })
     .select('id')
