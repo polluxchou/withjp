@@ -9,12 +9,14 @@ import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect
 
 type FakeEl = {
   textContent: string
+  /** 真实 DOM 元素恒为 1；探针靠它挡掉 addedNodes 里的文本节点，替身也得有 */
+  nodeType?: number
   querySelector?: (s: string) => FakeEl | null
   querySelectorAll?: (s: string) => FakeEl[]
 }
 
 function el(textContent: string): FakeEl {
-  return { textContent }
+  return { textContent, nodeType: 1 }
 }
 
 /** 造一条侧栏条目：内部能按选择器取到 handle 名与人数。 */
@@ -88,7 +90,11 @@ const factory = new Function(`return (${PROBE_FACTORY_SRC})`)() as (
 function msgNode(speaker: string): FakeEl {
   return {
     textContent: speaker + ': hi',
-    querySelector: (s: string) => (s === '.who' ? el(speaker) : null),
+    nodeType: 1,
+    // 真实弹幕节点自己就是 [data-e2e="chat-message"]；不让替身认这个选择器的话，
+    // 新加的"只数真弹幕"过滤会把它当成礼物动画滤掉。
+    querySelector: (s: string) =>
+      s === '.who' ? el(speaker) : (s === '[data-e2e="chat-message"]' ? el(speaker) : null),
   } as FakeEl
 }
 
@@ -604,4 +610,62 @@ test('同期横截面：有名字没人数的条目也要留，记成 viewer:nul
     { handle: '1tb.boiz', viewer: '98' },
     { handle: 'servauto.my', viewer: null },
   ])
+})
+
+// ---- subtree 模式下只数真弹幕 --------------------------------------------
+// 实测背景：每条 chat-message 各自套一层 div，不是同一个列表下的兄弟节点，
+// 所以 observer 必须开 subtree；而开了之后 addedNodes 里混着礼物动画、进场提示。
+
+/** 造一个「内部含一条弹幕」的包裹节点（真实 DOM 就是这个形状）。 */
+function wrapped(speaker: string): FakeEl {
+  const msg = { textContent: speaker, nodeType: 1, querySelector: (s: string) => (s === '.who' ? el(speaker) : null) } as FakeEl
+  return {
+    textContent: speaker,
+    nodeType: 1,
+    querySelector: (s: string) =>
+      s === '[data-e2e="chat-message"]' ? msg : (s === '.who' ? el(speaker) : null),
+  } as FakeEl
+}
+/** 礼物动画之类：既不是弹幕，内部也没有弹幕。 */
+function giftNode(): FakeEl {
+  return { textContent: 'sent Rose x1', nodeType: 1, querySelector: () => null } as FakeEl
+}
+
+const CHAT_CFG = {
+  chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: ['.who'],
+  message: ['[data-e2e="chat-message"]'], chatSubtree: true,
+  viewerRoomBox: [], viewerItem: [], viewerName: [],
+}
+
+test('弹幕计数：礼物/进场这类非弹幕节点不计入 msgs', () => {
+  // 不过滤的话 msgs 会被灌水，而它正是 engagement 指标的分子
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  factory(win, doc, cfg(CHAT_CFG))
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [wrapped('a'), giftNode(), wrapped('b'), giftNode()] }])
+  lw.tick()
+  const s = lw.drain()[0]
+  assert.equal(s.msgs, 2, '四个节点里只有两条是真弹幕')
+  assert.equal(s.speakers, 2)
+})
+
+test('弹幕计数：没配 message 判据时退回旧行为，全都算', () => {
+  // 老配置不该被这次改动改变语义
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  factory(win, doc, cfg({ ...CHAT_CFG, message: [] }))
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [wrapped('a'), giftNode()] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 2)
+})
+
+test('弹幕容器候选：live-chat-container 排在最前 —— 另外两个实测不存在', () => {
+  const d = defaultProbeConfig()
+  assert.equal(d.chatHost[0], '[data-e2e="live-chat-container"]')
+  assert.equal(d.chatSubtree, true, '每条弹幕各自套一层 div，不开 subtree 收不到')
+  assert.deepEqual(d.message, ['[data-e2e="chat-message"]'])
 })
