@@ -47,6 +47,7 @@ function makeWin(nowMs = 1_000_000) {
     intervals: [] as { cb: () => void; ms: number; id: number; cleared: boolean }[],
     now: nowMs,
     Date: { now: () => nowMs },
+    JSON,
     setInterval: (cb: () => void, ms: number) => {
       const id = win.intervals.length + 1
       win.intervals.push({ cb, ms, id, cleared: false })
@@ -680,7 +681,10 @@ test('探针复用：版本号相同但配置变了，必须重建而不是复�
   assert.equal(a.reused, false)
   const b = factory(win, doc, cfg({ chatHost: ['.newchat'], viewer: [], followers: [], likes: [], speaker: [] }))
   assert.equal(b.reused, false, '配置变了就得重建')
-  assert.equal((win as Record<string, any>).__lw.hostSel, '.newchat', '新配置真的生效了')
+  // 断言可观测的输出，不碰 __lw 的内部字段：selectorsOk.chatHost 是探针报出来的
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  assert.equal(lw.drain()[0].selectorsOk.chatHost, '.newchat', '新配置真的生效了')
 })
 
 test('探针复用：配置一模一样时仍然复用，不做无谓重建', () => {
