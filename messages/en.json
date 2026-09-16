@@ -1709,6 +1709,7 @@
     "weeklyFollowers": "Followers · last 5 wks",
     "weeklyDelta": "{pct}%/wk",
     "weeklyPointTip": "Week of {date} · {count}",
+    "weeklyPointTipCaptured": "Captured {date} · {count}",
     "weeklyEmpty": "No follower data",
     "shotDates": "Shot dates",
     "earlierDates": "Earlier",
