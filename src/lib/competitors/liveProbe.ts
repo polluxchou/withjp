@@ -87,8 +87,14 @@ export function defaultProbeConfig(): ProbeConfig {
  * 也保证注入后除了 win.__lw 之外不碰页面上的任何东西。
  */
 export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
+  // 复用判据带上配置本身，不只看 version。改了选择器却忘了改版本号的话，页面里
+  // 那个旧探针会被"复用"、静默沿用旧配置 —— 2026-09-16 真机运行就栽在这：
+  // chatHost 候选已经修好了，但第一轮注入的旧探针还在，attached 一直 false，
+  // 而日志和样本看起来一切正常。把配置纳入判据之后，这件事不可能再忘。
+  var cfgKey = ''
+  try { cfgKey = win.JSON.stringify(cfg) } catch (e) { cfgKey = String(cfg.version) }
   if (win.__lw) {
-    if (win.__lw.version === cfg.version) {
+    if (win.__lw.version === cfg.version && win.__lw.cfgKey === cfgKey) {
       return { reused: true, attached: !!win.__lw.attached, version: cfg.version }
     }
     // 版本变了要整个重建。先断开上一版的 observer —— 否则它会永远挂在旧节点上，
@@ -299,6 +305,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
   }
   var ok = attach()
   win.__lw = {
+    cfgKey: cfgKey,
     version: cfg.version,
     attached: ok,
     tick: tick,

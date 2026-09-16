@@ -669,3 +669,25 @@ test('弹幕容器候选：live-chat-container 排在最前 —— 另外两个�
   assert.equal(d.chatSubtree, true, '每条弹幕各自套一层 div，不开 subtree 收不到')
   assert.deepEqual(d.message, ['[data-e2e="chat-message"]'])
 })
+
+test('探针复用：版本号相同但配置变了，必须重建而不是复用', () => {
+  // 真机栽过一次：chatHost 候选修好了，但页面里第一轮注入的旧探针版本号也是 1，
+  // 走了 reused 分支 —— 新配置根本没生效，attached 一直 false，
+  // 而日志和样本看起来完全正常。
+  const doc = makeDoc({ '.chat': el(''), '.newchat': el('') })
+  const win = makeWin()
+  const a = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(a.reused, false)
+  const b = factory(win, doc, cfg({ chatHost: ['.newchat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(b.reused, false, '配置变了就得重建')
+  assert.equal((win as Record<string, any>).__lw.hostSel, '.newchat', '新配置真的生效了')
+})
+
+test('探针复用：配置一模一样时仍然复用，不做无谓重建', () => {
+  const doc = makeDoc({ '.chat': el('') })
+  const win = makeWin()
+  const c = cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] })
+  factory(win, doc, c)
+  const again = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(again.reused, true)
+})
