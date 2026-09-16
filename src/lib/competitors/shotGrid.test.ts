@@ -3,15 +3,14 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  LIGHTBOX_VISIBLE,
+  SHOT_DATE_FUTURE_DAYS,
   UNDATED_KEY,
-  clampWindowStart,
   collectShotDates,
   groupShotsByDate,
   isValidShotDate,
   missesShotOn,
   resolveAnchor,
-  visibleCountFor,
+  shiftDate,
   windowOf,
 } from './shotGrid.ts'
 import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
@@ -97,6 +96,7 @@ function competitor(
     shots,
     weekly: [],
     related,
+    descriptions: [],
   }
 }
 
@@ -253,52 +253,6 @@ test('groupShotsByDate: 不修改入参数组的顺序', () => {
   assert.deepEqual(input.map((s) => s.id), ['b', 'a'])
 })
 
-test('clampWindowStart: 总数不超过窗口时恒为 0', () => {
-  // 当天只有 1-3 张时窗口不该滑动,否则会滑出空位
-  assert.equal(clampWindowStart(0, 1, 3), 0)
-  assert.equal(clampWindowStart(2, 3, 3), 0)
-  assert.equal(clampWindowStart(5, 0, 3), 0)
-})
-
-test('clampWindowStart: 贴左与贴右', () => {
-  assert.equal(clampWindowStart(-1, 5, 3), 0)
-  assert.equal(clampWindowStart(9, 5, 3), 2) // total - size
-})
-
-test('clampWindowStart: 窗口内原样返回', () => {
-  assert.equal(clampWindowStart(1, 5, 3), 1)
-  assert.equal(clampWindowStart(2, 5, 3), 2)
-})
-
-test('LIGHTBOX_VISIBLE: 灯箱并排张数', () => {
-  assert.equal(LIGHTBOX_VISIBLE, 3)
-})
-
-test('visibleCountFor: 真实设备尺寸下的并排张数', () => {
-  // 竖图由高度约束宽度,单张宽 = 0.36 × vh(64vh 高 × 9:16)。
-  // 期望值对应产品决策:手机与竖屏平板走单图,横屏平板与笔记本走三连排。
-  assert.equal(visibleCountFor(390, 844, 3), 1)   // iPhone 竖屏
-  assert.equal(visibleCountFor(768, 1024, 3), 1)  // iPad 竖屏:宽度够 768 但三连排塞不下
-  assert.equal(visibleCountFor(1024, 768, 3), 3)  // iPad 横屏
-  assert.equal(visibleCountFor(1280, 800, 3), 3)  // 笔记本
-})
-
-test('visibleCountFor: 至少返回 1,且不超过上限', () => {
-  // 再窄也要显示一张,否则灯箱变成空的
-  assert.equal(visibleCountFor(100, 2000, 3), 1)
-  // 再宽也不超过 max
-  assert.equal(visibleCountFor(6000, 400, 3), 3)
-})
-
-test('visibleCountFor: 中间档位能落到 2 张', () => {
-  // 存在既放不下 3 张、又放得下 2 张的视口
-  assert.equal(visibleCountFor(800, 700, 3), 2)
-})
-
-test('visibleCountFor: 非法视口尺寸兜底为 1', () => {
-  // SSR 或尚未测量到尺寸时不要算出 0 张
-  assert.equal(visibleCountFor(0, 0, 3), 1)
-})
 
 // —— 导航条「当天无截图」标记 ——
 
@@ -324,4 +278,45 @@ test('missesShotOn: 轴为空或停在"未标日期"列时不标记', () => {
   assert.equal(missesShotOn([], null), false)
   assert.equal(missesShotOn([], UNDATED_KEY), false)
   assert.equal(missesShotOn([shotOn('2026-08-19')], UNDATED_KEY), false)
+})
+
+test('SHOT_DATE_FUTURE_DAYS: 截图日期可以往后选几天', () => {
+  assert.equal(SHOT_DATE_FUTURE_DAYS, 3)
+})
+
+test('shiftDate: 普通加减', () => {
+  assert.equal(shiftDate('2026-09-13', 3), '2026-09-16')
+  assert.equal(shiftDate('2026-09-13', 0), '2026-09-13')
+  assert.equal(shiftDate('2026-09-13', -3), '2026-09-10')
+})
+
+test('shiftDate: 跨月', () => {
+  assert.equal(shiftDate('2026-09-29', 3), '2026-10-02')
+  assert.equal(shiftDate('2026-10-01', -3), '2026-09-28')
+})
+
+test('shiftDate: 跨年', () => {
+  assert.equal(shiftDate('2026-12-30', 3), '2027-01-02')
+  assert.equal(shiftDate('2027-01-02', -3), '2026-12-30')
+})
+
+test('shiftDate: 闰年二月', () => {
+  // 2028 是闰年,27 号往后数三天要经过 2 月 29 日才到 3 月 1 日
+  assert.equal(shiftDate('2028-02-27', 3), '2028-03-01')
+  // 2026 不是闰年,同样的 27 号 +3 会落到 3 月 2 日
+  assert.equal(shiftDate('2026-02-27', 3), '2026-03-02')
+})
+
+test('shiftDate: 夏令时切换当天也按日历天算,不会差一天', () => {
+  // 用本地时区的 Date 做加减会在 DST 那天多/少一小时,再取日期就可能退回前一天。
+  // 美西 2026-03-08 是夏令时开始日,成员里有人在加州。
+  assert.equal(shiftDate('2026-03-07', 3), '2026-03-10')
+  assert.equal(shiftDate('2026-11-01', 1), '2026-11-02')
+})
+
+test('shiftDate: 非法输入原样返回,不产出 NaN 日期', () => {
+  // 返回 "NaN-NaN-NaN" 会被塞进 input 的 max,整个控件静默失效
+  assert.equal(shiftDate('', 3), '')
+  assert.equal(shiftDate('not-a-date', 3), 'not-a-date')
+  assert.equal(shiftDate('2026-02-30', 3), '2026-02-30')
 })

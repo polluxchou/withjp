@@ -47,8 +47,11 @@ const DAY_MS = 86_400_000
  * 两个 YYYY-MM-DD 相差的整天数。
  * 走 Date.UTC 而不是 new Date(str)：后者按本地时区解析，跨夏令时的地区
  * 会多出/少掉一小时，除以 86400000 取整后就是 ±1 天的误差。
+ *
+ * 导出给 ask-context.ts 复用——同样的日期差计算不该在两个文件里各写一份，
+ * 那样两份实现将来会悄悄跑偏。
  */
-function daysBetween(from: string, to: string): number {
+export function daysBetween(from: string, to: string): number {
   const a = Date.parse(from + 'T00:00:00Z')
   const b = Date.parse(to + 'T00:00:00Z')
   return Math.round((b - a) / DAY_MS)

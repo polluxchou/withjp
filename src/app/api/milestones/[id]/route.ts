@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile, canModify } from '@/lib/auth/actor'
+import { normalizeDayStamp, resolveCompletion } from '@/lib/milestones/completion'
+import type { MilestoneStatus } from '@/lib/types'
 
 type Params = { params: { id: string } }
 
@@ -83,16 +85,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (user instanceof NextResponse) return user;
   const db = createServerClient()
 
+  // 这一行同时供权限判定和完成状态推导使用 —— resolveCompletion 要知道改动前的
+  // status / completed_date 才能区分「显式清空」与「没提到」,所以无论是不是管理员
+  // 都得先读回来。
+  const { data: existing } = await db
+    .from('milestones')
+    .select('created_by_user_id, status, completed_date, start_date, target_date')
+    .eq('id', params.id)
+    .single()
+
+  if (!existing) {
+    return NextResponse.json({ data: null, error: 'Milestone not found' }, { status: 404 })
+  }
+
   const actor = await getActorProfile(user.id)
-  if (!actor?.is_admin) {
-    const { data: existing } = await db
-      .from('milestones')
-      .select('created_by_user_id')
-      .eq('id', params.id)
-      .single()
-    if (!canModify(actor, existing?.created_by_user_id ?? null)) {
-      return NextResponse.json({ data: null, error: '权限不足：只能编辑自己创建的条目' }, { status: 403 })
-    }
+  if (!actor?.is_admin && !canModify(actor, existing.created_by_user_id ?? null)) {
+    return NextResponse.json({ data: null, error: '权限不足：只能编辑自己创建的条目' }, { status: 403 })
   }
 
   let body: Record<string, unknown>
@@ -105,7 +113,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const ALLOWED = [
     'title', 'description', 'type', 'level', 'priority', 'status', 'risk_level',
     'owner_agent_id', 'involved_agent_ids', 'linked_creator_ids', 'linked_task_ids',
-    'parent_milestone_id', 'start_date', 'target_date', 'success_metric', 'notes',
+    'parent_milestone_id', 'start_date', 'target_date', 'completed_date', 'success_metric', 'notes',
   ]
 
   const updates: Record<string, unknown> = {}
@@ -117,14 +125,44 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ data: null, error: 'No valid fields to update' }, { status: 400 })
   }
 
-  const startDate  = (updates.start_date  ?? null) as string | null
-  const targetDate = (updates.target_date ?? null) as string | null
-  if (startDate && targetDate && new Date(startDate) >= new Date(targetDate)) {
+  // 起止日期按「改动后的实际值」校验：只改一头时也要跟库里的另一头比,
+  // 否则会落到 DB 的 milestones_date_order 约束上,变成 500 而不是 400。
+  const startDate  = (updates.start_date  ?? existing.start_date)  as string
+  const targetDate = (updates.target_date ?? existing.target_date) as string
+  if (new Date(startDate) >= new Date(targetDate)) {
     return NextResponse.json(
       { data: null, error: 'Target date must be after start date.' },
       { status: 400 },
     )
   }
+
+  if ('completed_date' in updates) {
+    const stamp = normalizeDayStamp(updates.completed_date)
+    if (stamp === undefined) {
+      return NextResponse.json({ data: null, error: 'completed_date is not a valid date' }, { status: 400 })
+    }
+    if (stamp && new Date(stamp) < new Date(startDate)) {
+      return NextResponse.json(
+        { data: null, error: 'completed_date must not be earlier than start_date' },
+        { status: 400 },
+      )
+    }
+    updates.completed_date = stamp
+  }
+
+  // 状态与完成日期永远成对写入,单点推导,前端不参与。
+  const completion = resolveCompletion(
+    {
+      start_date:     startDate,
+      target_date:    targetDate,
+      status:         existing.status as MilestoneStatus,
+      completed_date: existing.completed_date as string | null,
+    },
+    updates,
+    new Date(),
+  )
+  updates.status         = completion.status
+  updates.completed_date = completion.completed_date
 
   const { data, error } = await db
     .from('milestones')

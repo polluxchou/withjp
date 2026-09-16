@@ -7,26 +7,22 @@ import Modal from '@/components/ui/Modal'
 import ExpenseForm from '@/components/expenses/ExpenseForm'
 import type { Expense } from '@/lib/types'
 import type { ExpenseWritePayload } from '@/lib/intent/schema'
+// PendingActionState 的定义搬到了 lib/intent/conversation.ts —— ServerResult
+// 联合类型要用它，而 lib 不该反向 import 组件。这里 re-export 保持既有调用
+// 方（历史上从本文件取这个类型）不必跟着改。
+import type { PendingActionState } from '@/lib/intent/conversation'
 
-export interface PendingActionState {
-  pendingActionId: string
-  op:              'create' | 'update' | 'delete'
-  preview:         string
-  targetId?:       string
-  expiresAt:       string
-  // For Edit-flow only: the writer needs to know the intended payload.
-  payload?:        ExpenseWritePayload   // create
-  patch?:          ExpenseWritePayload   // update
-  target?:         Expense               // update / delete
-}
+export type { PendingActionState }
 
 interface Props {
-  state:    PendingActionState
+  state:     PendingActionState
   onApplied: () => void
   onCancel:  () => void
+  // 已应用 / 已取消后仍留在消息流里：收起操作按钮，避免同一张卡被点第二次。
+  settled?:  boolean
 }
 
-export default function PendingActionCard({ state, onApplied, onCancel }: Props) {
+export default function PendingActionCard({ state, onApplied, onCancel, settled = false }: Props) {
   const t = useTranslations('intent.pending')
   const tCommon = useTranslations('common')
   const [busy,     setBusy]     = useState<'apply' | 'cancel' | null>(null)
@@ -83,13 +79,15 @@ export default function PendingActionCard({ state, onApplied, onCancel }: Props)
         </div>
       )}
 
-      <div className="flex gap-2 justify-end">
-        <Button variant="ghost"     onClick={cancel} loading={busy === 'cancel'} disabled={busy !== null}>{tCommon('cancel')}</Button>
-        {canEdit && (
-          <Button variant="secondary" onClick={() => setEditing(true)} disabled={busy !== null}>{tCommon('edit')}</Button>
-        )}
-        <Button variant="primary"   onClick={apply}  loading={busy === 'apply'}  disabled={busy !== null}>{t('apply')}</Button>
-      </div>
+      {!settled && (
+        <div className="flex gap-2 justify-end">
+          <Button variant="ghost"     onClick={cancel} loading={busy === 'cancel'} disabled={busy !== null}>{tCommon('cancel')}</Button>
+          {canEdit && (
+            <Button variant="secondary" onClick={() => setEditing(true)} disabled={busy !== null}>{tCommon('edit')}</Button>
+          )}
+          <Button variant="primary"   onClick={apply}  loading={busy === 'apply'}  disabled={busy !== null}>{t('apply')}</Button>
+        </div>
+      )}
 
       <Modal open={editing} onClose={() => setEditing(false)} title={t('editModalTitle')} width="max-w-2xl">
         <ExpenseForm

@@ -4,7 +4,7 @@
 import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Upload } from 'lucide-react'
-import { todayLocal } from '@/lib/competitors/localDate'
+import { maxShotDate, todayLocal } from '@/lib/competitors/localDate'
 import { imageFromClipboard, uploadShot } from '@/lib/competitors/uploadShot'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 
@@ -53,7 +53,7 @@ export default function ShotUploader({ competitorId, onDone }: { competitorId: s
       <input
         type="date"
         value={shotOn}
-        max={todayLocal()}
+        max={maxShotDate()}
         onChange={(e) => setShotOn(e.target.value)}
         aria-label={t('shotDate')}
         className="rounded-field border border-line px-1 py-0.5 text-[11px] text-ink-700"

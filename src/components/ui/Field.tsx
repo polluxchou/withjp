@@ -1,5 +1,5 @@
 'use client'
-import { cloneElement, isValidElement, useId } from 'react'
+import { cloneElement, forwardRef, isValidElement, useId } from 'react'
 import type {
   InputHTMLAttributes,
   SelectHTMLAttributes,
@@ -110,14 +110,21 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   size?: ControlSize
 }
 
-export function Textarea({ size = 'md', className, ...props }: TextareaProps) {
-  return (
-    <textarea
-      {...props}
-      className={`${CONTROL_BASE} h-auto ${TEXTAREA_MIN_H[size]} py-2 resize-none ${className ?? ''}`}
-    />
-  )
-}
+// 唯一走 forwardRef 的 Field 控件。React 18 的函数组件收不到 ref 作为普通
+// prop，而命令面板的 composer 需要在「点击示例 chip」「打开面板」后把焦点
+// 送进输入框——这个能力只能由调用方持有 ref 来做。其余 Field 控件没有这
+// 个需求，保持原样，不做无用的 forwardRef 包裹。
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  function Textarea({ size = 'md', className, ...props }, ref) {
+    return (
+      <textarea
+        {...props}
+        ref={ref}
+        className={`${CONTROL_BASE} h-auto ${TEXTAREA_MIN_H[size]} py-2 resize-none ${className ?? ''}`}
+      />
+    )
+  },
+)
 
 interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   kbdHint?: string

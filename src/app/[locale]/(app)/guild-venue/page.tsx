@@ -50,10 +50,11 @@ import Tabs from '@/components/ui/Tabs'
 import Tag from '@/components/ui/Tag'
 import { Field, Input, SearchInput } from '@/components/ui/Field'
 import Modal from '@/components/ui/Modal'
-import VenueCanvas from '@/venue/VenueCanvas'
+import VenueCanvas, { type VenueRulerOptions } from '@/venue/VenueCanvas'
+import { autoChainBandDepth } from '@/venue/dimension-chain'
 import Venue3DCanvas from '@/venue/Venue3DCanvas'
 import VenueInspector, { type PlacedItemSummary } from '@/venue/VenueInspector'
-import { registerVenueIntent } from '@/components/intent/CommandBar'
+import { registerVenueIntent } from '@/components/intent/CommandPanel'
 import { useRouter } from '@/i18n/navigation'
 import type { Item } from '@/lib/items/types'
 import type { Expense } from '@/lib/types'
@@ -146,7 +147,12 @@ export default function GuildVenuePage() {
   })
   const [zoom, setZoom] = useState(1.2)
   const [showGrid, setShowGrid] = useState(true)
-  const [showRulers, setShowRulers] = useState(true)
+  const [rulerOptions, setRulerOptions] = useState<VenueRulerOptions>({
+    items: true,
+    totalBounds: true,
+    chain: false,
+    chainBandDepth: null,
+  })
   const [snapEnabled, setSnapEnabled] = useState(true)
   // 2D is the canonical edit surface; 3D is a read-only preview for now (S3).
   // Selection state is shared so clicking a box in 3D updates the inspector.
@@ -309,6 +315,12 @@ export default function GuildVenuePage() {
     const allowed = new Set(visibleTypes)
     return { ...activeFloor, items: activeFloor.items.filter((item) => allowed.has(item.type)) }
   }, [activeFloor, visibleTypes])
+  // 带深滑杆停在自动模式时要显示这个值。口径跟画布一致——都用套过类型筛选的楼层。
+  // 顶链与左链的自动值可能不同,滑杆是两条链共用的,取顶链的当代表位置。
+  const chainAutoDepth = useMemo(
+    () => autoChainBandDepth(visibleFloor.items, 'horizontal'),
+    [visibleFloor.items],
+  )
   const selectedItemId = selectedItemIds.at(-1) ?? null
   const selectedItem = activeFloor?.items.find((item) => item.id === selectedItemId) ?? null
 
@@ -326,7 +338,7 @@ export default function GuildVenuePage() {
     ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
     : -1
 
-  // Expose the current canvas to the global command bar ("用文字操作") so it can
+  // Expose the current canvas to the global command panel ("用文字操作") so it can
   // scope NL instructions to this floor and apply the parsed action via commit.
   const layoutRef = useRef(layout)
   layoutRef.current = layout
@@ -966,7 +978,7 @@ export default function GuildVenuePage() {
             </>
           )}
           <ToolbarButton iconOnly icon={Grid3X3} label={t('grid')} onClick={() => setShowGrid((value) => !value)} active={showGrid} />
-          <ToolbarButton iconOnly icon={Ruler} label={t('dimensionRulers')} onClick={() => setShowRulers((value) => !value)} active={showRulers} />
+          <RulerMenu options={rulerOptions} onChange={setRulerOptions} autoDepth={chainAutoDepth} />
           {viewMode === '2d' && <ToolbarButton iconOnly icon={Magnet} label={t('snapEnabled')} onClick={() => setSnapEnabled((value) => !value)} active={snapEnabled} />}
 
           <div className="w-px h-6 bg-line-strong mx-1" />
@@ -1054,7 +1066,7 @@ export default function GuildVenuePage() {
                 selectedItemIds={selectedItemIds}
                 zoom={zoom}
                 showGrid={showGrid}
-                showRulers={showRulers}
+                rulerOptions={rulerOptions}
                 visibleTypes={visibleTypes}
                 fitWidthReserve={inspectorCollapsed ? INSPECTOR_WIDTH - INSPECTOR_COLLAPSED_WIDTH : 0}
                 onSelectItems={setSelectedItemIds}
@@ -1127,7 +1139,6 @@ export default function GuildVenuePage() {
                 </div>
                 )}
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-ink-700">{t('canvasActions')}</p>
                   <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
                   <Button variant="secondary" onClick={exportJson} className="w-full justify-center">
                     <Download className="w-4 h-4" strokeWidth={1.5} />
@@ -1764,6 +1775,121 @@ function AddMenu({
               </button>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RulerMenu({
+  options,
+  onChange,
+  autoDepth,
+}: {
+  options: VenueRulerOptions
+  onChange: (next: VenueRulerOptions) => void
+  // 自动带深(cm),仅用于滑杆处于自动模式时的显示与滑块位置
+  autoDepth: number
+}) {
+  const t = useTranslations('venue')
+  const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handle = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  const toggleOpen = () => {
+    const rect = buttonRef.current?.getBoundingClientRect()
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
+    setOpen((value) => !value)
+  }
+
+  const entries: { key: 'items' | 'totalBounds' | 'chain'; label: string }[] = [
+    { key: 'items', label: t('rulerMenu.items') },
+    { key: 'totalBounds', label: t('rulerMenu.totalBounds') },
+    { key: 'chain', label: t('rulerMenu.chain') },
+  ]
+  const anyOn = options.items || options.totalBounds || options.chain
+
+  return (
+    <div ref={ref} className="flex-shrink-0">
+      <button
+        ref={buttonRef}
+        type="button"
+        title={t('dimensionRulers')}
+        aria-label={t('dimensionRulers')}
+        aria-expanded={open}
+        onClick={toggleOpen}
+        className={`h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-field border text-xs font-semibold leading-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
+          anyOn
+            ? 'border-primary-border bg-primary-soft text-primary-hover'
+            : 'border-line-strong bg-surface text-ink-700 hover:border-primary-border hover:text-primary-hover'
+        }`}
+      >
+        <Ruler className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+      </button>
+      {open && menuPos && (
+        <div
+          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+          className="z-40 min-w-48 rounded-card border border-line bg-surface py-1 shadow-pop"
+        >
+          {entries.map((entry) => (
+            <label
+              key={entry.key}
+              className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-700 hover:bg-line-soft transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={options[entry.key]}
+                onChange={(event) => onChange({ ...options, [entry.key]: event.target.checked })}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              <span>{entry.label}</span>
+            </label>
+          ))}
+          {options.chain && (
+            <div className="mt-1 border-t border-line-soft px-3 pb-1.5 pt-2">
+              <div className="flex items-center justify-between gap-2 text-xs text-ink-700">
+                <span>{t('rulerMenu.bandDepth')}</span>
+                <span className="font-semibold tabular-nums text-ink-900">
+                  {options.chainBandDepth === null
+                    ? `${t('rulerMenu.bandAuto')} ${formatVenueMeasurement(autoDepth)}`
+                    : formatVenueMeasurement(options.chainBandDepth)}
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <input
+                  id="venue-chain-band-depth"
+                  type="range"
+                  min={30}
+                  max={400}
+                  step={10}
+                  value={options.chainBandDepth ?? Math.round(autoDepth)}
+                  aria-label={t('rulerMenu.bandDepth')}
+                  // 拨滑杆就等于「我要自己定」,顺手退出自动模式。别做成必须先点
+                  // 「自动」才能拨——那样会让人以为滑杆是坏的。
+                  onChange={(event) => onChange({ ...options, chainBandDepth: Number(event.target.value) })}
+                  className="h-1 flex-1 accent-primary"
+                />
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...options, chainBandDepth: null })}
+                  disabled={options.chainBandDepth === null}
+                  className="shrink-0 rounded-field border border-line-strong px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:border-primary-border hover:text-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t('rulerMenu.bandAuto')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

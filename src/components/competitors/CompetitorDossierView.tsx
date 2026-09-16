@@ -199,7 +199,26 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               - 日期轴本来就必须吸顶(格子里不显示日期文字,滚走了就没法对应列);
               - 两者各自 sticky top-0 会重叠,所以吸顶提到这一层统一做。
               不透明底色必须在这层:否则卡片会从吸顶块底下穿过去。
-              data-sticky-head 是给导航条量高度用的锚点偏移量来源,见 CompetitorNavBar。*/}
+              data-sticky-head 是给导航条量高度用的锚点偏移量来源,见 CompetitorNavBar。
+
+              这里刻意不加 transform / will-change,别再往回加。下面复述那个类名时也
+              刻意不写 Tailwind 的方括号任意属性形式:JIT 扫的是源码文本、不分注释与 JSX,
+              照原样写会把这条规则重新生成进产物 CSS(已实测在线上 CSS 里躺着一条没人用的
+              transform: translateZ(0))。
+
+              PR 280 曾加过一个 transform: translateZ(0) 的工具类,想靠「强制提升独立合成层」绕过
+              iOS 上「这两行偶尔跟着内容滚走、过一会儿自己归位」的毛病。真机结论是
+              那条假设错了,而且换来一个更糟的失效方式:iOS(WKWebView,含 iOS Chrome)
+              上平白下滑就会把整块定在错误的偏移上,只有最后一行日期露在视口里,
+              搜索框和账号芯片整行都看不见 —— 从「偶尔、会自己好」变成「一直、不会好」。
+
+              解释得通:合成层由滚动线程按**布局时算好的**吸顶约束定位,而这一块在首帧
+              之后还会挪位——统计条要等挂载后才出现(见上方 today 的注释),它一冒出来
+              整块就往下移一截。约束一旦过期,滚动线程不会自己纠正;不提升合成层时
+              每次滚动都走主线程重新算,反而不会错。
+
+              如果「偶尔脱顶」再现,下一步是逐个收拾扰动源(芯片行的 rAF 横滚、jump 里
+              连发的两次 scrollTo、灯箱/抽屉的 lockViewportScroll),而不是再提合成层。*/}
           <div data-sticky-head className="sticky top-0 z-10 bg-atmosphere pt-2">
             <CompetitorNavBar targets={navTargets} selectedId={selectedId} onJump={setSelectedId} />
             <ShotDateStrip

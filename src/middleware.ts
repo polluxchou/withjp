@@ -4,10 +4,11 @@ import { NextResponse } from 'next/server'
 import { routing, isLocale } from '@/i18n/routing'
 import { shouldBypassMiddlewareAsset } from '@/lib/middleware-assets'
 import { resolvePublicSiteRoute } from '@/lib/site/domain-routing'
+import { isAuthCallbackPath, PUBLIC_PATHS as SHARED_PUBLIC_PATHS } from '@/lib/middleware-matcher'
 
 // `/site` 是对外公会官网（src/app/[locale]/site）：整站免登录，不能走 Supabase
 // 会话检查，否则公网访客会被弹到 /login。
-const PUBLIC_PATHS = ['/login', '/_next', '/api', '/site']
+const PUBLIC_PATHS = [...SHARED_PUBLIC_PATHS, '/site']
 // Matches the constant used by next-intl internally (next-intl/dist/esm/*/shared/constants.js)
 const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
 const intlMiddleware = createIntlMiddleware(routing)
@@ -47,6 +48,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
+    isAuthCallbackPath(pathname) ||
     shouldBypassMiddlewareAsset(pathname)
   ) {
     return NextResponse.next()

@@ -40,33 +40,35 @@
     }
   },
   "nav": {
-    "dashboard": "ダッシュボード",
-    "creators": "ライバー",
+    "workbench": "ホーム",
+    "creatorOps": "ライバー運営",
+    "recruitApplications": "サイト応募",
     "creatorsList": "ライバー一覧",
+    "lifecycleBoard": "ライフサイクルボード",
     "competitors": "競合モニタリング",
-    "pipeline": "パイプライン",
-    "timeline": "戦略タイムライン",
-    "tasks": "タスク",
-    "workspace": "ワークスペース",
-    "team": "チーム（AIエージェント）",
-    "teamAgents": "AIエージェント",
-    "teamAssignments": "タスク割り当て",
+    "teamwork": "チーム連携",
+    "workTasks": "人員タスク・工数",
+    "milestones": "戦略マイルストーン",
     "teamOrg": "業務分担",
-    "knowledge": "ナレッジ",
+    "costManagement": "コスト管理",
     "expenses": "支出管理",
+    "items": "備品管理",
+    "venue": "会場レイアウト",
     "financeForecast": "財務予測",
-    "config": "設定",
+    "aiAssistant": "AIアシスタント",
+    "aiChat": "AIチャット",
+    "aiTasks": "AIタスク",
+    "teamAssignments": "エージェント割り当て",
+    "teamAgents": "エージェント設定",
+    "knowledge": "ナレッジ",
+    "siteContent": "サイト管理",
+    "siteContentNews": "ニュース管理",
+    "siteMembers": "メンバー管理",
+    "settings": "システム設定",
     "profile": "プロフィール",
     "logout": "ログアウト",
     "appName": "Creator Network",
-    "appSubtitle": "AI 運営システム",
-    "costManagement": "コスト管理",
-    "venue": "会場レイアウト",
-    "items": "備品管理",
-    "recruitApplications": "サイト応募",
-    "siteContent": "サイトコンテンツ",
-    "siteContentNews": "ニュース管理",
-    "siteMembers": "メンバー管理"
+    "appSubtitle": "AI 運営システム"
   },
   "language": {
     "zh": "中文",
@@ -230,13 +232,24 @@
     "switchHint": "固定レートで表示通貨を切り替え（1 USD = 7 CNY；1 CNY = 20 JPY）"
   },
   "intent": {
-    "openButtonLabel": "テキストで操作",
     "venuePlaceholder": "一言で会場を編集（現在のキャンバスのみ）。例：スペース「スタジオA」5×8m を追加 / 化粧室を90度回転 / ガレージ通路を削除",
     "venueConfirm": "キャンバスに適用",
     "venueCancel": "キャンセル",
-    "openButtonTooltip": "自然言語で操作 (⌘K)",
-    "modalTitle": "一言で操作する",
-    "placeholder": "一文で操作してください（v1は支出管理のみ対応）。例：Q3の給与のうちMCはどのくらい / 5月10日の交通費 320元を追加",
+    "bubbleLabel": "テキストで操作 (⌘K)",
+    "panelTitle": "テキストで操作",
+    "panelCollapse": "折りたたむ",
+    "venueScopeTag": "現在のキャンバス",
+    "composerPlaceholder": "一言で伝えてください。こちらで実行します",
+    "composerHint": "Enter で送信 · Shift+Enter で改行",
+    "emptyGreeting": "一言で大丈夫です。現在は支出管理・稼働タスク・競合データへの質問に対応しています。例：",
+    "examples": [
+      "Q3の給与のうちMCはどのくらい",
+      "5月10日の交通費 320元を追加",
+      "solulune は昨日配信した？"
+    ],
+    "appliedNote": "適用しました",
+    "cancelledNote": "キャンセルしました",
+    "thinking": "確認しています…",
     "sendButtonLabel": "送信",
     "query": {
       "emptyDenom": {
@@ -263,13 +276,6 @@
       "groupValueCol": "値",
       "groupCountCol": "件数",
       "sampleHint": "{count} 件のサンプルを返しました。全件絞り込みは支出一覧ページで操作してください。"
-    },
-    "clarification": {
-      "tableLabel": "候補レコード",
-      "dateCol": "日付",
-      "nameCol": "名称",
-      "amountCol": "金額",
-      "buyerCol": "担当者"
     },
     "emptyHint": {
       "suggestionsHeader": "こう調整してみましょう："
@@ -338,7 +344,21 @@
     "emailLabel": "業務メール · WORK EMAIL",
     "passwordLabel": "パスワード · PASSWORD",
     "forgot": "パスワードをお忘れですか？",
-    "forgotPasswordAlert": "管理者にお問い合わせいただきパスワードをリセットしてください",
+    "resetEmailRequired": "先にメールアドレスを入力してください",
+    "resetEmailSent": "パスワードリセットメールを送信しました。ご確認ください",
+    "resetEmailFailed": "メールの送信に失敗しました。しばらくしてから再試行してください",
+    "resetLinkExpired": "このリンクは無効です。もう一度リセットメールをリクエストしてください",
+    "resetPasswordTitle": "新しいパスワードを設定",
+    "resetPasswordDesc": "新しいパスワードを入力してください",
+    "newPasswordLabel": "新しいパスワード",
+    "confirmPasswordLabel": "新しいパスワード（確認）",
+    "resetPasswordSubmit": "パスワードを更新",
+    "resetPasswordSubmitting": "更新中...",
+    "resetPasswordSuccess": "パスワードを更新しました。再度ログインしてください",
+    "resetPasswordMismatch": "パスワードが一致しません",
+    "resetPasswordTooShort": "パスワードは6文字以上で入力してください",
+    "resetPasswordSessionMissing": "メール内のリセットリンクからこのページを開いてください",
+    "resetPasswordFailed": "パスワードの更新に失敗しました。しばらくしてから再試行してください",
     "stepLabel": "ログイン · STEP 01 / 01"
   },
   "dashboard": {
@@ -706,7 +726,10 @@
       "owner": "担当者",
       "start": "開始",
       "target": "目標",
-      "daysLeft": "残り日数",
+      "daysLeftOrCompleted": "残り / 完了",
+      "lateBy": "{days}日遅れ",
+      "earlyBy": "{days}日前倒し",
+      "onTime": "予定どおり",
       "view": "表示 →",
       "delete": "削除",
       "overdue": "{days} 日遅延",
@@ -745,6 +768,10 @@
       "levelCreator": "ライバー",
       "startDate": "開始日",
       "targetDate": "目標日",
+      "completedDate": "完了日",
+      "completedLate": "{days}日遅れで完了",
+      "completedEarly": "{days}日前倒しで完了",
+      "completedOnTime": "予定どおり完了",
       "ownerAgent": "担当エージェント",
       "successMetric": "成功指標",
       "metricTarget": "目標：",
@@ -763,6 +790,7 @@
       "errTitle": "タイトルは必須です。",
       "errDates": "開始日と終了日は必須です。",
       "errDateOrder": "目標日は開始日より後でなければなりません。",
+      "errCompletedBeforeStart": "完了日は開始日より前にはできません。",
       "errSaveFailed": "保存できませんでした。もう一度試してみてください",
       "errNetwork": "ネットワークの問題が発生しました。少し待ってから再試行してください。",
       "title": "タイトル *",
@@ -775,6 +803,8 @@
       "riskLevel": "リスクレベル",
       "startDate": "開始日 *",
       "targetDate": "目標日 *",
+      "completedDate": "完了日",
+      "completedDateHint": "入力すると完了として扱われます。未完了の場合は空欄のまま",
       "ownerAgent": "担当エージェント",
       "ownerAgentNone": "— なし —",
       "involvedAgents": "関与エージェント",
@@ -823,6 +853,28 @@
         "warning": "要注意",
         "success": "完了",
         "neutral": "計画中"
+      }
+    },
+    "list": {
+      "overview": "タイムライン概要",
+      "overviewHint": "目標日順 · ノードを選ぶと一覧へ移動",
+      "targetAxis": "ノードの目標日タイムライン",
+      "today": "今日",
+      "clusterLabel": "日付が近い {count} 件のノードから選択",
+      "nodeLabel": "ノード {number}：{title}、目標日 {date}",
+      "selected": "選択中：{title}",
+      "selectionHint": "番号を選ぶと該当ノードへ移動します。近い日付はまとめて表示します。",
+      "priority": "優先度：{value}",
+      "unassigned": "未割り当て",
+      "more": "その他の操作",
+      "deleteFailed": "削除できませんでした。もう一度お試しください。",
+      "timing": "日程状況",
+      "groups": {
+        "overdue": "対応が必要",
+        "due": "まもなく期限",
+        "active": "進行中",
+        "planned": "計画中",
+        "completed": "完了"
       }
     }
   },
@@ -1307,7 +1359,10 @@
         "improve": "改善",
         "security": "セキュリティ",
         "infra": "インフラ"
-      }
+      },
+      "filterAll": "すべて",
+      "searchPlaceholder": "タイトル・説明・モジュールで検索…",
+      "noResults": "該当する記録がありません"
     }
   },
   "discussions": {
@@ -1410,7 +1465,7 @@
     "deleteConfirm": "この競合とすべての記録を削除しますか？",
     "deleteShotConfirm": "このスクショを削除しますか？",
     "actionFailed": "操作に失敗しました",
-    "weeklyFollowers": "フォロワー · 直近4週",
+    "weeklyFollowers": "フォロワー · 直近5週",
     "weeklyDelta": "{pct}%/週",
     "weeklyPointTip": "{date} の週 · {count}",
     "weeklyEmpty": "フォロワーデータなし",
@@ -1431,6 +1486,14 @@
     "closeShot": "閉じる",
     "shotDate": "日付",
     "saveShotDate": "日付を保存",
+    "captionMore": "もっと見る",
+    "captionLess": "閉じる",
+    "viewOnly": "画像のみ",
+    "exitViewOnly": "画像のみを解除",
+    "downloadShot": "ダウンロード",
+    "downloadDay": "{count} 枚をまとめてダウンロード",
+    "downloadFailed": "ダウンロードに失敗しました",
+    "downloading": "処理中 {done}/{total}",
     "shotDateInvalid": "日付の形式が不正です",
     "upload": "アップロード",
     "orPaste": "貼り付け",
@@ -1475,7 +1538,24 @@
     "navFilterPlaceholder": "アカウント名で絞り込み",
     "navNoMatch": "該当なし",
     "navMissingShot": "当日のスクショなし",
-    "navJumpTo": "{name} へ移動"
+    "navJumpTo": "{name} へ移動",
+    "ask": {
+      "errorNotConfigured": "チャット機能が未設定です。管理者に DEEPSEEK_API_KEY の設定を依頼してください。",
+      "errorUpstream": "回答を取得できませんでした。もう一度お試しください。",
+      "errorBoard": "競合データの読み込みに失敗しました。しばらくしてからもう一度お試しください。"
+    },
+    "descriptionsTitle": "配信ルームの画風メモ",
+    "descriptionsLabel": "画風メモ（{count} 件）",
+    "descriptionsEmpty": "画風メモはまだありません",
+    "descriptionAdd": "追加",
+    "descriptionEdit": "メモを編集",
+    "descriptionDelete": "メモを削除",
+    "descriptionDeleteConfirm": "このメモを削除しますか？",
+    "descriptionDate": "生成日",
+    "descriptionPlaceholder": "この配信ルームの画づくり…",
+    "descriptionBodyRequired": "本文と日付の両方が必要です",
+    "descriptionSourceAuto": "自動生成",
+    "descriptionSourceManual": "手書き"
   },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",
@@ -1557,6 +1637,13 @@
     "redo": "やり直す",
     "grid": "グリッド",
     "dimensionRulers": "寸法ルーラー",
+    "rulerMenu": {
+      "items": "部材寸法",
+      "totalBounds": "全体寸法",
+      "chain": "寸法チェーン",
+      "bandDepth": "外周帯",
+      "bandAuto": "自動"
+    },
     "snapEnabled": "エッジスナップ",
     "mergeAreas": "スペースを結合",
     "unmergeAreas": "スペースを分割",
@@ -1608,7 +1695,7 @@
     "railLibrary": "オブジェクトライブラリ",
     "railLayers": "レイヤー",
     "inspectorTitle": "プロパティ",
-    "noSelectionTitle": "オブジェクト未選択",
+    "noSelectionTitle": "キャンバス",
     "noSelectionBody": "キャンバスまたはエリア一覧からオブジェクトを選択すると、名称・種別・ステータス・位置・サイズ・回転・備考を編集できます。",
     "deleteItem": "オブジェクトを削除",
     "fieldName": "名称",
@@ -1644,7 +1731,6 @@
       "light_grille4_stand": "グリッド(スタンド)"
     },
     "addMarker": "マーカー",
-    "canvasActions": "キャンバス操作",
     "viewBookmarks": "クイックビュー",
     "viewSwitchNext": "次のビューに切り替え",
     "viewSaveCurrent": "現在のビューを保存",
@@ -1714,9 +1800,9 @@
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
-      "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp は、大阪を拠点とする TikTok LIVE Creator Network。ダブルキャプテン制を軸に、女性ライバーの募集・育成からダンストレーニング、配信運営、オリジナルコンテンツ制作までを一貫して行う。"
+      "titleDefault": "EchoWith OSAKA ／ TikTok LIVE Creator Network",
+      "titleTemplate": "%s ｜ EchoWith OSAKA",
+      "description": "EchoWith は、大阪を拠点とする TikTok LIVE Creator Network。ダブルキャプテン制を軸に、女性ライバーの募集・育成からダンストレーニング、配信運営、オリジナルコンテンツ制作までを一貫して行う。"
     },
     "nav": {
       "top": "TOP",
@@ -1737,7 +1823,7 @@
       "menuLabel": "言語オプション"
     },
     "veil": {
-      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "eyebrow": "ECHOWITH OSAKA ／ VISION 2027",
       "line1": "大阪で、最も才能ある",
       "line2": "歌って踊る配信者を見つけ出す。"
     },
@@ -1750,7 +1836,7 @@
       "recruit": "RECRUIT",
       "contact": "CONTACT",
       "social": "TIKTOK ／ X ／ LINE",
-      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+      "copyright": "© 2026 ECHOWITH OSAKA — ECHO FROM OSAKA NIGHT"
     },
     "ticker": {
       "items": [
@@ -1766,9 +1852,9 @@
       "title1": "大阪で、",
       "title2": "女性歌唱・ダンス配信グループを育てる。",
       "tagline": "ECHO FROM OSAKA NIGHT",
-      "lead": "募集、トレーニング、配信、コンテンツ制作。EchoAmp はクリエイターとともに成長します。",
+      "lead": "募集、トレーニング、配信、コンテンツ制作。EchoWith はクリエイターとともに成長します。",
       "ctaApply": "応募する",
-      "ctaAbout": "EchoAmp について",
+      "ctaAbout": "EchoWith について",
       "heroCaption": "大阪の光を、ライブ配信の中へ。",
       "heroPlaceholder": "ヒーロー画像／MoonDollz キービジュアル",
       "stats": [
@@ -1795,7 +1881,7 @@
         "title": "チームのステージ",
         "more": "READ MORE →"
       },
-      "visionBody": "私たちは、ライブ配信そのものがチームのステージになると考えています。EchoAmp は歌やダンスが好きな人たちを集め、継続的な配信を通じてチームだけのスタイルとカルチャーをつくっていきます。",
+      "visionBody": "私たちは、ライブ配信そのものがチームのステージになると考えています。EchoWith は歌やダンスが好きな人たちを集め、継続的な配信を通じてチームだけのスタイルとカルチャーをつくっていきます。",
       "visionCards": [
         {
           "no": "1枚のアルバム",
@@ -1850,7 +1936,7 @@
         "eyebrow": "05 ／ TECHNOLOGY",
         "title": "着ぐるみ配信技術"
       },
-      "techBody": "日本国内ではまだ事例の少ない着ぐるみ（皮套人）配信を、モーション連動とリアルタイム演出で運用可能なレベルまで内製化。EchoAmp 独自の差別化領域のひとつです。",
+      "techBody": "日本国内ではまだ事例の少ない着ぐるみ（皮套人）配信を、モーション連動とリアルタイム演出で運用可能なレベルまで内製化。EchoWith 独自の差別化領域のひとつです。",
       "techCta": "技術を見る",
       "techPlaceholder": "着ぐるみ／モーションキャプチャ現場写真",
       "bannerEyebrow": "RECRUIT ／ 二次募集",
@@ -1878,7 +1964,7 @@
       "eyebrow": "VISION ／ 2027",
       "title": "大阪で、最も才能のある歌って踊る配信者を見つけ出す。",
       "statement": "私たちは、ライブ配信そのものが、チームのためのステージになり得ると考えています。",
-      "lead": "EchoAmp は、歌やダンス、表現することが好きな人たちを集め、継続的なライブ配信を通じて、そのチームだけのスタイルとカルチャーをつくっていきます。そして、そのチームを本当に好きになり、一緒に成長してくれるファンと出会うことを目指します。",
+      "lead": "EchoWith は、歌やダンス、表現することが好きな人たちを集め、継続的なライブ配信を通じて、そのチームだけのスタイルとカルチャーをつくっていきます。そして、そのチームを本当に好きになり、一緒に成長してくれるファンと出会うことを目指します。",
       "imagePlaceholder": "道頓堀／新世界の夜景写真",
       "imageAlt": "大阪の夜景イラスト。高所から見下ろす街並みに、ネオンのビル群と高架道路の光跡が奥へ伸び、中景に灯りのともった展望塔が立つ",
       "eras": [
@@ -2037,7 +2123,7 @@
           "title": "着ぐるみ配信技術",
           "en": "SUIT LIVE TECHNOLOGY",
           "short": "造形・モーション・音声・リアルタイム演出を一体で内製。日本ではまだ事例の少ない差別化領域。",
-          "body": "日本国内ではまだ事例の少ない、着ぐるみを活用したライブ配信のノウハウを社内に蓄積。造形・モーション・音声・リアルタイム演出を一体で運用し、演者の顔出しに依存せず、キャラクター IP を継続的に育てる。EchoAmp 独自の差別化領域のひとつです。"
+          "body": "日本国内ではまだ事例の少ない、着ぐるみを活用したライブ配信のノウハウを社内に蓄積。造形・モーション・音声・リアルタイム演出を一体で運用し、演者の顔出しに依存せず、キャラクター IP を継続的に育てる。EchoWith 独自の差別化領域のひとつです。"
         }
       ],
       "subItems": [
@@ -2069,7 +2155,7 @@
       "rows": [
         {
           "label": "募集対象",
-          "body": "18〜26 歳前後の女性／大阪・関西在住、または通える方。日本国籍または就労可能な在留資格をお持ちの方。"
+          "body": "18〜40 歳の女性／大阪・関西在住、または通える方。日本国籍または就労可能な在留資格をお持ちの方。"
         },
         {
           "label": "歓迎する経験",
@@ -2103,17 +2189,29 @@
         "contact": "ご連絡先",
         "contactHint": "LINE ID・メール・SNS アカウントのいずれか",
         "experience": "経験・SNS",
+        "danceSkillLevel": "ダンス経験レベル",
+        "danceSkillLevelOptions": {
+          "barely_touched": "ほとんど経験なし",
+          "long_term_hobby": "長く続けている趣味",
+          "professional_training": "専門トレーニング経験あり",
+          "teaching_level": "指導できるレベル"
+        },
+        "danceYears": "ダンス経験年数",
+        "danceYearsOptions": {
+          "none": "なし"
+        },
         "consent": "応募選考の目的で、入力内容を利用することに同意します。",
         "submit": "送信する",
         "submitting": "送信中…",
-        "lineNote": "LINE からの応募も受け付けています。@echoamp_osaka",
+        "lineNote": "LINE からの応募も受け付けています。@echowith_osaka",
         "successTitle": "ご応募ありがとうございます。",
-        "successBody": "内容を確認のうえ、2〜3 週間以内にご連絡します。お急ぎの場合は LINE（@echoamp_osaka）へどうぞ。",
+        "successBody": "内容を確認のうえ、2〜3 週間以内にご連絡します。お急ぎの場合は LINE（@echowith_osaka）へどうぞ。",
         "errors": {
           "required": "入力してください",
           "tooLong": "文字数が上限を超えています",
           "outOfRange": "16〜60 の範囲で入力してください",
           "invalidAge": "半角数字で入力してください",
+          "invalidChoice": "リストから選択してください",
           "consent": "同意が必要です",
           "rateLimited": "送信が集中しています。しばらくしてからお試しください。",
           "network": "送信に失敗しました。通信環境をご確認ください。"
@@ -2205,7 +2303,7 @@
           "eyebrow": "FOR CLIENT",
           "title": "法人・ブランド様へ",
           "body": "楽曲制作、着ぐるみ技術、商業ライブ配信のご相談、広告事業のご提携、不正行為・コンプライアンスに関する通報をメールで承ります。",
-          "cta": "business@echoamp.jp",
+          "cta": "business@echowith.jp",
           "action": "email",
           "rows": [
             {
@@ -2214,7 +2312,7 @@
             },
             {
               "label": "連絡先",
-              "value": "business@echoamp.jp",
+              "value": "business@echowith.jp",
               "link": "email"
             },
             {
@@ -2245,7 +2343,7 @@
         "map": {
           "station": "新大阪駅",
           "walk": "徒歩 5 分 ／ 400m",
-          "studio": "ECHOAMP STUDIO",
+          "studio": "ECHOWITH STUDIO",
           "areaEn": "SHIN-OSAKA AREA",
           "areaJp": "大阪市淀川区・新大阪エリア",
           "north": "N ↑",
@@ -2290,8 +2388,17 @@
     "columns": {
       "age": "年齢",
       "email": "メール",
-      "commuteMode": "通勤手段"
-    }
+      "commuteMode": "通勤手段",
+      "danceSkillLevel": "ダンス経験",
+      "danceYears": "ダンス経験年数"
+    },
+    "danceSkillLevels": {
+      "barely_touched": "ほとんど経験なし",
+      "long_term_hobby": "長く続けている趣味",
+      "professional_training": "専門トレーニング経験あり",
+      "teaching_level": "指導できるレベル"
+    },
+    "danceYearsNone": "なし"
   },
   "siteNews": {
     "title": "サイトコンテンツ・ニュース",

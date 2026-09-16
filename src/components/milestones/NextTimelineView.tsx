@@ -4,7 +4,9 @@ import { useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { format } from 'date-fns/format'
+import { formatDayStamp } from '@/lib/time/dayStamp'
 import SegmentedControl from '@/components/ui/SegmentedControl'
+import MilestoneTiming from '@/components/milestones/MilestoneTiming'
 import type { Milestone } from '@/lib/types'
 import {
   DAY_MS,
@@ -446,8 +448,8 @@ function TimelineDot({
   const visual = getTimelineVisual(milestone)
   const cls = TONE_CLASS[visual.tone]
   const title = isCluster
-    ? `${t('nextView.clusterCount', { count })} · ${format(new Date(milestone.target_date), 'MMM d')}`
-    : `${milestone.title} · ${format(new Date(milestone.target_date), 'MMM d')}`
+    ? `${t('nextView.clusterCount', { count })} · ${formatDayStamp(milestone.target_date, 'MMM d')}`
+    : `${milestone.title} · ${formatDayStamp(milestone.target_date, 'MMM d')}`
   const dotClass = visual.hollow
     ? `border-2 ${cls.hollow}`
     : cls.dot
@@ -508,7 +510,7 @@ function TimelineCard({
           {isCluster ? t('nextView.clusterCount', { count }) : milestone.title}
         </p>
         <span className={`text-[10px] font-semibold whitespace-nowrap ${cls.text}`}>
-          {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
+          <MilestoneTiming milestone={milestone} daysLeft={daysLeft} />
         </span>
       </div>
       <p className="text-[10px] text-ink-500 mt-1 truncate">
@@ -544,13 +546,13 @@ function FocusDetail({ milestone }: { milestone: Milestone }) {
             <p className="text-xs text-ink-700 mt-1 line-clamp-2">{milestone.description}</p>
           )}
           <div className="flex items-center gap-3 flex-wrap mt-2 text-xs text-ink-500">
-            <span>{format(new Date(milestone.target_date), 'MMM d, yyyy')}</span>
+            <span>{formatDayStamp(milestone.target_date)}</span>
             <span>{owner?.name ? `${owner.name}${owner.role ? ` (${owner.role})` : ''}` : t('nextView.ownerUnassigned')}</span>
             <span className={cls.text}>{t(`nextView.toneLabel.${visual.tone}`)}</span>
           </div>
         </div>
         <div className={`text-xs font-semibold whitespace-nowrap ${cls.text}`}>
-          {daysLeft < 0 ? t('table.overdue', { days: Math.abs(daysLeft) }) : t('table.daysShort', { days: daysLeft })}
+          <MilestoneTiming milestone={milestone} daysLeft={daysLeft} />
         </div>
       </div>
     </div>

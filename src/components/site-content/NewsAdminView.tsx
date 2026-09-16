@@ -16,6 +16,7 @@ import ErrorState from '@/components/ui/ErrorState'
 import NewsForm from './NewsForm'
 import type { NewsRow } from '@/lib/site/news-service.ts'
 import { PUBLIC_SITE_HOST } from '@/lib/site/domain-routing.ts'
+import { NAV_RESET_EVENT } from '@/lib/ui/navReset'
 import { siteContentErrorMessage } from './form-errors'
 import { formatSavedAt } from './format'
 
@@ -65,6 +66,17 @@ export default function NewsAdminView({ isAdmin }: { isAdmin: boolean }) {
   }
 
   useEffect(() => { load() }, [])
+
+  // 点击侧边栏里已激活的"新闻管理"项时 URL 不变，Next.js 不会重新挂载本组件，
+  // 编辑/新建这类子视图状态就回不去列表——Sidebar 会广播 NAV_RESET_EVENT，这里
+  // 收到后手动把子视图收回列表态。
+  useEffect(() => {
+    function resetToList() {
+      setView((prev) => (prev.kind === 'list' ? prev : { kind: 'list' }))
+    }
+    window.addEventListener(NAV_RESET_EVENT, resetToList)
+    return () => window.removeEventListener(NAV_RESET_EVENT, resetToList)
+  }, [])
 
   async function toggleField(row: NewsRow, patch: Partial<Pick<NewsRow, 'is_pinned' | 'is_published'>>) {
     setToggling(row.id)

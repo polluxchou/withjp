@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
+import CompetitorDescriptions from './CompetitorDescriptions'
 import ShotAlbum from './ShotAlbum'
 import RegionLiveRuler from './RegionLiveRuler'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
@@ -269,6 +270,14 @@ export default function CompetitorCard({
               {/* 地区标签兼作「同区开播时段」浮层的触发器（内部自带 shrink-0：
                   它是 flex 子项，默认会被压到换行——实测「日本」被挤成竖排两字）。 */}
               <RegionLiveRuler region={c.region} peers={regionPeers} currentId={c.id} />
+              {/* 风格描述紧跟在身份信息之后：它描述的是"这个号长什么样",
+                  和名字/认证/地区是同一类身份信息,不属于下面那行指标。 */}
+              <CompetitorDescriptions
+                competitorId={c.id}
+                descriptions={c.descriptions}
+                canEdit={canEdit}
+                onChanged={onChanged}
+              />
             </div>
           </div>
           {roleNode && (
@@ -297,11 +306,17 @@ export default function CompetitorCard({
         </div>
       </div>
 
-      {/* 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开 */}
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1">
+      {/* 必须 minmax(0,...):裸 1fr 的下限是 min-content,compact 曲线会把第一格撑开。
+          曲线列的比例是被刻度行的可读性逼出来的,不是版式偏好:刻度行要在一行里放下
+          5 组日期+数值,每格至少 38.6px 才装得下 6 字符的 112.2K。1024px 视口下实测
+          1fr/3fr 每格 26px、1fr/2fr 35.5px 都会 truncate,2fr/3fr 才够(43.4px)。
+          代价是相册列从 2/3 降到 3/5,缩略图窄约 13%(75px→65px,aspect-[9/16] 保持)。
+          改这个比例或改 WeeklyFollowersCurve 的 WEEKS 都要重量一次窄宽度。 */}
+      <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 max-lg:grid-cols-1">
         <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
         <ShotAlbum
           competitorId={c.id}
+          handle={c.handle}
           shots={c.shots}
           canEdit={canEdit}
           onChanged={onChanged}

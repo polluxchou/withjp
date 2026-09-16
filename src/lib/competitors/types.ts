@@ -76,6 +76,24 @@ export function shotUptimeParts(startedAt: string | null, capturedAt: string | n
   return { h: Math.floor(sec / 3600), m: Math.floor((sec % 3600) / 60) }
 }
 
+/**
+ * 直播间历史图片的风格总结。本地任务按需生成写入，管理员也可在浮层里手写补充。
+ * 一个竞品可以有多条，界面按 generated_on 倒序列出（见 descriptions.ts）。
+ */
+export interface CompetitorDescription {
+  id: string
+  competitor_id: string
+  body: string
+  /**
+   * 生成日期 YYYY-MM-DD，由写入方显式给出，不等于入库时间。
+   * 补跑历史、回头重跑某个时间段的总结时，靠它落到正确的位置而不是全堆到今天。
+   */
+  generated_on: string
+  /** 'auto' = 本地任务生成，'manual' = 人在界面里手写。决定浮层里那枚来源标签。 */
+  source: 'auto' | 'manual'
+  created_at: string
+}
+
 /** 按 ISO 周聚合的粉丝点（week_start = 周一 YYYY-MM-DD）。 */
 export interface WeeklyPoint {
   week_start: string
@@ -86,6 +104,8 @@ export interface CompetitorWithHistory extends Competitor {
   latest: CompetitorSnapshot | null
   history: HistoryPoint[]
   shots: CompetitorShot[]
+  /** 风格描述，已按生成日期倒序。 */
+  descriptions: CompetitorDescription[]
   weekly: WeeklyPoint[]
   /** 下探发现的关联主播（子账号），只在父卡片里下钻展示,不在首页平铺。 */
   related: CompetitorWithHistory[]

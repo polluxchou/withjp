@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import type { ApplicationFields, FieldError } from '@/lib/site/application'
+import { DANCE_SKILL_LEVELS, type ApplicationFields, type FieldError } from '@/lib/site/application'
 import BlueprintFrame from './BlueprintFrame'
 import SiteButton from './SiteButton'
 
@@ -19,6 +19,8 @@ export default function ApplicationForm() {
   const [formError, setFormError] = useState<'rateLimited' | 'network' | null>(null)
   // 表单挂载时刻：提交时算出填写用了多久，太快的是脚本（服务端复核）
   const mountedAt = useRef(Date.now())
+  // label htmlFor ↔ input id 的关联前缀（SSR/客户端一致）
+  const uid = useId()
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -33,6 +35,8 @@ export default function ApplicationForm() {
       residence: data.get('residence'),
       contact: data.get('contact'),
       experience: data.get('experience'),
+      danceSkillLevel: data.get('danceSkillLevel'),
+      danceYears: data.get('danceYears'),
       consent: data.get('consent') === 'on',
       locale,
       hp: data.get('hp'),
@@ -83,20 +87,57 @@ export default function ApplicationForm() {
         {t('eyebrow')}
       </div>
       <form onSubmit={onSubmit} noValidate className="grid gap-4">
-        <Field label={t('name')} error={fields.name} t={t}>
-          <input name="name" maxLength={60} className={FIELD_CLS} />
+        <Field label={t('name')} error={fields.name} htmlFor={`${uid}-name`} t={t}>
+          <input id={`${uid}-name`} name="name" maxLength={60} className={FIELD_CLS} />
         </Field>
-        <Field label={t('age')} error={fields.age} t={t}>
-          <input name="age" inputMode="numeric" className={FIELD_CLS} />
+        <Field label={t('age')} error={fields.age} htmlFor={`${uid}-age`} t={t}>
+          <input id={`${uid}-age`} name="age" inputMode="numeric" className={FIELD_CLS} />
         </Field>
-        <Field label={t('residence')} error={fields.residence} t={t}>
-          <input name="residence" maxLength={120} className={FIELD_CLS} />
+        <Field label={t('residence')} error={fields.residence} htmlFor={`${uid}-residence`} t={t}>
+          <input id={`${uid}-residence`} name="residence" maxLength={120} className={FIELD_CLS} />
         </Field>
-        <Field label={t('contact')} hint={t('contactHint')} error={fields.contact} t={t}>
-          <input name="contact" maxLength={200} className={FIELD_CLS} />
+        <Field label={t('contact')} hint={t('contactHint')} error={fields.contact} htmlFor={`${uid}-contact`} t={t}>
+          <input id={`${uid}-contact`} name="contact" maxLength={200} className={FIELD_CLS} />
         </Field>
-        <Field label={t('experience')} error={fields.experience} t={t}>
-          <textarea name="experience" rows={4} className={`${FIELD_CLS} resize-none text-[14px]`} />
+        <Field label={t('experience')} error={fields.experience} htmlFor={`${uid}-experience`} t={t}>
+          <textarea
+            id={`${uid}-experience`}
+            name="experience"
+            rows={4}
+            className={`${FIELD_CLS} resize-none text-[14px]`}
+          />
+        </Field>
+
+        <Field
+          label={t('danceSkillLevel')}
+          error={fields.danceSkillLevel}
+          labelId={`${uid}-dance-skill-label`}
+          t={t}
+        >
+          <div
+            role="radiogroup"
+            aria-labelledby={`${uid}-dance-skill-label`}
+            className="flex flex-wrap gap-x-6 gap-y-2"
+          >
+            {DANCE_SKILL_LEVELS.map((level) => (
+              <label
+                key={level}
+                className="flex cursor-pointer items-center gap-2 text-[14px] text-site-fg/86"
+              >
+                <input type="radio" name="danceSkillLevel" value={level} className="accent-site-accent" />
+                {t(`danceSkillLevelOptions.${level}`)}
+              </label>
+            ))}
+          </div>
+        </Field>
+
+        <Field label={t('danceYears')} error={fields.danceYears} htmlFor={`${uid}-dance-years`} t={t}>
+          <select id={`${uid}-dance-years`} name="danceYears" defaultValue="" className={FIELD_CLS}>
+            <option value="" disabled hidden>{t('danceYears')}</option>
+            {Array.from({ length: 37 }, (_, n) => n).map((n) => (
+              <option key={n} value={n}>{n === 0 ? t('danceYearsOptions.none') : n}</option>
+            ))}
+          </select>
         </Field>
 
         {/* honeypot：真人看不见所以永远是空的。用 absolute 移出视口而不是
@@ -130,23 +171,41 @@ export default function ApplicationForm() {
   )
 }
 
+/**
+ * 视觉标签必须是真 <label htmlFor>，不能用 span：span 关联不到输入框
+ * （input.labels 为空），屏幕阅读器读不出字段名、点标签也不会聚焦。
+ * radio group 例外——它没有单个控件可以让 htmlFor 指过去，改用 labelId
+ * 由外层 role="radiogroup" + aria-labelledby 指回来。
+ */
 function Field({
   label,
   hint,
   error,
+  htmlFor,
+  labelId,
   t,
   children,
 }: {
   label: string
   hint?: string
   error?: FieldError
+  htmlFor?: string
+  labelId?: string
   t: (key: string) => string
   children: React.ReactNode
 }) {
   return (
     <div>
       <div className="mb-1.5 flex flex-wrap items-baseline gap-2">
-        <span className="text-[13px] tracking-[0.06em] text-site-fg/60">{label}</span>
+        {htmlFor ? (
+          <label htmlFor={htmlFor} className="text-[13px] tracking-[0.06em] text-site-fg/60">
+            {label}
+          </label>
+        ) : (
+          <span id={labelId} className="text-[13px] tracking-[0.06em] text-site-fg/60">
+            {label}
+          </span>
+        )}
         {hint && <span className="text-[12px] text-site-fg/40">{hint}</span>}
         {error && <span className="text-[12px] text-site-hot">{t(`errors.${error}`)}</span>}
       </div>

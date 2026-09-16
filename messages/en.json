@@ -40,33 +40,35 @@
     }
   },
   "nav": {
-    "dashboard": "Dashboard",
-    "creators": "Creators",
+    "workbench": "Workbench",
+    "creatorOps": "Creator Ops",
+    "recruitApplications": "Site applications",
     "creatorsList": "Creator list",
+    "lifecycleBoard": "Lifecycle Board",
     "competitors": "Competitors",
-    "pipeline": "Pipeline",
-    "timeline": "Strategic Timeline",
-    "tasks": "Tasks",
-    "workspace": "Workspace",
-    "team": "Team (AI Agents)",
-    "teamAgents": "AI Agents",
-    "teamAssignments": "Task Assignment",
+    "teamwork": "Team Collaboration",
+    "workTasks": "Tasks & Workload",
+    "milestones": "Strategic Milestones",
     "teamOrg": "Org & Roles",
-    "knowledge": "Knowledge",
     "costManagement": "Cost Management",
     "expenses": "Expense Management",
-    "financeForecast": "Finance Forecast",
-    "venue": "Venue Layout",
     "items": "Item Management",
-    "config": "Config",
+    "venue": "Venue Layout",
+    "financeForecast": "Finance Forecast",
+    "aiAssistant": "AI Assistant",
+    "aiChat": "AI Chat",
+    "aiTasks": "AI Tasks",
+    "teamAssignments": "Agent Assignments",
+    "teamAgents": "Agent Config",
+    "knowledge": "Knowledge",
+    "siteContent": "Site Content",
+    "siteContentNews": "News",
+    "siteMembers": "Members",
+    "settings": "System Settings",
     "profile": "Profile",
     "logout": "Logout",
     "appName": "Creator Network",
-    "appSubtitle": "AI Operating System",
-    "recruitApplications": "Site applications",
-    "siteContent": "Site Content",
-    "siteContentNews": "News",
-    "siteMembers": "Members"
+    "appSubtitle": "AI Operating System"
   },
   "language": {
     "zh": "中文",
@@ -230,13 +232,24 @@
     "switchHint": "Switch the displayed currency at fixed rates (1 USD = 7 CNY; 1 CNY = 20 JPY)"
   },
   "intent": {
-    "openButtonLabel": "Type to act",
     "venuePlaceholder": "Edit the venue in one line (current canvas only). e.g. Add space \"Studio A\" 5×8m / rotate the makeup room 90° / delete the garage aisle",
     "venueConfirm": "Apply to canvas",
     "venueCancel": "Cancel",
-    "openButtonTooltip": "Natural-language action (⌘K)",
-    "modalTitle": "Type a sentence to act",
-    "placeholder": "Type a sentence (v1: expense management only). e.g. How much of Q3 salary went to MC / Add a travel expense: taxi May 10, ¥320",
+    "bubbleLabel": "Type to act (⌘K)",
+    "panelTitle": "Type to act",
+    "panelCollapse": "Collapse",
+    "venueScopeTag": "Current canvas",
+    "composerPlaceholder": "Say it in one line and I'll do it",
+    "composerHint": "Enter to send · Shift+Enter for a new line",
+    "emptyGreeting": "Just say it. Expenses, work tasks, and competitor data questions are supported today. For example:",
+    "examples": [
+      "How much of Q3 salary went to MC",
+      "Add a travel expense: taxi May 10, ¥320",
+      "Did solulune go live yesterday"
+    ],
+    "appliedNote": "Applied",
+    "cancelledNote": "Cancelled",
+    "thinking": "Working on it…",
     "sendButtonLabel": "Send",
     "query": {
       "emptyDenom": {
@@ -263,13 +276,6 @@
       "groupValueCol": "Value",
       "groupCountCol": "Count",
       "sampleHint": "Returned {count, plural, =1 {1 sample} other {# samples}}. Go to the expenses page for the full filtered list."
-    },
-    "clarification": {
-      "tableLabel": "Candidate records",
-      "dateCol": "Date",
-      "nameCol": "Name",
-      "amountCol": "Amount",
-      "buyerCol": "Buyer"
     },
     "emptyHint": {
       "suggestionsHeader": "Try adjusting:"
@@ -338,7 +344,21 @@
     "emailLabel": "Work email",
     "passwordLabel": "Password",
     "forgot": "Forgot?",
-    "forgotPasswordAlert": "Please contact an admin to reset your password.",
+    "resetEmailRequired": "Please enter your email first.",
+    "resetEmailSent": "Reset email sent — please check your inbox.",
+    "resetEmailFailed": "Failed to send the reset email. Please try again.",
+    "resetLinkExpired": "This reset link is no longer valid. Please request a new one.",
+    "resetPasswordTitle": "Set a new password",
+    "resetPasswordDesc": "Enter your new password below.",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm new password",
+    "resetPasswordSubmit": "Update password",
+    "resetPasswordSubmitting": "Updating...",
+    "resetPasswordSuccess": "Password updated. Please sign in again.",
+    "resetPasswordMismatch": "Passwords do not match.",
+    "resetPasswordTooShort": "Password must be at least 6 characters.",
+    "resetPasswordSessionMissing": "Please open this page from the reset link in your email.",
+    "resetPasswordFailed": "Failed to update password. Please try again.",
     "stepLabel": "Sign-in · Step 01 / 01"
   },
   "dashboard": {
@@ -706,7 +726,10 @@
       "owner": "Owner",
       "start": "Start",
       "target": "Target",
-      "daysLeft": "Days left",
+      "daysLeftOrCompleted": "Left / Done",
+      "lateBy": "{days}d late",
+      "earlyBy": "{days}d early",
+      "onTime": "On time",
       "view": "View →",
       "delete": "Delete",
       "overdue": "{days}d overdue",
@@ -745,6 +768,10 @@
       "levelCreator": "Creator",
       "startDate": "Start date",
       "targetDate": "Target date",
+      "completedDate": "Completed on",
+      "completedLate": "Completed {days} days late",
+      "completedEarly": "Completed {days} days early",
+      "completedOnTime": "Completed on time",
       "ownerAgent": "Owner agent",
       "successMetric": "Success metric",
       "metricTarget": "target: ",
@@ -763,6 +790,7 @@
       "errTitle": "Title is required.",
       "errDates": "Both dates are required.",
       "errDateOrder": "Target date must be after start date.",
+      "errCompletedBeforeStart": "Completed date cannot be earlier than the start date.",
       "errSaveFailed": "Save didn't go through — try again?",
       "errNetwork": "Network hiccup — try again in a moment.",
       "title": "Title *",
@@ -775,6 +803,8 @@
       "riskLevel": "Risk level",
       "startDate": "Start date *",
       "targetDate": "Target date *",
+      "completedDate": "Completed date",
+      "completedDateHint": "Filling this marks the milestone complete; leave empty if it is still open",
       "ownerAgent": "Owner agent",
       "ownerAgentNone": "— None —",
       "involvedAgents": "Involved agents",
@@ -823,6 +853,28 @@
         "warning": "Needs attention",
         "success": "Completed",
         "neutral": "Planned"
+      }
+    },
+    "list": {
+      "overview": "Timeline overview",
+      "overviewHint": "Target dates · Select a milestone to locate its row",
+      "targetAxis": "Milestone target date timeline",
+      "today": "Today",
+      "clusterLabel": "{count} nearby milestones, select to choose",
+      "nodeLabel": "Milestone {number}: {title}, target {date}",
+      "selected": "Selected: {title}",
+      "selectionHint": "Select a number to locate a milestone; nearby dates are grouped.",
+      "priority": "{value} priority",
+      "unassigned": "Unassigned",
+      "more": "More actions",
+      "deleteFailed": "Could not delete. Please try again.",
+      "timing": "Timing",
+      "groups": {
+        "overdue": "Needs attention",
+        "due": "Due soon",
+        "active": "In progress",
+        "planned": "Planned",
+        "completed": "Completed"
       }
     }
   },
@@ -1367,6 +1419,13 @@
     "redo": "Redo",
     "grid": "Grid",
     "dimensionRulers": "Dimension rulers",
+    "rulerMenu": {
+      "items": "Item rulers",
+      "totalBounds": "Overall size",
+      "chain": "Dimension chain",
+      "bandDepth": "Edge band",
+      "bandAuto": "Auto"
+    },
     "snapEnabled": "Edge snapping",
     "mergeAreas": "Merge spaces",
     "unmergeAreas": "Unmerge spaces",
@@ -1418,7 +1477,7 @@
     "railLibrary": "Library",
     "railLayers": "Layers",
     "inspectorTitle": "Inspector",
-    "noSelectionTitle": "No item selected",
+    "noSelectionTitle": "Canvas",
     "noSelectionBody": "Select an item from the canvas or list to edit its name, type, status, position, size, rotation, and note.",
     "deleteItem": "Delete item",
     "fieldName": "Name",
@@ -1454,7 +1513,6 @@
       "light_grille4_stand": "Grille light (stand)"
     },
     "addMarker": "Marker",
-    "canvasActions": "Canvas actions",
     "viewBookmarks": "Saved views",
     "viewSwitchNext": "Switch to next view",
     "viewSaveCurrent": "Save current view",
@@ -1542,7 +1600,10 @@
         "improve": "Polish",
         "security": "Security",
         "infra": "Infra"
-      }
+      },
+      "filterAll": "All",
+      "searchPlaceholder": "Search title, details, or module…",
+      "noResults": "No matching entries"
     }
   },
   "discussions": {
@@ -1645,7 +1706,7 @@
     "deleteConfirm": "Delete this competitor and all its snapshots?",
     "deleteShotConfirm": "Delete this screenshot?",
     "actionFailed": "Action failed",
-    "weeklyFollowers": "Followers · last 4 wks",
+    "weeklyFollowers": "Followers · last 5 wks",
     "weeklyDelta": "{pct}%/wk",
     "weeklyPointTip": "Week of {date} · {count}",
     "weeklyEmpty": "No follower data",
@@ -1666,6 +1727,14 @@
     "closeShot": "Close",
     "shotDate": "Shot date",
     "saveShotDate": "Save date",
+    "captionMore": "More",
+    "captionLess": "Less",
+    "viewOnly": "Image only",
+    "exitViewOnly": "Exit image-only",
+    "downloadShot": "Download",
+    "downloadDay": "Download all {count}",
+    "downloadFailed": "Download failed, please retry",
+    "downloading": "Packing {done}/{total}",
     "shotDateInvalid": "Invalid date format",
     "upload": "Upload",
     "orPaste": "or paste",
@@ -1710,13 +1779,30 @@
     "navFilterPlaceholder": "Filter by name",
     "navNoMatch": "No matching account",
     "navMissingShot": "no shot that day",
-    "navJumpTo": "Jump to {name}"
+    "navJumpTo": "Jump to {name}",
+    "ask": {
+      "errorNotConfigured": "Chat is not configured yet. Ask an admin to set DEEPSEEK_API_KEY.",
+      "errorUpstream": "Could not get an answer. Try again.",
+      "errorBoard": "Could not load competitor data. Try again later."
+    },
+    "descriptionsTitle": "Live room style notes",
+    "descriptionsLabel": "Style notes ({count})",
+    "descriptionsEmpty": "No style notes yet",
+    "descriptionAdd": "Add",
+    "descriptionEdit": "Edit note",
+    "descriptionDelete": "Delete note",
+    "descriptionDeleteConfirm": "Delete this note?",
+    "descriptionDate": "Generated on",
+    "descriptionPlaceholder": "How this live room looks…",
+    "descriptionBodyRequired": "Both the note and the date are required",
+    "descriptionSourceAuto": "Generated",
+    "descriptionSourceManual": "Written"
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
-      "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp is an Osaka-based TikTok LIVE Creator Network. Through our dual-captain system, we recruit and develop female live creators — from dance training to livestream operations and original content production."
+      "titleDefault": "EchoWith OSAKA ／ TikTok LIVE Creator Network",
+      "titleTemplate": "%s ｜ EchoWith OSAKA",
+      "description": "EchoWith is an Osaka-based TikTok LIVE Creator Network. Through our dual-captain system, we recruit and develop female live creators — from dance training to livestream operations and original content production."
     },
     "nav": {
       "top": "TOP",
@@ -1737,7 +1823,7 @@
       "menuLabel": "Language options"
     },
     "veil": {
-      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "eyebrow": "ECHOWITH OSAKA ／ VISION 2027",
       "line1": "Finding Osaka's most gifted",
       "line2": "performers who sing and dance."
     },
@@ -1750,7 +1836,7 @@
       "recruit": "RECRUIT",
       "contact": "CONTACT",
       "social": "TIKTOK ／ X ／ LINE",
-      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+      "copyright": "© 2026 ECHOWITH OSAKA — ECHO FROM OSAKA NIGHT"
     },
     "ticker": {
       "items": [
@@ -1766,9 +1852,9 @@
       "title1": "BUILDING FEMALE SINGING & DANCE",
       "title2": "LIVE GROUPS IN OSAKA.",
       "tagline": "ECHO FROM OSAKA NIGHT",
-      "lead": "Recruitment, training, livestreaming, and content production. EchoAmp grows together with its creators.",
+      "lead": "Recruitment, training, livestreaming, and content production. EchoWith grows together with its creators.",
       "ctaApply": "APPLY",
-      "ctaAbout": "ABOUT ECHOAMP",
+      "ctaAbout": "ABOUT ECHOWITH",
       "heroCaption": "BRING THE LIGHTS OF OSAKA INTO LIVE.",
       "heroPlaceholder": "Hero image / MoonDollz key visual",
       "stats": [
@@ -1795,7 +1881,7 @@
         "title": "THE TEAM'S STAGE",
         "more": "READ MORE →"
       },
-      "visionBody": "We believe live streaming is a stage built for a team. EchoAmp brings together people who love music, dance, and performance, building a style and culture of their own through continuous live shows.",
+      "visionBody": "We believe live streaming is a stage built for a team. EchoWith brings together people who love music, dance, and performance, building a style and culture of their own through continuous live shows.",
       "visionCards": [
         {
           "no": "1 ALBUM",
@@ -1850,7 +1936,7 @@
         "eyebrow": "05 ／ TECHNOLOGY",
         "title": "SUIT LIVE TECHNOLOGY"
       },
-      "techBody": "Costumed-suit (kigurumi) streaming still has few precedents in Japan. We brought it in house to an operable level, with motion linkage and real-time staging. One of EchoAmp's own differentiators.",
+      "techBody": "Costumed-suit (kigurumi) streaming still has few precedents in Japan. We brought it in house to an operable level, with motion linkage and real-time staging. One of EchoWith's own differentiators.",
       "techCta": "See the tech",
       "techPlaceholder": "Suit / motion-capture session photo",
       "bannerEyebrow": "RECRUIT ／ SECOND ROUND",
@@ -1878,7 +1964,7 @@
       "eyebrow": "VISION ／ 2027",
       "title": "Find Osaka's most talented singing and dancing live creators.",
       "statement": "We believe live streaming is a stage built for a team.",
-      "lead": "EchoAmp brings together people who love music, dance, and performance. Through continuous live shows, they build a style and culture of their own—and find the audience who truly loves the team and wants to grow with them.",
+      "lead": "EchoWith brings together people who love music, dance, and performance. Through continuous live shows, they build a style and culture of their own—and find the audience who truly loves the team and wants to grow with them.",
       "imagePlaceholder": "Night view of Dotonbori / Shinsekai",
       "imageAlt": "Illustrated Osaka night skyline seen from above, neon-lit blocks and elevated expressway lights running into the distance, a lit observation tower in the mid-ground",
       "eras": [
@@ -2037,7 +2123,7 @@
           "title": "Suit live technology",
           "en": "SUIT LIVE TECHNOLOGY",
           "short": "Fabrication, motion, voice and real-time staging in house — a field with few precedents in Japan.",
-          "body": "Costumed-suit (kigurumi) streaming still has few precedents in Japan, and we keep that know-how in house: fabrication, motion, voice and real-time staging run as one, so a character IP can grow continuously without depending on the performer's face. One of EchoAmp's own differentiators."
+          "body": "Costumed-suit (kigurumi) streaming still has few precedents in Japan, and we keep that know-how in house: fabrication, motion, voice and real-time staging run as one, so a character IP can grow continuously without depending on the performer's face. One of EchoWith's own differentiators."
         }
       ],
       "subItems": [
@@ -2069,7 +2155,7 @@
       "rows": [
         {
           "label": "Who we seek",
-          "body": "Women around 18–26, living in Osaka/Kansai or able to commute. Japanese nationality or a residence status permitting work."
+          "body": "Women aged 18–40, living in Osaka/Kansai or able to commute. Japanese nationality or a residence status permitting work."
         },
         {
           "label": "Welcome experience",
@@ -2103,17 +2189,29 @@
         "contact": "How to reach you",
         "contactHint": "LINE ID, email or a social account",
         "experience": "Experience / socials",
+        "danceSkillLevel": "Dance skill level",
+        "danceSkillLevelOptions": {
+          "barely_touched": "Rarely practiced",
+          "long_term_hobby": "Long-term hobby",
+          "professional_training": "Professional training",
+          "teaching_level": "Instructor level"
+        },
+        "danceYears": "Years of dance experience",
+        "danceYearsOptions": {
+          "none": "None"
+        },
         "consent": "I agree that the information above may be used for recruitment screening.",
         "submit": "Submit",
         "submitting": "Sending…",
-        "lineNote": "You can also apply via LINE: @echoamp_osaka",
+        "lineNote": "You can also apply via LINE: @echowith_osaka",
         "successTitle": "Thank you for applying.",
-        "successBody": "We will review your entry and get back to you within 2–3 weeks. If it is urgent, reach us on LINE (@echoamp_osaka).",
+        "successBody": "We will review your entry and get back to you within 2–3 weeks. If it is urgent, reach us on LINE (@echowith_osaka).",
         "errors": {
           "required": "Required",
           "tooLong": "Too long",
           "outOfRange": "Enter a number between 16 and 60",
           "invalidAge": "Digits only",
+          "invalidChoice": "Please choose from the list",
           "consent": "Your consent is required",
           "rateLimited": "Too many submissions right now. Please try again shortly.",
           "network": "Could not send. Check your connection and try again."
@@ -2205,7 +2303,7 @@
           "eyebrow": "FOR CLIENT",
           "title": "For Businesses & Brands",
           "body": "For music production, mascot costume technology, commercial livestreaming, advertising partnerships, or reports of misconduct and compliance concerns, please contact us by email.",
-          "cta": "business@echoamp.jp",
+          "cta": "business@echowith.jp",
           "action": "email",
           "rows": [
             {
@@ -2214,7 +2312,7 @@
             },
             {
               "label": "Contact",
-              "value": "business@echoamp.jp",
+              "value": "business@echowith.jp",
               "link": "email"
             },
             {
@@ -2245,7 +2343,7 @@
         "map": {
           "station": "Shin-Osaka",
           "walk": "5 min walk ／ 400m",
-          "studio": "ECHOAMP STUDIO",
+          "studio": "ECHOWITH STUDIO",
           "areaEn": "SHIN-OSAKA AREA",
           "areaJp": "Yodogawa-ku, Osaka",
           "north": "N ↑",
@@ -2290,8 +2388,17 @@
     "columns": {
       "age": "Age",
       "email": "Email",
-      "commuteMode": "Commute"
-    }
+      "commuteMode": "Commute",
+      "danceSkillLevel": "Dance skill",
+      "danceYears": "Dance experience"
+    },
+    "danceSkillLevels": {
+      "barely_touched": "Rarely practiced",
+      "long_term_hobby": "Long-term hobby",
+      "professional_training": "Professional training",
+      "teaching_level": "Instructor level"
+    },
+    "danceYearsNone": "None"
   },
   "siteNews": {
     "title": "Site Content · News",

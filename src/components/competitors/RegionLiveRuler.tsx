@@ -122,7 +122,10 @@ export default function RegionLiveRuler({
   return (
     <span
       ref={wrapRef}
-      className="relative shrink-0"
+      // inline-flex：这层是外侧 flex 行的项，块化后会带一个 24px 的行盒
+      // （继承 16px 字号的 line-height），里面的按钮按基线落位而非居中，
+      // 胶囊就会比行中线低 2px。做成 flex 容器后高度贴合内容，由外层 items-center 居中。
+      className="relative inline-flex shrink-0"
       onMouseEnter={show}
       onMouseLeave={scheduleHide}
       onFocus={show}
@@ -142,7 +145,11 @@ export default function RegionLiveRuler({
       <button
         type="button"
         // Tag 不吃 className，所以包一层承载焦点环与展开态。
-        className={`rounded-btn ${FOCUS_RING}`}
+        // inline-flex 而非默认的 inline-block：后者会给 button 撑出一个 24px 的行盒
+        // （继承 16px 字号的 line-height），里面 18px 的 Tag 按**基线**落位，于是胶囊
+        // 比行中线低 2px；相邻那枚风格描述徽章首个子元素是 svg（无基线、按下边缘对齐）
+        // 反而是正的，两枚就不共中线了。改成 flex 容器后按 flex 居中，与行高无关。
+        className={`inline-flex rounded-btn ${FOCUS_RING}`}
         aria-expanded={open}
         aria-describedby={open ? panelId : undefined}
         onClick={() => (open ? (cancelClose(), setOpen(false)) : show())}

@@ -4,6 +4,7 @@ import { setRequestLocale, getTranslations } from 'next-intl/server'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import StaffApplicationForm from '@/components/site/StaffApplicationForm'
+import { createAutoLinker } from '@/lib/site/autoLink'
 
 export async function generateMetadata({
   params,
@@ -17,6 +18,7 @@ export async function generateMetadata({
 export default function SiteRecruitStaffPage({ params }: { params: { locale: string } }) {
   setRequestLocale(params.locale)
   const t = useTranslations('site.recruitStaff')
+  const autoLink = createAutoLinker()
 
   return (
     <>
@@ -26,7 +28,7 @@ export default function SiteRecruitStaffPage({ params }: { params: { locale: str
           title={t('title')}
           titleFont="serif"
           size="page"
-          sub={t('lead')}
+          sub={autoLink(t('lead'))}
         />
       </SiteSection>
 

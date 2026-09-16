@@ -23,7 +23,7 @@ import LoadingState from '@/components/ui/LoadingState'
 import ErrorState from '@/components/ui/ErrorState'
 import { toneOf } from '@/lib/ui/status-tone'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
-import { openCommandBar } from '@/components/intent/CommandBar'
+import { openCommandBar } from '@/components/intent/CommandPanel'
 import { useCurrency } from '@/lib/currency'
 import EmptyState from '@/components/ui/EmptyState'
 import {
@@ -575,7 +575,7 @@ export default function ExpensesPage() {
         }
         search={
           <div className="w-56">
-            {/* No kbdHint here — ⌘K is bound to the CommandBar (see the
+            {/* No kbdHint here — ⌘K is bound to the CommandPanel (see the
                 natural-language trigger below), not to focusing this plain
                 search box. Claiming it here would be a second, false claim
                 on the same shortcut. */}

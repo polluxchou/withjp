@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { STALE_DAYS, competitorName, summarizeBoard } from './summary.ts'
+import { STALE_DAYS, competitorName, daysBetween, summarizeBoard } from './summary.ts'
 import type { SummaryInput } from './summary.ts'
 
 function make(
@@ -16,6 +16,14 @@ function make(
 function snap(captured_on: string, followers: number | null, display_name: string | null = null) {
   return { captured_on, followers, display_name }
 }
+
+test('daysBetween: 支持反向区间返回负数', () => {
+  assert.equal(daysBetween('2026-08-20', '2026-08-13'), -7)
+})
+
+test('daysBetween: 跨年边界正确进位', () => {
+  assert.equal(daysBetween('2025-12-31', '2026-01-01'), 1)
+})
 
 test('summarizeBoard: 空数组归零', () => {
   const s = summarizeBoard([], '2026-08-15')

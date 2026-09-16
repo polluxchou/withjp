@@ -1,8 +1,18 @@
 // src/lib/competitors/service.ts
-import { createServerClient } from '@/lib/supabase/server'
-import { assembleBoard, parseHandleFromUrl } from './assemble'
-import { isValidShotDate } from './shotGrid'
-import type { Competitor, CompetitorSnapshot, CompetitorShot, CompetitorBoard, CompetitorPlatform } from './types'
+//
+// createServerClient 改走相对路径导入（原为 @/lib/supabase/server 别名）：
+// ask-service.test.ts 需要静态 import 到本文件才能测 runAskConversation 的
+// 校验边界（见该文件顶部注释），node --test 不解析 tsconfig 的 @/ 别名。
+// server.ts 本身只依赖 @supabase/supabase-js 这个真实包，没有 next/headers
+// 之类只能在请求生命周期里跑的依赖，relative 导入在 node --test 下能正常
+// 解析到底，不影响 Next.js 构建时的行为。
+import { createServerClient } from '../supabase/server.ts'
+import { assembleBoard, parseHandleFromUrl } from './assemble.ts'
+import { normalizeDescriptionBody } from './descriptions.ts'
+import { isValidShotDate } from './shotGrid.ts'
+import type {
+  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorBoard, CompetitorPlatform,
+} from './types.ts'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
 export interface ServiceError { code: ServiceErrorCode; message: string }
@@ -79,19 +89,22 @@ async function assertValidParent(
 /** 加载看板：任意登录用户可读可写（canEdit 恒 true）。 */
 export async function getCompetitorBoard(_userId: string): Promise<ServiceResult<CompetitorBoard>> {
   const db = createServerClient()
-  const [compRes, snapRes, shotRes] = await Promise.all([
+  const [compRes, snapRes, shotRes, descRes] = await Promise.all([
     db.from('competitors').select('*').order('created_at', { ascending: true }),
     db.from('competitor_snapshots').select('*'),
     db.from('competitor_shots').select('*'),
+    db.from('competitor_descriptions').select('*'),
   ])
-  if (compRes.error || snapRes.error || shotRes.error) {
-    return err('db_error', compRes.error?.message ?? snapRes.error?.message ?? shotRes.error?.message ?? 'load failed')
+  if (compRes.error || snapRes.error || shotRes.error || descRes.error) {
+    return err('db_error',
+      compRes.error?.message ?? snapRes.error?.message ?? shotRes.error?.message ?? descRes.error?.message ?? 'load failed')
   }
   return ok(assembleBoard(
     (compRes.data ?? []) as Competitor[],
     (snapRes.data ?? []) as CompetitorSnapshot[],
     (shotRes.data ?? []) as CompetitorShot[],
     true,
+    (descRes.data ?? []) as CompetitorDescription[],
   ))
 }
 
@@ -211,4 +224,69 @@ export async function deleteShot(shotId: string): Promise<ServiceResult<{ id: st
   const { error } = await db.from('competitor_shots').delete().eq('id', shotId)
   if (error) return err('db_error', error.message)
   return ok({ id: shotId })
+}
+
+// ---- 风格描述 CRUD ----
+//
+// 写入有两条路：本地任务走 service-role 直连（scripts/live-watch/record-style-description.mjs），
+// 界面手写走这里。界面写的一律标 source='manual'：那条唯一索引只管自动路径，
+// 人在同一天补两条不同的观察是合理的。
+
+const GENERATED_ON_HINT = 'generated_on must be a real calendar date in YYYY-MM-DD (1900-2999)'
+const BODY_HINT = 'body must be a non-empty string within the length limit'
+
+export interface DescriptionInput {
+  body: string
+  generated_on: string
+}
+
+export async function addDescription(
+  competitorId: string,
+  input: DescriptionInput,
+): Promise<ServiceResult<CompetitorDescription>> {
+  const body = normalizeDescriptionBody(input?.body)
+  if (!body) return err('invalid_input', BODY_HINT)
+  // isValidShotDate 对 null/undefined 放行（截图那边允许"日期待定"），
+  // 描述这边 generated_on 是排序主键、不可为空，所以先自己挡一道。
+  if (typeof input.generated_on !== 'string' || !isValidShotDate(input.generated_on)) {
+    return err('invalid_input', GENERATED_ON_HINT)
+  }
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('competitor_descriptions')
+    .insert({ competitor_id: competitorId, body, generated_on: input.generated_on, source: 'manual' })
+    .select('*').single()
+  if (error) return err('db_error', error.message)
+  return ok(data as CompetitorDescription)
+}
+
+export async function updateDescription(
+  descriptionId: string,
+  fields: { body?: string; generated_on?: string },
+): Promise<ServiceResult<{ id: string }>> {
+  if (!fields || typeof fields !== 'object') return err('invalid_input', 'body must be an object')
+  const patch: Record<string, unknown> = {}
+  if (fields.body !== undefined) {
+    const body = normalizeDescriptionBody(fields.body)
+    if (!body) return err('invalid_input', BODY_HINT)
+    patch.body = body
+  }
+  if (fields.generated_on !== undefined) {
+    if (typeof fields.generated_on !== 'string' || !isValidShotDate(fields.generated_on)) {
+      return err('invalid_input', GENERATED_ON_HINT)
+    }
+    patch.generated_on = fields.generated_on
+  }
+  if (Object.keys(patch).length === 0) return err('invalid_input', 'nothing to update')
+  const db = createServerClient()
+  const { error } = await db.from('competitor_descriptions').update(patch).eq('id', descriptionId)
+  if (error) return err('db_error', error.message)
+  return ok({ id: descriptionId })
+}
+
+export async function deleteDescription(descriptionId: string): Promise<ServiceResult<{ id: string }>> {
+  const db = createServerClient()
+  const { error } = await db.from('competitor_descriptions').delete().eq('id', descriptionId)
+  if (error) return err('db_error', error.message)
+  return ok({ id: descriptionId })
 }

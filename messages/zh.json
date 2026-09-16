@@ -40,33 +40,35 @@
     }
   },
   "nav": {
-    "dashboard": "仪表盘",
-    "creators": "创作者",
+    "workbench": "工作台",
+    "creatorOps": "创作者运营",
+    "recruitApplications": "官网应募",
     "creatorsList": "创作者列表",
+    "lifecycleBoard": "生命周期看板",
     "competitors": "竞品监测",
-    "pipeline": "流程管理",
-    "timeline": "战略时间轴",
-    "tasks": "任务",
-    "workspace": "工作区",
-    "team": "团队（AI代理）",
-    "teamAgents": "AI 代理",
-    "teamAssignments": "任务分配",
+    "teamwork": "团队协作",
+    "workTasks": "人员任务与工时",
+    "milestones": "战略里程碑",
     "teamOrg": "业务分工",
-    "knowledge": "知识库",
     "costManagement": "成本管理",
     "expenses": "支出管理",
-    "financeForecast": "财务预测",
+    "items": "物品资产",
     "venue": "场地布置",
-    "items": "物品管理",
-    "config": "配置",
+    "financeForecast": "财务预测",
+    "aiAssistant": "AI 助手",
+    "aiChat": "AI 对话",
+    "aiTasks": "AI 任务",
+    "teamAssignments": "代理任务分配",
+    "teamAgents": "代理配置",
+    "knowledge": "知识库",
+    "siteContent": "官网管理",
+    "siteContentNews": "新闻管理",
+    "siteMembers": "成员管理",
+    "settings": "系统设置",
     "profile": "个人信息",
     "logout": "退出登录",
     "appName": "Creator Network",
-    "appSubtitle": "AI 运营系统",
-    "recruitApplications": "官网应募",
-    "siteContent": "官网内容",
-    "siteContentNews": "新闻管理",
-    "siteMembers": "成员管理"
+    "appSubtitle": "AI 运营系统"
   },
   "language": {
     "zh": "中文",
@@ -230,13 +232,24 @@
     "switchHint": "按固定汇率切换显示币种（1 USD = 7 CNY；1 CNY = 20 JPY）"
   },
   "intent": {
-    "openButtonLabel": "用文字操作",
     "venuePlaceholder": "用一句话改场地（仅当前画布）。例：新增 空间「主直播间」5×8 米 / 把化妆间旋转90度 / 删除车库通道",
     "venueConfirm": "应用到画布",
     "venueCancel": "取消",
-    "openButtonTooltip": "自然语言操作 (⌘K)",
-    "modalTitle": "用一句话操作",
-    "placeholder": "用一句话操作（v1 仅支持支出管理）。例：Q3 薪资中 MC 占了多少 / 新增差旅费 5月10日打车 320 元",
+    "bubbleLabel": "用文字操作 (⌘K)",
+    "panelTitle": "用文字操作",
+    "panelCollapse": "收起",
+    "venueScopeTag": "当前画布",
+    "composerPlaceholder": "说一句话，我来执行",
+    "composerHint": "Enter 发送 · Shift+Enter 换行",
+    "emptyGreeting": "说一句话就行。目前支持支出管理、工时任务和竞品数据问答，示例：",
+    "examples": [
+      "Q3 薪资中 MC 占了多少",
+      "新增差旅费 5月10日打车 320 元",
+      "solulune 昨天开播了吗"
+    ],
+    "appliedNote": "已应用",
+    "cancelledNote": "已取消",
+    "thinking": "正在理解…",
     "sendButtonLabel": "发送",
     "query": {
       "emptyDenom": {
@@ -263,13 +276,6 @@
       "groupValueCol": "值",
       "groupCountCol": "条数",
       "sampleHint": "已返回 {count} 条样例。完整筛选请到支出列表页操作。"
-    },
-    "clarification": {
-      "tableLabel": "候选记录",
-      "dateCol": "日期",
-      "nameCol": "名称",
-      "amountCol": "金额",
-      "buyerCol": "经办人"
     },
     "emptyHint": {
       "suggestionsHeader": "可以这样调整："
@@ -338,7 +344,21 @@
     "emailLabel": "工作邮箱 · WORK EMAIL",
     "passwordLabel": "密码 · PASSWORD",
     "forgot": "忘记密码？",
-    "forgotPasswordAlert": "请联系管理员重置密码",
+    "resetEmailRequired": "请先输入邮箱",
+    "resetEmailSent": "重置邮件已发送，请查收邮箱",
+    "resetEmailFailed": "邮件发送失败，请稍后重试",
+    "resetLinkExpired": "链接已失效，请重新发送重置邮件",
+    "resetPasswordTitle": "设置新密码",
+    "resetPasswordDesc": "请输入你的新密码",
+    "newPasswordLabel": "新密码",
+    "confirmPasswordLabel": "确认新密码",
+    "resetPasswordSubmit": "更新密码",
+    "resetPasswordSubmitting": "更新中...",
+    "resetPasswordSuccess": "密码已更新，请用新密码重新登录",
+    "resetPasswordMismatch": "两次输入的密码不一致",
+    "resetPasswordTooShort": "密码至少需要 6 位",
+    "resetPasswordSessionMissing": "请先通过邮件里的重置链接进入此页面",
+    "resetPasswordFailed": "密码更新失败，请稍后重试",
     "stepLabel": "登录 · STEP 01 / 01"
   },
   "dashboard": {
@@ -706,7 +726,10 @@
       "owner": "负责人",
       "start": "开始",
       "target": "目标",
-      "daysLeft": "剩余天数",
+      "daysLeftOrCompleted": "剩余 / 完成",
+      "lateBy": "延期 {days} 天",
+      "earlyBy": "提前 {days} 天",
+      "onTime": "准点完成",
       "view": "查看 →",
       "delete": "删除",
       "overdue": "逾期 {days} 天",
@@ -745,6 +768,10 @@
       "levelCreator": "创作者",
       "startDate": "开始日期",
       "targetDate": "目标日期",
+      "completedDate": "完成日期",
+      "completedLate": "延期 {days} 天完成",
+      "completedEarly": "提前 {days} 天完成",
+      "completedOnTime": "准点完成",
       "ownerAgent": "负责代理",
       "successMetric": "成功指标",
       "metricTarget": "目标：",
@@ -763,6 +790,7 @@
       "errTitle": "标题不能为空。",
       "errDates": "起止日期不能为空。",
       "errDateOrder": "目标日期必须晚于开始日期。",
+      "errCompletedBeforeStart": "完成日期不能早于开始日期。",
       "errSaveFailed": "保存没成功，再试一次？",
       "errNetwork": "网络好像有点问题，稍后再试吧。",
       "title": "标题 *",
@@ -775,6 +803,8 @@
       "riskLevel": "风险等级",
       "startDate": "开始日期 *",
       "targetDate": "目标日期 *",
+      "completedDate": "完成日期",
+      "completedDateHint": "填上即标记为已完成，留空表示尚未完成",
       "ownerAgent": "负责代理",
       "ownerAgentNone": "— 无 —",
       "involvedAgents": "参与代理",
@@ -823,6 +853,28 @@
         "warning": "需注意",
         "success": "已完成",
         "neutral": "计划中"
+      }
+    },
+    "list": {
+      "overview": "时间总览",
+      "overviewHint": "按目标日期排列 · 点击节点关联列表",
+      "targetAxis": "节点目标日期时间轴",
+      "today": "今天",
+      "clusterLabel": "{count} 个相近节点，点击选择",
+      "nodeLabel": "节点 {number}：{title}，目标 {date}",
+      "selected": "已选中：{title}",
+      "selectionHint": "点击编号定位节点；相近日期的节点合并展示。",
+      "priority": "{value}优先级",
+      "unassigned": "未分配",
+      "more": "更多操作",
+      "deleteFailed": "删除失败，请重试。",
+      "timing": "时间状态",
+      "groups": {
+        "overdue": "需要处理",
+        "due": "即将到期",
+        "active": "进行中",
+        "planned": "计划中",
+        "completed": "已完成"
       }
     }
   },
@@ -1367,6 +1419,13 @@
     "redo": "重做",
     "grid": "网格",
     "dimensionRulers": "尺寸标尺",
+    "rulerMenu": {
+      "items": "组件标尺",
+      "totalBounds": "外轮廓总尺寸",
+      "chain": "尺寸链",
+      "bandDepth": "贴边带",
+      "bandAuto": "自动"
+    },
     "snapEnabled": "边缘吸附",
     "mergeAreas": "合并空间",
     "unmergeAreas": "拆分空间",
@@ -1418,7 +1477,7 @@
     "railLibrary": "对象库",
     "railLayers": "图层",
     "inspectorTitle": "属性",
-    "noSelectionTitle": "未选择对象",
+    "noSelectionTitle": "画布",
     "noSelectionBody": "从画布或区域列表中选择一个对象后，可编辑名称、类型、状态、位置、尺寸、旋转和备注。",
     "deleteItem": "删除对象",
     "fieldName": "名称",
@@ -1454,7 +1513,6 @@
       "light_grille4_stand": "格栅灯(支架)"
     },
     "addMarker": "标识",
-    "canvasActions": "画布操作",
     "viewBookmarks": "快速视图",
     "viewSwitchNext": "切换到下一个视图",
     "viewSaveCurrent": "保存当前视图",
@@ -1542,7 +1600,10 @@
         "improve": "优化",
         "security": "安全",
         "infra": "基础设施"
-      }
+      },
+      "filterAll": "全部",
+      "searchPlaceholder": "搜索标题、说明或模块…",
+      "noResults": "没有匹配的记录"
     }
   },
   "discussions": {
@@ -1645,7 +1706,7 @@
     "deleteConfirm": "确定删除该竞品及其全部打点？",
     "deleteShotConfirm": "确定删除这张截图？",
     "actionFailed": "操作失败",
-    "weeklyFollowers": "粉丝 · 近4周",
+    "weeklyFollowers": "粉丝 · 近5周",
     "weeklyDelta": "{pct}%/周",
     "weeklyPointTip": "{date} 起 · {count}",
     "weeklyEmpty": "暂无粉丝数据",
@@ -1666,6 +1727,14 @@
     "closeShot": "关闭",
     "shotDate": "截图日期",
     "saveShotDate": "保存日期",
+    "captionMore": "展开",
+    "captionLess": "收起",
+    "viewOnly": "仅看图",
+    "exitViewOnly": "退出仅看图",
+    "downloadShot": "下载这张",
+    "downloadDay": "打包下载 {count} 张",
+    "downloadFailed": "下载失败，请重试",
+    "downloading": "打包中 {done}/{total}",
     "shotDateInvalid": "日期格式不对",
     "upload": "上传",
     "orPaste": "或粘贴",
@@ -1710,13 +1779,30 @@
     "navFilterPlaceholder": "筛选账号名",
     "navNoMatch": "无匹配账号",
     "navMissingShot": "当天无截图",
-    "navJumpTo": "跳到 {name}"
+    "navJumpTo": "跳到 {name}",
+    "ask": {
+      "errorNotConfigured": "对话功能尚未配置，请联系管理员设置 DEEPSEEK_API_KEY。",
+      "errorUpstream": "没能拿到回答，可以再试一次。",
+      "errorBoard": "竞品数据加载失败，请稍后再试。"
+    },
+    "descriptionsTitle": "直播间风格描述",
+    "descriptionsLabel": "风格描述（{count} 条）",
+    "descriptionsEmpty": "还没有风格描述",
+    "descriptionAdd": "新增",
+    "descriptionEdit": "编辑描述",
+    "descriptionDelete": "删除描述",
+    "descriptionDeleteConfirm": "删除这条描述？",
+    "descriptionDate": "生成日期",
+    "descriptionPlaceholder": "这个直播间的画面风格…",
+    "descriptionBodyRequired": "正文和日期都要填",
+    "descriptionSourceAuto": "自动生成",
+    "descriptionSourceManual": "手写"
   },
   "site": {
     "meta": {
-      "titleDefault": "EchoAmp OSAKA ／ TikTok LIVE Creator Network",
-      "titleTemplate": "%s ｜ EchoAmp OSAKA",
-      "description": "EchoAmp 是以大阪为据点的 TikTok LIVE Creator Network。以双队长制为核心，招募并培养女子直播创作者，从舞蹈训练、直播运营到原创内容制作全部自有完成。"
+      "titleDefault": "EchoWith OSAKA ／ TikTok LIVE Creator Network",
+      "titleTemplate": "%s ｜ EchoWith OSAKA",
+      "description": "EchoWith 是以大阪为据点的 TikTok LIVE Creator Network。以双队长制为核心，招募并培养女子直播创作者，从舞蹈训练、直播运营到原创内容制作全部自有完成。"
     },
     "nav": {
       "top": "TOP",
@@ -1737,7 +1823,7 @@
       "menuLabel": "语言选项"
     },
     "veil": {
-      "eyebrow": "ECHOAMP OSAKA ／ VISION 2027",
+      "eyebrow": "ECHOWITH OSAKA ／ VISION 2027",
       "line1": "在大阪，找出最有才华的",
       "line2": "能唱能跳的直播者。"
     },
@@ -1750,7 +1836,7 @@
       "recruit": "RECRUIT",
       "contact": "CONTACT",
       "social": "TIKTOK ／ X ／ LINE",
-      "copyright": "© 2026 ECHOAMP OSAKA — ECHO FROM OSAKA NIGHT"
+      "copyright": "© 2026 ECHOWITH OSAKA — ECHO FROM OSAKA NIGHT"
     },
     "ticker": {
       "items": [
@@ -1766,9 +1852,9 @@
       "title1": "在大阪，打造",
       "title2": "女子唱跳直播团。",
       "tagline": "ECHO FROM OSAKA NIGHT",
-      "lead": "招募、训练、直播、内容制作。EchoAmp 与创作者一起成长。",
+      "lead": "招募、训练、直播、内容制作。EchoWith 与创作者一起成长。",
       "ctaApply": "报名",
-      "ctaAbout": "了解 EchoAmp",
+      "ctaAbout": "了解 EchoWith",
       "heroCaption": "把大阪的灯火，搬进直播间。",
       "heroPlaceholder": "主视觉／MoonDollz 关键视觉",
       "stats": [
@@ -1795,7 +1881,7 @@
         "title": "团队的舞台",
         "more": "READ MORE →"
       },
-      "visionBody": "我们相信，直播是一种属于团队的舞台。EchoAmp 想让热爱唱跳表演的人聚在一起，通过持续直播，共同形成属于团队的风格与文化。",
+      "visionBody": "我们相信，直播是一种属于团队的舞台。EchoWith 想让热爱唱跳表演的人聚在一起，通过持续直播，共同形成属于团队的风格与文化。",
       "visionCards": [
         {
           "no": "1 张专辑",
@@ -1850,7 +1936,7 @@
         "eyebrow": "05 ／ TECHNOLOGY",
         "title": "皮套直播技术"
       },
-      "techBody": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把它做到了可运营的水平：动作联动加实时演出，全部自有。这是 EchoAmp 独有的差异化领域之一。",
+      "techBody": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把它做到了可运营的水平：动作联动加实时演出，全部自有。这是 EchoWith 独有的差异化领域之一。",
       "techCta": "查看技术",
       "techPlaceholder": "皮套／动作捕捉现场照片",
       "bannerEyebrow": "RECRUIT ／ 二次招募",
@@ -1878,7 +1964,7 @@
       "eyebrow": "VISION ／ 2027",
       "title": "在大阪，找到最有才华的唱跳直播创作者。",
       "statement": "我们相信，直播是一种属于团队的舞台。",
-      "lead": "EchoAmp 希望把热爱唱歌、舞蹈与表演的人聚在一起，通过持续的直播，共同创造属于团队的风格与文化，并找到真正喜欢她们、愿意陪伴团队成长的观众。",
+      "lead": "EchoWith 希望把热爱唱歌、舞蹈与表演的人聚在一起，通过持续的直播，共同创造属于团队的风格与文化，并找到真正喜欢她们、愿意陪伴团队成长的观众。",
       "imagePlaceholder": "道顿堀／新世界夜景照片",
       "imageAlt": "大阪夜色插画：从高处俯瞰的城市夜景，霓虹楼群与高架路灯带向远方延伸，中景一座点亮的观光塔",
       "eras": [
@@ -2037,7 +2123,7 @@
           "title": "皮套直播技术",
           "en": "SUIT LIVE TECHNOLOGY",
           "short": "造型、动作、声音与实时演出一体自有。日本国内案例尚少的差异化领域。",
-          "body": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把这套 know-how 沉淀在公司内部：造型、动作、声音与实时演出一体运营，不依赖演出者露脸，持续培育角色 IP。这是 EchoAmp 独有的差异化领域之一。"
+          "body": "皮套（着ぐるみ）直播在日本国内案例尚少，我们把这套 know-how 沉淀在公司内部：造型、动作、声音与实时演出一体运营，不依赖演出者露脸，持续培育角色 IP。这是 EchoWith 独有的差异化领域之一。"
         }
       ],
       "subItems": [
@@ -2069,7 +2155,7 @@
       "rows": [
         {
           "label": "招募对象",
-          "body": "18–26 岁女性；居住于大阪・关西或可通勤者。需持有日本国籍或可工作的在留资格。"
+          "body": "18–40 岁女性；居住于大阪・关西或可通勤者。需持有日本国籍或可工作的在留资格。"
         },
         {
           "label": "优先经验",
@@ -2103,17 +2189,29 @@
         "contact": "联系方式",
         "contactHint": "LINE ID、邮箱或社交账号任一",
         "experience": "经验・社交账号",
+        "danceSkillLevel": "舞蹈能力类型",
+        "danceSkillLevelOptions": {
+          "barely_touched": "接触较少",
+          "long_term_hobby": "长期爱好",
+          "professional_training": "专业培训",
+          "teaching_level": "教学级别"
+        },
+        "danceYears": "舞蹈年限",
+        "danceYearsOptions": {
+          "none": "无"
+        },
         "consent": "我同意公司为招募选拔目的使用以上信息。",
         "submit": "提交",
         "submitting": "提交中…",
-        "lineNote": "也可以通过 LINE 报名：@echoamp_osaka",
+        "lineNote": "也可以通过 LINE 报名：@echowith_osaka",
         "successTitle": "感谢你的报名。",
-        "successBody": "我们会在确认内容后于 2–3 周内联系你。如需加急，请直接联系 LINE（@echoamp_osaka）。",
+        "successBody": "我们会在确认内容后于 2–3 周内联系你。如需加急，请直接联系 LINE（@echowith_osaka）。",
         "errors": {
           "required": "请填写",
           "tooLong": "超出字数上限",
           "outOfRange": "请填写 16–60 之间的数字",
           "invalidAge": "请填写半角数字",
+          "invalidChoice": "请从列表中选择",
           "consent": "需要你的同意",
           "rateLimited": "提交过于频繁，请稍后再试。",
           "network": "提交失败，请检查网络后重试。"
@@ -2205,7 +2303,7 @@
           "eyebrow": "客户合作",
           "title": "企业及品牌合作",
           "body": "我们接受有关乐曲制作、皮套人技术、商业直播咨询、广告业务合作，以及不诚信行为与合规投诉的邮件联系。",
-          "cta": "business@echoamp.jp",
+          "cta": "business@echowith.jp",
           "action": "email",
           "rows": [
             {
@@ -2214,7 +2312,7 @@
             },
             {
               "label": "联系方式",
-              "value": "business@echoamp.jp",
+              "value": "business@echowith.jp",
               "link": "email"
             },
             {
@@ -2245,7 +2343,7 @@
         "map": {
           "station": "新大阪站",
           "walk": "步行 5 分 ／ 400m",
-          "studio": "ECHOAMP STUDIO",
+          "studio": "ECHOWITH STUDIO",
           "areaEn": "SHIN-OSAKA AREA",
           "areaJp": "大阪市淀川区・新大阪一带",
           "north": "N ↑",
@@ -2290,8 +2388,17 @@
     "columns": {
       "age": "年龄",
       "email": "邮箱",
-      "commuteMode": "通勤方式"
-    }
+      "commuteMode": "通勤方式",
+      "danceSkillLevel": "舞蹈能力",
+      "danceYears": "舞蹈年限"
+    },
+    "danceSkillLevels": {
+      "barely_touched": "接触较少",
+      "long_term_hobby": "长期爱好",
+      "professional_training": "专业培训",
+      "teaching_level": "教学级别"
+    },
+    "danceYearsNone": "无"
   },
   "siteNews": {
     "title": "官网内容 · 新闻",

@@ -11,6 +11,38 @@ export const SHOT_WINDOW_SIZE = 5
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
+ * 截图日期最多能往后选几天。
+ *
+ * 允许未来日期不是笔误：团队分布在不同时区，而 shot_on 记的是**直播当地**那一天。
+ * 加州的人（UTC-7）看到的"今天"比日本晚一天，日本 09-14 凌晨那场直播，他要归档时
+ * 本地时钟还停在 09-13 —— 只开放到"今天"的话，这一天他根本选不到。
+ *
+ * 仍然留一个上限而不是完全放开：再往后就不是时区差了，而是手滑，
+ * 一个 2027 年的日期会在日期轴上拉出一列没人能解释的孤儿。
+ */
+export const SHOT_DATE_FUTURE_DAYS = 3
+
+/**
+ * 在 YYYY-MM-DD 上加减天数，跨月跨年跨闰年都按日历天走。
+ *
+ * 走 Date.UTC 而不是本地时区的 Date：本地时区在夏令时切换那天只有 23 或 25 小时，
+ * 用 `d.setDate(d.getDate() + n)` 那一套在边界上会算出前一天（美西 3 月 8 日、
+ * 11 月 1 日各一次，团队里有人在加州）。当成 UTC 上的纯日历日就没有这个坑。
+ *
+ * 认不出的输入原样返回：产出 "NaN-NaN-NaN" 会被塞进 input 的 max，
+ * 让整个日期控件静默失效 —— 那种失效在界面上没有任何痕迹。
+ */
+export function shiftDate(ymd: string, days: number): string {
+  const t = Date.parse(ymd + 'T00:00:00Z')
+  if (Number.isNaN(t)) return ymd
+  // 回读比对一次就够：能原样回读的输入，必然是规范写法的 YYYY-MM-DD 且是真实日历日。
+  // 这一句同时挡掉了 2026-02-30(被 Date 自动进位)、2026-9-13(非规范写法)、
+  // 空串与乱码 —— 再在前面加一道正则守卫是死代码,突变探针证实过没有任何测试能杀它。
+  if (new Date(t).toISOString().slice(0, 10) !== ymd) return ymd
+  return new Date(t + days * 86_400_000).toISOString().slice(0, 10)
+}
+
+/**
  * shot_on 是否合法：null / undefined 或真实存在的 YYYY-MM-DD 日历日。
  *
  * 这是**写入前的入参守卫**，不是通用的格式判定：null 表示"显式清空日期"、
@@ -113,51 +145,6 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
     arr.sort((a, b) => (a.sort_order - b.sort_order) || a.created_at.localeCompare(b.created_at))
   }
   return map
-}
-
-/** 灯箱一次并排显示的张数。 */
-export const LIGHTBOX_VISIBLE = 3
-
-/**
- * 把灯箱窗口起点夹逼到 [0, max(0, total - size)]。
- *
- * total <= size 时恒为 0：当天照片不够铺满窗口就不该滑动，
- * 否则会滑出一段空位，而空位会被读成「图没加载出来」。
- */
-export function clampWindowStart(start: number, total: number, size: number): number {
-  const max = Math.max(total - size, 0)
-  return Math.min(Math.max(start, 0), max)
-}
-
-/**
- * 灯箱单张图的高度上限,单位是视口高度的比例。
- *
- * 必须与 ShotLightbox 里 <img> 的 `max-h-[64vh]` 保持一致 —— 容量计算靠它
- * 反推单张宽度,两处不同步会算出放不下的张数。
- */
-const IMAGE_MAX_VH = 0.64
-
-/** 竖屏截图的宽高比(TikTok LIVE 截图的常态)。 */
-const SHOT_ASPECT = 9 / 16
-
-/** 两个箭头按钮(各 36px)与格间距(12px)占掉的横向空间:72 + 12×(n+1)。 */
-const ARROWS_PX = 72
-const GAP_PX = 12
-
-/**
- * 当前视口能并排放下几张截图,夹逼到 [1, max]。
- *
- * 竖图是**由高度约束宽度**的:单张宽 = IMAGE_MAX_VH × vh × 9/16。所以能否
- * 三连排取决于视口的宽高比而不只是宽度 —— 竖屏平板宽度有 768 却照样放不下,
- * 而横屏平板只有 1024 反而放得下。
- *
- * 至少返回 1:再窄也要显示一张,否则灯箱是空的。SSR 或尚未测到尺寸时
- * (vw/vh 为 0)同样落到 1。
- */
-export function visibleCountFor(vw: number, vh: number, max: number): number {
-  const perImage = IMAGE_MAX_VH * vh * SHOT_ASPECT
-  const fits = Math.floor((vw - ARROWS_PX - GAP_PX) / (perImage + GAP_PX))
-  return Math.min(Math.max(fits, 1), max)
 }
 
 /**

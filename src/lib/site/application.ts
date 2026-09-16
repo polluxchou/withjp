@@ -15,6 +15,14 @@ export type ApplicationKind = (typeof APPLICATION_KINDS)[number]
 export const COMMUTE_MODES = ['subway', 'bicycle', 'walk', 'car'] as const
 export type CommuteMode = (typeof COMMUTE_MODES)[number]
 
+export const DANCE_SKILL_LEVELS = [
+  'barely_touched',
+  'long_term_hobby',
+  'professional_training',
+  'teaching_level',
+] as const
+export type DanceSkillLevel = (typeof DANCE_SKILL_LEVELS)[number]
+
 export const LIMITS = {
   name: 30,
   residence: 60,
@@ -23,12 +31,14 @@ export const LIMITS = {
   email: 254,
   ageMin: 16,
   ageMax: 60,
+  danceYearsMin: 0,
+  danceYearsMax: 36,
   /** 比这更快提交的不可能是人在填表 */
   minElapsedMs: 3000,
 } as const
 
 /** 字段级错误码。人类可读的文案由前端按当前语言渲染，API 不返回自然语言。 */
-export type FieldError = 'required' | 'tooLong' | 'outOfRange' | 'invalidAge' | 'consent' | 'invalidEmail'
+export type FieldError = 'required' | 'tooLong' | 'outOfRange' | 'invalidAge' | 'consent' | 'invalidEmail' | 'invalidChoice'
 
 export interface ApplicationInput {
   kind?: unknown
@@ -39,6 +49,8 @@ export interface ApplicationInput {
   experience?: unknown
   email?: unknown
   commuteMode?: unknown
+  danceSkillLevel?: unknown
+  danceYears?: unknown
   consent?: unknown
   locale?: unknown
 }
@@ -53,6 +65,8 @@ export interface ApplicationValue {
   experience: string | null
   email: string | null
   commuteMode: CommuteMode | null
+  danceSkillLevel: DanceSkillLevel | null
+  danceYears: number | null
 }
 
 export type ApplicationFields = Partial<Record<keyof ApplicationInput, FieldError>>
@@ -103,6 +117,8 @@ export function validateApplication(input: ApplicationInput): ValidationResult {
   let residence: string | null = null
   let email: string | null = null
   let commuteMode: CommuteMode | null = null
+  let danceSkillLevel: DanceSkillLevel | null = null
+  let danceYears: number | null = null
 
   if (kind === 'creator') {
     const rawResidence = asTrimmed(input.residence)
@@ -127,6 +143,32 @@ export function validateApplication(input: ApplicationInput): ValidationResult {
       if (!Number.isInteger(ageValue)) fields.age = 'invalidAge'
       else if (ageValue < LIMITS.ageMin || ageValue > LIMITS.ageMax) fields.age = 'outOfRange'
       else age = ageValue
+    }
+
+    // 选填：不传/空字符串一律是「未选择」，落成 null；只有传了但不合法
+    // （不在枚举里、不是 0–36 的整数）才报错——两个原因都不复用 outOfRange
+    // /invalidAge，那两个错误码的文案是写死给「年龄」用的，套在这两个新
+    // 字段上会显示错误的范围提示。
+    const rawDanceSkillLevel = asTrimmed(input.danceSkillLevel)
+    if (rawDanceSkillLevel && !DANCE_SKILL_LEVELS.includes(rawDanceSkillLevel as DanceSkillLevel)) {
+      fields.danceSkillLevel = 'invalidChoice'
+    } else if (rawDanceSkillLevel) {
+      danceSkillLevel = rawDanceSkillLevel as DanceSkillLevel
+    }
+
+    const rawDanceYears = input.danceYears
+    if (!(rawDanceYears === undefined || rawDanceYears === null || (typeof rawDanceYears === 'string' && rawDanceYears.trim() === ''))) {
+      let danceYearsValue = Number.NaN
+      if (typeof rawDanceYears === 'number') {
+        danceYearsValue = rawDanceYears
+      } else if (typeof rawDanceYears === 'string' && /^\d+$/.test(rawDanceYears.trim())) {
+        danceYearsValue = Number(rawDanceYears.trim())
+      }
+      if (!Number.isInteger(danceYearsValue) || danceYearsValue < LIMITS.danceYearsMin || danceYearsValue > LIMITS.danceYearsMax) {
+        fields.danceYears = 'invalidChoice'
+      } else {
+        danceYears = danceYearsValue
+      }
     }
   } else {
     const rawEmail = asTrimmed(input.email)
@@ -160,6 +202,8 @@ export function validateApplication(input: ApplicationInput): ValidationResult {
       experience: experience || null,
       email,
       commuteMode,
+      danceSkillLevel,
+      danceYears,
     },
   }
 }

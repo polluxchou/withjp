@@ -24,7 +24,7 @@ export default function SiteFooter() {
     <footer className="border-t border-site-line bg-site-panel">
       <div className="mx-auto grid max-w-[1360px] gap-10 px-6 pb-10 pt-14 md:px-8 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
-          <div className="font-condensed text-[26px] font-bold tracking-[0.02em]">ECHOAMP</div>
+          <div className="font-condensed text-[26px] font-bold tracking-[0.02em]">ECHOWITH</div>
           <p className="mt-3 whitespace-pre-line text-[13px] leading-[1.9] text-site-fg/60">
             {t('address')}
           </p>

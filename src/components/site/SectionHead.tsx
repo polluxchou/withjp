@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from '@/i18n/navigation'
 
 /**
@@ -16,7 +17,7 @@ export default function SectionHead({
 }: {
   eyebrow: string
   title: string
-  sub?: string
+  sub?: ReactNode
   moreHref?: string
   moreLabel?: string
   /** 英文/数字标题用 condensed；和文宣言用明朝 */

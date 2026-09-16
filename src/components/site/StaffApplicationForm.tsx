@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { COMMUTE_MODES, type ApplicationFields, type CommuteMode, type FieldError } from '@/lib/site/application'
 import { checkStaffRequiredChoices } from './staff-application-form'
@@ -31,6 +31,8 @@ export default function StaffApplicationForm() {
   const [formError, setFormError] = useState<'rateLimited' | 'network' | null>(null)
   // 表单挂载时刻：提交时算出填写用了多久，太快的是脚本（服务端复核）
   const mountedAt = useRef(Date.now())
+  // label htmlFor ↔ input id 的关联前缀（SSR/客户端一致）
+  const uid = useId()
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -111,18 +113,22 @@ export default function StaffApplicationForm() {
         {t('eyebrow')}
       </div>
       <form onSubmit={onSubmit} noValidate className="grid gap-4">
-        <Field label={t('name')} error={fields.name} t={t}>
-          <input name="name" maxLength={30} className={FIELD_CLS} />
+        <Field label={t('name')} error={fields.name} htmlFor={`${uid}-name`} t={t}>
+          <input id={`${uid}-name`} name="name" maxLength={30} className={FIELD_CLS} />
         </Field>
-        <Field label={t('contact')} hint={t('contactHint')} error={fields.contact} t={t}>
-          <input name="contact" maxLength={120} className={FIELD_CLS} />
+        <Field label={t('contact')} hint={t('contactHint')} error={fields.contact} htmlFor={`${uid}-contact`} t={t}>
+          <input id={`${uid}-contact`} name="contact" maxLength={120} className={FIELD_CLS} />
         </Field>
-        <Field label={t('email')} error={fields.email} t={t}>
-          <input name="email" type="email" maxLength={254} className={FIELD_CLS} />
+        <Field label={t('email')} error={fields.email} htmlFor={`${uid}-email`} t={t}>
+          <input id={`${uid}-email`} name="email" type="email" maxLength={254} className={FIELD_CLS} />
         </Field>
 
-        <Field label={t('kind')} error={fields.kind} t={t}>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
+        <Field label={t('kind')} error={fields.kind} labelId={`${uid}-kind-label`} t={t}>
+          <div
+            role="radiogroup"
+            aria-labelledby={`${uid}-kind-label`}
+            className="flex flex-wrap gap-x-6 gap-y-2"
+          >
             {STAFF_KINDS.map((kind) => (
               <label
                 key={kind}
@@ -135,12 +141,16 @@ export default function StaffApplicationForm() {
           </div>
         </Field>
 
-        <Field label={t('residence')} error={fields.residence} t={t}>
-          <input name="residence" maxLength={120} className={FIELD_CLS} />
+        <Field label={t('residence')} error={fields.residence} htmlFor={`${uid}-residence`} t={t}>
+          <input id={`${uid}-residence`} name="residence" maxLength={120} className={FIELD_CLS} />
         </Field>
 
-        <Field label={t('commuteMode')} error={fields.commuteMode} t={t}>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
+        <Field label={t('commuteMode')} error={fields.commuteMode} labelId={`${uid}-commute-label`} t={t}>
+          <div
+            role="radiogroup"
+            aria-labelledby={`${uid}-commute-label`}
+            className="flex flex-wrap gap-x-6 gap-y-2"
+          >
             {COMMUTE_MODES.map((mode) => (
               <label
                 key={mode}
@@ -183,23 +193,44 @@ export default function StaffApplicationForm() {
   )
 }
 
+/**
+ * 视觉标签必须真正关联到控件，不能用裸 span（input.labels 为空，屏幕阅读器
+ * 读不出字段名、点标签也不会聚焦）。两种关联方式二选一：
+ * - 单控件字段传 htmlFor，渲染 <label htmlFor>；
+ * - radio 组传 labelId，渲染带 id 的 span，由外层容器的
+ *   role="radiogroup" + aria-labelledby 指回来（label htmlFor 只能指向
+ *   单个控件，盖不住一组 radio）。
+ */
 function Field({
   label,
   hint,
   error,
+  htmlFor,
+  labelId,
   t,
   children,
 }: {
   label: string
   hint?: string
   error?: FieldError
+  htmlFor?: string
+  labelId?: string
   t: (key: string) => string
   children: React.ReactNode
 }) {
+  const labelCls = 'text-[13px] tracking-[0.06em] text-site-fg/60'
   return (
     <div>
       <div className="mb-1.5 flex flex-wrap items-baseline gap-2">
-        <span className="text-[13px] tracking-[0.06em] text-site-fg/60">{label}</span>
+        {htmlFor ? (
+          <label htmlFor={htmlFor} className={labelCls}>
+            {label}
+          </label>
+        ) : (
+          <span id={labelId} className={labelCls}>
+            {label}
+          </span>
+        )}
         {hint && <span className="text-[12px] text-site-fg/40">{hint}</span>}
         {error && <span className="text-[12px] text-site-hot">{t(`errors.${error}`)}</span>}
       </div>

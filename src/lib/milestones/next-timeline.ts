@@ -78,11 +78,14 @@ export function getTimelineVisual(milestone: TimelineMilestone, now: Date = new 
   const daysLeft = getDaysLeft(milestone.target_date, now)
   const hollow = !milestone.owner_agent_id
 
-  if (milestone.status === 'missed' || daysLeft < 0 || milestone.status === 'at_risk' || milestone.risk_level === 'high') {
-    return { tone: 'danger', hollow, label: '高风险' }
-  }
+  // 已完成必须排在风险判定之前:risk_level 不会随完成而清零,一个「高风险」
+  // 的节点做完之后仍会命中下面那条 danger 分支,在「接下来 30 天」里显示成
+  // 红点——节点已经交付了,风险等级只是它一路上的属性,不是它此刻的状态。
   if (milestone.status === 'completed') {
     return { tone: 'success', hollow, label: '已完成' }
+  }
+  if (milestone.status === 'missed' || daysLeft < 0 || milestone.status === 'at_risk' || milestone.risk_level === 'high') {
+    return { tone: 'danger', hollow, label: '高风险' }
   }
   if (milestone.priority === 'high' || milestone.risk_level === 'medium' || daysLeft <= 7) {
     return { tone: 'warning', hollow, label: '需注意' }
