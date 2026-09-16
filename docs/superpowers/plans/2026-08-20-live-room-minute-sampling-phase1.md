@@ -17,7 +17,9 @@
 
 **Tech Stack:** Node 26 内置 test runner（`node --test --experimental-strip-types`）、Chrome DevTools Protocol（裸 WebSocket，无 puppeteer）、TypeScript 类型剥离运行（不编译）。
 
-**本期不做：** 数据库、截图内容去重、LLM 打标、报表页。全部留给第二、三期，且第二三期的计划要等本期三项验证有结论后再写——验证结果会改变它们的形状。
+**本期不做：** 数据库、截图内容去重、LLM 打标、报表页。
+
+**2026-09-16 追加：** 每条样本多带一个 `co_live` —— 同一时刻左侧栏里其它在播房间的在线人数。待在 A 房间时侧栏白送一份 B/C/D 的同期横截面，零额外请求。单房间曲线说不了「是它涨了还是大盘涨了」，这份数据能。全部留给第二、三期，且第二三期的计划要等本期三项验证有结论后再写——验证结果会改变它们的形状。
 
 ---
 
@@ -1980,11 +1982,19 @@ node --experimental-strip-types scripts/live-watch/track-room.ts --handle <在�
 head -1 ~/live-watch/<handle>/*/samples.jsonl | python3 -m json.tool
 ```
 
-**先做一件事：肉眼核对。** 页面上显示的在线人数，和 `raw.viewer_text` 读到的，必须是同一个数。
-`[data-e2e="person-count"]` 在登录态下**每个已关注且在播的主播各有一份**（`sweep-live.mjs` 的
-`extractLiveMeta` 就是因为这个才要配 `live-side-nav-name` 的 handle 文本二次匹配），而探针用的是裸
-`querySelector`，取 DOM 里第一个。同时有两个关注对象在播时，它会稳稳地报出**别人的**在线人数，
-`selectors_ok.viewer` 照样显示命中——数据形态上和真命中一模一样。只看选择器非空不算验证通过。
+> **2026-09-16 更新：这一步已经由代码接管，不再需要肉眼核对。**
+>
+> 当时在 `1tb.boiz` 房间实测清楚了 DOM：`person-count` 在登录态下**全部来自左侧「已关注」侧栏**，
+> 每个在播的关注对象各一份（那一刻页面上有 8 份以上）；当前房间自己那份在**右侧面板顶部**
+> （`Viewers· 98`），而那一块**没有任何 `data-e2e`**。裸 `querySelector` 取的是侧栏第一条 ——
+> 那次恰好是当前房间，纯属排序运气。
+>
+> 探针的 viewer 判据因此改成三档（见 `liveProbe.ts` 的 `viewerReading()`）：
+> ① 房间面板「标签· 数字」→ ② 侧栏里 handle 等于 URL 那条 → ③ 全页只有一个 `person-count`。
+> 都不成立报 `null`，绝不退回去乱取。每条样本带 `viewer_source` 记明来源。
+> 七个突变探针全数击杀，并在真实页面上验过（读到 `98 / room`）。
+>
+> 所以本步骤现在只需确认 `viewer_source` 是 `room`、数字与页面一致即可，不必再当人肉校验器。
 
 看 `raw.selectors_ok.viewer`：
 - 不是 `null` → **游客态可用**。把命中的那个选择器记进结论文档，`defaultProbeConfig()` 里把它挪到候选表第一位。

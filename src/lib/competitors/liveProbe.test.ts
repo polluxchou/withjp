@@ -7,17 +7,33 @@ import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect
 // ---- 假 DOM ----------------------------------------------------------------
 // Node 没有 MutationObserver / document，工厂只碰传进来的 win/doc，所以这里手搓够用的替身。
 
-type FakeEl = { textContent: string; querySelector?: (s: string) => FakeEl | null }
+type FakeEl = {
+  textContent: string
+  querySelector?: (s: string) => FakeEl | null
+  querySelectorAll?: (s: string) => FakeEl[]
+}
 
 function el(textContent: string): FakeEl {
   return { textContent }
 }
 
-function makeDoc(map: Record<string, FakeEl>) {
+/** 造一条侧栏条目：内部能按选择器取到 handle 名与人数。 */
+function navItem(handle: string, count: string): FakeEl {
+  const inner: Record<string, FakeEl> = {
+    '[data-e2e="live-side-nav-name"]': el(handle),
+    '[data-e2e="person-count"]': el(count),
+  }
+  return { textContent: `${handle} ${count}`, querySelector: (s) => inner[s] ?? null }
+}
+
+/** `all` 是选择器 → 元素列表，给 querySelectorAll 用；`path` 是 location.pathname。 */
+function makeDoc(map: Record<string, FakeEl>, all: Record<string, FakeEl[]> = {}, path?: string) {
   return {
     querySelector: (s: string) => map[s] ?? null,
+    querySelectorAll: (s: string) => all[s] ?? (map[s] ? [map[s]] : []),
     contains: (node: unknown) => Object.values(map).includes(node as FakeEl),
     documentElement: { outerHTML: '' },
+    ...(path ? { location: { pathname: path } } : {}),
   }
 }
 
@@ -129,18 +145,37 @@ test('探针：没有发言人选择器命中时 speakers 报 null，不用冒�
 })
 
 test('探针：选择器候选表按顺序回退，并报回命中的那个', () => {
-  const doc = makeDoc({ '.chat': el(''), '[data-e2e="live-people-count"]': el('1.2K') })
+  // 用 followers 验这条语义。viewer 不再走"候选表回退"——它改成了三档判据
+  // （房间面板 / 侧栏按 handle 锚定 / 全页唯一），而房间面板那档是按形态匹配、
+  // 根本没有"命中的选择器"可报，所以 selectorsOk.viewer 改报来源而不是选择器。
+  const doc = makeDoc({ '.chat': el(''), '[data-e2e="followers-count"]': el('1.2K') })
   const win = makeWin()
   factory(win, doc, cfg({
     chatHost: ['.chat'],
-    viewer: ['.does-not-exist', '[data-e2e="live-people-count"]'],
-    followers: [], likes: [], speaker: [],
+    viewer: [],
+    followers: ['.does-not-exist', '[data-e2e="followers-count"]'],
+    likes: [], speaker: [],
   }))
   const lw = (win as Record<string, any>).__lw
   lw.tick()
   const s = lw.drain()[0]
+  assert.equal(s.followers, '1.2K')
+  assert.equal(s.selectorsOk.followers, '[data-e2e="followers-count"]')
+})
+
+test('探针：viewer 的 selectorsOk 报的是来源，不是选择器', () => {
+  // 三档各有各的来源标记，事后查一个数是怎么来的就靠它
+  const doc = makeDoc({ '.chat': el(''), '[data-e2e="person-count"]': el('1.2K') },
+    { '[data-e2e="person-count"]': [el('1.2K')] })
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], followers: [], likes: [], speaker: [],
+    viewer: ['[data-e2e="person-count"]'], viewerRoomBox: [], viewerItem: [], viewerName: [] }))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  const s = lw.drain()[0]
   assert.equal(s.viewer, '1.2K')
-  assert.equal(s.selectorsOk.viewer, '[data-e2e="live-people-count"]')
+  assert.equal(s.selectorsOk.viewer, 'sole')
+  assert.equal(s.viewer_source, 'sole')
 })
 
 test('探针：一个候选都没命中时该字段为 null，selectorsOk 记 null', () => {
@@ -391,4 +426,182 @@ test('CLIP_FACTORY_SRC: video 在但还没拿到尺寸时不给 clip，且照样
 test('clipSource: 组装出的表达式能被解析', () => {
   assert.match(clipSource(), /^\(function \(win, doc\)/)
   assert.doesNotThrow(() => new Function(`return ${clipSource().replace('(window, document)', '(arguments[0], arguments[1])')}`))
+})
+
+// ---- 在线人数的 handle 锚定 -------------------------------------------------
+// 实测背景（1tb.boiz 房间，登录态）：person-count 在页面上有 5 份，全部来自左侧
+// 「已关注」侧栏，每个在播的关注对象一份；房间头部只有显示名和已播时长，没有人数。
+// 所以裸 querySelector 取的是侧栏第一条 —— 排序一变读到的就是别人的房间。
+
+const VIEWER_CFG = {
+  chatHost: ['.chat'], followers: [], likes: [], speaker: [],
+  viewer: ['[data-e2e="person-count"]'],
+  viewerRoomBox: ['[data-e2e="live-chat-container"]'],
+  viewerItem: ['[data-e2e="live-side-nav-item"]'],
+  viewerName: ['[data-e2e="live-side-nav-name"]'],
+}
+/** 造房间面板容器：内部若干 div，其中一个是 "Viewers· N" 那一块。 */
+function roomBox(divTexts: string[]): FakeEl {
+  const kids = divTexts.map(el)
+  return { textContent: divTexts.join(' '), querySelectorAll: (s) => (s === 'div' ? kids : []) }
+}
+function viewerRead(
+  path: string | undefined, items: FakeEl[], soleCount?: FakeEl, box?: FakeEl,
+) {
+  const map: Record<string, FakeEl> = { '.chat': el('') }
+  if (soleCount) map['[data-e2e="person-count"]'] = soleCount
+  if (box) map['[data-e2e="live-chat-container"]'] = box
+  const all: Record<string, FakeEl[]> = { '[data-e2e="live-side-nav-item"]': items }
+  if (soleCount) all['[data-e2e="person-count"]'] = [soleCount]
+  const doc = makeDoc(map, all, path)
+  const win = makeWin()
+  factory(win, doc, cfg(VIEWER_CFG))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  const s = lw.drain()[0]
+  return { viewer: s.viewer, source: s.viewer_source }
+}
+
+test('在线人数：按 URL handle 锚定侧栏那一条，不是 DOM 里第一条', () => {
+  // 当前房间排第三 —— 裸 querySelector 会读成 luckintoy 的 90
+  const items = [navItem('luckintoy', '90'), navItem('new.world.015', '1.3K'), navItem('1tb.boiz', '105')]
+  assert.deepEqual(viewerRead('/@1tb.boiz/live', items), { viewer: '105', source: 'anchored' })
+})
+
+test('在线人数：handle 比对不分大小写', () => {
+  const items = [navItem('1TB.Boiz', '105')]
+  assert.deepEqual(viewerRead('/@1tb.boiz/live', items), { viewer: '105', source: 'anchored' })
+})
+
+test('在线人数：侧栏没有当前房间但全页只有一条 → 无歧义，采信', () => {
+  // 游客态没有 Following 侧栏，房间自己那条就是唯一的一条
+  assert.deepEqual(viewerRead('/@1tb.boiz/live', [], el('105')), { viewer: '105', source: 'sole' })
+})
+
+test('在线人数：对不上号且有多条 → 报 null，绝不退回去乱取一个', () => {
+  // 这是整条链路最要紧的一条：宁可没有，也不要把别人的在线人数写进对方档案。
+  // 旧写法在这里会稳稳返回 90，而且 selectorsOk 看起来完全正常。
+  const items = [navItem('luckintoy', '90'), navItem('new.world.015', '1.3K')]
+  assert.deepEqual(viewerRead('/@1tb.boiz/live', items), { viewer: null, source: null })
+})
+
+test('在线人数：拿不到 URL handle 时不敢猜', () => {
+  const items = [navItem('luckintoy', '90'), navItem('1tb.boiz', '105')]
+  assert.deepEqual(viewerRead(undefined, items), { viewer: null, source: null })
+})
+
+test('在线人数：侧栏条目里没有人数节点就跳过，继续找下一条', () => {
+  const broken: FakeEl = { textContent: '1tb.boiz', querySelector: (s) =>
+    s === '[data-e2e="live-side-nav-name"]' ? el('1tb.boiz') : null }
+  // 唯一匹配的那条读不出人数 → 不能假装成功，报 null
+  assert.deepEqual(viewerRead('/@1tb.boiz/live', [broken]), { viewer: null, source: null })
+})
+
+test('在线人数：房间面板优先于侧栏 —— 两者不一致时以房间自己那份为准', () => {
+  // 实测右侧面板 93、左侧栏同一个号 105，两处采样时刻不同。房间面板那份才是权威。
+  const box = roomBox(['', 'Viewers· 93', '其它'])
+  const items = [navItem('1tb.boiz', '105')]
+  assert.deepEqual(viewerRead('/@1tb.boiz/live', items, undefined, box), { viewer: '93', source: 'room' })
+})
+
+test('在线人数：房间面板判据不认「Viewers」这个词，换语言照样过', () => {
+  // 只认「少量非数字字符 + 中点 + 数字」。日文界面是 視聴者· 93
+  assert.deepEqual(viewerRead('/@x/live', [], undefined, roomBox(['視聴者· 93'])), { viewer: '93', source: 'room' })
+  assert.deepEqual(viewerRead('/@x/live', [], undefined, roomBox(['观众· 1.3K'])), { viewer: '1.3K', source: 'room' })
+})
+
+test('在线人数：房间面板里的纯数字/纯文字块不会被误当成人数', () => {
+  // 没有中点分隔符的块（比如已播时长 2:24:59、或一个孤零零的数字）一律不算
+  assert.deepEqual(viewerRead('/@x/live', [], undefined, roomBox(['2:24:59', '105', 'Viewers'])),
+    { viewer: null, source: null })
+})
+
+test('同期横截面：侧栏整条抄下来，含当前房间自己那条', () => {
+  // 待在 A 房间时，侧栏白送 B/C/D 同一时刻的在线人数 —— 单房间曲线说不了
+  // "是它涨了还是大盘涨了"，这份同期数据能。
+  const items = [navItem('1tb.boiz', '105'), navItem('luckintoy', '90'), navItem('new.world.015', '1.3K')]
+  const box = roomBox(['Viewers· 93'])
+  const map: Record<string, FakeEl> = { '.chat': el(''), '[data-e2e="live-chat-container"]': box }
+  const doc = makeDoc(map, { '[data-e2e="live-side-nav-item"]': items }, '/@1tb.boiz/live')
+  const win = makeWin()
+  factory(win, doc, cfg(VIEWER_CFG))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  const s = lw.drain()[0]
+  assert.equal(s.viewer, '93', '自己那份仍以房间面板为准')
+  assert.deepEqual(s.co_live, [
+    { handle: '1tb.boiz', viewer: '105' },
+    { handle: 'luckintoy', viewer: '90' },
+    { handle: 'new.world.015', viewer: '1.3K' },
+  ])
+})
+
+test('同期横截面：没有侧栏（游客态）时报 null，不是空数组', () => {
+  // null 表示"这一分钟没有这份数据"，空数组会被读成"侧栏里一个在播的都没有"
+  const box = roomBox(['Viewers· 93'])
+  const map: Record<string, FakeEl> = { '.chat': el(''), '[data-e2e="live-chat-container"]': box }
+  const doc = makeDoc(map, {}, '/@1tb.boiz/live')
+  const win = makeWin()
+  factory(win, doc, cfg(VIEWER_CFG))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  assert.equal(lw.drain()[0].co_live, null)
+})
+
+test('在线人数：锚定到了本房间那条却没人数 —— 不许再退到"全页唯一"那一档', () => {
+  // 这一档最容易写错：既然已经认出"这条就是本房间"，它没数就是没数；
+  // 此时页面上那个唯一的 person-count 属于**别人**，退过去就是张冠李戴。
+  const broken: FakeEl = { textContent: '1tb.boiz', querySelector: (s) =>
+    s === '[data-e2e="live-side-nav-name"]' ? el('1tb.boiz') : null }
+  const map: Record<string, FakeEl> = { '.chat': el(''), '[data-e2e="person-count"]': el('90') }
+  const doc = makeDoc(map, {
+    '[data-e2e="live-side-nav-item"]': [broken],
+    '[data-e2e="person-count"]': [el('90')],   // 全页恰好只有一条，属于 luckintoy
+  }, '/@1tb.boiz/live')
+  const win = makeWin()
+  factory(win, doc, cfg(VIEWER_CFG))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  const s = lw.drain()[0]
+  assert.equal(s.viewer, null, '宁可没有，也不要把 90 当成本房间的人数')
+  assert.equal(s.viewer_source, null)
+})
+
+test('在线人数：全页有多条 person-count 时，"唯一"那一档必须不成立', () => {
+  // 只有确实唯一才无歧义。多条却采信第一条，就退回成改之前那个 bug。
+  const map: Record<string, FakeEl> = { '.chat': el(''), '[data-e2e="person-count"]': el('90') }
+  const doc = makeDoc(map, { '[data-e2e="person-count"]': [el('90'), el('1.3K'), el('11')] }, '/@nobody/live')
+  const win = makeWin()
+  factory(win, doc, cfg(VIEWER_CFG))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  const s = lw.drain()[0]
+  assert.equal(s.viewer, null)
+  assert.equal(s.viewer_source, null)
+})
+
+test('在线人数：房间面板必须有中点分隔符才算，纯「标签 数字」不算', () => {
+  // 去掉中点要求的话，面板里任何「若干字 + 数字」的块都会被当成人数
+  assert.deepEqual(viewerRead('/@x/live', [], undefined, roomBox(['Viewers 93'])), { viewer: null, source: null })
+  assert.deepEqual(viewerRead('/@x/live', [], undefined, roomBox(['Viewers· 93'])), { viewer: '93', source: 'room' })
+})
+
+test('同期横截面：有名字没人数的条目也要留，记成 viewer:null', () => {
+  // 实测侧栏里 servauto.my 出现过「有名字、数字还没渲染」的状态。
+  // 整条丢掉的话，这一分钟的记录会显得它根本没在播 —— 而"在播但没读到人数"
+  // 和"没在播"是两回事，后面做同期对比时会把它算成掉线。
+  const noCount: FakeEl = { textContent: 'servauto.my', querySelector: (s) =>
+    s === '[data-e2e="live-side-nav-name"]' ? el('servauto.my') : null }
+  const items = [navItem('1tb.boiz', '98'), noCount]
+  const box = roomBox(['Viewers· 98'])
+  const map: Record<string, FakeEl> = { '.chat': el(''), '[data-e2e="live-chat-container"]': box }
+  const doc = makeDoc(map, { '[data-e2e="live-side-nav-item"]': items }, '/@1tb.boiz/live')
+  const win = makeWin()
+  factory(win, doc, cfg(VIEWER_CFG))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  assert.deepEqual(lw.drain()[0].co_live, [
+    { handle: '1tb.boiz', viewer: '98' },
+    { handle: 'servauto.my', viewer: null },
+  ])
 })

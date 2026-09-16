@@ -10,6 +10,9 @@ export type ProbeConfig = {
   intervalMs: number
   /** 在线人数的候选选择器，按顺序试 */
   viewer: string[]
+  viewerRoomBox: string[]
+  viewerItem: string[]
+  viewerName: string[]
   /** 主播粉丝数 */
   followers: string[]
   /** 累计点赞 */
@@ -32,18 +35,18 @@ export function defaultProbeConfig(): ProbeConfig {
   return {
     version: PROBE_VERSION,
     intervalMs: 60_000,
-    // person-count 有歧义：sweep-live.mjs 的 extractLiveMeta 记录过，登录态下
-    // 这个 data-e2e 在左侧"已关注"侧栏里每个正在直播的关注对象各出现一份，
-    // 不是页面唯一节点 —— 该脚本因此没有直接选它，而是正则匹配相邻的
-    // live-side-nav-name 把 handle 对上号才取数。这里用的是裸 querySelector，
-    // 命中的是 DOM 顺序里第一个，同时有两个关注对象在播时可能拿到别人的人数，
-    // 而 selectorsOk.viewer 照样显示命中、看不出问题。
-    // 第一次真实运行必须用肉眼核对页面上显示的在线人数与探针读到的是否一致，
-    // 不能只看 selectorsOk.viewer 非空就当验证通过。
+    // 在线人数怎么读，见下面 viewerReading() 的注释 —— 2026-09-16 在 1tb.boiz
+    // 房间实测定的三档判据，不再是裸 querySelector。
+    //
+    // viewerRoomBox：当前房间自己那份人数所在的容器（右侧面板顶部 "Viewers· 93"）。
+    // viewerItem / viewerName：左侧「已关注」侧栏的条目与其 handle 文本，兜底用。
+    // viewer：person-count 本身，只在侧栏锚定与"全页唯一"两档里用。
+    viewerRoomBox: ['[data-e2e="live-chat-container"]'],
+    viewerItem: ['[data-e2e="live-side-nav-item"]'],
+    viewerName: ['[data-e2e="live-side-nav-name"]'],
     viewer: [
-      '[data-e2e="live-people-count"]',
       '[data-e2e="person-count"]',
-      '[data-e2e="live-room-people-count"]',
+      '[data-e2e="live-people-count"]',
     ],
     followers: [
       '[data-e2e="live-anchor-follower-count"]',
@@ -90,6 +93,107 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
       if (t) return { sel: cands[i], text: t }
     }
     return { sel: null, text: null }
+  }
+  // 「标签· 数字」：房间面板顶部就是这个形态（实测 "Viewers· 93"）。刻意不去匹配
+  // "Viewers" 这个词 —— 那是界面语言，日文界面下会变。只认「少量非数字字符 +
+  // 中点分隔符 + 数字」，语言换了照样过。
+  var VIEWER_LABELED = /^[^0-9]{1,16}[\\u00b7\\u30fb\\u2027]\\s*([0-9][0-9.,]*\\s*[KMkm]?)$/
+
+  /**
+   * 在线人数读哪一个 —— 2026-09-16 在 1tb.boiz 房间实测定下的三档。
+   *
+   * 背景：person-count 这个 data-e2e 在登录态下**全部来自左侧「已关注」侧栏**，
+   * 每个在播的关注对象各一份（当时页面上有 5 份：105/90/6/1.3K/11）。裸
+   * querySelector 取的是 DOM 顺序里第一条 —— 侧栏排序一变，读到的就是别人房间的
+   * 人数，而且数据形态和真命中一模一样，看不出问题。
+   *
+   * 当前房间自己那份在右侧面板顶部（"Viewers· 93"），那一块**没有任何 data-e2e**，
+   * 只能以 live-chat-container 为锚往里找形态。
+   *
+   * ① room   —— 房间面板。无条件属于当前房间，游客态也在，首选。
+   * ② anchored —— 侧栏里 handle 等于 URL 里那个的那条。只有关注了对方才有。
+   * ③ sole   —— 全页只有一个 person-count，无歧义。
+   * 都不成立就报 null：宁可这一分钟没有人数，也不要把别人的写进对方档案。
+   * 读到的来源记进 viewer_source，事后能查这个数是怎么来的。
+   */
+  function handleFromPath() {
+    var loc = (doc && doc.location) || (win && win.location)
+    var p = loc && loc.pathname
+    if (!p) return null
+    var m = String(p).match(/^\\/@([^/]+)/)
+    return m ? m[1].toLowerCase() : null
+  }
+  /**
+   * 顺手把左侧「已关注」侧栏整条抄下来 —— 那是**同一时刻**其它在播直播间的在线人数。
+   *
+   * 本来是当噪音要丢掉的（它正是 viewer 读错号的根源），但换个角度看：待在 A 房间
+   * 的每一分钟，侧栏都白送一份 B/C/D/E 的同期横截面，零额外请求、零额外暴露面。
+   * 单个房间的曲线只能说"它涨了"，配上同期别家的数就能说"是它涨了还是大盘涨了"。
+   *
+   * 只记 handle 与人数原文，不做解析也不做过滤（谁在竞品库里是入库时的事，
+   * 这里多记几个非竞品账号的成本是零，漏记了却补不回来）。
+   */
+  function sidebarReading() {
+    if (!doc.querySelectorAll) return null
+    var out = []
+    for (var a = 0; a < cfg.viewerItem.length && !out.length; a++) {
+      var items = doc.querySelectorAll(cfg.viewerItem[a]) || []
+      for (var i = 0; i < items.length; i++) {
+        var nm = null
+        for (var b = 0; b < cfg.viewerName.length && !nm; b++) {
+          nm = textOf(items[i].querySelector && items[i].querySelector(cfg.viewerName[b])) || null
+        }
+        var pc = null
+        for (var c = 0; c < cfg.viewer.length && !pc; c++) {
+          pc = textOf(items[i].querySelector && items[i].querySelector(cfg.viewer[c])) || null
+        }
+        if (nm) out.push({ handle: nm, viewer: pc })
+      }
+    }
+    return out.length ? out : null
+  }
+  function viewerReading() {
+    // ① 房间自己的面板
+    var box = firstEl(cfg.viewerRoomBox).el
+    if (box && box.querySelectorAll) {
+      var nodes = box.querySelectorAll('div')
+      for (var i = 0; i < nodes.length && i < 300; i++) {
+        var t = textOf(nodes[i]).replace(/\\s+/g, ' ')
+        var m = t.match(VIEWER_LABELED)
+        if (m) return { text: m[1].replace(/\\s+/g, ''), source: 'room' }
+      }
+    }
+    // ② 侧栏按 handle 锚定
+    var handle = handleFromPath()
+    if (handle && doc.querySelectorAll) {
+      for (var a = 0; a < cfg.viewerItem.length; a++) {
+        var items = doc.querySelectorAll(cfg.viewerItem[a]) || []
+        for (var j = 0; j < items.length; j++) {
+          var nm = null
+          for (var b = 0; b < cfg.viewerName.length && !nm; b++) {
+            nm = textOf(items[j].querySelector && items[j].querySelector(cfg.viewerName[b])) || null
+          }
+          if (!nm || nm.toLowerCase() !== handle) continue
+          for (var c = 0; c < cfg.viewer.length; c++) {
+            var pc = textOf(items[j].querySelector && items[j].querySelector(cfg.viewer[c]))
+            if (pc) return { text: pc, source: 'anchored' }
+          }
+          // 对上了号却没读到人数 —— 不能继续往下找别的条目，那就是别人的
+          return { text: null, source: null }
+        }
+      }
+    }
+    // ③ 全页唯一
+    if (doc.querySelectorAll) {
+      for (var d = 0; d < cfg.viewer.length; d++) {
+        var all = doc.querySelectorAll(cfg.viewer[d]) || []
+        if (all.length === 1) {
+          var only = textOf(all[0])
+          if (only) return { text: only, source: 'sole' }
+        }
+      }
+    }
+    return { text: null, source: null }
   }
   function firstEl(cands) {
     for (var i = 0; i < cands.length; i++) {
@@ -139,12 +243,16 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     return doc.contains ? !!doc.contains(st.host) : true
   }
   function tick() {
-    var v = firstText(cfg.viewer)
+    var v = viewerReading()
+    var side = sidebarReading()
     var f = firstText(cfg.followers)
     var l = firstText(cfg.likes)
     st.buf.push({
       t: win.Date.now(),
       viewer: v.text,
+      viewer_source: v.source,
+      // 同期其它在播房间的人数（来自左侧「已关注」侧栏），没有就是 null
+      co_live: side,
       followers: f.text,
       likes: l.text,
       // 弹幕容器选择器没命中过就报 null，别把 0 当成"房间很安静"——跟下面 speakers 同一个道理
@@ -153,7 +261,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
       speakers: st.speakerSel ? st.nSpeakers : null,
       observerAlive: alive(),
       selectorsOk: {
-        viewer: v.sel, followers: f.sel, likes: l.sel,
+        viewer: v.source, followers: f.sel, likes: l.sel,
         chatHost: st.hostSel, speaker: st.speakerSel
       }
     })
