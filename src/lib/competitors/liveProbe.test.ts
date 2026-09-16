@@ -695,3 +695,37 @@ test('探针复用：配置一模一样时仍然复用，不做无谓重建', ()
   const again = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
   assert.equal(again.reused, true)
 })
+
+test('探针复用：首次没挂上时，复用那一次要重试挂载', () => {
+  // 真机栽的第二层：SPA 进房后弹幕容器要等一会儿才渲染，首次注入 attach 必失败。
+  // 旧写法此后每次重注入都命中复用分支直接返回，attach() 再也不被调用 ——
+  // observer_alive 从头到尾 false，而日志只说"探针已复用"。
+  const map: Record<string, FakeEl> = {}          // 一开始容器还没渲染
+  const doc = makeDoc(map)
+  const win = makeWin()
+  const first = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(first.attached, false, '容器还没出现，首次必然挂不上')
+
+  map['.chat'] = el('')                            // 容器渲染出来了
+  const again = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(again.reused, true, '配置没变，状态不该重建')
+  assert.equal(again.attached, true, '但必须重试挂载')
+
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [msgNode('a')] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 1, '重挂之后真的开始数弹幕了')
+})
+
+test('探针复用：已经挂上的不重复挂，避免一条弹幕被数两次', () => {
+  const doc = makeDoc({ '.chat': el('') })
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  const before = win.disconnects
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(win.disconnects, before, '已挂上就不该再动 observer')
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [msgNode('a')] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 1, '没有被两个 observer 各数一次')
+})

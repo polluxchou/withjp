@@ -95,6 +95,14 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
   try { cfgKey = win.JSON.stringify(cfg) } catch (e) { cfgKey = String(cfg.version) }
   if (win.__lw) {
     if (win.__lw.version === cfg.version && win.__lw.cfgKey === cfgKey) {
+      // 复用 = 不重建状态，**不等于**放弃挂载。首次注入时弹幕容器往往还没渲染出来
+      // （SPA 进房后要等一会儿），attach 失败；如果这里直接返回，后续每次重注入都
+      // 命中复用分支，attach() 再也不会被调用一次 —— observer_alive 会从头到尾是
+      // false，而日志只会说"探针已复用"。2026-09-16 真机运行栽的就是这一层：
+      // 配置改对了、容器也在页面上了，就是没人再试一次。
+      if (!win.__lw.attached && typeof win.__lw.reattach === 'function') {
+        win.__lw.attached = !!win.__lw.reattach()
+      }
       return { reused: true, attached: !!win.__lw.attached, version: cfg.version }
     }
     // 版本变了要整个重建。先断开上一版的 observer —— 否则它会永远挂在旧节点上，
