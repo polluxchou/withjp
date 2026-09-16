@@ -8,6 +8,11 @@ export interface WeeklyCurvePoint {
   week_start: string
   /** null = 该周缺采（占住槽位但不画点）；与 yPct 同时为 null */
   followers: number | null
+  /**
+   * 该周实际取用的那条快照的采集日；缺采的周为 null。
+   * 与 week_start 分开：刻度用周一（等距的周格才看得出缺采的空档），提示框用这个。
+   */
+  captured_on: string | null
   /** 横向位置（0–100），含左右内缩 */
   xPct: number
   /** 纵向位置（0–100，0 = 顶部）；缺采的周为 null */
@@ -30,6 +35,8 @@ interface WeeklyCurveInput {
   week_start: string
   /** null 表示该周缺采：占位但不参与量程与折线 */
   followers: number | null
+  /** 该周实际取用的采集日。缺采的周、以及只关心几何的调用方，留空即为 null。 */
+  captured_on?: string | null
 }
 
 interface WeeklyCurveOptions {
@@ -97,6 +104,7 @@ export function buildWeeklyCurve(
   const points: WeeklyCurvePoint[] = rows.map((w, i) => ({
     week_start: w.week_start,
     followers: w.followers,
+    captured_on: w.captured_on ?? null,
     xPct: rows.length > 1 ? round2(lead + i * step) : 50,
     // span 为 0 只可能是所有值都是 0，此时落中线避免除零
     yPct:
@@ -118,4 +126,26 @@ export function buildWeeklyCurve(
   if (run.length > 1) segments.push(run.join(' '))
 
   return { points, segments }
+}
+
+/** 提示文案的 i18n key 与要填进去的日期。 */
+export interface WeeklyTipLabel {
+  key: 'weeklyPointTipCaptured' | 'weeklyPointTip'
+  date: string
+}
+
+/**
+ * 决定提示框报哪个日期。
+ *
+ * 有采集日就报采集日——这才是数据真正的时点；week_start 只是把它归一化到周一的
+ * 图上刻度，拿周一当"数据日期"会把新鲜度说早好几天（周二采的数会被读成周一的）。
+ * 缺采的周没有采集日可报，退回"某周起"的原文案（数值位那时是「—」）。
+ *
+ * 两条文案的 key 不同而不是共用一条：中日英里"9/16 采集"和"9/14 那一周"是
+ * 两种语义，共用一句会在某个语言里必然别扭。
+ */
+export function weeklyTipLabel(p: { week_start: string; captured_on: string | null }): WeeklyTipLabel {
+  return p.captured_on
+    ? { key: 'weeklyPointTipCaptured', date: p.captured_on }
+    : { key: 'weeklyPointTip', date: p.week_start }
 }

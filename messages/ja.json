@@ -1468,6 +1468,7 @@
     "weeklyFollowers": "フォロワー · 直近5週",
     "weeklyDelta": "{pct}%/週",
     "weeklyPointTip": "{date} の週 · {count}",
+    "weeklyPointTipCaptured": "{date} 取得 · {count}",
     "weeklyEmpty": "フォロワーデータなし",
     "shotDates": "スクショの日付",
     "earlierDates": "より古い日付",
