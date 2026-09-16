@@ -729,3 +729,21 @@ test('探针复用：已经挂上的不重复挂，避免一条弹幕被数两�
   lw.tick()
   assert.equal(lw.drain()[0].msgs, 1, '没有被两个 observer 各数一次')
 })
+
+test('reattach 成功后必须回写 __lw.attached', () => {
+  // 真机实测：reattach() 返回 true，__lw.attached 却还是 false。看门狗和注入方
+  // 都读这个标志位，于是"已经挂上了"没人知道，observer_alive 一路报 false。
+  const map: Record<string, FakeEl> = {}
+  const doc = makeDoc(map)
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  const lw = (win as Record<string, any>).__lw
+  assert.equal(lw.attached, false)
+
+  map['.chat'] = el('')
+  assert.equal(lw.reattach(), true, 'attach 本身是成功的')
+  assert.equal(lw.attached, true, '标志位必须跟着更新 —— 这一条就是真机栽的那个点')
+
+  lw.tick()
+  assert.equal(lw.drain()[0].observerAlive, true)
+})

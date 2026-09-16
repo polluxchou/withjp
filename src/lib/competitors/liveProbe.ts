@@ -317,7 +317,15 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     version: cfg.version,
     attached: ok,
     tick: tick,
-    reattach: attach,
+    // 包一层而不是直接暴露 attach：attach() 只改内部 st，不回写 __lw.attached。
+    // 2026-09-16 真机实测 reattach() 返回 true、__lw.attached 却还是 false ——
+    // 看门狗和注入方都读这个标志位，于是"已经挂上了"这件事没人知道，
+    // observer_alive 一路报 false。挂载成败必须落在同一个地方。
+    reattach: function () {
+      var ok2 = attach()
+      if (win.__lw) win.__lw.attached = ok2
+      return ok2
+    },
     alive: alive,
     drain: function () { var out = st.buf; st.buf = []; return out },
     disconnect: function () {
