@@ -131,6 +131,26 @@ async function main() {
   const readSidebarDom = async () => normalizeSidebar(
     (await pc.send('Runtime.evaluate', { expression: EVAL_SIDEBAR, returnByValue: true })).result.value)
 
+  // 1-pre. 等侧栏渲染出来再读。tab 刚导航完就读会拿到空数组 —— 而空数组在下游
+  // 与「真的没人在播」完全同形，整轮会安静地收工、一张不采（2026-09-17 实测踩到：
+  // 第一次跑回 sidebar:[]，页面加载完重跑同一条命令拿到 6 条）。
+  // 另外账号**主页**没有 LIVE 侧栏，只有 /@handle/live 直播间页才有；tab 落在主页上
+  // 等多久都是空，所以超时后把当前 URL 一起报出来，别让人对着空结果猜。
+  const waitSidebar = async (maxMs = 20000) => {
+    const t0 = Date.now()
+    for (;;) {
+      const rows = await readSidebarDom()
+      if (rows.length) return rows
+      if (Date.now() - t0 > maxMs) {
+        const url = (await pc.send('Runtime.evaluate', { expression: 'location.href', returnByValue: true })).result.value
+        process.stderr.write(`! 侧栏等了 ${Math.round((Date.now() - t0) / 1000)}s 仍为空，当前 tab: ${url}\n`)
+        process.stderr.write('  （账号主页没有 LIVE 侧栏，tab 必须落在 /@handle/live 直播间页上）\n')
+        return []
+      }
+      await sleep(1000)
+    }
+  }
+
   // 1a. 先展开「See all」。侧栏可见区只放 5 条 + 一个折叠控件，折叠区的条目虽然在 DOM 里
   // （所以枚举得到），但 getBoundingClientRect 拿不到可点坐标 → 点击导航必然失败，
   // 表现为 skipped:not_in_sidebar（实测 kiraria_official 这样丢掉）。展开后才都可点。
@@ -144,7 +164,7 @@ async function main() {
     return {found:true, x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};
   })()`
   try {
-    const before = (await readSidebarDom()).length
+    const before = (await waitSidebar()).length
     const se = (await pc.send('Runtime.evaluate', { expression: EVAL_SEEALL, returnByValue: true })).result.value
     if (se?.found) {
       await bc.send('Target.activateTarget', { targetId: tab.id })
@@ -159,7 +179,7 @@ async function main() {
     }
   } catch { /* 展不开就照常跑可见的那几条 */ }
 
-  const sidebar = await readSidebarDom()
+  const sidebar = (await waitSidebar()).length ? await readSidebarDom() : []
   const discovered = forcedHandles.length ? forcedHandles : sidebar.map((s) => s.handle)
   const targets = onlyList.length ? discovered.filter((h) => onlyList.includes(h.toLowerCase())) : discovered
   const offlist = onlyList.length ? discovered.filter((h) => !onlyList.includes(h.toLowerCase())) : []
