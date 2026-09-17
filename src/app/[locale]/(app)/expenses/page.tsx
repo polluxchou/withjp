@@ -575,16 +575,20 @@ export default function ExpensesPage() {
                 <Tag size="sm" variant="dot" tone="warning" label={`+${fmtRmb(fee)} ${t('crossBorderFeeShort')}`} />
               </span>
             )}
+            {/* 讨论徽章留在常驻区而不是跟着操作按钮退到 hover：有讨论时它是
+                状态（哪条记录在讨论中），扫列表要一眼看见。只有"还没有讨论"
+                的那个 CTA 才跟着 hover 走。 */}
+            <DiscussionBadge
+              subject={expenseRecordSubject(e)}
+              onClick={() => setPanelSubject(expenseRecordSubject(e))}
+              compact
+              quietWhenEmpty
+            />
           </div>
         }
         who={showBuyerColumn ? (e.buyer_name || '—') : undefined}
         actions={
           <div className="flex items-center gap-1">
-            <DiscussionBadge
-              subject={expenseRecordSubject(e)}
-              onClick={() => setPanelSubject(expenseRecordSubject(e))}
-              compact
-            />
             <Button variant="ghost" size="sm" aria-label={tCommon('view')} title={tCommon('view')} onClick={() => setViewing(e)}>
               <Eye className="w-3.5 h-3.5" />
             </Button>
