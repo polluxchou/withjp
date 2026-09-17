@@ -938,6 +938,12 @@
     "empty": "还没有支出记录",
     "addFirst": "添加第一条支出",
     "listTitle": "支出明细",
+    "group": {
+      "count": "{count} 笔",
+      "unassignedBuyer": "未指定",
+      "byBuyer": "按经办人分组",
+      "dailyAlertTitle": "单日支出已达 ¥10 万"
+    },
     "sortByLabel": "排序方式",
     "toggleSortDir": "切换排序方向",
     "category": "类别",
