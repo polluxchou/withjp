@@ -15,6 +15,15 @@ interface Props {
   onClick?:  () => void
   // Compact variant for dense tables; default fits filter bars.
   compact?:  boolean
+  /**
+   * 还没有任何讨论时，让徽章退到父行 hover 才出现（sm 及以上；父级需带
+   * `group`，见 RecordRow 的 hoverActions）。
+   *
+   * 有讨论的 [讨论 N] / [已结束 N] 是状态而非操作——扫列表时得一眼看见哪条
+   * 记录在讨论中，所以它们不受这个开关影响，永远常驻。被收起来的只有空态
+   * 那个「发起讨论」虚线 CTA：它对每一行都一样，常驻只是噪声。
+   */
+  quietWhenEmpty?: boolean
 }
 
 // tone → 底色/字色/描边完整映射（六 tone 穷举，参照 Tag.tsx 的 SOFT 映射
@@ -39,7 +48,7 @@ const TONE_CLASS: Record<Tone, string> = {
 //   [已结束 N]   — only resolved threads remain
 // Mixed state intentionally favors the open count, so users notice
 // active discussions first.
-export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
+export function DiscussionBadge({ subject, onClick, compact = false, quietWhenEmpty = false }: Props) {
   const t = useTranslations('discussions.badge')
   const { openCount, resolvedCount, loading } = useDiscussionCount(subject)
 
@@ -87,7 +96,13 @@ export function DiscussionBadge({ subject, onClick, compact = false }: Props) {
       onClick={onClick}
       aria-label={ariaLabel}
       className={[
-        'inline-flex items-center rounded-field font-medium border transition-colors',
+        // 计数还在路上时先当空态处理（openCount 尚为 0），数据到了自然浮现。
+        // 空态在宽屏靠 hover 浮现，窄屏干脆不占位——那一行已经要塞下名称、
+        // 状态和四个常驻操作。
+        quietWhenEmpty && !hasOpen && !hasResolved
+          ? 'hidden sm:inline-flex sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+          : 'inline-flex',
+        'items-center rounded-field font-medium border transition-colors',
         FOCUS_RING,
         sizeClass,
         toneClass,

@@ -28,7 +28,7 @@ import { useCurrency } from '@/lib/currency'
 import EmptyState from '@/components/ui/EmptyState'
 import {
   Plus, RotateCcw, Copy, Pencil, Trash2, Eye, ArrowUp, ArrowDown, Sparkles,
-  Receipt, Calendar, Package, Wallet, Home, Plane, Paperclip, Cloud,
+  Receipt, Calendar, Package, Wallet, Home, Plane, Paperclip, Cloud, Users,
   type LucideIcon,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -53,6 +53,15 @@ import {
   crossBorderFee,
 } from '@/lib/expenses/costs'
 import { nextExpenseCategoryFilter } from '@/lib/expenses/category-filter'
+import {
+  type ExpenseGroup,
+  type ExpenseSortDir,
+  type ExpenseSortKey,
+  groupByBuyer,
+  groupByDay,
+  sortExpenses,
+} from '@/lib/expenses/grouping'
+import ExpenseGroupHeader from '@/components/expenses/ExpenseGroupHeader'
 import { INTENT_APPLIED_EVENT } from '@/lib/intent/events'
 import { DiscussionProvider } from '@/components/discussions/DiscussionContext'
 import { DiscussionBadge } from '@/components/discussions/DiscussionBadge'
@@ -77,12 +86,10 @@ const CATEGORY_ICON: Record<ExpenseCategory, LucideIcon> = {
   cloud_services:  Cloud,
 }
 
-type SortKey = 'date' | 'period' | 'amount'
-type SortDir = 'asc' | 'desc'
-
-// Priority chain for tiebreakers. Whichever is primary moves to the front;
-// the others follow in this canonical order; finally created_at.
-const SORT_CHAIN: SortKey[] = ['date', 'period', 'amount']
+// 排序只剩日期和金额两档，各自记住自己的方向（点已经选中的那个按钮翻转它）。
+// 原来的「归属周期」排序去掉了：它和按日期排出来的结果高度重叠——周期本身就
+// 是日期派生的——而分组维度现在由下面的按经办人开关单独承担。
+type SortDirs = Record<ExpenseSortKey, ExpenseSortDir>
 
 // Filters / EMPTY_FILTERS / SERVER_FILTER_KEYS now live in
 // src/lib/expenses/filter-types.ts so URL encoding + saved-views logic
@@ -114,8 +121,9 @@ export default function ExpensesPage() {
   const [deleting,   setDeleting]   = useState<Expense | null>(null)
   const [deleteErr,  setDeleteErr]  = useState<string | null>(null)
   const [delLoading, setDelLoading] = useState(false)
-  const [sortBy,     setSortBy]     = useState<SortKey>('date')
-  const [sortDir,    setSortDir]    = useState<SortDir>('desc')
+  const [sortBy,     setSortBy]     = useState<ExpenseSortKey>('date')
+  const [sortDirs,   setSortDirs]   = useState<SortDirs>({ date: 'desc', amount: 'desc' })
+  const [byBuyer,    setByBuyer]    = useState(false)
   const [refreshSeq, setRefreshSeq] = useState(0)
   const [searchInput, setSearchInput] = useState('')
   const [viewTab, setViewTab] = useState<PageView>('list')
@@ -485,38 +493,30 @@ export default function ExpensesPage() {
     }))
   }
 
-  function toggleSort(key: SortKey) {
-    if (key === sortBy) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortBy(key)
-      setSortDir('desc')
-    }
+  // 点已经选中的那个排序按钮 = 翻转它自己的方向；点另一个 = 换过去，并保留它
+  // 上次的方向（金额看过一次从小到大，切走再切回来还是从小到大）。
+  function toggleSort(key: ExpenseSortKey) {
+    if (key === sortBy) setSortDirs((d) => ({ ...d, [key]: d[key] === 'asc' ? 'desc' : 'asc' }))
+    else setSortBy(key)
   }
 
-  const sortedExpenses = useMemo(() => {
-    const ordered = [sortBy, ...SORT_CHAIN.filter((k) => k !== sortBy)]
-    const dirMul  = sortDir === 'asc' ? 1 : -1
+  const sortDir = sortDirs[sortBy]
+  // 现取，不缓存：跨年那一刻组头要立刻开始补年份。
+  const currentYear = new Date().getFullYear()
 
-    function getVal(e: Expense, k: SortKey): string | number {
-      if (k === 'date')   return e.expense_date ?? ''
-      if (k === 'period') return e.period ?? ''
-      return Number(e.total_price) || 0
-    }
-    function cmp(av: string | number, bv: string | number): number {
-      if (av < bv) return -1
-      if (av > bv) return 1
-      return 0
-    }
+  // 三种形态：按人分组 > 按天分组（仅日期排序）> 平铺（金额排序）。金额排序
+  // 不分组是刻意的——按天切开会把「最大的那几笔」散到各组里，而那正是选金额
+  // 排序时想看的东西。
+  const listGroups = useMemo<ExpenseGroup<Expense & { dayLabel?: string }>[] | null>(() => {
+    if (byBuyer)          return groupByBuyer(visibleExpenses, sortBy, sortDir, currentYear)
+    if (sortBy === 'date') return groupByDay(visibleExpenses, sortDir, currentYear)
+    return null
+  }, [visibleExpenses, sortBy, sortDir, byBuyer, currentYear])
 
-    return [...visibleExpenses].sort((a, b) => {
-      for (const k of ordered) {
-        const r = cmp(getVal(a, k), getVal(b, k)) * dirMul
-        if (r !== 0) return r
-      }
-      return cmp(a.created_at ?? '', b.created_at ?? '') * dirMul
-    })
-  }, [visibleExpenses, sortBy, sortDir])
+  const flatExpenses = useMemo(
+    () => sortExpenses(visibleExpenses, sortBy, sortDir),
+    [visibleExpenses, sortBy, sortDir],
+  )
 
   async function confirmDelete() {
     if (!deleting) return
@@ -544,6 +544,73 @@ export default function ExpensesPage() {
   // §6.3 wants "skeleton first", and RecordRow's real shape is known there —
   // the three chart tabs fall back to the generic plain spinner since their
   // layouts vary too much (pie vs. line vs. table) to skeleton meaningfully.
+  // 行里还需不需要自报经办人：按人分组时组头已经写了；没分组但整列都是同一个
+  // 人时也是废话。只有真混着几个人，那一列才值得占位置。
+  const showBuyerColumn = useMemo(() => {
+    if (byBuyer) return false
+    return new Set(visibleExpenses.map((e) => (e.buyer_name ?? '').trim())).size > 1
+  }, [visibleExpenses, byBuyer])
+
+  // 一行支出。记录 ID 不再出现在这里——它对人眼没有意义，需要时在详情弹窗里
+  // 看；类别退成标题前的图标；日期只有在组头没说的时候（按人分组、金额平铺）
+  // 才由行自己报。
+  function renderExpenseRow(e: Expense & { dayLabel?: string }, amountAlert: boolean) {
+    const CategoryIcon = CATEGORY_ICON[e.expense_category]
+    const fee = crossBorderFee(e)
+    return (
+      <RecordRow
+        key={e.id}
+        hoverActions
+        stackOnNarrow
+        title={e.item_name}
+        titleIcon={<CategoryIcon><title>{t(`categories.${e.expense_category}`)}</title></CategoryIcon>}
+        meta={e.dayLabel ? [{ icon: <Calendar />, text: e.dayLabel, mono: true }] : []}
+        amount={fmtRmb(Number(e.total_price))}
+        amountAlert={amountAlert}
+        tags={
+          <div className="flex items-center gap-1.5 flex-none">
+            <Tag size="sm" tone={toneOf('expense', e.payment_status)} label={t(`paymentStatuses.${e.payment_status}`)} />
+            {fee > 0 && (
+              <span title={t('crossBorderFeeTooltip')}>
+                <Tag size="sm" variant="dot" tone="warning" label={`+${fmtRmb(fee)} ${t('crossBorderFeeShort')}`} />
+              </span>
+            )}
+            {/* 讨论徽章留在常驻区而不是跟着操作按钮退到 hover：有讨论时它是
+                状态（哪条记录在讨论中），扫列表要一眼看见。只有"还没有讨论"
+                的那个 CTA 才跟着 hover 走。 */}
+            <DiscussionBadge
+              subject={expenseRecordSubject(e)}
+              onClick={() => setPanelSubject(expenseRecordSubject(e))}
+              compact
+              quietWhenEmpty
+            />
+          </div>
+        }
+        who={showBuyerColumn ? (e.buyer_name || '—') : undefined}
+        actions={
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" aria-label={tCommon('view')} title={tCommon('view')} onClick={() => setViewing(e)}>
+              <Eye className="w-3.5 h-3.5" />
+            </Button>
+            {canEdit(currentUser, e.created_by_user_id) && (
+              <Button variant="ghost" size="sm" aria-label={tCommon('edit')} title={tCommon('edit')} onClick={() => setEditing(e)}>
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" aria-label={t('duplicateExpense')} title={t('copyRecordTitle')} onClick={() => setDuplicating(e)}>
+              <Copy className="w-3.5 h-3.5" />
+            </Button>
+            {canEdit(currentUser, e.created_by_user_id) && (
+              <Button variant="ghost" size="sm" aria-label={tCommon('delete')} title={tCommon('delete')} onClick={() => { setDeleting(e); setDeleteErr(null) }}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
+        }
+      />
+    )
+  }
+
   const threeState = loading ? (
     <LoadingState variant={viewTab === 'list' ? 'list' : 'plain'} />
   ) : loadError ? (
@@ -854,25 +921,35 @@ export default function ExpensesPage() {
           accent="violet"
           actions={
             !threeState ? (
-              <div className="flex items-center gap-1.5">
-                <Select
-                  aria-label={t('sortByLabel')}
-                  size="sm"
-                  className="w-28"
-                  value={sortBy}
-                  onChange={(e) => toggleSort(e.target.value as SortKey)}
-                >
-                  <option value="date">{t('date')}</option>
-                  <option value="period">{t('period')}</option>
-                  <option value="amount">{t('amount')}</option>
-                </Select>
+              // 排序从「下拉 + 方向按钮」两步压成一步：点未选中的换维度，点已
+              // 选中的翻方向，箭头就画在按钮上。经办人不在这一组里——它是分组
+              // 维度，不是排序维度，筛选栏已经能按人筛了。
+              <div className="flex items-center gap-1" role="group" aria-label={t('sortByLabel')}>
+                {(['date', 'amount'] as const).map((key) => (
+                  <Button
+                    key={key}
+                    variant={sortBy === key ? 'secondary' : 'ghost'}
+                    size="sm"
+                    aria-pressed={sortBy === key}
+                    title={sortBy === key ? t('toggleSortDir') : undefined}
+                    onClick={() => toggleSort(key)}
+                  >
+                    {key === 'date' ? t('date') : t('amount')}
+                    {sortDirs[key] === 'asc'
+                      ? <ArrowUp className="w-3.5 h-3.5" />
+                      : <ArrowDown className="w-3.5 h-3.5" />}
+                  </Button>
+                ))}
+                <span className="w-px h-4 bg-line mx-1 flex-none" aria-hidden />
                 <Button
-                  variant="ghost"
+                  variant={byBuyer ? 'secondary' : 'ghost'}
                   size="sm"
-                  aria-label={t('toggleSortDir')}
-                  onClick={() => toggleSort(sortBy)}
+                  aria-pressed={byBuyer}
+                  title={t('group.byBuyer')}
+                  onClick={() => setByBuyer((v) => !v)}
                 >
-                  {sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />}
+                  <Users className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{t('group.byBuyer')}</span>
                 </Button>
               </div>
             ) : undefined
@@ -880,59 +957,29 @@ export default function ExpensesPage() {
         >
           {threeState ?? (
             <div>
-              {sortedExpenses.map((e) => {
-                const CategoryIcon = CATEGORY_ICON[e.expense_category]
-                const fee = crossBorderFee(e)
-                return (
-                  <RecordRow
-                    key={e.id}
-                    status={toneOf('expense', e.payment_status)}
-                    title={e.item_name}
-                    meta={[
-                      { text: `#${e.id.slice(0, 8)}`, mono: true },
-                      { icon: <Calendar />, text: e.period ? `${e.expense_date} · ${e.period}` : e.expense_date },
-                      { icon: <CategoryIcon />, text: t(`categories.${e.expense_category}`) },
-                    ]}
-                    amount={fmtRmb(Number(e.total_price))}
-                    tags={
-                      <div className="flex items-center gap-1.5 flex-none">
-                        <Tag size="sm" tone={toneOf('expense', e.payment_status)} label={t(`paymentStatuses.${e.payment_status}`)} />
-                        {fee > 0 && (
-                          <span title={t('crossBorderFeeTooltip')}>
-                            <Tag size="sm" variant="dot" tone="warning" label={`+${fmtRmb(fee)} ${t('crossBorderFeeShort')}`} />
-                          </span>
-                        )}
-                      </div>
-                    }
-                    who={e.buyer_name || '—'}
-                    actions={
-                      <div className="flex items-center gap-1">
-                        <DiscussionBadge
-                          subject={expenseRecordSubject(e)}
-                          onClick={() => setPanelSubject(expenseRecordSubject(e))}
-                          compact
-                        />
-                        <Button variant="ghost" size="sm" aria-label={tCommon('view')} title={tCommon('view')} onClick={() => setViewing(e)}>
-                          <Eye className="w-3.5 h-3.5" />
-                        </Button>
-                        {canEdit(currentUser, e.created_by_user_id) && (
-                          <Button variant="ghost" size="sm" aria-label={tCommon('edit')} title={tCommon('edit')} onClick={() => setEditing(e)}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="sm" aria-label={t('duplicateExpense')} title={t('copyRecordTitle')} onClick={() => setDuplicating(e)}>
-                          <Copy className="w-3.5 h-3.5" />
-                        </Button>
-                        {canEdit(currentUser, e.created_by_user_id) && (
-                          <Button variant="ghost" size="sm" aria-label={tCommon('delete')} title={tCommon('delete')} onClick={() => { setDeleting(e); setDeleteErr(null) }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    }
-                  />
-                )
-              })}
+              {/* 分组和平铺走同一条渲染路径：listGroups 为 null（金额排序）时
+                  塞一个 null 占位，行还是那些行，只是没有组头。 */}
+              {(listGroups ?? [null]).map((group) => (
+                <div key={group?.key ?? '__flat__'}>
+                  {group && (
+                    <ExpenseGroupHeader
+                      label={group.label}
+                      count={group.count}
+                      total={fmtRmb(group.total)}
+                      showTotal={group.showTotal}
+                      overThreshold={group.overThreshold}
+                      unassigned={group.unassigned}
+                      byBuyer={byBuyer}
+                    />
+                  )}
+                  {(group?.rows ?? flatExpenses).map((e) => renderExpenseRow(
+                    e,
+                    // 单条成组时组头不给小计，越线的提示就没地方落——改标在这
+                    // 一行的金额上。多条时组头已经红了，行里不必再喊一次。
+                    group ? group.overThreshold && !group.showTotal : false,
+                  ))}
+                </div>
+              ))}
             </div>
           )}
         </SectionCard>

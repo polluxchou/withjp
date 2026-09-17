@@ -938,6 +938,12 @@
     "empty": "支出記録はまだありません",
     "addFirst": "最初の支出を追加",
     "listTitle": "支出明細",
+    "group": {
+      "count": "{count} 件",
+      "unassignedBuyer": "未指定",
+      "byBuyer": "担当者でグループ化",
+      "dailyAlertTitle": "1日の支出が ¥10万 に達しました"
+    },
     "sortByLabel": "並び替え",
     "toggleSortDir": "並び順を切り替え",
     "category": "カテゴリ",
