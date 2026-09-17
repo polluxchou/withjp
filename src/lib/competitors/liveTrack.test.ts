@@ -263,3 +263,32 @@ test('sessionPaths: handle 里的危险字符换成下划线', () => {
 test('sessionPaths: 开播时间未知时用 unknown 占位，仍然能落盘', () => {
   assert.equal(sessionPaths('/base', 'x', null).dir, '/base/x/unknown')
 })
+
+test('normalizeSample: co_live 原样带进落盘样本', () => {
+  // 探针读到了却在归一化层被丢掉 —— 第一次真机运行就是这么发现的：
+  // 样本 JSONL 里根本没有这个字段。
+  const p = {
+    t: 1_700_000_000_000, viewer: '101', followers: null, likes: null,
+    msgs: 3, speakers: 2, observerAlive: true,
+    selectorsOk: { viewer: 'room', followers: null, likes: null, chatHost: '.c', speaker: '.w' },
+    co_live: [{ handle: 'luckintoy', viewer: '82' }, { handle: 'servauto.my', viewer: null }],
+  }
+  const s = normalizeSample(p as never, 1_699_999_000)
+  assert.deepEqual(s.co_live, [
+    { handle: 'luckintoy', viewer: '82' },
+    { handle: 'servauto.my', viewer: null },
+  ])
+})
+
+test('normalizeSample: 探针没给 co_live 时落成 null，不是 undefined', () => {
+  // undefined 会被 JSON.stringify 整个字段丢掉，读的人分不清"没这个字段"和"没数据"
+  const p = {
+    t: 1_700_000_000_000, viewer: null, followers: null, likes: null,
+    msgs: null, speakers: null, observerAlive: false,
+    selectorsOk: { viewer: null, followers: null, likes: null, chatHost: null, speaker: null },
+  }
+  const s = normalizeSample(p as never, null)
+  assert.equal(s.co_live, null)
+  assert.ok('co_live' in s)
+  assert.ok(JSON.stringify(s).includes('"co_live":null'))
+})

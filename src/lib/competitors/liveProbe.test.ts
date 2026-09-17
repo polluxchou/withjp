@@ -9,12 +9,14 @@ import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect
 
 type FakeEl = {
   textContent: string
+  /** 真实 DOM 元素恒为 1；探针靠它挡掉 addedNodes 里的文本节点，替身也得有 */
+  nodeType?: number
   querySelector?: (s: string) => FakeEl | null
   querySelectorAll?: (s: string) => FakeEl[]
 }
 
 function el(textContent: string): FakeEl {
-  return { textContent }
+  return { textContent, nodeType: 1 }
 }
 
 /** 造一条侧栏条目：内部能按选择器取到 handle 名与人数。 */
@@ -45,6 +47,7 @@ function makeWin(nowMs = 1_000_000) {
     intervals: [] as { cb: () => void; ms: number; id: number; cleared: boolean }[],
     now: nowMs,
     Date: { now: () => nowMs },
+    JSON,
     setInterval: (cb: () => void, ms: number) => {
       const id = win.intervals.length + 1
       win.intervals.push({ cb, ms, id, cleared: false })
@@ -88,7 +91,11 @@ const factory = new Function(`return (${PROBE_FACTORY_SRC})`)() as (
 function msgNode(speaker: string): FakeEl {
   return {
     textContent: speaker + ': hi',
-    querySelector: (s: string) => (s === '.who' ? el(speaker) : null),
+    nodeType: 1,
+    // 真实弹幕节点自己就是 [data-e2e="chat-message"]；不让替身认这个选择器的话，
+    // 新加的"只数真弹幕"过滤会把它当成礼物动画滤掉。
+    querySelector: (s: string) =>
+      s === '.who' ? el(speaker) : (s === '[data-e2e="chat-message"]' ? el(speaker) : null),
   } as FakeEl
 }
 
@@ -604,4 +611,139 @@ test('同期横截面：有名字没人数的条目也要留，记成 viewer:nul
     { handle: '1tb.boiz', viewer: '98' },
     { handle: 'servauto.my', viewer: null },
   ])
+})
+
+// ---- subtree 模式下只数真弹幕 --------------------------------------------
+// 实测背景：每条 chat-message 各自套一层 div，不是同一个列表下的兄弟节点，
+// 所以 observer 必须开 subtree；而开了之后 addedNodes 里混着礼物动画、进场提示。
+
+/** 造一个「内部含一条弹幕」的包裹节点（真实 DOM 就是这个形状）。 */
+function wrapped(speaker: string): FakeEl {
+  const msg = { textContent: speaker, nodeType: 1, querySelector: (s: string) => (s === '.who' ? el(speaker) : null) } as FakeEl
+  return {
+    textContent: speaker,
+    nodeType: 1,
+    querySelector: (s: string) =>
+      s === '[data-e2e="chat-message"]' ? msg : (s === '.who' ? el(speaker) : null),
+  } as FakeEl
+}
+/** 礼物动画之类：既不是弹幕，内部也没有弹幕。 */
+function giftNode(): FakeEl {
+  return { textContent: 'sent Rose x1', nodeType: 1, querySelector: () => null } as FakeEl
+}
+
+const CHAT_CFG = {
+  chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: ['.who'],
+  message: ['[data-e2e="chat-message"]'], chatSubtree: true,
+  viewerRoomBox: [], viewerItem: [], viewerName: [],
+}
+
+test('弹幕计数：礼物/进场这类非弹幕节点不计入 msgs', () => {
+  // 不过滤的话 msgs 会被灌水，而它正是 engagement 指标的分子
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  factory(win, doc, cfg(CHAT_CFG))
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [wrapped('a'), giftNode(), wrapped('b'), giftNode()] }])
+  lw.tick()
+  const s = lw.drain()[0]
+  assert.equal(s.msgs, 2, '四个节点里只有两条是真弹幕')
+  assert.equal(s.speakers, 2)
+})
+
+test('弹幕计数：没配 message 判据时退回旧行为，全都算', () => {
+  // 老配置不该被这次改动改变语义
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  factory(win, doc, cfg({ ...CHAT_CFG, message: [] }))
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [wrapped('a'), giftNode()] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 2)
+})
+
+test('弹幕容器候选：live-chat-container 排在最前 —— 另外两个实测不存在', () => {
+  const d = defaultProbeConfig()
+  assert.equal(d.chatHost[0], '[data-e2e="live-chat-container"]')
+  assert.equal(d.chatSubtree, true, '每条弹幕各自套一层 div，不开 subtree 收不到')
+  assert.deepEqual(d.message, ['[data-e2e="chat-message"]'])
+})
+
+test('探针复用：版本号相同但配置变了，必须重建而不是复用', () => {
+  // 真机栽过一次：chatHost 候选修好了，但页面里第一轮注入的旧探针版本号也是 1，
+  // 走了 reused 分支 —— 新配置根本没生效，attached 一直 false，
+  // 而日志和样本看起来完全正常。
+  const doc = makeDoc({ '.chat': el(''), '.newchat': el('') })
+  const win = makeWin()
+  const a = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(a.reused, false)
+  const b = factory(win, doc, cfg({ chatHost: ['.newchat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(b.reused, false, '配置变了就得重建')
+  // 断言可观测的输出，不碰 __lw 的内部字段：selectorsOk.chatHost 是探针报出来的
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  assert.equal(lw.drain()[0].selectorsOk.chatHost, '.newchat', '新配置真的生效了')
+})
+
+test('探针复用：配置一模一样时仍然复用，不做无谓重建', () => {
+  const doc = makeDoc({ '.chat': el('') })
+  const win = makeWin()
+  const c = cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] })
+  factory(win, doc, c)
+  const again = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(again.reused, true)
+})
+
+test('探针复用：首次没挂上时，复用那一次要重试挂载', () => {
+  // 真机栽的第二层：SPA 进房后弹幕容器要等一会儿才渲染，首次注入 attach 必失败。
+  // 旧写法此后每次重注入都命中复用分支直接返回，attach() 再也不被调用 ——
+  // observer_alive 从头到尾 false，而日志只说"探针已复用"。
+  const map: Record<string, FakeEl> = {}          // 一开始容器还没渲染
+  const doc = makeDoc(map)
+  const win = makeWin()
+  const first = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(first.attached, false, '容器还没出现，首次必然挂不上')
+
+  map['.chat'] = el('')                            // 容器渲染出来了
+  const again = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(again.reused, true, '配置没变，状态不该重建')
+  assert.equal(again.attached, true, '但必须重试挂载')
+
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [msgNode('a')] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 1, '重挂之后真的开始数弹幕了')
+})
+
+test('探针复用：已经挂上的不重复挂，避免一条弹幕被数两次', () => {
+  const doc = makeDoc({ '.chat': el('') })
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  const before = win.disconnects
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(win.disconnects, before, '已挂上就不该再动 observer')
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [msgNode('a')] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 1, '没有被两个 observer 各数一次')
+})
+
+test('reattach 成功后必须回写 __lw.attached', () => {
+  // 真机实测：reattach() 返回 true，__lw.attached 却还是 false。看门狗和注入方
+  // 都读这个标志位，于是"已经挂上了"没人知道，observer_alive 一路报 false。
+  const map: Record<string, FakeEl> = {}
+  const doc = makeDoc(map)
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  const lw = (win as Record<string, any>).__lw
+  assert.equal(lw.attached, false)
+
+  map['.chat'] = el('')
+  assert.equal(lw.reattach(), true, 'attach 本身是成功的')
+  assert.equal(lw.attached, true, '标志位必须跟着更新 —— 这一条就是真机栽的那个点')
+
+  lw.tick()
+  assert.equal(lw.drain()[0].observerAlive, true)
 })
