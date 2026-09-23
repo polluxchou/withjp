@@ -129,6 +129,9 @@ export default async function RecruitApplicationsPage({
             {applications.map((application) => (
               <RecordRow
                 key={application.id}
+                // 这一页除了姓名，全部字段都住在 meta/who 里。RecordRow 默认
+                // 在 sm 以下把这两处一起隐藏，窄屏就只剩一个名字加两个标签。
+                metaOnNarrow
                 title={application.name}
                 who={application.contact}
                 meta={

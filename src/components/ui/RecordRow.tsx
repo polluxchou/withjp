@@ -50,6 +50,20 @@ interface RecordRowProps {
    * 的标题挤到单独一行，需要先把点挪进标题块内部。
    */
   stackOnNarrow?: boolean
+  /**
+   * sm 以下不再隐藏 meta，改成换行铺开，并把 who 接回 meta 行首。
+   *
+   * 默认行为（meta 在窄屏整块隐藏）成立的前提是 title/amount 已经说清楚了这
+   * 一行是什么，meta 只是补充。只读的投递/申请列表不满足这个前提：名字之外
+   * 的全部字段都在 meta 和 who 里，隐藏等于窄屏什么都读不到。
+   *
+   * 打开后窄屏的文字不截断（truncate 只在 sm 起生效），长文本会把行撑高——
+   * 这是刻意的取舍：宁可行高不齐，也不能让人在手机上读不到内容。
+   *
+   * 注意：href 分支（整行是链接）没跟着改顶对齐，那条路径上撑高的行里标签
+   * 仍然垂直居中；真要一起用先把 ROW_CLASS_LINKED 也拆一份。
+   */
+  metaOnNarrow?: boolean
 }
 
 const ACTIONS_HOVER = 'sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity'
@@ -57,11 +71,26 @@ const ACTIONS_HOVER = 'sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-wi
 const ROW_CLASS = 'flex items-center gap-3.5 px-5 py-3 border-t border-line-soft first:border-t-0 transition-colors hover:bg-row-hover'
 // stackOnNarrow 版：sm 以下允许换行，行距收窄；sm 起恢复成单行。
 const ROW_CLASS_STACKED = 'flex flex-wrap sm:flex-nowrap items-center gap-x-3.5 gap-y-1 px-5 py-3 border-t border-line-soft first:border-t-0 transition-colors hover:bg-row-hover'
+// meta 行：默认窄屏整块隐藏；metaOnNarrow 版换行铺开（图标顶对齐，长文本
+// 会撑成多行）。两套各写完整一串——items-start 和 items-center 属于同一组
+// 工具类，混在一个串里谁赢取决于 CSS 生成顺序而不是书写顺序。
+const META_CLASS = 'hidden sm:flex items-center gap-3.5'
+const META_CLASS_WRAPPED = 'flex flex-wrap sm:flex-nowrap items-start sm:items-center gap-x-3.5 gap-y-1'
+const META_ITEM_CLASS = 'items-center'
+const META_ITEM_CLASS_WRAPPED = 'items-start sm:items-center max-w-full [&>svg]:mt-[2px] sm:[&>svg]:mt-0'
+// metaOnNarrow 版：窄屏行会被多行 meta 撑高，标签跟着垂直居中会飘在半空，
+// 顶对齐回到标题那一行。sm 起恢复居中。
+const ROW_CLASS_META_WRAPPED = 'flex items-start sm:items-center gap-3.5 px-5 py-3 border-t border-line-soft first:border-t-0 transition-colors hover:bg-row-hover'
 // href 分支专用：py-3 不放在这层，改放到 Link 和 actions 容器身上（见下方
 // 用法），外层只留水平内边距 px-5 和行级视觉（分隔线/hover）。
 const ROW_CLASS_LINKED = 'flex items-center gap-3.5 px-5 border-t border-line-soft first:border-t-0 transition-colors hover:bg-row-hover'
 
-export default function RecordRow({ status, title, titleIcon, amountAlert, meta = [], amount, tags, who, actions, href, hoverActions, stackOnNarrow }: RecordRowProps) {
+export default function RecordRow({ status, title, titleIcon, amountAlert, meta = [], amount, tags, who, actions, href, hoverActions, stackOnNarrow, metaOnNarrow }: RecordRowProps) {
+  // 窄屏把标签挪进标题那一行：留在行尾的话它会占掉 ~110px 的宽度，剩给
+  // 标题/meta 的只有两百来点，长文本白白多折好几行。stackOnNarrow 和
+  // metaOnNarrow 出于不同理由都需要这个排法。
+  const tagsInTitle = Boolean(stackOnNarrow || metaOnNarrow)
+
   // 主内容（status dot + title/meta + amount + tags + who）——href 存在时
   // 整体包进 Link，actions 留在 Link 外面。之前把 actions 也塞进 Link 内部
   // 会导致行内操作按钮的点击事件冒泡到 <a>，触发导航——即使按钮自己
@@ -73,39 +102,46 @@ export default function RecordRow({ status, title, titleIcon, amountAlert, meta 
       <div className={`flex-1 min-w-0 ${stackOnNarrow ? 'basis-full sm:basis-auto' : ''}`}>
         {/* 有图标时才换成 flex：truncate 在 flex 容器上不生效，得落到文字自己
             的 span 上（和下面 meta 行同一个坑）。没图标的调用方保持原结构。 */}
-        {titleIcon || stackOnNarrow ? (
+        {titleIcon || tagsInTitle ? (
           <div className="flex items-center gap-2 min-w-0">
             {titleIcon && <span className="flex-none text-ink-400 [&>svg]:w-4 [&>svg]:h-4">{titleIcon}</span>}
             <span className="text-md font-semibold text-ink-900 truncate min-w-0">{title}</span>
             {/* 窄屏把标签挪到标题右边：留在第二行的话，金额 + 标签 + 常驻操作
                 三者加起来超过 375px，会再挤出第三行。宽屏保持原位。 */}
-            {stackOnNarrow && tags && <span className="sm:hidden flex-none">{tags}</span>}
+            {tagsInTitle && tags && <span className="sm:hidden flex-none">{tags}</span>}
           </div>
         ) : (
           <div className="text-md font-semibold text-ink-900 truncate">{title}</div>
         )}
-        {meta.length > 0 && (
+        {(meta.length > 0 || (metaOnNarrow && who)) && (
           // 375px 窄屏只保留 status/title/amount：meta 行在 sm 以下隐藏，
-          // 避免和 title/amount 挤压导致三者都读不全。
-          <div className="hidden sm:flex items-center gap-3.5 mt-0.5 text-xs text-ink-400 min-w-0">
+          // 避免和 title/amount 挤压导致三者都读不全。metaOnNarrow 的调用方
+          // 反过来——窄屏换行铺开，一个字段都不藏。
+          <div className={`mt-0.5 text-xs text-ink-400 min-w-0 ${metaOnNarrow ? META_CLASS_WRAPPED : META_CLASS}`}>
+            {/* who 在 sm 起是行尾单独一列，窄屏那一列被隐藏。不接回这里的话，
+                联系方式这种只存在于 who 的字段在手机上就彻底消失了。 */}
+            {metaOnNarrow && who && (
+              <span className="sm:hidden max-w-full break-words text-ink-700">{who}</span>
+            )}
             {meta.map((m, i) => (
               <span
                 key={i}
-                className={`inline-flex items-center gap-1 min-w-0 ${m.mono ? 'font-mono' : ''} [&>svg]:w-[13px] [&>svg]:h-[13px] [&>svg]:flex-none [&>svg]:opacity-75`}
+                className={`inline-flex gap-1 min-w-0 ${metaOnNarrow ? META_ITEM_CLASS_WRAPPED : META_ITEM_CLASS} ${m.mono ? 'font-mono' : ''} [&>svg]:w-[13px] [&>svg]:h-[13px] [&>svg]:flex-none [&>svg]:opacity-75`}
               >
                 {m.icon}
                 {/* inline-flex 容器本身套 truncate 不生效（文字和图标一起被截，
                     还可能整体消失）——截断必须落在文字自己的 span 上，且这个
                     span 也要 min-w-0 才能真正缩到比文字本身还窄（SectionCard
-                    标题同款修法）。 */}
-                <span className="truncate min-w-0">{m.text}</span>
+                    标题同款修法）。metaOnNarrow 下窄屏换成整段换行，sm 起才
+                    恢复单行截断。 */}
+                <span className={`min-w-0 ${metaOnNarrow ? 'break-words sm:truncate' : 'truncate'}`}>{m.text}</span>
               </span>
             ))}
           </div>
         )}
       </div>
       {amount && <span className={`text-md font-semibold tabular-nums font-mono flex-none ${amountAlert ? 'text-danger-text' : 'text-ink-900'}`}>{amount}</span>}
-      {tags && (stackOnNarrow ? <span className="hidden sm:block flex-none">{tags}</span> : tags)}
+      {tags && (tagsInTitle ? <span className="hidden sm:block flex-none">{tags}</span> : tags)}
       {who && <span className="hidden sm:block w-24 flex-none text-xs text-ink-700 truncate">{who}</span>}
     </>
   )
@@ -137,8 +173,9 @@ export default function RecordRow({ status, title, titleIcon, amountAlert, meta 
     )
   }
 
+  const baseRow = stackOnNarrow ? ROW_CLASS_STACKED : metaOnNarrow ? ROW_CLASS_META_WRAPPED : ROW_CLASS
   return (
-    <div className={rowClass(stackOnNarrow ? ROW_CLASS_STACKED : ROW_CLASS)}>
+    <div className={rowClass(baseRow)}>
       {content}
       {wrappedActions}
     </div>
