@@ -10,31 +10,25 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import {
+  createCountQueue,
+  subjectKey,
+  type CountFetcher,
+  type CountQueue,
+  type SubjectCount,
+} from '@/lib/discussions/count-queue'
 import type { SubjectInput } from '@/lib/discussions/types'
 
 // ── Public types ─────────────────────────────────────────────
 
-export interface SubjectCount {
-  openCount:     number
-  resolvedCount: number
-}
+// The batching core (queue, debounce, chunking) lives in
+// @/lib/discussions/count-queue so it can be tested without a DOM. This file
+// is the React shell: it owns the count/loading state and drives that queue.
+export { subjectKey }
+export type { SubjectCount }
 
 export interface SubjectCountState extends SubjectCount {
   loading: boolean
-}
-
-// Stable client-side key for a subject. The server still produces the
-// canonical subject_hash for filter subjects; this key is purely for
-// keying the in-memory count map and pairing batch results back to
-// the caller.
-export function subjectKey(subject: SubjectInput): string {
-  if (subject.subjectType === 'filter') {
-    const sortedKeys = Object.keys(subject.filters).sort()
-    const ordered: Record<string, unknown> = {}
-    for (const k of sortedKeys) ordered[k] = subject.filters[k]
-    return `filter:${subject.serviceKey}:${subject.entityType}:${JSON.stringify(ordered)}`
-  }
-  return `${subject.subjectType}:${subject.serviceKey}:${subject.entityType}:${subject.entityId}`
 }
 
 // ── Context shape ────────────────────────────────────────────
@@ -50,19 +44,13 @@ const DiscussionContext = createContext<ContextValue | null>(null)
 
 // ── Provider ─────────────────────────────────────────────────
 
-const FLUSH_DEBOUNCE_MS = 50
-const MAX_BATCH_SIZE    = 200
-
 interface ProviderProps {
   children: ReactNode
   // Optional override for tests; defaults to the real fetch endpoint.
-  fetcher?: (subjects: Array<{ key: string; subject: SubjectInput }>) =>
-    Promise<Array<{ key: string; openCount: number; resolvedCount: number }>>
+  fetcher?: CountFetcher
 }
 
-async function defaultFetcher(
-  subjects: Array<{ key: string; subject: SubjectInput }>,
-): Promise<Array<{ key: string; openCount: number; resolvedCount: number }>> {
+const defaultFetcher: CountFetcher = async (subjects) => {
   const res = await fetch('/api/discussions/subject/resolve-counts', {
     method:  'POST',
     headers: { 'content-type': 'application/json' },
@@ -85,79 +73,54 @@ export function DiscussionProvider({ children, fetcher }: ProviderProps) {
   const [counts, setCounts] = useState<Map<string, SubjectCount>>(() => new Map())
   const [loading, setLoading] = useState<Set<string>>(() => new Set())
 
-  // Queue of subjects waiting to be batched. Held in a ref so writes
-  // do not cause re-renders.
-  const queueRef = useRef<Map<string, SubjectInput>>(new Map())
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fetcherRef = useRef(fetcher ?? defaultFetcher)
+  const fetcherRef = useRef<CountFetcher>(fetcher ?? defaultFetcher)
   useEffect(() => {
     fetcherRef.current = fetcher ?? defaultFetcher
   }, [fetcher])
 
-  const flush = useCallback(async () => {
-    timerRef.current = null
-    const pending = Array.from(queueRef.current.entries())
-    queueRef.current.clear()
-    if (pending.length === 0) return
+  // One queue per provider instance, created lazily so the ref survives
+  // StrictMode's mount/unmount/remount without rebuilding it.
+  const queueRef = useRef<CountQueue | null>(null)
+  if (queueRef.current === null) {
+    queueRef.current = createCountQueue({
+      fetcher: payload => fetcherRef.current(payload),
 
-    // Chunk to keep individual requests reasonable; server allows ≤ 500.
-    const chunks: Array<Array<[string, SubjectInput]>> = []
-    for (let i = 0; i < pending.length; i += MAX_BATCH_SIZE) {
-      chunks.push(pending.slice(i, i + MAX_BATCH_SIZE))
-    }
+      onLoading: (key) => {
+        setLoading(prev => {
+          if (prev.has(key)) return prev
+          const next = new Set(prev)
+          next.add(key)
+          return next
+        })
+      },
 
-    for (const chunk of chunks) {
-      const payload = chunk.map(([key, subject]) => ({ key, subject }))
-      try {
-        const results = await fetcherRef.current(payload)
-        const byKey = new Map(results.map(r => [r.key, r]))
+      onSettled: (keys, resolved) => {
         setCounts(prev => {
           const next = new Map(prev)
-          for (const [key] of chunk) {
-            const r = byKey.get(key)
-            if (r) next.set(key, { openCount: r.openCount, resolvedCount: r.resolvedCount })
+          for (const key of keys) {
+            const r = resolved.get(key)
+            if (r) next.set(key, r)
             // If the server omitted this key (e.g. dropped due to permission
             // filter inside a saved_view bucket), keep prior value or set 0/0.
-            if (!r && !next.has(key)) next.set(key, { openCount: 0, resolvedCount: 0 })
+            else if (!next.has(key)) next.set(key, { openCount: 0, resolvedCount: 0 })
           }
           return next
         })
-      } catch {
-        // Leave loading=false so the badge falls back to its empty state.
-        setCounts(prev => {
-          const next = new Map(prev)
-          for (const [key] of chunk) {
-            if (!next.has(key)) next.set(key, { openCount: 0, resolvedCount: 0 })
-          }
-          return next
-        })
-      } finally {
+        // Leave loading=false either way so a dropped or failed key falls
+        // back to the badge's empty state instead of spinning forever.
         setLoading(prev => {
           const next = new Set(prev)
-          for (const [key] of chunk) next.delete(key)
+          for (const key of keys) next.delete(key)
           return next
         })
-      }
-    }
-  }, [])
-
-  const scheduleFlush = useCallback(() => {
-    if (timerRef.current !== null) return
-    timerRef.current = setTimeout(() => { void flush() }, FLUSH_DEBOUNCE_MS)
-  }, [flush])
+      },
+    })
+  }
+  const queue = queueRef.current
 
   const enqueue = useCallback((subject: SubjectInput) => {
-    const key = subjectKey(subject)
-    if (queueRef.current.has(key)) return
-    queueRef.current.set(key, subject)
-    setLoading(prev => {
-      if (prev.has(key)) return prev
-      const next = new Set(prev)
-      next.add(key)
-      return next
-    })
-    scheduleFlush()
-  }, [scheduleFlush])
+    queue.enqueue(subject)
+  }, [queue])
 
   const invalidate = useCallback((subject: SubjectInput) => {
     const key = subjectKey(subject)
@@ -167,15 +130,8 @@ export function DiscussionProvider({ children, fetcher }: ProviderProps) {
       next.delete(key)
       return next
     })
-    queueRef.current.set(key, subject)
-    setLoading(prev => {
-      if (prev.has(key)) return prev
-      const next = new Set(prev)
-      next.add(key)
-      return next
-    })
-    scheduleFlush()
-  }, [scheduleFlush])
+    queue.invalidate(subject)
+  }, [queue])
 
   // Allow callers (e.g. after createThread) to push a known count
   // synchronously instead of round-tripping through the API.
@@ -195,13 +151,9 @@ export function DiscussionProvider({ children, fetcher }: ProviderProps) {
     return { ...c, loading: isLoading }
   }, [counts, loading])
 
-  // Flush any pending work on unmount so devtools doesn't see a stuck timer.
-  useEffect(() => () => {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-  }, [])
+  // Drop any pending timer on unmount so devtools doesn't see a stuck timer.
+  // The queue keeps its entries, and re-enqueuing reschedules the flush.
+  useEffect(() => () => { queue.cancel() }, [queue])
 
   const value = useMemo<ContextValue>(
     () => ({ get, enqueue, invalidate, setCount }),
