@@ -8,6 +8,10 @@
 // 解析到底，不影响 Next.js 构建时的行为。
 import { createServerClient } from '../supabase/server.ts'
 import { assembleBoard, parseHandleFromUrl } from './assemble.ts'
+import { assembleCompanyBoard } from './companies.ts'
+import type {
+  CompanyAccountRow, CompanyBoard, CompanyCompetitorInput, CompanySnapshotInput, CompetitorCompany,
+} from './companies.ts'
 import { normalizeDescriptionBody } from './descriptions.ts'
 import { isValidShotDate } from './shotGrid.ts'
 import type {
@@ -105,6 +109,28 @@ export async function getCompetitorBoard(_userId: string): Promise<ServiceResult
     (shotRes.data ?? []) as CompetitorShot[],
     true,
     (descRes.data ?? []) as CompetitorDescription[],
+  ))
+}
+
+/**
+ * 竞品公司页：公司 + 公司↔团关联 + 追踪清单 + 快照，交给 assembleCompanyBoard 拼。
+ * 快照只取粉丝数这几列 —— 整张表带 raw JSON，这一页用不上。
+ */
+export async function getCompanyBoard(): Promise<ServiceResult<CompanyBoard>> {
+  const db = createServerClient()
+  const [coRes, linkRes, compRes, snapRes] = await Promise.all([
+    db.from('competitor_companies').select('*'),
+    db.from('competitor_company_accounts').select('*'),
+    db.from('competitors').select('id, handle, display_name, parent_id'),
+    db.from('competitor_snapshots').select('competitor_id, captured_on, followers'),
+  ])
+  const firstErr = coRes.error ?? linkRes.error ?? compRes.error ?? snapRes.error
+  if (firstErr) return err('db_error', firstErr.message)
+  return ok(assembleCompanyBoard(
+    (coRes.data ?? []) as CompetitorCompany[],
+    (linkRes.data ?? []) as CompanyAccountRow[],
+    (compRes.data ?? []) as CompanyCompetitorInput[],
+    (snapRes.data ?? []) as CompanySnapshotInput[],
   ))
 }
 
