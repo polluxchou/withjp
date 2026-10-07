@@ -95,13 +95,14 @@ test('assembleCompanyBoard: handle 以追踪表为准（对方改过 id 时关�
 })
 
 test('assembleCompanyBoard: 公司按 sort_order 再按名字排，团同理', () => {
+  // Aardvark 名字最靠前但 sort_order 最大：只按名字排会把它排到第一。
   const board = assembleCompanyBoard(
-    [company('a', 'Zeta', 20), company('b', 'Beta', 10), company('c', 'Alpha', 10)],
+    [company('a', 'Zeta', 20), company('b', 'Beta', 10), company('c', 'Alpha', 10), company('d', 'Aardvark', 30)],
     [link('l1', 'b', 'Second', null, null, 2), link('l2', 'b', 'First', null, null, 1), link('l3', 'b', 'AlsoFirst', null, null, 1)],
     [],
     [],
   )
-  assert.deepEqual(board.companies.map((c) => c.name), ['Alpha', 'Beta', 'Zeta'])
+  assert.deepEqual(board.companies.map((c) => c.name), ['Alpha', 'Beta', 'Zeta', 'Aardvark'])
   assert.deepEqual(board.companies[1].accounts.map((a) => a.group_name), ['AlsoFirst', 'First', 'Second'])
 })
 
@@ -118,6 +119,19 @@ test('assembleCompanyBoard: 未归属按粉丝降序，没数据的垫底并按 
   )
   assert.deepEqual(board.unassigned.map((a) => a.handle), ['big', 'small', 'aaa', 'bbb'])
   assert.equal(board.unassigned[3].followers_on, '2026-10-01')
+})
+
+test('assembleCompanyBoard: 没粉丝数据的账号无论输入顺序如何都排在有数据的后面', () => {
+  for (const order of [['c1', 'c2'], ['c2', 'c1']]) {
+    const all = { c1: comp('c1', 'nodata'), c2: comp('c2', 'hasdata') } as Record<string, CompanyCompetitorInput>
+    const board = assembleCompanyBoard(
+      [],
+      [],
+      order.map((id) => all[id]),
+      [{ competitor_id: 'c2', captured_on: '2026-10-01', followers: 5 }],
+    )
+    assert.deepEqual(board.unassigned.map((a) => a.handle), ['hasdata', 'nodata'], `input order ${order}`)
+  }
 })
 
 test('assembleCompanyBoard: 公司的脏枚举与脏 sources 被清洗', () => {
