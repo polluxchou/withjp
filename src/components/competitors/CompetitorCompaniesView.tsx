@@ -19,8 +19,12 @@ const CAPITAL_TONE: Record<CapitalBackground, Tone> = {
   unknown: 'neutral',
 }
 
-/** 方块墙：手机两列，宽屏按 180px 自动排。items-start 让备注长短不一的方块各自收高。 */
-const GRID = 'grid grid-cols-2 items-start gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] sm:gap-3.5'
+/**
+ * 方块墙：手机两列，宽屏按 180px 自动排。不设 align-items（默认 stretch）：同一行的方块
+ * 拉齐到行内最高的那块，「查看档案」靠 mt-auto 贴底。备注要全文显示，所以不同行之间
+ * 仍可能不等高 —— 统一固定高度就只能截断备注。
+ */
+const GRID = 'grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] sm:gap-3.5'
 
 function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
@@ -174,7 +178,7 @@ function TileImage({ name, avatarUrl, highlight, tracked }: {
 }) {
   const t = useTranslations('competitorCompanies')
   return (
-    <div className="relative flex aspect-square items-center justify-center bg-primary-soft">
+    <div className="relative flex aspect-square flex-none items-center justify-center bg-primary-soft">
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={avatarUrl} alt={t('avatarAlt', { name })} loading="lazy" className="h-full w-full object-cover" />
@@ -196,22 +200,28 @@ function TileImage({ name, avatarUrl, highlight, tracked }: {
 function TrackedStats({ account }: { account: TrackedAccount }) {
   const t = useTranslations('competitorCompanies')
   if (account.followers === null) return <p className="mt-2 text-xs text-ink-400">{t('noFollowers')}</p>
+  // 固定两栏（数字在上、标签在下）：粉丝和获赞同字号，并排写在一行时宽数字
+  // （如 112.3K）会把获赞挤到第二行，同一排方块的数据就对不齐了。
   return (
     <>
-      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-micro text-ink-400">
-        <span className="whitespace-nowrap">
-          {t.rich('followers', { count: formatCount(account.followers), b: (c) => <b className="text-lg font-semibold tabular-nums text-ink-900">{c}</b> })}
-        </span>
-        {account.likes !== null && (
-          <span className="whitespace-nowrap">
-            {t.rich('likes', { count: formatCount(account.likes), b: (c) => <b className="font-semibold tabular-nums text-ink-700">{c}</b> })}
-          </span>
-        )}
-      </p>
+      <dl className="mt-2 grid grid-cols-2 gap-x-2">
+        <Stat label={t('followers')} value={formatCount(account.followers)} />
+        <Stat label={t('likes')} value={formatCount(account.likes)} />
+      </dl>
       {account.followers_on && (
-        <p className="mt-0.5 text-micro text-ink-400">{t('followersOn', { date: account.followers_on })}</p>
+        <p className="mt-1 text-micro text-ink-400">{t('followersOn', { date: account.followers_on })}</p>
       )}
     </>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col-reverse">
+      <dt className="text-micro text-ink-400">{label}</dt>
+      {/* 手机两列时一栏只有 ~56px，15px 的「112.3K」正好贴边，小一号留余量 */}
+      <dd className="truncate text-md font-semibold tabular-nums text-ink-900 sm:text-lg">{value}</dd>
+    </div>
   )
 }
 
@@ -221,24 +231,24 @@ function GroupTile({ account: a }: { account: CompanyAccountView }) {
   const body = (
     <>
       <TileImage name={a.group_name} avatarUrl={a.tracked?.avatar_url ?? null} highlight={a.highlight} tracked={!!a.tracked} />
-      <div className="px-3 pb-3 pt-2.5">
+      <div className="flex flex-1 flex-col px-3 pb-3 pt-2.5">
         <p className="font-semibold text-ink-900">{a.group_name}</p>
         <p className="text-xs text-ink-400">{a.handle ? `@${a.handle}` : t('noHandle')}</p>
         {a.tracked ? <TrackedStats account={a.tracked} /> : <p className="mt-2 text-xs text-ink-400">{t('noFollowers')}</p>}
         {a.note && (
           <p className="mt-2 border-t border-dashed border-line pt-2 text-xs leading-relaxed text-ink-500">{a.note}</p>
         )}
-        {a.tracked && <p className="mt-2 text-xs text-primary">{t('openDossier')} →</p>}
+        {a.tracked && <p className="mt-auto pt-2 text-xs text-primary">{t('openDossier')} →</p>}
       </div>
     </>
   )
   if (!a.tracked) {
-    return <div className="overflow-hidden rounded-card border border-dashed border-line-strong bg-canvas text-sm">{body}</div>
+    return <div className="flex h-full flex-col overflow-hidden rounded-card border border-dashed border-line-strong bg-canvas text-sm">{body}</div>
   }
   return (
     <Link
       href={`/competitors#${competitorAnchorId(a.tracked.competitor_id)}`}
-      className="block overflow-hidden rounded-card border border-line bg-surface text-sm transition hover:-translate-y-0.5 hover:border-primary-border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
+      className="flex h-full flex-col overflow-hidden rounded-card border border-line bg-surface text-sm transition hover:-translate-y-0.5 hover:border-primary-border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
     >
       {body}
     </Link>
