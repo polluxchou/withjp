@@ -82,10 +82,12 @@ test('assembleCompanyBoard: 角标取关联行的 highlight，缺列或空白时
 
 test('assembleCompanyBoard: 公司粉丝合计只算有数据的已追踪团，一个都没有时为 null', () => {
   const board = assembleCompanyBoard(
-    [company('co1', 'GGTK', 1), company('co2', 'MaGo', 2)],
+    [company('co1', 'GGTK', 1), company('co2', 'MaGo', 2), company('co3', 'NoData', 3)],
     [
-      link('l1', 'co1', 'A', 'c1'), link('l2', 'co1', 'B', 'c2'), link('l3', 'co1', 'C', 'c3'),
+      link('l1', 'co1', 'A', 'c1'), link('l2', 'co1', 'B', 'c2'),
       link('l4', 'co1', 'Untracked'), link('l5', 'co2', 'Kiwii Girls'),
+      // 已追踪但快照里粉丝为空：不能被算成 0
+      link('l3', 'co3', 'C', 'c3'),
     ],
     [comp('c1', 'a'), comp('c2', 'b'), comp('c3', 'c')],
     [
@@ -96,6 +98,7 @@ test('assembleCompanyBoard: 公司粉丝合计只算有数据的已追踪团，�
   )
   assert.equal(board.companies[0].follower_total, 123)
   assert.equal(board.companies[1].follower_total, null)
+  assert.equal(board.companies[2].follower_total, null)
 })
 
 test('assembleCompanyBoard: 官网只放行 http(s)', () => {
