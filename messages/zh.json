@@ -1699,6 +1699,8 @@
     "noGroups": "还不知道旗下有哪些团",
     "tracked": "已追踪",
     "untracked": "未追踪",
+    "inactive": "已停更",
+    "archivedOn": "{date} 存档",
     "noHandle": "TikTok 账号未知",
     "followers": "粉丝",
     "followersOn": "{date} 采集",

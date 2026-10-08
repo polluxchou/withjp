@@ -1699,6 +1699,8 @@
     "noGroups": "No known groups yet",
     "tracked": "Tracked",
     "untracked": "Not tracked",
+    "inactive": "Inactive",
+    "archivedOn": "Archived {date}",
     "noHandle": "TikTok account unknown",
     "followers": "Followers",
     "followersOn": "captured {date}",
