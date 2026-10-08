@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  assembleCompanyBoard, latestSnapshotByCompetitor, normalizeCapital, normalizeSources,
+  assembleCompanyBoard, latestSnapshotByCompetitor, normalizeCapital, normalizeSources, websiteLabel,
 } from './companies.ts'
 import type { CompanyAccountRow, CompanyCompetitorInput, CompetitorCompany } from './companies.ts'
 
@@ -40,10 +40,78 @@ test('assembleCompanyBoard: 团挂到所属公司下，已追踪的团带上最�
   const acc = board.companies[0].accounts[0]
   assert.equal(acc.group_name, '1MB Twinkle')
   assert.deepEqual(acc.tracked, {
-    competitor_id: 'c1', handle: '1mb.twinkle', display_name: '1MB.TWINKLE',
-    followers: 120, followers_on: '2026-10-05',
+    competitor_id: 'c1', handle: '1mb.twinkle', display_name: '1MB.TWINKLE', avatar_url: null,
+    followers: 120, likes: null, followers_on: '2026-10-05',
   })
   assert.deepEqual(board.unassigned, [])
+})
+
+test('assembleCompanyBoard: 头像与获赞跟着追踪账号走，获赞取同一条最新快照', () => {
+  const board = assembleCompanyBoard(
+    [company('co1', 'TOST')],
+    [link('l1', 'co1', 'Solulune', 'c1')],
+    [{ ...comp('c1', 'solulune.jp'), avatar_url: ' https://x.supabase.co/a.jpeg ' }],
+    [
+      { competitor_id: 'c1', captured_on: '2026-09-01', followers: 1, likes: 999 },
+      { competitor_id: 'c1', captured_on: '2026-09-16', followers: 27400, likes: 192200 },
+    ],
+  )
+  const t = board.companies[0].accounts[0].tracked
+  assert.equal(t?.avatar_url, 'https://x.supabase.co/a.jpeg')
+  assert.equal(t?.likes, 192200)
+})
+
+test('assembleCompanyBoard: 空白头像当没有头像', () => {
+  const board = assembleCompanyBoard([], [], [{ ...comp('c1', 'a'), avatar_url: '   ' }], [])
+  assert.equal(board.unassigned[0].avatar_url, null)
+})
+
+test('assembleCompanyBoard: 角标取关联行的 highlight，缺列或空白时为 null', () => {
+  const board = assembleCompanyBoard(
+    [company('co1', 'GGTK')],
+    [
+      { ...link('l1', 'co1', 'A', null, null, 1), highlight: 'Diamond #1' },
+      { ...link('l2', 'co1', 'B', null, null, 2), highlight: '  ' },
+      link('l3', 'co1', 'C', null, null, 3),
+    ],
+    [],
+    [],
+  )
+  assert.deepEqual(board.companies[0].accounts.map((a) => a.highlight), ['Diamond #1', null, null])
+})
+
+test('assembleCompanyBoard: 公司粉丝合计只算有数据的已追踪团，一个都没有时为 null', () => {
+  const board = assembleCompanyBoard(
+    [company('co1', 'GGTK', 1), company('co2', 'MaGo', 2), company('co3', 'NoData', 3)],
+    [
+      link('l1', 'co1', 'A', 'c1'), link('l2', 'co1', 'B', 'c2'),
+      link('l4', 'co1', 'Untracked'), link('l5', 'co2', 'Kiwii Girls'),
+      // 已追踪但快照里粉丝为空：不能被算成 0
+      link('l3', 'co3', 'C', 'c3'),
+    ],
+    [comp('c1', 'a'), comp('c2', 'b'), comp('c3', 'c')],
+    [
+      { competitor_id: 'c1', captured_on: '2026-09-16', followers: 100 },
+      { competitor_id: 'c2', captured_on: '2026-09-16', followers: 23 },
+      { competitor_id: 'c3', captured_on: '2026-09-16', followers: null },
+    ],
+  )
+  assert.equal(board.companies[0].follower_total, 123)
+  assert.equal(board.companies[1].follower_total, null)
+  assert.equal(board.companies[2].follower_total, null)
+})
+
+test('assembleCompanyBoard: 官网只放行 http(s)', () => {
+  const board = assembleCompanyBoard(
+    [
+      company('a', 'Ok', 1, { website: ' https://ggtk.jp/ ' }),
+      company('b', 'Js', 2, { website: 'javascript:alert(1)' }),
+      company('c', 'Bare', 3, { website: 'tostost.com' }),
+      company('d', 'None', 4),
+    ],
+    [], [], [],
+  )
+  assert.deepEqual(board.companies.map((c) => c.website), ['https://ggtk.jp/', null, null, null])
 })
 
 test('assembleCompanyBoard: 没进追踪清单的团照样挂在公司下，tracked 为 null', () => {
@@ -142,6 +210,12 @@ test('assembleCompanyBoard: 公司的脏枚举与脏 sources 被清洗', () => {
   const board = assembleCompanyBoard([dirty], [], [], [])
   assert.equal(board.companies[0].capital_background, 'unknown')
   assert.deepEqual(board.companies[0].sources, [{ label: 'ok', url: 'https://a.jp' }])
+})
+
+test('websiteLabel: 只留域名并去掉 www.，解析失败原样返回', () => {
+  assert.equal(websiteLabel('https://www.mago-audition.com/'), 'mago-audition.com')
+  assert.equal(websiteLabel('https://jamcn.live/?lang=ja'), 'jamcn.live')
+  assert.equal(websiteLabel('not a url'), 'not a url')
 })
 
 test('normalizeCapital: 合法值原样返回，其余归为 unknown', () => {

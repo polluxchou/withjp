@@ -33,6 +33,8 @@ export interface CompanyAccountRow {
   group_name: string
   handle: string | null
   competitor_id: string | null
+  /** 20261008 迁移加的列；迁移执行前查不到，按缺失处理。 */
+  highlight?: string | null
   note: string
   sort_order: number
 }
@@ -43,20 +45,25 @@ export interface CompanyCompetitorInput {
   handle: string
   display_name: string | null
   parent_id: string | null
+  avatar_url?: string | null
 }
 
 export interface CompanySnapshotInput {
   competitor_id: string
   captured_on: string
   followers: number | null
+  likes?: number | null
 }
 
 export interface TrackedAccount {
   competitor_id: string
   handle: string
   display_name: string | null
+  avatar_url: string | null
   /** 最新一条快照的粉丝数；没有快照或快照里粉丝为空时为 null。 */
   followers: number | null
+  /** 同一条快照的获赞数。 */
+  likes: number | null
   followers_on: string | null
 }
 
@@ -65,6 +72,8 @@ export interface CompanyAccountView {
   group_name: string
   /** 优先取已追踪竞品的 handle（对方改过 id 时追踪表是新的），其次是关联行自己记的。 */
   handle: string | null
+  /** 方块左上角的战绩角标，如「Diamond #1」；没有就不显示。 */
+  highlight: string | null
   note: string
   /** null = 这个团还没进追踪清单。 */
   tracked: TrackedAccount | null
@@ -72,6 +81,8 @@ export interface CompanyAccountView {
 
 export interface CompanyView extends CompetitorCompany {
   accounts: CompanyAccountView[]
+  /** 旗下已追踪团的粉丝合计；一个有数据的都没有时为 null（显示「—」而不是 0）。 */
+  follower_total: number | null
 }
 
 export interface CompanyBoard {
@@ -99,6 +110,22 @@ export function normalizeSources(v: unknown): CompanySource[] {
     out.push({ label: label.trim(), url })
   }
   return out
+}
+
+/** 官网链接要渲染成可点的 href：只放行 http(s)，其余（空串、javascript: 等）当没有官网。 */
+export function normalizeWebsite(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const url = v.trim()
+  return /^https?:\/\//i.test(url) ? url : null
+}
+
+/** 公司名旁的官网链接文字：只显示域名（去掉 www.），比整条 URL 短且一眼能认。 */
+export function websiteLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, '')
+  } catch {
+    return url
+  }
 }
 
 /** 每个竞品取 captured_on 最大的那条快照。同一天多条时保留先出现的。 */
@@ -135,7 +162,9 @@ export function assembleCompanyBoard(
       competitor_id: c.id,
       handle: c.handle,
       display_name: c.display_name,
+      avatar_url: c.avatar_url?.trim() || null,
       followers: snap?.followers ?? null,
+      likes: snap?.likes ?? null,
       followers_on: snap ? snap.captured_on : null,
     }
   }
@@ -156,13 +185,25 @@ export function assembleCompanyBoard(
         .map((l): CompanyAccountView => {
           const t = l.competitor_id ? tracked(l.competitor_id) : null
           if (t) assigned.add(t.competitor_id)
-          return { id: l.id, group_name: l.group_name, handle: t?.handle ?? l.handle, note: l.note, tracked: t }
+          return {
+            id: l.id,
+            group_name: l.group_name,
+            handle: t?.handle ?? l.handle,
+            highlight: l.highlight?.trim() || null,
+            note: l.note,
+            tracked: t,
+          }
         })
+      const counted = accounts.filter((a) => a.tracked?.followers != null)
       return {
         ...co,
         capital_background: normalizeCapital(co.capital_background),
+        website: normalizeWebsite(co.website),
         sources: normalizeSources(co.sources),
         accounts,
+        follower_total: counted.length
+          ? counted.reduce((sum, a) => sum + (a.tracked?.followers ?? 0), 0)
+          : null,
       }
     })
 
