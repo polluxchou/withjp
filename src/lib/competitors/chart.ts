@@ -29,6 +29,19 @@ export interface WeeklyCurve {
    * 不足 2 点的段不产出（孤立的点只画圆点）。
    */
   segments: string[]
+  /**
+   * 跨缺采空档的连接：两端是空档前后的真点，missing 是中间缺了几周。
+   * 画成虚线并标「N 周未采」——只表示两端相连，不代表中间每周的走势（不插值）。
+   */
+  bridges: WeeklyCurveBridge[]
+}
+
+export interface WeeklyCurveBridge {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  missing: number
 }
 
 interface WeeklyCurveInput {
@@ -54,6 +67,11 @@ interface WeeklyCurveOptions {
    *   此时 inset 不再生效（格心只由点数决定）。
    */
   align?: 'edge' | 'cell'
+  /**
+   * 仅 'cell' 生效：在数据格右侧再预留几格（不放点）。曲线右侧的「已 N 天未采」
+   * 就占这一格——总格数 = 数据格 + trailingCells，圆点按总格数取格心才能和刻度行对齐。
+   */
+  trailingCells?: number
 }
 
 const ISO_DATE = /^\d{4}-(\d{2})-(\d{2})$/
@@ -78,7 +96,7 @@ function weekTick(weekStart: string): string {
  */
 export function buildWeeklyCurve(
   weekly: WeeklyCurveInput[],
-  { inset = 8, minSpanRatio = 0.05, padRatio = 0.25, align = 'edge' }: WeeklyCurveOptions = {},
+  { inset = 8, minSpanRatio = 0.05, padRatio = 0.25, align = 'edge', trailingCells = 0 }: WeeklyCurveOptions = {},
 ): WeeklyCurve {
   // null 是「这周缺采」的有效输入，占住槽位；NaN/Infinity 是脏数据，照旧丢掉。
   const rows = (Array.isArray(weekly) ? weekly : []).filter(
@@ -87,7 +105,7 @@ export function buildWeeklyCurve(
   const values = rows
     .map((w) => w.followers)
     .filter((v): v is number => v !== null)
-  if (values.length === 0) return { points: [], segments: [] }
+  if (values.length === 0) return { points: [], segments: [], bridges: [] }
 
   const max = Math.max(...values)
   const min = Math.min(...values)
@@ -99,13 +117,15 @@ export function buildWeeklyCurve(
   // 'cell' 取 lead = 100/(2n)，于是 step = 100/n、第 i 点落在 (2i+1)·100/(2n)——
   // 正好是 n 等分格的中心。刻度行用等分 grid 时（保证相邻标签不可能重叠），
   // 圆点才和它下面的日期/数值同列。'edge' 保持原来的内缩语义。
-  const lead = align === 'cell' ? 100 / (2 * rows.length) : inset
-  const step = rows.length > 1 ? (100 - 2 * lead) / (rows.length - 1) : 0
+  // trailingCells 只在 'cell' 下把总格数撑大：数据点仍占前 rows.length 格的格心。
+  const cells = align === 'cell' ? rows.length + Math.max(0, Math.floor(trailingCells) || 0) : rows.length
+  const lead = align === 'cell' ? 100 / (2 * cells) : inset
+  const step = align === 'cell' ? 100 / cells : rows.length > 1 ? (100 - 2 * lead) / (rows.length - 1) : 0
   const points: WeeklyCurvePoint[] = rows.map((w, i) => ({
     week_start: w.week_start,
     followers: w.followers,
     captured_on: w.captured_on ?? null,
-    xPct: rows.length > 1 ? round2(lead + i * step) : 50,
+    xPct: cells > 1 ? round2(lead + i * step) : 50,
     // span 为 0 只可能是所有值都是 0，此时落中线避免除零
     yPct:
       w.followers === null ? null : span > 0 ? round2(100 - ((w.followers - domainMin) / span) * 100) : 50,
@@ -125,7 +145,18 @@ export function buildWeeklyCurve(
   }
   if (run.length > 1) segments.push(run.join(' '))
 
-  return { points, segments }
+  // 相邻两个真点之间夹着缺采的周 → 一条虚线桥。
+  const bridges: WeeklyCurveBridge[] = []
+  let prev: { i: number; p: WeeklyCurvePoint } | null = null
+  points.forEach((p, i) => {
+    if (p.yPct === null) return
+    if (prev && i - prev.i > 1 && prev.p.yPct !== null) {
+      bridges.push({ x1: prev.p.xPct, y1: prev.p.yPct, x2: p.xPct, y2: p.yPct, missing: i - prev.i - 1 })
+    }
+    prev = { i, p }
+  })
+
+  return { points, segments, bridges }
 }
 
 /** 提示文案的 i18n key 与要填进去的日期。 */
