@@ -112,7 +112,10 @@ export function normalizeSources(v: unknown): CompanySource[] {
   return out
 }
 
-/** 官网链接要渲染成可点的 href：只放行 http(s)，其余（空串、javascript: 等）当没有官网。 */
+/**
+ * 要渲染成 href / img src 的地址（官网、头像）：只放行 http(s)，其余（空串、javascript:、
+ * 手工 SQL 留下的占位文字等）一律当没有。
+ */
 export function normalizeWebsite(v: unknown): string | null {
   if (typeof v !== 'string') return null
   const url = v.trim()
@@ -162,7 +165,8 @@ export function assembleCompanyBoard(
       competitor_id: c.id,
       handle: c.handle,
       display_name: c.display_name,
-      avatar_url: c.avatar_url?.trim() || null,
+      // 和官网链接同一道闸：手工 SQL 曾把占位文字写进 avatar_url，不拦就是一张破图。
+      avatar_url: normalizeWebsite(c.avatar_url),
       followers: snap?.followers ?? null,
       likes: snap?.likes ?? null,
       followers_on: snap ? snap.captured_on : null,

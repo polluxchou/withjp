@@ -61,9 +61,18 @@ test('assembleCompanyBoard: 头像与获赞跟着追踪账号走，获赞取同�
   assert.equal(t?.likes, 192200)
 })
 
-test('assembleCompanyBoard: 空白头像当没有头像', () => {
-  const board = assembleCompanyBoard([], [], [{ ...comp('c1', 'a'), avatar_url: '   ' }], [])
-  assert.equal(board.unassigned[0].avatar_url, null)
+test('assembleCompanyBoard: 空白或非 http(s) 的头像当没有头像（显示字母占位而不是破图）', () => {
+  const board = assembleCompanyBoard(
+    [],
+    [],
+    [
+      { ...comp('c1', 'a'), avatar_url: '   ' },
+      { ...comp('c2', 'b'), avatar_url: '<1mb.era 的头像 URL>' },
+      { ...comp('c3', 'c'), avatar_url: 'javascript:alert(1)' },
+    ],
+    [],
+  )
+  assert.deepEqual(board.unassigned.map((a) => a.avatar_url), [null, null, null])
 })
 
 test('assembleCompanyBoard: 角标取关联行的 highlight，缺列或空白时为 null', () => {
