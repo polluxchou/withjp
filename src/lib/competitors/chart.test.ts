@@ -199,7 +199,47 @@ test('buildWeeklyCurve: 缺采周不参与量程（y 轴不被 null 拉歪）', 
 })
 
 test('buildWeeklyCurve: 全是缺采周返回空点集', () => {
-  assert.deepEqual(buildWeeklyCurve([gap('2026-08-10'), gap('2026-08-17')]), { points: [], segments: [] })
+  assert.deepEqual(buildWeeklyCurve([gap('2026-08-10'), gap('2026-08-17')]), { points: [], segments: [], bridges: [] })
+})
+
+test('buildWeeklyCurve: 跨缺采空档产出虚线桥，标出缺了几周；相邻真点之间不产出', () => {
+  const c = buildWeeklyCurve(
+    [wk('2026-09-07', 20500), wk('2026-09-14', 20900), gap('2026-09-21'), gap('2026-09-28'), wk('2026-10-05', 21900)],
+    { align: 'cell' },
+  )
+  assert.equal(c.bridges.length, 1)
+  const b = c.bridges[0]
+  assert.equal(b.missing, 2)
+  assert.equal(b.x1, c.points[1].xPct)
+  assert.equal(b.x2, c.points[4].xPct)
+  assert.equal(b.y1, c.points[1].yPct)
+  assert.equal(b.y2, c.points[4].yPct)
+})
+
+test('buildWeeklyCurve: 多个空档各自一座桥；空档在两端（只有一侧有点）不产出', () => {
+  const c = buildWeeklyCurve([gap('2026-07-27'), wk('2026-08-03', 1), gap('2026-08-10'), wk('2026-08-17', 2), gap('2026-08-24'), gap('2026-08-31'), wk('2026-09-07', 3), gap('2026-09-14')])
+  assert.deepEqual(c.bridges.map((b) => b.missing), [1, 2])
+})
+
+test("buildWeeklyCurve: trailingCells 在 'cell' 下按总格数取格心，给右侧多留一格", () => {
+  const c = buildWeeklyCurve(
+    [wk('2026-08-17', 1), wk('2026-08-24', 2), wk('2026-08-31', 3), wk('2026-09-07', 4), wk('2026-09-14', 5)],
+    { align: 'cell', trailingCells: 1 },
+  )
+  // 6 格：格心 (2i+1)/12
+  assert.deepEqual(c.points.map((p) => p.xPct), [8.33, 25, 41.67, 58.33, 75])
+})
+
+test("buildWeeklyCurve: trailingCells 为 0 时与原口径一致；'edge' 下不生效", () => {
+  const rows = [wk('2026-08-17', 1), wk('2026-08-24', 2), wk('2026-08-31', 3), wk('2026-09-07', 4)]
+  assert.deepEqual(
+    buildWeeklyCurve(rows, { align: 'cell', trailingCells: 0 }).points.map((p) => p.xPct),
+    buildWeeklyCurve(rows, { align: 'cell' }).points.map((p) => p.xPct),
+  )
+  assert.deepEqual(
+    buildWeeklyCurve(rows, { trailingCells: 2 }).points.map((p) => p.xPct),
+    buildWeeklyCurve(rows).points.map((p) => p.xPct),
+  )
 })
 
 test('buildWeeklyCurve: null 保留为缺口，NaN/Infinity 仍按脏数据丢弃', () => {

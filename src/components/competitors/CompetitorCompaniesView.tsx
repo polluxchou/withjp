@@ -7,6 +7,7 @@ import { Link } from '@/i18n/navigation'
 import Tag from '@/components/ui/Tag'
 import EmptyState from '@/components/ui/EmptyState'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
+import { daysSince, freshnessOf, isoDateInTimeZone } from '@/lib/competitors/cadence'
 import { formatCount } from '@/lib/competitors/metrics'
 import { websiteLabel } from '@/lib/competitors/companies'
 import type { CapitalBackground, CompanyAccountView, CompanyBoard, CompanyView, TrackedAccount } from '@/lib/competitors/companies'
@@ -208,10 +209,33 @@ function TrackedStats({ account }: { account: TrackedAccount }) {
         <Stat label={t('followers')} value={formatCount(account.followers)} />
         <Stat label={t('likes')} value={formatCount(account.likes)} />
       </dl>
-      {account.followers_on && (
-        <p className="mt-1 text-micro text-ink-400">{t('followersOn', { date: account.followers_on })}</p>
-      )}
+      {account.followers_on && <CapturedOn date={account.followers_on} />}
     </>
+  )
+}
+
+/**
+ * 采集日期按新鲜度分档：7 天内灰字写日期；8–14 天琥珀色「N 天前采集」；再久加「待更新」。
+ * 这里是服务端组件、每次请求现算，「今天」取日本时间（captured_on 是日本业务日）。
+ */
+function CapturedOn({ date }: { date: string }) {
+  const t = useTranslations('competitorCompanies')
+  const days = daysSince(date, isoDateInTimeZone(new Date(), 'Asia/Tokyo'))
+  const level = days === null ? 'fresh' : freshnessOf(days)
+  if (level === 'fresh' || days === null) {
+    return <p className="mt-1 text-micro text-ink-400">{t('followersOn', { date })}</p>
+  }
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-1" title={t('followersOn', { date })}>
+      <span className="rounded-btn bg-warning-soft px-2 py-0.5 text-micro text-warning-text">
+        {t('capturedDaysAgo', { days })}
+      </span>
+      {level === 'stale' && (
+        <span className="rounded-btn bg-warning-dot px-1.5 py-0.5 text-micro font-semibold text-surface">
+          {t('needsUpdate')}
+        </span>
+      )}
+    </p>
   )
 }
 
