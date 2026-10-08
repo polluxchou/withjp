@@ -142,7 +142,7 @@ export function normalizeStatus(v: unknown): AccountStatus {
  * （说不清是哪天的数字不能展示）；数字字段不是有限数就当缺失；头像只放行 http(s)。
  */
 export function normalizeAccountSnapshot(v: unknown): AccountSnapshot | null {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  if (!v || typeof v !== 'object') return null
   const o = v as Record<string, unknown>
   if (typeof o.captured_on !== 'string' || !ISO_DATE.test(o.captured_on)) return null
   return {
