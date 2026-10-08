@@ -36,7 +36,7 @@ function Field({ label, value }: { label: string; value: string | null }) {
 
 export default function CompetitorCard({
   c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
-  dateWindow, selectedDate, regionPeers, nested = false, selected = false,
+  dateWindow, selectedDate, regionPeers, nested = false, selected = false, today = null,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -52,6 +52,8 @@ export default function CompetitorCard({
   nested?: boolean
   /** 导航条当前选中的账号:与芯片的实心态成对出现,换一个号才熄灭。 */
   selected?: boolean
+  /** 本地今天（挂载后才有，首帧为 null）：曲线右侧「已 N 天未采」那一格靠它算。 */
+  today?: string | null
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
@@ -313,7 +315,7 @@ export default function CompetitorCard({
           代价是相册列从 2/3 降到 3/5,缩略图窄约 13%(75px→65px,aspect-[9/16] 保持)。
           改这个比例或改 WeeklyFollowersCurve 的 WEEKS 都要重量一次窄宽度。 */}
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 max-lg:grid-cols-1">
-        <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
+        <WeeklyFollowersCurve weekly={c.weekly} compact={nested} today={today} />
         <ShotAlbum
           competitorId={c.id}
           handle={c.handle}
@@ -351,6 +353,7 @@ export default function CompetitorCard({
                   dateWindow={dateWindow}
                   selectedDate={selectedDate}
                   regionPeers={regionPeers}
+                  today={today}
                   nested
                 />
               ))}

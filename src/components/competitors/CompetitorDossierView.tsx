@@ -242,6 +242,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               selectedDate={selectedDate}
               regionPeers={board.competitors}
               selected={c.id === selectedId}
+              today={today}
             />
           ))}
         </div>
