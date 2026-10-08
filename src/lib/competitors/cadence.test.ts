@@ -24,6 +24,11 @@ test('intervalDelta: 间隔 > 8 天写真实天数，并按复利匀速折算每
   assert.equal(d?.perWeekPct, 1.5)
 })
 
+test('intervalDelta: 折算按复利而非线性（大涨幅时两者差得开）', () => {
+  // 28 天翻倍：复利 2^(1/4)-1 ≈ 18.9%/周；线性会算成 25%
+  assert.equal(intervalDelta(p('2026-09-01', 10000), p('2026-09-29', 20000))?.perWeekPct, 18.9)
+})
+
 test('intervalDelta: 下跌也照算，折算值为负', () => {
   const d = intervalDelta(p('2026-09-01', 10000), p('2026-09-15', 9000))
   assert.equal(d?.pct, -10)

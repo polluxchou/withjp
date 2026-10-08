@@ -240,6 +240,8 @@ test("buildWeeklyCurve: trailingCells 为 0 时与原口径一致；'edge' 下�
     buildWeeklyCurve(rows, { trailingCells: 2 }).points.map((p) => p.xPct),
     buildWeeklyCurve(rows).points.map((p) => p.xPct),
   )
+  // 'edge' 单点仍居中，不因 trailingCells 被挤到左边
+  assert.equal(buildWeeklyCurve([wk('2026-09-14', 5)], { trailingCells: 2 }).points[0].xPct, 50)
 })
 
 test('buildWeeklyCurve: null 保留为缺口，NaN/Infinity 仍按脏数据丢弃', () => {
