@@ -1,7 +1,7 @@
 // src/components/competitors/CompetitorDossierView.tsx
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
 import CompetitorCard from './CompetitorCard'
@@ -9,6 +9,8 @@ import CompetitorNavBar from './CompetitorNavBar'
 import CompetitorSummaryBar from './CompetitorSummaryBar'
 import ShotDateStrip from './ShotDateStrip'
 import { todayLocal } from '@/lib/competitors/localDate'
+import { competitorAnchorId, competitorIdFromHash } from '@/lib/competitors/anchors'
+import { scrollToCompetitorCard } from './scrollToCard'
 import { SHOT_WINDOW_SIZE, collectShotDates, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
 import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
 import type { CompetitorBoard } from '@/lib/competitors/types'
@@ -65,6 +67,60 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   // 选中态常驻,不再是"跳过去闪一下"的临时高亮:芯片和卡片共用这一个 id,
   // 滚了半天也能一眼看出自己停在哪个号上。换一个号才让上一个熄灭。
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  // 竞品公司页的「查看档案」带着 #competitor-<id> 跳进来。浏览器原生的锚点跳转把卡片
+  // 顶边对齐到视口顶，正好被吸顶块盖住头部，所以挂载后按导航条同一套算法重新落点，
+  // 并点亮对应芯片。等 today 就位再量：统计条在那之后才出现，会把整块往下推一截。
+  // 之后再复核两次（框架自己的 hash 滚动、晚到的字体都可能在第一次之后再挪一下），
+  // 但只要用户已经动了滚轮/触摸/键盘就不再抢回来。
+  // 吸顶块的实测高度写进 CSS 变量，竞品卡的 scroll-margin-top 读它（见 CompetitorCard）。
+  // 用 ResizeObserver 跟着变：导航条换行、日期轴列数、统计条晚出现都会改它的高度。
+  // 必须是 useLayoutEffect：从竞品公司页客户端跳进来时，Next 的锚点滚动（scrollIntoView）
+  // 在路由段的 componentDidMount 里执行，早于本组件的 useEffect；React 先跑子组件的
+  // layout effect 再跑父级的 didMount，只有这样变量才赶得上那一次滚动。
+  const rootRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    const head = root?.querySelector<HTMLElement>('[data-sticky-head]')
+    if (!root || !head) return
+    const sync = () => root.style.setProperty('--competitor-sticky-head', `${Math.round(head.getBoundingClientRect().height)}px`)
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(head)
+    return () => ro.disconnect()
+  }, [board.competitors.length])
+
+  useEffect(() => {
+    if (today === null) return
+    let userMoved = false
+    const markMoved = () => { userMoved = true }
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const go = () => {
+      const id = competitorIdFromHash(window.location.hash)
+      if (!id || !document.getElementById(competitorAnchorId(id))) return
+      setSelectedId(id)
+      userMoved = false
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        scrollToCompetitorCard(id, false)
+        for (const ms of [150, 450]) {
+          timers.push(setTimeout(() => { if (!userMoved) scrollToCompetitorCard(id, false) }, ms))
+        }
+      }))
+    }
+    const opts = { passive: true } as const
+    window.addEventListener('wheel', markMoved, opts)
+    window.addEventListener('touchstart', markMoved, opts)
+    window.addEventListener('keydown', markMoved)
+    window.addEventListener('hashchange', go)
+    go()
+    return () => {
+      timers.forEach(clearTimeout)
+      window.removeEventListener('wheel', markMoved)
+      window.removeEventListener('touchstart', markMoved)
+      window.removeEventListener('keydown', markMoved)
+      window.removeEventListener('hashchange', go)
+    }
+  }, [today])
 
   const refresh = useCallback(async () => {
     try {
@@ -152,7 +208,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   }, [refresh, t])
 
   return (
-    <div className="space-y-4">
+    <div ref={rootRef} className="space-y-4">
       {board.canEdit && (
         <div className="flex items-center gap-2">
           <Input
