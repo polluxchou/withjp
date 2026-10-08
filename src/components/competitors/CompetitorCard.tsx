@@ -11,6 +11,7 @@ import ShotAlbum from './ShotAlbum'
 import RegionLiveRuler from './RegionLiveRuler'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
+import { ANCHOR_GAP } from '@/lib/competitors/navScroll'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
 import { checkProfileLanguage } from '@/lib/competitors/profileLanguage'
 import { formatDayTimeInLocaleZone, timeZoneForLocale } from '@/lib/time/localeZone'
@@ -33,6 +34,12 @@ function Field({ label, value }: { label: string; value: string | null }) {
     </div>
   )
 }
+
+/**
+ * 顶层卡的锚点偏移：吸顶块实测高度（DossierView 写入的 CSS 变量）+ ANCHOR_GAP。
+ * 变量还没写进来时按 120px 估（桌面端吸顶块实测 117–125px），首帧也不至于盖住头部。
+ */
+const ANCHOR_STYLE = { scrollMarginTop: `calc(var(--competitor-sticky-head, 120px) + ${ANCHOR_GAP}px)` }
 
 export default function CompetitorCard({
   c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
@@ -170,15 +177,17 @@ export default function CompetitorCard({
     // 选中 ring 只出现在顶层卡这一支:子卡那支已经有自己的 ring-1,同一属性
     // 挂两个候选类时谁生效由 Tailwind 生成顺序决定、不看书写顺序(见
     // FilterChip 的同款教训)。互斥分支从结构上避免这个问题。
-    // 这里不需要 scroll-mt:导航跳转不走 scrollIntoView(视口顶被吸顶块占着),
-    // 落点由 CompetitorNavBar 按吸顶块实测高度算,见那里的 ANCHOR_GAP。
+    // 导航条点芯片不走 scrollIntoView,落点按吸顶块实测高度算(见 scrollToCard)。
+    // 但从竞品公司页带 #锚点跳进来时,浏览器自己的锚点滚动(含页面加载完成后的
+    // 那次补滚)会把卡片顶边对齐到视口顶、被吸顶块盖住——下面的 scroll-margin-top
+    // 让原生滚动也停在吸顶块下方。吸顶块高度由 DossierView 实测写进 CSS 变量。
     : `rounded-card border border-line bg-surface p-4 transition-shadow ${
         selected ? 'ring-2 ring-primary' : ''
       }`
 
   return (
     // 子卡不挂锚点:导航条只定位顶层竞品,子主播通过父卡的"关联主播"下钻。
-    <div id={nested ? undefined : competitorAnchorId(c.id)} className={shell}>
+    <div id={nested ? undefined : competitorAnchorId(c.id)} className={shell} style={nested ? undefined : ANCHOR_STYLE}>
       {/* header 拆两行:身份+操作一行,指标一行。指标原先与名字同挤在
           min-w-0 flex-1 里,375px 下那一格只剩 100px,两行都放不开。 */}
       <div className="mb-3">
