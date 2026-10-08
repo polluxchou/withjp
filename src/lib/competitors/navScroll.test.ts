@@ -2,7 +2,37 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { RECENTER_MS, centeredScrollLeft, easeOutCubic, scrollLeftAt } from './navScroll.ts'
+import { ANCHOR_GAP, RECENTER_MS, anchoredScrollTop, centeredScrollLeft, easeOutCubic, scrollLeftAt } from './navScroll.ts'
+import { competitorAnchorId, competitorIdFromHash } from './anchors.ts'
+
+test('anchoredScrollTop: 卡片落在吸顶块下方并留出 ANCHOR_GAP', () => {
+  // 卡片在视口 900px 处、已滚 1200px、吸顶块 140px 高 → 卡片文档位置 2100，减去 140+8
+  assert.equal(anchoredScrollTop({ cardTop: 900, scrollY: 1200, headHeight: 140 }), 2100 - 140 - ANCHOR_GAP)
+  assert.equal(ANCHOR_GAP, 8)
+})
+
+test('anchoredScrollTop: 吸顶块越高落点越靠上；结果取整且不为负', () => {
+  const low = anchoredScrollTop({ cardTop: 500, scrollY: 0, headHeight: 100 })
+  const high = anchoredScrollTop({ cardTop: 500, scrollY: 0, headHeight: 180 })
+  assert.equal(low - high, 80)
+  assert.equal(anchoredScrollTop({ cardTop: 50, scrollY: 0, headHeight: 140 }), 0)
+  assert.equal(anchoredScrollTop({ cardTop: 300.6, scrollY: 0, headHeight: 100.2, gap: 0 }), 200)
+})
+
+test('competitorIdFromHash: 与 competitorAnchorId 互逆，带不带 # 都认', () => {
+  const id = 'f14385ac-0cd6-4586-a3d8-9bf51755b3f9'
+  assert.equal(competitorIdFromHash(`#${competitorAnchorId(id)}`), id)
+  assert.equal(competitorIdFromHash(competitorAnchorId(id)), id)
+  assert.equal(competitorIdFromHash(encodeURIComponent(`#${competitorAnchorId(id)}`).replace('%23', '#')), id)
+})
+
+test('competitorIdFromHash: 非竞品锚点、空 id、坏编码都给 null', () => {
+  assert.equal(competitorIdFromHash(''), null)
+  assert.equal(competitorIdFromHash(null), null)
+  assert.equal(competitorIdFromHash('#top'), null)
+  assert.equal(competitorIdFromHash('#competitor-'), null)
+  assert.equal(competitorIdFromHash('#competitor-%E0%A4%A'), null)
+})
 
 // 一行 10 个 100px 芯片 = 1000px 内容，可视 400px，可滚区间 [0, 600]。
 const ROW = { viewWidth: 400, contentWidth: 1000, chipWidth: 100 }

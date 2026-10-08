@@ -4,11 +4,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { SearchInput } from '@/components/ui/Field'
-import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { RECENTER_MS, centeredScrollLeft, scrollLeftAt } from '@/lib/competitors/navScroll'
-
-/** 卡片顶边与吸顶块之间留出的呼吸位（px）。 */
-const ANCHOR_GAP = 8
+import { scrollToCompetitorCard } from './scrollToCard'
 
 export interface NavTarget {
   id: string
@@ -79,25 +76,9 @@ export default function CompetitorNavBar({
     // "滑到中间之后才变色",看起来像列表自己动了一下、点击没反应。
     onJump(id)
 
-    const el = document.getElementById(competitorAnchorId(id))
-    if (el) {
-      // 不能用 scrollIntoView:它把卡片顶边对齐到视口顶,而视口顶被吸顶块
-      // (导航条 + 日期轴)占着,卡片头部会被盖掉一截。偏移量按吸顶块的实测
-      // 高度算,而不是写死一个 scroll-mt——那块的高度会随导航条换行、
-      // 日期轴列数变化,写死迟早对不上。
-      const head = document.querySelector('[data-sticky-head]')
-      const offset = (head?.getBoundingClientRect().height ?? 0) + ANCHOR_GAP
-      const top = el.getBoundingClientRect().top + window.scrollY - offset
-      // behavior:'smooth' 不是所有引擎都真的执行——实测有环境下它是彻底的空操作
-      // （同一个元素换成 'auto' 立刻就位），点了芯片却纹丝不动。所以给一个兜底：
-      // 发起平滑滚动后下一拍看位置有没有动，没动就直接跳。真会动画的浏览器里
-      // 这一拍已经滚了一段，兜底自然不触发。
-      const before = window.scrollY
-      window.scrollTo({ top, behavior: 'smooth' })
-      setTimeout(() => {
-        if (window.scrollY === before) window.scrollTo({ top })
-      }, 60)
-    }
+    // 不能用 scrollIntoView:视口顶被吸顶块占着,卡片头部会被盖掉一截。
+    // 落点按吸顶块实测高度算,见 scrollToCard / navScroll.anchoredScrollTop。
+    scrollToCompetitorCard(id)
 
     // 双 rAF = 等 React 把选中态真正画到屏幕上再量再滑。不只是为了顺序好看:
     // 选中态把字重从 400 提到 500,芯片会略微变宽,提前量出来的居中位置是错的。
