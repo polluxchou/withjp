@@ -35,8 +35,22 @@ export interface CompanyAccountRow {
   competitor_id: string | null
   /** 20261008 迁移加的列；迁移执行前查不到，按缺失处理。 */
   highlight?: string | null
+  /** active / inactive（已停更）。迁移执行前没有这列，按 active。 */
+  status?: string | null
+  /** 不追踪的团一次性存档的主页数据（jsonb，形状见 normalizeAccountSnapshot）。 */
+  profile_snapshot?: unknown
   note: string
   sort_order: number
+}
+
+export type AccountStatus = 'active' | 'inactive'
+
+/** 不追踪的团存档的那一次主页数据。 */
+export interface AccountSnapshot {
+  captured_on: string
+  followers: number | null
+  likes: number | null
+  avatar_url: string | null
 }
 
 /** 拼装只需要竞品的这几个字段；真实 Competitor 行结构上满足它。 */
@@ -75,8 +89,12 @@ export interface CompanyAccountView {
   /** 方块左上角的战绩角标，如「Diamond #1」；没有就不显示。 */
   highlight: string | null
   note: string
+  /** inactive = 已停更：不进追踪清单，页面标「已停更」。 */
+  status: AccountStatus
   /** null = 这个团还没进追踪清单。 */
   tracked: TrackedAccount | null
+  /** 没追踪时的存档数据；已追踪的团一律为 null（以追踪快照为准）。 */
+  snapshot: AccountSnapshot | null
 }
 
 export interface CompanyView extends CompetitorCompany {
@@ -110,6 +128,29 @@ export function normalizeSources(v: unknown): CompanySource[] {
     out.push({ label: label.trim(), url })
   }
   return out
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+const finiteOrNull = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+
+export function normalizeStatus(v: unknown): AccountStatus {
+  return v === 'inactive' ? 'inactive' : 'active'
+}
+
+/**
+ * profile_snapshot 是手写进库的 jsonb：采集日必须是 YYYY-MM-DD，否则整份当没有
+ * （说不清是哪天的数字不能展示）；数字字段不是有限数就当缺失；头像只放行 http(s)。
+ */
+export function normalizeAccountSnapshot(v: unknown): AccountSnapshot | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  if (typeof o.captured_on !== 'string' || !ISO_DATE.test(o.captured_on)) return null
+  return {
+    captured_on: o.captured_on,
+    followers: finiteOrNull(o.followers),
+    likes: finiteOrNull(o.likes),
+    avatar_url: normalizeWebsite(o.avatar_url),
+  }
 }
 
 /**
@@ -195,7 +236,9 @@ export function assembleCompanyBoard(
             handle: t?.handle ?? l.handle,
             highlight: l.highlight?.trim() || null,
             note: l.note,
+            status: normalizeStatus(l.status),
             tracked: t,
+            snapshot: t ? null : normalizeAccountSnapshot(l.profile_snapshot),
           }
         })
       const counted = accounts.filter((a) => a.tracked?.followers != null)
