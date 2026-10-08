@@ -1458,6 +1458,8 @@
     "noGroups": "所属グループはまだ不明です",
     "tracked": "追跡中",
     "untracked": "未追跡",
+    "inactive": "更新停止",
+    "archivedOn": "{date} 保存",
     "noHandle": "TikTok アカウント不明",
     "followers": "フォロワー",
     "followersOn": "{date} 取得",

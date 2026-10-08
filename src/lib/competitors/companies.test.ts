@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  assembleCompanyBoard, latestSnapshotByCompetitor, normalizeCapital, normalizeSources, websiteLabel,
+  assembleCompanyBoard, latestSnapshotByCompetitor, normalizeAccountSnapshot, normalizeCapital, normalizeSources,
+  normalizeStatus, websiteLabel,
 } from './companies.ts'
 import type { CompanyAccountRow, CompanyCompetitorInput, CompetitorCompany } from './companies.ts'
 
@@ -219,6 +220,57 @@ test('assembleCompanyBoard: 公司的脏枚举与脏 sources 被清洗', () => {
   const board = assembleCompanyBoard([dirty], [], [], [])
   assert.equal(board.companies[0].capital_background, 'unknown')
   assert.deepEqual(board.companies[0].sources, [{ label: 'ok', url: 'https://a.jp' }])
+})
+
+test('assembleCompanyBoard: 停更的团带存档数据，不算追踪、不进粉丝合计', () => {
+  const board = assembleCompanyBoard(
+    [company('co1', 'MaGo')],
+    [
+      {
+        ...link('l1', 'co1', 'Kiwii Girls', null, 'kiwii_girls', 10),
+        status: 'inactive',
+        profile_snapshot: { captured_on: '2026-10-08', followers: 3919, likes: 17800, avatar_url: 'https://x.supabase.co/k.jpeg' },
+      },
+      link('l2', 'co1', 'KiXTR', 'c1', 'kixtr.666', 20),
+    ],
+    [comp('c1', 'kixtr.666')],
+    [{ competitor_id: 'c1', captured_on: '2026-10-08', followers: 1578 }],
+  )
+  const [kiwii, kixtr] = board.companies[0].accounts
+  assert.equal(kiwii.status, 'inactive')
+  assert.equal(kiwii.tracked, null)
+  assert.deepEqual(kiwii.snapshot, { captured_on: '2026-10-08', followers: 3919, likes: 17800, avatar_url: 'https://x.supabase.co/k.jpeg' })
+  assert.equal(kixtr.status, 'active')
+  assert.equal(board.companies[0].follower_total, 1578)
+})
+
+test('assembleCompanyBoard: 已追踪的团忽略存档（以追踪快照为准）；缺 status 列按 active', () => {
+  const board = assembleCompanyBoard(
+    [company('co1', 'X')],
+    [{ ...link('l1', 'co1', 'A', 'c1'), profile_snapshot: { captured_on: '2026-01-01', followers: 1 } }],
+    [comp('c1', 'a')],
+    [],
+  )
+  assert.equal(board.companies[0].accounts[0].snapshot, null)
+  assert.equal(board.companies[0].accounts[0].status, 'active')
+})
+
+test('normalizeStatus: 只认 inactive，其余（含缺失、大小写不符）都按 active', () => {
+  assert.equal(normalizeStatus('inactive'), 'inactive')
+  assert.equal(normalizeStatus('active'), 'active')
+  assert.equal(normalizeStatus(null), 'active')
+  assert.equal(normalizeStatus('INACTIVE'), 'active')
+})
+
+test('normalizeAccountSnapshot: 采集日不合法整份丢；数字非有限当缺失；头像只放行 http(s)', () => {
+  assert.equal(normalizeAccountSnapshot(null), null)
+  assert.equal(normalizeAccountSnapshot([]), null)
+  assert.equal(normalizeAccountSnapshot({ followers: 1 }), null)
+  assert.equal(normalizeAccountSnapshot({ captured_on: '10/08', followers: 1 }), null)
+  assert.deepEqual(
+    normalizeAccountSnapshot({ captured_on: '2026-10-08', followers: '3919', likes: Infinity, avatar_url: '<占位>' }),
+    { captured_on: '2026-10-08', followers: null, likes: null, avatar_url: null },
+  )
 })
 
 test('websiteLabel: 只留域名并去掉 www.，解析失败原样返回', () => {

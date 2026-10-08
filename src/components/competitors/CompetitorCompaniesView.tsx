@@ -10,7 +10,7 @@ import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { daysSince, freshnessOf, isoDateInTimeZone } from '@/lib/competitors/cadence'
 import { formatCount } from '@/lib/competitors/metrics'
 import { websiteLabel } from '@/lib/competitors/companies'
-import type { CapitalBackground, CompanyAccountView, CompanyBoard, CompanyView, TrackedAccount } from '@/lib/competitors/companies'
+import type { AccountSnapshot, CapitalBackground, CompanyAccountView, CompanyBoard, CompanyView, TrackedAccount } from '@/lib/competitors/companies'
 import type { Tone } from '@/lib/ui/status-tone'
 
 const CAPITAL_TONE: Record<CapitalBackground, Tone> = {
@@ -153,7 +153,11 @@ function Kpi({ label, value }: { label: string; value: string }) {
 
 /** 公司名左边那串叠在一起的头像：最多 5 个已追踪团；一个头像都没有就给公司名缩写。 */
 function AvatarStack({ company: co }: { company: CompanyView }) {
-  const avatars = co.accounts.flatMap((a) => (a.tracked?.avatar_url ? [a.tracked.avatar_url] : [])).slice(0, 5)
+  // 追踪中的头像在前；停更 / 未追踪但有存档头像的团排在后面。
+  const avatars = [
+    ...co.accounts.flatMap((a) => (a.tracked?.avatar_url ? [a.tracked.avatar_url] : [])),
+    ...co.accounts.flatMap((a) => (a.snapshot?.avatar_url ? [a.snapshot.avatar_url] : [])),
+  ].slice(0, 5)
   if (avatars.length === 0) {
     return (
       <span aria-hidden className="flex h-10 w-10 flex-none items-center justify-center rounded-field bg-primary-soft text-xs font-semibold text-primary">
@@ -171,18 +175,25 @@ function AvatarStack({ company: co }: { company: CompanyView }) {
   )
 }
 
-function TileImage({ name, avatarUrl, highlight, tracked }: {
+type TileState = 'tracked' | 'untracked' | 'inactive'
+
+function TileImage({ name, avatarUrl, highlight, state }: {
   name: string
   avatarUrl: string | null
   highlight: string | null
-  tracked: boolean
+  state: TileState
 }) {
   const t = useTranslations('competitorCompanies')
   return (
     <div className="relative flex aspect-square flex-none items-center justify-center bg-primary-soft">
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatarUrl} alt={t('avatarAlt', { name })} loading="lazy" className="h-full w-full object-cover" />
+        <img
+          src={avatarUrl}
+          alt={t('avatarAlt', { name })}
+          loading="lazy"
+          className={`h-full w-full object-cover ${state === 'inactive' ? 'opacity-60 grayscale' : ''}`}
+        />
       ) : (
         <span aria-hidden className="text-2xl font-semibold text-primary">{initials(name)}</span>
       )}
@@ -192,7 +203,13 @@ function TileImage({ name, avatarUrl, highlight, tracked }: {
         </span>
       )}
       <span className="absolute bottom-2 right-2 rounded-btn bg-surface px-2 py-0.5">
-        <Tag label={tracked ? t('tracked') : t('untracked')} tone={tracked ? 'success' : 'neutral'} variant="dot" size="sm" />
+        {state === 'tracked' ? (
+          <Tag label={t('tracked')} tone="success" variant="dot" size="sm" />
+        ) : state === 'inactive' ? (
+          <Tag label={t('inactive')} tone="warning" variant="dot" size="sm" />
+        ) : (
+          <Tag label={t('untracked')} tone="neutral" variant="dot" size="sm" />
+        )}
       </span>
     </div>
   )
@@ -249,16 +266,44 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
+/**
+ * 不追踪的团存档的那一次主页数据。不走新鲜度分档：停更的号本来就不会再采，
+ * 标「待更新」没有意义，只写清楚是哪天存的。
+ */
+function SnapshotStats({ snapshot }: { snapshot: AccountSnapshot }) {
+  const t = useTranslations('competitorCompanies')
+  return (
+    <>
+      <dl className="mt-2 grid grid-cols-2 gap-x-2">
+        <Stat label={t('followers')} value={formatCount(snapshot.followers)} />
+        <Stat label={t('likes')} value={formatCount(snapshot.likes)} />
+      </dl>
+      <p className="mt-1 text-micro text-ink-400">{t('archivedOn', { date: snapshot.captured_on })}</p>
+    </>
+  )
+}
+
 /** 旗下一个团。已追踪的整块可点，跳回账号看板对应的卡；没追踪的是虚线框、不可点。 */
 function GroupTile({ account: a }: { account: CompanyAccountView }) {
   const t = useTranslations('competitorCompanies')
   const body = (
     <>
-      <TileImage name={a.group_name} avatarUrl={a.tracked?.avatar_url ?? null} highlight={a.highlight} tracked={!!a.tracked} />
+      <TileImage
+        name={a.group_name}
+        avatarUrl={a.tracked?.avatar_url ?? a.snapshot?.avatar_url ?? null}
+        highlight={a.highlight}
+        state={a.tracked ? 'tracked' : a.status === 'inactive' ? 'inactive' : 'untracked'}
+      />
       <div className="flex flex-1 flex-col px-3 pb-3 pt-2.5">
         <p className="font-semibold text-ink-900">{a.group_name}</p>
         <p className="text-xs text-ink-400">{a.handle ? `@${a.handle}` : t('noHandle')}</p>
-        {a.tracked ? <TrackedStats account={a.tracked} /> : <p className="mt-2 text-xs text-ink-400">{t('noFollowers')}</p>}
+        {a.tracked ? (
+          <TrackedStats account={a.tracked} />
+        ) : a.snapshot ? (
+          <SnapshotStats snapshot={a.snapshot} />
+        ) : (
+          <p className="mt-2 text-xs text-ink-400">{t('noFollowers')}</p>
+        )}
         {a.note && (
           <p className="mt-2 border-t border-dashed border-line pt-2 text-xs leading-relaxed text-ink-500">{a.note}</p>
         )}
@@ -323,7 +368,9 @@ function UnassignedCard({ accounts }: { accounts: TrackedAccount[] }) {
                     handle: a.handle,
                     highlight: null,
                     note: '',
+                    status: 'active',
                     tracked: a,
+                    snapshot: null,
                   }}
                 />
               </li>
