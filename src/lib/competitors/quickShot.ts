@@ -11,6 +11,7 @@ const MAX_CO_LIVE = 50
 const MAX_VIEWER_TEXT = 16
 const MAX_HANDLE = 64
 const MAX_CO_LIVE_RAW = 16 * 1024
+const MAX_INT4 = 2_147_483_647
 
 export type ViewerSource = 'room' | 'anchored' | 'sole'
 export type CoLiveEntry = { handle: string; viewer: string | null }
@@ -65,6 +66,12 @@ export function parseViewerText(raw: unknown): string | null {
   return t && t.length <= MAX_VIEWER_TEXT ? t : null
 }
 
+/** 人数 → 能写进 integer 列的值。parseCount 会给出 1.5、25 亿这类值，写库会被 PostgREST 拒掉、每次重试都 500；不是 0..int4 上限内的整数就按「没读到」处理。 */
+export function toViewerCount(text: string | null): number | null {
+  const n = parseCount(text)
+  return n !== null && Number.isSafeInteger(n) && n >= 0 && n <= MAX_INT4 ? n : null
+}
+
 export function parseViewerSource(raw: unknown): ViewerSource | null {
   return raw === 'room' || raw === 'anchored' || raw === 'sole' ? raw : null
 }
@@ -117,7 +124,7 @@ export function buildReadings(input: {
     rows.push({
       ...base,
       competitor_id: input.current.competitorId,
-      viewer_count: parseCount(input.current.viewerText),
+      viewer_count: toViewerCount(input.current.viewerText),
       viewer_text: input.current.viewerText,
       source: 'current',
       viewer_source: input.current.viewerSource,
@@ -131,7 +138,7 @@ export function buildReadings(input: {
     rows.push({
       ...base,
       competitor_id: ref.id,
-      viewer_count: parseCount(e.viewer),
+      viewer_count: toViewerCount(e.viewer),
       viewer_text: e.viewer,
       source: 'sidebar',
       viewer_source: null,
