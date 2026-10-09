@@ -18,6 +18,13 @@ test('handleFromLiveUrl：只认 tiktok.com/@handle/live', () => {
   assert.equal(handleFromLiveUrl(null), null)
 })
 
+test('handleFromLiveUrl：只认 https、路径必须恰好是 /@handle/live，坏编码不抛错', () => {
+  assert.equal(handleFromLiveUrl('http://www.tiktok.com/@a/live'), null, '非 https 不算')
+  assert.equal(handleFromLiveUrl('https://www.tiktok.com/@a/live/xyz'), null, '多一段路径不算')
+  assert.equal(handleFromLiveUrl('https://www.tiktok.com/@%ZZ/live'), null, '坏的百分号编码返回 null 而不是抛错')
+  assert.equal(handleFromLiveUrl('https://www.tiktok.com/@a%2Eb/live'), 'a.b')
+})
+
 test('cropRect：按位图宽/视口宽换算像素，不依赖 devicePixelRatio', () => {
   assert.deepEqual(cropRect({ x: 247, y: 0, width: 506, height: 900 }, 1600, 3200, 1800), { sx: 494, sy: 0, sw: 1012, sh: 1800 })
   assert.deepEqual(cropRect({ x: 10, y: 10, width: 100, height: 100 }, 1000, 1000, 800), { sx: 10, sy: 10, sw: 100, sh: 100 })
@@ -28,6 +35,16 @@ test('cropRect：越界裁到位图内；空矩形或参数非法返回 null', (
   assert.equal(cropRect({ x: 0, y: 0, width: 1, height: 1 }, 1000, 1000, 800), null)
   assert.equal(cropRect(null, 1000, 1000, 800), null)
   assert.equal(cropRect({ x: 0, y: 0, width: 100, height: 100 }, 0, 1000, 800), null)
+})
+
+test('cropRect：非整数比例下左右/上下边各自取整（不是 x 取整后加宽度）', () => {
+  // scale = 3200 / 1280 = 2.5：x 247→617.5→618，右边 754→1885，宽 1267；y 13→32.5→33，下边超出位图裁到 2000，高 1967
+  assert.deepEqual(cropRect({ x: 247, y: 13, width: 507, height: 899 }, 1280, 3200, 2000), { sx: 618, sy: 33, sw: 1267, sh: 1967 })
+})
+
+test('cropRect：画面一半以上在视口外 → null；坐标是 NaN → null', () => {
+  assert.equal(cropRect({ x: 0, y: 700, width: 100, height: 300 }, 1000, 1000, 800), null, '300px 高只露出 100px')
+  assert.equal(cropRect({ x: NaN, y: 0, width: 10, height: 10 }, 1000, 1000, 800), null)
 })
 
 test('jstDay：日本时间自然日', () => {
@@ -46,11 +63,16 @@ test('今日截图计数：同一天累加，跨天归零', () => {
   assert.deepEqual(bumpShots(b, d2), { day: '2026-10-10', shots: 1 })
 })
 
+test('今日截图计数：存储里的负数当作 0', () => {
+  const now = Date.UTC(2026, 9, 9, 3, 0)
+  assert.equal(shotsToday({ day: '2026-10-09', shots: -5 }, now), 0)
+})
+
 test('sessionFromAuth：取令牌与过期时刻，缺字段返回 null', () => {
   const now = 1_760_000_000_000
   assert.deepEqual(
-    sessionFromAuth({ access_token: 'a', refresh_token: 'r', expires_at: 1_760_003_600, user: { email: 'x@y.z' } }, now),
-    { accessToken: 'a', refreshToken: 'r', expiresAt: 1_760_003_600_000, email: 'x@y.z' },
+    sessionFromAuth({ access_token: 'a', refresh_token: 'r', expires_at: 1_760_007_200, user: { email: 'x@y.z' } }, now),
+    { accessToken: 'a', refreshToken: 'r', expiresAt: 1_760_007_200_000, email: 'x@y.z' },
   )
   assert.equal(sessionFromAuth({ access_token: 'a', refresh_token: 'r', expires_in: 3600 }, now)?.expiresAt, now + 3_600_000)
   assert.equal(sessionFromAuth({ error: 'invalid_grant' }, now), null)
@@ -62,6 +84,8 @@ test('needsRefresh：过期前 60 秒就续', () => {
   assert.equal(needsRefresh({ expiresAt: now + 120_000 }, now), false)
   assert.equal(needsRefresh({ expiresAt: now + 30_000 }, now), true)
   assert.equal(needsRefresh(null, now), true)
+  assert.equal(needsRefresh({ expiresAt: undefined }, now), true, '缺过期时刻 → 当作要续')
+  assert.equal(needsRefresh({}, now), true)
 })
 
 const READY = {
@@ -86,12 +110,27 @@ test('readingState：页内读到的网址与标签页对不上 → 页面刚切
 
 test('readingState：页面被双指缩放 → 拒截（截图与元素坐标对不上）', () => {
   assert.deepEqual(readingState('a', { ...READY, visualScale: 1.5 }), { kind: 'error', message: '请先把页面缩放恢复到 100%' })
-  assert.deepEqual(readingState('a', { ...READY, visualScale: 1.005 }), { kind: 'ready', viewerOk: true }, '浮点误差内不算缩放')
+  assert.deepEqual(readingState('a', { ...READY, visualScale: 1.0005 }), { kind: 'ready', viewerOk: true }, '浮点误差内不算缩放')
+  assert.deepEqual(readingState('a', { ...READY, visualScale: 1.005 }), { kind: 'error', message: '请先把页面缩放恢复到 100%' })
+  assert.deepEqual(readingState('a', { ...READY, visualScale: 0.9 }), { kind: 'error', message: '请先把页面缩放恢复到 100%' })
+})
+
+test('readingState：缩放读数缺失或是 NaN → 失败即拒（字段改名也不会悄悄放行）', () => {
+  const { visualScale: _omit, ...noScale } = READY
+  assert.deepEqual(readingState('a', noScale), { kind: 'error', message: '请先把页面缩放恢复到 100%' })
+  assert.deepEqual(readingState('a', { ...READY, visualScale: undefined }), { kind: 'error', message: '请先把页面缩放恢复到 100%' })
+  assert.deepEqual(readingState('a', { ...READY, visualScale: NaN }), { kind: 'error', message: '请先把页面缩放恢复到 100%' })
+})
+
+test('readingState：网址大小写 / 查询串 / hash 不同不算切房；人数为空串 → viewerOk=false', () => {
+  assert.deepEqual(readingState('a', { ...READY, href: 'https://tiktok.com/@A/live/?lang=ja#x' }), { kind: 'ready', viewerOk: true })
+  assert.deepEqual(readingState('a', { ...READY, viewer: '' }), { kind: 'ready', viewerOk: false })
 })
 
 test('uploadErrorMessage：后台错误码 → 一句话', () => {
   assert.equal(uploadErrorMessage('not_in_library', 'heroangels_'), '@heroangels_ 不在竞品库')
   assert.equal(uploadErrorMessage('unauthorized', 'a'), '登录已过期，请重新登录')
+  assert.equal(uploadErrorMessage('invalid_type', 'a'), '截图格式或大小不符')
   assert.equal(uploadErrorMessage('file_too_large', 'a'), '截图格式或大小不符')
   assert.equal(uploadErrorMessage('db_error', 'a'), '上传失败，可以重试')
 })

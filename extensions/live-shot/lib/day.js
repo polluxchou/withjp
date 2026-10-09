@@ -5,7 +5,7 @@ export function jstDay(ms) {
 
 // 本地截图计数存成 { day, shots }；读到的是别的日子 → 视为 0，跨天自然归零。
 export function shotsToday(stored, nowMs) {
-  return stored && stored.day === jstDay(nowMs) && Number.isInteger(stored.shots) ? stored.shots : 0
+  return stored && stored.day === jstDay(nowMs) && Number.isInteger(stored.shots) && stored.shots >= 0 ? stored.shots : 0
 }
 
 export function bumpShots(stored, nowMs) {

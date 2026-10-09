@@ -12,7 +12,7 @@ export function sessionFromAuth(json, nowMs) {
   }
 }
 
-// 提前 60 秒续期，免得请求在路上过期。
+// 提前 60 秒续期，免得请求在路上过期；过期时刻缺失或不是数字也当作要续。
 export function needsRefresh(session, nowMs) {
-  return !session || session.expiresAt - nowMs < 60_000
+  return !session || !(session.expiresAt - nowMs >= 60_000)
 }
