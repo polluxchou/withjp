@@ -401,16 +401,21 @@ export function clipRect(
 }
 
 /**
- * 页面里执行的版本：顺手把播放器静音（挂一整场不能出声），
+ * 页面里执行的版本：默认顺手把播放器静音（挂一整场不能出声；扩展传 `{ mute: false }` 不静音），
  * 并回报 video 是否就绪。videoWidth>0 且 readyState>=2 才算能截。
  * 算式与 clipRect 保持一致 —— 改一处必须改两处。
  */
-export const CLIP_FACTORY_SRC = `function (win, doc) {
+export const CLIP_FACTORY_SRC = `function (win, doc, opts) {
   function pct(s) { var n = parseFloat(s); return isFinite(n) ? n : 50 }
+  // 无人值守采集要静音（挂一整场不能出声）；扩展是人正在看的时候点的，不能动播放器。
+  // 不传 opts = 原行为（静音），scripts/live-watch 的调用方不受影响。
+  var mute = !opts || opts.mute !== false
   var v = doc.querySelector('video')
   if (!v) return { hasVideo: false, ready: false, clip: null }
-  v.muted = true
-  v.volume = 0
+  if (mute) {
+    v.muted = true
+    v.volume = 0
+  }
   var r = v.getBoundingClientRect()
   var cs = win.getComputedStyle(v)
   var iw = v.videoWidth, ih = v.videoHeight
