@@ -15,7 +15,8 @@ function memoryStorage(init: Record<string, unknown> = {}) {
   }
 }
 
-type Route = { status: number; json: unknown }
+// delayMs：响应延后若干毫秒才返回，用来制造「请求还在路上」的并发窗口
+type Route = { status: number; json: unknown; delayMs?: number }
 // 路由值可以是数组：按调用顺序逐个消费，用完后重复最后一个
 type Routes = Record<string, Route | Route[]>
 type Call = { url: string; init: RequestInit }
@@ -34,6 +35,7 @@ function fakeFetch(routes: Routes) {
       used[key] = i + 1
       r = seq[Math.min(i, seq.length - 1)]
     }
+    if (r.delayMs) await new Promise((resolve) => setTimeout(resolve, r.delayMs))
     return { ok: r.status >= 200 && r.status < 300, status: r.status, json: async () => r.json }
   }
   return { calls, impl: impl as unknown as typeof fetch }
@@ -293,6 +295,31 @@ test('todayUploads：200 取数，其它返回 null（即使 500 的响应体里
   assert.equal(await createApi({ ...CFG, storage, fetchImpl: bad.impl, now: () => NOW }).todayUploads(), null)
   const lying = fakeFetch({ [BACKEND]: { status: 500, json: { data: { today_uploads: 9 } } } })
   assert.equal(await createApi({ ...CFG, storage, fetchImpl: lying.impl, now: () => NOW }).todayUploads(), null)
+})
+
+test('并发续期共用一次请求：session / todayUploads / session 同时进来只发一次 refresh，之后还能再续', async () => {
+  const storage = memoryStorage(EXPIRING)
+  const f = fakeFetch({
+    'grant_type=refresh_token': { status: 200, json: AUTH_ROTATED, delayMs: 5 },
+    [BACKEND]: { status: 200, json: { data: { today_uploads: 3 }, error: null } },
+  })
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
+  const refreshCalls = () => f.calls.filter((c) => c.url.includes('grant_type=refresh_token'))
+
+  const [s1, count, s2] = await Promise.all([api.session(), api.todayUploads(), api.session()])
+  assert.equal(refreshCalls().length, 1, '同一时刻只发一次续期')
+  assert.equal(s1?.accessToken, 'acc2')
+  assert.equal(s2?.accessToken, 'acc2')
+  assert.equal(count, 3)
+  const backend = f.calls.filter((c) => c.url.includes(BACKEND))
+  assert.equal(headersOf(backend[0]).Authorization, 'Bearer acc2', 'todayUploads 用的是续期后的新令牌')
+  assert.equal((storage.data.session as { accessToken: string; refreshToken: string }).accessToken, 'acc2')
+  assert.equal((storage.data.session as { accessToken: string; refreshToken: string }).refreshToken, 'ref2')
+
+  // 续期落定后飞行标记要复位：会话再次快过期时，能发起第二次续期
+  storage.data.session = EXPIRING.session
+  assert.equal((await api.session())?.accessToken, 'acc2')
+  assert.equal(refreshCalls().length, 2)
 })
 
 test('logout：清掉会话', async () => {
