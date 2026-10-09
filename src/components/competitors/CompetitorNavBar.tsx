@@ -127,7 +127,8 @@ export default function CompetitorNavBar({
       />
       {/* 全是同一个地区时筛了也没区别，不出这组按钮。 */}
       {buckets.length > 1 && (
-        <div className="shrink-0 max-md:self-start">
+        // 现在 3 个地区约 250px；地区再多时组内横滚，不把整页撑出横向滚动条。
+        <div className="scrollbar-none max-w-full shrink-0 overflow-x-auto max-md:self-start">
           <SegmentedControl
             items={regionItems}
             value={activeRegion}
