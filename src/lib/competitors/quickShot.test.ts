@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import {
   bearerToken, buildReadings, indexByHandle, normalizeHandle, parseCoLive,
-  parseViewerSource, parseViewerText, resolveCapturedAt, shotOnFor, type CompetitorRef,
+  parseViewerSource, parseViewerText, resolveCapturedAt, shotOnFor, toViewerCount, type CompetitorRef,
 } from './quickShot.ts'
 
 test('bearerToken：只认 Bearer 方案', () => {
@@ -159,4 +159,32 @@ test('buildReadings：当前房间人数没读到就不写 current 行；侧栏�
   assert.equal(rows[0].source, 'sidebar')
   assert.equal(rows[0].viewer_count, null)
   assert.equal(rows[0].viewer_text, null)
+})
+
+test('toViewerCount：只放行 0..int4 上限内的整数，其余按没读到处理', () => {
+  assert.equal(toViewerCount('99'), 99)
+  assert.equal(toViewerCount('1.2K'), 1200)
+  assert.equal(toViewerCount('0'), 0)
+  assert.equal(toViewerCount('2147483647'), 2_147_483_647, 'int4 上限本身可写')
+  assert.equal(toViewerCount('2147483648'), null, '超出 int4 写库会被拒')
+  assert.equal(toViewerCount('1.5'), null, '小数写不进 integer 列')
+  assert.equal(toViewerCount('2.5B'), null, '25 亿超出 int4')
+  assert.equal(toViewerCount('9999999999'), null)
+  assert.equal(toViewerCount(null), null)
+  assert.equal(toViewerCount('abc'), null)
+})
+
+test('buildReadings：超出 int4 或带小数的人数 viewer_count 记 null，原文照留', () => {
+  const rows = buildReadings({
+    library: indexByHandle(LIB),
+    current: { competitorId: 'c-dear', viewerText: '1.5', viewerSource: 'room' },
+    coLive: [{ handle: 'uni.chuuu', viewer: '2.5B' }],
+    capturedAtIso: '2026-10-09T09:42:00.000Z',
+    shotId: 'shot-1',
+    userId: 'user-1',
+  })
+  assert.deepEqual(rows.map((r) => [r.source, r.viewer_count, r.viewer_text]), [
+    ['current', null, '1.5'],
+    ['sidebar', null, '2.5B'],
+  ])
 })
