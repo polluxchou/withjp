@@ -1,5 +1,6 @@
 // src/lib/competitors/pageReader.test.ts
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import vm from 'node:vm'
 
@@ -182,4 +183,13 @@ test('renderReaderModule：模拟 executeScript 的序列化注入，结果与�
   const expected = reader(direct.win, direct.doc, extensionProbeConfig())
   assert.equal(expected.viewer, '99', '对照组本身要读得到数，否则下面是拿空对空')
   assert.deepEqual(roundTrip(out), roundTrip(expected))
+})
+
+test('已提交的 extensions/live-shot/generated/page-reader.js 与源码一致（改了源码要重新生成）', () => {
+  const committed = readFileSync(new URL('../../../extensions/live-shot/generated/page-reader.js', import.meta.url), 'utf8')
+  assert.equal(
+    committed,
+    renderReaderModule(),
+    '生成文件过期：运行 node --experimental-strip-types scripts/gen-extension-reader.mjs 后一并提交',
+  )
 })
