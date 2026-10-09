@@ -13,10 +13,22 @@ function deps(): QuickShotDeps {
   const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
+  const findShot: QuickShotDeps['findShot'] = async (createdBy, competitorId, capturedAtIso) => {
+    const { data, error } = await db
+      .from('competitor_shots')
+      .select('id')
+      .eq('created_by', createdBy)
+      .eq('competitor_id', competitorId)
+      .eq('captured_at', capturedAtIso)
+      .limit(1)
+      .maybeSingle()
+    return error || !data ? null : String((data as { id: string }).id)
+  }
   return {
     verifyToken: async (token) => {
       const { data, error } = await anon.auth.getUser(token)
-      return error || !data.user ? null : { id: data.user.id }
+      // 匿名用户也能拿到合法令牌，但不是后台成员，一律拒绝
+      return error || !data.user || data.user.is_anonymous ? null : { id: data.user.id }
     },
     listCompetitors: async () => {
       const { data, error } = await db.from('competitors').select('id, handle, display_name').eq('platform', 'tiktok')
@@ -24,20 +36,16 @@ function deps(): QuickShotDeps {
     },
     validateImage,
     uploadImage,
-    findShot: async (createdBy, competitorId, capturedAtIso) => {
-      const { data, error } = await db
-        .from('competitor_shots')
-        .select('id')
-        .eq('created_by', createdBy)
-        .eq('competitor_id', competitorId)
-        .eq('captured_at', capturedAtIso)
-        .limit(1)
-        .maybeSingle()
-      return error || !data ? null : String((data as { id: string }).id)
-    },
+    findShot,
     insertShot: async (row) => {
       const { data, error } = await db.from('competitor_shots').insert(row).select('id').single()
-      return error || !data ? null : { id: String((data as { id: string }).id) }
+      if (!error && data) return { id: String((data as { id: string }).id) }
+      // 双击/并发重试：两个请求都没查到旧截图、都往下写，后到的撞唯一索引——认领先到的那一行
+      if (error?.code === '23505') {
+        const id = await findShot(row.created_by, row.competitor_id, row.captured_at)
+        return id ? { id } : null
+      }
+      return null
     },
     insertReadings: async (rows) => {
       // 重试时同一读数时刻会再来一次：撞唯一约束的行直接跳过，不让整批失败、不报假的 207
@@ -59,12 +67,20 @@ function deps(): QuickShotDeps {
   }
 }
 
+// 任何没被业务层接住的异常（如缺环境变量让 createClient 同步抛错）也要回 JSON，扩展按 JSON 解析响应
+async function run(fn: () => Promise<{ status: number; body: unknown }>) {
+  try {
+    const r = await fn()
+    return NextResponse.json(r.body, { status: r.status })
+  } catch {
+    return NextResponse.json({ data: null, error: 'internal_error' }, { status: 500 })
+  }
+}
+
 export async function POST(req: NextRequest) {
-  const r = await createQuickShotHandlers(deps()).post(req)
-  return NextResponse.json(r.body, { status: r.status })
+  return run(() => createQuickShotHandlers(deps()).post(req))
 }
 
 export async function GET(req: NextRequest) {
-  const r = await createQuickShotHandlers(deps()).get(req)
-  return NextResponse.json(r.body, { status: r.status })
+  return run(() => createQuickShotHandlers(deps()).get(req))
 }
