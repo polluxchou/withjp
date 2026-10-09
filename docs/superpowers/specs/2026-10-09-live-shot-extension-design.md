@@ -93,7 +93,7 @@ extensions/live-shot/
 
 扩展的 MV3 环境禁止 `eval` / `new Function`，不能把源码字符串当场执行，所以由生成脚本 `scripts/gen-extension-reader.mjs` 把 `PROBE_FACTORY_SRC` 与 `clipRect` 的源码写进 `extensions/live-shot/generated/page-reader.js`，成为一个自包含、可被 `executeScript` 序列化注入的函数。测试比对「现在重新生成的内容」与已提交文件逐字一致，源码改了而没重新生成，CI 会失败。
 
-探针以 `intervalMs = 0`（不起定时器）实例化：手动 `tick()` 一次，`drain()` 取出读数，然后 `disconnect()`。注入在 ISOLATED world，`__lw` 等全局只存在于扩展的隔离环境，页面脚本看不到。
+探针以 `intervalMs = 0`（不起定时器）、`chatHost = []`（一次性读取用不着弹幕计数，不挂 MutationObserver）实例化，装在一次性宿主对象上而不是 `window`：手动 `tick()` 一次、`drain()` 取出读数、`finally` 里 `disconnect()`，任何 `window` 上都不留状态——即便以后误改到 MAIN world，也碰不到分钟级采集器挂在页面上的 `__lw`。注入仍在 ISOLATED world 执行。读数同时返回 `visualScale`（触控板双指缩放比例），≠1 时弹窗拒截，因为元素坐标与截图对不上。
 
 **Following 区块限定**：现有 `sidebarReading()` 读的是全部 `[data-e2e="live-side-nav-item"]`。2026-10-09 游客态实测：侧栏每个区块是一个 `[data-e2e="live-side-nav-channel"]`（内含 `live-side-nav-channel-title` 与条目），游客态只有「推荐的主播」一个频道。据此推断已登录时 Following 是第一个频道、Suggested 是第二个。给 `ProbeConfig` 增加可选字段 `sidebarChannel`（频道容器候选选择器）：设置了就只读第一个频道，且频道数不足 2 时报 null（只剩 Suggested，绝不拿它顶替）；不设置时行为与现在完全一致，分钟级采集器不受影响。推断须在已登录页面上核实，见第 11 节。
 
