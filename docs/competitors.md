@@ -41,6 +41,8 @@
 **范围**：单平台 TikTok；**以日区为主但不限于日区**（2026-08-19 核实：23 个顶层竞品里 `_k.queens` / `the_re_born` / `blank.s9` 是韩国团，简介自报 KST 与韩文成员名）；主页公开指标 + 人工上传截图 + 团级档案 + 两级层级。
 
 > ⚠️ `region` 是**建档时人工填的**，采集从不刷新它。曾经 23 个账号被一律填成 `JP`（含上述 3 个韩国团），错了一个月没人发现——因为卡片上那个地区标签每张都一样，没人会去核。现在采集会额外带回主页语言（`competitor_snapshots.language`）做交叉校验，但它只是辅助参考，`competitors.region` 仍是唯一权威值。
+>
+> 2026-10 又冒出 3 个（`podo.page_x` / `sheesh.sh4` 实为韩国团，`nexgen1021` 是马来西亚团），根因是列默认值 `'JP'` 加上后台没地方选地区。之后的规则（迁移 `20261009183208`）：列**无默认值、可为空**；后台加主账号**必须选地区**，主播沿用所属团；采集脚本建档不带地区时留空，卡片头部显示「地区未填」、在展开档案的地区一行补。可选清单与校验在 `src/lib/competitors/regions.ts`。
 
 **非目标（明确不做）**：
 - 直播间实时数据（在线曲线、逐分钟人数、GMV 实时）——`online_note` 仅存人工观察近似值。
@@ -92,7 +94,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 **`competitors`（竞品清单 + 团级档案）** — 唯一键 `unique(platform, handle)`
 - 基础：`id`、`platform`('tiktok' + check)、`handle`、`profile_url`、`display_name`、`note`、`created_at`
 - 层级：`parent_id`（→ competitors.id，`on delete cascade`；空=团播主账号，非空=某主账号的主播子账号）
-- 团级档案（043）：`avatar_url`、`region`(默认 'JP')、`member_count`、`composition`（如「女子团·本地」）、`launch_city`、`launched_on`、`mc_note`、`online_note`、`latest_videos`(jsonb `[{url,title?}]`)
+- 团级档案（043）：`avatar_url`、`region`(两位代码，无默认值、可为空——见上文 2026-10 说明)、`member_count`、`composition`（如「女子团·本地」）、`launch_city`、`launched_on`、`mc_note`、`online_note`、`latest_videos`(jsonb `[{url,title?}]`)
 
 **`competitor_snapshots`（每日主页打点）** — 唯一键 `unique(competitor_id, captured_on)`
 - `followers`、`likes`、`videos`、`following`、`display_name`、`bio`、`region`、`verified`、`raw`(jsonb)、`captured_at`
@@ -120,6 +122,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | `chart.ts` | `buildWeeklyCurve(weekly)` → 0–100 百分比点集 + polyline 几何（含日期刻度） | `chart.test.ts` |
 | `weekly.ts` | `weekStartOf(date)`（ISO 周一）/ `bucketFollowersByWeek(history)`（每周取最后一次快照，空值跳过） | `weekly.test.ts` |
 | `regionRuler.ts` | `buildRegionRuler({competitors,region,timeZone,now,currentId})` 把同地区已采到开播时刻的账号摊到一条 24h 轴上：递归含子主播、按 region 过滤、只取近 14 天、每档画中位数 ±30min 段、`established` 标记是否达 3 场门槛；轴端按整点对齐且至少 8 小时宽 | `regionRuler.test.ts` |
+| `regions.ts` | `REGION_CODES` 可选清单 / `normalizeRegion` 入参规整（只收清单内代码）/ `resolveNewRegion` 新建时取值（主账号必选、子账号沿用父账号）/ `regionOptions` 编辑下拉保留清单外现值 | `regions.test.ts` |
 | `mentions.ts` | `extractMentionedHandles(bio, self)` 提取 bio 里 @ 的 handle（排除自身/邮箱域名/去尾点/大小写去重/上限20） | `mentions.test.ts` |
 | `assemble.ts` | `parseHandleFromUrl` + `assembleBoard(competitors,snapshots,shots,canEdit)`：组装 latest/history/weekly/shots，并做**父子嵌套**（`parent_id` 空→顶层，非空→挂到父的 `related`；悬空 parent_id 回退顶层） | `assemble.test.ts` |
 | `types.ts` | 领域类型（`Competitor`/`CompetitorSnapshot`/`CompetitorShot`/`WeeklyPoint`/`CompetitorWithHistory`(含 `related`)/`CompetitorBoard`） | — |

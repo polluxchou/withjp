@@ -12,7 +12,8 @@ export interface Competitor {
   parent_id: string | null
   // 043 团级档案字段
   avatar_url: string | null
-  region: string
+  // 两位地区代码（见 regions.ts）；null = 还没登记，脚本建档的号会是这样，页面提示补。
+  region: string | null
   member_count: number | null
   composition: string | null
   launch_city: string | null

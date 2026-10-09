@@ -88,6 +88,7 @@ regionMismatch 为 false 不代表 region 已被核实过——这项校验只�
 推出某个地区且与人工值冲突时才会触发,语言推不出地区、或从没观测到语言时
 也一样是 false。如果被追问"这地区确定没错吗",应该说"未见冲突",而不是
 "确认无误"。observedLanguage 只是辅助参考,不能反过来当权威地区用。
+region 为 null 表示还没登记地区,要直说"地区未登记",不要按语言或团名去猜一个填上。
 
 9. meta.todayTokyo 是"今天"(东京业务日),"昨天""上周"这类相对日期一律以它
 为基准推算。liveHabit.slots[].at、liveHabit.latestStartedAtLocal、

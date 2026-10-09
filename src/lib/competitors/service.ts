@@ -13,6 +13,7 @@ import type {
   CompanyAccountRow, CompanyBoard, CompanyCompetitorInput, CompanySnapshotInput, CompetitorCompany,
 } from './companies.ts'
 import { normalizeDescriptionBody } from './descriptions.ts'
+import { normalizeRegion, resolveNewRegion } from './regions.ts'
 import { isValidShotDate } from './shotGrid.ts'
 import type {
   Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorBoard, CompetitorPlatform,
@@ -67,27 +68,30 @@ function pickFields(input: CompetitorFields): Record<string, unknown> {
   return patch
 }
 
-/** 校验父账号赋值:只允许两级层级(父必须是主账号),不能选自己,已有子账号者不能再变成子账号。 */
+/**
+ * 校验父账号赋值:只允许两级层级(父必须是主账号),不能选自己,已有子账号者不能再变成子账号。
+ * 通过时顺带带回父账号的地区——新建子账号要沿用它。
+ */
 async function assertValidParent(
   db: ReturnType<typeof createServerClient>,
   selfId: string | null,
   parentId: string,
-): Promise<ServiceError | null> {
-  if (selfId && parentId === selfId) return { code: 'invalid_input', message: '不能把自己设为父账号' }
+): Promise<{ error: ServiceError } | { error: null; parentRegion: string | null }> {
+  const fail = (code: ServiceErrorCode, message: string) => ({ error: { code, message } })
+  if (selfId && parentId === selfId) return fail('invalid_input', '不能把自己设为父账号')
   const { data: parent, error } = await db
-    .from('competitors').select('id, parent_id').eq('id', parentId).maybeSingle()
-  if (error) return { code: 'db_error', message: error.message }
-  if (!parent) return { code: 'invalid_input', message: '父账号不存在' }
-  if ((parent as { parent_id: string | null }).parent_id) {
-    return { code: 'invalid_input', message: '父账号必须是主账号(不能是子账号)' }
-  }
+    .from('competitors').select('id, parent_id, region').eq('id', parentId).maybeSingle()
+  if (error) return fail('db_error', error.message)
+  if (!parent) return fail('invalid_input', '父账号不存在')
+  const p = parent as { parent_id: string | null; region: string | null }
+  if (p.parent_id) return fail('invalid_input', '父账号必须是主账号(不能是子账号)')
   if (selfId) {
     const { data: kids, error: kidErr } = await db
       .from('competitors').select('id').eq('parent_id', selfId).limit(1)
-    if (kidErr) return { code: 'db_error', message: kidErr.message }
-    if (kids && kids.length) return { code: 'invalid_input', message: '该账号已有子账号,不能再成为子账号' }
+    if (kidErr) return fail('db_error', kidErr.message)
+    if (kids && kids.length) return fail('invalid_input', '该账号已有子账号,不能再成为子账号')
   }
-  return null
+  return { error: null, parentRegion: p.region }
 }
 
 /** 加载看板：任意登录用户可读可写（canEdit 恒 true）。 */
@@ -152,14 +156,23 @@ export async function addCompetitor(
   if (findErr) return err('db_error', findErr.message)
   if (existing) return ok({ id: (existing as { id: string }).id })
 
+  let parentRegion: string | null = null
   if (input.parent_id) {
-    const bad = await assertValidParent(db, null, input.parent_id)
-    if (bad) return { data: null, error: bad }
+    const parent = await assertValidParent(db, null, input.parent_id)
+    if (parent.error) return { data: null, error: parent.error }
+    parentRegion = parent.parentRegion
   }
+  // 数据库不再默认 'JP'：主账号必须选地区，子账号沿用父账号。
+  const region = resolveNewRegion({ parentId: input.parent_id, parentRegion, region: input.region })
+  if (!region.ok) return err('invalid_input', region.message)
 
   const { data, error } = await db
     .from('competitors')
-    .insert({ platform, handle, profile_url, note: input.note ?? '', ...pickFields({ ...input, note: undefined }) })
+    .insert({
+      platform, handle, profile_url, note: input.note ?? '',
+      ...pickFields({ ...input, note: undefined }),
+      region: region.region,
+    })
     .select('id').single()
   if (error) return err('db_error', error.message)
   return ok({ id: (data as { id: string }).id })
@@ -179,11 +192,17 @@ export async function updateCompetitor(
     patch.handle = h
     patch.profile_url = profile_url
   }
+  if (fields.region !== undefined) {
+    // 只收清单里的代码；不允许改回空——空值只留给脚本建档后待补的号。
+    const region = normalizeRegion(fields.region)
+    if (!region) return err('invalid_input', 'invalid region')
+    patch.region = region
+  }
   if (Object.keys(patch).length === 0) return err('invalid_input', 'nothing to update')
   const db = createServerClient()
   if (fields.parent_id !== undefined && fields.parent_id !== null) {
-    const bad = await assertValidParent(db, id, fields.parent_id)
-    if (bad) return { data: null, error: bad }
+    const parent = await assertValidParent(db, id, fields.parent_id)
+    if (parent.error) return { data: null, error: parent.error }
   }
   const { error } = await db.from('competitors').update(patch).eq('id', id)
   if (error) return err('db_error', error.message)

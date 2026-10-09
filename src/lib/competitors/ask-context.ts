@@ -131,7 +131,8 @@ export interface AskHealth {
 export interface AskCompetitor {
   handle: string
   name: string
-  region: string
+  /** 人工登记的地区代码；null = 还没登记（脚本建档的号，等人在卡片上补）。 */
+  region: string | null
   /**
    * 主页语言观测值（原样，未观测为 null）——只是辅助参考，不是权威地区。
    * 权威值仍是 region；见 profileLanguage.ts 顶部注释。
