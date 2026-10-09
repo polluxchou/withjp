@@ -42,15 +42,11 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     return r.rejected ? 'rejected' : 'network'
   }
 
-  // 取可用会话，必要时续期。force=true 跳过「是否快过期」的判断，直接续期。
-  //   没有存过会话            → { session: null }
+  // 用旧会话的 refresh token 续期，并把结果落到存储：
   //   续期成功                → 存回（Supabase 会轮换 refresh token）并返回新会话
   //   续期被明确拒绝          → 清掉存储，{ session: null }
   //   续期暂时失败（断网/5xx） → 存储原样不动，{ session: null, transient: true, stale: 旧会话 }
-  async function ensureSession(force = false) {
-    const s = await storage.get(SESSION_KEY)
-    if (!s) return { session: null }
-    if (!force && !needsRefresh(s, now())) return { session: s }
+  async function doRefresh(s) {
     const r = await authRequest('refresh_token', { refresh_token: s.refreshToken })
     if (r.session) {
       await storage.set(SESSION_KEY, r.session)
@@ -61,6 +57,20 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
       return { session: null }
     }
     return { session: null, transient: true, stale: s }
+  }
+
+  // Supabase 会轮换 refresh token，两次并发续期拿同一个旧 token，后到的会被判复用而拒绝、
+  // 把刚存好的新会话清掉——所以同一时刻只发一次续期，其余调用共用结果。
+  let refreshing = null
+
+  // 取可用会话，必要时续期。force=true 跳过「是否快过期」的判断，直接续期；
+  // 强制续期撞上正在进行的续期时同样共用那一次。没有存过会话 → { session: null }。
+  async function ensureSession(force = false) {
+    const s = await storage.get(SESSION_KEY)
+    if (!s) return { session: null }
+    if (!force && !needsRefresh(s, now())) return { session: s }
+    if (!refreshing) refreshing = doRefresh(s).finally(() => { refreshing = null })
+    return refreshing
   }
 
   // 续期暂时失败（断网/5xx）不算登出：会话还留着，弹窗照常进入，真正发请求时再如实报网络错误
