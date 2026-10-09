@@ -62,6 +62,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
       id: c.id,
       name: competitorName(c),
       handle: c.handle,
+      region: c.region,
       missingShot: missesShotOn(c.shots, selectedDate),
     })),
     [board.competitors, selectedDate],
