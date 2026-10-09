@@ -6,7 +6,7 @@
 -- 执行方式：SQL Editor 整段执行（隐式单事务）；psql 须带 -1 -v ON_ERROR_STOP=1，否则逐句提交、出错后继续往下跑。
 
 -- 拿不到锁就快速失败、重跑即可，别排在长查询后面把读请求一起堵住
-set lock_timeout = '5s';
+set local lock_timeout = '5s';
 
 -- A. 上传人。外键指向 public.users，与仓库其它表一致（由 auth 用户触发器自动建档），以后做「每人上传量」可直接带出人名
 alter table competitor_shots
@@ -40,7 +40,7 @@ create table if not exists competitor_viewer_readings (
     check (viewer_source is null or (source = 'current' and viewer_source in ('room', 'anchored', 'sole')))
 );
 -- 按竞品查人数历史走唯一约束 (competitor_id, captured_at, source) 的前缀，无需额外索引。
--- 删截图时外键要把 shot_id 置空：没有这条索引就是整表扫描（实测 6 万行 289ms → 0.6ms）
+-- 删截图时外键要把 shot_id 置空：没有这条索引就是整表扫描（实测一个竞品挂 8733 条读数时删除 410ms → 45ms）
 create index if not exists idx_competitor_viewer_readings_shot
   on competitor_viewer_readings(shot_id)
   where shot_id is not null;
