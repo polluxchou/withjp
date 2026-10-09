@@ -378,7 +378,7 @@ function makeVideoDoc(
 }
 
 const clipFactory = new Function(`return (${CLIP_FACTORY_SRC})`)() as (
-  win: unknown, doc: unknown,
+  win: unknown, doc: unknown, opts?: { mute?: boolean },
 ) => { hasVideo: boolean; ready: boolean; muted?: boolean; fit?: string; clip: Rect | null }
 
 test('CLIP_FACTORY_SRC 与 clipRect 对每个分支算出同一个矩形（两份算式必须同步改）', () => {
@@ -433,8 +433,9 @@ test('CLIP_FACTORY_SRC: video 在但还没拿到尺寸时不给 clip，且照样
 test('CLIP_FACTORY_SRC: opts.mute=false 时不动播放器（扩展里人正在看）', () => {
   const box = { x: 0, y: 0, width: 800, height: 600 }
   const { doc, win, video } = makeVideoDoc(box, 1080, 1920, 'contain', '50% 50%')
-  const r = (clipFactory as (w: unknown, d: unknown, o?: unknown) => ReturnType<typeof clipFactory>)(win, doc, { mute: false })
+  const r = clipFactory(win, doc, { mute: false })
   assert.equal(video.muted, false, '不许静音')
+  assert.equal(r.muted, false, '回报的 muted 也要如实')
   assert.equal(video.volume, 1, '不许改音量')
   assert.deepEqual(r.clip, clipRect(box, 1080, 1920, 'contain', '50% 50%'), '矩形照算')
 })
