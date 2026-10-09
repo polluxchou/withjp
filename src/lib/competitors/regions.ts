@@ -44,3 +44,40 @@ export function regionOptions(current: string | null | undefined): string[] {
   if (code && !options.includes(code)) options.push(code)
   return options
 }
+
+// ---- 账号导航条的地区快速筛选 ----
+
+/** 「地区未填」那一桶的键。不会和两位地区代码撞上。 */
+export const REGION_UNSET = '-'
+
+const regionKey = (region: string | null | undefined): string =>
+  region?.trim().toUpperCase() || REGION_UNSET
+
+/** 两位地区代码 → 国旗 emoji（两个区域指示符）。不是两位字母就返回空串，调用方只显示代码。 */
+export function regionFlag(code: string | null | undefined): string {
+  const c = code?.trim().toUpperCase() ?? ''
+  if (!/^[A-Z]{2}$/.test(c)) return ''
+  return String.fromCodePoint(...c.split('').map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65))
+}
+
+/**
+ * 按地区分桶计数：账号多的在前，同数按代码字母序，未填垫底。
+ * 只出现库里真有的地区——清单里没人的地区不给按钮，点了也是空的。
+ */
+export function regionBuckets(regions: (string | null | undefined)[]): { key: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const r of regions) {
+    const k = regionKey(r)
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+  }
+  return Array.from(counts, ([key, count]) => ({ key, count }))
+    .sort((a, b) => {
+      if ((a.key === REGION_UNSET) !== (b.key === REGION_UNSET)) return a.key === REGION_UNSET ? 1 : -1
+      return b.count - a.count || a.key.localeCompare(b.key)
+    })
+}
+
+/** filter 为空串 = 全部；REGION_UNSET = 只要地区未填的；其余按代码比对。 */
+export function matchesRegionFilter(region: string | null | undefined, filter: string): boolean {
+  return !filter || regionKey(region) === filter
+}
