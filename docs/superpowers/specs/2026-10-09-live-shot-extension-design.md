@@ -44,7 +44,7 @@ popup ──scripting.executeScript──▶ 页内读取（ISOLATED world）
    │                                  · 当前房间人数（liveProbe 三档判据）
    │                                  · Following 区块条目（handle + 人数原文）
    │◀─────────────────────────────────┘
-   │  tabs.captureVisibleTab → OffscreenCanvas 按矩形×DPR 裁剪 → webp
+   │  tabs.captureVisibleTab → OffscreenCanvas 按矩形×(位图宽/视口宽) 裁剪 → webp
    ▼
 弹窗「就绪」：缩略图 + ✓截图 ✓人数数据 + [上传]
    │  点「上传」
@@ -79,9 +79,9 @@ extensions/live-shot/
 
 ### 4.3 截图
 
-1. 页内读取返回画面矩形（CSS 像素）与 `devicePixelRatio`。矩形用 `liveProbe.ts` 的 `clipRect` 同一算式。**不复用 `CLIP_FACTORY_SRC`**：它会把视频静音，那是给无人值守采集用的，人正在看的时候不能动播放器。
+1. 页内读取返回画面矩形（CSS 像素）与视口宽度 `innerWidth`。矩形用 `CLIP_FACTORY_SRC`（与 `clipRect` 同一算式、已有一致性测试），给它加可选参数 `{ mute: false }`：无人值守采集照旧静音，扩展是人正在看的时候用的，不能动播放器。
 2. `chrome.tabs.captureVisibleTab` 截当前可见画面（png）。弹窗本身不会出现在截图里。
-3. `OffscreenCanvas` 按「矩形 × DPR」裁剪，编码为 webp，保证不超过 5MB（后台 `validateImage` 上限）。
+3. `OffscreenCanvas` 按「矩形 × (位图宽 / 视口宽)」裁剪——不直接用 `devicePixelRatio`，浏览器缩放、换外接屏时两者可能不一致，位图本身才是真的。编码为 webp，保证不超过 5MB（后台 `validateImage` 上限）。
 4. `<video>` 不存在、`videoWidth = 0` 或 `readyState < 2`（还没画出第一帧）→ 不截，进「出错：没找到直播画面」。
 
 ### 4.4 页内读取：复用 liveProbe，不另写一份
@@ -95,7 +95,7 @@ extensions/live-shot/
 
 探针以 `intervalMs = 0`（不起定时器）实例化：手动 `tick()` 一次，`drain()` 取出读数，然后 `disconnect()`。注入在 ISOLATED world，`__lw` 等全局只存在于扩展的隔离环境，页面脚本看不到。
 
-**Following 区块限定**：现有 `sidebarReading()` 读的是全部 `[data-e2e="live-side-nav-item"]`，「Suggested LIVE creators」很可能共用这个标记。给 `ProbeConfig` 增加可选字段 `sidebarScope`（Following 区块容器的候选选择器）：设置了就只在容器内取条目；不设置时行为与现在完全一致，分钟级采集器不受影响。容器如何定位见第 11 节验证项。
+**Following 区块限定**：现有 `sidebarReading()` 读的是全部 `[data-e2e="live-side-nav-item"]`。2026-10-09 游客态实测：侧栏每个区块是一个 `[data-e2e="live-side-nav-channel"]`（内含 `live-side-nav-channel-title` 与条目），游客态只有「推荐的主播」一个频道。据此推断已登录时 Following 是第一个频道、Suggested 是第二个。给 `ProbeConfig` 增加可选字段 `sidebarChannel`（频道容器候选选择器）：设置了就只读第一个频道，且频道数不足 2 时报 null（只剩 Suggested，绝不拿它顶替）；不设置时行为与现在完全一致，分钟级采集器不受影响。推断须在已登录页面上核实，见第 11 节。
 
 ### 4.5 弹窗三态与今日计数
 
@@ -211,9 +211,9 @@ multipart 字段：
 本仓库没有 DOM 测试环境，组件目录里的测试都是源码断言，所以可测逻辑要下沉到 `src/lib` 用 `node --test` 测：
 
 - `src/lib/competitors/quickShot.ts`（新）：handle 规范化与 URL 解析、`co_live` 竞品库过滤与 readings 行组装、`shot_on` 日本时间计算、今日计数口径。
-- `liveProbe.test.ts` 补 `sidebarScope`：设了只取容器内条目、不设行为不变（假 DOM 构造 Following + Suggested 两个区块）。
+- `liveProbe.test.ts` 补 `sidebarChannel`：两个频道只取第一个、只有一个频道报 null、不设行为不变（假 DOM 构造 Following + Suggested 两个频道）。
 - 生成脚本：重新生成的内容与已提交的 `page-reader.js` 逐字一致。
-- 裁剪：矩形 × DPR 的像素换算（抽纯函数测）。
+- 裁剪：矩形 × (位图宽 / 视口宽) 的像素换算与越界裁剪（抽纯函数测）。
 - 接口：`not_in_library` 什么都不写、Bearer 缺失或无效返回 401、读数部分失败返回 207。
 - 新测试文件登记进 `package.json` 的 `test` 行。
 - 审查时跑突变探针，交击杀表（测试全绿不等于测试有效）。
@@ -221,11 +221,9 @@ multipart 字段：
 
 ## 11. 开工前必须验证
 
-1. **Following 与 Suggested 能否在 DOM 上分开**：在真实页面上看两个区块的条目是否共用 `live-side-nav-item`，以及「Following」标题所在容器有没有稳定的标记。
-   - 有稳定容器 → `sidebarScope` 用它。
-   - 没有 → 以「Following」区块标题之后、下一个区块标题之前的条目为界。只要能确定边界，具体做法由验证结果决定。
-2. **`captureVisibleTab` 的分辨率**：Retina 下截出的位图是否就是 CSS 像素 × DPR；裁出的竖屏画面长边应接近 1900px。
-3. **Bearer 令牌在 Vercel 上的校验**：`auth.getUser(token)` 在生产环境可用，且不需要额外配置。
+1. **已登录页面上 Following 是不是第一个频道**：游客态已实测频道结构（见 4.4），已登录页面需在 pollux 的 Chrome 里跑一段只读脚本核实：频道数为 2，第一个标题是 Following 且条目与页面左侧一致。不符合就停下，不自行换判据。
+2. ~~`captureVisibleTab` 的分辨率~~：设计上已消解——裁剪比例取位图宽 / 视口宽，不依赖 DPR 假设；真机验收时看图核对。
+3. **Bearer 令牌在生产环境的校验**：`auth.getUser(token)` 在生产环境可用，且不需要额外配置；上线核对时用无令牌请求得 401、真机上传成功两步确认。
 
 ## 12. 不做
 
