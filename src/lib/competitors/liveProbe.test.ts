@@ -430,8 +430,25 @@ test('CLIP_FACTORY_SRC: video 在但还没拿到尺寸时不给 clip，且照样
   assert.equal(video.muted, true, '还没出画面也要先静音，别让它出声')
 })
 
+test('CLIP_FACTORY_SRC: opts.mute=false 时不动播放器（扩展里人正在看）', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 1080, 1920, 'contain', '50% 50%')
+  const r = (clipFactory as (w: unknown, d: unknown, o?: unknown) => ReturnType<typeof clipFactory>)(win, doc, { mute: false })
+  assert.equal(video.muted, false, '不许静音')
+  assert.equal(video.volume, 1, '不许改音量')
+  assert.deepEqual(r.clip, clipRect(box, 1080, 1920, 'contain', '50% 50%'), '矩形照算')
+})
+
+test('CLIP_FACTORY_SRC: 不传 opts 仍然静音（scripts/live-watch 的调用方不受影响）', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 1080, 1920, 'contain', '50% 50%')
+  clipFactory(win, doc)
+  assert.equal(video.muted, true)
+  assert.equal(video.volume, 0)
+})
+
 test('clipSource: 组装出的表达式能被解析', () => {
-  assert.match(clipSource(), /^\(function \(win, doc\)/)
+  assert.match(clipSource(), /^\(function \(win, doc, opts\)/)
   assert.doesNotThrow(() => new Function(`return ${clipSource().replace('(window, document)', '(arguments[0], arguments[1])')}`))
 })
 
