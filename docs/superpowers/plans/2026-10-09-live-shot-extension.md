@@ -1335,7 +1335,7 @@ Run: `TZ=Asia/Tokyo date +%Y%m%d%H%M%S`
 -- 执行方式：SQL Editor 整段执行（隐式单事务）；psql 须带 -1 -v ON_ERROR_STOP=1，否则逐句提交、出错后继续往下跑。
 
 -- 拿不到锁就快速失败、重跑即可，别排在长查询后面把读请求一起堵住
-set lock_timeout = '5s';
+set local lock_timeout = '5s';
 
 -- A. 上传人。外键指向 public.users，与仓库其它表一致（由 auth 用户触发器自动建档），以后做「每人上传量」可直接带出人名
 alter table competitor_shots
@@ -1369,7 +1369,7 @@ create table if not exists competitor_viewer_readings (
     check (viewer_source is null or (source = 'current' and viewer_source in ('room', 'anchored', 'sole')))
 );
 -- 按竞品查人数历史走唯一约束 (competitor_id, captured_at, source) 的前缀，无需额外索引。
--- 删截图时外键要把 shot_id 置空：没有这条索引就是整表扫描（实测 6 万行 289ms → 0.6ms）
+-- 删截图时外键要把 shot_id 置空：没有这条索引就是整表扫描（实测一个竞品挂 8733 条读数时删除 410ms → 45ms）
 create index if not exists idx_competitor_viewer_readings_shot
   on competitor_viewer_readings(shot_id)
   where shot_id is not null;
@@ -2292,6 +2292,21 @@ Expected: 全部通过。`next build` 输出的路由表里有 `ƒ /api/competit
 
 - [ ] **Step 3: 应用迁移（先问 pollux）**
 
+**先跑两条只读核对**（生产库，只读）：
+
+```sql
+-- ① 生产从没跑过本迁移的旧版：应为 null / false。否则 if not exists 会静默跳过、旧对象不会被升级，要另写迁移
+select to_regclass('public.competitor_viewer_readings') as readings,
+       exists (select 1 from information_schema.columns
+               where table_schema='public' and table_name='competitor_shots' and column_name='created_by') as shots_created_by;
+-- ② 每个非匿名登录账号都有 public.users 档案：应为 0。否则该账号上传会撞外键 23503
+select count(*) from auth.users a
+where not exists (select 1 from public.users u where u.id = a.id)
+  and coalesce(a.is_anonymous, false) = false;
+```
+
+两条结果不符合预期就停下、报给 pollux。
+
 **向 pollux 明确请求：「迁移只加一列可空字段和一张新表，现在可以在生产库执行吗？」拿到明确的「你来执行」后再跑。** 被 auto 模式拦截时不要换写法绕过，改为把 SQL 文件路径给 pollux，请他在 Supabase Dashboard → SQL Editor 执行。
 
 ```bash
@@ -2422,7 +2437,7 @@ CI 全绿后**询问 pollux 是否合并**，不要自行合并。
 部署要验证、不能靠 CI 推断：
 1. 查 Vercel 生产部署已包含本次提交，且 `mcn.agenova.chat` 指向它。
 2. `curl -s -o /dev/null -w '%{http_code}\n' https://mcn.agenova.chat/api/competitors/quick-shot` → 预期 `401`（无令牌），证明路由已上线。
-   另请 pollux 在 Supabase Dashboard → Authentication 确认「Allow new user signups」是关闭的：anon key 是公开值，开着的话任何人都能自助注册拿到令牌（这个风险此前就存在，不是本 PR 引入，但扩展把 anon key 又多分发了一份）。
+   另请 pollux 在 Supabase Dashboard → Authentication 确认「Allow new user signups」与「Allow anonymous sign-ins」都是关闭的（全仓 RLS 是 auth.uid() is not null，匿名登录也会被放行）：anon key 是公开值，开着的话任何人都能自助注册拿到令牌（这个风险此前就存在，不是本 PR 引入，但扩展把 anon key 又多分发了一份）。
 3. 重新生成线上配置并刷新扩展：
 
 ```bash
