@@ -7,36 +7,55 @@ import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, defaultProbeConfig, type ProbeConf
 /** 侧栏频道容器。2026-10-09 实测：每个区块一个，已登录时第一个是 Following。 */
 export const SIDEBAR_CHANNEL = ['[data-e2e="live-side-nav-channel"]']
 
-/** 扩展用的探针配置：不起定时器（手动 tick 一次），同期横截面只读 Following。 */
+/**
+ * 扩展用的探针配置：不起定时器（手动 tick 一次），同期横截面只读 Following。
+ * 一次性读取用不着弹幕计数，chatHost 置空就不挂 MutationObserver。
+ * sidebarChannel 返回副本，调用方改不到常量。
+ */
 export function extensionProbeConfig(): ProbeConfig {
-  return { ...defaultProbeConfig(), intervalMs: 0, sidebarChannel: SIDEBAR_CHANNEL }
+  return { ...defaultProbeConfig(), intervalMs: 0, chatHost: [], sidebarChannel: [...SIDEBAR_CHANNEL] }
 }
 
 /**
  * 注入页面执行的读取函数：(win, doc, cfg) → 一次读数。
  * - 画面矩形用 CLIP_FACTORY_SRC，传 { mute: false }：人正在看，不动播放器。
- * - 人数用 PROBE_FACTORY_SRC：先拆掉上一次可能残留的探针，建新探针、tick 一次、
- *   drain、断开、删掉 —— 读完不在页面环境里留任何状态。
+ * - 人数用 PROBE_FACTORY_SRC：探针装在一个临时宿主对象上而不是 window，tick 一次、
+ *   drain、断开 —— 读完 window 上不留任何状态，也碰不到页面里已有的 __lw。
+ *   断开放在 finally 里，中途抛错也不留 observer / 定时器。
+ * - 附带 visualScale（visualViewport.scale）：触控板双指缩放时截图与元素坐标对不上。
  */
 export const PAGE_READER_SRC = `function (win, doc, cfg) {
   var probeFactory = ${PROBE_FACTORY_SRC}
   var clipFactory = ${CLIP_FACTORY_SRC}
   var clip = clipFactory(win, doc, { mute: false })
-  if (win.__lw && typeof win.__lw.disconnect === 'function') win.__lw.disconnect()
-  win.__lw = undefined
-  probeFactory(win, doc, cfg)
-  var lw = win.__lw
-  var sample = null
-  if (lw) {
-    lw.tick()
-    sample = lw.drain()[0] || null
-    lw.disconnect()
+  // 探针装在一个临时宿主上而不是 window：读一次就扔，任何 window 上都不留 __lw——
+  // 哪怕以后有人把注入改到 MAIN world，也碰不到分钟级采集器挂在页面上的那个 __lw
+  var host = {
+    JSON: win.JSON,
+    Date: win.Date,
+    MutationObserver: win.MutationObserver,
+    location: win.location,
+    setInterval: function (f, ms) { return win.setInterval(f, ms) },
+    clearInterval: function (id) { return win.clearInterval(id) }
   }
-  win.__lw = undefined
+  var sample = null
+  try {
+    probeFactory(host, doc, cfg)
+    if (host.__lw) {
+      host.__lw.tick()
+      sample = host.__lw.drain()[0] || null
+    }
+  } finally {
+    // 中途抛错也要断开（chatHost 非空时会挂 observer），不留尾巴
+    if (host.__lw && typeof host.__lw.disconnect === 'function') host.__lw.disconnect()
+  }
   var loc = (doc && doc.location) || win.location
+  var vv = win.visualViewport
   return {
     href: loc && loc.href ? String(loc.href) : null,
     viewportWidth: win.innerWidth || 0,
+    // 触控板双指缩放（visualViewport.scale≠1）时截图与元素坐标对不上，交给弹窗拒截
+    visualScale: vv && vv.scale ? vv.scale : 1,
     capturedAt: win.Date.now(),
     clip: clip,
     viewer: sample ? sample.viewer : null,
@@ -54,6 +73,7 @@ export function renderReaderModule(): string {
     `export const PROBE_CONFIG = ${JSON.stringify(extensionProbeConfig(), null, 2)}`,
     '',
     '// chrome.scripting.executeScript 会把这个函数序列化后注入页面，所以它必须自包含。',
+    '// 必须在 ISOLATED world 执行（executeScript 默认即是），不要改成 MAIN。',
     'export function readLivePage(cfg) {',
     `  return (${PAGE_READER_SRC})(window, document, cfg)`,
     '}',
