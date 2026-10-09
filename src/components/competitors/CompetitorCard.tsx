@@ -14,10 +14,12 @@ import { formatCount } from '@/lib/competitors/metrics'
 import { ANCHOR_GAP } from '@/lib/competitors/navScroll'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
 import { checkProfileLanguage } from '@/lib/competitors/profileLanguage'
+import { REGION_CODES, regionOptions } from '@/lib/competitors/regions'
 import { formatDayTimeInLocaleZone, timeZoneForLocale } from '@/lib/time/localeZone'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import Tag from '@/components/ui/Tag'
+import { Select } from '@/components/ui/Field'
 
 /** 展开档案里列几场原始开播时刻作证据。8 场够看出本周的档,再多会撑破一行。 */
 const RECENT_SESSIONS = 8
@@ -42,7 +44,7 @@ function Field({ label, value }: { label: string; value: string | null }) {
 const ANCHOR_STYLE = { scrollMarginTop: `calc(var(--competitor-sticky-head, 120px) + ${ANCHOR_GAP}px)` }
 
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
+  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, onUpdateRegion,
   dateWindow, selectedDate, regionPeers, nested = false, selected = false, today = null,
 }: {
   c: CompetitorWithHistory
@@ -52,6 +54,7 @@ export default function CompetitorCard({
   parentOptions: { id: string; label: string }[]
   onAssignParent: (id: string, parentId: string | null) => void
   onUpdateHandle: (id: string, raw: string) => void
+  onUpdateRegion: (id: string, region: string) => void
   dateWindow: string[]
   selectedDate: string | null
   /** 整个看板的竞品：地区标签的浮层要拿同区所有账号画标尺。 */
@@ -90,6 +93,11 @@ export default function CompetitorCard({
   const isStreamer = !!c.parent_id
   const showAsStreamer = isStreamer || pendingStreamer
   const name = c.latest?.display_name ?? c.display_name ?? c.handle
+  // 清单内的代码配上名称（「韩国 KR」），清单外的历史值原样显示代码。
+  const regionLabel = (code: string) =>
+    (REGION_CODES as readonly string[]).includes(code) ? `${t(`regionName.${code}`)} ${code}` : code
+  // 只提示主账号：子账号沿用父账号的地区，父账号补上之前提示两遍没有意义。
+  const regionUnset = !c.parent_id && !c.region?.trim()
 
   // 「@handle」整串(带 @)复制到剪贴板 —— 带着 @ 才能直接粘进 TikTok 搜索框。
   // 库里存的 handle 一律不含 @(service.ts 新增与更新两条路径都过 parseHandleFromUrl),
@@ -281,6 +289,13 @@ export default function CompetitorCard({
               {/* 地区标签兼作「同区开播时段」浮层的触发器（内部自带 shrink-0：
                   它是 flex 子项，默认会被压到换行——实测「日本」被挤成竖排两字）。 */}
               <RegionLiveRuler region={c.region} peers={regionPeers} currentId={c.id} />
+              {/* 地区为空时上面的标签整个不渲染，缺了什么就看不出来——补一枚醒目的提示。
+                  空值只来自脚本建档（后台加主账号必须选地区），在下面档案里的地区一行补。 */}
+              {regionUnset && (
+                <span className="inline-flex shrink-0">
+                  <Tag label={t('regionUnset')} tone="warning" size="sm" />
+                </span>
+              )}
               {/* 风格描述紧跟在身份信息之后：它描述的是"这个号长什么样",
                   和名字/认证/地区是同一类身份信息,不属于下面那行指标。 */}
               <CompetitorDescriptions
@@ -359,6 +374,7 @@ export default function CompetitorCard({
                   parentOptions={parentOptions}
                   onAssignParent={onAssignParent}
                   onUpdateHandle={onUpdateHandle}
+                  onUpdateRegion={onUpdateRegion}
                   dateWindow={dateWindow}
                   selectedDate={selectedDate}
                   regionPeers={regionPeers}
@@ -386,7 +402,26 @@ export default function CompetitorCard({
           <Field label={t('fieldRecentSessions')} value={recentSessions.join(' · ') || null} />
           {/* 地区回退到竞品表:快照的 region 实测一直是空的(采集脚本不读它),
               只看快照会让这一行永远不渲染。人工值才是权威值。 */}
-          <Field label={t('region')} value={c.latest?.region ?? c.region} />
+          {canEdit ? (
+            // 改了即存，和上面改 handle 一样走 PATCH。地区为空时多一个「地区未填」占位项，
+            // 选中任一地区就不能再改回空——空值只留给脚本建档后待补的号。
+            <div className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-ink-500">{t('region')}</span>
+              <Select
+                size="sm"
+                value={c.region ?? ''}
+                onChange={(e) => { if (e.target.value) onUpdateRegion(c.id, e.target.value) }}
+                aria-label={t('region')}
+              >
+                {!c.region && <option value="">{t('regionUnset')}</option>}
+                {regionOptions(c.region).map((code) => (
+                  <option key={code} value={code}>{regionLabel(code)}</option>
+                ))}
+              </Select>
+            </div>
+          ) : (
+            <Field label={t('region')} value={c.latest?.region ?? (c.region ? regionLabel(c.region) : null)} />
+          )}
           {/* 主页语言只是辅助参考(账号的应用语言设置),与人工地区冲突时给个提示,
               但不改写 region —— 见 lib/competitors/profileLanguage.ts。 */}
           <Field

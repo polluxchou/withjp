@@ -13,6 +13,7 @@ import { competitorAnchorId, competitorIdFromHash } from '@/lib/competitors/anch
 import { scrollToCompetitorCard } from './scrollToCard'
 import { SHOT_WINDOW_SIZE, collectShotDates, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
 import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
+import { REGION_CODES } from '@/lib/competitors/regions'
 import type { CompetitorBoard } from '@/lib/competitors/types'
 import Button from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
@@ -24,6 +25,8 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   const [input, setInput] = useState('')
   const [addType, setAddType] = useState<'group' | 'streamer'>('group')
   const [addParentId, setAddParentId] = useState('')
+  // 主账号必须选地区（数据库不再默认 JP）；主播沿用所属团，不显示这一项。
+  const [addRegion, setAddRegion] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   // 整页共用的截图日期轴：所有竞品(含子主播)有图日期的并集
@@ -136,9 +139,11 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   const add = useCallback(() => {
     const value = input.trim()
     if (!value) return
+    if (addType === 'group' && !addRegion) { setError(t('regionRequired')); return }
     setError(null)
-    const body: { url: string; parent_id?: string } = { url: value }
+    const body: { url: string; parent_id?: string; region?: string } = { url: value }
     if (addType === 'streamer' && addParentId) body.parent_id = addParentId
+    if (addType === 'group') body.region = addRegion
     startTransition(async () => {
       try {
         const res = await fetch('/api/competitors', {
@@ -151,12 +156,13 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
         setInput('')
         setAddType('group')
         setAddParentId('')
+        setAddRegion('')
         await refresh()
       } catch {
         setError(t('addFailed'))
       }
     })
-  }, [input, addType, addParentId, refresh, t])
+  }, [input, addType, addParentId, addRegion, refresh, t])
 
   const remove = useCallback((id: string) => {
     if (!confirm(t('deleteConfirm'))) return
@@ -189,6 +195,24 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     })
   }, [refresh, t])
 
+  const updateRegion = useCallback((id: string, region: string) => {
+    setError(null)
+    startTransition(async () => {
+      try {
+        const res = await fetch(`/api/competitors/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ region }),
+        })
+        const json = await res.json().catch(() => ({ error: 'parse' }))
+        if (!res.ok || json.error) { setError(t('actionFailed')); return }
+        await refresh()
+      } catch {
+        setError(t('actionFailed'))
+      }
+    })
+  }, [refresh, t])
+
   const updateHandle = useCallback((id: string, raw: string) => {
     setError(null)
     startTransition(async () => {
@@ -210,13 +234,15 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   return (
     <div ref={rootRef} className="space-y-4">
       {board.canEdit && (
-        <div className="flex items-center gap-2">
+        // 多了地区下拉后一行四个控件，375px 宽时输入框被挤到 26px：窄屏让输入框独占
+        // 第一行，下拉和按钮换到第二行；桌面放得下，flex-wrap 不会换行。
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') add() }}
             placeholder={t('addPlaceholder')}
-            className="flex-1"
+            className="flex-1 max-md:basis-full"
           />
           <Select
             value={addType}
@@ -225,6 +251,18 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
             <option value="group">{t('independent')}</option>
             <option value="streamer">{t('roleStreamer')}</option>
           </Select>
+          {addType === 'group' && (
+            <Select
+              value={addRegion}
+              onChange={(e) => setAddRegion(e.target.value)}
+              aria-label={t('region')}
+            >
+              <option value="">{t('selectRegion')}</option>
+              {REGION_CODES.map((code) => (
+                <option key={code} value={code}>{t(`regionName.${code}`)}</option>
+              ))}
+            </Select>
+          )}
           {addType === 'streamer' && (
             <Select
               value={addParentId}
@@ -294,6 +332,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               parentOptions={parentOptions}
               onAssignParent={assignParent}
               onUpdateHandle={updateHandle}
+              onUpdateRegion={updateRegion}
               dateWindow={dateWindow}
               selectedDate={selectedDate}
               regionPeers={board.competitors}
