@@ -154,20 +154,14 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     return m ? m[1].toLowerCase() : null
   }
   /**
-   * 顺手把左侧「已关注」侧栏整条抄下来 —— 那是**同一时刻**其它在播直播间的在线人数。
-   *
-   * 本来是当噪音要丢掉的（它正是 viewer 读错号的根源），但换个角度看：待在 A 房间
-   * 的每一分钟，侧栏都白送一份 B/C/D/E 的同期横截面，零额外请求、零额外暴露面。
-   * 单个房间的曲线只能说"它涨了"，配上同期别家的数就能说"是它涨了还是大盘涨了"。
-   *
-   * 只记 handle 与人数原文，不做解析也不做过滤（谁在竞品库里是入库时的事，
-   * 这里多记几个非竞品账号的成本是零，漏记了却补不回来）。
-   */
-  /**
-   * 侧栏从哪儿读。不设 sidebarChannel = 整页（分钟级采集器，一条不漏）。
+   * 侧栏从哪儿读。不设 sidebarChannel = 整页（分钟级采集器，一条不漏）；
+   * sidebarChannel 为空数组等同未设。
    * 设了 = 只读 Following：侧栏每个区块是一个频道容器，已登录时第一个是 Following、
-   * 后面是 Suggested；游客态或关注的人都没在播时只剩 Suggested 一个。
+   * 后面是 Suggested；游客态或关注的人都没在播时只剩 Suggested 一个
+   * （2026-10-09 游客态与登录态都实测过）。
    * 所以频道数不足 2 就是「没有 Following 区」，报 null，绝不拿 Suggested 顶替。
+   * 候选选择器按顺序试，第一个有匹配的就定案（哪怕只匹配到 1 个频道也直接报 null，
+   * 不再试后面的候选）。
    */
   function sidebarRoot() {
     if (!cfg.sidebarChannel || !cfg.sidebarChannel.length) return doc
@@ -177,6 +171,16 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     }
     return null
   }
+  /**
+   * 顺手把左侧「已关注」侧栏整条抄下来 —— 那是**同一时刻**其它在播直播间的在线人数。
+   *
+   * 本来是当噪音要丢掉的（它正是 viewer 读错号的根源），但换个角度看：待在 A 房间
+   * 的每一分钟，侧栏都白送一份 B/C/D/E 的同期横截面，零额外请求、零额外暴露面。
+   * 单个房间的曲线只能说"它涨了"，配上同期别家的数就能说"是它涨了还是大盘涨了"。
+   *
+   * 只记 handle 与人数原文，不做解析也不做过滤（谁在竞品库里是入库时的事，
+   * 这里多记几个非竞品账号的成本是零，漏记了却补不回来）。
+   */
   function sidebarReading() {
     if (!doc.querySelectorAll) return null
     var root = sidebarRoot()
