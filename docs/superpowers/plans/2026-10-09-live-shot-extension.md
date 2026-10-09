@@ -872,6 +872,8 @@ git commit -m "feat(quick-shot): 一键上传接口的纯函数（令牌、handl
 
 ### Task 6: 接口业务逻辑 `quickShotService.ts`
 
+> **执行记录（2026-10-09）**：审查后在本节代码基础上加了 `parseViewerText` 限长、`toViewerCount` 整数钳位、`findShot` 重试幂等、`safely` 兜底、今日计数改用服务器当下日期；最终实现以提交 `1b18d6b` 为准，下方代码是初稿。
+
 **Files:**
 - Create: `src/lib/competitors/quickShotService.ts`
 - Test: `src/app/api/competitors/quick-shot/quick-shot-api.integration.test.ts`
@@ -1255,8 +1257,22 @@ function deps(): QuickShotDeps {
       const { data, error } = await db.from('competitor_shots').insert(row).select('id').single()
       return error || !data ? null : { id: data.id as string }
     },
+    findShot: async (createdBy, competitorId, capturedAtIso) => {
+      const { data, error } = await db
+        .from('competitor_shots')
+        .select('id')
+        .eq('created_by', createdBy)
+        .eq('competitor_id', competitorId)
+        .eq('captured_at', capturedAtIso)
+        .limit(1)
+        .maybeSingle()
+      return error || !data ? null : String((data as { id: string }).id)
+    },
     insertReadings: async (rows) => {
-      const { error } = await db.from('competitor_viewer_readings').insert(rows)
+      // 重试时同一读数时刻会再来一次：撞唯一约束的行直接跳过，不让整批失败、不报假的 207
+      const { error } = await db
+        .from('competitor_viewer_readings')
+        .upsert(rows, { onConflict: 'competitor_id,captured_at,source', ignoreDuplicates: true })
       return !error
     },
     countTodayUploads: async (userId, shotOn) => {
@@ -2015,7 +2031,8 @@ import { bumpShots, shotsToday } from './lib/day.js'
 import { handleFromLiveUrl } from './lib/liveUrl.js'
 import { readingState, uploadErrorMessage } from './lib/view.js'
 
-const MAX_BYTES = 5 * 1024 * 1024
+// Vercel 函数请求体上限 4.5MB（比后台 validateImage 的 5MB 小），编码目标留余量到 4MB
+const MAX_BYTES = 4 * 1024 * 1024
 const SHOT_COUNT_KEY = 'shotCount'
 
 const storage = {
@@ -2085,7 +2102,8 @@ async function captureCrop(tab, reading) {
   canvas.getContext('2d').drawImage(bitmap, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh)
   let blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.92 })
   if (blob.size > MAX_BYTES) blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.75 })
-  return blob
+  if (blob.size > MAX_BYTES) blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.6 })
+  return blob.size > MAX_BYTES ? null : blob
 }
 
 async function prepare() {
@@ -2387,6 +2405,7 @@ CI 全绿后**询问 pollux 是否合并**，不要自行合并。
 部署要验证、不能靠 CI 推断：
 1. 查 Vercel 生产部署已包含本次提交，且 `mcn.agenova.chat` 指向它。
 2. `curl -s -o /dev/null -w '%{http_code}\n' https://mcn.agenova.chat/api/competitors/quick-shot` → 预期 `401`（无令牌），证明路由已上线。
+   另请 pollux 在 Supabase Dashboard → Authentication 确认「Allow new user signups」是关闭的：anon key 是公开值，开着的话任何人都能自助注册拿到令牌（这个风险此前就存在，不是本 PR 引入，但扩展把 anon key 又多分发了一份）。
 3. 重新生成线上配置并刷新扩展：
 
 ```bash
