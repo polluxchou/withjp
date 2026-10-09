@@ -134,3 +134,15 @@ test('uploadErrorMessage：后台错误码 → 一句话', () => {
   assert.equal(uploadErrorMessage('file_too_large', 'a'), '截图格式或大小不符')
   assert.equal(uploadErrorMessage('db_error', 'a'), '上传失败，可以重试')
 })
+
+test('cropRect：y 方向同样逐边取整；水平方向一半以上出视口也拒', () => {
+  // 尺寸取整会得到 sh 1268（多裁一行），逐边取整是 1267
+  assert.deepEqual(cropRect({ x: 247, y: 13, width: 507, height: 507 }, 1280, 3200, 2000), { sx: 618, sy: 33, sw: 1267, sh: 1267 })
+  assert.equal(cropRect({ x: 900, y: 0, width: 300, height: 100 }, 1000, 1000, 800), null)
+})
+
+test('今日截图计数：存储被写坏成字符串时归零，不会把 "3"+1 拼成 "31"', () => {
+  const now = Date.UTC(2026, 9, 9, 3, 0)
+  assert.equal(shotsToday({ day: jstDay(now), shots: '3' }, now), 0)
+  assert.deepEqual(bumpShots({ day: jstDay(now), shots: '3' }, now), { day: jstDay(now), shots: 1 })
+})
