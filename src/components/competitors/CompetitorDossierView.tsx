@@ -234,13 +234,15 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   return (
     <div ref={rootRef} className="space-y-4">
       {board.canEdit && (
-        <div className="flex items-center gap-2">
+        // 多了地区下拉后一行四个控件，375px 宽时输入框被挤到 26px：窄屏让输入框独占
+        // 第一行，下拉和按钮换到第二行；桌面放得下，flex-wrap 不会换行。
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') add() }}
             placeholder={t('addPlaceholder')}
-            className="flex-1"
+            className="flex-1 max-md:basis-full"
           />
           <Select
             value={addType}
