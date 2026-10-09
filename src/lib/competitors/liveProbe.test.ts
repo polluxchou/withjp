@@ -676,6 +676,29 @@ test('同期横截面：不设 sidebarChannel 时照旧整页读（分钟级采�
   ])
 })
 
+test('同期横截面：设了 sidebarChannel 但选择器一个频道都没命中 → null，不退回整页读', () => {
+  // 比如 TikTok 改了 data-e2e 名、或侧栏还没渲染出来。此时整页里其实有条目，
+  // 但没法分清哪个是 Following，退回整页读就会把 Suggested 混进来。
+  const all: Record<string, FakeEl[]> = {
+    '[data-e2e="live-side-nav-item"]': [navItem('stranger', '692')],
+  }
+  const doc = makeDoc({ '.chat': el('') }, all, '/@a/live')
+  const win = makeWin()
+  factory(win, doc, cfg({ ...VIEWER_CFG, sidebarChannel: [CHANNEL] }))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  assert.equal(lw.drain()[0].co_live, null)
+  // 同一个入口再测一次最简形态：页面上什么侧栏元素都没有
+  assert.equal(coLiveWith([], { sidebarChannel: [CHANNEL] }), null)
+})
+
+test('同期横截面：Following 频道在但里面没人在播 → null，不是空数组', () => {
+  // 沿用「null = 这一分钟没有这份数据」的约定；Suggested 里有人也不能顶替
+  const following = channel([])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.equal(coLiveWith([following, suggested], { sidebarChannel: [CHANNEL] }), null)
+})
+
 test('defaultProbeConfig 不带 sidebarChannel —— 采集器的 cfgKey 不能因此变化', () => {
   assert.equal('sidebarChannel' in defaultProbeConfig(), false)
 })
