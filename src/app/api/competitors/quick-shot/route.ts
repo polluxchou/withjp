@@ -72,7 +72,9 @@ async function run(fn: () => Promise<{ status: number; body: unknown }>) {
   try {
     const r = await fn()
     return NextResponse.json(r.body, { status: r.status })
-  } catch {
+  } catch (e) {
+    // 只进服务端日志（Vercel），不回给客户端；否则线上缺个环境变量只看得到一个 500
+    console.error('[quick-shot]', e)
     return NextResponse.json({ data: null, error: 'internal_error' }, { status: 500 })
   }
 }
