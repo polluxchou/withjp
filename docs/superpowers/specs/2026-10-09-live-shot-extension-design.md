@@ -159,9 +159,11 @@ multipart 字段：
 
 | 列 | 类型 | 说明 |
 | --- | --- | --- |
-| `created_by` | uuid null，references `auth.users(id)` on delete set null | 上传人。历史行与自动巡检行为 null |
+| `created_by` | uuid null，references `users(id)`（public.users）on delete set null | 上传人。历史行与自动巡检行为 null。指向 public.users 与仓库其它表一致（由 auth 用户触发器自动建档，id 等于 auth 用户 id），以后做「每人上传量」可直接带出人名 |
 
-加索引 `(created_by, shot_on)`，供今日计数查询使用。
+加部分索引 `(created_by, shot_on) where created_by is not null`，供今日计数查询使用；历史行与自动巡检行（`created_by` 为 null）不进索引。
+
+加部分唯一索引 `uq_competitor_shots_uploader_capture (created_by, competitor_id, captured_at) where created_by is not null`：重试幂等的数据库兜底。服务先按这三列查重，并发双击时后到的一方撞上该索引（23505）后认领先到的那一行，保证同一上传人、同一竞品、同一读数时刻只留一张截图；部分索引让历史行与自动巡检行不受约束。
 
 ### 7.2 新表 `competitor_viewer_readings`
 
@@ -175,11 +177,13 @@ multipart 字段：
 | `source` | text not null，check in (`current`, `sidebar`) | 读数口径：`current` = 当前房间（截图口径），`sidebar` = Following 侧栏横截面 |
 | `viewer_source` | text null | `source = current` 时记三档来源 `room` / `anchored` / `sole` |
 | `shot_id` | uuid null，references `competitor_shots(id)` on delete set null | 触发这次读数的截图 |
-| `created_by` | uuid null，references `auth.users(id)` on delete set null | |
+| `created_by` | uuid null，references `users(id)`（public.users）on delete set null | 同 7.1 |
 | `created_at` | timestamptz not null default now() | |
 
 - `unique(competitor_id, captured_at, source)`：同一时刻同一口径不重复。
-- 索引 `(competitor_id, captured_at)`：按竞品查人数历史。
+- 按竞品查人数历史走上面唯一约束 `(competitor_id, captured_at, source)` 的前缀，不另建索引。
+- 部分索引 `(shot_id) where shot_id is not null`：删截图时外键要把 `shot_id` 置空，没有该索引就是整表扫描。
+- 两条 check 约束：`source in ('current', 'sidebar')`；`viewer_source` 为 null，或 `source = 'current'` 且取值为 `room` / `anchored` / `sole`（三档来源只对当前房间有意义，侧栏行一律为空）。
 - RLS 沿用仓库约定：`enable row level security` + `authenticated_only`（`for all to authenticated using (auth.uid() is not null)`）。
 
 迁移写完必须真正执行（agent-service 的 `SUPABASE_DB_URL` + `psql`），再跑 `npm run audit:rls` 核查。迁移文件只是意图，不代表数据库状态。
