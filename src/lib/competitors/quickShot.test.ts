@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import {
   bearerToken, buildReadings, indexByHandle, normalizeHandle, parseCoLive,
-  parseViewerSource, resolveCapturedAt, shotOnFor, type CompetitorRef,
+  parseViewerSource, parseViewerText, resolveCapturedAt, shotOnFor, type CompetitorRef,
 } from './quickShot.ts'
 
 test('bearerToken：只认 Bearer 方案', () => {
@@ -12,6 +12,7 @@ test('bearerToken：只认 Bearer 方案', () => {
   assert.equal(bearerToken('bearer abc'), 'abc')
   assert.equal(bearerToken('Basic abc'), null)
   assert.equal(bearerToken('Bearer'), null)
+  assert.equal(bearerToken('Bearer a b'), null, '令牌里不能夹空白')
   assert.equal(bearerToken(null), null)
 })
 
@@ -30,6 +31,15 @@ test('resolveCapturedAt：正常用客户端时刻；比服务器快 5 分钟以
   assert.equal(resolveCapturedAt('abc', server), server)
   assert.equal(resolveCapturedAt(null, server), server)
   assert.equal(resolveCapturedAt('0', server), server)
+})
+
+test('resolveCapturedAt：太久以前（秒/毫秒单位搞混、1970 年）也回落到服务器时间，只认 1 小时内', () => {
+  const server = 1_760_000_000_000
+  assert.equal(resolveCapturedAt(String(Math.floor(server / 1000)), server), server, '客户端传了秒而不是毫秒')
+  assert.equal(resolveCapturedAt('1', server), server)
+  assert.equal(resolveCapturedAt('0.4', server), server, '四舍五入后为 0')
+  assert.equal(resolveCapturedAt(String(server - 2 * 60 * 60_000), server), server, '2 小时前')
+  assert.equal(resolveCapturedAt(String(server - 59 * 60_000), server), server - 59 * 60_000, '59 分钟前仍是真实读数时刻')
 })
 
 test('shotOnFor：按日本时间算日期，UTC 15:00 之后就是日本的第二天', () => {
@@ -62,6 +72,34 @@ test('parseCoLive：容错解析，handle 规范化，空人数记 null，坏数
   assert.deepEqual(parseCoLive(null), [])
 })
 
+test('parseViewerText：去空白，空串、超长（>16 字符）、非字符串都给 null', () => {
+  assert.equal(parseViewerText(' 99 '), '99')
+  assert.equal(parseViewerText(''), null)
+  assert.equal(parseViewerText('   '), null)
+  assert.equal(parseViewerText('1'.repeat(16)), '1'.repeat(16))
+  assert.equal(parseViewerText('1'.repeat(17)), null)
+  assert.equal(parseViewerText(99), null)
+  assert.equal(parseViewerText(null), null)
+})
+
+test('parseCoLive：整串超过 16KB 直接丢弃，连 JSON.parse 都不做', () => {
+  const huge = JSON.stringify([{ handle: 'a', viewer: '1' }]) + ' '.repeat(16 * 1024)
+  assert.ok(huge.length > 16 * 1024)
+  assert.deepEqual(parseCoLive(huge), [])
+})
+
+test('parseCoLive：handle 超过 64 字符的条目丢弃；人数去空白、超长记 null（条目保留）', () => {
+  const raw = JSON.stringify([
+    { handle: 'a'.repeat(65), viewer: '1' },
+    { handle: 'a'.repeat(64), viewer: ' 103 ' },
+    { handle: 'long.viewer', viewer: '1'.repeat(17) },
+  ])
+  assert.deepEqual(parseCoLive(raw), [
+    { handle: 'a'.repeat(64), viewer: '103' },
+    { handle: 'long.viewer', viewer: null },
+  ])
+})
+
 test('parseCoLive：最多收 50 条，防止异常请求灌库', () => {
   const many = JSON.stringify(Array.from({ length: 80 }, (_, i) => ({ handle: `h${i}`, viewer: '1' })))
   assert.equal(parseCoLive(many).length, 50)
@@ -76,6 +114,15 @@ test('indexByHandle：按规范化 handle 建索引', () => {
   const m = indexByHandle(LIB)
   assert.equal(m.get('uni.chuuu')?.id, 'c-uni')
   assert.equal(m.get('1mb.dear')?.id, 'c-dear')
+})
+
+test('indexByHandle：规范化后撞车时先到的赢', () => {
+  const m = indexByHandle([
+    { id: 'first', handle: 'Foo', display_name: null },
+    { id: 'second', handle: 'foo', display_name: null },
+  ])
+  assert.equal(m.size, 1)
+  assert.equal(m.get('foo')?.id, 'first')
 })
 
 test('buildReadings：当前房间一行 current + 在库的侧栏条目各一行 sidebar，不在库的丢掉', () => {

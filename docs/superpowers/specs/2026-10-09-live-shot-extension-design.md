@@ -140,7 +140,7 @@ multipart 字段：
 1. 校验令牌，拿到 `user.id`。
 2. `handle` 转小写后精确匹配 `competitors.handle`，未命中返回 404 `not_in_library`，**什么都不写**。
 3. `uploadImage('competitor-shots', file)` 传桶（复用现有函数，含类型与大小校验）。
-4. 写 `competitor_shots`：`tag = 'live_manual'`，`viewer_count = parseCount(viewer_text)`，`captured_at`，`created_by = user.id`，`shot_on` 由服务器按 `isoDateInTimeZone(captured_at, 'Asia/Tokyo')` 计算，客户端不传日期字符串；`captured_at` 若晚于服务器当前时间超过 5 分钟（本机时钟异常），改用服务器时间。
+4. 写 `competitor_shots`：`tag = 'live_manual'`，`viewer_count = parseCount(viewer_text)`，`captured_at`，`created_by = user.id`，`shot_on` 由服务器按 `isoDateInTimeZone(captured_at, 'Asia/Tokyo')` 计算，客户端不传日期字符串；`captured_at` 若晚于服务器当前时间超过 5 分钟、或早于 1 小时以上（本机时钟或时间单位异常），改用服务器时间；人数原文超过 16 个字符视为异常、按未读到处理。
 5. 写 `competitor_viewer_readings`：
    - 当前房间一行：`source = 'current'`（即截图口径；三档来源 `room` / `anchored` / `sole` 原样记进 `viewer_source`），关联本张截图。
    - `co_live` 中能精确匹配竞品库的每条各一行：`source = 'sidebar'`。当前房间若也在 Following 里，会再有一行 `sidebar`，两种口径并存：横向比较各房间时统一用 `sidebar`。
