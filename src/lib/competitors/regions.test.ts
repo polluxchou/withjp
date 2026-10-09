@@ -69,6 +69,11 @@ test('分桶:按账号数从多到少,同数按代码字母序,未填垫底', ()
     { key: 'TW', count: 2 }, { key: 'CN', count: 1 }, { key: REGION_UNSET, count: 3 },
   ], '空串、空白、null、undefined 都算未填,且大小写归一后再计数')
   assert.deepEqual(regionBuckets([]), [])
+  assert.deepEqual(
+    regionBuckets(['TW', 'KR', 'CN']).map((b) => b.key),
+    ['CN', 'KR', 'TW'],
+    '同数时按代码字母序,不受账号在清单里的先后影响——否则加一个号按钮就可能换位',
+  )
 })
 
 test('筛选:空串=全部;未填桶只收空地区;其余按代码比对且大小写容错', () => {
