@@ -631,6 +631,55 @@ test('同期横截面：有名字没人数的条目也要留，记成 viewer:nul
   ])
 })
 
+// ---- 只读 Following 频道 ----------------------------------------------------
+// 2026-10-09 实测：侧栏每个区块是一个 live-side-nav-channel；已登录时第一个是
+// Following、第二个是 Suggested。扩展只要 Following，Suggested 不能混进来。
+
+const CHANNEL = '[data-e2e="live-side-nav-channel"]'
+function channel(items: FakeEl[]): FakeEl {
+  return { textContent: '', querySelectorAll: (s) => (s === '[data-e2e="live-side-nav-item"]' ? items : []) }
+}
+function coLiveWith(channels: FakeEl[], over: Record<string, unknown>) {
+  const all: Record<string, FakeEl[]> = {
+    [CHANNEL]: channels,
+    '[data-e2e="live-side-nav-item"]': channels.flatMap((c) => c.querySelectorAll!('[data-e2e="live-side-nav-item"]')),
+  }
+  const doc = makeDoc({ '.chat': el('') }, all, '/@a/live')
+  const win = makeWin()
+  factory(win, doc, cfg({ ...VIEWER_CFG, ...over }))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  return lw.drain()[0].co_live
+}
+
+test('同期横截面：设了 sidebarChannel 且有两个频道 → 只取第一个（Following）', () => {
+  const following = channel([navItem('a', '99'), navItem('b', '64')])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.deepEqual(coLiveWith([following, suggested], { sidebarChannel: [CHANNEL] }), [
+    { handle: 'a', viewer: '99' },
+    { handle: 'b', viewer: '64' },
+  ])
+})
+
+test('同期横截面：设了 sidebarChannel 但只有一个频道 → null，不拿 Suggested 顶替', () => {
+  // 游客态、或关注的人都没在播时只剩 Suggested 一个频道
+  const suggested = channel([navItem('stranger', '692')])
+  assert.equal(coLiveWith([suggested], { sidebarChannel: [CHANNEL] }), null)
+})
+
+test('同期横截面：不设 sidebarChannel 时照旧整页读（分钟级采集器行为不变）', () => {
+  const following = channel([navItem('a', '99')])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.deepEqual(coLiveWith([following, suggested], {}), [
+    { handle: 'a', viewer: '99' },
+    { handle: 'stranger', viewer: '692' },
+  ])
+})
+
+test('defaultProbeConfig 不带 sidebarChannel —— 采集器的 cfgKey 不能因此变化', () => {
+  assert.equal('sidebarChannel' in defaultProbeConfig(), false)
+})
+
 // ---- subtree 模式下只数真弹幕 --------------------------------------------
 // 实测背景：每条 chat-message 各自套一层 div，不是同一个列表下的兄弟节点，
 // 所以 observer 必须开 subtree；而开了之后 addedNodes 里混着礼物动画、进场提示。
