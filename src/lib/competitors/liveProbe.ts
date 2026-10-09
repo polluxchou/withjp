@@ -25,6 +25,11 @@ export type ProbeConfig = {
   speaker: string[]
   /** 弹幕容器是否需要监听子树（容器频繁重建时打开） */
   chatSubtree: boolean
+  /**
+   * 侧栏频道容器的候选选择器。设了 = 同期横截面只读第一个频道（已登录时即 Following），
+   * 且页面上频道数不足 2 时报 null（只剩 Suggested）。不设 = 整页读（分钟级采集器现状）。
+   */
+  sidebarChannel?: string[]
 }
 
 /**
@@ -158,11 +163,27 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
    * 只记 handle 与人数原文，不做解析也不做过滤（谁在竞品库里是入库时的事，
    * 这里多记几个非竞品账号的成本是零，漏记了却补不回来）。
    */
+  /**
+   * 侧栏从哪儿读。不设 sidebarChannel = 整页（分钟级采集器，一条不漏）。
+   * 设了 = 只读 Following：侧栏每个区块是一个频道容器，已登录时第一个是 Following、
+   * 后面是 Suggested；游客态或关注的人都没在播时只剩 Suggested 一个。
+   * 所以频道数不足 2 就是「没有 Following 区」，报 null，绝不拿 Suggested 顶替。
+   */
+  function sidebarRoot() {
+    if (!cfg.sidebarChannel || !cfg.sidebarChannel.length) return doc
+    for (var k = 0; k < cfg.sidebarChannel.length; k++) {
+      var chans = doc.querySelectorAll(cfg.sidebarChannel[k]) || []
+      if (chans.length) return chans.length >= 2 ? chans[0] : null
+    }
+    return null
+  }
   function sidebarReading() {
     if (!doc.querySelectorAll) return null
+    var root = sidebarRoot()
+    if (!root || !root.querySelectorAll) return null
     var out = []
     for (var a = 0; a < cfg.viewerItem.length && !out.length; a++) {
-      var items = doc.querySelectorAll(cfg.viewerItem[a]) || []
+      var items = root.querySelectorAll(cfg.viewerItem[a]) || []
       for (var i = 0; i < items.length; i++) {
         var nm = null
         for (var b = 0; b < cfg.viewerName.length && !nm; b++) {
