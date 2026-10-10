@@ -5,6 +5,7 @@ import type { LiveSpan } from './liveSessions.ts'
 import type { CompetitorWithHistory } from './types.ts'
 import {
   OUR_SCHEDULE_JST,
+  accountSpans,
   ROOM_END_LABEL_GAP,
   barBox,
   barClock,
@@ -139,7 +140,7 @@ test('flattenAccounts: 递归展开 related，子账号公司回落到父账号�
   assert.deepEqual(out.map((a) => a.company), ['Guild A', 'Guild A', 'Guild A', 'Guild B', null])
   assert.equal(out[1].region, 'MY')
   assert.equal(out[2].region, null)
-  // 场次来自 liveSpansOf：导入 + 截图
+  // 场次来自 accountSpans（liveSpansOf 喂导入 + 截图）
   assert.equal(out[0].spans.length, 1)
   assert.equal(out[0].spans[0].source, 'history')
   assert.equal(out[1].spans.length, 1)
@@ -147,6 +148,26 @@ test('flattenAccounts: 递归展开 related，子账号公司回落到父账号�
   // 没有任何场次的号保留，视图自己过滤
   assert.deepEqual(out[2].spans, [])
   assert.deepEqual(out[4].spans, [])
+})
+
+test('accountSpans: 导入 + 截图推断合并（同一场以导入为准），flattenAccounts 的 spans 就是它', () => {
+  const c = comp({
+    id: 'a',
+    handle: 'sample.a',
+    live_sessions: [{ started_at: j('2026-09-01', '12:00'), ended_at: j('2026-09-01', '14:00'), likes: 5, title: 'T' } as CompetitorWithHistory['live_sessions'][number]],
+    shots: [
+      // 落在导入场次里：同一场，丢掉截图那条
+      { stream_started_at: j('2026-09-01', '12:03'), captured_at: j('2026-09-01', '12:30') },
+      // 单独一场：只有截图
+      { stream_started_at: j('2026-09-02', '20:00'), captured_at: j('2026-09-02', '21:00') },
+    ] as CompetitorWithHistory['shots'],
+  })
+  const spans = accountSpans(c)
+  assert.deepEqual(spans.map((x) => x.source), ['shot', 'history'])
+  assert.equal(spans[0].startedAt, j('2026-09-02', '20:00'))
+  assert.equal(spans[1].likes, 5)
+  // 摊平后的账号用的就是这一份：「开播场次喂哪批截图」只在 accountSpans 一处定
+  assert.deepEqual(flattenAccounts([c], {})[0].spans, spans)
 })
 
 test('flattenAccounts: 子账号自己登记了公司就用自己的', () => {

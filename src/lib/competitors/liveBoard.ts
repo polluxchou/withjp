@@ -48,6 +48,17 @@ export interface LiveAccount {
 }
 
 /**
+ * 一个号在开播时段页上的全部场次（导入的 LIVE History + 截图推断，合并去重，降序）。
+ * 开播场次喂哪批截图只在这里定：现在读 c.shots（看板上该号的全部截图）。
+ * 相册改成窗口加载（c.shots 只剩近 10 个截图日左右）后，这里改成 shots: c.sessionShots——
+ * 它是每场一条（开播时刻 + 最后一张截图时刻）的全量，不随相册窗口缩水；开播时段页的场次都经过这里，页面代码别再直接拿 c.shots 算场次。
+ * 配对的另一处是 liveCoverage.patrolDaysOfBoard（巡检日的来源）。
+ */
+export function accountSpans(c: CompetitorWithHistory): LiveSpan[] {
+  return liveSpansOf({ live_sessions: c.live_sessions, shots: c.shots })
+}
+
+/**
  * 把看板的竞品树摊平成账号列表：先父后子、深度优先，递归展开 related。
  * - 没有任何场次的号也保留：这里只管摊平，月历里「只列有场次的号」由视图自己过滤。
  * - 子账号很少单独登记公司，查不到时沿用父账号的（逐层继承）；自己登记了就用自己的。
@@ -67,7 +78,7 @@ export function flattenAccounts(
         name: c.latest?.display_name ?? c.display_name ?? c.handle,
         region: c.region,
         company,
-        spans: liveSpansOf(c),
+        spans: accountSpans(c),
       })
       walk(c.related, company)
     }

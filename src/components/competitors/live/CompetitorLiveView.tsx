@@ -83,8 +83,8 @@ export default function CompetitorLiveView({
   }, [])
 
   const accounts = useMemo(() => flattenAccounts(board.competitors, companyOf), [board.competitors, companyOf])
-  // 巡检日 = 全库（含子主播）任意截图的 shot_on，与竞品看板同一个来源；判断「无数据」用，口径见 liveCoverage.ts。
-  const patrolDays = useMemo(() => patrolDaysOfBoard(board.competitors), [board.competitors])
+  // 巡检日 = 全库（含子主播）任意截图的 shot_on，与竞品看板同一份口径；判断「无数据」用，口径见 liveCoverage.ts。
+  const patrolDays = useMemo(() => patrolDaysOfBoard(board), [board])
 
   // 重新取一遍看板，失败就抛：弹窗导入后要据此提示「数据可能不是最新」（同 CompetitorDossierView.loadBoard）。
   const loadBoard = useCallback(async () => {

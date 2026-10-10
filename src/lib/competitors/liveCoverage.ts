@@ -25,11 +25,20 @@ export interface PatrolBoardNode {
   related?: readonly PatrolBoardNode[] | null
 }
 
+/** patrolDaysOfBoard 吃的看板：整个 CompetitorBoard 结构上满足它。 */
+export interface PatrolBoard {
+  competitors: readonly PatrolBoardNode[]
+}
+
 /**
- * 整个看板的巡检日：所有号（递归 related，子主播的截图也算巡检跑过）截图的 shot_on。
- * 竞品看板与开播时段页都从这里取，巡检日的来源要改（比如换成巡检日志表）只改这一处。
+ * 开播时段页的巡检日：整个看板（递归 related，子主播的截图也算巡检跑过）所有截图的 shot_on。
+ * 巡检日取自哪里只在这里定，开播时段页（CompetitorLiveView）只调它：
+ * 现在遍历 competitors 的全部截图；相册改成窗口加载（c.shots 只剩近 10 个截图日左右）后，
+ * 改读 board.shotAxis（全库有图日期，剔掉 UNDATED_KEY），入参已经是整个看板，调用处不用动。
+ * 配对的另一处是 liveBoard.accountSpans（场次的来源）。
+ * 竞品看板（CompetitorDossierView）不走这里：它手里本来就有日期轴，自己从 shotAxis 推。
  */
-export function patrolDaysOfBoard(competitors: readonly PatrolBoardNode[]): Set<string> {
+export function patrolDaysOfBoard(board: PatrolBoard): Set<string> {
   const dates: (string | null)[] = []
   const walk = (list: readonly PatrolBoardNode[]) => {
     for (const c of list) {
@@ -37,7 +46,7 @@ export function patrolDaysOfBoard(competitors: readonly PatrolBoardNode[]): Set<
       if (c.related?.length) walk(c.related)
     }
   }
-  walk(competitors)
+  walk(board.competitors)
   return patrolDaysOf(dates)
 }
 

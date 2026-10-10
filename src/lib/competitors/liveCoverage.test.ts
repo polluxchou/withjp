@@ -23,8 +23,8 @@ test('patrolDaysOfBoard: 全看板（递归 related）截图的 shot_on，去重
     { shots: [shot('')], related: [{ shots: [], related: [{ shots: [shot('2026-09-09')] }] }] },
     { shots: null },
   ]
-  assert.deepEqual(Array.from(patrolDaysOfBoard(board)).sort(), ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-09'])
-  assert.equal(patrolDaysOfBoard([]).size, 0)
+  assert.deepEqual(Array.from(patrolDaysOfBoard({ competitors: board })).sort(), ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-09'])
+  assert.equal(patrolDaysOfBoard({ competitors: [] }).size, 0)
 })
 
 test('coverageOf: 导入场次的首末日期之间（两端都含）算有数据，哪怕当天没播', () => {
