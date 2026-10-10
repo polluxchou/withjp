@@ -250,7 +250,7 @@ export function followersOf(history: HistoryPoint[]): AskFollowers {
  * 两处才不会各算各的——这个数据包整份交给模型，一处说「播过 3 场」、另一处说「0 场有开播时刻」
  * 是模型没法调和的矛盾。
  */
-function startsUpTo(c: CompetitorWithHistory, nowMs: number): string[] {
+function startsUpTo(c: CompetitorWithHistory<AskShot>, nowMs: number): string[] {
   return liveStartsOf(c).filter((iso) => Date.parse(iso) <= nowMs)
 }
 

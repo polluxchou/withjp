@@ -38,9 +38,9 @@
 每一层都继续走 `fetchAllRows` 分页，单段截图将来也可能超过 1000 行。
 
 1. **基础表**：竞品、快照、风格描述，跟现在一样整表取。
-2. **截图索引（瘦查询）**：`competitor_shots` 只取 `competitor_id, shot_on, stream_started_at` 三列，全量。交给纯函数 `buildShotIndex` 算出：
+2. **截图索引（瘦查询）**：`competitor_shots` 只取 `competitor_id, shot_on, stream_started_at, captured_at` 四列，全量。交给纯函数 `buildShotIndex` 算出：
    - `shotAxis`：有图日期升序去重；存在无日期截图时，末尾追加 `UNDATED_KEY`。规则与现在的 `collectShotDates` 一致。
-   - 每个账号的 `sessionStarts`：全部历史中非空 `stream_started_at` 去重。
+   - 每个账号的 `sessionShots`：全部历史的截图场次，每场一行——开播时刻 + 该场最晚的截图时刻（`SessionShot`）。聚合规则与 `liveSessions.ts` 里 `liveSpansOf` 对截图的分组完全一致（按开播时刻的毫秒值分组，读不出的跳过；截图时刻缺失或读不出时按开播时刻算，取最大），所以直接喂 `liveSpansOf` 的 `shots` 入参，结果与喂全部截图相同。
 3. **截图本体（窗口）**：`select('*')`，条件为 `shot_on >= loadedFrom` **或** `shot_on is null`。
    - 默认 `loadedFrom` 由纯函数 `initialLoadedFrom(axis)` 算出：轴上（不含 `UNDATED_KEY`）倒数第 `SHOT_CHUNK_DAYS` 个日期。
    - 有日期的天数不超过 `SHOT_CHUNK_DAYS` 时返回 `null`，表示全取。
@@ -55,14 +55,14 @@
 
 - `CompetitorWithHistory<S = CompetitorShot>` 和 `CompetitorBoard<S = CompetitorShot>` 加上截图类型参数。默认值保证现有调用不用改。
 - `CompetitorWithHistory.shots: S[]`：语义改为「**已加载范围内**的截图」，注释写明。
-- 新增 `CompetitorWithHistory.sessionStarts: string[]`：全量开播时刻，供开播时段和地区标尺使用。
+- 新增 `CompetitorWithHistory.sessionShots: SessionShot[]`：全量截图场次，供常见开播、近 30 天、开播记录弹窗、地区标尺使用（与导入的 `live_sessions` 合并去重）。
 - 新增 `CompetitorBoard.shotAxis: string[]`：完整日期轴。
 - 新增 `CompetitorBoard.shotsLoadedFrom: string | null`。约定如下：
   - **已加载** = 所有 `shot_on >= shotsLoadedFrom` 的截图 + 全部无日期截图；
   - `null` 表示全部已加载；
   - 已加载范围**总是包含最新一天**。
 
-`assembleBoard` 改成对截图类型泛型，另外接收一个可选参数 `meta`（`shotAxis`、`sessionStartsBy`、`shotsLoadedFrom`），原样挂到结果上。不传 `meta` 时，视为传入的截图就是全部截图：日期轴和开播时刻都从截图本身算，`shotsLoadedFrom = null`。截图排序的比较函数抽成 `compareShotsForBoard`，从 `shotGrid.ts` 导出，供合并时共用。放在 `shotGrid.ts` 而不是 `assemble.ts`，是为了避免 `assemble` 和 `shotWindow` 互相引用。
+`assembleBoard` 改成对截图类型泛型，另外接收一个可选参数 `meta`（`shotAxis`、`sessionShotsBy`、`shotsLoadedFrom`），原样挂到结果上。不传 `meta` 时，视为传入的截图就是全部截图：日期轴和截图场次都从截图本身算，`shotsLoadedFrom = null`。截图排序的比较函数抽成 `compareShotsForBoard`，从 `shotGrid.ts` 导出，供合并时共用。放在 `shotGrid.ts` 而不是 `assemble.ts`，是为了避免 `assemble` 和 `shotWindow` 互相引用。
 
 ### 3.3 接口
 
@@ -76,7 +76,8 @@
 ### 3.4 问答面板（`getAskBoard`）
 
 - 新增 `getAskBoard()`：基础表照常取；截图只查 `competitor_id, shot_on, sort_order, stream_started_at, viewer_count, captured_at` 这几列，取**全部历史**。
-- 由同一份行数据算出 `shotAxis` 和 `sessionStarts`，`shotsLoadedFrom = null`，表示全部已加载，这一点在语义上也成立。
+- 由同一份行数据算出 `shotAxis` 和 `sessionShots`，`shotsLoadedFrom = null`，表示全部已加载，这一点在语义上也成立。
+- 开播记录（`competitor_live_sessions`）也全量拉取，作为 `assembleBoard` 的第 6 个实参：问答的开播时段与卡片同一口径，由导入场次与截图推断合并去重。
 - 类型为 `CompetitorBoard<AskShot>`，其中 `AskShot = Pick<CompetitorShot, 上述列>`。
 - `ask-context.ts` 的入参放宽为 `CompetitorBoard<AskShot>`，计算逻辑一行不改。完整的 `CompetitorBoard` 在结构上满足这个类型，所以现有测试照样能跑。
 - `ask-service.ts` 的依赖注入口改为 `board?: typeof getAskBoard`。
@@ -150,15 +151,16 @@
 
 | 位置 | 现在的数据源 | 改为 | 结果 |
 | --- | --- | --- | --- |
-| 卡片「常见开播时段」「最近 8 场」 | `c.shots.map(s => s.stream_started_at)`（全量） | `c.sessionStarts`（全量、已去重） | 不变：`summarizeLiveHabit` 和 `recentSessionStarts` 内部本来就去重 |
-| 地区标尺 | `RulerInput.shots[].stream_started_at`，在近 14 天内过滤 | `RulerInput.sessionStarts`，窗口过滤原样保留 | 不变 |
+| 卡片「常见开播时段」「最近 8 场」「近 30 天」、档案摘要 | `liveSpansOf(c)`（读 `c.shots`，全量） | `liveSpansOf({ live_sessions: c.live_sessions, shots: c.sessionShots })` | 不变：`sessionShots` 与全部截图喂给 `liveSpansOf` 结果相同 |
+| 开播记录弹窗 | `liveSpansOf(competitor)` | 同上，读 `competitor.sessionShots` | 不变 |
+| 地区标尺 | `liveStartsOf({ live_sessions, shots })`，在近 14 天内过滤 | `RulerInput.sessionShots` 代替 `shots`，窗口过滤原样保留 | 不变 |
 | 问答面板 | `getCompetitorBoard`（全量 `*`） | `getAskBoard`（全量、只取需要的列） | 不变 |
 | 统计条最近采集日 | 已加载截图 | 不改（见 4.7） | 不变 |
 | 导航条「待补」 | `missesShotOn(c.shots, selectedDate)` | 先判断 `isShotDateLoaded` | 已加载的日期不变，未加载的日期不标 |
 
 上线前，用生产数据做一次**新旧口径对拍**（只读，一次性脚本，不进仓库）：
 
-- 对每个账号，分别用全量截图和 `sessionStarts` 计算开播时段与地区标尺，两边结果逐字节相同；
+- 对每个账号，分别用全量截图和 `sessionShots` 计算开播时段与地区标尺，两边结果逐字节相同（聚合层面的等价已由 `shotWindow.test.ts` 的对拍用例钉住）；
 - `buildAskContext` 分别吃旧看板和 `getAskBoard`，生成的数据包 JSON 逐字节相同。
 
 ## 6. 标签与封面
@@ -195,8 +197,9 @@
 - `shotWindow.ts`：`buildShotIndex`（含无日期截图、重复开播时刻、空表）、`initialLoadedFrom`、`nextChunk`（缓冲刚好一屏 / 不足一屏、跳很远、`loadedFrom` 不在轴上、已加载到轴首、`null`）、`isShotDateLoaded`、`mergeShotRange`（子主播、幂等、过期结果丢弃、推进到轴首置 `null`、孤儿行）、`parseShotRangeQuery`。
 - `shotTag.ts`：三类返回值、空白、大小写不同时不当作已知值。
 - `shotGrid.ts`：新的组内排序（`captured_at` 优先、`created_at` 兜底、小数秒位数不同、`sort_order` 优先）、`coverOf`。
-- `assemble.ts`：`sessionStarts` / `shotAxis` / `shotsLoadedFrom` 原样挂到结果上，比较函数抽出来后排序不变。
-- `regionRuler.ts`：改用 `sessionStarts` 后，现有用例全部迁移且继续通过。
+- `assemble.ts`：`sessionShots` / `shotAxis` / `shotsLoadedFrom` 原样挂到结果上，比较函数抽出来后排序不变。
+- `regionRuler.ts`：改用 `sessionShots` 后，现有用例全部迁移且继续通过。
+- `buildShotIndex` ↔ `liveSpansOf` 等价性对拍：同场多张、截图时刻为 null / 早于开播 / 读不出、同一时刻不同写法、读不出的开播、与导入场次重叠与不重叠、跨账号同一秒开播，两种喂法的结果 deepEqual。
 - `ask-context`、`ask-prompt`、`ask-service`：测试夹具补上新字段，原断言全部不改。
 
 **源码断言（守接线，仿照 `board-pagination.test.ts`）**：

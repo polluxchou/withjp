@@ -7,10 +7,20 @@ import {
   SHOT_CHUNK_DAYS, boardRefreshPath, buildShotIndex, initialLoadedFrom, isShotDateLoaded, loadedRangeOrFilter,
   mergeShotRange, nextChunk, parseShotRangeQuery, parseSinceQuery, refreshSince, resolveLoadedFrom, shotRangePath,
 } from './shotWindow.ts'
-import type { CompetitorBoard, CompetitorShot, CompetitorWithHistory } from './types.ts'
+import type { ShotIndexRow } from './shotWindow.ts'
+import { liveSpansOf } from './liveSessions.ts'
+import type { CompetitorBoard, CompetitorLiveSession, CompetitorShot, CompetitorWithHistory } from './types.ts'
 
-const row = (competitor_id: string, shot_on: string | null, stream_started_at: string | null = null) =>
-  ({ competitor_id, shot_on, stream_started_at })
+const row = (
+  competitor_id: string,
+  shot_on: string | null,
+  stream_started_at: string | null = null,
+  captured_at: string | null = null,
+): ShotIndexRow => ({ competitor_id, shot_on, stream_started_at, captured_at })
+
+/** 只有开播时刻、没有截图时刻的一场：captured_at 按开播时刻算，输出 toISOString 写法。 */
+const bare = (stream_started_at: string) =>
+  ({ stream_started_at, captured_at: new Date(stream_started_at).toISOString() })
 
 test('buildShotIndex: 日期轴跨账号去重并升序', () => {
   const { shotAxis } = buildShotIndex([
@@ -27,10 +37,10 @@ test('buildShotIndex: 有无日期截图时轴尾追加 UNDATED_KEY', () => {
 test('buildShotIndex: 空表', () => {
   const idx = buildShotIndex([])
   assert.deepEqual(idx.shotAxis, [])
-  assert.equal(idx.sessionStartsBy.size, 0)
+  assert.equal(idx.sessionShotsBy.size, 0)
 })
 
-test('buildShotIndex: 开播时刻按账号去重、忽略空值、升序', () => {
+test('buildShotIndex: 场次按账号去重、忽略空值、升序', () => {
   const idx = buildShotIndex([
     row('a', '2026-08-05', '2026-08-05T05:00:00+00:00'),
     row('a', '2026-08-05', '2026-08-05T05:00:00+00:00'), // 同一场的第二张截图
@@ -38,12 +48,12 @@ test('buildShotIndex: 开播时刻按账号去重、忽略空值、升序', () =
     row('a', '2026-08-04', null),
     row('b', '2026-08-05', '2026-08-05T05:00:00+00:00'), // 另一个号凑巧同一秒开播，不能被并掉
   ])
-  assert.deepEqual(idx.sessionStartsBy.get('a'), ['2026-08-03T04:30:00+00:00', '2026-08-05T05:00:00+00:00'])
-  assert.deepEqual(idx.sessionStartsBy.get('b'), ['2026-08-05T05:00:00+00:00'])
+  assert.deepEqual(idx.sessionShotsBy.get('a'), [bare('2026-08-03T04:30:00+00:00'), bare('2026-08-05T05:00:00+00:00')])
+  assert.deepEqual(idx.sessionShotsBy.get('b'), [bare('2026-08-05T05:00:00+00:00')])
 })
 
-test('buildShotIndex: 只有无开播时刻截图的账号不进 sessionStartsBy', () => {
-  assert.equal(buildShotIndex([row('a', '2026-08-05')]).sessionStartsBy.has('a'), false)
+test('buildShotIndex: 只有无开播时刻截图的账号不进 sessionShotsBy', () => {
+  assert.equal(buildShotIndex([row('a', '2026-08-05')]).sessionShotsBy.has('a'), false)
 })
 
 test('buildShotIndex: 无日期截图的开播时刻照样记入该账号，日期轴仍追加 UNDATED_KEY', () => {
@@ -51,12 +61,98 @@ test('buildShotIndex: 无日期截图的开播时刻照样记入该账号，日�
     row('a', null, '2026-08-02T05:00:00+00:00'),
     row('a', '2026-08-05', '2026-08-05T05:00:00+00:00'),
   ])
-  assert.deepEqual(idx.sessionStartsBy.get('a'), ['2026-08-02T05:00:00+00:00', '2026-08-05T05:00:00+00:00'])
+  assert.deepEqual(idx.sessionShotsBy.get('a'), [bare('2026-08-02T05:00:00+00:00'), bare('2026-08-05T05:00:00+00:00')])
   assert.deepEqual(idx.shotAxis, ['2026-08-05', UNDATED_KEY])
   // 只有无日期截图的账号同样不能丢开播时刻
   const only = buildShotIndex([row('b', null, '2026-08-03T04:00:00+00:00')])
-  assert.deepEqual(only.sessionStartsBy.get('b'), ['2026-08-03T04:00:00+00:00'])
+  assert.deepEqual(only.sessionShotsBy.get('b'), [bare('2026-08-03T04:00:00+00:00')])
   assert.deepEqual(only.shotAxis, [UNDATED_KEY])
+})
+
+test('buildShotIndex: 同一场取最晚的截图时刻；早于开播或读不出的截图时刻按开播算', () => {
+  const idx = buildShotIndex([
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:30:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T06:10:00+00:00'), // 最晚的不是第一张
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:45:00+00:00'),
+    row('a', '2026-08-06', '2026-08-06T10:00:00+00:00', '2026-08-06T09:00:00+00:00'), // 早于开播（脏数据）
+    row('a', '2026-08-07', '2026-08-07T10:00:00+00:00', 'garbage'),
+  ])
+  assert.deepEqual(idx.sessionShotsBy.get('a'), [
+    { stream_started_at: '2026-08-05T05:00:00+00:00', captured_at: '2026-08-05T06:10:00.000Z' },
+    { stream_started_at: '2026-08-06T10:00:00+00:00', captured_at: '2026-08-06T10:00:00.000Z' },
+    { stream_started_at: '2026-08-07T10:00:00+00:00', captured_at: '2026-08-07T10:00:00.000Z' },
+  ])
+})
+
+test('buildShotIndex: 同一时刻的不同写法算一场（留第一条的原始写法），按时刻而不是字符串排序', () => {
+  const idx = buildShotIndex([
+    row('a', '2026-08-05', '2026-08-05T14:00:00+09:00', '2026-08-05T05:20:00Z'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00Z', '2026-08-05T05:40:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00.000+00:00', null),
+    // 字符串序在 08-05T14 之前，时刻上却晚：按字符串排会排反
+    row('a', '2026-08-05', '2026-08-05T06:00:00Z', null),
+    row('a', '2026-08-05', 'not-a-date', '2026-08-05T07:00:00Z'), // 读不出的开播跳过
+  ])
+  assert.deepEqual(idx.sessionShotsBy.get('a'), [
+    { stream_started_at: '2026-08-05T14:00:00+09:00', captured_at: '2026-08-05T05:40:00.000Z' },
+    { stream_started_at: '2026-08-05T06:00:00Z', captured_at: '2026-08-05T06:00:00.000Z' },
+  ])
+})
+
+// 整次「统计改喂全量场次索引」的护栏：把 buildShotIndex 聚合出的 sessionShots 喂给 liveSpansOf，
+// 结果必须与直接喂全部原始截图逐字节相同——聚合只是压缩，不能改变任何一场的起止、来源与去重。
+test('buildShotIndex 的场次喂 liveSpansOf，与喂全部原始截图结果完全相同', () => {
+  const raw: ShotIndexRow[] = [
+    // a：同一场三张，Z / +00:00 / 带毫秒混写，最晚的截图时刻在中间那张
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:30:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00Z', '2026-08-05T06:10:00Z'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00.000Z', null),
+    // a：截图时刻早于开播 / 读不出
+    row('a', '2026-08-06', '2026-08-06T10:00:00+00:00', '2026-08-06T09:00:00+00:00'),
+    row('a', '2026-08-06', '2026-08-06T12:00:00+00:00', 'garbage'),
+    // a：与导入场次 [03:06, 05:00] 重叠——区间内、下沿容差内各一场，都应被丢弃
+    row('a', '2026-08-07', '2026-08-07T03:06:30+00:00', '2026-08-07T04:00:00+00:00'),
+    row('a', '2026-08-07', '2026-08-07T02:58:00+00:00', '2026-08-07T03:10:00+00:00'),
+    // a：导入场次下播之后才开播——另一场，保留
+    row('a', '2026-08-07', '2026-08-07T05:01:00+00:00', '2026-08-07T05:40:00+00:00'),
+    row('a', '2026-08-07', '2026-08-07T05:01:00+00:00', '2026-08-07T06:20:00+00:00'),
+    // a：时区写法不同的同一时刻
+    row('a', '2026-08-08', '2026-08-08T14:00:00+09:00', '2026-08-08T05:15:00Z'),
+    row('a', '2026-08-08', '2026-08-08T05:00:00Z', '2026-08-08T05:50:00Z'),
+    // a：读不出的开播、没有开播时刻（人工上传）
+    row('a', '2026-08-08', 'not-a-date', '2026-08-08T07:00:00Z'),
+    row('a', '2026-08-09', null, null),
+    row('a', null, null, '2026-08-09T07:00:00Z'),
+    // b：与 a 同一秒开播——跨账号是两场
+    row('b', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:05:00+00:00'),
+    row('b', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:02:00+00:00'),
+    // b：与它自己的导入场次不重叠
+    row('b', '2026-08-10', '2026-08-10T12:00:00+00:00', '2026-08-10T13:00:00+00:00'),
+  ]
+  const live: Record<string, Pick<CompetitorLiveSession, 'started_at' | 'ended_at' | 'likes' | 'title'>[]> = {
+    a: [{ started_at: '2026-08-07T03:06:00+00:00', ended_at: '2026-08-07T05:00:00+00:00', likes: 10, title: 'x' }],
+    b: [{ started_at: '2026-08-09T03:00:00+00:00', ended_at: '2026-08-09T04:00:00+00:00', likes: null, title: '' }],
+    c: [{ started_at: '2026-08-09T03:00:00+00:00', ended_at: '2026-08-09T04:00:00+00:00', likes: 3, title: 'only' }],
+  }
+  const idx = buildShotIndex(raw)
+  for (const id of ['a', 'b', 'c']) {
+    const direct = liveSpansOf({ live_sessions: live[id], shots: raw.filter((r) => r.competitor_id === id) })
+    const viaIndex = liveSpansOf({ live_sessions: live[id], shots: idx.sessionShotsBy.get(id) ?? [] })
+    assert.deepEqual(viaIndex, direct, `账号 ${id}`)
+  }
+  // 不是空对空：a 的截图场次与导入场次都在，且重叠的两场确实被丢掉了
+  const a = liveSpansOf({ live_sessions: live.a, shots: idx.sessionShotsBy.get('a') ?? [] })
+  assert.deepEqual(a.map((s) => [s.source, s.startedAt, s.endedAt]), [
+    ['shot', '2026-08-08T05:00:00.000Z', '2026-08-08T05:50:00.000Z'],
+    ['shot', '2026-08-07T05:01:00.000Z', '2026-08-07T06:20:00.000Z'],
+    ['history', '2026-08-07T03:06:00.000Z', '2026-08-07T05:00:00.000Z'],
+    ['shot', '2026-08-06T12:00:00.000Z', '2026-08-06T12:00:00.000Z'],
+    ['shot', '2026-08-06T10:00:00.000Z', '2026-08-06T10:00:00.000Z'],
+    ['shot', '2026-08-05T05:00:00.000Z', '2026-08-05T06:10:00.000Z'],
+  ])
+  const b = liveSpansOf({ live_sessions: live.b, shots: idx.sessionShotsBy.get('b') ?? [] })
+  assert.equal(b.length, 3)
+  assert.equal(b.find((s) => s.startedAt === '2026-08-05T05:00:00.000Z')?.endedAt, '2026-08-05T05:05:00.000Z')
 })
 
 /** 2026-08-01 起连续 n 天的日期轴。 */
@@ -227,7 +323,7 @@ function node(id: string, shots: CompetitorShot[], related: CompetitorWithHistor
     id, platform: 'tiktok', handle: id, profile_url: '', display_name: null, note: '',
     created_at: '2026-08-01T00:00:00Z', parent_id: null, avatar_url: null, region: 'JP',
     member_count: null, composition: null, launch_city: null, launched_on: null, mc_note: null,
-    online_note: null, latest_videos: null, latest: null, history: [], shots, sessionStarts: [],
+    online_note: null, latest_videos: null, latest: null, history: [], shots, sessionShots: [],
     weekly: [], related, descriptions: [], live_sessions: [],
   }
 }

@@ -96,7 +96,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     latest: over.latest ?? (last ? snap({ captured_on: last.captured_on, followers: last.followers }) : null),
     history,
     shots: over.shots ?? [],
-    sessionStarts: over.sessionStarts ?? [],
+    sessionShots: over.sessionShots ?? [],
     weekly: [],
     related: over.related ?? [],
     descriptions: over.descriptions ?? [],

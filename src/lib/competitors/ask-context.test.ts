@@ -63,7 +63,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     latest: over.latest ?? latestFromHistory(history),
     history,
     shots: over.shots ?? [],
-    sessionStarts: over.sessionStarts ?? [],
+    sessionShots: over.sessionShots ?? [],
     weekly: over.weekly ?? [],
     related: over.related ?? [],
     descriptions: over.descriptions ?? [],
