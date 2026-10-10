@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import CompetitorDescriptions from './CompetitorDescriptions'
@@ -11,16 +11,16 @@ import ShotAlbum from './ShotAlbum'
 import RegionLiveRuler from './RegionLiveRuler'
 import LiveSessionsRow from './LiveSessionImport'
 import LiveSessionsModal from './live/LiveSessionsModal'
+import { useRegionZone } from './live/useRegionZone'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
 import { ANCHOR_GAP } from '@/lib/competitors/navScroll'
-import { liveSpansOf, regionTimeZone } from '@/lib/competitors/liveSessions'
+import { accountSpans } from '@/lib/competitors/liveBoard'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
 import { locateSpans, windowStats } from '@/lib/competitors/liveStats'
 import { coverageOf } from '@/lib/competitors/liveCoverage'
 import { checkProfileLanguage } from '@/lib/competitors/profileLanguage'
-import { REGION_CODES, normalizeRegion, regionOptions } from '@/lib/competitors/regions'
-import { timeZoneForLocale } from '@/lib/time/localeZone'
+import { REGION_CODES, regionOptions } from '@/lib/competitors/regions'
 import { addDaysYmd, formatDayTimeInZone, zonedYmd } from '@/lib/time/zonedTime'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
@@ -82,16 +82,13 @@ export default function CompetitorCard({
   const tCommon = useTranslations('common')
   // 开播档按账号所在地区的时区聚类：看的是对方当地的作息，且与界面语言无关（三地同事读到同一个数）；
   // "一天里的第几分钟"这个概念本身依赖时区。地区没填才回落到界面语言的时区。
-  const locale = useLocale()
-  const liveZone = regionTimeZone(c.region, timeZoneForLocale(locale))
   // 按地区时区显示的时刻都要说明是哪个时区；地区不在清单里（实际回落到界面语言时区）
-  // 没有对应的地区时区名可报，宁可不写也不写错。
-  const zoneCode = normalizeRegion(c.region)
-  const zoneLabel = zoneCode ? t(`zoneName.${zoneCode}`) : null
+  // 没有对应的地区时区名可报，zoneLabel 为 null，宁可不写也不写错。口径见 useRegionZone。
+  const { timeZone: liveZone, zoneLabel } = useRegionZone(c.region)
   const zoneNote = zoneLabel ? t('liveZoneNote', { zone: zoneLabel }) : undefined
   const withZone = (text: string) => (zoneLabel ? `${text}${t('liveZoneSuffix', { zone: zoneLabel })}` : text)
   // 场次 = 导入的开播记录 + 截图推断，合并去重（降序）。开播时刻、档案行摘要、弹窗都吃这一份。
-  const spans = useMemo(() => liveSpansOf(c), [c])
+  const spans = useMemo(() => accountSpans(c), [c])
   const starts = useMemo(() => spans.map((s) => s.startedAt), [spans])
   const habit = useMemo(() => summarizeLiveHabit(starts, liveZone), [starts, liveZone])
   const slotLabels = habit.slots.map((s) => s.label).join(' / ')

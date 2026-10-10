@@ -155,6 +155,31 @@ export async function getCompanyBoard(): Promise<ServiceResult<CompanyBoard>> {
   ))
 }
 
+/**
+ * 「开播时段」页按公会分组用：竞品 id → 所属公司名。
+ * 一个账号最多归一家公司（competitor_company_accounts.competitor_id 有唯一索引）；
+ * 没被认领的账号不在结果里，页面上落到「未归属公会」。子账号一般不单独登记，
+ * 由 flattenAccounts 沿用父账号的公司。两张表同样分页拉全，理由见 getCompetitorBoard。
+ */
+export async function getCompanyOfCompetitor(): Promise<ServiceResult<Record<string, string>>> {
+  const db = createServerClient()
+  const [linkRes, coRes] = await Promise.all([
+    fetchAllRows((from, to) => db.from('competitor_company_accounts').select('competitor_id, company_id')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_companies').select('id, name')
+      .order('id', { ascending: true }).range(from, to)),
+  ])
+  const firstErr = linkRes.error ?? coRes.error
+  if (firstErr) return err('db_error', firstErr.message || 'load failed')
+  const nameOf = new Map(((coRes.data ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
+  const out: Record<string, string> = {}
+  for (const link of (linkRes.data ?? []) as { competitor_id: string | null; company_id: string }[]) {
+    const name = nameOf.get(link.company_id)
+    if (link.competitor_id && name) out[link.competitor_id] = name
+  }
+  return ok(out)
+}
+
 /** 加入清单：入参 url 或 handle 二选一；已存在则返回其 id（确保存在，不覆盖）。 */
 export async function addCompetitor(
   _userId: string,

@@ -34,7 +34,7 @@
 2. **跨午夜的场次**（19:19 → 次日 00:24、23:23 → 00:06）：时段条要画到 24 点之后而不是绕回早上；归属日期按开播日。→ Task 3 `spanMinutes` 测试钉住。
 3. **凌晨开播（00:30 开播）**：在 06:00→02:00 的轴上应画在最底部（24:30），不能画到顶上；归属日期是**前一天**的夜场还是当天？口径：按开播的当地日期归属，轴上位置按 `minute < 360 ? minute + 1440 : minute`。→ Task 3 测试钉住。
 4. **地区没填的号**：时区回落到界面语言时区，月历里归到「地区未填」国家桶不出现（国家筛选只列有代码的）。→ Task 2 测试钉住。
-5. **同一账号同一场既有导入又有截图**：只算一场（±10 分钟内认作同一场），场次数不能翻倍。→ Task 2 测试钉住。
+5. **同一账号同一场既有导入又有截图**：只算一场（截图的开播时刻落在导入场次的 [导入开播 − 10 分钟, 导入下播] 内就认作同一场，两端都含），场次数不能翻倍。不用「开播时刻相差 ≤ 10 分钟」：直播中途断线重连，直播间会重新报一个落在导入场次中间的开播时刻，按开播时刻相近匹配会把同一场算成两场。→ Task 2 测试钉住。
 
 ---
 
@@ -155,7 +155,7 @@ git commit -m "fix(competitors): 主档改为 45 分钟间隔 + 15% 占比门槛
 ```ts
 export const REGION_TIME_ZONE: Record<RegionCode, string>
 export function regionTimeZone(region: string | null | undefined, fallback: string): string
-export const SHOT_MATCH_TOLERANCE_MS: number // 10 分钟
+export const SHOT_MATCH_TOLERANCE_MS: number // 10 分钟：同一场判定的下沿容差，只放宽下沿，上沿是导入的下播时刻
 export interface LiveSpan {
   startedAt: string        // toISOString() 写法
   endedAt: string          // 截图推断的 = 该场最后一张截图时刻（下限）
@@ -178,7 +178,7 @@ export function liveStartsOf(input: LiveSpanInput): string[]  // = liveSpansOf(i
 // src/lib/competitors/liveSessions.test.ts
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { liveSpansOf, liveStartsOf, regionTimeZone } from './liveSessions.ts'
+import { liveSpansOf, liveStartsOf, regionTimeZone, SHOT_MATCH_TOLERANCE_MS } from './liveSessions.ts'
 
 const hist = (start: string, end: string, likes: number | null = 1000) =>
   ({ started_at: start, ended_at: end, likes, title: 'Sample LIVE' })
@@ -213,7 +213,7 @@ test('截图时刻早于开播（脏数据）时，下播取开播时刻，不�
   assert.equal(s.endedAt, s.startedAt)
 })
 
-test('导入与截图是同一场（±10 分钟内）只算一场，保留导入那条', () => {
+test('导入与截图是同一场（截图开播落在导入区间内）只算一场，保留导入那条', () => {
   const spans = liveSpansOf({
     live_sessions: [hist('2026-08-22T03:17:00+00:00', '2026-08-22T05:33:00+00:00', 131800)],
     shots: [
@@ -227,12 +227,25 @@ test('导入与截图是同一场（±10 分钟内）只算一场，保留导入
   assert.equal(spans[1].approxEnd, false)
 })
 
-test('相差超过 10 分钟的截图场次不被吞掉', () => {
+test('截图开播落在导入场次中途（直播断线重连）：即使晚于导入开播 10 分钟以上，也算同一场', () => {
   const spans = liveSpansOf({
     live_sessions: [hist('2026-08-22T03:00:00Z', '2026-08-22T05:00:00Z')],
     shots: [shot('2026-08-22T03:11:00Z', '2026-08-22T03:40:00Z')],
   })
-  assert.equal(spans.length, 2)
+  assert.equal(spans.length, 1)
+  assert.equal(spans[0].source, 'history')
+})
+
+test('同一场的两端边界：开播前 10 分钟、导入下播时刻仍合并，再差 1 毫秒就分开', () => {
+  const START = '2026-08-20T00:04:00Z'
+  const END = '2026-08-20T02:44:00Z'
+  const at = (iso: string, deltaMs: number) => new Date(Date.parse(iso) + deltaMs).toISOString()
+  const count = (shotStart: string) =>
+    liveSpansOf({ live_sessions: [hist(START, END)], shots: [shot(shotStart, at(shotStart, 30 * 60_000))] }).length
+  assert.equal(count(at(START, -SHOT_MATCH_TOLERANCE_MS)), 1)
+  assert.equal(count(at(START, -SHOT_MATCH_TOLERANCE_MS - 1)), 2)
+  assert.equal(count(END), 1)
+  assert.equal(count(at(END, 1)), 2)
 })
 
 test('输出按开播时刻降序，写法统一成 toISOString；liveStartsOf 与之一致', () => {
@@ -260,7 +273,7 @@ Expected: FAIL（模块不存在）
 // 一个号的「场次」有两个来源，在这里合成一份：
 //   - LIVE History 粘贴导入（competitor_live_sessions）：起止完整、带点赞——权威
 //   - 截图推断（competitor_shots.stream_started_at）：只知开播；下播只能拿该场最后一张截图的时刻，是下限
-// 同一场两边都有时（开播差 ≤ 10 分钟），以导入的为准。
+// 同一场两边都有时，以导入的为准。判据：截图的开播时刻落在某条导入场次的 [开播 − 10 分钟, 下播] 内（两端都含）。
 // 时刻在这里统一成 toISOString() 写法：库里读回来的是 +00:00 写法，下游按字符串比较时刻，写法必须一致。
 //
 // 显示时区：竞品的开播时刻按**账号所在地区**的时区显示（看的是对方当地作息；且与界面语言无关，
@@ -287,7 +300,10 @@ export function regionTimeZone(region: string | null | undefined, fallback: stri
   return code ? REGION_TIME_ZONE[code] : fallback
 }
 
-/** 截图推断的开播与导入的开播差在这个范围内就认作同一场（直播间自报的开播时刻带秒，导入的是整分钟）。 */
+/**
+ * 同一场判定的下沿容差：截图的开播时刻比导入的开播早这么多以内，仍算同一场。
+ * 只放宽下沿，上沿是导入的下播时刻、不放宽。直播间自报的开播时刻带秒，导入的是整分钟，自报时刻可能略早于导入的开播。
+ */
 export const SHOT_MATCH_TOLERANCE_MS = 10 * 60_000
 
 export interface LiveSpan {
@@ -312,15 +328,17 @@ const ms = (iso: string | null | undefined): number | null => {
 
 export function liveSpansOf(input: LiveSpanInput): LiveSpan[] {
   const spans: LiveSpan[] = []
-  const histStarts: number[] = []
+  // 导入场次的 [开播, 下播] 毫秒区间；下播与输出的 endedAt 一样夹到不早于开播。
+  const histRanges: { start: number; end: number }[] = []
   for (const s of input.live_sessions ?? []) {
     const start = ms(s.started_at)
     const end = ms(s.ended_at)
     if (start == null || end == null) continue
-    histStarts.push(start)
+    const endMs = Math.max(end, start)
+    histRanges.push({ start, end: endMs })
     spans.push({
       startedAt: new Date(start).toISOString(),
-      endedAt: new Date(Math.max(end, start)).toISOString(),
+      endedAt: new Date(endMs).toISOString(),
       approxEnd: false,
       likes: s.likes ?? null,
       title: s.title ?? '',
@@ -337,7 +355,8 @@ export function liveSpansOf(input: LiveSpanInput): LiveSpan[] {
     lastCapture.set(start, Math.max(lastCapture.get(start) ?? start, cap))
   }
   for (const [start, end] of lastCapture) {
-    if (histStarts.some((h) => Math.abs(h - start) <= SHOT_MATCH_TOLERANCE_MS)) continue
+    // 开播时刻落在某条导入场次的 [开播 − 容差, 下播] 内（两端都含）即同一场，丢弃截图那条。
+    if (histRanges.some((h) => start >= h.start - SHOT_MATCH_TOLERANCE_MS && start <= h.end)) continue
     spans.push({
       startedAt: new Date(start).toISOString(),
       endedAt: new Date(end).toISOString(),
