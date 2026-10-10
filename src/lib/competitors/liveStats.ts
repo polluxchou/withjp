@@ -33,7 +33,9 @@ export function locateSpans(spans: LiveSpan[], timeZone: string): LocatedSpan[] 
     const minute = minuteOfDayInZone(s.startedAt, timeZone)
     if (date == null || minute == null) continue
     const start = minute < AXIS_START ? minute + 1440 : minute
-    const dur = Math.max(0, Math.round((Date.parse(s.endedAt) - Date.parse(s.startedAt)) / 60_000))
+    // 下播时刻解析不了（脏数据）时按零时长处理：NaN 一旦进了 end，直方图与日历会静默错位，比少算一段时长更难发现。
+    const endMs = Date.parse(s.endedAt)
+    const dur = Number.isNaN(endMs) ? 0 : Math.max(0, Math.round((endMs - Date.parse(s.startedAt)) / 60_000))
     out.push({ ...s, date, start, end: start + dur })
   }
   return out

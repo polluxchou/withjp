@@ -106,3 +106,102 @@ test('inRange: 闭区间按日期字符串比较', () => {
   const located = locateSpans([span('2026-09-01', '12:00', '13:00'), span('2026-09-10', '12:00', '13:00')], TZ)
   assert.equal(inRange(located, '2026-09-01', '2026-09-09').length, 1)
 })
+
+test('calendarWeeks: 分档阈值 119/120/179/239/240 分钟，差一分钟就换档', () => {
+  const located = locateSpans([
+    span('2026-10-01', '06:00', '07:59'), // 119 → 1
+    span('2026-10-02', '06:00', '08:00'), // 120 → 2
+    span('2026-10-03', '06:00', '08:59'), // 179 → 2
+    span('2026-10-04', '06:00', '09:59'), // 239 → 3
+    span('2026-10-05', '06:00', '10:00'), // 240 → 4
+  ], TZ)
+  // today 是周一 10-05，weeks 取 2 才能把 10-01 那一周也带上
+  const days = calendarWeeks(located, { today: '2026-10-05', weeks: 2, rangeFrom: '2026-09-01' }).flat()
+  const level = (d: string) => days.find((x) => x.date === d)?.level
+  assert.deepEqual(
+    ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05'].map(level),
+    [1, 2, 2, 3, 4],
+  )
+})
+
+test('calendarWeeks: 今天是周日时，最后一列仍是周一起的那一周，今天不算未来', () => {
+  const wk = calendarWeeks([], { today: '2026-10-11', weeks: 2, rangeFrom: '2026-10-01' })
+  assert.equal(wk[1][0].date, '2026-10-05') // 周一
+  assert.equal(wk[1][6].date, '2026-10-11') // 周日即今天
+  assert.equal(wk[1][6].future, false)
+})
+
+test('coverageHistogram: 按格中点判断在播，只开播几分钟不点亮整格', () => {
+  const shares = (a: string, b: string) =>
+    coverageHistogram(locateSpans([span('2026-09-01', a, b)], TZ), '2026-09-01', '2026-09-30').shares
+  const bucketOf = (h: number, m: number) => (h * 60 + m - 360) / 15
+  // 12:10–12:20 跨在 12:00 与 12:15 两格之间，但两格的中点 12:07、12:22 都不在它里面
+  assert.equal(shares('12:10', '12:20').every((s) => s === 0), true)
+  // 12:07–12:37：12:00 格中点 12:07 与 12:15 格中点 12:22 在播；12:30 格中点 12:37 正是下播时刻，半开区间不算
+  const s = shares('12:07', '12:37')
+  const lit = s.map((v, i) => (v > 0 ? i : -1)).filter((i) => i >= 0)
+  assert.deepEqual(lit, [bucketOf(12, 0), bucketOf(12, 15)])
+  assert.deepEqual(lit.map((i) => s[i]), [1, 1])
+})
+
+test('coverageHistogram: 同一天多场只算一天，份额不超过 1', () => {
+  const located = locateSpans([
+    span('2026-09-01', '12:00', '13:00'),
+    span('2026-09-01', '12:30', '14:00'), // 同一天第二场，与第一场重叠
+    span('2026-09-02', '19:00', '20:00'),
+  ], TZ)
+  const { shares, liveDays } = coverageHistogram(located, '2026-09-01', '2026-09-30')
+  assert.equal(liveDays, 2)
+  assert.ok(shares.every((s) => s <= 1))
+  // 12:30 格（中点 12:37）两场都在播，但只有 09-01 一天在播：1/2
+  assert.equal(shares[(12 * 60 + 30 - 360) / 15], 0.5)
+  // 19:00 格只有 09-02 一天在播：同样是 1/2
+  assert.equal(shares[(19 * 60 - 360) / 15], 0.5)
+})
+
+test('likesSeries: 三场并列最高时，标出最早的两场', () => {
+  const located = locateSpans([
+    span('2026-09-03', '12:00', '13:00', 5),
+    span('2026-09-01', '12:00', '13:00', 5),
+    span('2026-09-02', '12:00', '13:00', 5),
+  ], TZ)
+  const r = likesSeries(located, '2026-09-01', '2026-09-30')
+  assert.deepEqual(r.bars.map((b) => b.date), ['2026-09-01', '2026-09-02', '2026-09-03'])
+  assert.deepEqual(r.bars.map((b) => b.top), [true, true, false])
+})
+
+test('inRange: 区间右端闭合，to 当天的场次要算进去', () => {
+  const located = locateSpans([span('2026-09-09', '12:00', '13:00')], TZ)
+  assert.equal(inRange(located, '2026-09-01', '2026-09-09').length, 1)
+  assert.equal(inRange(located, '2026-09-10', '2026-09-30').length, 0)
+})
+
+test('locateSpans: 06:00 整点开播 start 为 360，不加 1440', () => {
+  const [s] = locateSpans([span('2026-09-01', '06:00', '07:00')], TZ)
+  assert.equal(s.start, 360)
+})
+
+test('locateSpans: 下播早于开播时 end 等于 start，时长不为负', () => {
+  const [s] = locateSpans([{ ...span('2026-09-01', '12:00', '13:00'), endedAt: j('2026-09-01', '11:00') }], TZ)
+  assert.equal(s.end, s.start)
+})
+
+test('locateSpans: 下播时刻无法解析时按零时长处理，end 等于 start 而不是 NaN', () => {
+  const [s] = locateSpans([{ ...span('2026-09-01', '12:00', '13:00'), endedAt: 'not-a-date' }], TZ)
+  assert.equal(s.end, s.start)
+  assert.equal(Number.isNaN(s.end), false)
+})
+
+test('windowStats: 周均场次保留一位小数（1 场 / 3 天 → 2.3）', () => {
+  const s = windowStats(locateSpans([span('2026-09-01', '12:00', '13:00')], TZ), '2026-09-01', '2026-09-03')
+  assert.equal(s.perWeek, 2.3)
+})
+
+test('windowStats: 平均时长四舍五入（150 与 151 分钟的均值 150.5 → 151），中位数取偏小', () => {
+  const s = windowStats(locateSpans([
+    span('2026-09-01', '12:00', '14:30'), // 150
+    span('2026-09-02', '12:00', '14:31'), // 151
+  ], TZ), '2026-09-01', '2026-09-02')
+  assert.equal(s.avgMinutes, 151)
+  assert.equal(s.medianMinutes, 150)
+})
