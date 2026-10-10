@@ -16,6 +16,8 @@ import type {
 import { normalizeDescriptionBody } from './descriptions.ts'
 import { normalizeRegion, resolveNewRegion } from './regions.ts'
 import { isValidShotDate } from './shotGrid.ts'
+import { buildShotIndex, loadedRangeOrFilter, parseShotRangeQuery, resolveLoadedFrom } from './shotWindow.ts'
+import type { ShotIndexRow } from './shotWindow.ts'
 import type {
   AskShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorBoard, CompetitorPlatform,
 } from './types.ts'
@@ -97,32 +99,70 @@ async function assertValidParent(
 
 /**
  * 加载看板：任意登录用户可读可写（canEdit 恒 true）。
- * 四张表都整表分页拉全（fetchAllRows）：Supabase 单次响应最多 1000 行且静默截断，
- * 截图表已过千行，不分页会让最近上传的截图在页面上凭空消失。
+ *
+ * 截图分两层取：
+ * 1. 瘦查询（三列、全量）建索引：完整日期轴 + 各账号全部历史的开播时刻——统计口径与相册加载范围无关；
+ * 2. 截图本体只取已加载范围：默认最近 SHOT_CHUNK_DAYS 个有图日（两屏），since 可把起点往前推
+ *    （改完数据刷新时保住用户已翻到的范围）。更早的由前端按需走 getShotsInRange 补取。
+ * 第 2 步要用第 1 步算出的日期轴，所以两次查询串行。
+ * 每段都走 fetchAllRows：Supabase 单次响应最多 1000 行且静默截断。
  */
-export async function getCompetitorBoard(_userId: string): Promise<ServiceResult<CompetitorBoard>> {
+export async function getCompetitorBoard(
+  _userId: string,
+  opts: { since?: string | null } = {},
+): Promise<ServiceResult<CompetitorBoard>> {
+  const since = opts.since ?? null
+  // since 会拼进 PostgREST 过滤串：路由层校验过，这里自己再挡一道，不只依赖调用方。
+  if (since !== null && !isValidShotDate(since)) {
+    return err('invalid_input', 'since must be a real calendar date in YYYY-MM-DD')
+  }
   const db = createServerClient()
-  const [compRes, snapRes, shotRes, descRes] = await Promise.all([
+  const [compRes, snapRes, indexRes, descRes] = await Promise.all([
     fetchAllRows((from, to) => db.from('competitors').select('*')
       .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
       .order('id', { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+    fetchAllRows((from, to) => db.from('competitor_shots').select('competitor_id, shot_on, stream_started_at')
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_descriptions').select('*')
       .order('id', { ascending: true }).range(from, to)),
   ])
-  if (compRes.error || snapRes.error || shotRes.error || descRes.error) {
-    return err('db_error',
-      compRes.error?.message ?? snapRes.error?.message ?? shotRes.error?.message ?? descRes.error?.message ?? 'load failed')
-  }
+  const firstErr = compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error
+  if (firstErr) return err('db_error', firstErr.message)
+
+  const index = buildShotIndex((indexRes.data ?? []) as ShotIndexRow[])
+  const loadedFrom = resolveLoadedFrom(index.shotAxis, since)
+  const shotRes = await fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+    .or(loadedRangeOrFilter(loadedFrom))
+    .order('id', { ascending: true }).range(from, to))
+  if (shotRes.error) return err('db_error', shotRes.error.message)
+
   return ok(assembleBoard(
     (compRes.data ?? []) as Competitor[],
     (snapRes.data ?? []) as CompetitorSnapshot[],
     (shotRes.data ?? []) as CompetitorShot[],
     true,
     (descRes.data ?? []) as CompetitorDescription[],
+    { ...index, shotsLoadedFrom: loadedFrom },
   ))
+}
+
+/**
+ * 一段日期 [rangeFrom, rangeBefore) 的截图本体，给前端往历史翻页时补取。
+ * 区间在路由层已由 parseShotRangeQuery 校验，这里再挡一道（值会进查询）。
+ */
+export async function getShotsInRange(
+  rangeFrom: string,
+  rangeBefore: string,
+): Promise<ServiceResult<CompetitorShot[]>> {
+  const q = parseShotRangeQuery(rangeFrom, rangeBefore)
+  if (!q.ok) return err('invalid_input', 'from/before must be real dates in YYYY-MM-DD with from < before')
+  const db = createServerClient()
+  const res = await fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+    .gte('shot_on', q.from).lt('shot_on', q.before)
+    .order('id', { ascending: true }).range(from, to))
+  if (res.error) return err('db_error', res.error.message)
+  return ok((res.data ?? []) as CompetitorShot[])
 }
 
 /**
