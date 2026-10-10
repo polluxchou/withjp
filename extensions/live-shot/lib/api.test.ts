@@ -208,6 +208,15 @@ test('upload：响应是合法 JSON 但不是对象（null）→ body 恒为对�
   assert.deepEqual(r.body, { data: null, error: 'bad_response' })
 })
 
+test('upload：响应是合法 JSON 但是数组 → 同样归一成 { data: null, error: bad_response }', async () => {
+  const storage = memoryStorage(VALID)
+  const f = fakeFetch({ [BACKEND]: { status: 502, json: [1] } })
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
+  const r = await api.upload({ blob: new Blob([]), handle: 'a', reading: EMPTY_READING })
+  assert.equal(r.status, 502)
+  assert.deepEqual(r.body, { data: null, error: 'bad_response' })
+})
+
 test('upload：网络断开（fetch 抛错）→ 状态码 0，不向外抛', async () => {
   const storage = memoryStorage(VALID)
   const api = createApi({ ...CFG, storage, fetchImpl: throwingFetch, now: () => NOW })
@@ -316,10 +325,88 @@ test('并发续期共用一次请求：session / todayUploads / session 同时�
   assert.equal((storage.data.session as { accessToken: string; refreshToken: string }).accessToken, 'acc2')
   assert.equal((storage.data.session as { accessToken: string; refreshToken: string }).refreshToken, 'ref2')
 
-  // 续期落定后飞行标记要复位：会话再次快过期时，能发起第二次续期
-  storage.data.session = EXPIRING.session
+  // 续期落定后飞行标记要复位：轮换后的会话（ref2）再次快过期时，能发起第二次续期
+  storage.data.session = { accessToken: 'acc2', refreshToken: 'ref2', expiresAt: NOW + 10_000 }
   assert.equal((await api.session())?.accessToken, 'acc2')
   assert.equal(refreshCalls().length, 2)
+  assert.deepEqual(JSON.parse(String(refreshCalls()[1].init.body)), { refresh_token: 'ref2' })
+})
+
+test('单飞：暂时性失败之后飞行标记也会复位，下一次 session() 能重新发起续期', async () => {
+  const storage = memoryStorage(EXPIRING)
+  const f = fakeFetch({ 'grant_type=refresh_token': { status: 200, json: AUTH_ROTATED } })
+  let attempts = 0
+  let broken = true
+  const flaky = (async (url: string, init: RequestInit) => {
+    attempts += 1
+    if (broken) throw new TypeError('Failed to fetch')
+    return (f.impl as unknown as (u: string, i: RequestInit) => Promise<Response>)(url, init)
+  }) as unknown as typeof fetch
+  const api = createApi({ ...CFG, storage, fetchImpl: flaky, now: () => NOW })
+
+  assert.deepEqual(await api.session(), EXPIRING.session, '断网：返回旧会话')
+  assert.equal(attempts, 1)
+  assert.deepEqual(storage.data.session, EXPIRING.session)
+
+  broken = false
+  const s = await api.session()
+  assert.equal(attempts, 2, '第二次调用重新发起了续期')
+  assert.equal(s?.accessToken, 'acc2')
+  assert.equal((storage.data.session as { refreshToken: string }).refreshToken, 'ref2')
+})
+
+test('单飞：普通续期进行中，另一个请求吃到 401 触发强制续期 → 共用同一次续期，重发带新令牌', async () => {
+  let t = NOW
+  const storage = memoryStorage(VALID)
+  const f = fakeFetch({
+    'grant_type=refresh_token': { status: 200, json: AUTH_ROTATED, delayMs: 60 },
+    [BACKEND]: [
+      { status: 401, json: { data: null, error: 'unauthorized' }, delayMs: 20 },
+      { status: 201, json: { data: { shot_id: 's' }, error: null } },
+    ],
+  })
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => t })
+  // 会话此刻有效：upload 带旧令牌发出，401 要 20ms 后才回来
+  const uploading = api.upload({ blob: new Blob([]), handle: 'a', reading: EMPTY_READING })
+  await new Promise((resolve) => setTimeout(resolve, 5))
+  // 时间走到快过期，另一个调用发起普通续期（60ms 才回），401 到达时它还在飞
+  t = NOW + 3_600_000 - 10_000
+  const [r, s] = await Promise.all([uploading, api.session()])
+
+  assert.equal(r.status, 201)
+  assert.equal(s?.accessToken, 'acc2')
+  assert.equal(f.calls.filter((c) => c.url.includes('grant_type=refresh_token')).length, 1, '强制续期并入了飞行中的那一次')
+  const backend = f.calls.filter((c) => c.url.includes(BACKEND))
+  assert.equal(backend.length, 2)
+  assert.equal(headersOf(backend[0]).Authorization, 'Bearer acc')
+  assert.equal(headersOf(backend[1]).Authorization, 'Bearer acc2')
+})
+
+test('读存储与续期完成之间的窗口：读到刚被轮换掉的旧会话 → 用内存里的新会话，不再拿旧 refresh token 续期', async () => {
+  const base = memoryStorage(EXPIRING)
+  let replayOld = false
+  // 模拟 chrome.storage 的异步读：续期落盘之前发出的那次读，晚一步才返回旧值
+  const storage = {
+    ...base,
+    get: async (k: string) => {
+      if (replayOld) {
+        replayOld = false
+        return EXPIRING.session
+      }
+      return base.get(k)
+    },
+  }
+  const f = fakeFetch({ 'grant_type=refresh_token': { status: 200, json: AUTH_ROTATED } })
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
+  const refreshCalls = () => f.calls.filter((c) => c.url.includes('grant_type=refresh_token'))
+
+  assert.equal((await api.session())?.accessToken, 'acc2')
+  assert.equal(refreshCalls().length, 1)
+
+  replayOld = true
+  const s = await api.session()
+  assert.equal(s?.accessToken, 'acc2', '拿到的是新会话')
+  assert.equal(refreshCalls().length, 1, '没有再拿旧 refresh token 去续期')
 })
 
 test('logout：清掉会话', async () => {
