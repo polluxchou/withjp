@@ -14,8 +14,9 @@ if (!url || !key) {
 const i = process.argv.indexOf('--api-base')
 let apiBase = 'https://mcn.agenova.chat'
 if (i > 0) {
+  // 去掉末尾斜杠：扩展拼接口地址时是 `${API_BASE}/api/...`，留着会变成 //api/...
+  const v = (process.argv[i + 1] ?? '').replace(/\/+$/, '')
   // 写了 --api-base 却没给值（或值不对）时报错退出，不要悄悄回落到线上地址
-  const v = process.argv[i + 1]
   if (!v || !/^https?:\/\//.test(v)) {
     console.error('--api-base 需要一个以 http:// 或 https:// 开头的地址，例如 --api-base http://localhost:3100')
     process.exit(1)

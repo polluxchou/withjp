@@ -87,7 +87,21 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     return r.session || r.stale || null
   }
 
+  // 先尽力在服务端吊销令牌（失败、超时都不拦着登出），再无条件清掉本地会话和内存里的轮换记录
   async function logout() {
+    try {
+      const s = await storage.get(SESSION_KEY)
+      if (s && s.accessToken) {
+        await fetchImpl(`${supabaseUrl}/auth/v1/logout`, {
+          method: 'POST',
+          headers: { apikey: anonKey, Authorization: `Bearer ${s.accessToken}` },
+          signal: AbortSignal.timeout(5000), // 网络黑洞时别让「退出」按钮卡住
+        })
+      }
+    } catch {
+      // 吊销只是尽力而为：断网 / 超时 / 令牌已失效都照样登出
+    }
+    lastRotation = null
     await storage.remove(SESSION_KEY)
   }
 
