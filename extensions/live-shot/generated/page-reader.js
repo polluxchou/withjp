@@ -1,97 +1,48 @@
-// 纯字符串产出，零 import：这里的东西是要注入直播间页面执行的源码，
-// 不在 Node 里跑，所以不能有任何 import / TS 语法进入字符串内部。
-// 测试用假 DOM 调用同一份源码，保证「测的就是注入的」。
+// 自动生成，禁止手改。来源：src/lib/competitors/pageReader.ts
+// 改了 liveProbe.ts / pageReader.ts 之后重跑：node --experimental-strip-types scripts/gen-extension-reader.mjs
 
-export const PROBE_VERSION = 1
-
-export type ProbeConfig = {
-  version: number
-  /** 探针自己打点的间隔；<=0 表示不起定时器（测试用，由外部手动 tick） */
-  intervalMs: number
-  /** 在线人数的候选选择器，按顺序试 */
-  viewer: string[]
-  viewerRoomBox: string[]
-  viewerItem: string[]
-  viewerName: string[]
-  /** 主播粉丝数 */
-  followers: string[]
-  /** 累计点赞 */
-  likes: string[]
-  /** 弹幕列表容器 */
-  chatHost: string[]
-  /** 弹幕节点本身的判据；subtree 模式下滤掉礼物/进场等非弹幕节点。空表示不过滤 */
-  message: string[]
-  /** 弹幕节点内的发言人元素；一个都没命中就不猜，speakers 报 null */
-  speaker: string[]
-  /** 弹幕容器是否需要监听子树（容器频繁重建时打开） */
-  chatSubtree: boolean
-  /**
-   * 侧栏频道容器的候选选择器。设了 = 同期横截面只读第一个频道（已登录时即 Following），
-   * 且页面上频道数不足 2 时报 null（只剩 Suggested）。不设 = 整页读（分钟级采集器现状）。
-   */
-  sidebarChannel?: string[]
+export const PROBE_CONFIG = {
+  "version": 1,
+  "intervalMs": 0,
+  "viewerRoomBox": [
+    "[data-e2e=\"live-chat-container\"]"
+  ],
+  "viewerItem": [
+    "[data-e2e=\"live-side-nav-item\"]"
+  ],
+  "viewerName": [
+    "[data-e2e=\"live-side-nav-name\"]"
+  ],
+  "viewer": [
+    "[data-e2e=\"person-count\"]",
+    "[data-e2e=\"live-people-count\"]"
+  ],
+  "followers": [
+    "[data-e2e=\"live-anchor-follower-count\"]",
+    "[data-e2e=\"followers-count\"]"
+  ],
+  "likes": [
+    "[data-e2e=\"live-like-count\"]",
+    "[data-e2e=\"like-count\"]"
+  ],
+  "chatHost": [],
+  "message": [
+    "[data-e2e=\"chat-message\"]"
+  ],
+  "speaker": [
+    "[data-e2e=\"message-owner-name\"]"
+  ],
+  "chatSubtree": true,
+  "sidebarChannel": [
+    "[data-e2e=\"live-side-nav-channel\"]"
+  ]
 }
 
-/**
- * 候选选择器的初始猜测。这些值 spec 第 11 节验证项①还没定论 ——
- * 迁移注释记的是 room-header 的 person-count，sweep-live.mjs 的注释说右侧面板不稳、
- * 要走左侧已关注侧栏。所以这里给候选表按顺序试，第一次真实运行会把命中的那个
- * 通过 selectorsOk 报回来，那就是验证结论。
- */
-export function defaultProbeConfig(): ProbeConfig {
-  return {
-    version: PROBE_VERSION,
-    intervalMs: 60_000,
-    // 在线人数怎么读，见下面 viewerReading() 的注释 —— 2026-09-16 在 1tb.boiz
-    // 房间实测定的三档判据，不再是裸 querySelector。
-    //
-    // viewerRoomBox：当前房间自己那份人数所在的容器（右侧面板顶部 "Viewers· 93"）。
-    // viewerItem / viewerName：左侧「已关注」侧栏的条目与其 handle 文本，兜底用。
-    // viewer：person-count 本身，只在侧栏锚定与"全页唯一"两档里用。
-    viewerRoomBox: ['[data-e2e="live-chat-container"]'],
-    viewerItem: ['[data-e2e="live-side-nav-item"]'],
-    viewerName: ['[data-e2e="live-side-nav-name"]'],
-    viewer: [
-      '[data-e2e="person-count"]',
-      '[data-e2e="live-people-count"]',
-    ],
-    followers: [
-      '[data-e2e="live-anchor-follower-count"]',
-      '[data-e2e="followers-count"]',
-    ],
-    likes: [
-      '[data-e2e="live-like-count"]',
-      '[data-e2e="like-count"]',
-    ],
-    // 2026-09-16 在 1tb.boiz 房间实测：chat-room 与 live-chat-list 这两个**都不存在**，
-    // 是当初凭猜写进来的 —— 所以 observer 从来没挂上过，第一次真机运行读到的
-    // observer_alive 一直是 false、chat_msgs 一直是 null。真实容器是
-    // live-chat-container。
-    chatHost: [
-      '[data-e2e="live-chat-container"]',
-      '[data-e2e="chat-room"]',
-      '[data-e2e="live-chat-list"]',
-    ],
-    // 每条 chat-message 各自套一层 div，不是同一个列表下的兄弟节点，所以必须监听子树。
-    // 但开了 subtree，addedNodes 里就混进礼物动画、进场提示、系统横幅 —— 只有本身是
-    // 弹幕、或内部含一条弹幕的节点才计数，否则 msgs 被灌水，而它正是 engagement 的分子。
-    message: ['[data-e2e="chat-message"]'],
-    speaker: [
-      '[data-e2e="message-owner-name"]',
-    ],
-    // 未经验证的猜测：如果弹幕列表是在容器下再深一层重渲染，而不是直接
-    // 往这层 append 子节点，childList 观察不到、msgs 会整场停在 0 —— 现象上
-    // 和"房间很安静没人发弹幕"完全一样，得留意第一次真实运行的 msgs 是否合理。
-    chatSubtree: true,
-  }
-}
-
-/**
- * 页内探针的工厂函数源码。
- * 只接触 win / doc / cfg 三个参数，不引用任何全局 —— 既保证可测，
- * 也保证注入后除了 win.__lw 之外不碰页面上的任何东西。
- */
-export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
+// chrome.scripting.executeScript 会把这个函数序列化后注入页面，所以它必须自包含。
+// 必须在 ISOLATED world 执行（executeScript 默认即是），不要改成 MAIN。
+export function readLivePage(cfg) {
+  return (function (win, doc, cfg) {
+  var probeFactory = function (win, doc, cfg) {
   // 复用判据带上配置本身，不只看 version。改了选择器却忘了改版本号的话，页面里
   // 那个旧探针会被"复用"、静默沿用旧配置 —— 2026-09-16 真机运行就栽在这：
   // chatHost 候选已经修好了，但第一轮注入的旧探针还在，attached 一直 false，
@@ -127,7 +78,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
   // 「标签· 数字」：房间面板顶部就是这个形态（实测 "Viewers· 93"）。刻意不去匹配
   // "Viewers" 这个词 —— 那是界面语言，日文界面下会变。只认「少量非数字字符 +
   // 中点分隔符 + 数字」，语言换了照样过。
-  var VIEWER_LABELED = /^[^0-9]{1,16}[\\u00b7\\u30fb\\u2027]\\s*([0-9][0-9.,]*\\s*[KMkm]?)$/
+  var VIEWER_LABELED = /^[^0-9]{1,16}[\u00b7\u30fb\u2027]\s*([0-9][0-9.,]*\s*[KMkm]?)$/
 
   /**
    * 在线人数读哪一个 —— 2026-09-16 在 1tb.boiz 房间实测定下的三档。
@@ -150,7 +101,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     var loc = (doc && doc.location) || (win && win.location)
     var p = loc && loc.pathname
     if (!p) return null
-    var m = String(p).match(/^\\/@([^/]+)/)
+    var m = String(p).match(/^\/@([^/]+)/)
     return m ? m[1].toLowerCase() : null
   }
   /**
@@ -208,9 +159,9 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     if (box && box.querySelectorAll) {
       var nodes = box.querySelectorAll('div')
       for (var i = 0; i < nodes.length && i < 300; i++) {
-        var t = textOf(nodes[i]).replace(/\\s+/g, ' ')
+        var t = textOf(nodes[i]).replace(/\s+/g, ' ')
         var m = t.match(VIEWER_LABELED)
-        if (m) return { text: m[1].replace(/\\s+/g, ''), source: 'room' }
+        if (m) return { text: m[1].replace(/\s+/g, ''), source: 'room' }
       }
     }
     // ② 侧栏按 handle 锚定
@@ -362,75 +313,8 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
   }
   if (cfg.intervalMs > 0) st.timer = win.setInterval(tick, cfg.intervalMs)
   return { reused: false, attached: ok, version: cfg.version }
-}`
-
-/** 拼出注入用的完整表达式。 */
-export function probeSource(cfg: ProbeConfig): string {
-  // intervalMs<=0 是测试专用（外部手动 tick）。真注进页面就是一个「挂载成功、
-  // observerAlive 为真、却永远不自动打点」的探针 —— drain 永远空，看门狗两轮之后
-  // 误判下播。静默失败比直接炸难查得多，所以在注入前就拦住。
-  if (!(cfg.intervalMs > 0)) {
-    throw new Error(`probeSource: intervalMs 必须为正数（收到 ${cfg.intervalMs}）—— 0 只用于测试里手动 tick`)
-  }
-  return `(${PROBE_FACTORY_SRC})(window, document, ${JSON.stringify(cfg)})`
 }
-
-export type Rect = { x: number; y: number; width: number; height: number }
-
-/** object-position 的一个分量，解析不出来退回 50（CSS 默认居中）。 */
-function pct(s: string | undefined): number {
-  const n = parseFloat(s ?? '')
-  return Number.isFinite(n) ? n : 50
-}
-
-/**
- * 由 <video> 的盒子矩形 + 视频原始尺寸 + object-fit/object-position，
- * 算出画面在页面坐标系里的真实矩形。截图 clip 用它，避免把播放器的黑边也截进去。
- * 抽成纯函数是为了能测 —— 页面里那份（CLIP_FACTORY_SRC）走同样的算式。
- * 契约：objectPosition 要传 getComputedStyle 读出来的形式 —— 一对百分比/长度，
- * 不是 `top` 这种 CSS 关键字。页内调用方就是这么传的；关键字不在支持范围内。
- */
-export function clipRect(
-  box: Rect,
-  videoWidth: number,
-  videoHeight: number,
-  objectFit: string,
-  objectPosition: string,
-): Rect {
-  const boxRatio = box.width / box.height
-  const imgRatio = videoWidth / videoHeight
-  let w: number
-  let h: number
-  if (objectFit === 'cover') {
-    if (imgRatio > boxRatio) { h = box.height; w = box.height * imgRatio }
-    else { w = box.width; h = box.width / imgRatio }
-  } else if (objectFit === 'fill') {
-    w = box.width; h = box.height
-  } else {
-    if (imgRatio > boxRatio) { w = box.width; h = box.width / imgRatio }
-    else { h = box.height; w = box.height * imgRatio }
-  }
-  // 解析不出来才退回 50%（CSS 默认居中）。不能写 `parseFloat(x) || 50` ——
-  // 那会把显式的 0%（画面靠上/靠左）当成假值改判成居中。
-  const p = objectPosition.split(' ')
-  const fx = pct(p[0]) / 100
-  const fy = pct(p[1]) / 100
-  // 分别 round 位置和尺寸，误差会在远边叠加，最多把一整列黑边裁进画面
-  // （实测：box 600x400、视频 200x569、contain 居中，真实右边缘 370.3，
-  // 独立 round 会给出 371）。改成两条边各自 round、尺寸取差值。
-  const x0 = Math.round(box.x + (box.width - w) * fx)
-  const y0 = Math.round(box.y + (box.height - h) * fy)
-  const x1 = Math.round(box.x + (box.width - w) * fx + w)
-  const y1 = Math.round(box.y + (box.height - h) * fy + h)
-  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
-}
-
-/**
- * 页面里执行的版本：默认顺手把播放器静音（挂一整场不能出声；扩展传 `{ mute: false }` 不静音），
- * 并回报 video 是否就绪。videoWidth>0 且 readyState>=2 才算能截。
- * 算式与 clipRect 保持一致 —— 改一处必须改两处。
- */
-export const CLIP_FACTORY_SRC = `function (win, doc, opts) {
+  var clipFactory = function (win, doc, opts) {
   function pct(s) { var n = parseFloat(s); return isFinite(n) ? n : 50 }
   // 无人值守采集要静音（挂一整场不能出声）；扩展是人正在看的时候点的，不能动播放器。
   // 不传 opts = 原行为（静音），scripts/live-watch 的调用方不受影响。
@@ -486,9 +370,41 @@ export const CLIP_FACTORY_SRC = `function (win, doc, opts) {
     pos: cs.objectPosition || '50% 50%',
     clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
   }
-}`
-
-/** 拼出注入用的完整表达式。 */
-export function clipSource(): string {
-  return `(${CLIP_FACTORY_SRC})(window, document)`
+}
+  var clip = clipFactory(win, doc, { mute: false })
+  // 探针装在一个临时宿主上而不是 window：读一次就扔，任何 window 上都不留 __lw——
+  // 哪怕以后有人把注入改到 MAIN world，也碰不到分钟级采集器挂在页面上的那个 __lw
+  var host = {
+    JSON: win.JSON,
+    Date: win.Date,
+    MutationObserver: win.MutationObserver,
+    location: win.location,
+    setInterval: function (f, ms) { return win.setInterval(f, ms) },
+    clearInterval: function (id) { return win.clearInterval(id) }
+  }
+  var sample = null
+  try {
+    probeFactory(host, doc, cfg)
+    if (host.__lw) {
+      host.__lw.tick()
+      sample = host.__lw.drain()[0] || null
+    }
+  } finally {
+    // 中途抛错也要断开（chatHost 非空时会挂 observer），不留尾巴
+    if (host.__lw && typeof host.__lw.disconnect === 'function') host.__lw.disconnect()
+  }
+  var loc = (doc && doc.location) || win.location
+  var vv = win.visualViewport
+  return {
+    href: loc && loc.href ? String(loc.href) : null,
+    viewportWidth: win.innerWidth || 0,
+    // 触控板双指缩放（visualViewport.scale≠1）时截图与元素坐标对不上，交给弹窗拒截
+    visualScale: vv && vv.scale ? vv.scale : 1,
+    capturedAt: win.Date.now(),
+    clip: clip,
+    viewer: sample ? sample.viewer : null,
+    viewerSource: sample ? sample.viewer_source : null,
+    coLive: sample ? sample.co_live : null
+  }
+})(window, document, cfg)
 }

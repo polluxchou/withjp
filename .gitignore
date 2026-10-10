@@ -23,3 +23,6 @@ npm-debug.log*
 
 # superpowers brainstorm sessions
 .superpowers/
+
+# 竞品直播截图扩展的本机配置（脚本生成）
+extensions/live-shot/config.local.js
