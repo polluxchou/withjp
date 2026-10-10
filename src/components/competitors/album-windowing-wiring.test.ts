@@ -10,7 +10,7 @@ const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8')
 const CARD = read('./CompetitorCard.tsx')
 
 test('卡片开播时段读全量 sessionStarts，不读已加载截图（否则数字会跟着相册翻页变）', () => {
-  assert.match(CARD, /summarizeLiveHabit\(c\.sessionStarts,/)
-  assert.match(CARD, /recentSessionStarts\(c\.sessionStarts,/)
+  assert.match(CARD, /summarizeLiveHabit\(c\.sessionStarts, timeZoneForLocale\(locale\)\)/)
+  assert.match(CARD, /recentSessionStarts\(c\.sessionStarts, RECENT_SESSIONS\)/)
   assert.doesNotMatch(CARD, /c\.shots\.map\(\(s\) => s\.stream_started_at\)/)
 })
