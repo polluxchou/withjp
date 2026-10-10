@@ -2,8 +2,8 @@
 // 纯函数：竞品相册「按日期窗口加载」的全部判据——全量索引、加载起点、补取时机、合并。
 // 零 IO、零时钟，可单测。设计见
 // docs/superpowers/specs/2026-10-10-competitor-shot-album-windowing-design.md
-import { UNDATED_KEY, isValidShotDate } from './shotGrid.ts'
-import type { CompetitorShot } from './types.ts'
+import { SHOT_WINDOW_SIZE, UNDATED_KEY, compareShotsForBoard, isValidShotDate } from './shotGrid.ts'
+import type { BoardShot, CompetitorBoard, CompetitorShot, CompetitorWithHistory } from './types.ts'
 
 /** 全量瘦查询的一行：只要归属、日期、开播时刻三列。 */
 export type ShotIndexRow = Pick<CompetitorShot, 'competitor_id' | 'shot_on' | 'stream_started_at'>
@@ -113,4 +113,73 @@ export function boardRefreshPath(loadedFrom: string | null): string {
 /** 补取一段截图的请求路径。 */
 export function shotRangePath(range: ShotRange): string {
   return `/api/competitors/shots?from=${range.from}&before=${range.before}`
+}
+
+/**
+ * 这一天的截图在不在已加载范围里。全部已加载（null）、轴为空（date 为 null）、无日期列一律算已加载：
+ * 无日期截图首屏就全量带上，轴为空时本来就没有可显示的格子。
+ */
+export function isShotDateLoaded(date: string | null, loadedFrom: string | null): boolean {
+  if (loadedFrom === null || date === null || date === UNDATED_KEY) return true
+  return date >= loadedFrom
+}
+
+/** 第一个不早于 date 的有图日下标；全都早于它时返回 dated.length。 */
+function lowerBound(dated: string[], date: string): number {
+  let i = 0
+  while (i < dated.length && dated[i] < date) i += 1
+  return i
+}
+
+/**
+ * 下一段该补哪里。当前屏第一天往前、已加载的有图日不足一屏时，补 [from, loadedFrom)：
+ * from 取「起点再往前 SHOT_CHUNK_DAYS 天」与「当前屏再往前一屏」中较早的那个（夹到轴首），
+ * 这样即使窗口一次跳很远，这一段也能把整屏盖住，不会补一小段又卡住。
+ * 起点不在轴上（那天的图刚被删光）时按轴上第一个不早于它的日期定位。
+ */
+export function nextChunk(axis: string[], dateWindow: string[], loadedFrom: string | null): ShotRange | null {
+  if (loadedFrom === null) return null
+  const firstVisible = dateWindow.find((d) => d !== UNDATED_KEY)
+  if (!firstVisible) return null
+  const dated = datedOf(axis)
+  const loadedIdx = lowerBound(dated, loadedFrom)
+  if (loadedIdx === 0) return null // 轴上没有比起点更早的日期了
+  const visibleIdx = lowerBound(dated, firstVisible)
+  if (visibleIdx - loadedIdx >= SHOT_WINDOW_SIZE) return null
+  const fromIdx = Math.max(0, Math.min(loadedIdx - SHOT_CHUNK_DAYS, visibleIdx - SHOT_WINDOW_SIZE))
+  return { from: dated[fromIdx], before: loadedFrom }
+}
+
+/**
+ * 把补取到的一段 [from, before) 并进看板。前提是看板的起点仍是这段的右端（before）——
+ * 不是就说明请求飞行期间看板被刷新换掉了，结果已过期，原样返回，由调用方按新状态重判。
+ * 只收落在区间里的行；先去掉各账号区间内已有的行再并入，所以重复合并不会出重复。
+ * 找不到归属账号的行（账号刚被删）丢弃。
+ */
+export function mergeShotRange<S extends BoardShot>(
+  board: CompetitorBoard<S>,
+  rows: S[],
+  range: ShotRange,
+): CompetitorBoard<S> {
+  if (board.shotsLoadedFrom !== range.before) return board
+  const inRange = (s: S) => s.shot_on != null && s.shot_on >= range.from && s.shot_on < range.before
+  const byComp = new Map<string, S[]>()
+  for (const r of rows ?? []) {
+    if (!inRange(r)) continue
+    const arr = byComp.get(r.competitor_id) ?? []
+    arr.push(r)
+    byComp.set(r.competitor_id, arr)
+  }
+  const walk = (list: CompetitorWithHistory<S>[]): CompetitorWithHistory<S>[] =>
+    list.map((c) => ({
+      ...c,
+      shots: [...c.shots.filter((s) => !inRange(s)), ...(byComp.get(c.id) ?? [])].sort(compareShotsForBoard),
+      related: walk(c.related),
+    }))
+  const dated = datedOf(board.shotAxis)
+  return {
+    ...board,
+    competitors: walk(board.competitors),
+    shotsLoadedFrom: dated.length === 0 || range.from <= dated[0] ? null : range.from,
+  }
 }
