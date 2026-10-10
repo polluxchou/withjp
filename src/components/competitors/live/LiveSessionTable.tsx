@@ -29,7 +29,8 @@ export default function LiveSessionTable({
   const fmt = useLiveFormat()
   const [showAll, setShowAll] = useState(false)
   const rows = showAll ? sessions : sessions.slice(0, DEFAULT_ROWS)
-  const th = 'border-b border-line px-3 py-1.5 font-medium'
+  // 表头不折行：整列都是「—」时（只有截图的号的点赞列）列宽只剩一个字符，「点赞」会被挤成两行。
+  const th = 'whitespace-nowrap border-b border-line px-3 py-1.5 font-medium'
   const td = 'border-b border-line-soft px-3 py-1.5'
 
   return (

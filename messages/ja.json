@@ -1726,7 +1726,12 @@
     "liveTableColSource": "出典",
     "liveTableShowAll": "全{count}回を表示",
     "liveTableCollapse": "折りたたむ",
-    "liveSourceShot": "スクショ推定"
+    "liveSourceShot": "スクショ推定",
+    "liveCalendarNoData": "データなし",
+    "liveKpiDataDays": "データあり {dataDays}/{spanDays}日",
+    "liveKpiDataDaysHint": "取り込み履歴がなく巡回もしていない日は配信の有無が分からないため、休止にも配信日数の分母にも数えていません",
+    "liveKpiPrevPartial": "前30日はデータ不足",
+    "liveSlotsValueZone": "{slots}（{zone}）前後 · 直近 {count} 回"
   },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",

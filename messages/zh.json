@@ -1967,7 +1967,12 @@
     "liveTableColSource": "来源",
     "liveTableShowAll": "查看全部 {count} 场",
     "liveTableCollapse": "收起",
-    "liveSourceShot": "截图推断"
+    "liveSourceShot": "截图推断",
+    "liveCalendarNoData": "无数据",
+    "liveKpiDataDays": "有数据 {dataDays}/{spanDays} 天",
+    "liveKpiDataDaysHint": "没有导入记录、巡检也没跑的日子不知道播没播：不算断播，也不计入开播天数的分母",
+    "liveKpiPrevPartial": "前 30 天数据不全",
+    "liveSlotsValueZone": "{slots}（{zone}）前后 · 近 {count} 场"
   },
   "site": {
     "meta": {

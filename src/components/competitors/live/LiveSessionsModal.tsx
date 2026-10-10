@@ -10,7 +10,6 @@ import { liveSpansOf, regionTimeZone } from '@/lib/competitors/liveSessions'
 import { normalizeRegion } from '@/lib/competitors/regions'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { timeZoneForLocale } from '@/lib/time/localeZone'
-import { zonedYmd } from '@/lib/time/zonedTime'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import LiveRecordsPanel from './LiveRecordsPanel'
 
@@ -23,12 +22,21 @@ import LiveRecordsPanel from './LiveRecordsPanel'
 export default function LiveSessionsModal({
   competitor,
   canEdit,
+  today,
+  patrolDays,
   initialView,
   onClose,
   onChanged,
 }: {
   competitor: CompetitorWithHistory
   canEdit: boolean
+  /**
+   * 账号地区时区的今天（YYYY-MM-DD），由卡片取好传进来：卡片上「近 30 天 N 场」与弹窗的场次
+   * 必须按同一天算，弹窗不再自己读一次时钟。开着弹窗跨过午夜也不跳。
+   */
+  today: string
+  /** 巡检日（全库截图的 shot_on），判断「无数据」用，见 liveCoverage.ts。 */
+  patrolDays: ReadonlySet<string>
   initialView: 'records' | 'import'
   onClose: () => void
   onChanged: () => void
@@ -43,10 +51,6 @@ export default function LiveSessionsModal({
   const timeZone = regionTimeZone(competitor.region, timeZoneForLocale(locale))
   const zoneCode = normalizeRegion(competitor.region)
   const zoneLabel = zoneCode ? t(`zoneName.${zoneCode}`) : null
-
-  // 「今天」读时钟：只在弹窗挂载时取一次（弹窗只在点击后挂载，不进服务端渲染）。
-  // 开着弹窗跨过午夜也不跳，免得看着看着「近 30 天」的数自己变了。
-  const [today] = useState(() => zonedYmd(Date.now(), timeZone) ?? '')
 
   const spans = useMemo(() => liveSpansOf(competitor), [competitor])
 
@@ -98,6 +102,7 @@ export default function LiveSessionsModal({
             timeZone={timeZone}
             zoneLabel={zoneLabel}
             today={today}
+            patrolDays={patrolDays}
             canEdit={canEdit}
             onImport={() => setView('import')}
           />

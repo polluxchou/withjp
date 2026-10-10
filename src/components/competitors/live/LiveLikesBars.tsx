@@ -44,6 +44,9 @@ export default function LiveLikesBars({
   const heightOf = (likes: number) => (max > 0 ? Math.max(2, Math.round((likes / max) * PLOT_H)) : 2)
   const every = Math.max(MIN_TICK_EVERY, Math.ceil(bars.length / MAX_TICKS))
   const showTick = (i: number) => i % every === 0 && (i === 0 || i <= (bars.length - 1) * TICK_TAIL)
+  // 柱间距随场次数收窄：固定 2px 时 500 场光间距就近 1000px，手机上会撑出横向滚动条。
+  // 柱子本身 flex-1 + min-w-0 可以缩到不足 1px，间距是唯一撑宽的东西。
+  const gap = bars.length > 200 ? 'gap-0' : bars.length > 80 ? 'gap-px' : 'gap-0.5'
 
   return (
     <section className="flex min-w-0 flex-col gap-2.5 rounded-field border border-line bg-surface p-3">
@@ -66,7 +69,7 @@ export default function LiveLikesBars({
                 style={{ bottom: max > 0 ? Math.round((median / max) * PLOT_H) : 0 }}
               />
             )}
-            <div className="absolute inset-0 flex items-end gap-0.5">
+            <div className={`absolute inset-0 flex items-end ${gap}`}>
               {bars.map((b, i) => {
                 const h = heightOf(b.likes)
                 const end = endOf.get(b.startedAt)
@@ -98,7 +101,7 @@ export default function LiveLikesBars({
               })}
             </div>
           </div>
-          <div className="absolute inset-x-0 flex gap-0.5 text-micro text-ink-400 tabular-nums" style={{ top: 24 + PLOT_H + 6 }}>
+          <div className={`absolute inset-x-0 flex ${gap} text-micro text-ink-400 tabular-nums`} style={{ top: 24 + PLOT_H + 6 }}>
             {bars.map((b, i) => (
               <span key={b.startedAt} className="relative min-w-0 max-w-[28px] flex-1 overflow-visible whitespace-nowrap">
                 {showTick(i) ? b.date.slice(5) : ''}

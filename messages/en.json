@@ -1967,7 +1967,12 @@
     "liveTableColSource": "Source",
     "liveTableShowAll": "Show all {count}",
     "liveTableCollapse": "Show less",
-    "liveSourceShot": "Screenshots"
+    "liveSourceShot": "Screenshots",
+    "liveCalendarNoData": "No data",
+    "liveKpiDataDays": "Data on {dataDays}/{spanDays} days",
+    "liveKpiDataDaysHint": "Days with no imported history and no patrol run are unknown: they are not counted as breaks or toward live days",
+    "liveKpiPrevPartial": "prev. 30d incomplete",
+    "liveSlotsValueZone": "around {slots} ({zone}) · {count} sessions"
   },
   "site": {
     "meta": {
