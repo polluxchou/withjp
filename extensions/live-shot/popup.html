@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <form id="login" hidden>
+      <p class="title">竞品直播截图</p>
+      <label>邮箱<input id="email" type="email" autocomplete="username" required /></label>
+      <label>密码<input id="password" type="password" autocomplete="current-password" required /></label>
+      <button id="login-btn" class="primary" type="submit">登录</button>
+      <p id="login-error" class="error" hidden></p>
+      <p class="hint">用 MCN 后台同一个账号。密码不保存在本机。</p>
+    </form>
+    <section id="main" hidden>
+      <div class="row">
+        <div id="thumb" class="thumb"></div>
+        <div class="info">
+          <p id="name" class="name"></p>
+          <p id="line1" class="line"></p>
+          <p id="line2" class="line"></p>
+        </div>
+      </div>
+      <button id="action" type="button"></button>
+      <footer>
+        <span>今日</span>
+        <span>截图 <b id="count-shots">0</b> · 上传 <b id="count-uploads">—</b></span>
+      </footer>
+    </section>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
