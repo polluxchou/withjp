@@ -5,12 +5,25 @@ import type { LiveSpan } from './liveSessions.ts'
 import type { CompetitorWithHistory } from './types.ts'
 import {
   OUR_SCHEDULE_JST,
+  barClock,
+  clampMonth,
+  countryAccounts,
+  countryMonthKpis,
   densityColumn,
+  findCompetitor,
   flattenAccounts,
+  groupByCompany,
+  heatAlpha,
+  liveCountries,
+  monthBounds,
   monthDays,
   monthRow,
   monthTotals,
   peakBucket,
+  pickCountry,
+  shiftMonth,
+  spanSource,
+  type LiveAccount,
 } from './liveBoard.ts'
 import { coverageHistogram, locateSpans, BUCKETS } from './liveStats.ts'
 
@@ -119,6 +132,15 @@ test('flattenAccounts: 子账号自己登记了公司就用自己的', () => {
     { p: 'Guild A', c: 'Guild C' },
   )
   assert.deepEqual(out.map((a) => a.company), ['Guild A', 'Guild C'])
+})
+
+test('findCompetitor: 按 id 递归 related 找原始记录；找不到为 null', () => {
+  const kid = comp({ id: 'k1', handle: 'sample.kid' })
+  const tree = [comp({ id: 'p1', handle: 'sample.a' }), comp({ id: 'p2', handle: 'sample.b', related: [kid] })]
+  assert.equal(findCompetitor(tree, 'p1')?.handle, 'sample.a')
+  assert.equal(findCompetitor(tree, 'k1'), kid)
+  assert.equal(findCompetitor(tree, 'nope'), null)
+  assert.equal(findCompetitor([], 'p1'), null)
 })
 
 test('OUR_SCHEDULE_JST: 14:30–17:30 与 18:30–21:30（分钟）', () => {
@@ -390,4 +412,133 @@ test('peakBucket: 门槛含等号、可调；并列取最早；没有列返回 n
   const d = new Array(80).fill(0)
   d[5] = 3 / 10
   assert.deepEqual(peakBucket([d]), { index: 5, count: 1 })
+})
+
+// ---- 国家月历的整形 ----
+
+const la = (handle: string, region: string | null, company: string | null, spans: LiveSpan[]): LiveAccount =>
+  ({ id: handle, handle, name: handle, region, company, spans })
+const one = [h('2026-08-03', '12:00', '14:00')]
+
+test('spanSource: 导入 / 截图 / 两者都有 / 没有', () => {
+  assert.equal(spanSource([h('2026-08-03', '12:00', '13:00')]), 'history')
+  assert.equal(spanSource([s('2026-08-03', '12:00', '13:00')]), 'shot')
+  assert.equal(spanSource([h('2026-08-03', '12:00', '13:00'), s('2026-08-04', '12:00', '13:00')]), 'mixed')
+  assert.equal(spanSource([]), 'none')
+})
+
+test('liveCountries: 只数有场次的号；未填/脏值地区不进任何国家；号多在前，同数按清单顺序', () => {
+  const accounts = [
+    la('sample.a', 'JP', null, one),
+    la('sample.b', 'jp ', null, one), // 大小写与空白容错
+    la('sample.c', 'KR', null, one),
+    la('sample.d', 'MY', null, one),
+    la('sample.e', 'KR', null, []), // 没场次不算
+    la('sample.f', null, null, one), // 地区未填
+    la('sample.g', 'XX', null, one), // 清单外
+  ]
+  assert.deepEqual(liveCountries(accounts), [
+    { code: 'JP', count: 2 },
+    { code: 'KR', count: 1 },
+    { code: 'MY', count: 1 },
+  ])
+  // 同数时按清单顺序（KR 在 MY 前），与入参顺序无关
+  assert.deepEqual(liveCountries([la('x', 'MY', null, one), la('y', 'KR', null, one)]).map((o) => o.code), ['KR', 'MY'])
+  assert.deepEqual(liveCountries([]), [])
+})
+
+test('pickCountry: URL 值在选项里就用；否则 JP；没有 JP 取第一个；没有选项为 null', () => {
+  const opts = [{ code: 'KR' as const, count: 3 }, { code: 'JP' as const, count: 2 }]
+  assert.equal(pickCountry(opts, 'KR'), 'KR')
+  assert.equal(pickCountry(opts, 'kr'), 'KR', '大小写容错')
+  assert.equal(pickCountry(opts, 'MY'), 'JP', '不在选项里回落到 JP')
+  assert.equal(pickCountry(opts, null), 'JP')
+  assert.equal(pickCountry([{ code: 'MY', count: 1 }, { code: 'KR', count: 1 }], null), 'MY', '没有 JP 取第一个')
+  assert.equal(pickCountry([], 'JP'), null)
+})
+
+test('countryAccounts: 该国（规整后）有场次的号', () => {
+  const accounts = [la('a', 'JP', null, one), la('b', ' jp', null, one), la('c', 'JP', null, []), la('d', 'KR', null, one)]
+  assert.deepEqual(countryAccounts(accounts, 'JP').map((a) => a.handle), ['a', 'b'])
+})
+
+test('shiftMonth: 跨年进退位；格式不对原样返回', () => {
+  assert.equal(shiftMonth('2026-08', 1), '2026-09')
+  assert.equal(shiftMonth('2026-12', 1), '2027-01')
+  assert.equal(shiftMonth('2026-01', -1), '2025-12')
+  assert.equal(shiftMonth('2026-03', -15), '2024-12')
+  assert.equal(shiftMonth('2026-8', 1), '2026-8')
+})
+
+test('monthBounds: 最早一场所在月（按账号地区时区）～ 今天所在月', () => {
+  // 08-01 00:30 日本时间 = 07-31 23:30 吉隆坡时间：同一场，马来西亚的号落在 7 月
+  const edge = [h('2026-08-01', '00:30', '02:00'), h('2026-09-10', '12:00', '13:00')]
+  assert.deepEqual(monthBounds([la('jp', 'JP', null, edge)], '2026-10-10', TZ), { from: '2026-08', to: '2026-10' })
+  assert.deepEqual(monthBounds([la('my', 'MY', null, edge)], '2026-10-10', TZ), { from: '2026-07', to: '2026-10' })
+  // 取所有号里最早的；场次不必按时间排好
+  const late = la('b', 'JP', null, [h('2026-09-01', '12:00', '13:00')])
+  const early = la('a', 'JP', null, [h('2026-09-20', '12:00', '13:00'), h('2026-06-15', '12:00', '13:00')])
+  assert.deepEqual(monthBounds([late, early], '2026-10-10', TZ), { from: '2026-06', to: '2026-10' })
+  // 地区不在清单里用 fallbackZone
+  assert.deepEqual(monthBounds([la('x', null, null, edge)], '2026-10-10', 'Asia/Kuala_Lumpur').from, '2026-07')
+  // 没场次 / 最早一场比今天还晚：只有今天所在月
+  assert.deepEqual(monthBounds([la('a', 'JP', null, [])], '2026-10-10', TZ), { from: '2026-10', to: '2026-10' })
+  assert.deepEqual(monthBounds([la('a', 'JP', null, [h('2026-12-01', '12:00', '13:00')])], '2026-10-10', TZ), { from: '2026-10', to: '2026-10' })
+})
+
+test('clampMonth: 缺失/格式不对取上端，越界夹到两端', () => {
+  const b = { from: '2026-07', to: '2026-10' }
+  assert.equal(clampMonth(null, b), '2026-10')
+  assert.equal(clampMonth('2026-13', b), '2026-10')
+  assert.equal(clampMonth('2026-8', b), '2026-10')
+  assert.equal(clampMonth('2026-05', b), '2026-07')
+  assert.equal(clampMonth('2027-01', b), '2026-10')
+  assert.equal(clampMonth('2026-08', b), '2026-08')
+  assert.equal(clampMonth('2026-07', b), '2026-07', '下端含')
+})
+
+test('groupByCompany: 有名字的按号数降序、同数按名字；未归属放最后；组内按 handle', () => {
+  const groups = groupByCompany([
+    la('sample.z', 'JP', 'Beta', one),
+    la('sample.y', 'JP', null, one),
+    la('sample.x', 'JP', 'Alpha', one),
+    la('sample.w', 'JP', 'Gamma', one),
+    la('sample.v', 'JP', 'Gamma', one),
+    la('sample.u', 'JP', '', one), // 空串当未归属
+    la('sample.t', 'JP', null, one),
+  ])
+  assert.deepEqual(groups.map((g) => [g.company, g.accounts.map((a) => a.handle)]), [
+    ['Gamma', ['sample.v', 'sample.w']],
+    ['Alpha', ['sample.x']],
+    ['Beta', ['sample.z']],
+    [null, ['sample.t', 'sample.u', 'sample.y']],
+  ])
+  assert.deepEqual(groupByCompany([]), [])
+})
+
+test('countryMonthKpis: 有开播的号 / 列出的号、开播最多的一天（并列取最早）、有数据的天数', () => {
+  const k = countryMonthKpis(
+    [{ liveDays: 3 }, { liveDays: 0 }, { liveDays: 1 }],
+    [{ live: 1, withData: 2 }, { live: 2, withData: 3 }, { live: 0, withData: 0 }, { live: 2, withData: 2 }],
+  )
+  assert.deepEqual(k, { active: 2, total: 3, busiest: { index: 1, live: 2 }, dataDays: 3 })
+  // 整月没人开播：busiest 为 null（不报「0 个号」的一天）
+  assert.equal(countryMonthKpis([{ liveDays: 0 }], [{ live: 0, withData: 1 }]).busiest, null)
+  assert.deepEqual(countryMonthKpis([], []), { active: 0, total: 0, busiest: null, dataDays: 0 })
+})
+
+test('heatAlpha: 0.15 + 0.7 × live / maxLive；没人开播不上色', () => {
+  assert.equal(heatAlpha(0, 5), null)
+  assert.equal(heatAlpha(3, 0), null)
+  assert.ok(Math.abs((heatAlpha(4, 4) ?? 0) - 0.85) < 1e-9)
+  assert.ok(Math.abs((heatAlpha(2, 4) ?? 0) - 0.5) < 1e-9)
+  assert.ok(Math.abs((heatAlpha(1, 4) ?? 0) - 0.325) < 1e-9)
+})
+
+test('barClock: 起止钟点；跨午夜标次日；凌晨开播的场次从它自己那天量起', () => {
+  assert.deepEqual(barClock({ start: 720, end: 840, approx: false }), { start: '12:00', end: '14:00', nextDay: false })
+  assert.deepEqual(barClock({ start: 1380, end: 1500, approx: false }), { start: '23:00', end: '01:00', nextDay: true })
+  assert.deepEqual(barClock({ start: 1380, end: 1440, approx: false }), { start: '23:00', end: '00:00', nextDay: true }, '恰好 24 点算次日')
+  assert.deepEqual(barClock({ start: 1500, end: 1620, approx: true }), { start: '01:00', end: '03:00', nextDay: false })
+  assert.deepEqual(barClock({ start: 1500, end: 2900, approx: false }).nextDay, true)
 })

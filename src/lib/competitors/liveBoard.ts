@@ -14,11 +14,13 @@
 //
 // 3. 我方排期常量 OUR_SCHEDULE_JST：来历是 liveSlots.ts 头注释里写的「我们自己的排期就是 14:30–17:30 / 18:30–21:30」，
 //    日区团播普遍一天两档，番组表上画成参考线，方便对照竞品的档期。排期是日本时间的钟点，与账号地区无关。
-import { clusterMinutes, SLOT_MIN_SESSIONS, SLOT_MIN_SHARE } from './liveSlots.ts'
+import { clusterMinutes, minutesToLabel, SLOT_MIN_SESSIONS, SLOT_MIN_SHARE } from './liveSlots.ts'
 import { coverageOf } from './liveCoverage.ts'
-import { liveSpansOf, type LiveSpan } from './liveSessions.ts'
+import { liveSpansOf, regionTimeZone, type LiveSpan } from './liveSessions.ts'
 import { AXIS_END, AXIS_START, coverageHistogram, inRange, locateSpans, type LocatedSpan } from './liveStats.ts'
+import { normalizeRegion, REGION_CODES, type RegionCode } from './regions.ts'
 import type { CompetitorWithHistory } from './types.ts'
+import { zonedYmd } from '../time/zonedTime.ts'
 
 /** 我方排期（日本时间，轴上分钟）：14:30–17:30、18:30–21:30。 */
 export const OUR_SCHEDULE_JST: readonly (readonly [number, number])[] = [
@@ -63,6 +65,19 @@ export function flattenAccounts(
   }
   walk(competitors, null)
   return out
+}
+
+/**
+ * 在竞品树里按 id 找原始记录（递归 related）。页面上的视图拿的是摊平后的 LiveAccount，
+ * 点账号开开播记录弹窗时要换回 CompetitorWithHistory（弹窗吃它）。找不到（比如刚被删掉）为 null。
+ */
+export function findCompetitor(list: CompetitorWithHistory[], id: string): CompetitorWithHistory | null {
+  for (const c of list) {
+    if (c.id === id) return c
+    const hit = findCompetitor(c.related, id)
+    if (hit) return hit
+  }
+  return null
 }
 
 /** YYYY-MM → 该月每一天的 YYYY-MM-DD。格式不对返回空数组，不抛。 */
@@ -171,6 +186,176 @@ export function monthTotals(rows: MonthCell[][]): { live: number; withData: numb
   return out
 }
 
+/** 一批场次的来源：只有导入 / 只有截图推断 / 两者都有 / 一场都没有。 */
+export function spanSource(spans: readonly Pick<LiveSpan, 'source'>[]): 'history' | 'shot' | 'mixed' | 'none' {
+  const hasHistory = spans.some((s) => s.source === 'history')
+  const hasShot = spans.some((s) => s.source === 'shot')
+  return hasHistory && hasShot ? 'mixed' : hasHistory ? 'history' : hasShot ? 'shot' : 'none'
+}
+
+// ---- 国家月历 ----
+// 下面这些是国家月历视图的整形：选哪个国家、能翻到哪个月、怎么按公会分组、顶部三个指标。
+// 都是「挑」与「数」，不碰场次本身的计算（那是上面 monthRow / monthTotals 的事）。
+
+/**
+ * 按码点比较，不用 localeCompare：后者跟着运行环境的默认语言走，服务端渲染与浏览器
+ * 可能排出两种顺序，水合时整张月历的行会对不上。handle 与公司名本来就是 ASCII 为主，码点序足够。
+ */
+const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
+
+export interface CountryOption {
+  code: RegionCode
+  /** 该国有场次的号数。 */
+  count: number
+}
+
+/**
+ * 月历的国家选项：只数有场次的号——月历只列这些，没场次的号选进去也是一片空白。
+ * 地区不在清单里（未填 / 历史脏值）的号不归入任何国家。号多的在前，同数按清单顺序。
+ */
+export function liveCountries(accounts: LiveAccount[]): CountryOption[] {
+  const counts = new Map<RegionCode, number>()
+  for (const a of accounts) {
+    if (a.spans.length === 0) continue
+    const code = normalizeRegion(a.region)
+    if (code) counts.set(code, (counts.get(code) ?? 0) + 1)
+  }
+  return REGION_CODES.filter((code) => counts.has(code))
+    .map((code) => ({ code, count: counts.get(code) ?? 0 }))
+    .sort((a, b) => b.count - a.count || REGION_CODES.indexOf(a.code) - REGION_CODES.indexOf(b.code))
+}
+
+/**
+ * 选中的国家：请求值（URL 上的 country，大小写容错）在选项里就用它；否则日本——日区是主战场；
+ * 没有日本取第一个（号最多的国家）；一个选项都没有为 null。
+ */
+export function pickCountry(options: CountryOption[], requested: string | null | undefined): RegionCode | null {
+  const want = normalizeRegion(requested)
+  if (want && options.some((o) => o.code === want)) return want
+  if (options.some((o) => o.code === 'JP')) return 'JP'
+  return options[0]?.code ?? null
+}
+
+/** 某国有任何场次的号（月历只列这些，口径同 liveCountries）。 */
+export function countryAccounts(accounts: LiveAccount[], code: RegionCode): LiveAccount[] {
+  return accounts.filter((a) => a.spans.length > 0 && normalizeRegion(a.region) === code)
+}
+
+/** YYYY-MM 加减若干个月（跨年自动进退位）。格式不对原样返回。 */
+export function shiftMonth(month: string, delta: number): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(month)
+  if (!m) return month
+  const index = Number(m[1]) * 12 + Number(m[2]) - 1 + delta
+  const year = Math.floor(index / 12)
+  return `${String(year).padStart(4, '0')}-${String(index - year * 12 + 1).padStart(2, '0')}`
+}
+
+/**
+ * 月历能翻到的范围：这批号最早一场所在月 ～ 今天所在月。
+ * 最早一场按各号自己的地区时区落日期（与 monthRow 落格子同一口径，否则月初那场所在的月份可能翻不到）；
+ * 地区不在清单里才用 fallbackZone。没有任何场次、或最早一场比今天还晚（时钟或数据异常）时，只有今天所在月。
+ */
+export function monthBounds(
+  accounts: LiveAccount[],
+  today: string,
+  fallbackZone: string,
+): { from: string; to: string } {
+  const to = today.slice(0, 7)
+  let from = to
+  for (const a of accounts) {
+    if (a.spans.length === 0) continue
+    // startedAt 统一是 toISOString() 写法（见 liveSessions.ts），按字符串比较就是按时刻比较。
+    let first = a.spans[0].startedAt
+    for (const s of a.spans) if (s.startedAt < first) first = s.startedAt
+    const month = zonedYmd(first, regionTimeZone(a.region, fallbackZone))?.slice(0, 7)
+    if (month && month < from) from = month
+  }
+  return { from, to }
+}
+
+/** URL 上的月份收进可翻范围：缺失或格式不对取今天所在月（范围上端），越界夹到两端。 */
+export function clampMonth(raw: string | null | undefined, bounds: { from: string; to: string }): string {
+  if (!raw || !/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return bounds.to
+  if (raw < bounds.from) return bounds.from
+  if (raw > bounds.to) return bounds.to
+  return raw
+}
+
+export interface CompanyGroup {
+  /** 公会（公司）名；没登记的为 null，界面上写「未归属公会」。 */
+  company: string | null
+  accounts: LiveAccount[]
+}
+
+/**
+ * 按公会分组：有名字的按号数降序、同数按名字；未归属的一组放最后（它不是一家公司，排进中间会被读成最大的一家）。
+ * 组内按 handle 排，翻月时行序不跳。
+ */
+export function groupByCompany(accounts: LiveAccount[]): CompanyGroup[] {
+  const map = new Map<string | null, LiveAccount[]>()
+  for (const a of accounts) {
+    const key = a.company || null
+    const list = map.get(key)
+    if (list) list.push(a)
+    else map.set(key, [a])
+  }
+  return Array.from(map, ([company, list]) => ({
+    company,
+    accounts: list.slice().sort((x, y) => byCodePoint(x.handle, y.handle)),
+  })).sort((a, b) => {
+    if ((a.company == null) !== (b.company == null)) return a.company == null ? 1 : -1
+    return b.accounts.length - a.accounts.length || byCodePoint(a.company ?? '', b.company ?? '')
+  })
+}
+
+export interface CountryMonthKpis {
+  /** 本月有开播的号数。 */
+  active: number
+  /** 月历里列出的号数。 */
+  total: number
+  /** 开播号数最多的一天（月内下标，0 = 1 号）；并列取最早；整月没人开播为 null。 */
+  busiest: { index: number; live: number } | null
+  /** 至少有一个号有数据的天数（无数据 ≠ 没播，没人有数据的日子不算进来）。 */
+  dataDays: number
+}
+
+/** 国家月历顶部的三个指标，入参就是同一批号的 monthRow 结果与 monthTotals。 */
+export function countryMonthKpis(
+  rows: Pick<MonthRowResult, 'liveDays'>[],
+  totals: { live: number; withData: number }[],
+): CountryMonthKpis {
+  let busiest: CountryMonthKpis['busiest'] = null
+  for (let index = 0; index < totals.length; index += 1) {
+    const live = totals[index].live
+    // 严格大于：并列时保留先出现的（更早的）那天
+    if (live > (busiest?.live ?? 0)) busiest = { index, live }
+  }
+  return {
+    active: rows.filter((r) => r.liveDays > 0).length,
+    total: rows.length,
+    busiest,
+    dataDays: totals.filter((d) => d.withData > 0).length,
+  }
+}
+
+/**
+ * 底行「当天开播号数」的热度：主色透明度 0.15 + 0.7 × live / maxLive（最多的那天 0.85）。
+ * 当天没人开播为 null——不上色，和「有人播但很少」分得开。
+ */
+export function heatAlpha(live: number, maxLive: number): number | null {
+  if (live <= 0 || maxLive <= 0) return null
+  return 0.15 + 0.7 * Math.min(1, live / maxLive)
+}
+
+/**
+ * 一场的起止钟点（轴上分钟 → HH:mm），提示框用。nextDay = 下播落在开播的次日。
+ * 凌晨开播的场次轴上 +1440，但它仍归开播当天，所以跨不跨日要从它自己的那一天量起。
+ */
+export function barClock(bar: MonthBar): { start: string; end: string; nextDay: boolean } {
+  const dayStart = bar.start >= 1440 ? 1440 : 0
+  return { start: minutesToLabel(bar.start), end: minutesToLabel(bar.end), nextDay: bar.end - dayStart >= 1440 }
+}
+
 export interface DensitySlot {
   /** 该档开播的下中位（轴上分钟）。 */
   start: number
@@ -210,9 +395,7 @@ export function densityColumn(
   const w = inRange(located, opts.from, opts.to)
   const { shares } = coverageHistogram(located, opts.from, opts.to)
 
-  const hasHistory = w.some((s) => s.source === 'history')
-  const hasShot = w.some((s) => s.source === 'shot')
-  const source: DensityColumn['source'] = hasHistory && hasShot ? 'mixed' : hasHistory ? 'history' : hasShot ? 'shot' : 'none'
+  const source = spanSource(w)
 
   // 同一开播分钟可能有多场（不同日子），按开播分钟索引，聚类后才能回头找到每档里的场次。
   const byStart = new Map<number, LocatedSpan[]>()
