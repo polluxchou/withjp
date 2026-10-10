@@ -7,7 +7,7 @@
 1. 生成本机配置（只含公开值，已 gitignore）：
 
    ```bash
-   node --env-file=/Users/fengzhou/Code/newWith/.env.local scripts/gen-extension-config.mjs
+   node --env-file=<主仓目录>/.env.local scripts/gen-extension-config.mjs
    ```
 
    本地联调后台时加 `--api-base http://localhost:3100`。
@@ -20,6 +20,11 @@
 在 TikTok 直播间页面点图标，弹窗会自动截图并读人数；确认缩略图是这个房间后点「上传」。弹窗底部是今天（日本时间）的截图数与上传数。
 
 截不了图时弹窗会说原因：不是直播间页面、页面被双指缩放、直播画面没完整在窗口里、页面刚切换了直播间。
+
+## 已知限制
+
+- 点了「上传」后立刻点别处会关掉弹窗：上传可能已经完成但没看到确认，再打开会重新截一张，可能多出一张，去竞品页相册删掉即可。
+- 没生成 `config.local.js` 时弹窗是空白的，先跑「安装」第 1 步。
 
 ## 改了判据之后
 
