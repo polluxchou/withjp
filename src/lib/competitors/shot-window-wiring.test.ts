@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
-import { ASK_SHOT_COLUMNS } from './service.ts'
+import { ASK_SHOT_COLUMNS, getCompetitorBoard, getShotsInRange } from './service.ts'
 import type { AskShot } from './types.ts'
 
 const SERVICE = readFileSync(new URL('./service.ts', import.meta.url), 'utf8')
@@ -83,13 +83,18 @@ test('getCompetitorBoard：先瘦查询建全量索引，截图本体按已加�
 
 test('getCompetitorBoard：since 进查询前自己再校验一道', () => {
   const body = bodyOf(SERVICE, 'getCompetitorBoard')
-  assert.match(body, /isValidShotDate\(since\)/)
+  assert.match(body, /since !== null && !isValidShotDate\(since\)/)
+  assert.match(body, /return err\('invalid_input', 'since must be/)
 })
 
 test('getShotsInRange：按 [from, before) 取整段，入参再校验一道', () => {
   const body = bodyOf(SERVICE, 'getShotsInRange')
   assert.match(body, /parseShotRangeQuery\(rangeFrom, rangeBefore\)/)
-  assert.match(body, /\.gte\('shot_on', q\.from\)\.lt\('shot_on', q\.before\)/)
+  // select('*')：补取回来的是截图本体，列不能少；过滤紧跟其后。
+  assert.match(
+    body,
+    /db\.from\('competitor_shots'\)\.select\('\*'\)\s*\.gte\('shot_on', q\.from\)\.lt\('shot_on', q\.before\)/,
+  )
 })
 
 test('GET /api/competitors：鉴权后解析 since 再取看板', () => {
@@ -102,4 +107,92 @@ test('GET /api/competitors/shots：鉴权后解析区间再取', () => {
   assert.match(SHOTS_ROUTE, /parseShotRangeQuery\(params\.get\('from'\), params\.get\('before'\)\)/)
   assert.match(SHOTS_ROUTE, /getShotsInRange\(q\.from, q\.before\)/)
   assert.ok(SHOTS_ROUTE.indexOf('authGuard()') >= 0 && SHOTS_ROUTE.indexOf('authGuard()') < SHOTS_ROUTE.indexOf('parseShotRangeQuery('), '必须先鉴权')
+})
+
+// ---- 路由：鉴权早返回与 400 -------------------------------------------------
+// 只断言「authGuard() 调用还在」不够：留着调用、删掉 `if (user instanceof NextResponse) return user`，
+// 未登录请求就直达数据库——补取接口里 user 后面没人用，tsc 也不报。
+// 同理，非法参数分支必须真的返回 400，不能悄悄变成 200。
+function handlerOf(src: string): string {
+  const start = src.indexOf('export async function GET(')
+  assert.ok(start >= 0, '找不到 GET 处理函数')
+  const next = src.indexOf('\nexport ', start + 1)
+  return src.slice(start, next < 0 ? undefined : next)
+}
+
+const ROUTES: [name: string, src: string][] = [
+  ['GET /api/competitors', BOARD_ROUTE],
+  ['GET /api/competitors/shots', SHOTS_ROUTE],
+]
+
+for (const [name, src] of ROUTES) {
+  test(`${name}：鉴权失败直接返回，不往下走`, () => {
+    assert.match(
+      handlerOf(src),
+      /const user = await authGuard\(\)\s*\n\s*if \(user instanceof NextResponse\) return user/,
+    )
+  })
+
+  test(`${name}：参数非法返回 400`, () => {
+    assert.match(handlerOf(src), /if \(!q\.ok\)[\s\S]{0,200}?status: 400/)
+  })
+}
+
+// ---- 服务层：入参校验的方向与错误码（行为测试） ------------------------------
+// 校验发生在 createServerClient() 之前，所以非法入参的调用不碰数据库（测试环境也没有数据库凭据）。
+// 注意：这里只准用非法参数调用——合法参数会往下去连库。
+test('getCompetitorBoard：不是真实日期的 since 被拒，错误码 invalid_input（不碰数据库）', async () => {
+  for (const since of ['2026-02-30', '2026-08-16,id.gt.0', 'not-a-date']) {
+    const res = await getCompetitorBoard('u', { since })
+    assert.equal(res.data, null, since)
+    assert.equal(res.error?.code, 'invalid_input', since)
+  }
+})
+
+test('getShotsInRange：from 不早于 before、或带注入片段的区间被拒，错误码 invalid_input（不碰数据库）', async () => {
+  const bad: [string, string][] = [
+    ['2026-08-16', '2026-08-01'],
+    ['2026-08-16', '2026-08-16'],
+    ['2026-08-01', '2026-08-17,id.gt.0'],
+    ['2026-08-01,id.gt.0', '2026-08-17'],
+  ]
+  for (const [from, before] of bad) {
+    const res = await getShotsInRange(from, before)
+    assert.equal(res.data, null, `${from} ${before}`)
+    assert.equal(res.error?.code, 'invalid_input', `${from} ${before}`)
+  }
+})
+
+// ---- 看板取数的数据流 --------------------------------------------------------
+// 「meta 算出来了但没传」「索引喂了空数组」「截图本体换成 []」「canEdit 变 false」这几类改动，
+// 单看「某个字符串还在」抓不住；这里把 assembleBoard 的整段调用连同实参顺序一起钉住。
+test('getCompetitorBoard：索引吃瘦查询的行；assembleBoard 的实参依次是 竞品、快照、截图本体、canEdit=true、描述、meta', () => {
+  const body = bodyOf(SERVICE, 'getCompetitorBoard')
+  assert.ok(
+    body.includes('buildShotIndex((indexRes.data ?? []) as ShotIndexRow[])'),
+    '索引必须由瘦查询的行构建',
+  )
+  assert.match(
+    body,
+    /assembleBoard\(\s*\(compRes\.data \?\? \[\]\) as Competitor\[\],\s*\(snapRes\.data \?\? \[\]\) as CompetitorSnapshot\[\],\s*\(shotRes\.data \?\? \[\]\) as CompetitorShot\[\],\s*true,\s*\(descRes\.data \?\? \[\]\) as CompetitorDescription\[\],\s*\{ \.\.\.index, shotsLoadedFrom: loadedFrom \},?\s*\)/,
+  )
+})
+
+// ---- 错误传播 ----------------------------------------------------------------
+// 任何一段查询失败都要变成 db_error，不能静默退化成「空索引 / 缺图看板」。
+test('getCompetitorBoard：四张表与截图本体任一出错都返回 db_error', () => {
+  const body = bodyOf(SERVICE, 'getCompetitorBoard')
+  assert.ok(
+    body.includes('compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error'),
+    '竞品、快照、索引、描述任一出错都应返回 db_error',
+  )
+  assert.ok(
+    body.includes("if (shotRes.error) return err('db_error', shotRes.error.message)"),
+    '截图本体查询出错应返回 db_error',
+  )
+})
+
+test('getShotsInRange：补取查询出错返回 db_error', () => {
+  const body = bodyOf(SERVICE, 'getShotsInRange')
+  assert.ok(body.includes("if (res.error) return err('db_error', res.error.message)"))
 })
