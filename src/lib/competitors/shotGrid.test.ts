@@ -97,6 +97,7 @@ function competitor(
     weekly: [],
     related,
     descriptions: [],
+    live_sessions: [],
   }
 }
 

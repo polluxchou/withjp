@@ -95,6 +95,25 @@ export interface CompetitorDescription {
   created_at: string
 }
 
+/**
+ * 一场开播记录，来自 TikTok 主页 LIVE History 的粘贴导入（解析见 liveHistory.ts）。
+ * 与截图上的 stream_started_at 不同：那只覆盖截到的寥寥几场，这里是对方列表里的每一场。
+ */
+export interface CompetitorLiveSession {
+  id: string
+  competitor_id: string
+  /** 开播时刻（ISO，UTC）。与 competitor_id 一起是去重键，重复粘贴按它覆盖。 */
+  started_at: string
+  /** 下播时刻（ISO，UTC）。跨午夜的已在解析时算到次日，恒 ≥ started_at。 */
+  ended_at: string
+  title: string
+  /** 原文是 106.7K 这类缩写，换算后的近似值；原文缺失为 null。 */
+  likes: number | null
+  source: 'tiktok_history'
+  created_at: string
+  updated_at: string
+}
+
 /** 按 ISO 周聚合的粉丝点（week_start = 周一 YYYY-MM-DD）。 */
 export interface WeeklyPoint {
   week_start: string
@@ -113,6 +132,8 @@ export interface CompetitorWithHistory extends Competitor {
   shots: CompetitorShot[]
   /** 风格描述，已按生成日期倒序。 */
   descriptions: CompetitorDescription[]
+  /** 开播记录，已按开播时刻倒序（最新在前）。 */
+  live_sessions: CompetitorLiveSession[]
   weekly: WeeklyPoint[]
   /** 下探发现的关联主播（子账号），只在父卡片里下钻展示,不在首页平铺。 */
   related: CompetitorWithHistory[]
