@@ -31,6 +31,8 @@ export function uploadErrorMessage(code, handle) {
       return '截图格式或大小不符'
     case 'network_error':
       return '网络不通，可以重试'
+    case 'auth_unavailable':
+      return '登录服务暂时不可用，可以重试'
     default:
       return '上传失败，可以重试'
   }
