@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   RULER_HALF_BAND_MINUTES,
   RULER_MIN_SPAN_MINUTES,
+  RULER_WINDOW_DAYS,
   axisTicks,
   buildRegionRuler,
   tickStepHours,
@@ -232,4 +233,45 @@ test('读不出的开播时刻跳过，不影响同账号其它场次', () => {
     now: NOW,
   })
   assert.equal(r.sessions, 1)
+})
+
+// 14 天窗口的两条边界：时刻按毫秒精确比对，cutoff 与 now 本身都算窗口内。
+const NOW_MS = Date.parse(NOW)
+const CUTOFF_MS = NOW_MS - RULER_WINDOW_DAYS * 86_400_000
+const isoAt = (ms: number) => new Date(ms).toISOString()
+
+function rulerOf(sessionStarts: string[] | undefined) {
+  return buildRegionRuler({
+    competitors: [acc({ id: 'a', handle: 'a', sessionStarts })],
+    region: 'JP',
+    timeZone: TZ,
+    now: NOW,
+  })
+}
+
+test('窗口下沿：恰好在 now 往前 14 天的场次算，早 1 毫秒不算', () => {
+  assert.equal(rulerOf([isoAt(CUTOFF_MS)]).sessions, 1)
+  const before = rulerOf([isoAt(CUTOFF_MS - 1)])
+  assert.equal(before.sessions, 0)
+  assert.equal(before.rows.length, 0)
+})
+
+test('窗口上沿：恰好等于 now 的场次算，晚 1 毫秒不算', () => {
+  assert.equal(rulerOf([isoAt(NOW_MS)]).sessions, 1)
+  const after = rulerOf([isoAt(NOW_MS + 1)])
+  assert.equal(after.sessions, 0)
+  assert.equal(after.rows.length, 0)
+})
+
+test('同一账号新旧场次混在一起：窗口外的旧场次不进场次数，也不进档位', () => {
+  const r = rulerOf(['2026-08-18T04:00:00Z', '2026-07-20T11:00:00Z'])
+  assert.equal(r.sessions, 1)
+  assert.equal(r.rows[0].sessions, 1)
+  assert.equal(r.rows[0].bands.length, 1)
+})
+
+test('sessionStarts 缺失（类型允许）时不崩，该账号不上轴', () => {
+  const r = rulerOf(undefined)
+  assert.equal(r.rows.length, 0)
+  assert.equal(r.sessions, 0)
 })
