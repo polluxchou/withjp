@@ -29,6 +29,8 @@ export function uploadErrorMessage(code, handle) {
     case 'invalid_type':
     case 'file_too_large':
       return '截图格式或大小不符'
+    case 'network_error':
+      return '网络不通，可以重试'
     default:
       return '上传失败，可以重试'
   }

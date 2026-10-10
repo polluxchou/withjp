@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "竞品直播截图",
+  "version": "0.1.0",
+  "description": "在 TikTok 直播间一键截取画面与在线人数，上传到竞品监测后台。",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "竞品直播截图"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://mcn.agenova.chat/*",
+    "https://*.supabase.co/*",
+    "http://localhost/*"
+  ]
+}
