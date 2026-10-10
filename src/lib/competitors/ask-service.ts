@@ -1,5 +1,5 @@
 // src/lib/competitors/ask-service.ts
-// 竞品问答的无状态服务函数：校验请求体 → 裁剪历史 → 取看板 → 拼数据包 →
+// 竞品问答的无状态服务函数：校验请求体 → 裁剪历史 → 取看板（全量历史、只取问答列，见 service.ts 的 getAskBoard） → 拼数据包 →
 // 拼 system prompt → 调模型。
 //
 // 原来是 POST /api/competitors/ask 的路由体，AskPanel 抽屉下线后唯一的调用
@@ -9,7 +9,7 @@
 //
 // 相对路径 + .ts 后缀：同目录 ask-validate.ts / ask-context.ts 的既定约定，
 // node --test 不解析 tsconfig 的 @/ 别名。
-import { getCompetitorBoard } from './service.ts'
+import { getAskBoard } from './service.ts'
 import { buildAskContext } from './ask-context.ts'
 import { buildSystemPrompt } from './ask-prompt.ts'
 import { deepseekChat } from '../llm/deepseek.ts'
@@ -23,7 +23,7 @@ export type AskServiceResult =
 // 把 board/chat 换成假实现才能测到「parseAskBody 真的挡在最前面、绕不过去」
 // 这类边界（见 ask-service.test.ts）。生产调用方不传。
 export interface AskServiceDeps {
-  board?: typeof getCompetitorBoard
+  board?: typeof getAskBoard
   chat?:  typeof deepseekChat
 }
 
@@ -51,12 +51,12 @@ export async function runAskConversation(
   // 再让历史无限增长会顶穿上下文窗口，也会让每轮成本随对话长度线性上涨。
   const turns = trimHistory(parsed.turns, MAX_TURNS)
 
-  const board = deps?.board ?? getCompetitorBoard
+  const board = deps?.board ?? getAskBoard
   const boardRes = await board(userId)
   if (boardRes.error) {
     // 真实错误只留服务端日志——boardRes.error.message 是 Supabase/Postgrest
     // 原始报错，可能带表名、约束名等内部细节，不能透传给客户端。
-    console.error('[ask-service] getCompetitorBoard failed', boardRes.error)
+    console.error('[ask-service] getAskBoard failed', boardRes.error)
     return { ok: false, code: 'board', message: 'Failed to load competitor board data' }
   }
 

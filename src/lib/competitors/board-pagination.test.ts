@@ -15,11 +15,18 @@ function bodyOf(name: string): string {
   return src.slice(start, next < 0 ? undefined : next)
 }
 
-for (const name of ['getCompetitorBoard', 'getCompanyBoard']) {
+// 每个看板取数函数至少有几个整表/整段加载。数少了说明有查询被删了或绕开了 fetchAllRows。
+const LOADERS: [name: string, minFroms: number][] = [
+  ['getCompetitorBoard', 4],
+  ['getCompanyBoard', 4],
+  ['getAskBoard', 3],
+]
+
+for (const [name, minFroms] of LOADERS) {
   test(`${name}：每个整表 db.from(...) 都包在 fetchAllRows 里，并带稳定排序与 range`, () => {
     const body = bodyOf(name)
     const froms = body.match(/db\.from\(/g) ?? []
-    assert.ok(froms.length >= 4, `${name} 里应有至少 4 个整表加载，实际 ${froms.length}`)
+    assert.ok(froms.length >= minFroms, `${name} 里应有至少 ${minFroms} 个整表加载，实际 ${froms.length}`)
     const wrapped = body.match(/fetchAllRows\(\(from, to\) => db\.from\(/g) ?? []
     assert.equal(wrapped.length, froms.length, `${name} 里有 db.from 没走 fetchAllRows，超过 1000 行会被静默截断`)
     const ranged = body.match(/\.range\(from, to\)/g) ?? []
