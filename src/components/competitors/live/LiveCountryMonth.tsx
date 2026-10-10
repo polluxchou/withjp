@@ -8,6 +8,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Tag from '@/components/ui/Tag'
 import {
+  HOME_ZONE,
   barBox,
   barClock,
   clampMonth,
@@ -35,12 +36,6 @@ import { FOCUS_RING } from '@/lib/ui/recipes'
 import { HISTORY_FILL, NO_DATA_FILL, SHOT_FILL } from './liveFills'
 import { useLiveFormat } from './useLiveFormat'
 import { useRegionZone } from './useRegionZone'
-
-/**
- * 地区不在清单里时的回落时区。实际不会用上——月历只列地区在清单里的号（liveCountries / countryAccounts）——
- * 但 regionTimeZone 要一个回落值；取日区，与页面级「今天」同一口径。
- */
-const FALLBACK_ZONE = 'Asia/Tokyo'
 
 /** 迷你竖条区高度（px）：40px 装下 06:00 → 次日 02:00 的 1200 分钟。几何在 liveBoard.barBox。 */
 const STRIP_H = 40
@@ -99,7 +94,9 @@ export default function LiveCountryMonth({
   const options = useMemo(() => liveCountries(accounts), [accounts])
   const country = pickCountry(options, requestedCountry)
   const listed = useMemo(() => (country ? countryAccounts(accounts, country) : []), [accounts, country])
-  const bounds = useMemo(() => monthBounds(listed, today, FALLBACK_ZONE), [listed, today])
+  // HOME_ZONE 只是 regionTimeZone 的回落值：月历只列地区在清单里的号（liveCountries / countryAccounts），实际用不上，
+  // 取它与页面级「今天」同一口径。
+  const bounds = useMemo(() => monthBounds(listed, today, HOME_ZONE), [listed, today])
   const month = clampMonth(requestedMonth, bounds)
   const days = useMemo(() => monthDays(month), [month])
   const { zoneLabel } = useRegionZone(country)
@@ -113,7 +110,7 @@ export default function LiveCountryMonth({
         rows: g.accounts.map((account) => ({
           account,
           source: spanSource(account.spans),
-          result: monthRow(account, month, regionTimeZone(account.region, FALLBACK_ZONE), patrolDays, today),
+          result: monthRow(account, month, regionTimeZone(account.region, HOME_ZONE), patrolDays, today),
         })),
       })),
     [listed, month, patrolDays, today],

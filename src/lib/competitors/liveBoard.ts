@@ -699,8 +699,12 @@ export function peakBucket(columns: number[][], threshold = 0.3): { index: numbe
 // 筛选项怎么收敛」「主档标签摆在哪、哪个让位」「我方排期换到各列时区落在轴上哪一段」与几处小格式。
 // 每列的 densityColumn 由视图按时区模式算好（要 useMemo，40 个号 × 90 天的场次，切筛选不该重算）。
 
-/** 统一时区、页面「今天」与我方排期的时区：日区是主战场，排期本身也是日本时间的钟点。 */
-const HOME_ZONE = 'Asia/Tokyo'
+/**
+ * 开播时段页的基准时区：统一时区、页面「今天」、我方排期、以及地区不在清单里时 regionTimeZone 的回落值，
+ * 全用这一个——日区是主战场，排期本身也是日本时间的钟点，shot_on 等日期列也按日区业务日落库。
+ * 页面（page.tsx）、国家月历、番组表都从这里取，别各写一份 'Asia/Tokyo'。
+ */
+export const HOME_ZONE = 'Asia/Tokyo'
 
 /** 番组表的统计范围：截至 today（含）的 90 个自然日。 */
 export const TIMETABLE_DAYS = 90
