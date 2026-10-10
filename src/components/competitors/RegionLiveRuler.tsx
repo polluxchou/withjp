@@ -4,9 +4,11 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import Tag from '@/components/ui/Tag'
+import { regionTimeZone } from '@/lib/competitors/liveSessions'
 import { SLOT_MIN_SESSIONS, minutesToLabel } from '@/lib/competitors/liveSlots'
 import { axisTicks, buildRegionRuler } from '@/lib/competitors/regionRuler'
 import type { RulerInput } from '@/lib/competitors/regionRuler'
+import { normalizeRegion } from '@/lib/competitors/regions'
 import { timeZoneForLocale } from '@/lib/time/localeZone'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 
@@ -82,7 +84,9 @@ export default function RegionLiveRuler({
         ? buildRegionRuler({
             competitors: peers,
             region,
-            timeZone: timeZoneForLocale(locale),
+            // 标尺画的是对方当地的作息：按账号所在地区的时区聚档，与界面语言无关；
+            // 地区不在清单里（历史脏值）才回落到界面语言的时区。
+            timeZone: regionTimeZone(region, timeZoneForLocale(locale)),
             now: nowIso,
             currentId,
           })
@@ -114,6 +118,10 @@ export default function RegionLiveRuler({
     cancelClose()
     closeTimer.current = window.setTimeout(() => setOpen(false), CLOSE_DELAY_MS)
   }
+
+  // 时区名只在地区在清单里时才有（zoneName 与 REGION_TIME_ZONE 同一份清单）。
+  // 不在清单的地区实际按界面语言时区聚档，没有对应的地区时区名可报，宁可不写也不写错。
+  const zoneCode = normalizeRegion(region)
 
   const span = ruler ? ruler.axisEnd - ruler.axisStart : 0
   const pct = (m: number) => (span ? ((m - ruler!.axisStart) / span) * 100 : 0)
@@ -189,9 +197,13 @@ export default function RegionLiveRuler({
                 {t('rulerMeta', {
                   accounts: ruler.accounts,
                   sessions: ruler.sessions,
-                  zone: t('rulerZone'),
                 })}
               </p>
+              {zoneCode && (
+                <p className="mt-0.5 text-micro text-ink-500">
+                  {t('liveZoneNote', { zone: t(`zoneName.${zoneCode}`) })}
+                </p>
+              )}
               {current && (
                 <p className="mt-1 text-micro font-medium text-primary">
                   {t('rulerCurrent', {

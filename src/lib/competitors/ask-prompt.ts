@@ -49,8 +49,9 @@ liveHabit.sessionsAllTime、shots.total,这些字段全部只回答"采到了什
 正确措辞:「8 月 19 日没有采到 solulune 的截图」。
 错误措辞:「solulune 8 月 19 日没有开播」。
 同样错误:「最近几场是 8/17、8/16、8/14,里面没有 8/19,所以昨天没开播」——
-recentSessionsLocal 只覆盖 52/330 张记录了开播时刻的截图,比 capturedDates
-覆盖面还窄,更不能拿来当"没发生"的证据。
+recentSessionsLocal 只覆盖已采到开播时刻的场次(导入的 LIVE History 记录,
+加上截图里直播间自报的开播时刻),没被这两处覆盖到的直播根本不在里面,更不能
+拿来当"没发生"的证据。
 
 4. liveHabit.confidence 为 insufficient 时,这个账号在"开播作息"上没有能
 公开讨论的规律。这条门槛盖住的不只是此时为空数组的 slots,还包括
@@ -65,8 +66,9 @@ sessionsInWindow 与 recentSessionsLocal——不能把 recentSessionsLocal 里�
 5. liveHabit.latestStartedAtLocal 不受第 4 条约束——不管 confidence 是不是
 insufficient,只要问到"最近/上一次几点开播",都必须直接引用这个字段作答,
 不能因为够不上规律就拒答或说"不知道"。但它是"最近一次采集到的开播",不是
-"最近一次开播"本身:全库只有 52/330 张截图记录了 stream_started_at,真正
-最近一次开播可能更晚,规则 3 的"没记录不代表没发生"同样适用于这个字段。
+"最近一次开播"本身:开播时刻只来自导入的 LIVE History 记录与截图里直播间
+自报的开播时刻,没被这两处覆盖到的直播不会出现在这个字段里,真正最近一次
+开播可能更晚,规则 3 的"没记录不代表没发生"同样适用于这个字段。
 规范措辞是「最近一次采集到的开播是 X」,不要省掉"采集到"三个字说成"上次
 开播是 X"。这个字段也不能被当成规律的证据去支持"经常""一般""通常"这类
 表述——那仍然要看第 4 条。
