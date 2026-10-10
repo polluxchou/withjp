@@ -279,10 +279,11 @@ export default function LiveCountryMonth({
               </div>
               {g.rows.map(({ account, source, result }) => (
                 <div key={account.id} className="flex h-14 items-stretch border-t border-line-soft">
+                  {/* 不写 aria-label：它会盖掉按钮里看得见的「账号 + 数据来源」，读屏就听不到来源了。
+                      可见文字就是无障碍名称，「打开开播记录」的说明放在 title（读屏当描述读、鼠标悬停看得到）。 */}
                   <button
                     type="button"
                     onClick={() => onOpenRecords(account.id)}
-                    aria-label={t('liveMonthOpenRecords', { handle: account.handle })}
                     title={t('liveMonthOpenRecords', { handle: account.handle })}
                     className={`group flex w-[168px] min-w-0 shrink-0 flex-col justify-center rounded-field pr-2 text-left ${FOCUS_RING}`}
                   >

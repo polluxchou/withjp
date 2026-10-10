@@ -384,10 +384,11 @@ export default function LiveTimetable({
                           const ranges = showOurs ? (schedule.byZone.get(c.timeZone) ?? []) : []
                           return (
                             <div key={c.account.id} className="flex w-[58px] flex-col" style={{ gap: STACK_GAP }}>
+                              {/* 不写 aria-label：它会盖掉按钮里看得见的「账号 + N 场」，读屏就听不到场次数了。
+                                  可见文字就是无障碍名称，「打开开播记录」的说明放在 title（读屏当描述读、鼠标悬停看得到）。 */}
                               <button
                                 type="button"
                                 onClick={() => onOpenRecords(c.account.id)}
-                                aria-label={t('liveMonthOpenRecords', { handle: c.account.handle })}
                                 title={t('liveMonthOpenRecords', { handle: c.account.handle })}
                                 className={`group flex min-w-0 flex-col justify-end rounded-sm px-0.5 text-left text-[10px] leading-tight ${FOCUS_RING}`}
                                 style={{ height: HEAD_H }}
