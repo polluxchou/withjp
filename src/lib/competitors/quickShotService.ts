@@ -26,6 +26,12 @@ export interface ShotRow {
 }
 
 export interface QuickShotDeps {
+  /**
+   * 校验 Bearer 令牌。三种结果必须分清：
+   * - 令牌有效 → 返回 `{ id }`
+   * - 令牌无效 / 已过期 → 返回 `null`（服务层回 401，扩展据此续期、仍不行才登出）
+   * - Supabase Auth 暂时不可用（5xx、限流、断网）→ **抛错**（服务层回 503，扩展不会因此登出）
+   */
   verifyToken: (token: string) => Promise<{ id: string } | null>
   /** TikTok 平台的全部竞品（含子级成员）；查询失败返回 null。 */
   listCompetitors: () => Promise<CompetitorRef[] | null>
@@ -53,15 +59,27 @@ async function safely<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-async function authenticate(deps: QuickShotDeps, req: Request): Promise<{ id: string } | null> {
+type AuthOutcome = { ok: true; user: { id: string } } | { ok: false; result: HandlerResult }
+
+// 令牌没带 / 无效 → 401；鉴权服务自己出问题（verifyToken 抛错）→ 503，
+// 不能混成 401，否则扩展会以为令牌坏了而强制续期、再失败后把用户登出
+async function authenticate(deps: QuickShotDeps, req: Request): Promise<AuthOutcome> {
   const token = bearerToken(req.headers.get('authorization'))
-  return token ? deps.verifyToken(token) : null
+  if (!token) return { ok: false, result: fail(401, 'unauthorized') }
+  let user: { id: string } | null
+  try {
+    user = await deps.verifyToken(token)
+  } catch {
+    return { ok: false, result: fail(503, 'auth_unavailable') }
+  }
+  return user ? { ok: true, user } : { ok: false, result: fail(401, 'unauthorized') }
 }
 
 export function createQuickShotHandlers(deps: QuickShotDeps) {
   async function post(req: Request): Promise<HandlerResult> {
-    const user = await authenticate(deps, req)
-    if (!user) return fail(401, 'unauthorized')
+    const auth = await authenticate(deps, req)
+    if (!auth.ok) return auth.result
+    const user = auth.user
 
     let form: FormData
     try {
@@ -143,8 +161,9 @@ export function createQuickShotHandlers(deps: QuickShotDeps) {
   }
 
   async function get(req: Request): Promise<HandlerResult> {
-    const user = await authenticate(deps, req)
-    if (!user) return fail(401, 'unauthorized')
+    const auth = await authenticate(deps, req)
+    if (!auth.ok) return auth.result
+    const user = auth.user
     const todayUploads = await deps.countTodayUploads(user.id, shotOnFor(deps.now()))
     if (todayUploads === null) return fail(500, 'db_error')
     return { status: 200, body: { data: { today_uploads: todayUploads }, error: null } }

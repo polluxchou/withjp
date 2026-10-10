@@ -134,6 +134,7 @@ test('uploadErrorMessage：后台错误码 → 一句话', () => {
   assert.equal(uploadErrorMessage('file_too_large', 'a'), '截图格式或大小不符')
   assert.equal(uploadErrorMessage('db_error', 'a'), '上传失败，可以重试')
   assert.equal(uploadErrorMessage('network_error', 'a'), '网络不通，可以重试')
+  assert.equal(uploadErrorMessage('auth_unavailable', 'a'), '登录服务暂时不可用，可以重试')
 })
 
 test('cropRect：y 方向同样逐边取整；水平方向一半以上出视口也拒', () => {

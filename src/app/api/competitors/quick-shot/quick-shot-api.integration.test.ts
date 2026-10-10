@@ -14,6 +14,7 @@ import type { CompetitorRef, ReadingRow } from '../../../../lib/competitors/quic
 //   7. 日期口径：shot_on 取读数时刻的日本时间日期，今日计数取服务器当下的日本时间日期
 //   8. 本机时钟快了 → 用服务器时间；人数原文超长 / 非整数 → 按未读到处理
 //   9. GET 今日计数
+//  10. Supabase Auth 暂时不可用（verifyToken 抛错）→ 503 auth_unavailable，与「令牌无效」的 401 区分开，扩展不会因此登出
 // ============================================================
 
 const SERVER_NOW = Date.UTC(2026, 9, 9, 15, 30) // 日本时间 2026-10-10 00:30 —— 与 UTC 不在同一天，日期写成 UTC 会被抓到
@@ -323,4 +324,24 @@ test('GET：无令牌 → 401', async () => {
   const { deps } = makeDeps()
   const r = await createQuickShotHandlers(deps).get(new Request('http://localhost/api/competitors/quick-shot'))
   assert.equal(r.status, 401)
+})
+
+test('鉴权服务暂时不可用（verifyToken 抛错）→ POST 503 auth_unavailable，不是 401；什么都不碰', async () => {
+  const { deps, calls } = makeDeps({ verifyToken: async () => { throw new Error('auth down') } })
+  const r = await createQuickShotHandlers(deps).post(postReq(OK_FIELDS()))
+  assert.equal(r.status, 503)
+  assert.deepEqual(r.body, { data: null, error: 'auth_unavailable' })
+  assert.equal(calls.listed, 0)
+  assert.equal(calls.uploads, 0)
+  assert.equal(calls.shots.length, 0)
+  assert.equal(calls.readings.length, 0)
+})
+
+test('GET：鉴权服务暂时不可用（verifyToken 抛错）→ 503 auth_unavailable，不查计数', async () => {
+  const { deps, calls } = makeDeps({ verifyToken: async () => { throw new Error('auth down') } })
+  const req = new Request('http://localhost/api/competitors/quick-shot', { headers: { authorization: 'Bearer good' } })
+  const r = await createQuickShotHandlers(deps).get(req)
+  assert.equal(r.status, 503)
+  assert.deepEqual(r.body, { data: null, error: 'auth_unavailable' })
+  assert.equal(calls.counts.length, 0)
 })

@@ -27,8 +27,16 @@ function deps(): QuickShotDeps {
   return {
     verifyToken: async (token) => {
       const { data, error } = await anon.auth.getUser(token)
-      // 匿名用户也能拿到合法令牌，但不是后台成员，一律拒绝
-      return error || !data.user || data.user.is_anonymous ? null : { id: data.user.id }
+      if (!error && data.user) {
+        // 匿名用户也能拿到合法令牌，但不是后台成员，一律拒绝
+        return data.user.is_anonymous ? null : { id: data.user.id }
+      }
+      // 4xx（429 除外）= Auth 明确说这个令牌不行，按「令牌失效」返回 null；
+      // 5xx、429、无状态码（断网）= Auth 自己暂时不可用，抛出去让服务层回 503，不能让扩展把人登出
+      const status = (error as { status?: unknown } | null)?.status
+      if (typeof status === 'number' && status >= 400 && status < 500 && status !== 429) return null
+      console.error('[quick-shot] auth.getUser 暂时不可用', error)
+      throw error ?? new Error('auth getUser returned no user')
     },
     listCompetitors: async () => {
       const { data, error } = await db.from('competitors').select('id, handle, display_name').eq('platform', 'tiktok')
