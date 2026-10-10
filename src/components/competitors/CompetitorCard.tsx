@@ -68,18 +68,19 @@ export default function CompetitorCard({
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
   // 开播档按界面语言的时区聚类："一天里的第几分钟"这个概念本身依赖时区。
+  // 读全量 sessionStarts 而不是 c.shots：后者只是相册已加载的那一段，会随翻页变。
   const locale = useLocale()
   const habit = useMemo(
-    () => summarizeLiveHabit(c.shots.map((s) => s.stream_started_at), timeZoneForLocale(locale)),
-    [c.shots, locale],
+    () => summarizeLiveHabit(c.sessionStarts, timeZoneForLocale(locale)),
+    [c.sessionStarts, locale],
   )
   const slotLabels = habit.slots.map((s) => s.label).join(' / ')
   // 未达 3 场门槛就只报最近一场,不把单次开播说成规律。
   const recentSessions = useMemo(
-    () => recentSessionStarts(c.shots.map((s) => s.stream_started_at), RECENT_SESSIONS)
+    () => recentSessionStarts(c.sessionStarts, RECENT_SESSIONS)
       .map((iso) => formatDayTimeInLocaleZone(iso, locale))
       .filter((label): label is string => label != null),
-    [c.shots, locale],
+    [c.sessionStarts, locale],
   )
   const [open, setOpen] = useState(false)
   const [relOpen, setRelOpen] = useState(false)
