@@ -35,7 +35,10 @@ export interface LiveSlot {
 }
 
 export interface LiveHabit {
-  /** 达到 SLOT_MIN_SESSIONS 的档，按时刻升序。 */
+  /**
+   * 成档的那些档，按时刻升序。门槛是 max(minSessions, ceil(总场次 × SLOT_MIN_SHARE))：
+   * minSessions 默认 SLOT_MIN_SESSIONS，场次一多占比项会把它顶高。
+   */
   slots: LiveSlot[]
   /** 去重后的总场次（同一场的多张截图只算一次）。 */
   sessions: number

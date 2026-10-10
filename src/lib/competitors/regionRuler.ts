@@ -2,7 +2,10 @@
 // 「同地区各账号的开播时段」标尺：把一个地区里已采到开播时刻的账号，全部摊在
 // 同一条 24 小时轴上，用来回答「这家在同区里算早还是算晚」。
 //
-// 证据只有一种：competitor_shots.stream_started_at（直播间自报的开播时刻）。
+// 证据有两种来源，先合并成一份场次再上轴（合并与去重规则见 liveSessions.ts）：
+//   - competitor_live_sessions：LIVE History 粘贴导入的开播记录，起止完整，是权威来源；
+//   - competitor_shots.stream_started_at：直播间自报的开播时刻（截图推断），
+//     与导入场次是同一场的那些会被丢弃，不重复计。
 // 人工上传的截图只有 shot_on 一个日期、没有时刻——上传时间不等于开播时间
 // （深夜补传会把点打到凌晨），所以它们进不了这条轴。
 //
@@ -10,6 +13,7 @@
 // 十几分钟的浮动（实测 1mb.rizz 13:29/13:31/13:42），画成点会假装精确。
 //
 // 纯函数、不读时钟（now 由调用方注入），可单测。
+import { liveStartsOf } from './liveSessions.ts'
 import { SLOT_MIN_SESSIONS, minutesToLabel, summarizeLiveHabit } from './liveSlots.ts'
 
 /** 只看最近这些天：更早的档次代表不了现在的作息。 */
@@ -30,7 +34,10 @@ export interface RulerInput {
   display_name?: string | null
   region?: string | null
   latest?: { display_name?: string | null } | null
-  shots?: { stream_started_at?: string | null }[]
+  /** LIVE History 粘贴导入的开播记录；与 shots 合并后才是这个账号的场次。 */
+  live_sessions?: { started_at: string; ended_at: string; likes: number | null; title: string }[] | null
+  /** captured_at 是合并时判同一场用的（下播取该场最后一张截图），没有也行。 */
+  shots?: { stream_started_at?: string | null; captured_at?: string | null }[]
   /** 下钻的子主播也算「已收集账号」，递归纳入。 */
   related?: RulerInput[]
 }
@@ -126,17 +133,26 @@ export function buildRegionRuler({
   for (const c of flatten(competitors ?? [])) {
     if ((c.region?.trim().toUpperCase() ?? '') !== wanted) continue
 
-    const starts = (c.shots ?? [])
-      .map((s) => s.stream_started_at)
-      .filter((iso): iso is string => {
-        if (!iso) return false
-        const t = Date.parse(iso)
-        return !Number.isNaN(t) && t >= cutoff && t <= nowMs
-      })
+    // 先合并导入与截图两个来源（同一场只计一次），再按窗口过滤。
+    const starts = liveStartsOf({
+      live_sessions: c.live_sessions,
+      shots: (c.shots ?? []).map((s) => ({
+        stream_started_at: s.stream_started_at ?? null,
+        captured_at: s.captured_at ?? null,
+      })),
+    }).filter((iso) => {
+      const t = Date.parse(iso)
+      return t >= cutoff && t <= nowMs
+    })
     if (!starts.length) continue
 
-    // minSessions=1：标尺要把「只播过一次」的账号也摆上去（用浅色标成推测），
+    // minSessions=1：标尺要把场次少的账号也摆上去（成不了档的用浅色标成推测），
     // 否则 15 个账号里只有 4 个够 3 场，图上几乎是空的、看不出分布。
+    // 但这句话只在样本小时成立：summarizeLiveHabit 的实际门槛是
+    // max(minSessions, ceil(总场次 × SLOT_MIN_SHARE))，总场次到 7 场起这个占比项就 ≥ 2。
+    // 所以只有场次少（≤ 6 场）的账号才连「只播过一次」的时刻都摆得上去；场次多了，
+    // 占不到总场次 15% 的零散时刻不再上轴（免得密集账号被零散时刻糊成一片），
+    // 一档都凑不够的账号整个不上轴。
     const habit = summarizeLiveHabit(starts, timeZone, 1)
     if (!habit.slots.length) continue
 

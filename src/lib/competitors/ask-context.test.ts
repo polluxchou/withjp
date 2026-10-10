@@ -280,6 +280,33 @@ test('liveHabit: 三场同档达到门槛，confidence 为 ok', () => {
   assert.equal(h.latestStartedAtLocal, '2026-08-19 20:28')
 })
 
+test('liveHabit: 只有导入的开播记录（没有截图）也能成档——场次来源是导入与截图合并后的', () => {
+  // 之前 liveHabit 只吃截图的 stream_started_at：一个号导入了 3 场开播记录、却一张截图都没有，
+  // 模型会读到「0 场、证据不足」。现在合并两个来源，这三场都算。
+  // 三场都在东京 12:0x（03:0x UTC），ja 界面 = 东京时区，所以档位显示 12:0x。
+  const session = (started_at: string, ended_at: string) => ({
+    id: started_at, competitor_id: 'id-1', started_at, ended_at, title: '', likes: null,
+    source: 'tiktok_history' as const, created_at: started_at, updated_at: started_at,
+  })
+  const ctx = buildAskContext(
+    board([comp({
+      shots: [],
+      live_sessions: [
+        session('2026-08-19T03:04:00Z', '2026-08-19T05:00:00Z'),
+        session('2026-08-18T03:06:00Z', '2026-08-18T05:00:00Z'),
+        session('2026-08-17T03:02:00Z', '2026-08-17T05:00:00Z'),
+      ],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'ja',
+  )
+  const h = ctx.competitors[0].liveHabit
+  assert.equal(h.sessionsInWindow, 3)
+  assert.equal(h.slots[0].sessions, 3)
+  assert.equal(h.slots[0].at, '12:04')
+  assert.equal(h.confidence, 'ok')
+})
+
 test('liveHabit: 同一场的多张截图只算一次场次', () => {
   const ctx = buildAskContext(
     board([comp({

@@ -107,3 +107,15 @@ export function minuteOfDayInZone(instant: Date | string | number, timeZone: str
   const p = zonedParts(ms, timeZone)
   return p.hour * 60 + p.minute
 }
+
+/**
+ * UTC 时刻 → 指定时区的「MM-DD HH:mm」（24 小时制）。版式与 localeZone.formatDayTimeInLocaleZone 相同，
+ * 区别只在时区由调用方给：竞品的开播时刻要按账号所在地区的时区显示，不跟界面语言走。
+ * 时刻非法或缺失返回 null（调用方据此整段不渲染）。
+ */
+export function formatDayTimeInZone(iso: string | null | undefined, timeZone: string): string | null {
+  if (!iso) return null
+  const ymd = zonedYmd(iso, timeZone)
+  const hm = zonedHm(iso, timeZone)
+  return ymd && hm ? `${ymd.slice(5)} ${hm}` : null
+}

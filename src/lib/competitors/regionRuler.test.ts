@@ -223,3 +223,41 @@ test('axisTicks: 落在轴内且按步长对齐', () => {
   const ticks = axisTicks(8 * 60, 16 * 60)
   assert.deepEqual(ticks, [8, 10, 12, 14, 16].map((h) => h * 60))
 })
+
+test('标尺把导入的场次也算进去，同一场的截图不重复计', () => {
+  // 之前标尺只吃截图的 stream_started_at，导入的开播记录（LIVE History）完全不进轴；
+  // 现在两个来源先合并：导入 10-09 03:06 开播的那一场，截图 03:06:30 自报的是同一场，只计一次。
+  const now = '2026-10-10T00:00:00Z'
+  const ruler = buildRegionRuler({
+    competitors: [{
+      id: 'a', handle: 'sample.a', region: 'JP',
+      live_sessions: [
+        { started_at: '2026-10-08T03:04:00+00:00', ended_at: '2026-10-08T05:09:00+00:00', likes: 1, title: '' },
+        { started_at: '2026-10-09T03:06:00+00:00', ended_at: '2026-10-09T05:00:00+00:00', likes: 1, title: '' },
+      ],
+      shots: [{ stream_started_at: '2026-10-09T03:06:30+00:00', captured_at: '2026-10-09T04:00:00+00:00' }],
+    }],
+    region: 'JP', timeZone: 'Asia/Tokyo', now,
+  })
+  assert.equal(ruler.sessions, 2)
+  assert.equal(ruler.rows[0].sessions, 2)
+})
+
+test('只有导入记录（没有截图）的账号也上轴；窗口外与未来的导入场次不算', () => {
+  const now = '2026-10-10T00:00:00Z'
+  const session = (started_at: string) => ({ started_at, ended_at: started_at, likes: null, title: '' })
+  const ruler = buildRegionRuler({
+    competitors: [{
+      id: 'a', handle: 'sample.a', region: 'JP',
+      live_sessions: [
+        session('2026-10-09T03:00:00Z'),
+        session('2026-09-01T03:00:00Z'), // 早于 14 天窗口
+        session('2026-10-11T03:00:00Z'), // 晚于 now（脏数据）
+      ],
+    }],
+    region: 'JP', timeZone: 'Asia/Tokyo', now,
+  })
+  assert.equal(ruler.accounts, 1)
+  assert.equal(ruler.sessions, 1)
+  assert.equal(ruler.rows[0].bands[0].centerLabel, '12:00')
+})

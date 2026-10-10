@@ -13,10 +13,12 @@ import LiveSessionImport from './LiveSessionImport'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
 import { ANCHOR_GAP } from '@/lib/competitors/navScroll'
+import { liveStartsOf, regionTimeZone } from '@/lib/competitors/liveSessions'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
 import { checkProfileLanguage } from '@/lib/competitors/profileLanguage'
 import { REGION_CODES, regionOptions } from '@/lib/competitors/regions'
-import { formatDayTimeInLocaleZone, timeZoneForLocale } from '@/lib/time/localeZone'
+import { timeZoneForLocale } from '@/lib/time/localeZone'
+import { formatDayTimeInZone } from '@/lib/time/zonedTime'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import Tag from '@/components/ui/Tag'
@@ -68,19 +70,20 @@ export default function CompetitorCard({
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
-  // 开播档按界面语言的时区聚类："一天里的第几分钟"这个概念本身依赖时区。
+  // 开播档按账号所在地区的时区聚类：看的是对方当地的作息，且与界面语言无关（三地同事读到同一个数）；
+  // "一天里的第几分钟"这个概念本身依赖时区。地区没填才回落到界面语言的时区。
   const locale = useLocale()
-  const habit = useMemo(
-    () => summarizeLiveHabit(c.shots.map((s) => s.stream_started_at), timeZoneForLocale(locale)),
-    [c.shots, locale],
-  )
+  const liveZone = regionTimeZone(c.region, timeZoneForLocale(locale))
+  // 场次 = 导入的开播记录 + 截图推断，合并去重后的开播时刻（降序）。
+  const starts = useMemo(() => liveStartsOf(c), [c])
+  const habit = useMemo(() => summarizeLiveHabit(starts, liveZone), [starts, liveZone])
   const slotLabels = habit.slots.map((s) => s.label).join(' / ')
-  // 未达 3 场门槛就只报最近一场,不把单次开播说成规律。
+  // 没有任何一档成档（成档要至少 3 场，且占总场次的 15% 以上）时只报最近一场，不把单次开播说成规律。
   const recentSessions = useMemo(
-    () => recentSessionStarts(c.shots.map((s) => s.stream_started_at), RECENT_SESSIONS)
-      .map((iso) => formatDayTimeInLocaleZone(iso, locale))
+    () => recentSessionStarts(starts, RECENT_SESSIONS)
+      .map((iso) => formatDayTimeInZone(iso, liveZone))
       .filter((label): label is string => label != null),
-    [c.shots, locale],
+    [starts, liveZone],
   )
   const [open, setOpen] = useState(false)
   const [relOpen, setRelOpen] = useState(false)
@@ -135,7 +138,7 @@ export default function CompetitorCard({
     c.online_note ? `${t('fieldOnline')} ${c.online_note}` : null,
     slotLabels ? t('liveSlotsCompact', { slots: slotLabels })
       : habit.latestStartedAt
-        ? t('liveSlotsLatest', { time: formatDayTimeInLocaleZone(habit.latestStartedAt, locale)! })
+        ? t('liveSlotsLatest', { time: formatDayTimeInZone(habit.latestStartedAt, liveZone)! })
         : null,
     c.latest ? t('latestOn', { date: c.latest.captured_on }) : null,
   ].filter((part) => part != null && part !== '')

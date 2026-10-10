@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { addDaysYmd, minuteOfDayInZone, weekdayOfYmd, zoneOffsetMinutes, zonedHm, zonedWallTimeToUtc, zonedYmd } from './zonedTime.ts'
+import {
+  addDaysYmd,
+  formatDayTimeInZone,
+  minuteOfDayInZone,
+  weekdayOfYmd,
+  zoneOffsetMinutes,
+  zonedHm,
+  zonedWallTimeToUtc,
+  zonedYmd,
+} from './zonedTime.ts'
 
 const JST = 'Asia/Tokyo'
 const PT = 'America/Los_Angeles'
@@ -61,4 +70,13 @@ test('addDaysYmd / weekdayOfYmd: 纯日历运算，跨月跨年', () => {
 test('minuteOfDayInZone: 按时区取一天里的第几分钟', () => {
   assert.equal(minuteOfDayInZone('2026-10-09T03:04:00Z', 'Asia/Tokyo'), 12 * 60 + 4)
   assert.equal(minuteOfDayInZone('bad', 'Asia/Tokyo'), null)
+})
+
+test('formatDayTimeInZone: MM-DD HH:mm，非法返回 null', () => {
+  assert.equal(formatDayTimeInZone('2026-10-09T03:04:00Z', 'Asia/Tokyo'), '10-09 12:04')
+  assert.equal(formatDayTimeInZone(null, 'Asia/Tokyo'), null)
+  // 非法时刻字符串同样给 null，而不是 "NaN-NaN"。
+  assert.equal(formatDayTimeInZone('not-a-date', 'Asia/Tokyo'), null)
+  // 跨日：UTC 还是前一天，当地已是次日。
+  assert.equal(formatDayTimeInZone('2026-10-09T15:30:00Z', 'Asia/Tokyo'), '10-10 00:30')
 })

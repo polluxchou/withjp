@@ -7,6 +7,7 @@
 //
 // 零 IO、零时钟：now 由调用方注入，才能把跨日、跨时区的行为钉死在单测里。
 import { timeZoneForLocale } from '../time/localeZone.ts'
+import { liveStartsOf } from './liveSessions.ts'
 import { recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
 import { checkProfileLanguage } from './profileLanguage.ts'
 import { RULER_WINDOW_DAYS } from './regionRuler.ts'
@@ -257,13 +258,10 @@ function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): Ask
   const cutoff = nowMs - RULER_WINDOW_DAYS * DAY_MS
 
   // 硬事实：只挡未来时刻的脏数据，不设下限——半年前的一场开播依然是「事实」。
-  const allStarts = c.shots
-    .map((s) => s.stream_started_at)
-    .filter((iso): iso is string => {
-      if (!iso) return false
-      const t = Date.parse(iso)
-      return !Number.isNaN(t) && t <= nowMs
-    })
+  // 场次来源是导入的开播记录与截图合并后的（同一场只计一次，见 liveSessions.ts），
+  // 与卡片、地区标尺同源，模型读到的场次数才和页面上看到的一致。
+  // 显示时区不动：仍是 buildAskContext 按界面语言解出的 timeZone，这里只换数据来源。
+  const allStarts = liveStartsOf(c).filter((iso) => Date.parse(iso) <= nowMs)
   // ISO 8601 定长同格式，字符串比较即时刻比较（同 liveSlots.ts 的做法）。
   // 排序/取最大值都在格式化之前对原始 ISO 做——格式化后的字符串在固定时区下
   // 恰好也保序，但排序逻辑不该依赖这个巧合。
