@@ -103,7 +103,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 - 同日重采幂等覆盖（upsert）；`captured_on` 默认脚本运行时 UTC 当天。
 
 **`competitor_shots`（手动上传截图）**
-- `competitor_id`(→competitors, cascade)、`image_url`、`shot_on`(date)、`tag`（全妆/常服/主题；自动巡检 `live_auto`、扩展一键上传 `live_manual`）、`caption`、`sort_order`、`created_at`
+- `competitor_id`(→competitors, cascade)、`image_url`、`shot_on`(date)、`tag`（全妆/常服/主题；自动巡检 `live_auto`、扩展一键上传 `live_manual`；界面上这两个机器值分别显示为 自动巡检 / 插件（英文 Auto patrol / Extension，日文 自動巡回 / 拡張機能））、`caption`、`sort_order`、`created_at`
 - 直播态（20260818）：`viewer_count`、`stream_started_at`、`captured_at`
 - `created_by`（20261009，→ users，`on delete set null`）：扩展一键上传写入上传人；历史行与自动巡检为空。部分唯一索引 `(created_by, competitor_id, captured_at) where created_by is not null` 兜住重试与双击去重
 
@@ -148,7 +148,8 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 
 | 方法 | 路由 | 说明 |
 | --- | --- | --- |
-| GET | `/api/competitors` | 看板（含 `canEdit`、嵌套 `related`、`weekly`、`shots`） |
+| GET | `/api/competitors` | 看板（含 `canEdit`、嵌套 `related`、`weekly`、`shots`、`sessionStarts`、`shotAxis`、`shotsLoadedFrom`）。截图默认只带最近 10 个有图日；`?since=YYYY-MM-DD` 把起点往前推 |
+| GET | `/api/competitors/shots?from=&before=` | 往历史翻页时补取 [from, before) 的截图 |
 | POST | `/api/competitors` | 加竞品，body `{ url? \| handle?, platform?, ...团级字段, parent_id? }` |
 | PATCH | `/api/competitors/[id]` | 改团级字段 / 归属（`parent_id`） |
 | DELETE | `/api/competitors/[id]` | 删竞品（级联删其快照 / 截图 / 子账号） |
@@ -165,7 +166,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 - `CompetitorCard`：单卡。档案条（头像 + 团名 + 认证 + @handle + `JP` + 一行指标）+ 「归属」下拉（叶子卡）+ 打开主页 + 展开 + 删除。
   - **主账号（顶层）**：1:3 双栏——左近 4 周粉丝曲线、右**半屏大图**截图墙；「关联主播 (N)」折叠区递归渲染子账号；展开区显示完整团级字段 + 每日历史打点表。
   - **子账号（nested，`compact`）**：紧凑堆叠——纤细一行粉丝曲线 + **小图**截图。
-- `ShotAlbum`：截图相册。折叠态换行网格（大图约「上下 2 张≈一屏」/ 小图更密）；「查看全部」展开为按 ISO 周分组网格；lightbox 放大；每图删除；`compact` 小图模式。
+- `ShotAlbum`：截图相册。整页共用一条日期轴，一屏 5 天，每天一格；封面是当天最新一张，其余显示「+N」；点开进灯箱，默认停在封面。截图按日期窗口加载：首屏只取最近 10 个有图日，往前翻到离已加载边界不足一屏时后台补取下一段；还没取回的日期显示占位格，不提供补图入口。标签 `live_auto` / `live_manual` 按界面语言显示，其它 tag 原样显示。
 - `ShotUploader`：上传格。点击选图或 ⌘V 粘贴（`compressImage` 客户端压缩后上传）；`compact` 小尺寸。
 - `WeeklyFollowersCurve`：近 4 周粉丝曲线（复用 `chart.buildWeeklyCurve`）；`compact` 纤细一行。
 - `compressImage.ts`：canvas 缩到长边 ≤1280 + 转 WebP(q0.82)，压不小则回退原图、GIF 跳过——降低 Supabase 存储 / 出网流量。
