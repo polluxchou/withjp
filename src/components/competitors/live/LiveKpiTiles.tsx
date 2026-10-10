@@ -108,12 +108,14 @@ export default function LiveKpiTiles({
             <span className="truncate text-xs text-ink-500" title={k.label}>{k.label}</span>
             <span className="truncate text-xl font-semibold text-ink-900 tabular-nums">{k.value}</span>
             {/* 补充行留空也占一行高，六格底边才对得齐；放不下时折成两行而不是截断
-                （英文「prev. 30d incomplete · 7/week」在六列布局里一行放不下）。 */}
-            <span className="line-clamp-2 min-h-[14px] text-micro text-ink-500 tabular-nums" title={k.sub || undefined}>
+                （英文「prev. 30d incomplete · 7/week」在六列布局里一行放不下）。
+                text-pretty：折行时末行不留单字（中文「…偏／短」「周均 0／场」）；文案本身也要写到
+                两行内放得下，line-clamp-2 会把第三行直接吃掉。 */}
+            <span className="line-clamp-2 min-h-[14px] text-pretty text-micro text-ink-500 tabular-nums" title={k.sub || undefined}>
               {k.sub}
             </span>
             {k.note && (
-              <span className="line-clamp-2 text-micro text-ink-500" title={k.note}>
+              <span className="line-clamp-2 text-pretty text-micro text-ink-500" title={k.note}>
                 {k.note}
               </span>
             )}

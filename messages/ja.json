@@ -1525,7 +1525,7 @@
     "rulerSessions": "{count} 回",
     "rulerTentative": "推定",
     "rulerLegendEstablished": "{min} 回以上",
-    "rulerLegendTentative": "1〜2 回（推定）",
+    "rulerLegendTentative": "定着前（推定）",
     "rulerLegendCurrent": "このアカウント",
     "rulerHint": "各バンドは中央値 ±30 分",
     "rulerEmpty": "直近 {days} 日はこの地域の配信開始時刻が未取得",

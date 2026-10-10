@@ -1766,7 +1766,7 @@
     "rulerSessions": "{count} sessions",
     "rulerTentative": "estimate",
     "rulerLegendEstablished": "{min}+ sessions",
-    "rulerLegendTentative": "1–2 sessions (estimate)",
+    "rulerLegendTentative": "not yet a pattern (tentative)",
     "rulerLegendCurrent": "this account",
     "rulerHint": "each band is the slot median ±30 min",
     "rulerEmpty": "no live start times captured for this region in the last {days} days",
@@ -1972,7 +1972,7 @@
     "liveKpiDataDays": "Data on {dataDays}/{spanDays} days",
     "liveKpiDataDaysHint": "Days with no imported history and no patrol run are unknown: they are not counted as breaks or toward live days",
     "liveKpiPrevPartial": "prev. 30d incomplete",
-    "liveKpiApproxNote": "incl. screenshot-inferred; durations run short",
+    "liveKpiApproxNote": "incl. screenshot-inferred; lower bound",
     "liveRefreshing": "Imported. Refreshing data…",
     "liveRefreshFailed": "Imported, but refreshing the data failed. What is shown below may be out of date; reload the page to see the latest.",
     "liveSlotsValueZone": "around {slots} ({zone}) · {count} sessions"
