@@ -1576,6 +1576,7 @@
     "belongsTo": "所属アカウント",
     "uploadFailed": "アップロード失敗",
     "noShots": "スクショはまだありません",
+    "shotsLoadFailed": "スクリーンショットを読み込めませんでした",
     "undated": "日付なし",
     "bio": "プロフィール文",
     "fieldMembers": "人数",
