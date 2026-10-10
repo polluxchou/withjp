@@ -15,7 +15,8 @@ const DEFAULT_ROWS = 8
 
 /**
  * 场次清单：统计区间内的场次，最近在上。图看规律，这里给每一场的原始时刻作证据。
- * 跨午夜的场次在下播时刻后标 +1；截图推断的场次下播时刻只是最后一张截图的时刻（下限），前面标「约」。
+ * 跨午夜的场次在下播时刻后标 +1；截图推断的场次下播时刻只是最后一张截图的时刻（下限），前面标「约」，
+ * 由它推出的时长同样只是下限，时长列也标「约」。
  */
 export default function LiveSessionTable({
   sessions,
@@ -70,7 +71,9 @@ export default function LiveSessionTable({
                         {zonedHm(s.startedAt, timeZone)}–{s.approxEnd ? t('liveApproxPrefix') : ''}{zonedHm(s.endedAt, timeZone)}
                         {crossesMidnight && <span className="ml-0.5 text-micro text-primary-hover">+1</span>}
                       </td>
-                      <td className={`${td} whitespace-nowrap text-right tabular-nums`}>{fmt.duration(s.end - s.start)}</td>
+                      <td className={`${td} whitespace-nowrap text-right tabular-nums`}>
+                        {s.approxEnd ? t('liveApproxPrefix') : ''}{fmt.duration(s.end - s.start)}
+                      </td>
                       <td className={`${td} whitespace-nowrap text-right tabular-nums`}>{formatCount(s.likes)}</td>
                       {/* max-w-0 + w-full：标题列吃掉剩余宽度并截断，不把前几列挤换行。 */}
                       <td className={`${td} w-full max-w-0 truncate text-ink-500`} title={s.title || undefined}>

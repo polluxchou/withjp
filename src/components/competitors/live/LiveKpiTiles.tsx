@@ -16,12 +16,16 @@ import { useLiveFormat } from './useLiveFormat'
  * - 开播天数的分母是有数据的天数；区间没被数据铺满时，格子下面注明「有数据 N/M 天」
  * - 前 30 天只有整段都有数据才拿来比，否则只说「前 30 天数据不全」—— 拿半段的数去比会被读成掉量
  * - 一天数据都没有时断播写「—」，不写「0 天」（那会被读成天天都播）
+ *
+ * 截图推断的场次只知道开播、下播取的是最后一张截图的时刻，时长是下限：区间里含这种场次时，
+ * 平均单场与总时长两格各加一句注，免得偏短的数被当成对方真的播得短。
  */
 export default function LiveKpiTiles({
   cur,
   prev,
   from,
   maxLikes,
+  hasApprox = false,
 }: {
   cur: LiveWindowStats
   /** 前 30 天；只有近 30 天视图有，全部视图为 null。 */
@@ -30,6 +34,8 @@ export default function LiveKpiTiles({
   from: string
   /** 区间内点赞最高的一场（全部视图的补充说明用）；没有任何点赞为 null。 */
   maxLikes: { likes: number; date: string } | null
+  /** 区间内是否含截图推断的场次（下播时刻只是下限）。 */
+  hasApprox?: boolean
 }) {
   const t = useTranslations('competitors')
   const fmt = useLiveFormat()
@@ -45,7 +51,9 @@ export default function LiveKpiTiles({
   const prevPartial = prev != null && cmp == null
   const perWeek = t('liveKpiPerWeek', { n: cur.perWeek })
 
-  const tiles: { key: string; label: string; value: string; sub: string }[] = [
+  const approxNote = hasApprox ? t('liveKpiApproxNote') : undefined
+
+  const tiles: { key: string; label: string; value: string; sub: string; note?: string }[] = [
     {
       key: 'sessions',
       label: t('liveKpiSessions'),
@@ -67,12 +75,14 @@ export default function LiveKpiTiles({
       sub: cmp
         ? vsPrev(avg(cmp))
         : cur.medianMinutes == null ? '' : t('liveKpiMedianDuration', { value: fmt.duration(cur.medianMinutes) }),
+      note: approxNote,
     },
     {
       key: 'total',
       label: t('liveKpiTotal'),
       value: hours(cur),
       sub: cmp ? vsPrev(hours(cmp)) : t('liveKpiSpanDays', { days: cur.spanDays }),
+      note: approxNote,
     },
     {
       key: 'gap',
@@ -102,6 +112,11 @@ export default function LiveKpiTiles({
             <span className="line-clamp-2 min-h-[14px] text-micro text-ink-500 tabular-nums" title={k.sub || undefined}>
               {k.sub}
             </span>
+            {k.note && (
+              <span className="line-clamp-2 text-micro text-ink-500" title={k.note}>
+                {k.note}
+              </span>
+            )}
           </div>
         ))}
       </div>

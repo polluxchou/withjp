@@ -71,6 +71,8 @@ export default function LiveRecordsPanel({
     () => inRange(located, from, to).sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)),
     [located, from, to],
   )
+  // 区间里有截图推断的场次：它们的时长是下限，平均单场 / 总时长要加注（见 LiveKpiTiles）。
+  const hasApprox = useMemo(() => windowed.some((s) => s.approxEnd), [windowed])
   // 全部视图「单场点赞中位数」下面补一句最高那场。全是 0 赞时不报「最高 0」。
   const maxLikes = useMemo(() => {
     const series = likesSeries(located, from, to)
@@ -109,7 +111,7 @@ export default function LiveRecordsPanel({
         <p className="py-6 text-center text-sm text-ink-500">{t('liveRecordsEmpty')}</p>
       ) : (
         <>
-          <LiveKpiTiles cur={cur} prev={prev} from={from} maxLikes={maxLikes} />
+          <LiveKpiTiles cur={cur} prev={prev} from={from} maxLikes={maxLikes} hasApprox={hasApprox} />
           <div className="grid gap-3 lg:grid-cols-2">
             <LiveCalendar located={located} today={today} from={from} liveDays={cur.liveDays} hasData={hasData} />
             <LiveCoverageHistogram located={located} from={from} to={to} timeZone={timeZone} />
