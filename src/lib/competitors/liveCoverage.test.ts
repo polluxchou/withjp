@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { LiveSpan } from './liveSessions.ts'
 import { locateSpans } from './liveStats.ts'
-import { coverageOf, patrolDaysOf } from './liveCoverage.ts'
+import { coverageOf, patrolDaysOf, patrolDaysOfBoard } from './liveCoverage.ts'
 
 const TZ = 'Asia/Tokyo'
 const j = (ymd: string, hm: string) => new Date(`${ymd}T${hm}:00+09:00`).toISOString()
@@ -14,6 +14,17 @@ const span = (ymd: string, source: LiveSpan['source'] = 'history'): LiveSpan => 
 test('patrolDaysOf: 去重，丢掉空值', () => {
   const days = patrolDaysOf(['2026-09-01', null, '2026-09-01', undefined, '', '2026-09-03'])
   assert.deepEqual(Array.from(days).sort(), ['2026-09-01', '2026-09-03'])
+})
+
+test('patrolDaysOfBoard: 全看板（递归 related）截图的 shot_on，去重、丢掉未标日期的', () => {
+  const shot = (shot_on: string | null) => ({ shot_on })
+  const board = [
+    { shots: [shot('2026-09-01'), shot(null), shot('2026-09-03')], related: [{ shots: [shot('2026-09-02'), shot('2026-09-01')], related: [] }] },
+    { shots: [shot('')], related: [{ shots: [], related: [{ shots: [shot('2026-09-09')] }] }] },
+    { shots: null },
+  ]
+  assert.deepEqual(Array.from(patrolDaysOfBoard(board)).sort(), ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-09'])
+  assert.equal(patrolDaysOfBoard([]).size, 0)
 })
 
 test('coverageOf: 导入场次的首末日期之间（两端都含）算有数据，哪怕当天没播', () => {

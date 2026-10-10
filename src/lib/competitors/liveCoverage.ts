@@ -19,6 +19,28 @@ export function patrolDaysOf(shotDates: (string | null | undefined)[]): Set<stri
   return days
 }
 
+/** patrolDaysOfBoard 只读这两个字段；看板的 CompetitorWithHistory 结构上满足它。 */
+export interface PatrolBoardNode {
+  shots?: readonly { shot_on: string | null }[] | null
+  related?: readonly PatrolBoardNode[] | null
+}
+
+/**
+ * 整个看板的巡检日：所有号（递归 related，子主播的截图也算巡检跑过）截图的 shot_on。
+ * 竞品看板与开播时段页都从这里取，巡检日的来源要改（比如换成巡检日志表）只改这一处。
+ */
+export function patrolDaysOfBoard(competitors: readonly PatrolBoardNode[]): Set<string> {
+  const dates: (string | null)[] = []
+  const walk = (list: readonly PatrolBoardNode[]) => {
+    for (const c of list) {
+      for (const s of c.shots ?? []) dates.push(s.shot_on)
+      if (c.related?.length) walk(c.related)
+    }
+  }
+  walk(competitors)
+  return patrolDaysOf(dates)
+}
+
 /**
  * 某一天对这个号来说有没有数据。
  * 截图推断的场次不撑出区间：截图只在巡检跑过的日子才有，它本身就落在巡检日里。

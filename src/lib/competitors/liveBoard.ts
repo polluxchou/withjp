@@ -113,6 +113,11 @@ export interface MonthCell {
   firstStart: number | null
   /** 提示框用：同一批场次的真实起止，不夹轴（越过轴尾的下播照实写）。 */
   tip: MonthBar[]
+  /**
+   * 在调用方给的 today 之后：还没到。这种日子 status 照常是 nodata（确实没有数据），
+   * 但界面要画成「未到」而不是「无数据」——画成斜线会被读成巡检漏了这些天。没传 today 时恒为 false。
+   */
+  future: boolean
 }
 
 export interface MonthRowResult {
@@ -127,12 +132,14 @@ export interface MonthRowResult {
 /**
  * 一个号一个月的格子矩阵。场次按账号时区落到开播当地日期（跨午夜的场次归开播那天）。
  * 本月之外的场次不进格子、不计入汇总，但导入场次仍会撑出「首末场之间都有数据」的区间（coverageOf 看全部场次）。
+ * today（YYYY-MM-DD，可省）只用来标 future，不影响 status 与汇总。
  */
 export function monthRow(
   account: LiveAccount,
   month: string,
   timeZone: string,
   patrolDays: ReadonlySet<string>,
+  today?: string | null,
 ): MonthRowResult {
   const located = locateSpans(account.spans, timeZone)
   const hasData = coverageOf(located, patrolDays)
@@ -147,9 +154,10 @@ export function monthRow(
   let earliest: number | null = null
   let latest: number | null = null
   const cells = monthDays(month).map((date): MonthCell => {
+    const future = today != null && date > today
     const day = (byDate.get(date) ?? []).slice().sort((a, b) => a.start - b.start || a.end - b.end)
     if (day.length === 0) {
-      return { date, status: hasData(date) ? 'idle' : 'nodata', bars: [], firstStart: null, tip: [] }
+      return { date, status: hasData(date) ? 'idle' : 'nodata', bars: [], firstStart: null, tip: [], future }
     }
     const firstStart = day[0].start
     liveDays += 1
@@ -161,6 +169,7 @@ export function monthRow(
       bars: day.map((s) => ({ start: Math.min(s.start, AXIS_END), end: Math.min(s.end, AXIS_END), approx: s.approxEnd })),
       firstStart,
       tip: day.map((s) => ({ start: s.start, end: s.end, approx: s.approxEnd })),
+      future,
     }
   })
   return { cells, liveDays, earliest, latest }
@@ -236,6 +245,14 @@ export function pickCountry(options: CountryOption[], requested: string | null |
   return options[0]?.code ?? null
 }
 
+/**
+ * 有场次、但地区未填或不在清单里的号数：月历按国家列，这些号哪个国家都进不去。
+ * 界面要明说「另有 N 个号未列出」，否则它们会悄无声息地消失。
+ */
+export function regionlessLiveCount(accounts: LiveAccount[]): number {
+  return accounts.filter((a) => a.spans.length > 0 && normalizeRegion(a.region) == null).length
+}
+
 /** 某国有任何场次的号（月历只列这些，口径同 liveCountries）。 */
 export function countryAccounts(accounts: LiveAccount[], code: RegionCode): LiveAccount[] {
   return accounts.filter((a) => a.spans.length > 0 && normalizeRegion(a.region) === code)
@@ -279,6 +296,15 @@ export function clampMonth(raw: string | null | undefined, bounds: { from: strin
   if (raw < bounds.from) return bounds.from
   if (raw > bounds.to) return bounds.to
   return raw
+}
+
+/**
+ * 翻月：以当前值为底（先收进范围）走 delta 个月，结果再夹回范围。
+ * 「当前值」由调用方在点击那一刻从地址栏读，而不是用上一次渲染的值：连点两下时第二下还没等到重渲染，
+ * 拿渲染时的值会算出同一个目标月，丢一次点击。结果再夹一次，是因为按钮的禁用态同样要等重渲染才跟上。
+ */
+export function stepMonth(current: string | null | undefined, delta: number, bounds: { from: string; to: string }): string {
+  return clampMonth(shiftMonth(clampMonth(current, bounds), delta), bounds)
 }
 
 export interface CompanyGroup {
@@ -345,6 +371,25 @@ export function countryMonthKpis(
 export function heatAlpha(live: number, maxLive: number): number | null {
   if (live <= 0 || maxLive <= 0) return null
   return 0.15 + 0.7 * Math.min(1, live / maxLive)
+}
+
+/**
+ * 竖条在条区里的纵向位置与高度（px）：条区从上到下是 06:00 → 次日 02:00，高 stripPx。
+ * - 起止先夹进轴内：越过 02:00 的下播只画到轴尾，02:00 之后才开播的场次落在轴尾。
+ * - 高度不足 minPx 补到 minPx（几分钟的短场、零长度的轴尾条也要看得见），
+ *   然后整根往上收，保证不从条区底边冒出去。
+ * 国家月历（40px 一格）与单个直播间（一天一列）共用这一份几何。
+ */
+export function barBox(
+  bar: { start: number; end: number },
+  stripPx: number,
+  minPx: number,
+): { top: number; height: number } {
+  const pxPerMin = stripPx / (AXIS_END - AXIS_START)
+  const start = Math.min(Math.max(bar.start, AXIS_START), AXIS_END)
+  const end = Math.min(Math.max(bar.end, start), AXIS_END)
+  const height = Math.max(minPx, (end - start) * pxPerMin)
+  return { top: Math.max(0, Math.min((start - AXIS_START) * pxPerMin, stripPx - height)), height }
 }
 
 /**

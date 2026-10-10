@@ -5,6 +5,7 @@ import type { LiveSpan } from './liveSessions.ts'
 import type { CompetitorWithHistory } from './types.ts'
 import {
   OUR_SCHEDULE_JST,
+  barBox,
   barClock,
   clampMonth,
   countryAccounts,
@@ -21,8 +22,10 @@ import {
   monthTotals,
   peakBucket,
   pickCountry,
+  regionlessLiveCount,
   shiftMonth,
   spanSource,
+  stepMonth,
   type LiveAccount,
 } from './liveBoard.ts'
 import { coverageHistogram, locateSpans, BUCKETS } from './liveStats.ts'
@@ -541,4 +544,58 @@ test('barClock: 起止钟点；跨午夜标次日；凌晨开播的场次从它�
   assert.deepEqual(barClock({ start: 1380, end: 1440, approx: false }), { start: '23:00', end: '00:00', nextDay: true }, '恰好 24 点算次日')
   assert.deepEqual(barClock({ start: 1500, end: 1620, approx: true }), { start: '01:00', end: '03:00', nextDay: false })
   assert.deepEqual(barClock({ start: 1500, end: 2900, approx: false }).nextDay, true)
+})
+
+test('monthRow: 传入 today 时，之后的日子标 future（还没到，不是无数据）；不传则全为 false', () => {
+  const row = monthRow(acc([h('2026-09-01', '12:00', '14:00')]), '2026-09', TZ, new Set(['2026-09-10']), '2026-09-10')
+  assert.deepEqual(row.cells.slice(8, 12).map((c) => [c.date.slice(8), c.future]), [['09', false], ['10', false], ['11', true], ['12', true]])
+  assert.equal(row.cells[29].future, true)
+  assert.equal(row.cells[0].future, false)
+  // 状态口径不变：未来的日子本来就没数据，status 仍是 nodata，future 只是另一种画法
+  assert.equal(row.cells[10].status, 'nodata')
+  assert.ok(monthRow(acc([]), '2026-09', TZ, new Set()).cells.every((c) => c.future === false))
+  // today 在本月之前：整月都是未来；在本月之后：一天都不是
+  assert.ok(monthRow(acc([]), '2026-09', TZ, new Set(), '2026-08-31').cells.every((c) => c.future))
+  assert.ok(monthRow(acc([]), '2026-09', TZ, new Set(), '2026-10-01').cells.every((c) => !c.future))
+})
+
+test('regionlessLiveCount: 有场次但地区未填 / 不在清单里的号数（月历列不出来的那些）', () => {
+  const accounts = [
+    la('a', 'JP', null, one),
+    la('b', null, null, one),
+    la('c', '', null, one),
+    la('d', 'XX', null, one),
+    la('e', null, null, []), // 没场次本来就不列，不算
+    la('f', ' kr ', null, one), // 规整后在清单里
+  ]
+  assert.equal(regionlessLiveCount(accounts), 3)
+  assert.equal(regionlessLiveCount([]), 0)
+})
+
+test('stepMonth: 以当前值为底翻月并夹在范围内；当前值缺失或越界先收进范围', () => {
+  const b = { from: '2026-07', to: '2026-10' }
+  assert.equal(stepMonth('2026-09', -1, b), '2026-08')
+  assert.equal(stepMonth('2026-08', -1, b), '2026-07')
+  assert.equal(stepMonth('2026-07', -1, b), '2026-07', '已到最早一月：不再往前')
+  assert.equal(stepMonth('2026-10', 1, b), '2026-10', '已到今天所在月：不再往后')
+  assert.equal(stepMonth(null, -1, b), '2026-09', '缺失按今天所在月起翻')
+  assert.equal(stepMonth('2025-01', 1, b), '2026-08', '越界先夹到 2026-07 再翻')
+  // 连点两下：第二下以第一下的结果为底
+  assert.equal(stepMonth(stepMonth('2026-10', -1, b), -1, b), '2026-08')
+})
+
+test('barBox: 竖条的纵向位置与高度（px），夹在条区内', () => {
+  // 40px 装 1200 分钟 → 每 30 分钟 1px
+  assert.deepEqual(barBox({ start: 720, end: 840 }, 40, 3), { top: 12, height: 4 })
+  // 不足最小高度的短条补到最小高度
+  assert.deepEqual(barBox({ start: 720, end: 750 }, 40, 3), { top: 12, height: 3 })
+  // 02:00 之后才开播、被夹到轴尾的零长度条：仍有最小高度，且整根留在条区内（不从底边冒出去）
+  assert.deepEqual(barBox({ start: 1560, end: 1560 }, 40, 3), { top: 37, height: 3 })
+  // 下播越过轴尾：只画到轴尾
+  assert.deepEqual(barBox({ start: 1500, end: 1700 }, 40, 3), { top: 37, height: 3 })
+  assert.deepEqual(barBox({ start: 1200, end: 1800 }, 40, 3), { top: 28, height: 12 })
+  // 整条轴：顶到底
+  assert.deepEqual(barBox({ start: 360, end: 1560 }, 40, 3), { top: 0, height: 40 })
+  // 同一套几何换个尺寸（单个直播间视图 600px 高）
+  assert.deepEqual(barBox({ start: 720, end: 840 }, 600, 4), { top: 180, height: 60 })
 })
