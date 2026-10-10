@@ -266,6 +266,14 @@ test('compareShotsForBoard: 有日期的按日期倒序、同日 sort_order 升�
   assert.deepEqual(list.slice().sort(compareShotsForBoard).map((s) => s.id), ['b', 'c', 'a', 'x1', 'x2'])
 })
 
+test('compareShotsForBoard: 无日期垫底是双向的——(无日期, 有日期) > 0 且 (有日期, 无日期) < 0', () => {
+  const dated = shotAt('d', '2026-07-20', 0, '2026-08-01T00:00:00Z')
+  const undated = shotAt('u', null, 0, '2026-08-01T00:00:00Z')
+  // 数组 sort 只会朝某一个方向调比较函数，只测排序结果会漏掉另一半分支，所以直接断言比较函数
+  assert.ok(compareShotsForBoard(undated, dated) > 0)
+  assert.ok(compareShotsForBoard(dated, undated) < 0)
+})
+
 
 // —— 导航条「当天无截图」标记 ——
 

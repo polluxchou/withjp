@@ -119,3 +119,13 @@ test('assembleBoard: 没有开播记录的账号 sessionStarts 为空数组', ()
   const board = assembleBoard([comp()], [], [], true)
   assert.deepEqual(board.competitors[0].sessionStarts, [])
 })
+
+test('assembleBoard: meta 的日期轴为空数组时也以 meta 为准，不回退到 shots 推算', () => {
+  const board = assembleBoard([comp()], [], [shot('a', '2026-07-20')], true, [], {
+    shotAxis: [],
+    sessionStartsBy: new Map(),
+    shotsLoadedFrom: null,
+  })
+  assert.deepEqual(board.shotAxis, [])
+  assert.deepEqual(board.competitors[0].sessionStarts, [])
+})

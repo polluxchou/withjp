@@ -41,3 +41,16 @@ test('buildShotIndex: 开播时刻按账号去重、忽略空值、升序', () =
 test('buildShotIndex: 只有无开播时刻截图的账号不进 sessionStartsBy', () => {
   assert.equal(buildShotIndex([row('a', '2026-08-05')]).sessionStartsBy.has('a'), false)
 })
+
+test('buildShotIndex: 无日期截图的开播时刻照样记入该账号，日期轴仍追加 UNDATED_KEY', () => {
+  const idx = buildShotIndex([
+    row('a', null, '2026-08-02T05:00:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00'),
+  ])
+  assert.deepEqual(idx.sessionStartsBy.get('a'), ['2026-08-02T05:00:00+00:00', '2026-08-05T05:00:00+00:00'])
+  assert.deepEqual(idx.shotAxis, ['2026-08-05', UNDATED_KEY])
+  // 只有无日期截图的账号同样不能丢开播时刻
+  const only = buildShotIndex([row('b', null, '2026-08-03T04:00:00+00:00')])
+  assert.deepEqual(only.sessionStartsBy.get('b'), ['2026-08-03T04:00:00+00:00'])
+  assert.deepEqual(only.shotAxis, [UNDATED_KEY])
+})
