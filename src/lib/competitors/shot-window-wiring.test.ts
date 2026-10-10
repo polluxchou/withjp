@@ -166,7 +166,7 @@ test('getShotsInRange：from 不早于 before、或带注入片段的区间被�
 // ---- 看板取数的数据流 --------------------------------------------------------
 // 「meta 算出来了但没传」「索引喂了空数组」「截图本体换成 []」「canEdit 变 false」这几类改动，
 // 单看「某个字符串还在」抓不住；这里把 assembleBoard 的整段调用连同实参顺序一起钉住。
-test('getCompetitorBoard：索引吃瘦查询的行；assembleBoard 的实参依次是 竞品、快照、截图本体、canEdit=true、描述、meta', () => {
+test('getCompetitorBoard：索引吃瘦查询的行；assembleBoard 的实参依次是 竞品、快照、截图本体、canEdit=true、描述、开播记录、meta', () => {
   const body = bodyOf(SERVICE, 'getCompetitorBoard')
   assert.ok(
     body.includes('buildShotIndex((indexRes.data ?? []) as ShotIndexRow[])'),
@@ -174,17 +174,17 @@ test('getCompetitorBoard：索引吃瘦查询的行；assembleBoard 的实参依
   )
   assert.match(
     body,
-    /assembleBoard\(\s*\(compRes\.data \?\? \[\]\) as Competitor\[\],\s*\(snapRes\.data \?\? \[\]\) as CompetitorSnapshot\[\],\s*\(shotRes\.data \?\? \[\]\) as CompetitorShot\[\],\s*true,\s*\(descRes\.data \?\? \[\]\) as CompetitorDescription\[\],\s*\{ \.\.\.index, shotsLoadedFrom: loadedFrom \},?\s*\)/,
+    /assembleBoard\(\s*\(compRes\.data \?\? \[\]\) as Competitor\[\],\s*\(snapRes\.data \?\? \[\]\) as CompetitorSnapshot\[\],\s*\(shotRes\.data \?\? \[\]\) as CompetitorShot\[\],\s*true,\s*\(descRes\.data \?\? \[\]\) as CompetitorDescription\[\],\s*\(liveRes\.data \?\? \[\]\) as CompetitorLiveSession\[\],\s*\{ \.\.\.index, shotsLoadedFrom: loadedFrom \},?\s*\)/,
   )
 })
 
 // ---- 错误传播 ----------------------------------------------------------------
 // 任何一段查询失败都要变成 db_error，不能静默退化成「空索引 / 缺图看板」。
-test('getCompetitorBoard：四张表与截图本体任一出错都返回 db_error', () => {
+test('getCompetitorBoard：五张表与截图本体任一出错都返回 db_error', () => {
   const body = bodyOf(SERVICE, 'getCompetitorBoard')
   assert.ok(
-    body.includes('compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error'),
-    '竞品、快照、索引、描述任一出错都应返回 db_error',
+    body.includes('compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error ?? liveRes.error'),
+    '竞品、快照、索引、描述、开播记录任一出错都应返回 db_error',
   )
   assert.ok(
     body.includes("if (shotRes.error) return err('db_error', shotRes.error.message)"),

@@ -17,7 +17,7 @@ function bodyOf(name: string): string {
 
 // 每个看板取数函数至少有几个整表/整段加载。数少了说明有查询被删了或绕开了 fetchAllRows。
 const LOADERS: [name: string, minFroms: number][] = [
-  ['getCompetitorBoard', 5],
+  ['getCompetitorBoard', 6],
   ['getCompanyBoard', 4],
   ['getAskBoard', 3],
   ['getShotsInRange', 1],
