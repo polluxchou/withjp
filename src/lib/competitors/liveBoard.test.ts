@@ -5,6 +5,7 @@ import type { LiveSpan } from './liveSessions.ts'
 import type { CompetitorWithHistory } from './types.ts'
 import {
   OUR_SCHEDULE_JST,
+  ROOM_END_LABEL_GAP,
   barBox,
   barClock,
   clampMonth,
@@ -22,7 +23,13 @@ import {
   monthTotals,
   peakBucket,
   pickCountry,
+  pickRoomAccount,
   regionlessLiveCount,
+  roomAccounts,
+  roomDayBars,
+  roomHistoryRange,
+  roomMonthSummary,
+  roomSlotLines,
   shiftMonth,
   spanSource,
   stepMonth,
@@ -598,4 +605,177 @@ test('barBox: 竖条的纵向位置与高度（px），夹在条区内', () => {
   assert.deepEqual(barBox({ start: 360, end: 1560 }, 40, 3), { top: 0, height: 40 })
   // 同一套几何换个尺寸（单个直播间视图 600px 高）
   assert.deepEqual(barBox({ start: 720, end: 840 }, 600, 4), { top: 180, height: 60 })
+})
+
+// ---- 单个直播间 ----
+
+const named = (id: string, handle: string, region: string | null, spans: LiveSpan[]): LiveAccount =>
+  ({ id, handle, name: handle, region, company: null, spans })
+
+test('roomAccounts: 只留有场次的号；按地区（清单顺序，未填/脏值最后）再按 handle 排', () => {
+  const one = [h('2026-09-01', '12:00', '13:00')]
+  // handle 的字母序与地区顺序故意错开：只按 handle 排会排成 a, b, c, …
+  const out = roomAccounts([
+    named('kr-d', 'sample.d', 'KR', one),
+    named('jp-r', 'sample.r', 'jp', one),
+    named('none', 'sample.e', 'JP', []),
+    named('my-b', 'sample.b', 'MY', one),
+    named('nil-a', 'sample.a', null, one),
+    named('jp-q', 'sample.q', 'JP', one),
+    named('kr-c', 'sample.c', 'KR', one),
+    named('zz-z', 'sample.z', 'ZZ', one),
+  ])
+  assert.deepEqual(out.map((a) => a.id), ['jp-q', 'jp-r', 'kr-c', 'kr-d', 'my-b', 'nil-a', 'zz-z'])
+})
+
+test('pickRoomAccount: URL 的 acc 在选项里就用；否则取场次最多的号（并列取排在前面的）；没选项为 null', () => {
+  const a = named('a', 'sample.a', 'JP', [h('2026-09-01', '12:00', '13:00')])
+  const b = named('b', 'sample.b', 'JP', [h('2026-09-01', '12:00', '13:00'), h('2026-09-02', '12:00', '13:00')])
+  const c = named('c', 'sample.c', 'KR', [s('2026-09-01', '12:00', '13:00'), s('2026-09-02', '12:00', '13:00')])
+  const options = [a, b, c]
+  assert.equal(pickRoomAccount(options, 'a'), a)
+  assert.equal(pickRoomAccount(options, 'c'), c)
+  assert.equal(pickRoomAccount(options, null), b, '缺失：场次最多，b 与 c 并列取排在前面的 b')
+  assert.equal(pickRoomAccount(options, 'gone'), b, '不在选项里（被删 / 没场次）同样回落')
+  assert.equal(pickRoomAccount([], 'a'), null)
+})
+
+const GEO = { stripPx: 600, minPx: 4, labelPx: 13 }
+const dayCell = (spans: LiveSpan[], date: string) =>
+  monthRow(acc(spans), date.slice(0, 7), TZ, new Set()).cells.find((c) => c.date === date)!
+
+test('roomDayBars: 几何走 barBox（夹轴），标签用真实起止；跨午夜那场下播照实写并标次日', () => {
+  const cell = dayCell([h('2026-09-05', '23:00', '01:30', '2026-09-06'), h('2026-09-05', '12:00', '14:00')], '2026-09-05')
+  const bars = roomDayBars(cell, GEO)
+  assert.equal(bars.length, 2)
+  assert.deepEqual(
+    bars.map((b) => [b.top, b.height, b.start, b.end, b.nextDay, b.minutes]),
+    [
+      [180, 60, '12:00', '14:00', false, 120],
+      // 23:00 → 次日 01:30：画到 24 点之后（第 1380 → 1530 分钟），不在 24 点截断
+      [510, 75, '23:00', '01:30', true, 150],
+    ],
+  )
+  // 下播越过轴尾（02:00）：条只画到轴尾，标签仍写真实的 03:30
+  const late = roomDayBars(dayCell([h('2026-09-07', '22:00', '03:30', '2026-09-08')], '2026-09-07'), GEO)[0]
+  assert.deepEqual([late.top, late.height, late.end, late.nextDay], [480, 120, '03:30', true])
+  // 凌晨 01:00 开播：归开播当天，画在列的底部（第 1500 分钟）
+  const early = roomDayBars(dayCell([h('2026-09-09', '01:00', '01:40')], '2026-09-09'), GEO)[0]
+  assert.deepEqual([early.top, early.height, early.start, early.end, early.nextDay], [570, 20, '01:00', '01:40', false])
+  // 02:00 之后才开播：零长度夹到轴尾，补最小高度、整根留在条区内
+  const tail = roomDayBars(dayCell([h('2026-09-10', '03:00', '03:00')], '2026-09-10'), GEO)[0]
+  assert.deepEqual([tail.top, tail.height], [596, 4])
+})
+
+test('roomDayBars: 下播标签——截图推断不标；同一天下一场开播距本场下播 ≤ 50 分钟不标（避免叠字）', () => {
+  assert.equal(ROOM_END_LABEL_GAP, 50)
+  const bars = roomDayBars(
+    dayCell(
+      [
+        h('2026-09-12', '10:00', '11:00'),
+        h('2026-09-12', '11:50', '12:30'), // 距上一场下播恰好 50 分钟 → 上一场不标下播
+        h('2026-09-12', '13:21', '14:00'), // 距上一场下播 51 分钟 → 上一场标下播
+        s('2026-09-12', '18:00', '19:00'), // 截图推断：不标下播
+        h('2026-09-12', '21:00', '22:00'), // 最后一场：标下播
+      ],
+      '2026-09-12',
+    ),
+    GEO,
+  )
+  assert.deepEqual(bars.map((b) => b.showEnd), [false, true, true, false, true])
+  assert.deepEqual(bars.map((b) => b.approx), [false, false, false, true, false])
+})
+
+test('roomDayBars: 按画出来的几何再量一次——夹到轴尾的两场在图上挨着，不标下播', () => {
+  // 真实间隔 60 分钟（> 50），但第二场 02:30 开播被夹到轴尾，画出来紧贴第一场的底
+  const bars = roomDayBars(
+    dayCell([h('2026-09-14', '01:00', '01:30'), h('2026-09-14', '02:30', '02:40')], '2026-09-14'),
+    GEO,
+  )
+  assert.deepEqual(bars.map((b) => b.showEnd), [false, true])
+})
+
+test('roomDayBars: 开播标签——与上一个标出来的开播标签挤在一行高度内就不标', () => {
+  const bars = roomDayBars(
+    dayCell(
+      [
+        h('2026-09-15', '08:46', '08:46'), // 零长度的一场
+        h('2026-09-15', '08:53', '09:05'), // 7 分钟后又开一场：两行开播字会叠住 → 不标
+        h('2026-09-15', '09:12', '09:20'), // 距第一个标出来的标签 26 分钟 = 13px，正好放得下 → 标
+        h('2026-09-15', '12:00', '13:00'),
+      ],
+      '2026-09-15',
+    ),
+    GEO,
+  )
+  assert.deepEqual(bars.map((b) => b.showStart), [true, false, true, true])
+})
+
+test('roomSlotLines: 主档开播 → 轴上分钟；凌晨档 +1440；轴外（02:00 之后、06:00 之前）不画', () => {
+  const lines = roomSlotLines([
+    { startMinutes: 19 * 60 + 11, label: '19:11' },
+    { startMinutes: 12 * 60 + 7, label: '12:07' },
+    { startMinutes: 60, label: '01:00' },
+    { startMinutes: -10, label: '23:50' }, // 跨午夜合并出的负数中位数
+    { startMinutes: 120, label: '02:00' }, // 正好轴尾，画
+    { startMinutes: 180, label: '03:00' }, // 轴外
+    { startMinutes: 5 * 60 + 59, label: '05:59' }, // 轴外
+  ])
+  assert.deepEqual(lines, [
+    { minute: 727, label: '12:07' },
+    { minute: 1151, label: '19:11' },
+    { minute: 1430, label: '23:50' },
+    { minute: 1500, label: '01:00' },
+    { minute: 1560, label: '02:00' },
+  ])
+  assert.deepEqual(roomSlotLines([]), [])
+})
+
+test('roomMonthSummary: 导入号——首末场之间都算有数据；平均单场按真实时长；无截图不加「偏短」', () => {
+  const a = acc([
+    h('2026-08-20', '12:00', '14:00'),
+    h('2026-09-03', '12:00', '13:00'),
+    h('2026-09-03', '19:00', '21:00'),
+    h('2026-09-10', '23:00', '01:00', '2026-09-11'),
+  ])
+  const sum = roomMonthSummary(a, '2026-09', TZ, new Set())
+  // 9/1–9/10 在首末场（8/20–9/10）之间
+  assert.deepEqual(sum, { liveDays: 2, sessions: 3, dataDays: 10, totalDays: 30, avgMinutes: 100, approx: false })
+})
+
+test('roomMonthSummary: 截图号——只有巡检日（与开播日）算有数据；本月有截图推断的场次标 approx；没场次平均为 null', () => {
+  const a = acc([s('2026-09-02', '20:00', '21:00'), h('2026-08-01', '12:00', '13:00')])
+  const patrol = new Set(['2026-09-01', '2026-09-03', '2026-10-01'])
+  assert.deepEqual(roomMonthSummary(a, '2026-09', TZ, patrol), {
+    liveDays: 1,
+    sessions: 1,
+    dataDays: 3,
+    totalDays: 30,
+    avgMinutes: 60,
+    approx: true,
+  })
+  // 8 月只有导入那一场：不标 approx
+  assert.equal(roomMonthSummary(a, '2026-08', TZ, patrol).approx, false)
+  assert.deepEqual(roomMonthSummary(a, '2026-10', TZ, patrol), {
+    liveDays: 0,
+    sessions: 0,
+    dataDays: 1,
+    totalDays: 31,
+    avgMinutes: null,
+    approx: false,
+  })
+  assert.equal(roomMonthSummary(a, 'bad', TZ, patrol).totalDays, 0)
+})
+
+test('roomHistoryRange: 导入场次的首末当地日期；截图推断不撑出范围；没有导入为 null', () => {
+  const a = acc([
+    h('2026-07-13', '09:00', '10:00'),
+    s('2026-10-20', '20:00', '21:00'),
+    h('2026-10-09', '01:30', '02:00'), // 日区 10/9 凌晨：当地日期是 10/9
+    h('2026-08-01', '12:00', '13:00'),
+  ])
+  assert.deepEqual(roomHistoryRange(a, TZ), { from: '2026-07-13', to: '2026-10-09' })
+  // 同一时刻换个时区，日期跟着当地走：日区 7/13 09:00 = 洛杉矶 7/12 17:00
+  assert.equal(roomHistoryRange(a, 'America/Los_Angeles')?.from, '2026-07-12')
+  assert.equal(roomHistoryRange(acc([s('2026-09-01', '12:00', '13:00')]), TZ), null)
 })

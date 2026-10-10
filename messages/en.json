@@ -2011,7 +2011,23 @@
     "liveMonthOpenRecords": "Open live records for {handle}",
     "liveMonthEmpty": "No live sessions yet",
     "liveMonthEmptyHint": "Import LIVE History from a competitor card under Group accounts, or wait for patrol screenshots to build up",
-    "liveMonthRegionless": "{count, plural, =1 {1 more account has} other {# more accounts have}} no region set and {count, plural, =1 {is} other {are}} not listed"
+    "liveMonthRegionless": "{count, plural, =1 {1 more account has} other {# more accounts have}} no region set and {count, plural, =1 {is} other {are}} not listed",
+    "liveRoomAccountLabel": "Room",
+    "liveRoomNoRegion": "No region",
+    "liveRoomMetaHistory": "LIVE History {from} – {to}",
+    "liveRoomMetaMixed": "LIVE History {from} – {to} + screenshots",
+    "liveRoomMetaShot": "Inferred from screenshots; only patrol days have data",
+    "liveRoomRecords": "Sessions & likes",
+    "liveRoomKpiLive": "Live this month",
+    "liveRoomKpiLiveValue": "{days, plural, =1 {1 day} other {# days}} · {sessions, plural, =1 {1 session} other {# sessions}}",
+    "liveRoomKpiAvgShort": "lower bound",
+    "liveRoomKpiSlots": "Main slots (all sessions)",
+    "liveRoomSlotsFew": "Too few sessions",
+    "liveRoomSlotsScattered": "Scattered start times",
+    "liveRoomSlotLine": "Main slot {time}",
+    "liveRoomSessionTip": "{start}–{end} ({duration})",
+    "liveRoomLegend": "Each column is one day and each bar runs from start to end: bold above the bar is the start time, grey below is the end (not shown for screenshot-inferred sessions)",
+    "liveRoomLegendSlot": "Main start time (from all sessions)"
   },
   "site": {
     "meta": {

@@ -10,6 +10,7 @@ import { patrolDaysOfBoard } from '@/lib/competitors/liveCoverage'
 import type { CompetitorBoard, CompetitorWithHistory } from '@/lib/competitors/types'
 import { zonedYmd } from '@/lib/time/zonedTime'
 import LiveCountryMonth from './LiveCountryMonth'
+import LiveRoomMonth from './LiveRoomMonth'
 import LiveSessionsModal from './LiveSessionsModal'
 import { useRegionZone } from './useRegionZone'
 
@@ -109,6 +110,17 @@ export default function CompetitorLiveView({
           country={searchParams.get('country')}
           month={searchParams.get('month')}
           onCountryChange={(code) => setQuery({ country: code })}
+          onMonthChange={(next) => setQuery({ month: next })}
+          onOpenRecords={openRecords}
+        />
+      ) : view === 'room' ? (
+        <LiveRoomMonth
+          accounts={accounts}
+          patrolDays={patrolDays}
+          today={today}
+          account={searchParams.get('acc')}
+          month={searchParams.get('month')}
+          onPickAccount={(id) => setQuery({ acc: id })}
           onMonthChange={(next) => setQuery({ month: next })}
           onOpenRecords={openRecords}
         />

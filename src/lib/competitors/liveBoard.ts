@@ -14,10 +14,18 @@
 //
 // 3. 我方排期常量 OUR_SCHEDULE_JST：来历是 liveSlots.ts 头注释里写的「我们自己的排期就是 14:30–17:30 / 18:30–21:30」，
 //    日区团播普遍一天两档，番组表上画成参考线，方便对照竞品的档期。排期是日本时间的钟点，与账号地区无关。
-import { clusterMinutes, minutesToLabel, SLOT_MIN_SESSIONS, SLOT_MIN_SHARE } from './liveSlots.ts'
+import { clusterMinutes, minutesToLabel, SLOT_MIN_SESSIONS, SLOT_MIN_SHARE, type LiveSlot } from './liveSlots.ts'
 import { coverageOf } from './liveCoverage.ts'
 import { liveSpansOf, regionTimeZone, type LiveSpan } from './liveSessions.ts'
-import { AXIS_END, AXIS_START, coverageHistogram, inRange, locateSpans, type LocatedSpan } from './liveStats.ts'
+import {
+  AXIS_END,
+  AXIS_START,
+  coverageHistogram,
+  inRange,
+  locateSpans,
+  windowStats,
+  type LocatedSpan,
+} from './liveStats.ts'
 import { normalizeRegion, REGION_CODES, type RegionCode } from './regions.ts'
 import type { CompetitorWithHistory } from './types.ts'
 import { zonedYmd } from '../time/zonedTime.ts'
@@ -399,6 +407,184 @@ export function barBox(
 export function barClock(bar: MonthBar): { start: string; end: string; nextDay: boolean } {
   const dayStart = bar.start >= 1440 ? 1440 : 0
   return { start: minutesToLabel(bar.start), end: minutesToLabel(bar.end), nextDay: bar.end - dayStart >= 1440 }
+}
+
+// ---- 单个直播间 ----
+// 一个号、一个月：横轴当月每天（一天一列），纵轴 06:00 → 次日 02:00，每场一根竖条，
+// 条上方粗体标开播、下方灰字标下播；主档画成横向虚线。这里管「列哪些号、默认选哪个」、
+// 「每根条的两个标签标不标」「主档线画在轴上哪一分钟」和顶部指标；竖条几何仍走上面的 barBox。
+
+/**
+ * 同一天下一场开播距本场下播在这么多分钟以内（含），本场不标下播：
+ * 单个直播间 0.5px/分钟，50 分钟 = 25px，刚好放下「本场下播」与「下一场开播」两行 10px 字（各占 12px 行高 + 1px 间隔）。
+ */
+export const ROOM_END_LABEL_GAP = 50
+
+/** 地区排序键：清单顺序（日区在前，与国家选项同一顺序），未填 / 不在清单里的排最后。 */
+const regionRank = (region: string | null) => {
+  const code = normalizeRegion(region)
+  return code ? REGION_CODES.indexOf(code) : REGION_CODES.length
+}
+
+/**
+ * 单个直播间的账号下拉：只列有场次的号（没场次的号选进去是一整张空图），按地区、再按 handle 排。
+ * 地区未填的号也列：它们进不了国家月历，这里是唯一能单独看它们的地方。
+ */
+export function roomAccounts(accounts: LiveAccount[]): LiveAccount[] {
+  return accounts
+    .filter((a) => a.spans.length > 0)
+    .sort((a, b) => regionRank(a.region) - regionRank(b.region) || byCodePoint(a.handle, b.handle))
+}
+
+/**
+ * 选中的号：URL 上的 acc（竞品 id）在选项里就用它；否则取场次最多的号——
+ * 第一次点进来就看到一张画得满的图，而不是排在第一个、只有一两场截图的号。
+ * 并列取排在前面的（选项已按地区 → handle 排好，结果稳定）；一个选项都没有为 null。
+ */
+export function pickRoomAccount(options: LiveAccount[], requested: string | null | undefined): LiveAccount | null {
+  if (requested) {
+    const hit = options.find((a) => a.id === requested)
+    if (hit) return hit
+  }
+  let best: LiveAccount | null = null
+  // 严格大于：并列时保留先出现的
+  for (const a of options) if (best == null || a.spans.length > best.spans.length) best = a
+  return best
+}
+
+export interface RoomBar {
+  /** 竖条的纵向位置与高度（px），即 barBox 的结果：起止已夹进轴内，并补了最小高度。 */
+  top: number
+  height: number
+  /** 下播只是截图推断的下限。 */
+  approx: boolean
+  /** 真实起止的钟点（不夹轴）：越过 02:00 的下播照实写。 */
+  start: string
+  end: string
+  /** 下播落在开播的次日。 */
+  nextDay: boolean
+  /** 真实时长（分钟）。 */
+  minutes: number
+  /** 条上方标不标开播时刻。 */
+  showStart: boolean
+  /** 条下方标不标下播时刻。 */
+  showEnd: boolean
+}
+
+/**
+ * 单个直播间一天里每根竖条的几何与标签取舍。入参是 monthRow 的一个格子：bars（夹轴，画条用）与
+ * tip（真实起止，写字用）同序一一对应。
+ *
+ * - 下播标签：截图推断的场次不标（那只是最后一张截图的时刻，标出来会被当成真的下播）；
+ *   同一天下一场开播距本场下播 ≤ ROOM_END_LABEL_GAP 分钟也不标，否则本场下播与下一场开播两行字叠在一起。
+ *   间隔按画出来的几何量，不按真实时刻：夹到轴尾、补最小高度都会让两根条在图上比真实更近
+ *   （例：01:00–01:30 之后 02:30 又开一场，真实隔 60 分钟，画出来第二根被夹到轴尾、紧贴第一根）。
+ * - 开播标签：与上一个标出来的开播标签挤在一行高度（labelPx）以内就不标——同一分钟附近连开两场
+ *   （断线重连、零长度的一场）时只留第一个。精确时刻提示框里都有，图上宁可少写一个也不叠字。
+ */
+export function roomDayBars(
+  cell: Pick<MonthCell, 'bars' | 'tip'>,
+  geometry: { stripPx: number; minPx: number; labelPx: number },
+): RoomBar[] {
+  const pxPerMin = geometry.stripPx / (AXIS_END - AXIS_START)
+  const boxes = cell.bars.map((bar) => barBox(bar, geometry.stripPx, geometry.minPx))
+  let lastStartTop: number | null = null
+  return cell.bars.map((bar, i) => {
+    const real = cell.tip[i] ?? bar
+    const box = boxes[i]
+    // 同一天的下一根（没有为 undefined：数组越界不报错，类型上要显式写出来）
+    const nextBox = boxes[i + 1] as { top: number; height: number } | undefined
+    const clock = barClock(real)
+    const showStart = lastStartTop == null || box.top - lastStartTop >= geometry.labelPx
+    if (showStart) lastStartTop = box.top
+    // 量的是画出来的空隙：没被夹、没补高的条上它就等于「真实间隔 > ROOM_END_LABEL_GAP 分钟」；
+    // 夹轴、补最小高度只会让空隙比真实更小，所以这一条同时覆盖了真实口径，不必再按真实时刻量一遍。
+    const roomBelow = nextBox == null || nextBox.top - (box.top + box.height) > ROOM_END_LABEL_GAP * pxPerMin
+    return {
+      top: box.top,
+      height: box.height,
+      approx: real.approx,
+      start: clock.start,
+      end: clock.end,
+      nextDay: clock.nextDay,
+      minutes: real.end - real.start,
+      showStart,
+      showEnd: !real.approx && roomBelow,
+    }
+  })
+}
+
+/**
+ * 主档参考线在轴上的位置（轴上分钟）。入参是 summarizeLiveHabit 的 slots：startMinutes 是一天里的第几分钟，
+ * 跨午夜合并的档可能是负数，先归一到 0–1439；早于 06:00 的 +1440，与凌晨开播的竖条画在同一处（轴的底部）。
+ * 落在 02:00 之后、06:00 之前的档轴上没有位置，不画（KPI 里照样写出来）。按位置从上到下排。
+ */
+export function roomSlotLines(slots: readonly Pick<LiveSlot, 'startMinutes' | 'label'>[]): { minute: number; label: string }[] {
+  const out: { minute: number; label: string }[] = []
+  for (const s of slots) {
+    let minute = ((s.startMinutes % 1440) + 1440) % 1440
+    if (minute < AXIS_START) minute += 1440
+    if (minute > AXIS_END) continue
+    out.push({ minute, label: s.label })
+  }
+  return out.sort((a, b) => a.minute - b.minute)
+}
+
+export interface RoomMonthSummary {
+  /** 本月开播天数（同一天多场只算一天）。 */
+  liveDays: number
+  /** 本月场次数。 */
+  sessions: number
+  /** 本月有数据的天数（有场次的日子一定算；其余按 coverageOf，「无数据」≠「没播」）。 */
+  dataDays: number
+  /** 本月天数。 */
+  totalDays: number
+  /** 平均单场（分钟，真实时长）；本月没场次为 null。 */
+  avgMinutes: number | null
+  /** 本月有截图推断的场次：它们的时长是下限，平均单场偏短，界面要加注。 */
+  approx: boolean
+}
+
+/**
+ * 单个直播间顶部的指标（主档除外：主档按该号全部场次算，不随翻月变，见 summarizeLiveHabit）。
+ * 区间统计直接用 windowStats，与开播记录弹窗同一份口径；场次按账号时区落到开播当地日期。
+ * 月份格式不对时全为 0。
+ */
+export function roomMonthSummary(
+  account: LiveAccount,
+  month: string,
+  timeZone: string,
+  patrolDays: ReadonlySet<string>,
+): RoomMonthSummary {
+  const days = monthDays(month)
+  if (days.length === 0) return { liveDays: 0, sessions: 0, dataDays: 0, totalDays: 0, avgMinutes: null, approx: false }
+  const from = days[0]
+  const to = days[days.length - 1]
+  const located = locateSpans(account.spans, timeZone)
+  const stats = windowStats(located, from, to, coverageOf(located, patrolDays))
+  return {
+    liveDays: stats.liveDays,
+    sessions: stats.sessions,
+    dataDays: stats.dataDays,
+    totalDays: days.length,
+    avgMinutes: stats.avgMinutes,
+    approx: inRange(located, from, to).some((s) => s.approxEnd),
+  }
+}
+
+/**
+ * 导入场次（LIVE History）覆盖的当地日期范围：首场 ～ 末场。账号元信息里写「数据覆盖到哪」用——
+ * 这段日子里没场次就是没播（同 coverageOf 的口径）。截图推断的场次不撑出范围；没有导入记录为 null。
+ */
+export function roomHistoryRange(account: LiveAccount, timeZone: string): { from: string; to: string } | null {
+  let from: string | null = null
+  let to: string | null = null
+  for (const s of locateSpans(account.spans, timeZone)) {
+    if (s.source !== 'history') continue
+    if (from == null || s.date < from) from = s.date
+    if (to == null || s.date > to) to = s.date
+  }
+  return from != null && to != null ? { from, to } : null
 }
 
 export interface DensitySlot {

@@ -2011,7 +2011,23 @@
     "liveMonthOpenRecords": "查看 {handle} 的开播记录",
     "liveMonthEmpty": "还没有任何开播记录",
     "liveMonthEmptyHint": "在「团播账号」的竞品卡片里粘贴导入 LIVE History，或等巡检截图积累",
-    "liveMonthRegionless": "另有 {count} 个号未填地区，未列出"
+    "liveMonthRegionless": "另有 {count} 个号未填地区，未列出",
+    "liveRoomAccountLabel": "直播间",
+    "liveRoomNoRegion": "未填地区",
+    "liveRoomMetaHistory": "LIVE History {from} ～ {to}",
+    "liveRoomMetaMixed": "LIVE History {from} ～ {to} + 截图推断",
+    "liveRoomMetaShot": "截图推断，只有巡检跑过的日子有数据",
+    "liveRoomRecords": "逐场清单与点赞",
+    "liveRoomKpiLive": "本月开播",
+    "liveRoomKpiLiveValue": "{days} 天 · {sessions} 场",
+    "liveRoomKpiAvgShort": "偏短",
+    "liveRoomKpiSlots": "主档开播（全部场次）",
+    "liveRoomSlotsFew": "场次太少",
+    "liveRoomSlotsScattered": "时刻零散，不成档",
+    "liveRoomSlotLine": "主档 {time} 开",
+    "liveRoomSessionTip": "{start}–{end}（{duration}）",
+    "liveRoomLegend": "每一列是一天，竖条从开播画到下播；条上方粗体是开播时刻，下方灰字是下播时刻（截图推断的场次不标下播）",
+    "liveRoomLegendSlot": "主档开播时刻（按全部场次算）"
   },
   "site": {
     "meta": {
