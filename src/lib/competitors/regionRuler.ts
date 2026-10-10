@@ -3,6 +3,7 @@
 // 同一条 24 小时轴上，用来回答「这家在同区里算早还是算晚」。
 //
 // 证据只有一种：competitor_shots.stream_started_at（直播间自报的开播时刻）。
+// 经看板的 sessionStarts 下发：全部历史、已去重，跟相册加载到哪一天无关。
 // 人工上传的截图只有 shot_on 一个日期、没有时刻——上传时间不等于开播时间
 // （深夜补传会把点打到凌晨），所以它们进不了这条轴。
 //
@@ -30,7 +31,8 @@ export interface RulerInput {
   display_name?: string | null
   region?: string | null
   latest?: { display_name?: string | null } | null
-  shots?: { stream_started_at?: string | null }[]
+  /** 全部历史里去重后的开播时刻（ISO），即 CompetitorWithHistory.sessionStarts；14 天窗口在这里过滤。 */
+  sessionStarts?: string[]
   /** 下钻的子主播也算「已收集账号」，递归纳入。 */
   related?: RulerInput[]
 }
@@ -126,13 +128,10 @@ export function buildRegionRuler({
   for (const c of flatten(competitors ?? [])) {
     if ((c.region?.trim().toUpperCase() ?? '') !== wanted) continue
 
-    const starts = (c.shots ?? [])
-      .map((s) => s.stream_started_at)
-      .filter((iso): iso is string => {
-        if (!iso) return false
-        const t = Date.parse(iso)
-        return !Number.isNaN(t) && t >= cutoff && t <= nowMs
-      })
+    const starts = (c.sessionStarts ?? []).filter((iso) => {
+      const t = Date.parse(iso)
+      return !Number.isNaN(t) && t >= cutoff && t <= nowMs
+    })
     if (!starts.length) continue
 
     // minSessions=1：标尺要把「只播过一次」的账号也摆上去（用浅色标成推测），
