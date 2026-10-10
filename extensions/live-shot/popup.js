@@ -21,6 +21,7 @@ const $ = (id) => document.getElementById(id)
 
 let pending = null // { handle, blob, reading, thumbUrl }
 let actionHandler = null
+let uploadedThisOpen = false // 已有上传响应里的新计数时，初始 GET 迟到的旧数不能盖掉它
 
 $('action').addEventListener('click', () => actionHandler && actionHandler())
 
@@ -45,11 +46,18 @@ function render({ name = '', line1 = '', line1Tone = '', line2 = '', line2Tone =
     btn.className = action.primary ? 'primary' : ''
     btn.disabled = !!action.disabled
     actionHandler = action.disabled ? null : action.run
+    if (action.primary && !action.disabled) btn.focus() // 回车即上传
   }
 }
 
 async function renderCounts(uploads) {
-  $('count-shots').textContent = String(shotsToday(await storage.get(SHOT_COUNT_KEY), Date.now()))
+  let shots = 0
+  try {
+    shots = shotsToday(await storage.get(SHOT_COUNT_KEY), Date.now())
+  } catch {
+    // 读不到本地计数就显示 0，不让它变成未处理的异常
+  }
+  $('count-shots').textContent = String(shots)
   if (uploads !== undefined) $('count-uploads').textContent = uploads === null ? '—' : String(uploads)
 }
 
@@ -57,6 +65,8 @@ function showLogin(message) {
   show('login')
   $('login-error').hidden = !message
   $('login-error').textContent = message || ''
+  const target = $('email').value ? $('password') : $('email')
+  target.focus()
 }
 
 $('login').addEventListener('submit', async (e) => {
@@ -93,6 +103,7 @@ function fail(handle, message, retry) {
 }
 
 async function prepare() {
+  if (pending && pending.thumbUrl) URL.revokeObjectURL(pending.thumbUrl)
   pending = null
   render({ name: '读取中…' })
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -115,8 +126,12 @@ async function prepare() {
   if (!after || handleFromLiveUrl(after.url) !== handle) return fail(handle, '页面刚切换了直播间，请重试', prepare)
   if (shot.error) return fail(handle, shot.error, prepare)
 
-  await storage.set(SHOT_COUNT_KEY, bumpShots(await storage.get(SHOT_COUNT_KEY), Date.now()))
-  renderCounts()
+  try {
+    await storage.set(SHOT_COUNT_KEY, bumpShots(await storage.get(SHOT_COUNT_KEY), Date.now()))
+    await renderCounts()
+  } catch {
+    // 计数失败不影响就绪状态
+  }
   const thumbUrl = URL.createObjectURL(shot.blob)
   pending = { handle, blob: shot.blob, reading, thumbUrl }
   render({
@@ -134,10 +149,11 @@ async function upload() {
   if (!pending) return
   const { handle, blob, reading, thumbUrl } = pending
   render({ name: `@${handle}`, line1: '上传中…', thumbUrl, action: { label: '上传中…', disabled: true } })
-  const r = await api.upload({ blob, handle, reading })
+  const r = await api.upload({ blob, handle, reading }).catch(() => ({ status: 0, body: { data: null, error: 'network_error' } }))
   const data = r.body && r.body.data
   if ((r.status === 201 || r.status === 207) && data) {
     pending = null
+    uploadedThisOpen = true
     renderCounts(typeof data.today_uploads === 'number' ? data.today_uploads : null)
     return render({
       name: data.competitor_name || `@${handle}`,
@@ -161,11 +177,18 @@ async function upload() {
 }
 
 async function start() {
-  const session = await api.session()
+  const session = await api.session().catch(() => null)
   if (!session) return showLogin()
   show('main')
   renderCounts()
-  api.todayUploads().then((n) => renderCounts(n))
+  api
+    .todayUploads()
+    .then((n) => {
+      if (!uploadedThisOpen) renderCounts(n)
+    })
+    .catch(() => {
+      if (!uploadedThisOpen) renderCounts(null)
+    })
   await prepare()
 }
 
