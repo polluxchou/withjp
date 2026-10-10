@@ -249,6 +249,10 @@ test('upload：后端 401（如本地时钟偏慢）→ 强制续期后用新令
   assert.equal(backend.length, 2)
   assert.equal(headersOf(backend[0]).Authorization, 'Bearer acc')
   assert.equal(headersOf(backend[1]).Authorization, 'Bearer acc2')
+  // 重发的是同一份表单（同一读数时刻、同一 handle）：不会因为重试变成另一条截图
+  assert.equal(backend[1].init.body, backend[0].init.body, '两次请求体是同一个 FormData 对象')
+  assert.equal((backend[1].init.body as FormData).get('captured_at'), String(NOW))
+  assert.equal((backend[1].init.body as FormData).get('handle'), 'a')
   const refresh = f.calls.filter((c) => c.url.includes('grant_type=refresh_token'))
   assert.equal(refresh.length, 1)
   assert.deepEqual(JSON.parse(String(refresh[0].init.body)), { refresh_token: 'ref' })
@@ -409,10 +413,40 @@ test('读存储与续期完成之间的窗口：读到刚被轮换掉的旧会�
   assert.equal(refreshCalls().length, 1, '没有再拿旧 refresh token 去续期')
 })
 
-test('logout：清掉会话', async () => {
+test('logout：先带 Bearer 令牌请求服务端吊销（/auth/v1/logout），再清掉本地会话', async () => {
   const storage = memoryStorage(VALID)
-  const api = createApi({ ...CFG, storage, fetchImpl: fakeFetch({}).impl, now: () => NOW })
+  const f = fakeFetch({ '/auth/v1/logout': { status: 204, json: null } })
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
   await api.logout()
+  assert.equal(f.calls.length, 1)
+  assert.equal(f.calls[0].url, 'https://p.supabase.co/auth/v1/logout')
+  assert.equal(f.calls[0].init.method, 'POST')
+  assert.equal(headersOf(f.calls[0]).Authorization, 'Bearer acc')
+  assert.equal(headersOf(f.calls[0]).apikey, 'anon')
+  assert.equal(storage.data.session, undefined)
+})
+
+test('logout：吊销请求抛错（断网）也照样清掉本地会话，不向外抛', async () => {
+  const storage = memoryStorage(VALID)
+  const api = createApi({ ...CFG, storage, fetchImpl: throwingFetch, now: () => NOW })
+  await api.logout()
+  assert.equal(storage.data.session, undefined)
+})
+
+test('logout：服务端拒绝（500）也照样清掉本地会话', async () => {
+  const storage = memoryStorage(VALID)
+  const f = fakeFetch({ '/auth/v1/logout': { status: 500, json: {} } })
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
+  await api.logout()
+  assert.equal(storage.data.session, undefined)
+})
+
+test('logout：本来就没有会话 → 不发任何请求', async () => {
+  const storage = memoryStorage()
+  const f = fakeFetch({})
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
+  await api.logout()
+  assert.equal(f.calls.length, 0)
   assert.equal(storage.data.session, undefined)
 })
 

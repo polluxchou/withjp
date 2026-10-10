@@ -79,6 +79,15 @@ $('login').addEventListener('submit', async (e) => {
   showLogin(r === 'rejected' ? '邮箱或密码不对' : '网络不通，稍后再试')
 })
 
+$('logout').addEventListener('click', async () => {
+  await api.logout().catch(() => {}) // 服务端吊销是尽力而为，本地会话无论如何都会清掉
+  if (pending && pending.thumbUrl) URL.revokeObjectURL(pending.thumbUrl)
+  pending = null
+  uploadedThisOpen = false
+  actionHandler = null
+  showLogin()
+})
+
 // 截可见区域 → 按画面矩形裁剪 → webp。返回 { blob } 或 { error: 给人看的一句话 }
 async function captureCrop(tab, reading) {
   const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
@@ -152,19 +161,30 @@ async function upload() {
   const r = await api.upload({ blob, handle, reading }).catch(() => ({ status: 0, body: { data: null, error: 'network_error' } }))
   const data = r.body && r.body.data
   if ((r.status === 201 || r.status === 207) && data) {
-    pending = null
     uploadedThisOpen = true
     renderCounts(typeof data.today_uploads === 'number' ? data.today_uploads : null)
+    if (r.status === 207) {
+      // 截图已入库、人数没写进去：pending 留着。再传一次是安全的——服务端按（上传人、竞品、读数时刻）
+      // 找到已有截图，只补写人数（忽略重复），成功时回 201
+      return render({
+        name: data.competitor_name || `@${handle}`,
+        line1: '截图已上传，人数没写进去',
+        line1Tone: 'warn',
+        thumbUrl,
+        action: { label: '补写人数', primary: true, run: upload },
+      })
+    }
+    pending = null
     return render({
       name: data.competitor_name || `@${handle}`,
-      line1: r.status === 201 ? '已上传' : '截图已上传，人数没写进去',
-      line1Tone: r.status === 201 ? 'ok' : 'warn',
+      line1: '已上传',
+      line1Tone: 'ok',
       thumbUrl,
       action: { label: '关闭', run: () => window.close() },
     })
   }
   if (r.status === 401) {
-    await api.logout()
+    await api.logout().catch(() => {})
     return showLogin('登录已过期，请重新登录')
   }
   render({

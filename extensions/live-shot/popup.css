@@ -31,6 +31,9 @@ input { display: block; width: 100%; box-sizing: border-box; margin-top: 2px; pa
 button { width: 100%; margin-top: 12px; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--text); cursor: pointer; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 button:disabled { opacity: 0.6; cursor: default; }
+/* 页脚里的文字按钮：覆盖上面通用 button 的整行宽度/边框/上边距，焦点环仍沿用 button:focus-visible */
+button.link { width: auto; margin: 0 0 0 8px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+button.link:hover { color: var(--text); }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .hint { color: var(--muted); font-size: 11px; margin-top: 8px; }
 .error { color: var(--warn); font-size: 12px; margin-top: 8px; }
