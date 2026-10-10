@@ -62,7 +62,7 @@
   - `null` 表示全部已加载；
   - 已加载范围**总是包含最新一天**。
 
-`assembleBoard` 改成对截图类型泛型。截图排序的比较函数抽成 `compareShotsForBoard` 导出，供合并时共用。它额外接收 `sessionStartsBy`、`shotAxis`、`shotsLoadedFrom`，原样挂到结果上。
+`assembleBoard` 改成对截图类型泛型，另外接收一个可选参数 `meta`（`shotAxis`、`sessionStartsBy`、`shotsLoadedFrom`），原样挂到结果上。不传 `meta` 时，视为传入的截图就是全部截图：日期轴和开播时刻都从截图本身算，`shotsLoadedFrom = null`。截图排序的比较函数抽成 `compareShotsForBoard`，从 `shotGrid.ts` 导出，供合并时共用。放在 `shotGrid.ts` 而不是 `assemble.ts`，是为了避免 `assemble` 和 `shotWindow` 互相引用。
 
 ### 3.3 接口
 
@@ -181,7 +181,7 @@
 
 - `groupShotsByDate` 的组内排序：`sort_order` 升序 → 截图时刻升序 → `id` 升序兜底。
   - 截图时刻取 `captured_at`，没有就用 `created_at`。
-  - 比较时用 `Date.parse` 比数值，不比字符串，因为 PostgREST 输出的小数秒位数不固定。
+  - 比较时用 `Date.parse` 比数值，不比字符串。时间戳的写法不统一（`Z` 和 `+00:00` 混用，小数秒位数也不固定），按字符串比较会排错。
   - 当前 151 张自动截图有 `captured_at`，其中 27 张入库时间比截图时间晚 10 分钟以上，按入库时间排会排错。
 - 新增 `coverOf(dayShots)`：取组内最后一张，即最新一张。相册格子的封面、在线人数角标、标签角标都取它。
 - `ShotLightbox` 新增 `initialId` 参数，打开时停在封面这张，左边是更早的图。胶片条、下载文件名序号（`_1`、`_2`…）仍按时间正序排列。
