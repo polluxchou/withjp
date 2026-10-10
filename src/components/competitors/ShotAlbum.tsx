@@ -4,7 +4,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Plus } from 'lucide-react'
-import { SHOT_WINDOW_SIZE, UNDATED_KEY, groupShotsByDate } from '@/lib/competitors/shotGrid'
+import { SHOT_WINDOW_SIZE, UNDATED_KEY, coverOf, groupShotsByDate } from '@/lib/competitors/shotGrid'
 import { isShotDateLoaded } from '@/lib/competitors/shotWindow'
 import { imageFromClipboard, uploadShot } from '@/lib/competitors/uploadShot'
 import ShotUploader from './ShotUploader'
@@ -120,7 +120,8 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
 }) {
   const t = useTranslations('competitors')
   const tagLabel = useShotTagLabel()
-  const cover = shots[0]
+  // FilledCell 只在当天有图时渲染，coverOf 必有值
+  const cover = coverOf(shots)!
   const extra = shots.length - 1
   const coverTag = tagLabel(cover.tag)
 
@@ -210,6 +211,7 @@ export default function ShotAlbum({
           handle={handle}
           dateKey={openDate}
           shots={grouped.get(openDate) ?? []}
+          initialId={coverOf(grouped.get(openDate) ?? [])?.id}
           canEdit={canEdit}
           onClose={() => setOpenDate(null)}
           onChanged={onChanged}
