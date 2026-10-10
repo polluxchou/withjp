@@ -17,7 +17,7 @@ import { normalizeDescriptionBody } from './descriptions.ts'
 import { normalizeRegion, resolveNewRegion } from './regions.ts'
 import { isValidShotDate } from './shotGrid.ts'
 import type {
-  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorBoard, CompetitorPlatform,
+  AskShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorBoard, CompetitorPlatform,
 } from './types.ts'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
@@ -122,6 +122,37 @@ export async function getCompetitorBoard(_userId: string): Promise<ServiceResult
     (shotRes.data ?? []) as CompetitorShot[],
     true,
     (descRes.data ?? []) as CompetitorDescription[],
+  ))
+}
+
+/**
+ * 竞品问答要的截图列。ask-context.ts 新读一个截图字段时，同时加到这里和 types.ts 的 AskShot，
+ * 否则那一列在问答里恒为 undefined——shot-window-wiring.test.ts 钉着这份清单。
+ */
+export const ASK_SHOT_COLUMNS = 'competitor_id, shot_on, sort_order, stream_started_at, viewer_count, captured_at'
+
+/**
+ * 竞品问答的数据源。截图取**全部历史**——问答的采集日历、累计场次、在线峰值都是全量口径，
+ * 不能跟着相册的日期窗口走；但只查问答读得到的几列，图片地址、备注这些大字段问答用不上。
+ * 风格描述问答不读，不查。不传 meta：shots 就是全部截图，日期轴与开播时刻由 assembleBoard 现算。
+ */
+export async function getAskBoard(_userId: string): Promise<ServiceResult<CompetitorBoard<AskShot>>> {
+  const db = createServerClient()
+  const [compRes, snapRes, shotRes] = await Promise.all([
+    fetchAllRows((from, to) => db.from('competitors').select('*')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_shots').select(ASK_SHOT_COLUMNS)
+      .order('id', { ascending: true }).range(from, to)),
+  ])
+  const firstErr = compRes.error ?? snapRes.error ?? shotRes.error
+  if (firstErr) return err('db_error', firstErr.message)
+  return ok(assembleBoard(
+    (compRes.data ?? []) as Competitor[],
+    (snapRes.data ?? []) as CompetitorSnapshot[],
+    (shotRes.data ?? []) as AskShot[],
+    true,
   ))
 }
 
