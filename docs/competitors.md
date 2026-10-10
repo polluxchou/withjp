@@ -148,7 +148,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 
 | 方法 | 路由 | 说明 |
 | --- | --- | --- |
-| GET | `/api/competitors` | 看板（含 `canEdit`、嵌套 `related`、`weekly`、`shots`、`sessionStarts`、`shotAxis`、`shotsLoadedFrom`）。截图默认只带最近 10 个有图日；`?since=YYYY-MM-DD` 把起点往前推 |
+| GET | `/api/competitors` | 看板（含 `canEdit`、嵌套 `related`、`weekly`、`shots`、`sessionShots`（全部历史的截图场次，每场一行）、`shotAxis`、`shotsLoadedFrom`）。截图默认只带最近 10 个有图日；`?since=YYYY-MM-DD` 把起点往前推 |
 | GET | `/api/competitors/shots?from=&before=` | 往历史翻页时补取 [from, before) 的截图 |
 | POST | `/api/competitors` | 加竞品，body `{ url? \| handle?, platform?, ...团级字段, parent_id? }` |
 | PATCH | `/api/competitors/[id]` | 改团级字段 / 归属（`parent_id`） |
