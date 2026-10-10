@@ -2047,6 +2047,7 @@
     "liveTimetableLegendShot": "Inferred from screenshots (start known; end estimated from the last screenshot, so on the short side)",
     "liveTimetableLegendStart": "Main slot start",
     "liveTimetableLegendEnd": "Main slot end",
+    "liveTimetableLegendTentative": "Tentative slot (fewer than {min} sessions)",
     "liveTimetableLegendOurs": "Our schedule {slots} (Japan time)",
     "liveTimetableCountry": "{name} {code} · {count, plural, =1 {1 account} other {# accounts}}",
     "liveTimetableColSessions": "{count, plural, =1 {1 LIVE} other {# LIVEs}}",
@@ -2062,6 +2063,7 @@
     "liveTimetableSlotRange": "{start}–{end} ({count, plural, =1 {1 session} other {# sessions}})",
     "liveTimetableSlotOpen": "from {start} ({count, plural, =1 {1 session} other {# sessions}})",
     "liveTimetableSlotsFew": "Too few sessions for a slot",
+    "liveTimetableSlotTentative": " (tentative)",
     "liveTimetableEmpty": "No live sessions in the last {days} days"
   },
   "site": {

@@ -1806,6 +1806,7 @@
     "liveTimetableLegendShot": "スクショ推定（開始のみ確実。終了は最後のスクショから推定するため短め）",
     "liveTimetableLegendStart": "主な枠の開始",
     "liveTimetableLegendEnd": "主な枠の終了",
+    "liveTimetableLegendTentative": "推定の枠（{min}回未満）",
     "liveTimetableLegendOurs": "自社の配信枠 {slots}（日本時間）",
     "liveTimetableCountry": "{name} {code} · {count}アカウント",
     "liveTimetableColSessions": "{count}回",
@@ -1821,6 +1822,7 @@
     "liveTimetableSlotRange": "{start}–{end}（{count}回）",
     "liveTimetableSlotOpen": "{start}開始（{count}回）",
     "liveTimetableSlotsFew": "配信回数が少なく枠になりません",
+    "liveTimetableSlotTentative": "（推定）",
     "liveTimetableEmpty": "直近{days}日の配信記録はありません"
   },
   "items": {

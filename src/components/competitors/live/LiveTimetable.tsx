@@ -65,6 +65,10 @@ const HOUR_LINES = {
 const CHIP = 'box-border whitespace-nowrap rounded border bg-surface px-1 text-[11px] leading-4 tabular-nums'
 const START_CHIP = 'border-ink-900 font-bold text-ink-900 shadow-card'
 const END_CHIP = 'border-ink-900/30 text-ink-500'
+/** 推测档（该档场次不足 SLOT_MIN_SESSIONS，lib 的 tentative）：开播、下播一律浅色虚线框，不加粗，一眼分得出「还不算规律」。 */
+const TENTATIVE_CHIP = 'border-dashed border-ink-900/40 text-ink-500'
+const chipTone = (label: { kind: 'start' | 'end'; tentative: boolean }) =>
+  label.tentative ? TENTATIVE_CHIP : label.kind === 'start' ? START_CHIP : END_CHIP
 
 /** 国家分段的「全部」。国家码是两位大写字母，不会撞上它。 */
 const ALL = 'all'
@@ -171,19 +175,26 @@ export default function LiveTimetable({
     source === 'history' ? t('liveSourceHistory') : source === 'mixed' ? t('liveSourceMixed') : t('liveSourceShot')
 
   // 逐号列表的主档：有下播中位的写起止，没有（档内有截图推断的场次）只写开播。
+  // 场次不足 3 场（SLOT_MIN_SESSIONS）才凑出来的档是推测档，句末加「（推测）」：单个直播间与卡片对这样的号写「场次太少」，
+  // 番组表仍把它画出来（不然截图号一档也没有），但不能让两处说法打架。
   // 一档也没有时分两种说法（同单个直播间）：场次不足 3 场根本成不了档；够了却没有，是开播时刻零散。
   const slotsText = (c: TimetableColumn) =>
     c.column.slots.length
       ? c.column.slots
-          .map((s) =>
-            s.end != null
-              ? t('liveTimetableSlotRange', { start: minutesToLabel(s.start), end: minutesToLabel(s.end), count: s.count })
-              : t('liveTimetableSlotOpen', { start: minutesToLabel(s.start), count: s.count }),
+          .map(
+            (s) =>
+              (s.end != null
+                ? t('liveTimetableSlotRange', { start: minutesToLabel(s.start), end: minutesToLabel(s.end), count: s.count })
+                : t('liveTimetableSlotOpen', { start: minutesToLabel(s.start), count: s.count })) +
+              (s.tentative ? t('liveTimetableSlotTentative') : ''),
           )
           .join(' · ')
       : c.column.sessions < SLOT_MIN_SESSIONS
         ? t('liveTimetableSlotsFew')
         : t('liveRoomSlotsScattered')
+
+  // 图例里的推测档样式只在当前列里真有推测档时才出现，没有就不添一条用不上的说明。
+  const hasTentative = ordered.some((c) => c.column.slots.some((s) => s.tentative))
 
   const rowLabel = 'w-14 shrink-0 text-xs text-ink-500'
   // 分段控件放进自己横向滚动的容器（同国家月历）：选项多了不把整页撑出横向滚动条。
@@ -320,6 +331,14 @@ export default function LiveTimetable({
           </span>
           {t('liveTimetableLegendEnd')}
         </span>
+        {hasTentative && (
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className={`${CHIP} ${TENTATIVE_CHIP}`}>
+              13:30
+            </span>
+            {t('liveTimetableLegendTentative', { min: SLOT_MIN_SESSIONS })}
+          </span>
+        )}
         {showOurs && (
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden className="box-border h-3.5 w-4 shrink-0 border-y-[1.5px] border-dashed border-warning-text bg-warning-soft" />
@@ -443,15 +462,14 @@ export default function LiveTimetable({
                                   <span
                                     key={i}
                                     title={
-                                      label.kind === 'end'
+                                      (label.kind === 'end'
                                         ? t('liveTimetableChipEndTip', { time: label.time })
                                         : label.open
                                           ? t('liveTimetableChipOpenTip', { time: label.time, count: label.count })
-                                          : t('liveTimetableChipStartTip', { time: label.time, count: label.count })
+                                          : t('liveTimetableChipStartTip', { time: label.time, count: label.count })) +
+                                      (label.tentative ? t('liveTimetableSlotTentative') : '')
                                     }
-                                    className={`${CHIP} absolute left-1/2 z-[2] -translate-x-1/2 ${
-                                      label.kind === 'start' ? START_CHIP : END_CHIP
-                                    }`}
+                                    className={`${CHIP} absolute left-1/2 z-[2] -translate-x-1/2 ${chipTone(label)}`}
                                     style={{ top: label.top }}
                                   >
                                     {label.kind === 'start' && label.open

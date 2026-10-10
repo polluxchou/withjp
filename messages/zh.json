@@ -2047,6 +2047,7 @@
     "liveTimetableLegendShot": "截图推断（只知开播；下播按最后一张截图估，偏短）",
     "liveTimetableLegendStart": "主档开播",
     "liveTimetableLegendEnd": "主档下播",
+    "liveTimetableLegendTentative": "推测档（该档不足 {min} 场）",
     "liveTimetableLegendOurs": "我方排期 {slots}（日本时间）",
     "liveTimetableCountry": "{name} {code} · {count} 个号",
     "liveTimetableColSessions": "{count} 场",
@@ -2062,6 +2063,7 @@
     "liveTimetableSlotRange": "{start}–{end}（{count} 场）",
     "liveTimetableSlotOpen": "{start} 起（{count} 场）",
     "liveTimetableSlotsFew": "场次太少，不成档",
+    "liveTimetableSlotTentative": "（推测）",
     "liveTimetableEmpty": "近 {days} 天没有开播记录"
   },
   "site": {

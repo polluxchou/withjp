@@ -605,6 +605,12 @@ export interface DensitySlot {
   /** 下播的下中位；只在该档全是导入场次时给——截图推断的下播只是下限，取中位会把档期说短。 */
   end: number | null
   count: number
+  /**
+   * 推测档：该档场次数不足 SLOT_MIN_SESSIONS。番组表在一个号总共不足 3 场时把成档门槛降到 2
+   * （否则截图号一档也标不出），而单个直播间与卡片的门槛始终是 3——同一个号在那两处写「场次太少，不成档」，
+   * 这里却写出一档来。照常画出，但要标成推测，界面上与够数的档区分开。
+   */
+  tentative: boolean
 }
 
 export interface DensityColumn {
@@ -627,7 +633,8 @@ function lowerMedian(values: number[]): number {
  * - shares 直接用 coverageHistogram：格子中点探测、同一天多场只算一次、分母是有开播的天数——
  *   与弹窗里的时段分布同一份口径，同一个号在两处不会给出两个样子。
  * - slots：对开播分钟聚类（clusterMinutes），按 max(SLOT_MIN_SESSIONS, ceil(n × SLOT_MIN_SHARE)) 过滤零散小档。
- *   场次不足 SLOT_MIN_SESSIONS 时门槛降到 2：截图号本来就只有寥寥几场，门槛不降就一档也标不出。
+ *   场次不足 SLOT_MIN_SESSIONS 时门槛降到 2：截图号本来就只有寥寥几场，门槛不降就一档也标不出；
+ *   这样标出来的档（场次数 < SLOT_MIN_SESSIONS）带 tentative，界面标成推测，与单个直播间 / 卡片「3 场才成档」的口径不打架。
  *   start 取档内开播的下中位；end 只在该档全是导入场次时取下播的下中位。
  */
 export function densityColumn(
@@ -671,7 +678,7 @@ export function densityColumn(
       start += 1440
       if (end != null) end += 1440
     }
-    slots.push({ start, end, count: g.length })
+    slots.push({ start, end, count: g.length, tentative: g.length < SLOT_MIN_SESSIONS })
   }
   slots.sort((a, b) => a.start - b.start)
 
@@ -835,6 +842,8 @@ export interface TimetableLabel {
   count: number
   /** 开播标签专用：这一档没有下播中位（档内有截图推断的场次），界面写成「HH:mm起」。 */
   open: boolean
+  /** 推测档（场次不足 SLOT_MIN_SESSIONS，见 DensitySlot.tentative）：开播与下播标签都带，界面画成浅色虚线框。 */
+  tentative: boolean
 }
 
 /**
@@ -858,12 +867,14 @@ export function timetableSlotLabels(
   const onAxis = slots.filter((s) => s.start >= AXIS_START && s.start < AXIS_END)
   for (const s of onAxis) {
     const top = topAt(s.start)
-    if (fits(top)) placed.push({ kind: 'start', top, time: minutesToLabel(s.start), count: s.count, open: s.end == null })
+    if (fits(top)) {
+      placed.push({ kind: 'start', top, time: minutesToLabel(s.start), count: s.count, open: s.end == null, tentative: s.tentative })
+    }
   }
   for (const s of onAxis) {
     if (s.end == null) continue
     const top = topAt(s.end)
-    if (fits(top)) placed.push({ kind: 'end', top, time: minutesToLabel(s.end), count: s.count, open: false })
+    if (fits(top)) placed.push({ kind: 'end', top, time: minutesToLabel(s.end), count: s.count, open: false, tentative: s.tentative })
   }
   return placed.sort((a, b) => a.top - b.top)
 }

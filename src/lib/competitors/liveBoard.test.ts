@@ -309,10 +309,10 @@ test('densityColumn: 导入档给出开播与下播中位，截图档只给开�
   const hist = densityColumn([
     h('2026-09-01', '12:05', '14:40'), h('2026-09-02', '12:07', '14:45'), h('2026-09-03', '12:10', '14:50'),
   ], { from: '2026-09-01', to: '2026-09-30', timeZone: TZ })
-  assert.deepEqual(hist.slots, [{ start: 12 * 60 + 7, end: 14 * 60 + 45, count: 3 }])
+  assert.deepEqual(hist.slots, [{ start: 12 * 60 + 7, end: 14 * 60 + 45, count: 3, tentative: false }])
   assert.equal(hist.source, 'history')
   const shot = densityColumn([s('2026-08-19', '13:30', '14:00'), s('2026-08-20', '13:35', '14:10')], { from: '2026-08-01', to: '2026-08-31', timeZone: TZ })
-  assert.deepEqual(shot.slots, [{ start: 13 * 60 + 30, end: null, count: 2 }])
+  assert.deepEqual(shot.slots, [{ start: 13 * 60 + 30, end: null, count: 2, tentative: true }])
   assert.equal(shot.source, 'shot')
   assert.equal(densityColumn([], { from: '2026-08-01', to: '2026-08-31', timeZone: TZ }).source, 'none')
 })
@@ -364,7 +364,7 @@ test('densityColumn: 档内混了截图场次，下播不给（截图的下播�
     h('2026-09-01', '12:05', '14:40'), h('2026-09-02', '12:07', '14:45'), s('2026-09-03', '12:10', '14:50'),
   ], { from: '2026-09-01', to: '2026-09-30', timeZone: TZ })
   assert.equal(col.source, 'mixed')
-  assert.deepEqual(col.slots, [{ start: 12 * 60 + 7, end: null, count: 3 }])
+  assert.deepEqual(col.slots, [{ start: 12 * 60 + 7, end: null, count: 3, tentative: false }])
 })
 
 test('densityColumn: 两档分别聚类、按开播升序；每档的下播中位只看本档（偶数个取偏小的）', () => {
@@ -373,8 +373,8 @@ test('densityColumn: 两档分别聚类、按开播升序；每档的下播中�
     h('2026-09-01', '19:00', '21:00'), h('2026-09-02', '19:05', '21:10'), h('2026-09-03', '19:10', '21:30'),
   ], { from: '2026-09-01', to: '2026-09-30', timeZone: TZ })
   assert.deepEqual(col.slots, [
-    { start: 13 * 60 + 10, end: 15 * 60 + 20, count: 4 },
-    { start: 19 * 60 + 5, end: 21 * 60 + 10, count: 3 },
+    { start: 13 * 60 + 10, end: 15 * 60 + 20, count: 4, tentative: false },
+    { start: 19 * 60 + 5, end: 21 * 60 + 10, count: 3, tentative: false },
   ])
 })
 
@@ -398,11 +398,21 @@ test('densityColumn: 不足 3 场时门槛降到 2；单场或两场相距太远
   assert.equal(densityColumn([s('2026-09-01', '13:30', '14:00')], opts).sessions, 1)
 })
 
+test('densityColumn: 场次不足 3 场才凑出来的档标 tentative（与单个直播间 / 卡片「3 场成档」口径对齐），够数的档不标', () => {
+  const opts = { from: '2026-09-01', to: '2026-09-30', timeZone: TZ }
+  // 一共 2 场：门槛降到 2，凑出一档，但 2 < SLOT_MIN_SESSIONS，是推测档（导入场次也一样）
+  const two = densityColumn([h('2026-09-01', '13:30', '15:00'), h('2026-09-02', '13:40', '15:10')], opts)
+  assert.deepEqual(two.slots.map((x) => [x.count, x.tentative]), [[2, true]])
+  // 3 场：门槛回到 3，凑出来的档必然 ≥ 3 场，不是推测
+  const three = densityColumn([h('2026-09-01', '13:30', '15:00'), h('2026-09-02', '13:40', '15:10'), h('2026-09-03', '13:50', '15:20')], opts)
+  assert.deepEqual(three.slots.map((x) => [x.count, x.tentative]), [[3, false]])
+})
+
 test('densityColumn: 凌晨开播的档落在轴上 1440 之后，下播按时长推', () => {
   const col = densityColumn([
     h('2026-09-01', '00:30', '02:30'), h('2026-09-02', '00:40', '02:40'), h('2026-09-03', '00:50', '02:50'),
   ], { from: '2026-09-01', to: '2026-09-30', timeZone: TZ })
-  assert.deepEqual(col.slots, [{ start: 24 * 60 + 40, end: 26 * 60 + 40, count: 3 }])
+  assert.deepEqual(col.slots, [{ start: 24 * 60 + 40, end: 26 * 60 + 40, count: 3, tentative: false }])
 })
 
 test('densityColumn: 轴首缝上的绕回档仍落在轴内，下播同步平移', () => {
@@ -412,7 +422,7 @@ test('densityColumn: 轴首缝上的绕回档仍落在轴内，下播同步平�
   const col = densityColumn([
     h('2026-09-01', '05:50', '07:00'), h('2026-09-02', '05:55', '08:00'), h('2026-09-03', '06:10', '08:00'),
   ], { from: '2026-09-01', to: '2026-09-30', timeZone: TZ })
-  assert.deepEqual(col.slots, [{ start: 1795, end: 1920, count: 3 }])
+  assert.deepEqual(col.slots, [{ start: 1795, end: 1920, count: 3, tentative: false }])
 })
 
 test('densityColumn: 绕缝档拉回轴尾后，仍按开播升序排在 12 点档之后', () => {
@@ -429,7 +439,7 @@ test('densityColumn: 同一开播分钟出现在多天，每场都算进档内�
   ], { from: '2026-09-01', to: '2026-09-30', timeZone: TZ })
   // 下播 14:00 / 15:00 / 16:00 / 17:00 → 偏小的中位 15:00。
   // 若 12:00 这个开播分钟因出现三次被重复展开三遍，12:00 那三场的下播会被多算，中位会偏到 16:00。
-  assert.deepEqual(col.slots, [{ start: 12 * 60, end: 15 * 60, count: 4 }])
+  assert.deepEqual(col.slots, [{ start: 12 * 60, end: 15 * 60, count: 4, tentative: false }])
 })
 
 test('peakBucket: 份额过门槛的列数最多的那一格', () => {
@@ -840,7 +850,7 @@ const col = (
   timeZone: TZ,
   column: { shares: [], slots: [], sessions: 3, source: 'history', ...over },
 })
-const at = (start: number) => ({ start, end: null, count: 3 })
+const at = (start: number) => ({ start, end: null, count: 3, tentative: false })
 
 test('timetableSplit: 只列区间内有场次、地区在清单里的号；有场次但地区不明的另计数', () => {
   const { listed, regionless } = timetableSplit([
@@ -917,13 +927,13 @@ const LABEL_GEO = { stripPx: 1200, labelPx: 20 }
 test('timetableSlotLabels: 开播 / 下播标签中心压在对应时刻；截图档只标开播并标 open', () => {
   assert.deepEqual(
     timetableSlotLabels([
-      { start: 12 * 60 + 7, end: 14 * 60 + 45, count: 36 },
-      { start: 19 * 60 + 11, end: null, count: 28 },
+      { start: 12 * 60 + 7, end: 14 * 60 + 45, count: 36, tentative: false },
+      { start: 19 * 60 + 11, end: null, count: 28, tentative: false },
     ], LABEL_GEO),
     [
-      { kind: 'start', top: 367 - 10, time: '12:07', count: 36, open: false },
-      { kind: 'end', top: 525 - 10, time: '14:45', count: 36, open: false },
-      { kind: 'start', top: 791 - 10, time: '19:11', count: 28, open: true },
+      { kind: 'start', top: 367 - 10, time: '12:07', count: 36, open: false, tentative: false },
+      { kind: 'end', top: 525 - 10, time: '14:45', count: 36, open: false, tentative: false },
+      { kind: 'start', top: 791 - 10, time: '19:11', count: 28, open: true, tentative: false },
     ],
   )
   assert.deepEqual(timetableSlotLabels([], LABEL_GEO), [])
@@ -931,28 +941,41 @@ test('timetableSlotLabels: 开播 / 下播标签中心压在对应时刻；截�
 
 test('timetableSlotLabels: 02:00–06:00 开播的档轴上没位置，整档不标；下播越过 02:00 夹到轴尾、钟点照实写', () => {
   const labels = timetableSlotLabels([
-    { start: 23 * 60, end: 27 * 60 + 30, count: 5 }, // 23:00 → 次日 03:30
-    { start: 26 * 60 + 30, end: 28 * 60, count: 4 }, // 02:30 开播：轴外
-    { start: 300, end: 400, count: 3 }, // 防御：早于轴首的值
+    { start: 23 * 60, end: 27 * 60 + 30, count: 5, tentative: false }, // 23:00 → 次日 03:30
+    { start: 26 * 60 + 30, end: 28 * 60, count: 4, tentative: false }, // 02:30 开播：轴外
+    { start: 300, end: 400, count: 3, tentative: false }, // 防御：早于轴首的值
   ], LABEL_GEO)
   assert.deepEqual(labels, [
-    { kind: 'start', top: 1020 - 10, time: '23:00', count: 5, open: false },
+    { kind: 'start', top: 1020 - 10, time: '23:00', count: 5, open: false, tentative: false },
     // 中心本该在轴尾 1200，收进条区后上沿 = 1200 − 20
-    { kind: 'end', top: 1180, time: '03:30', count: 5, open: false },
+    { kind: 'end', top: 1180, time: '03:30', count: 5, open: false, tentative: false },
   ])
 })
 
 test('timetableSlotLabels: 贴着轴首的标签收进条区；下播与任何开播挤在一行高度内就让位（开播优先，哪怕是下一档的）', () => {
   const labels = timetableSlotLabels([
-    { start: 360, end: 365, count: 3 }, // 06:00 开播：上沿收到 0；下播离得太近，不标
-    { start: 600, end: 700, count: 3 }, // 下播 700 与下一档开播 712 相距 12 < 20：让给开播
-    { start: 712, end: 900, count: 3 },
+    { start: 360, end: 365, count: 3, tentative: false }, // 06:00 开播：上沿收到 0；下播离得太近，不标
+    { start: 600, end: 700, count: 3, tentative: false }, // 下播 700 与下一档开播 712 相距 12 < 20：让给开播
+    { start: 712, end: 900, count: 3, tentative: false },
   ], LABEL_GEO)
   assert.deepEqual(labels.map((l) => [l.kind, l.time, l.top]), [
     ['start', '06:00', 0],
     ['start', '10:00', 230],
     ['start', '11:52', 342],
     ['end', '15:00', 530],
+  ])
+})
+
+test('timetableSlotLabels: 推测档的开播 / 下播标签都带 tentative，其余档不带', () => {
+  const labels = timetableSlotLabels([
+    { start: 13 * 60, end: 15 * 60, count: 2, tentative: true },
+    { start: 19 * 60, end: 21 * 60, count: 5, tentative: false },
+  ], LABEL_GEO)
+  assert.deepEqual(labels.map((l) => [l.kind, l.time, l.tentative]), [
+    ['start', '13:00', true],
+    ['end', '15:00', true],
+    ['start', '19:00', false],
+    ['end', '21:00', false],
   ])
 })
 
