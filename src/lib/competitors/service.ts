@@ -7,6 +7,7 @@
 // 之类只能在请求生命周期里跑的依赖，relative 导入在 node --test 下能正常
 // 解析到底，不影响 Next.js 构建时的行为。
 import { createServerClient } from '../supabase/server.ts'
+import { fetchAllRows } from '../supabase/fetchAll.ts'
 import { assembleBoard, parseHandleFromUrl } from './assemble.ts'
 import { assembleCompanyBoard } from './companies.ts'
 import type {
@@ -94,14 +95,22 @@ async function assertValidParent(
   return { error: null, parentRegion: p.region }
 }
 
-/** 加载看板：任意登录用户可读可写（canEdit 恒 true）。 */
+/**
+ * 加载看板：任意登录用户可读可写（canEdit 恒 true）。
+ * 四张表都整表分页拉全（fetchAllRows）：Supabase 单次响应最多 1000 行且静默截断，
+ * 截图表已过千行，不分页会让最近上传的截图在页面上凭空消失。
+ */
 export async function getCompetitorBoard(_userId: string): Promise<ServiceResult<CompetitorBoard>> {
   const db = createServerClient()
   const [compRes, snapRes, shotRes, descRes] = await Promise.all([
-    db.from('competitors').select('*').order('created_at', { ascending: true }),
-    db.from('competitor_snapshots').select('*'),
-    db.from('competitor_shots').select('*'),
-    db.from('competitor_descriptions').select('*'),
+    fetchAllRows((from, to) => db.from('competitors').select('*')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_descriptions').select('*')
+      .order('id', { ascending: true }).range(from, to)),
   ])
   if (compRes.error || snapRes.error || shotRes.error || descRes.error) {
     return err('db_error',
@@ -123,10 +132,14 @@ export async function getCompetitorBoard(_userId: string): Promise<ServiceResult
 export async function getCompanyBoard(): Promise<ServiceResult<CompanyBoard>> {
   const db = createServerClient()
   const [coRes, linkRes, compRes, snapRes] = await Promise.all([
-    db.from('competitor_companies').select('*'),
-    db.from('competitor_company_accounts').select('*'),
-    db.from('competitors').select('id, handle, display_name, parent_id, avatar_url'),
-    db.from('competitor_snapshots').select('competitor_id, captured_on, followers, likes'),
+    fetchAllRows((from, to) => db.from('competitor_companies').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_company_accounts').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitors').select('id, handle, display_name, parent_id, avatar_url')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_snapshots').select('competitor_id, captured_on, followers, likes')
+      .order('id', { ascending: true }).range(from, to)),
   ])
   const firstErr = coRes.error ?? linkRes.error ?? compRes.error ?? snapRes.error
   if (firstErr) return err('db_error', firstErr.message)
