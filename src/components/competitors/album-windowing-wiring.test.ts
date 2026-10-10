@@ -95,3 +95,22 @@ test('标签：相册与灯箱不直接渲染 tag 原文，一律经 useShotTagL
   assert.doesNotMatch(ALBUM, /\{cover\.tag\}|cover\.caption \|\| cover\.tag/)
   assert.doesNotMatch(LIGHTBOX, /selected\.caption \|\| selected\.tag/)
 })
+
+test('标签：hook 把两个机器值各自接到对应的字面量文案键', () => {
+  const hook = read('./useShotTagLabel.ts')
+  assert.ok(
+    hook.includes("live_auto: t('shotTag.live_auto'), live_manual: t('shotTag.live_manual')"),
+    'live_auto 必须取 shotTag.live_auto，live_manual 必须取 shotTag.live_manual，且键写成字面量',
+  )
+  assert.match(hook, /shotTagLabel\(tag, /)
+})
+
+test('标签：相册封面角标与 alt 都用 tagLabel(cover.tag) 的结果', () => {
+  assert.ok(ALBUM.includes('const coverTag = tagLabel(cover.tag)'), '角标文本必须是 tagLabel(cover.tag)')
+  assert.ok(ALBUM.includes('{coverTag && ('), '角标的显示条件必须是转换后的 coverTag（纯空白 tag 才不会渲染空条）')
+  assert.ok(ALBUM.includes('alt={cover.caption || coverTag || ('), '封面 alt 的兜底必须是 coverTag')
+})
+
+test('标签：灯箱主图 alt 的标签兜底必须经 tagLabel', () => {
+  assert.ok(LIGHTBOX.includes("alt={selected.caption || tagLabel(selected.tag) || ''}"))
+})
