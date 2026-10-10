@@ -21,18 +21,34 @@ export interface WallTime {
   minute: number
 }
 
+/**
+ * 按时区缓存格式化器。new Intl.DateTimeFormat 的构造远比 formatToParts 贵（实测约 10 倍），
+ * 而开播记录弹窗与看板卡片每张卡要对每一场调好几次本文件的函数；时区只有寥寥几个，缓存一份就够。
+ * 时区名非法时构造会抛 RangeError——抛出发生在 set 之前，不会缓存出坏值，行为与不缓存时一致。
+ */
+const partsFormatters = new Map<string, Intl.DateTimeFormat>()
+
+function partsFormatter(timeZone: string): Intl.DateTimeFormat {
+  let fmt = partsFormatters.get(timeZone)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    })
+    partsFormatters.set(timeZone, fmt)
+  }
+  return fmt
+}
+
 /** 读出某时刻在指定时区的日历/时钟各部件。hourCycle h23：午夜是 00 不是 24。 */
 function zonedParts(ms: number, timeZone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(ms))
+  const parts = partsFormatter(timeZone).formatToParts(new Date(ms))
   const at = (type: string) => Number(parts.find((p) => p.type === type)?.value)
   return { year: at('year'), month: at('month'), day: at('day'), hour: at('hour'), minute: at('minute'), second: at('second') }
 }
@@ -80,4 +96,42 @@ export function zonedHm(instant: Date | string | number, timeZone: string): stri
   if (Number.isNaN(ms)) return null
   const p = zonedParts(ms, timeZone)
   return `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`
+}
+
+/**
+ * YYYY-MM-DD 加减天数。纯日历运算：按 UTC 零点算，结果只跟日历有关、与任何时区无关，
+ * 所以跨夏令时切换日也不会少一天或多一天（不能用毫秒相加，夏令时那天只有 23 或 25 小时）。
+ */
+export function addDaysYmd(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/** YYYY-MM-DD 是星期几，0 = 周日。同样按 UTC 零点算，理由同 addDaysYmd。 */
+export function weekdayOfYmd(ymd: string): number {
+  return new Date(`${ymd}T00:00:00Z`).getUTCDay()
+}
+
+/**
+ * UTC 时刻在指定时区是一天里的第几分钟（0–1439）。时刻非法返回 null。
+ * 午夜是 0 而不是 1440：与 zonedHm 一样用 hourCycle h23，保证落在 0–1439 之内。
+ */
+export function minuteOfDayInZone(instant: Date | string | number, timeZone: string): number | null {
+  const ms = new Date(instant).getTime()
+  if (Number.isNaN(ms)) return null
+  const p = zonedParts(ms, timeZone)
+  return p.hour * 60 + p.minute
+}
+
+/**
+ * UTC 时刻 → 指定时区的「MM-DD HH:mm」（24 小时制）。版式与 localeZone.formatDayTimeInLocaleZone 相同，
+ * 区别只在时区由调用方给：竞品的开播时刻要按账号所在地区的时区显示，不跟界面语言走。
+ * 时刻非法或缺失返回 null（调用方据此整段不渲染）。
+ */
+export function formatDayTimeInZone(iso: string | null | undefined, timeZone: string): string | null {
+  if (!iso) return null
+  const ymd = zonedYmd(iso, timeZone)
+  const hm = zonedHm(iso, timeZone)
+  return ymd && hm ? `${ymd.slice(5)} ${hm}` : null
 }

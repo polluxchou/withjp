@@ -131,11 +131,13 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
 }
 
 export default function ShotAlbum({
-  competitorId, handle, shots, canEdit, onChanged, dateWindow, selectedDate,
+  competitorId, handle, region, shots, canEdit, onChanged, dateWindow, selectedDate,
 }: {
   competitorId: string
   /** 对方平台上的用户名。只用于下载文件名 —— 截图离开系统后，文件名是它唯一剩下的上下文。 */
   handle: string
+  /** 账号地区：灯箱里的开播时刻按它的时区显示，与卡片、开播记录弹窗一致。 */
+  region: string | null
   shots: CompetitorShot[]
   canEdit: boolean
   onChanged: () => void
@@ -182,6 +184,7 @@ export default function ShotAlbum({
           // 不会带着上一天的值过来
           key={openDate}
           handle={handle}
+          region={region}
           dateKey={openDate}
           shots={grouped.get(openDate) ?? []}
           canEdit={canEdit}

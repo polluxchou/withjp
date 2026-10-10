@@ -223,3 +223,137 @@ test('axisTicks: 落在轴内且按步长对齐', () => {
   const ticks = axisTicks(8 * 60, 16 * 60)
   assert.deepEqual(ticks, [8, 10, 12, 14, 16].map((h) => h * 60))
 })
+
+test('标尺把导入的场次也算进去，同一场的截图不重复计', () => {
+  // 之前标尺只吃截图的 stream_started_at，导入的开播记录（LIVE History）完全不进轴；
+  // 现在两个来源先合并：导入 10-09 03:06 开播的那一场，截图 03:06:30 自报的是同一场，只计一次。
+  const now = '2026-10-10T00:00:00Z'
+  const ruler = buildRegionRuler({
+    competitors: [{
+      id: 'a', handle: 'sample.a', region: 'JP',
+      live_sessions: [
+        { started_at: '2026-10-08T03:04:00+00:00', ended_at: '2026-10-08T05:09:00+00:00', likes: 1, title: '' },
+        { started_at: '2026-10-09T03:06:00+00:00', ended_at: '2026-10-09T05:00:00+00:00', likes: 1, title: '' },
+      ],
+      shots: [{ stream_started_at: '2026-10-09T03:06:30+00:00', captured_at: '2026-10-09T04:00:00+00:00' }],
+    }],
+    region: 'JP', timeZone: 'Asia/Tokyo', now,
+  })
+  assert.equal(ruler.sessions, 2)
+  assert.equal(ruler.rows[0].sessions, 2)
+})
+
+test('只有导入记录（没有截图）的账号也上轴；窗口外与未来的导入场次不算', () => {
+  const now = '2026-10-10T00:00:00Z'
+  const session = (started_at: string) => ({ started_at, ended_at: started_at, likes: null, title: '' })
+  const ruler = buildRegionRuler({
+    competitors: [{
+      id: 'a', handle: 'sample.a', region: 'JP',
+      live_sessions: [
+        session('2026-10-09T03:00:00Z'),
+        session('2026-09-01T03:00:00Z'), // 早于 14 天窗口
+        session('2026-10-11T03:00:00Z'), // 晚于 now（脏数据）
+      ],
+    }],
+    region: 'JP', timeZone: 'Asia/Tokyo', now,
+  })
+  assert.equal(ruler.accounts, 1)
+  assert.equal(ruler.sessions, 1)
+  assert.equal(ruler.rows[0].bands[0].centerLabel, '12:00')
+})
+
+// 零散开播的账号：8 场分在 8 个不同时段，两两相隔 ≥ 45 分钟 → 每个 45 分钟簇只有 1 场；
+// 而总场次 8 场时占比门槛 ceil(8 × 0.15) = 2，没有一簇过得了，summarizeLiveHabit 返回空 slots。
+// 以前这种账号被整个跳过（从标尺上消失）；现在要留一条推测段。
+// 最近一场（8-18 16:00）刻意放在中间时段：并列时要取「含最近一场」的那簇，而不是最早或最晚的。
+function scatteredAccount(id: string) {
+  const hours = [10, 12, 13, 14, 16, 18, 20, 22]
+  // 8-18 往前每天一场；hours 顺序与日期对应，16 点落在最近一天。
+  const dayOf = (h: number) => 18 - ((hours.indexOf(16) - hours.indexOf(h) + 8) % 8)
+  return acc({ id, handle: `sample.${id}`, shots: shots(...hours.map((h) => jst(dayOf(h), h, 0))) })
+}
+
+test('零散开播的账号不会从标尺上消失：留一条推测段，按它的总场次计数', () => {
+  const r = buildRegionRuler({
+    competitors: [scatteredAccount('s')],
+    region: 'JP',
+    timeZone: TZ,
+    now: NOW,
+  })
+  assert.equal(r.rows.length, 1, '有开播时刻的账号必须有一行')
+  const [row] = r.rows
+  assert.equal(row.sessions, 8)
+  assert.equal(row.bands.length, 1, '只留一条推测段，不把 8 个零散时刻全摊上去')
+  assert.equal(row.bands[0].established, false)
+  assert.equal(row.bands[0].centerLabel, '16:00', '并列时取含最近一场的那簇')
+  assert.equal(row.bands[0].startMinutes, 16 * 60 - RULER_HALF_BAND_MINUTES)
+  assert.equal(row.bands[0].endMinutes, 16 * 60 + RULER_HALF_BAND_MINUTES)
+  assert.equal(r.accounts, 1)
+  assert.equal(r.sessions, 8)
+})
+
+test('零散账号与成档账号并存：两者都上轴，场次各算各的', () => {
+  const r = buildRegionRuler({
+    competitors: [
+      scatteredAccount('s'),
+      acc({ id: 'ok', handle: 'ok', shots: shots(jst(16, 20, 0), jst(17, 20, 5), jst(18, 19, 55)) }),
+    ],
+    region: 'JP',
+    timeZone: TZ,
+    now: NOW,
+  })
+  assert.deepEqual(r.rows.map((x) => x.id), ['s', 'ok'], '按首档时刻升序：16:00 在 20:00 之前')
+  assert.equal(r.rows[1].bands[0].established, true, '成档账号的画法不受影响')
+  assert.equal(r.accounts, 2)
+  assert.equal(r.sessions, 8 + 3)
+})
+
+test('当前账号只要窗口内有任何开播时刻就一定有一行（浮层顶部的「本账号」依赖它）', () => {
+  const r = buildRegionRuler({
+    competitors: [
+      scatteredAccount('s'),
+      acc({ id: 'ok', handle: 'ok', shots: shots(jst(16, 20, 0), jst(17, 20, 5), jst(18, 19, 55)) }),
+    ],
+    region: 'JP',
+    timeZone: TZ,
+    now: NOW,
+    currentId: 's',
+  })
+  const current = r.rows.filter((x) => x.current)
+  assert.equal(current.length, 1)
+  assert.equal(current[0].id, 's')
+})
+
+test('地区里只有零散账号时标尺也不是空的（rulerEmpty 说「没采到」是假话）', () => {
+  const r = buildRegionRuler({
+    competitors: [scatteredAccount('s1'), scatteredAccount('s2')],
+    region: 'JP',
+    timeZone: TZ,
+    now: NOW,
+    currentId: 's2',
+  })
+  assert.equal(r.rows.length, 2)
+  assert.equal(r.accounts, 2)
+  assert.equal(r.sessions, 16)
+  assert.ok(r.axisEnd > r.axisStart)
+})
+
+test('零散账号里最大的那簇优先：多场簇胜过只有一场的簇，哪怕后者是最近一场', () => {
+  // 11:50 / 12:10 相差 20 分钟，是一簇 2 场；另有 19 个互相隔开的单场，最近一场（8-18 01:00）也是单场。
+  // 共 21 场 → 占比门槛 ceil(21 × 0.15) = 4，2 场的簇也成不了档，走兜底。
+  // 兜底要选的是最大簇（2 场），最近一场只用来在并列时分胜负。
+  const starts = [jst(18, 1, 0), jst(18, 12, 10), jst(17, 11, 50)]
+  const singles = [6, 7, 8, 9, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 3, 4, 5]
+  singles.forEach((h, i) => starts.push(jst(6 + (i % 12), h, 0))) // 日期取 8-06 到 8-17，都在 14 天窗口内
+  const r = buildRegionRuler({
+    competitors: [acc({ id: 'dense', handle: 'dense', shots: shots(...starts) })],
+    region: 'JP',
+    timeZone: TZ,
+    now: NOW,
+  })
+  assert.equal(r.rows.length, 1)
+  assert.equal(r.rows[0].sessions, 21)
+  const [band] = r.rows[0].bands
+  assert.equal(band.established, false)
+  assert.equal(band.centerLabel, '11:50', '2 场的 11:50/12:10 簇取偏早的中位数')
+})
