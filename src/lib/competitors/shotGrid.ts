@@ -121,9 +121,16 @@ export function compareShotsForBoard(
   return cmp !== 0 ? cmp : a.sort_order - b.sort_order
 }
 
+/** 截图时刻（毫秒）：采集脚本/插件写的 captured_at 优先，人工上传没有它，退回入库时刻。读不出为 NaN。 */
+function shotMoment(s: Pick<CompetitorShot, 'captured_at' | 'created_at'>): number {
+  return Date.parse(s.captured_at ?? s.created_at)
+}
+
 /**
  * 按日期归组；shot_on 为空归入 UNDATED_KEY。
- * 组内按 sort_order 再 created_at 升序，首张即该日封面。
+ * 组内按时间正序：sort_order → 截图时刻 → id 兜底。末张是当天最新的一张，即封面（见 coverOf）。
+ * 时刻按数值比而不是字符串：时间戳写法不统一（Z / +00:00 混用、小数秒位数不定），字符串比较会排错。
+ * NaN 相减仍是 NaN，被 || 当成"相等"，落到 id 兜底。
  */
 export function groupShotsByDate(shots: CompetitorShot[]): Map<string, CompetitorShot[]> {
   const map = new Map<string, CompetitorShot[]>()
@@ -134,9 +141,17 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
     map.set(key, arr)
   }
   for (const arr of Array.from(map.values())) {
-    arr.sort((a, b) => (a.sort_order - b.sort_order) || a.created_at.localeCompare(b.created_at))
+    arr.sort((a, b) => (a.sort_order - b.sort_order) || (shotMoment(a) - shotMoment(b)) || a.id.localeCompare(b.id))
   }
   return map
+}
+
+/**
+ * 当天封面：组内（groupShotsByDate 的时间正序）最后一张，即最新截的那张——插件刚截的图会立刻
+ * 成为封面，相当于上传成功的回执。灯箱也从这张打开（往左是更早的），胶片条与下载序号仍按时间正序。
+ */
+export function coverOf<T>(dayShots: T[]): T | undefined {
+  return dayShots[dayShots.length - 1]
 }
 
 /**

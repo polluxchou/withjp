@@ -33,9 +33,11 @@ import { useShotTagLabel } from './useShotTagLabel'
  *   max-h-[50vh] ↔ MAIN_MAX_VH × PEEK_SCALE  邻图
  */
 export default function ShotLightbox({
-  shots, handle, dateKey, canEdit, onClose, onChanged,
+  shots, initialId, handle, dateKey, canEdit, onClose, onChanged,
 }: {
   shots: CompetitorShot[]
+  /** 打开时先停在哪张（相册传当天封面，即最新一张）。不传就从第一张开始。 */
+  initialId?: string
   /** 对方平台上的用户名。只用于下载文件名。 */
   handle: string
   /** 当天的日期键（未标日期那一列为 UNDATED_KEY）。只用于打包文件名。 */
@@ -49,7 +51,7 @@ export default function ShotLightbox({
   const tagLabel = useShotTagLabel()
   // 开播时刻按界面语言换算（ja=日本 / zh=北京 / en=加州），库里是 UTC。
   const locale = useLocale()
-  const [pickedId, setPickedId] = useState<string | null>(null)
+  const [pickedId, setPickedId] = useState<string | null>(initialId ?? null)
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
   // 惰性初始化而不是先给一个默认值再用 effect 纠正:后者会让宽屏上先画出没有邻图的
   // 一帧、下一帧才把两侧补进来。灯箱只在用户点开某天后才渲染,不参与 SSR,

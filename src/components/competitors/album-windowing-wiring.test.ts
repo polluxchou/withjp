@@ -114,3 +114,9 @@ test('标签：相册封面角标与 alt 都用 tagLabel(cover.tag) 的结果', 
 test('标签：灯箱主图 alt 的标签兜底必须经 tagLabel', () => {
   assert.ok(LIGHTBOX.includes("alt={selected.caption || tagLabel(selected.tag) || ''}"))
 })
+
+test('封面：相册格子取 coverOf，灯箱从封面那张打开', () => {
+  assert.match(ALBUM, /const cover = coverOf\(shots\)/)
+  assert.match(ALBUM, /initialId=\{coverOf\(grouped\.get\(openDate\) \?\? \[\]\)\?\.id\}/)
+  assert.match(LIGHTBOX, /useState<string \| null>\(initialId \?\? null\)/)
+})
