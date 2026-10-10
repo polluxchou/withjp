@@ -25,6 +25,11 @@ export type ProbeConfig = {
   speaker: string[]
   /** 弹幕容器是否需要监听子树（容器频繁重建时打开） */
   chatSubtree: boolean
+  /**
+   * 侧栏频道容器的候选选择器。设了 = 同期横截面只读第一个频道（已登录时即 Following），
+   * 且页面上频道数不足 2 时报 null（只剩 Suggested）。不设 = 整页读（分钟级采集器现状）。
+   */
+  sidebarChannel?: string[]
 }
 
 /**
@@ -149,6 +154,24 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     return m ? m[1].toLowerCase() : null
   }
   /**
+   * 侧栏从哪儿读。不设 sidebarChannel = 整页（分钟级采集器，一条不漏）；
+   * sidebarChannel 为空数组等同未设。
+   * 设了 = 只读 Following：侧栏每个区块是一个频道容器，已登录时第一个是 Following、
+   * 后面是 Suggested；游客态或关注的人都没在播时只剩 Suggested 一个
+   * （2026-10-09 游客态与登录态都实测过）。
+   * 所以频道数不足 2 就是「没有 Following 区」，报 null，绝不拿 Suggested 顶替。
+   * 候选选择器按顺序试，第一个有匹配的就定案（哪怕只匹配到 1 个频道也直接报 null，
+   * 不再试后面的候选）。
+   */
+  function sidebarRoot() {
+    if (!cfg.sidebarChannel || !cfg.sidebarChannel.length) return doc
+    for (var k = 0; k < cfg.sidebarChannel.length; k++) {
+      var chans = doc.querySelectorAll(cfg.sidebarChannel[k]) || []
+      if (chans.length) return chans.length >= 2 ? chans[0] : null
+    }
+    return null
+  }
+  /**
    * 顺手把左侧「已关注」侧栏整条抄下来 —— 那是**同一时刻**其它在播直播间的在线人数。
    *
    * 本来是当噪音要丢掉的（它正是 viewer 读错号的根源），但换个角度看：待在 A 房间
@@ -160,9 +183,11 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
    */
   function sidebarReading() {
     if (!doc.querySelectorAll) return null
+    var root = sidebarRoot()
+    if (!root || !root.querySelectorAll) return null
     var out = []
     for (var a = 0; a < cfg.viewerItem.length && !out.length; a++) {
-      var items = doc.querySelectorAll(cfg.viewerItem[a]) || []
+      var items = root.querySelectorAll(cfg.viewerItem[a]) || []
       for (var i = 0; i < items.length; i++) {
         var nm = null
         for (var b = 0; b < cfg.viewerName.length && !nm; b++) {
@@ -401,16 +426,21 @@ export function clipRect(
 }
 
 /**
- * 页面里执行的版本：顺手把播放器静音（挂一整场不能出声），
+ * 页面里执行的版本：默认顺手把播放器静音（挂一整场不能出声；扩展传 `{ mute: false }` 不静音），
  * 并回报 video 是否就绪。videoWidth>0 且 readyState>=2 才算能截。
  * 算式与 clipRect 保持一致 —— 改一处必须改两处。
  */
-export const CLIP_FACTORY_SRC = `function (win, doc) {
+export const CLIP_FACTORY_SRC = `function (win, doc, opts) {
   function pct(s) { var n = parseFloat(s); return isFinite(n) ? n : 50 }
+  // 无人值守采集要静音（挂一整场不能出声）；扩展是人正在看的时候点的，不能动播放器。
+  // 不传 opts = 原行为（静音），scripts/live-watch 的调用方不受影响。
+  var mute = !opts || opts.mute !== false
   var v = doc.querySelector('video')
   if (!v) return { hasVideo: false, ready: false, clip: null }
-  v.muted = true
-  v.volume = 0
+  if (mute) {
+    v.muted = true
+    v.volume = 0
+  }
   var r = v.getBoundingClientRect()
   var cs = win.getComputedStyle(v)
   var iw = v.videoWidth, ih = v.videoHeight

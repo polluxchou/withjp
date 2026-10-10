@@ -1,0 +1,259 @@
+# 直播间一键截图上传扩展 —— 设计
+
+## 1. 背景与目标
+
+竞品直播截图目前有两条入口：
+
+- **自动巡检**：专用 Chrome + 本机 CDP（`scripts/live-watch/`），按 object-fit 精裁画面、读在线人数，写 `competitor_shots`（`tag = live_auto`）。
+- **人工上传**：在竞品页相册的上传控件里选文件或 ⌘V 粘贴（`ShotUploader`）。前提是人先在系统截图工具里**手工框选**直播画面。
+
+人工这条路的成本几乎全在「框选」和「回到后台找到对应账号」这两步上。本设计新增一个 **Chrome 扩展**：人在浏览器里看着某个竞品直播间时，手动点一下扩展图标，扩展就
+
+1. 自动命中当前页的直播画面区域（竖屏画面本身，不含两侧空白）并截图；
+2. 读当前房间的在线人数，以及左侧「Following」区块里同一时刻其它在播竞品的在线人数；
+3. 点「上传」后直接写进后台数据库，弹窗提示成功，不跳转页面；
+4. 弹窗底部显示**当天（日本时间）**的截图数与上传数，作为单日工作量统计。
+
+触发始终是人手动点击。扩展不轮询、不自动进房、不在后台跑。
+
+## 2. 已确认的范围决策
+
+| 决策 | 结论 |
+| --- | --- |
+| 形态 | Chrome 扩展（MV3），放在本仓库 `extensions/live-shot/`，不单开项目 |
+| 触发 | 人在当前标签页手动点扩展图标；每次只处理当前这一页 |
+| 截图范围 | `<video>` 按 object-fit 算出的真实画面矩形（竖屏画面本身） |
+| 登录 | 扩展自带登录，用 MCN 后台同一套邮箱+密码（Supabase Auth） |
+| 上传后 | 弹窗提示成功，不跳转竞品页 |
+| 当前房间人数 | 写入截图的 `viewer_count`（房间面板口径） |
+| 同期人数 | 只取左侧「Following」区块当前**已显示**的条目，只留竞品库里的账号；不展开「See all」，不读「Suggested LIVE creators」 |
+| 同期人数存法 | 新表 `competitor_viewer_readings`，一个账号一行 |
+| 附带信息 | 只记在线人数；不记开播时刻、不加备注输入框 |
+| 界面 | 三态（就绪 / 已上传 / 出错）+ 底部「今日 截图 N · 上传 M」，不展示明细 |
+| 今日计数 | 按日本时间每天归零；上传数以后台为准（按上传人统计），截图数存本地 |
+
+## 3. 架构总览
+
+```
+TikTok 直播间标签页（人正在看）
+   │  点扩展图标（activeTab 授权，仅此一刻）
+   ▼
+popup ──scripting.executeScript──▶ 页内读取（ISOLATED world）
+   │                                  · handle（URL /@handle/live）
+   │                                  · 画面矩形（clipRect 算式）
+   │                                  · 当前房间人数（liveProbe 三档判据）
+   │                                  · Following 区块条目（handle + 人数原文）
+   │◀─────────────────────────────────┘
+   │  tabs.captureVisibleTab → OffscreenCanvas 按矩形×(位图宽/视口宽) 裁剪 → webp
+   ▼
+弹窗「就绪」：缩略图 + ✓截图 ✓人数数据 + [上传]
+   │  点「上传」
+   ▼
+POST https://mcn.agenova.chat/api/competitors/quick-shot   (Authorization: Bearer)
+   │  校验令牌 → handle 查竞品库 → 传桶 → 写 competitor_shots → 写 readings
+   ▼
+弹窗「已上传」+ 今日计数刷新
+```
+
+## 4. 扩展
+
+### 4.1 目录与形态
+
+```
+extensions/live-shot/
+  manifest.json
+  package.json                        只有 "type": "module"，让 node 测试按 ESM 加载扩展里的 .js
+  popup.html / popup.css / popup.js   弹窗三态 + 登录表单 + 今日计数 + 退出；只做编排与渲染
+  lib/liveUrl.js                      当前页是否直播间、取 handle
+  lib/crop.js                         画面矩形 → 位图源矩形（位图宽 / 视口宽换算）
+  lib/day.js                          日本时间「今日」与本地截图计数
+  lib/session.js                      Supabase 登录返回体 → 本地会话、是否该续期
+  lib/view.js                         弹窗状态判定与错误文案
+  lib/api.js                          登录、续期（单飞、区分拒绝与暂时失败）、上传、今日上传数、退出
+  lib/*.test.ts                       上述纯函数与 api 客户端的 node 测试
+  generated/page-reader.js            由 scripts/gen-extension-reader.mjs 生成，见 4.4，禁止手改
+  config.local.js                     由 scripts/gen-extension-config.mjs 从 .env.local 生成，gitignore
+  README.md                           安装、使用、已知限制
+```
+
+纯 JS，无打包步骤，开发者模式「加载已解压的扩展程序」安装。主 Chrome 与专用采集 Chrome 想用就各装一份。
+
+### 4.2 权限
+
+- `activeTab`：只有人点了图标，扩展才获得当前标签页的临时权限。**不声明** tiktok.com 的 host 权限，不挂常驻 content script。
+- `scripting`：在那一刻注入一次页内读取函数。
+- `storage`：存登录令牌（`chrome.storage.local`）与本地截图计数。
+- `host_permissions`：`https://mcn.agenova.chat/*`（后台接口）、`https://*.supabase.co/*`（登录、续期；用通配是为了不把项目 ref 写进公开仓库）、`http://localhost/*`（本地联调，任意端口）。扩展页面对有 host 权限的域名发请求不受 CORS 限制，后台不需要改 CORS。
+
+### 4.3 截图
+
+1. 页内读取返回画面矩形（CSS 像素）与视口宽度 `innerWidth`。矩形用 `CLIP_FACTORY_SRC`（与 `clipRect` 同一算式、已有一致性测试），给它加可选参数 `{ mute: false }`：无人值守采集照旧静音，扩展是人正在看的时候用的，不能动播放器。
+2. `chrome.tabs.captureVisibleTab` 截当前可见画面（png）。弹窗本身不会出现在截图里。
+3. `OffscreenCanvas` 按「矩形 × (位图宽 / 视口宽)」裁剪——不直接用 `devicePixelRatio`，浏览器缩放、换外接屏时两者可能不一致，位图本身才是真的。编码为 webp，保证不超过 5MB（后台 `validateImage` 上限）。
+4. `<video>` 不存在、`videoWidth = 0` 或 `readyState < 2`（还没画出第一帧）→ 不截，进「出错：没找到直播画面」。
+
+### 4.4 页内读取：复用 liveProbe，不另写一份
+
+在线人数的判据已经在 `src/lib/competitors/liveProbe.ts` 里实现并测过（PR 250）：
+
+- 当前房间：`room`（右侧面板「Viewers · N」）→ `anchored`（侧栏里 handle 与 URL 一致的那条）→ `sole`（全页唯一）。三档都不成立时返回 null。
+- 同期：`sidebarReading()` 读侧栏条目的 handle 与人数原文。
+
+扩展的 MV3 环境禁止 `eval` / `new Function`，不能把源码字符串当场执行，所以由生成脚本 `scripts/gen-extension-reader.mjs` 把 `PROBE_FACTORY_SRC` 与 `clipRect` 的源码写进 `extensions/live-shot/generated/page-reader.js`，成为一个自包含、可被 `executeScript` 序列化注入的函数。测试比对「现在重新生成的内容」与已提交文件逐字一致，源码改了而没重新生成，CI 会失败。
+
+探针以 `intervalMs = 0`（不起定时器）、`chatHost = []`（一次性读取用不着弹幕计数，不挂 MutationObserver）实例化，装在一次性宿主对象上而不是 `window`：手动 `tick()` 一次、`drain()` 取出读数、`finally` 里 `disconnect()`，任何 `window` 上都不留状态——即便以后误改到 MAIN world，也碰不到分钟级采集器挂在页面上的 `__lw`。注入仍在 ISOLATED world 执行。读数同时返回 `visualScale`（触控板双指缩放比例），≠1 时弹窗拒截，因为元素坐标与截图对不上。
+
+**Following 区块限定**：现有 `sidebarReading()` 读的是全部 `[data-e2e="live-side-nav-item"]`。2026-10-09 游客态实测：侧栏每个区块是一个 `[data-e2e="live-side-nav-channel"]`（内含 `live-side-nav-channel-title` 与条目），游客态只有「推荐的主播」一个频道。据此推断已登录时 Following 是第一个频道、Suggested 是第二个。给 `ProbeConfig` 增加可选字段 `sidebarChannel`（频道容器候选选择器）：设置了就只读第一个频道，且频道数不足 2 时报 null（只剩 Suggested，绝不拿它顶替）；不设置时行为与现在完全一致，分钟级采集器不受影响。推断须在已登录页面上核实，见第 11 节。
+
+### 4.5 弹窗三态与今日计数
+
+| 状态 | 显示 |
+| --- | --- |
+| 登录（首次 / 令牌失效） | 邮箱、密码、「登录」 |
+| 就绪 | 缩略图、竞品名、✓截图、✓人数数据、「上传」 |
+| 已上传 | 竞品名、「已上传」、「关闭」 |
+| 出错 | 一句话原因、「重试」 |
+
+- 当前房间人数没读到时，「人数数据」那一行显示黄色警示，仍可上传，`viewer_count` 写 null。
+- 底部固定一行「今日 截图 N · 上传 M」：
+  - **截图数**：每次成功截到画面 +1，存 `chrome.storage.local`，键带日本时间日期，跨天自然归零；只统计本浏览器。
+  - **上传数**：以后台为准。弹窗打开时 `GET /api/competitors/quick-shot` 取「我今天上传了几张」，上传成功后用接口返回值刷新。主 Chrome 与专用 Chrome 两边显示同一个数。
+- 文案中文直写。扩展不在 Next 应用内，不走 `messages/*.json`。
+
+## 5. 登录
+
+- 弹窗表单直连 Supabase Auth：`POST {SUPABASE_URL}/auth/v1/token?grant_type=password`，带公开的 anon key。
+- 拿到的 `access_token` / `refresh_token` / `expires_at` 存 `chrome.storage.local`。**密码不落盘。**
+- 每次请求前检查过期时间，快过期就用 refresh token 续期；续期失败清空令牌，回到登录表单。
+- 扩展里出现的只有后台域名、Supabase 项目 URL 与 anon key，三者本来就打包在网页前端里，是公开值。
+
+## 6. 后台接口
+
+新建 `src/app/api/competitors/quick-shot/route.ts`，**只认 `Authorization: Bearer <access_token>`**，不改全局 `authGuard`（它只读 Cookie，网页端的登录方式保持不变）。令牌校验用 anon client 的 `auth.getUser(token)`。
+
+### 6.1 `POST /api/competitors/quick-shot`
+
+multipart 字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `file` | 裁好的 webp |
+| `handle` | URL 里的 handle |
+| `captured_at` | 读数时刻（客户端毫秒时间戳） |
+| `viewer_text` / `viewer_source` | 当前房间人数原文与来源（`room` / `anchored` / `sole`），可空 |
+| `co_live` | JSON：`[{ handle, viewer }]`，Following 区块原样 |
+
+处理顺序：
+
+1. 校验令牌，拿到 `user.id`。
+2. `handle` 转小写后精确匹配 `competitors.handle`，未命中返回 404 `not_in_library`，**什么都不写**。
+3. `uploadImage('competitor-shots', file)` 传桶（复用现有函数，含类型与大小校验）。
+4. 写 `competitor_shots`：`tag = 'live_manual'`，`viewer_count = parseCount(viewer_text)`，`captured_at`，`created_by = user.id`，`shot_on` 由服务器按 `isoDateInTimeZone(captured_at, 'Asia/Tokyo')` 计算，客户端不传日期字符串；`captured_at` 若晚于服务器当前时间超过 5 分钟、或早于 1 小时以上（本机时钟或时间单位异常），改用服务器时间；人数原文超过 16 个字符视为异常、按未读到处理。
+5. 写 `competitor_viewer_readings`：
+   - 当前房间一行：`source = 'current'`（即截图口径；三档来源 `room` / `anchored` / `sole` 原样记进 `viewer_source`），关联本张截图。
+   - `co_live` 中能精确匹配竞品库的每条各一行：`source = 'sidebar'`。当前房间若也在 Following 里，会再有一行 `sidebar`，两种口径并存：横向比较各房间时统一用 `sidebar`。
+   - 不在库的条目丢弃，不入库。
+6. 返回 `{ competitor_name, shot_id, readings, today_uploads }`。
+
+截图写入成功但读数写入失败 → 返回 207 与 `readings_failed`，弹窗如实提示「截图已上传，人数没写进去」。
+
+### 6.2 `GET /api/competitors/quick-shot`
+
+同样只认 Bearer。返回 `{ today_uploads }`：`created_by = 我`、`tag = 'live_manual'`、`shot_on = 日本时间今天` 的截图数。
+
+## 7. 数据模型
+
+### 7.1 `competitor_shots` 加一列
+
+| 列 | 类型 | 说明 |
+| --- | --- | --- |
+| `created_by` | uuid null，references `users(id)`（public.users）on delete set null | 上传人。历史行与自动巡检行为 null。指向 public.users 与仓库其它表一致（由 auth 用户触发器自动建档，id 等于 auth 用户 id），以后做「每人上传量」可直接带出人名 |
+
+加部分索引 `(created_by, shot_on) where created_by is not null`，供今日计数查询使用；历史行与自动巡检行（`created_by` 为 null）不进索引。
+
+加部分唯一索引 `uq_competitor_shots_uploader_capture (created_by, competitor_id, captured_at) where created_by is not null`：重试幂等的数据库兜底。服务先按这三列查重，并发双击时后到的一方撞上该索引（23505）后认领先到的那一行，保证同一上传人、同一竞品、同一读数时刻只留一张截图；部分索引让历史行与自动巡检行不受约束。
+
+### 7.2 新表 `competitor_viewer_readings`
+
+| 列 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | uuid pk | |
+| `competitor_id` | uuid not null，references `competitors(id)` on delete cascade | |
+| `captured_at` | timestamptz not null | 读数时刻；同一次点击的所有行相同 |
+| `viewer_count` | integer null | `parseCount` 解析结果，解析不出为 null |
+| `viewer_text` | text null | 页面原文，如「1.3K」 |
+| `source` | text not null，check in (`current`, `sidebar`) | 读数口径：`current` = 当前房间（截图口径），`sidebar` = Following 侧栏横截面 |
+| `viewer_source` | text null | `source = current` 时记三档来源 `room` / `anchored` / `sole` |
+| `shot_id` | uuid null，references `competitor_shots(id)` on delete set null | 触发这次读数的截图 |
+| `created_by` | uuid null，references `users(id)`（public.users）on delete set null | 同 7.1 |
+| `created_at` | timestamptz not null default now() | |
+
+- `unique(competitor_id, captured_at, source)`：同一时刻同一口径不重复。
+- 按竞品查人数历史走上面唯一约束 `(competitor_id, captured_at, source)` 的前缀，不另建索引。
+- 部分索引 `(shot_id) where shot_id is not null`：删截图时外键要把 `shot_id` 置空，没有该索引就是整表扫描。
+- 两条 check 约束：`source in ('current', 'sidebar')`；`viewer_source` 为 null，或 `source = 'current'` 且取值为 `room` / `anchored` / `sole`（三档来源只对当前房间有意义，侧栏行一律为空）。
+- RLS 沿用仓库约定：`enable row level security` + `authenticated_only`（`for all to authenticated using (auth.uid() is not null)`）。
+
+迁移写完必须真正执行（Supabase SQL Editor 整段执行），再跑 `npm run audit:rls` 核查。迁移文件只是意图，不代表数据库状态。
+
+## 8. 出错处理
+
+| 情况 | 弹窗 | 写入 |
+| --- | --- | --- |
+| 当前页 URL 不是 `/@handle/live` | 当前页不是直播间 | 无 |
+| 无 `<video>` / 未就绪 | 没找到直播画面 | 无 |
+| handle 不在竞品库 | @handle 不在竞品库 | 无 |
+| 当前房间人数三档都未命中 | 就绪态「人数数据」黄色警示，可上传 | `viewer_count` null，readings 不写 `current` 行 |
+| 令牌过期且续期失败 | 回到登录表单 | 无 |
+| 网络或后台 5xx | 上传失败，可重试 | 无（传桶后写库失败会留下孤儿文件，与现有上传流程同等对待） |
+| 截图写入成功、读数写入失败 | 截图已上传，人数没写进去 | 截图有、readings 无 |
+
+「当前页是已结束直播间，推荐模块里嵌着别人的流」这种张冠李戴，靠人在就绪态看缩略图把关。这条链路由人触发，人眼核实本来就在流程里。
+
+## 9. 反检测与安全
+
+- **对 TikTok 零额外请求**：读 DOM、截可见区域都在本地完成。
+- **不往页面插任何元素**，不挂常驻脚本；只在人点击的那一刻注入一次，在 ISOLATED world 执行。
+- **不动播放器**：不静音、不暂停、不改音量。
+- **令牌**：只存在扩展自己的 `chrome.storage.local`，tiktok.com 的页面脚本读不到。不复用后台网页的 Cookie。
+- 仓库为公开仓库：扩展与文档中不出现个人账号、密码或内部人员信息。
+
+## 10. 测试
+
+本仓库没有 DOM 测试环境，组件目录里的测试都是源码断言，所以可测逻辑要下沉到 `src/lib` 用 `node --test` 测：
+
+- `src/lib/competitors/quickShot.ts`（新）：handle 规范化与 URL 解析、`co_live` 竞品库过滤与 readings 行组装、`shot_on` 日本时间计算、今日计数口径。
+- `liveProbe.test.ts` 补 `sidebarChannel`：两个频道只取第一个、只有一个频道报 null、不设行为不变（假 DOM 构造 Following + Suggested 两个频道）。
+- 生成脚本：重新生成的内容与已提交的 `page-reader.js` 逐字一致。
+- 裁剪：矩形 × (位图宽 / 视口宽) 的像素换算与越界裁剪（抽纯函数测）。
+- 接口：`not_in_library` 什么都不写、Bearer 缺失或无效返回 401、读数部分失败返回 207。
+- 新测试文件登记进 `package.json` 的 `test` 行。
+- 审查时跑突变探针，交击杀表（测试全绿不等于测试有效）。
+- **真机验收**：在一个真实在播的竞品直播间点一次，核对桶里的图是黄框画面、`competitor_shots` 一行（`live_manual`、人数、上传人、日本时间日期）、readings 行数等于 Following 里在库账号数 + 1。
+
+## 11. 开工前必须验证
+
+1. **已登录页面上 Following 是不是第一个频道**：游客态已实测频道结构（见 4.4），已登录页面需在负责人的 Chrome 里跑一段只读脚本核实：频道数为 2，第一个标题是 Following 且条目与页面左侧一致。不符合就停下，不自行换判据。
+2. ~~`captureVisibleTab` 的分辨率~~：设计上已消解——裁剪比例取位图宽 / 视口宽，不依赖 DPR 假设；真机验收时看图核对。
+3. **Bearer 令牌在生产环境的校验**：`auth.getUser(token)` 在生产环境可用，且不需要额外配置；上线核对时用无令牌请求得 401、真机上传成功两步确认。
+
+## 12. 不做
+
+- 自动展开「See all」、读「Suggested LIVE creators」。
+- 开播时刻、备注输入框、手动改人数或改日期（补历史日期的图仍走竞品页上传框）。
+- 后台页面展示读数或「每人每天上传量」——数据先攒着，展示另起一期。
+- 上架 Chrome 应用商店、给公司外部的人用。
+- 批量、轮询、自动进房（那是 `scripts/live-watch/` 的职责）。
+
+## 12.1 已知限制（有意不在本期处理）
+
+- 本机时钟偏差超过 5 分钟（快）或 1 小时（慢）时，读数时刻改用服务器时间；此时「回复丢了再点重试」不会被认成同一张，可能多出一张截图。
+- 上传人列沿用通用名 `created_by`（迁移已在生产执行，改名需另写迁移）。
+- 弹窗在上传途中被关掉时看不到确认；再打开会重新截一张，可能多出一张，去竞品页相册删掉即可。
+- 跨日本时间零点（23:59 截、00:00 传）时，这一张归前一天，弹窗「今日上传」不加一。
+
+## 13. 仓库与 CI 落位
+
+- `extensions/` 在 `src/` 之外：style 检查（`check-style-tokens.mjs` 只扫 `src/`）、`next lint`、`next build` 都不会碰到它。`tsconfig` include `**/*.ts`：扩展的 `lib/*.test.ts` 会被 `tsc` 检查，并经 `allowJs` 把被测的 `.js` 带进来做类型推断（`checkJs` 关闭，不报 JS 本身的错）。
+- 生成文件 `extensions/live-shot/generated/*` 在 `.gitattributes` 里固定 LF，避免 Windows 检出后一致性测试误红。
+- 生成脚本放 `scripts/gen-extension-reader.mjs`，需要时手动运行；一致性由测试保证。

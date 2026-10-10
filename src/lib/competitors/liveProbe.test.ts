@@ -378,7 +378,7 @@ function makeVideoDoc(
 }
 
 const clipFactory = new Function(`return (${CLIP_FACTORY_SRC})`)() as (
-  win: unknown, doc: unknown,
+  win: unknown, doc: unknown, opts?: { mute?: boolean },
 ) => { hasVideo: boolean; ready: boolean; muted?: boolean; fit?: string; clip: Rect | null }
 
 test('CLIP_FACTORY_SRC 与 clipRect 对每个分支算出同一个矩形（两份算式必须同步改）', () => {
@@ -430,8 +430,26 @@ test('CLIP_FACTORY_SRC: video 在但还没拿到尺寸时不给 clip，且照样
   assert.equal(video.muted, true, '还没出画面也要先静音，别让它出声')
 })
 
+test('CLIP_FACTORY_SRC: opts.mute=false 时不动播放器（扩展里人正在看）', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 1080, 1920, 'contain', '50% 50%')
+  const r = clipFactory(win, doc, { mute: false })
+  assert.equal(video.muted, false, '不许静音')
+  assert.equal(r.muted, false, '回报的 muted 也要如实')
+  assert.equal(video.volume, 1, '不许改音量')
+  assert.deepEqual(r.clip, clipRect(box, 1080, 1920, 'contain', '50% 50%'), '矩形照算')
+})
+
+test('CLIP_FACTORY_SRC: 不传 opts 仍然静音（scripts/live-watch 的调用方不受影响）', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 1080, 1920, 'contain', '50% 50%')
+  clipFactory(win, doc)
+  assert.equal(video.muted, true)
+  assert.equal(video.volume, 0)
+})
+
 test('clipSource: 组装出的表达式能被解析', () => {
-  assert.match(clipSource(), /^\(function \(win, doc\)/)
+  assert.match(clipSource(), /^\(function \(win, doc, opts\)/)
   assert.doesNotThrow(() => new Function(`return ${clipSource().replace('(window, document)', '(arguments[0], arguments[1])')}`))
 })
 
@@ -611,6 +629,78 @@ test('同期横截面：有名字没人数的条目也要留，记成 viewer:nul
     { handle: '1tb.boiz', viewer: '98' },
     { handle: 'servauto.my', viewer: null },
   ])
+})
+
+// ---- 只读 Following 频道 ----------------------------------------------------
+// 2026-10-09 实测：侧栏每个区块是一个 live-side-nav-channel；已登录时第一个是
+// Following、第二个是 Suggested。扩展只要 Following，Suggested 不能混进来。
+
+const CHANNEL = '[data-e2e="live-side-nav-channel"]'
+function channel(items: FakeEl[]): FakeEl {
+  return { textContent: '', querySelectorAll: (s) => (s === '[data-e2e="live-side-nav-item"]' ? items : []) }
+}
+function coLiveWith(channels: FakeEl[], over: Record<string, unknown>) {
+  const all: Record<string, FakeEl[]> = {
+    [CHANNEL]: channels,
+    '[data-e2e="live-side-nav-item"]': channels.flatMap((c) => c.querySelectorAll!('[data-e2e="live-side-nav-item"]')),
+  }
+  const doc = makeDoc({ '.chat': el('') }, all, '/@a/live')
+  const win = makeWin()
+  factory(win, doc, cfg({ ...VIEWER_CFG, ...over }))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  return lw.drain()[0].co_live
+}
+
+test('同期横截面：设了 sidebarChannel 且有两个频道 → 只取第一个（Following）', () => {
+  const following = channel([navItem('a', '99'), navItem('b', '64')])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.deepEqual(coLiveWith([following, suggested], { sidebarChannel: [CHANNEL] }), [
+    { handle: 'a', viewer: '99' },
+    { handle: 'b', viewer: '64' },
+  ])
+})
+
+test('同期横截面：设了 sidebarChannel 但只有一个频道 → null，不拿 Suggested 顶替', () => {
+  // 游客态、或关注的人都没在播时只剩 Suggested 一个频道
+  const suggested = channel([navItem('stranger', '692')])
+  assert.equal(coLiveWith([suggested], { sidebarChannel: [CHANNEL] }), null)
+})
+
+test('同期横截面：不设 sidebarChannel 时照旧整页读（分钟级采集器行为不变）', () => {
+  const following = channel([navItem('a', '99')])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.deepEqual(coLiveWith([following, suggested], {}), [
+    { handle: 'a', viewer: '99' },
+    { handle: 'stranger', viewer: '692' },
+  ])
+})
+
+test('同期横截面：设了 sidebarChannel 但选择器一个频道都没命中 → null，不退回整页读', () => {
+  // 比如 TikTok 改了 data-e2e 名、或侧栏还没渲染出来。此时整页里其实有条目，
+  // 但没法分清哪个是 Following，退回整页读就会把 Suggested 混进来。
+  const all: Record<string, FakeEl[]> = {
+    '[data-e2e="live-side-nav-item"]': [navItem('stranger', '692')],
+  }
+  const doc = makeDoc({ '.chat': el('') }, all, '/@a/live')
+  const win = makeWin()
+  factory(win, doc, cfg({ ...VIEWER_CFG, sidebarChannel: [CHANNEL] }))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  assert.equal(lw.drain()[0].co_live, null)
+  // 同一个入口再测一次最简形态：页面上什么侧栏元素都没有
+  assert.equal(coLiveWith([], { sidebarChannel: [CHANNEL] }), null)
+})
+
+test('同期横截面：Following 频道在但里面没人在播 → null，不是空数组', () => {
+  // 沿用「null = 这一分钟没有这份数据」的约定；Suggested 里有人也不能顶替
+  const following = channel([])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.equal(coLiveWith([following, suggested], { sidebarChannel: [CHANNEL] }), null)
+})
+
+test('defaultProbeConfig 不带 sidebarChannel —— 采集器的 cfgKey 不能因此变化', () => {
+  assert.equal('sidebarChannel' in defaultProbeConfig(), false)
 })
 
 // ---- subtree 模式下只数真弹幕 --------------------------------------------
