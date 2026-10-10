@@ -8,9 +8,11 @@ import {
   ROOM_END_LABEL_GAP,
   barBox,
   barClock,
+  bucketClock,
   clampMonth,
   countryAccounts,
   countryMonthKpis,
+  densityAlpha,
   densityColumn,
   findCompetitor,
   flattenAccounts,
@@ -24,6 +26,8 @@ import {
   peakBucket,
   pickCountry,
   pickRoomAccount,
+  pickTimetableCountry,
+  pickTimetableGuild,
   regionlessLiveCount,
   roomAccounts,
   roomDayBars,
@@ -33,7 +37,16 @@ import {
   shiftMonth,
   spanSource,
   stepMonth,
+  timetableGroups,
+  timetableGuilds,
+  timetableRange,
+  timetableSchedule,
+  timetableSlotLabels,
+  timetableSplit,
+  timetableZone,
+  type DensityColumn,
   type LiveAccount,
+  type TimetableColumn,
 } from './liveBoard.ts'
 import { coverageHistogram, locateSpans, BUCKETS } from './liveStats.ts'
 
@@ -778,4 +791,182 @@ test('roomHistoryRange: 导入场次的首末当地日期；截图推断不撑�
   // 同一时刻换个时区，日期跟着当地走：日区 7/13 09:00 = 洛杉矶 7/12 17:00
   assert.equal(roomHistoryRange(a, 'America/Los_Angeles')?.from, '2026-07-12')
   assert.equal(roomHistoryRange(acc([s('2026-09-01', '12:00', '13:00')]), TZ), null)
+})
+
+// ---- 时段对比（番组表） ----
+
+test('timetableRange: 截至 today 的 90 个自然日（两端都含），跨年照样数', () => {
+  assert.deepEqual(timetableRange('2026-10-10'), { from: '2026-07-13', to: '2026-10-10' })
+  assert.deepEqual(timetableRange('2026-01-15'), { from: '2025-10-18', to: '2026-01-15' })
+})
+
+test('timetableZone: 统一 = 日本时间；各自当地 = 地区时区，未填 / 脏值回落日本时间', () => {
+  assert.equal(timetableZone('MY', 'jst'), 'Asia/Tokyo')
+  assert.equal(timetableZone('MY', 'local'), 'Asia/Kuala_Lumpur')
+  assert.equal(timetableZone('kr', 'local'), 'Asia/Seoul')
+  assert.equal(timetableZone(null, 'local'), 'Asia/Tokyo')
+  assert.equal(timetableZone('XX', 'local'), 'Asia/Tokyo')
+})
+
+/** 番组表一列的夹具：直接给 densityColumn 的结果，不经场次计算。 */
+const col = (
+  handle: string,
+  region: string | null,
+  company: string | null,
+  over: Partial<DensityColumn> = {},
+): TimetableColumn => ({
+  account: la(handle, region, company, one),
+  timeZone: TZ,
+  column: { shares: [], slots: [], sessions: 3, source: 'history', ...over },
+})
+const at = (start: number) => ({ start, end: null, count: 3 })
+
+test('timetableSplit: 只列区间内有场次、地区在清单里的号；有场次但地区不明的另计数', () => {
+  const { listed, regionless } = timetableSplit([
+    col('sample.a', 'JP', null),
+    col('sample.b', 'jp', null),
+    col('sample.c', 'JP', null, { sessions: 0 }), // 场次都在 90 天之外
+    col('sample.d', null, null),
+    col('sample.e', 'XX', null),
+    col('sample.f', null, null, { sessions: 0 }), // 地区不明、区间内也没场次：不提
+  ])
+  assert.deepEqual(listed.map((c) => c.account.handle), ['sample.a', 'sample.b'])
+  assert.equal(regionless, 2)
+})
+
+test('pickTimetableCountry: URL 值（大小写容错）在选项里就用；否则（含缺省）= 全部（null）', () => {
+  const options = liveCountries([la('a', 'JP', null, one), la('b', 'MY', null, one)])
+  assert.equal(pickTimetableCountry(options, 'my'), 'MY')
+  assert.equal(pickTimetableCountry(options, 'JP'), 'JP')
+  assert.equal(pickTimetableCountry(options, 'KR'), null, '选项里没有的国家')
+  assert.equal(pickTimetableCountry(options, 'XX'), null)
+  assert.equal(pickTimetableCountry(options, null), null)
+})
+
+test('timetableGuilds / pickTimetableGuild: 选项按 groupByCompany 排；URL 空串 = 未归属，缺省或不在选项里 = 全部（null）', () => {
+  const options = timetableGuilds([
+    col('a', 'JP', null), col('b', 'JP', 'Beta'), col('c', 'JP', 'Alpha'), col('d', 'JP', 'Alpha'), col('e', 'JP', null),
+  ])
+  assert.deepEqual(options, [
+    { company: 'Alpha', count: 2 },
+    { company: 'Beta', count: 1 },
+    { company: null, count: 2 },
+  ])
+  assert.equal(pickTimetableGuild(options, null), null)
+  assert.equal(pickTimetableGuild(options, 'Alpha'), 'Alpha')
+  assert.equal(pickTimetableGuild(options, ''), '')
+  assert.equal(pickTimetableGuild(options, 'Gamma'), null, '换了国家后这家公司不在选项里')
+  const named = timetableGuilds([col('b', 'JP', 'Beta')])
+  assert.equal(pickTimetableGuild(named, ''), null, '没有未归属的号时空串也回落全部')
+})
+
+test('timetableGroups: 国家按号数降序 → 公会（有名字按号数降序，未归属最后）→ 首个主档开播升序（无主档最后，同则按 handle）', () => {
+  const groups = timetableGroups([
+    col('sample.k', 'KR', null, { slots: [at(600)] }),
+    col('sample.a', 'JP', 'Alpha', { slots: [at(13 * 60), at(20 * 60)] }),
+    col('sample.b', 'JP', 'Alpha', { slots: [at(12 * 60)] }),
+    col('sample.d', 'JP', 'Beta', { slots: [at(11 * 60)] }),
+    col('sample.g', 'JP', null),
+    col('sample.e', 'JP', null, { slots: [at(9 * 60)] }),
+    col('sample.c', 'JP', null),
+    col('sample.h', 'JP', null, { slots: [at(8 * 60)] }),
+    col('sample.m', 'MY', null, { slots: [at(1500)] }),
+    col('sample.n', 'MY', null, { slots: [at(700)] }),
+  ])
+  assert.deepEqual(
+    groups.map((g) => [g.code, g.count, g.companies.map((c) => [c.company, c.columns.map((x) => x.account.handle)])]),
+    [
+      ['JP', 7, [
+        ['Alpha', ['sample.b', 'sample.a']],
+        ['Beta', ['sample.d']],
+        // 未归属有 4 个号、比任何一家公司都多，照样排最后；无主档的两个按 handle
+        [null, ['sample.h', 'sample.e', 'sample.c', 'sample.g']],
+      ]],
+      // 马来西亚 2 个号，排在只有 1 个号的韩国前面（不按地区清单顺序）
+      ['MY', 2, [[null, ['sample.n', 'sample.m']]]],
+      ['KR', 1, [[null, ['sample.k']]]],
+    ],
+  )
+  assert.deepEqual(timetableGroups([]), [])
+})
+
+// 标签几何用 1px / 分钟（条区 1200px）的整数，免得断言被浮点零头绊住。
+const LABEL_GEO = { stripPx: 1200, labelPx: 20 }
+
+test('timetableSlotLabels: 开播 / 下播标签中心压在对应时刻；截图档只标开播并标 open', () => {
+  assert.deepEqual(
+    timetableSlotLabels([
+      { start: 12 * 60 + 7, end: 14 * 60 + 45, count: 36 },
+      { start: 19 * 60 + 11, end: null, count: 28 },
+    ], LABEL_GEO),
+    [
+      { kind: 'start', top: 367 - 10, time: '12:07', count: 36, open: false },
+      { kind: 'end', top: 525 - 10, time: '14:45', count: 36, open: false },
+      { kind: 'start', top: 791 - 10, time: '19:11', count: 28, open: true },
+    ],
+  )
+  assert.deepEqual(timetableSlotLabels([], LABEL_GEO), [])
+})
+
+test('timetableSlotLabels: 02:00–06:00 开播的档轴上没位置，整档不标；下播越过 02:00 夹到轴尾、钟点照实写', () => {
+  const labels = timetableSlotLabels([
+    { start: 23 * 60, end: 27 * 60 + 30, count: 5 }, // 23:00 → 次日 03:30
+    { start: 26 * 60 + 30, end: 28 * 60, count: 4 }, // 02:30 开播：轴外
+    { start: 300, end: 400, count: 3 }, // 防御：早于轴首的值
+  ], LABEL_GEO)
+  assert.deepEqual(labels, [
+    { kind: 'start', top: 1020 - 10, time: '23:00', count: 5, open: false },
+    // 中心本该在轴尾 1200，收进条区后上沿 = 1200 − 20
+    { kind: 'end', top: 1180, time: '03:30', count: 5, open: false },
+  ])
+})
+
+test('timetableSlotLabels: 贴着轴首的标签收进条区；下播与任何开播挤在一行高度内就让位（开播优先，哪怕是下一档的）', () => {
+  const labels = timetableSlotLabels([
+    { start: 360, end: 365, count: 3 }, // 06:00 开播：上沿收到 0；下播离得太近，不标
+    { start: 600, end: 700, count: 3 }, // 下播 700 与下一档开播 712 相距 12 < 20：让给开播
+    { start: 712, end: 900, count: 3 },
+  ], LABEL_GEO)
+  assert.deepEqual(labels.map((l) => [l.kind, l.time, l.top]), [
+    ['start', '06:00', 0],
+    ['start', '10:00', 230],
+    ['start', '11:52', 342],
+    ['end', '15:00', 530],
+  ])
+})
+
+test('bucketClock: 第 i 格的起止钟点；过了午夜写 00:00 起；最后一格到 02:00', () => {
+  assert.deepEqual(bucketClock(0), { start: '06:00', end: '06:15' })
+  assert.deepEqual(bucketClock(24), { start: '12:00', end: '12:15' })
+  assert.deepEqual(bucketClock(71), { start: '23:45', end: '00:00' })
+  assert.deepEqual(bucketClock(72), { start: '00:00', end: '00:15' })
+  assert.deepEqual(bucketClock(BUCKETS - 1), { start: '01:45', end: '02:00' })
+})
+
+test('densityAlpha: 0.14 + 0.78 × share；0（或算不出来）不上色；超过 1 夹到 1', () => {
+  const close = (a: number | null, b: number) => assert.ok(a != null && Math.abs(a - b) < 1e-9, `${a} ≈ ${b}`)
+  assert.equal(densityAlpha(0), null)
+  assert.equal(densityAlpha(Number.NaN), null)
+  close(densityAlpha(0.5), 0.53)
+  close(densityAlpha(1), 0.92)
+  close(densityAlpha(3), 0.92)
+})
+
+test('timetableSchedule: 我方排期换到各列时区（日韩原样、吉隆坡早一小时、跨过轴首 / 轴尾只留轴内部分）；各列一致时才给时间轴标签', () => {
+  const date = '2026-10-10'
+  const jp = [[870, 1050], [1110, 1290]]
+  const same = timetableSchedule(['Asia/Tokyo', 'Asia/Seoul'], date)
+  assert.deepEqual(same.byZone.get('Asia/Tokyo'), jp)
+  assert.deepEqual(same.byZone.get('Asia/Seoul'), jp)
+  assert.deepEqual(same.axis, jp, '日韩同一个钟点：时间轴照样标「我方」')
+
+  const mixed = timetableSchedule(['Asia/Tokyo', 'Asia/Kuala_Lumpur'], date)
+  assert.deepEqual(mixed.byZone.get('Asia/Kuala_Lumpur'), [[810, 990], [1050, 1230]])
+  assert.equal(mixed.axis, null, '各列钟点不一致：时间轴上不标')
+
+  // 洛杉矶（10 月夏令时，比日本晚 16 小时）：14:30 档落在前一晚 22:30–01:30；18:30 档是凌晨 02:30 起，轴外
+  assert.deepEqual(timetableSchedule(['America/Los_Angeles'], date).byZone.get('America/Los_Angeles'), [[1350, 1530]])
+  // UTC：14:30 档是 05:30–08:30，跨过轴首，只画 06:00–08:30
+  assert.deepEqual(timetableSchedule(['UTC'], date).byZone.get('UTC'), [[360, 510], [570, 750]])
+  assert.equal(timetableSchedule([], date).axis, null)
 })

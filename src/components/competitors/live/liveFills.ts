@@ -1,5 +1,5 @@
 // src/components/competitors/live/liveFills.ts
-// 开播图表共用的三种填充。弹窗日历、开播时段页的月历 / 单个直播间 / 番组表都用这一份，
+// 开播图表共用的填充。弹窗日历、开播时段页的月历 / 单个直播间 / 番组表都用这一份，
 // 同一种含义在各处长得一样，读者看过一张图就认得下一张：
 // - 导入场次（LIVE History，起止完整）= 主色实色
 // - 截图推断的场次（下播只是下限）= 主色斜纹
@@ -16,4 +16,18 @@ export const SHOT_FILL: CSSProperties = {
 
 export const NO_DATA_FILL: CSSProperties = {
   backgroundImage: 'repeating-linear-gradient(45deg, rgb(var(--ink-900) / 0.07) 0 2px, transparent 2px 6px)',
+}
+
+/**
+ * 番组表一格的在播密度。透明度由 liveBoard.densityAlpha 给（这一刻在播的天数占比越高越深）；
+ * 有导入记录的列（含导入 + 截图混合）= 实色，只有截图的列 = 同色斜纹，浅的那半取 0.32 倍——
+ * 与上面两种填充同一套「实色 = 导入、斜纹 = 截图」的读法。透明度是算出来的，只能写在 style 里。
+ */
+export function densityFill(alpha: number, hatched: boolean): CSSProperties {
+  const a = alpha.toFixed(2)
+  return hatched
+    ? {
+        backgroundImage: `repeating-linear-gradient(135deg, rgb(var(--primary) / ${a}) 0 2px, rgb(var(--primary) / ${(alpha * 0.32).toFixed(2)}) 2px 5px)`,
+      }
+    : { backgroundColor: `rgb(var(--primary) / ${a})` }
 }

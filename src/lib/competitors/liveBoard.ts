@@ -20,6 +20,7 @@ import { liveSpansOf, regionTimeZone, type LiveSpan } from './liveSessions.ts'
 import {
   AXIS_END,
   AXIS_START,
+  BUCKET_MINUTES,
   coverageHistogram,
   inRange,
   locateSpans,
@@ -28,7 +29,7 @@ import {
 } from './liveStats.ts'
 import { normalizeRegion, REGION_CODES, type RegionCode } from './regions.ts'
 import type { CompetitorWithHistory } from './types.ts'
-import { zonedYmd } from '../time/zonedTime.ts'
+import { addDaysYmd, zonedYmd, zoneOffsetMinutes } from '../time/zonedTime.ts'
 
 /** 我方排期（日本时间，轴上分钟）：14:30–17:30、18:30–21:30。 */
 export const OUR_SCHEDULE_JST: readonly (readonly [number, number])[] = [
@@ -680,4 +681,227 @@ export function peakBucket(columns: number[][], threshold = 0.3): { index: numbe
     if (count > (best?.count ?? 0)) best = { index: i, count }
   }
   return best
+}
+
+// ---- 时段对比（番组表） ----
+// 一个号一列，按国家 → 公会分组；列里是 densityColumn 的在播密度与主档标签。这里管「列哪些号、怎么排、
+// 筛选项怎么收敛」「主档标签摆在哪、哪个让位」「我方排期换到各列时区落在轴上哪一段」与几处小格式。
+// 每列的 densityColumn 由视图按时区模式算好（要 useMemo，40 个号 × 90 天的场次，切筛选不该重算）。
+
+/** 统一时区、页面「今天」与我方排期的时区：日区是主战场，排期本身也是日本时间的钟点。 */
+const HOME_ZONE = 'Asia/Tokyo'
+
+/** 番组表的统计范围：截至 today（含）的 90 个自然日。 */
+export const TIMETABLE_DAYS = 90
+
+/**
+ * [today − 89, today]，两端都含。today 是页面级的日区业务日；各列按自己的时区落当地日期再比，
+ * 与国家月历同一个近似——只在对方午夜前后那一两个小时差一天。
+ */
+export function timetableRange(today: string): { from: string; to: string } {
+  return { from: addDaysYmd(today, -(TIMETABLE_DAYS - 1)), to: today }
+}
+
+/** 时区切换：统一按日本时间（跨国看同一时刻谁在播）/ 各自当地时间（看各自的作息）。 */
+export type TimetableZoneMode = 'jst' | 'local'
+
+/**
+ * 一列用哪个时区。各自当地时间 = 账号地区时区；地区未填或不在清单里的号回落日本时间——
+ * 这些号本来就进不了番组表（见 timetableSplit），回落值只是让算式有个确定结果。
+ */
+export function timetableZone(region: string | null, mode: TimetableZoneMode): string {
+  return mode === 'local' ? regionTimeZone(region, HOME_ZONE) : HOME_ZONE
+}
+
+export interface TimetableColumn {
+  account: LiveAccount
+  /** 这一列的 densityColumn 用的时区（timetableZone 的结果），我方排期按它换算。 */
+  timeZone: string
+  column: DensityColumn
+}
+
+/**
+ * 番组表列哪些号：区间内有场次、且地区在清单里的（按国家分组，没有国家的号放不进去）。
+ * 区间内有场次、地区却不明的号另报个数：界面要明说「另有 N 个号未列出」，否则它们悄无声息地消失。
+ */
+export function timetableSplit(columns: TimetableColumn[]): { listed: TimetableColumn[]; regionless: number } {
+  const listed: TimetableColumn[] = []
+  let regionless = 0
+  for (const c of columns) {
+    if (c.column.sessions === 0) continue
+    if (normalizeRegion(c.account.region)) listed.push(c)
+    else regionless += 1
+  }
+  return { listed, regionless }
+}
+
+/**
+ * 国家筛选：URL 值（大小写容错）在选项里就用它，否则为 null = 全部。
+ * 与国家月历不同，这里缺省是全部而不是日本：番组表本来就是跨国对比用的。
+ */
+export function pickTimetableCountry(options: CountryOption[], requested: string | null | undefined): RegionCode | null {
+  const want = normalizeRegion(requested)
+  return want && options.some((o) => o.code === want) ? want : null
+}
+
+export interface GuildOption {
+  /** 公会（公司）名；null = 未归属公会。 */
+  company: string | null
+  count: number
+}
+
+/**
+ * 公会筛选项：入参是已按国家筛过的列，所以只列这个国家里有的公会，不给一个点进去是空白的选项。
+ * 顺序同 groupByCompany（有名字的按号数降序，未归属最后）。
+ */
+export function timetableGuilds(columns: TimetableColumn[]): GuildOption[] {
+  return groupByCompany(columns.map((c) => c.account)).map((g) => ({ company: g.company, count: g.accounts.length }))
+}
+
+/**
+ * 公会筛选的取值，与 URL 上的 guild 同一套写法：公司名 = 这家；空串 = 未归属公会；null = 全部。
+ * 未归属用空串而不是某个保留字：公司名是用户填的，任何保留字都可能撞上真名，空串不会（公司名为空即未归属）。
+ * 请求值不在选项里（缺省、换了国家后这家公司不在了）回落全部；URL 原样留着，换回原来的国家时还认得。
+ */
+export function pickTimetableGuild(options: GuildOption[], requested: string | null | undefined): string | null {
+  if (requested == null) return null
+  if (requested === '') return options.some((o) => o.company == null) ? '' : null
+  return options.some((o) => o.company === requested) ? requested : null
+}
+
+/** 一列的排序键：首个主档的开播分钟；没有主档的排最后。 */
+const firstSlotStart = (c: TimetableColumn) => c.column.slots[0]?.start ?? Number.POSITIVE_INFINITY
+
+export interface TimetableCompanyGroup {
+  company: string | null
+  columns: TimetableColumn[]
+}
+
+export interface TimetableCountryGroup {
+  code: RegionCode
+  /** 本组列出的号数（筛选之后）。 */
+  count: number
+  companies: TimetableCompanyGroup[]
+}
+
+/**
+ * 番组表的列序：国家按号数降序（同数按地区清单顺序，即 liveCountries）→ 公会（groupByCompany：有名字的按号数降序、
+ * 未归属最后）→ 组内按首个主档开播升序，没有主档的放最后；同一时刻按 handle（groupByCompany 已按 handle 排好，sort 稳定）。
+ * 按开播排而不是按 handle 排：同一个公会里谁早播谁晚播，从左往右一眼扫过去就是时间顺序。
+ * 入参是 timetableSplit 的 listed（再经筛选）：地区不明的号这里会被丢掉。下方逐号列表照这个顺序摊平。
+ */
+export function timetableGroups(columns: TimetableColumn[]): TimetableCountryGroup[] {
+  const byId = new Map(columns.map((c) => [c.account.id, c]))
+  const bySlot = (x: TimetableColumn, y: TimetableColumn) => {
+    const a = firstSlotStart(x)
+    const b = firstSlotStart(y)
+    return a === b ? 0 : a < b ? -1 : 1
+  }
+  return liveCountries(columns.map((c) => c.account)).map(({ code, count }) => ({
+    code,
+    count,
+    companies: groupByCompany(
+      columns.filter((c) => normalizeRegion(c.account.region) === code).map((c) => c.account),
+    ).map((g) => ({
+      company: g.company,
+      columns: g.accounts.flatMap((a) => byId.get(a.id) ?? []).sort(bySlot),
+    })),
+  }))
+}
+
+export interface TimetableLabel {
+  /** 开播（白底黑框粗体）/ 下播（白底灰框）。 */
+  kind: 'start' | 'end'
+  /** 标签上沿（px）：中心压在对应时刻上，再收进条区——贴着轴首 / 轴尾的标签不冒出列外、不压到列头。 */
+  top: number
+  /** 真实钟点 HH:mm：越过 02:00 的下播照实写，只是位置夹在轴尾。 */
+  time: string
+  /** 该档场次数（提示框用）。 */
+  count: number
+  /** 开播标签专用：这一档没有下播中位（档内有截图推断的场次），界面写成「HH:mm起」。 */
+  open: boolean
+}
+
+/**
+ * 一列的主档标签摆在哪。入参是 densityColumn 的 slots（没有夹轴）：
+ * - 开播落在 02:00–06:00（轴上 ≥ AXIS_END）或早于轴首的档，轴上没有位置，整档不标（逐号列表里照样写）。
+ * - 下播越过 02:00 的夹到轴尾，钟点照实写。
+ * - 先摆开播（主信息），再摆下播；任何标签与已摆的标签挤在一行高度（labelPx）以内就不摆——
+ *   下播离自己的开播太近（短场）、或贴着下一档的开播时，让位给开播。精确时刻在逐号列表与提示框里都有。
+ * 结果按位置从上到下排。
+ */
+export function timetableSlotLabels(
+  slots: readonly DensitySlot[],
+  geometry: { stripPx: number; labelPx: number },
+): TimetableLabel[] {
+  const pxPerMin = geometry.stripPx / (AXIS_END - AXIS_START)
+  // 收进条区这一步顺带把越过轴尾的下播夹到了轴尾：中心超出条区底边，上沿一律落在 stripPx − labelPx。
+  const topAt = (minute: number) =>
+    Math.min(Math.max((minute - AXIS_START) * pxPerMin - geometry.labelPx / 2, 0), geometry.stripPx - geometry.labelPx)
+  const placed: TimetableLabel[] = []
+  const fits = (top: number) => placed.every((l) => Math.abs(l.top - top) >= geometry.labelPx)
+  const onAxis = slots.filter((s) => s.start >= AXIS_START && s.start < AXIS_END)
+  for (const s of onAxis) {
+    const top = topAt(s.start)
+    if (fits(top)) placed.push({ kind: 'start', top, time: minutesToLabel(s.start), count: s.count, open: s.end == null })
+  }
+  for (const s of onAxis) {
+    if (s.end == null) continue
+    const top = topAt(s.end)
+    if (fits(top)) placed.push({ kind: 'end', top, time: minutesToLabel(s.end), count: s.count, open: false })
+  }
+  return placed.sort((a, b) => a.top - b.top)
+}
+
+/** 第 index 格（15 分钟）的起止钟点，「同时在播最多」卡片用。轴上 24 点之后照常写成 00:00 起。 */
+export function bucketClock(index: number): { start: string; end: string } {
+  const start = AXIS_START + index * BUCKET_MINUTES
+  return { start: minutesToLabel(start), end: minutesToLabel(start + BUCKET_MINUTES) }
+}
+
+/**
+ * 一格在播密度的主色透明度：0.14 + 0.78 × share（满格 0.92）。share 为 0（或算不出来）不上色——
+ * 和「偶尔在播」的浅色分得开。超过 1 夹到 1（份额本不会超过 1，防御脏值）。
+ */
+export function densityAlpha(share: number): number | null {
+  if (!(share > 0)) return null
+  return 0.14 + 0.78 * Math.min(1, share)
+}
+
+/**
+ * 我方排期在某个时区落在轴上哪几段（轴上分钟）。排期是日本时间的钟点；「各自当地时间」下列的时区不同，
+ * 要换成该列的当地钟点才是同一时刻——否则吉隆坡那列的参考线会错开一小时，读出来的「撞不撞档」是错的。
+ * 时差按 date（页面「今天」）那天算，夏令时地区（洛杉矶）随日期变。换算后跨过轴首 / 轴尾的只留轴内部分。
+ */
+function scheduleIn(timeZone: string, date: string): [number, number][] {
+  const midnight = Date.parse(`${date}T00:00:00+09:00`)
+  const out: [number, number][] = []
+  for (const [a, b] of OUR_SCHEDULE_JST) {
+    const instant = midnight + a * 60_000
+    const shift = zoneOffsetMinutes(instant, timeZone) - zoneOffsetMinutes(instant, HOME_ZONE)
+    // 一天里的钟点按 1440 循环：前一天、当天、后一天三个位置各与轴求一次交集
+    for (const k of [-1440, 0, 1440]) {
+      const start = Math.max(a + shift + k, AXIS_START)
+      const end = Math.min(b + shift + k, AXIS_END)
+      if (end > start) out.push([start, end])
+    }
+  }
+  return out.sort((x, y) => x[0] - y[0])
+}
+
+/**
+ * 番组表上的我方排期：byZone = 每个时区一份（每列按自己的时区取）；axis = 时间轴上的「我方」标签位置，
+ * 只在所有列的时区换算出同一组钟点时给（统一按日本时间、或只看日韩），否则为 null——
+ * 时间轴只有一根，各列钟点不一时标在哪都会对错一半的列。
+ */
+export function timetableSchedule(
+  zones: readonly string[],
+  date: string,
+): { byZone: Map<string, [number, number][]>; axis: [number, number][] | null } {
+  const byZone = new Map<string, [number, number][]>()
+  for (const z of zones) if (!byZone.has(z)) byZone.set(z, scheduleIn(z, date))
+  const all = Array.from(byZone.values())
+  const key = (r: [number, number][]) => r.map((x) => x.join('-')).join(',')
+  const axis = all.length > 0 && all.every((r) => key(r) === key(all[0])) ? all[0] : null
+  return { byZone, axis }
 }

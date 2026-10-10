@@ -12,6 +12,7 @@ import { zonedYmd } from '@/lib/time/zonedTime'
 import LiveCountryMonth from './LiveCountryMonth'
 import LiveRoomMonth from './LiveRoomMonth'
 import LiveSessionsModal from './LiveSessionsModal'
+import LiveTimetable from './LiveTimetable'
 import { useRegionZone } from './useRegionZone'
 
 type LiveView = 'month' | 'room' | 'timetable'
@@ -30,7 +31,13 @@ type QueryValue = string | null | ((current: string | null) => string | null)
  * 「开播时段」页的客户端壳：三个视图的切换、URL 查询参数、开播记录弹窗。
  *
  * 状态全挂在 URL 上（?view=month|room|timetable&country=JP&month=YYYY-MM&acc=<竞品 id>）：
- * 链接发给同事打开就是同一个画面，刷新也不丢。必须从 URL 派生而不是 useState + 初始值——
+ * 链接发给同事打开就是同一个画面，刷新也不丢。时段对比（番组表）另有四个，缺省值不写进 URL：
+ *   - tcountry=<地区码>：国家筛选，缺省 = 全部。不与国家月历共用 country——月历缺省是日本、番组表缺省是全部，
+ *     共用的话在月历里选个国家，切到番组表就被悄悄筛掉了别的国家。
+ *   - guild=<公司名>：公会筛选，空值（guild=）= 未归属公会，缺省 = 全部（写法见 liveBoard.pickTimetableGuild）。
+ *   - tz=local：各自当地时间，缺省 = 统一按日本时间。
+ *   - ours=0：关掉我方排期参考线，缺省 = 开。
+ * 必须从 URL 派生而不是 useState + 初始值——
  * 在本页再点一次侧栏或 tab，URL 变了但组件没卸载，初始值不会重跑（同 tasks/page.tsx 的教训）。
  * 这里只认 view；其余参数原样交给各视图，合不合法、越不越界由视图自己收敛（各视图的范围不同）。
  *
@@ -113,7 +120,21 @@ export default function CompetitorLiveView({
           onMonthChange={(next) => setQuery({ month: next })}
           onOpenRecords={openRecords}
         />
-      ) : view === 'room' ? (
+      ) : view === 'timetable' ? (
+        <LiveTimetable
+          accounts={accounts}
+          today={today}
+          country={searchParams.get('tcountry')}
+          guild={searchParams.get('guild')}
+          zone={searchParams.get('tz')}
+          ours={searchParams.get('ours')}
+          onCountryChange={(code) => setQuery({ tcountry: code })}
+          onGuildChange={(guild) => setQuery({ guild })}
+          onZoneChange={(mode) => setQuery({ tz: mode === 'local' ? 'local' : null })}
+          onToggleOurs={() => setQuery({ ours: (current) => (current === '0' ? null : '0') })}
+          onOpenRecords={openRecords}
+        />
+      ) : (
         <LiveRoomMonth
           accounts={accounts}
           patrolDays={patrolDays}
@@ -124,8 +145,6 @@ export default function CompetitorLiveView({
           onMonthChange={(next) => setQuery({ month: next })}
           onOpenRecords={openRecords}
         />
-      ) : (
-        <p className="rounded-card border border-line bg-surface p-6 text-sm text-ink-500">{t('liveViewPending')}</p>
       )}
 
       {records && recordsOf && (
