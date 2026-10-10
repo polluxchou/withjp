@@ -12,7 +12,8 @@ import { todayLocal } from '@/lib/competitors/localDate'
 import { competitorAnchorId, competitorIdFromHash } from '@/lib/competitors/anchors'
 import { scrollToCompetitorCard } from './scrollToCard'
 import { SHOT_WINDOW_SIZE, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
-import { boardRefreshPath, isShotDateLoaded, mergeShotRange, nextChunk, shotRangePath } from '@/lib/competitors/shotWindow'
+import { boardRefreshPath, isShotDateLoaded, mergeShotRange, nextChunk } from '@/lib/competitors/shotWindow'
+import { createChunkLoader, fetchShotRange } from '@/lib/competitors/chunkLoader'
 import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
 import { REGION_CODES } from '@/lib/competitors/regions'
 import type { CompetitorBoard, CompetitorShot } from '@/lib/competitors/types'
@@ -131,36 +132,21 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   }, [today])
 
   // 往历史翻页时按需补取截图。判据全在 shotWindow.ts：nextChunk 决定补哪段，
-  // mergeShotRange 合并并丢弃过期结果（请求飞行期间看板被刷新换掉的情况）。
+  // mergeShotRange 合并并丢弃过期结果（请求飞行期间看板被刷新换掉的情况）；
+  // 去重、失败、重试、被取代的异步状态机在 chunkLoader.ts（有行为测试），这里只接线。
   // 不在 effect 清理里取消请求：dev 的 StrictMode 双挂载会把在途请求取消掉、又被去重挡住重发，
-  // 永远卡在占位格；靠 inflightRef 去重 + 过期丢弃就够了。
+  // 永远卡在占位格；靠去重 + 过期丢弃就够了。
   const [shotLoadFailed, setShotLoadFailed] = useState(false)
-  const [retryTick, setRetryTick] = useState(0)
-  const inflightRef = useRef<string | null>(null)
+  const [loader] = useState(() => createChunkLoader<CompetitorShot>({
+    fetchRows: (range) => fetchShotRange<CompetitorShot>(range),
+    merge: (rows, range) => setBoard((b) => mergeShotRange(b, rows, range)),
+    setFailed: setShotLoadFailed,
+  }))
   const pendingChunk = useMemo(
     () => nextChunk(shotAxis, dateWindow, board.shotsLoadedFrom),
     [shotAxis, dateWindow, board.shotsLoadedFrom],
   )
-  useEffect(() => {
-    if (!pendingChunk) { setShotLoadFailed(false); return }
-    const key = `${pendingChunk.from}|${pendingChunk.before}`
-    if (inflightRef.current === key) return
-    inflightRef.current = key
-    setShotLoadFailed(false)
-    void (async () => {
-      try {
-        const res = await fetch(shotRangePath(pendingChunk), { cache: 'no-store' })
-        if (!res.ok) throw new Error('load failed')
-        const json = await res.json()
-        const rows = (json.data ?? []) as CompetitorShot[]
-        setBoard((b) => mergeShotRange(b, rows, pendingChunk))
-      } catch {
-        setShotLoadFailed(true)
-      } finally {
-        if (inflightRef.current === key) inflightRef.current = null
-      }
-    })()
-  }, [pendingChunk, retryTick])
+  useEffect(() => { loader.want(pendingChunk) }, [loader, pendingChunk])
 
   // refresh 是 useCallback，闭包里的 board 会过期；起点走 ref 读最新值。
   const loadedFromRef = useRef(board.shotsLoadedFrom)
@@ -327,7 +313,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
       {shotLoadFailed && (
         <p className="flex items-center gap-2 text-sm text-danger-text">
           {t('shotsLoadFailed')}
-          <Button variant="secondary" size="sm" onClick={() => setRetryTick((n) => n + 1)}>
+          <Button variant="secondary" size="sm" onClick={() => loader.retry()}>
             {tCommon('retry')}
           </Button>
         </p>
