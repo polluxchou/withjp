@@ -20,3 +20,16 @@ export function shotTagDisplay(tag: string | null | undefined): ShotTagDisplay |
   if (tag === QUICK_SHOT_TAG) return { kind: 'known', key: 'live_manual' }
   return { kind: 'text', text }
 }
+
+/**
+ * tag → 界面显示文本：机器值取调用方传入的当前语言文案，自由文本原样（已去首尾空白），空值返回 null。
+ * 文案由调用方注入（组件里是 next-intl 的 t），这样分支逻辑不依赖 React，能直接单测。
+ */
+export function shotTagLabel(
+  tag: string | null | undefined,
+  labels: { live_auto: string; live_manual: string },
+): string | null {
+  const d = shotTagDisplay(tag)
+  if (!d) return null
+  return d.kind === 'text' ? d.text : labels[d.key]
+}
