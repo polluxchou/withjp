@@ -389,6 +389,7 @@ export default function CompetitorCard({
         <ShotAlbum
           competitorId={c.id}
           handle={c.handle}
+          region={c.region}
           shots={c.shots}
           canEdit={canEdit}
           onChanged={onChanged}

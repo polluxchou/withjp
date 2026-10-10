@@ -1803,6 +1803,7 @@
     "shotIndexOf": "{index} / {total}",
     "shotViewers": "在线 {count}",
     "shotStartedAt": "开播 {time} 北京时间",
+    "shotStartedAtZone": "开播 {time}（{zone}）",
     "shotUptime": "已播 {h}时{m}分",
     "shotUptimeMin": "已播 {m}分",
     "prevShot": "上一张",
