@@ -54,6 +54,8 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
       return { session: r.session }
     }
     if (r.rejected) {
+      // 会话被明确作废：内存里的轮换记录一并丢掉，之后任何路径都不能用它把会话「复活」
+      lastRotation = null
       await storage.remove(SESSION_KEY)
       return { session: null }
     }

@@ -415,3 +415,30 @@ test('logout：清掉会话', async () => {
   await api.logout()
   assert.equal(storage.data.session, undefined)
 })
+
+// ---- 会话失效后不得从内存「复活」 ---------------------------------------------
+const EXPIRING_SESSION = { session: { accessToken: 'old', refreshToken: 'ref', expiresAt: NOW + 10_000 } }
+const ROTATED = { status: 200, json: { access_token: 'acc2', refresh_token: 'ref2', expires_at: NOW / 1000 + 7200 } }
+
+test('轮换后 logout → session() 为 null，内存里的新会话不复活', async () => {
+  const storage = memoryStorage(EXPIRING_SESSION)
+  const f = fakeFetch({ 'grant_type=refresh_token': ROTATED })
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
+  assert.equal((await api.session())?.accessToken, 'acc2')
+  await api.logout()
+  assert.equal(await api.session(), null)
+  assert.equal(storage.data.session, undefined)
+})
+
+test('轮换后强制续期被拒（401 重试路径）→ 会话清空，之后 session() 为 null', async () => {
+  const storage = memoryStorage(EXPIRING_SESSION)
+  const f = fakeFetch({
+    'grant_type=refresh_token': [ROTATED, { status: 400, json: {} }],
+    '/api/competitors/quick-shot': { status: 401, json: { data: null, error: 'unauthorized' } },
+  })
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
+  const r = await api.upload({ blob: new Blob([]), handle: 'a', reading: { capturedAt: NOW, viewer: null, viewerSource: null, coLive: null } })
+  assert.equal(r.status, 401)
+  assert.equal(await api.session(), null)
+  assert.equal(storage.data.session, undefined)
+})
