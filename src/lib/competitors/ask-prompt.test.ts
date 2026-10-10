@@ -96,6 +96,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     latest: over.latest ?? (last ? snap({ captured_on: last.captured_on, followers: last.followers }) : null),
     history,
     shots: over.shots ?? [],
+    sessionStarts: over.sessionStarts ?? [],
     weekly: [],
     related: over.related ?? [],
     descriptions: over.descriptions ?? [],
@@ -103,7 +104,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
 }
 
 function board(competitors: CompetitorWithHistory[]): CompetitorBoard {
-  return { competitors, canEdit: true }
+  return { competitors, canEdit: true, shotAxis: [], shotsLoadedFrom: null }
 }
 
 // 一个真实竞品:两个粉丝快照(followers.confidence 为 ok)+ 两场带开播时刻
