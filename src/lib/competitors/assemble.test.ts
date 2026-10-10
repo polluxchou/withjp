@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { parseHandleFromUrl, assembleBoard } from './assemble.ts'
-import type { Competitor, CompetitorSnapshot, CompetitorShot } from './types.ts'
+import type { Competitor, CompetitorLiveSession, CompetitorSnapshot, CompetitorShot } from './types.ts'
 
 test('parseHandleFromUrl: 从主页 URL 抽 handle', () => {
   assert.equal(parseHandleFromUrl('https://www.tiktok.com/@example'), 'example')
@@ -70,6 +70,7 @@ test('assembleBoard: 无快照/无截图的竞品', () => {
   assert.deepEqual(board.competitors[0].shots, [])
   assert.deepEqual(board.competitors[0].weekly, [])
   assert.deepEqual(board.competitors[0].related, [])
+  assert.deepEqual(board.competitors[0].live_sessions, [], '不传开播记录时为空数组')
 })
 
 test('assembleBoard: 子账号(parent_id)挂到父的 related,首页不平铺', () => {
@@ -103,7 +104,7 @@ test('assembleBoard: 不给 meta 时日期轴与开播时刻从 shots 算，视�
 test('assembleBoard: 给了 meta 就原样挂上，开播时刻不受已加载截图影响', () => {
   const parent = comp({ id: 'p', handle: 'parent' })
   const child = comp({ id: 'k', handle: 'kid', parent_id: 'p' })
-  const board = assembleBoard([parent, child], [], [], true, [], {
+  const board = assembleBoard([parent, child], [], [], true, [], [], {
     shotAxis: ['2026-07-01', '2026-07-20'],
     sessionStartsBy: new Map([['p', ['2026-07-01T05:00:00+00:00']], ['k', ['2026-07-02T05:00:00+00:00']]]),
     shotsLoadedFrom: '2026-07-20',
@@ -121,11 +122,36 @@ test('assembleBoard: 没有开播记录的账号 sessionStarts 为空数组', ()
 })
 
 test('assembleBoard: meta 的日期轴为空数组时也以 meta 为准，不回退到 shots 推算', () => {
-  const board = assembleBoard([comp()], [], [shot('a', '2026-07-20')], true, [], {
+  const board = assembleBoard([comp()], [], [shot('a', '2026-07-20')], true, [], [], {
     shotAxis: [],
     sessionStartsBy: new Map(),
     shotsLoadedFrom: null,
   })
   assert.deepEqual(board.shotAxis, [])
   assert.deepEqual(board.competitors[0].sessionStarts, [])
+})
+
+const live = (id: string, competitor_id: string, started_at: string): CompetitorLiveSession => ({
+  id, competitor_id, started_at, ended_at: started_at, title: '', likes: null,
+  source: 'tiktok_history', created_at: '2026-10-10T00:00:00Z', updated_at: '2026-10-10T00:00:00Z',
+})
+
+test('assembleBoard: 开播记录按竞品归组、按开播时刻倒序（按时刻比，不按字符串比）', () => {
+  const board = assembleBoard(
+    [comp(), comp({ id: 'c2', handle: 'b' })],
+    [],
+    [],
+    true,
+    [],
+    [
+      live('old', 'c1', '2026-09-16T07:47:00+00:00'),
+      // 带 +09:00 的写法字符串上「更晚」（10-09 > 10-08），按时刻却是 10-08 23:00Z，
+      // 比下面那条早半小时 —— 按字符串排序会把这两条排反。
+      live('jst', 'c1', '2026-10-09T08:00:00+09:00'),
+      live('latest', 'c1', '2026-10-08T23:30:00.000Z'),
+      live('other', 'c2', '2026-10-01T00:00:00Z'),
+    ],
+  )
+  assert.deepEqual(board.competitors[0].live_sessions.map((s) => s.id), ['latest', 'jst', 'old'])
+  assert.deepEqual(board.competitors[1].live_sessions.map((s) => s.id), ['other'])
 })

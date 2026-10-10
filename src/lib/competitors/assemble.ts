@@ -1,6 +1,6 @@
 // src/lib/competitors/assemble.ts
 import type {
-  BoardShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription,
+  BoardShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorLiveSession,
   CompetitorBoard, CompetitorWithHistory, HistoryPoint,
 } from './types.ts'
 import { sortDescriptions } from './descriptions.ts'
@@ -25,13 +25,14 @@ export function parseHandleFromUrl(input: string): string | null {
  */
 export type ShotMeta = ShotIndex & { shotsLoadedFrom: string | null }
 
-/** 把竞品 + 快照 + 截图 + 风格描述组装成看板；下探发现的子账号（parent_id）挂到父的 related,首页只列顶层。 */
+/** 把竞品 + 快照 + 截图 + 风格描述 + 开播记录组装成看板；下探发现的子账号（parent_id）挂到父的 related,首页只列顶层。 */
 export function assembleBoard<S extends BoardShot = CompetitorShot>(
   competitors: Competitor[],
   snapshots: CompetitorSnapshot[],
   shots: S[],
   canEdit: boolean,
   descriptions: CompetitorDescription[] = [],
+  liveSessions: CompetitorLiveSession[] = [],
   meta?: ShotMeta,
 ): CompetitorBoard<S> {
   const shotMeta: ShotMeta = meta ?? { ...buildShotIndex(shots), shotsLoadedFrom: null }
@@ -53,6 +54,12 @@ export function assembleBoard<S extends BoardShot = CompetitorShot>(
     arr.push(d)
     descsBy.set(d.competitor_id, arr)
   }
+  const liveBy = new Map<string, CompetitorLiveSession[]>()
+  for (const s of liveSessions) {
+    const arr = liveBy.get(s.competitor_id) ?? []
+    arr.push(s)
+    liveBy.set(s.competitor_id, arr)
+  }
 
   const build = (c: Competitor): CompetitorWithHistory<S> => {
     const rows = (snapsBy.get(c.id) ?? [])
@@ -68,6 +75,9 @@ export function assembleBoard<S extends BoardShot = CompetitorShot>(
       ...c, latest, history, weekly, shots: shotRows, related: [],
       sessionStarts: shotMeta.sessionStartsBy.get(c.id) ?? [],
       descriptions: sortDescriptions(descsBy.get(c.id) ?? []),
+      // 按时刻比而不是按字符串比：timestamptz 读回来的写法（+00:00 / 带不带毫秒）不保证定长。
+      live_sessions: (liveBy.get(c.id) ?? []).slice()
+        .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()),
     }
   }
 

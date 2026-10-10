@@ -14,12 +14,14 @@ import type {
   CompanyAccountRow, CompanyBoard, CompanyCompetitorInput, CompanySnapshotInput, CompetitorCompany,
 } from './companies.ts'
 import { normalizeDescriptionBody } from './descriptions.ts'
+import { validateLiveSessionRows } from './liveHistory.ts'
 import { normalizeRegion, resolveNewRegion } from './regions.ts'
 import { isValidShotDate } from './shotGrid.ts'
 import { buildShotIndex, loadedRangeOrFilter, parseShotRangeQuery, resolveLoadedFrom } from './shotWindow.ts'
 import type { ShotIndexRow } from './shotWindow.ts'
 import type {
-  AskShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorBoard, CompetitorPlatform,
+  AskShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorLiveSession,
+  CompetitorBoard, CompetitorPlatform,
 } from './types.ts'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
@@ -100,12 +102,16 @@ async function assertValidParent(
 /**
  * 加载看板：任意登录用户可读可写（canEdit 恒 true）。
  *
+ * 第一轮并行整表拉全：竞品、快照、截图索引（瘦查询）、风格描述、开播记录。
+ * 开播记录一个号三个月就有几十场，同样很快过千，所以也要分页拉全。
+ *
  * 截图分两层取：
  * 1. 瘦查询（三列、全量）建索引：完整日期轴 + 各账号全部历史的开播时刻——统计口径与相册加载范围无关；
  * 2. 截图本体只取已加载范围：默认最近 SHOT_CHUNK_DAYS 个有图日（两屏），since 可把起点往前推
  *    （改完数据刷新时保住用户已翻到的范围）。更早的由前端按需走 getShotsInRange 补取。
  * 第 2 步要用第 1 步算出的日期轴，所以两次查询串行。
  * 每段都走 fetchAllRows：Supabase 单次响应最多 1000 行且静默截断。
+ * 任何一段查询报错都让整个看板报错，不拿半套数据假装完整。
  */
 export async function getCompetitorBoard(
   _userId: string,
@@ -117,7 +123,7 @@ export async function getCompetitorBoard(
     return err('invalid_input', 'since must be a real calendar date in YYYY-MM-DD')
   }
   const db = createServerClient()
-  const [compRes, snapRes, indexRes, descRes] = await Promise.all([
+  const [compRes, snapRes, indexRes, descRes, liveRes] = await Promise.all([
     fetchAllRows((from, to) => db.from('competitors').select('*')
       .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
@@ -126,9 +132,11 @@ export async function getCompetitorBoard(
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_descriptions').select('*')
       .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_live_sessions').select('*')
+      .order('id', { ascending: true }).range(from, to)),
   ])
-  const firstErr = compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error
-  if (firstErr) return err('db_error', firstErr.message)
+  const firstErr = compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error ?? liveRes.error
+  if (firstErr) return err('db_error', firstErr.message || 'load failed')
 
   const index = buildShotIndex((indexRes.data ?? []) as ShotIndexRow[])
   const loadedFrom = resolveLoadedFrom(index.shotAxis, since)
@@ -143,6 +151,7 @@ export async function getCompetitorBoard(
     (shotRes.data ?? []) as CompetitorShot[],
     true,
     (descRes.data ?? []) as CompetitorDescription[],
+    (liveRes.data ?? []) as CompetitorLiveSession[],
     { ...index, shotsLoadedFrom: loadedFrom },
   ))
 }
@@ -174,7 +183,7 @@ export const ASK_SHOT_COLUMNS = 'competitor_id, shot_on, sort_order, stream_star
 /**
  * 竞品问答的数据源。截图取**全部历史**——问答的采集日历、累计场次、在线峰值都是全量口径，
  * 不能跟着相册的日期窗口走；但只查问答读得到的几列，图片地址、备注这些大字段问答用不上。
- * 风格描述问答不读，不查。不传 meta：shots 就是全部截图，日期轴与开播时刻由 assembleBoard 现算。
+ * 风格描述、开播记录问答都不读，不查。不传 meta：shots 就是全部截图，日期轴与开播时刻由 assembleBoard 现算。
  */
 export async function getAskBoard(_userId: string): Promise<ServiceResult<CompetitorBoard<AskShot>>> {
   const db = createServerClient()
@@ -418,4 +427,33 @@ export async function deleteDescription(descriptionId: string): Promise<ServiceR
   const { error } = await db.from('competitor_descriptions').delete().eq('id', descriptionId)
   if (error) return err('db_error', error.message)
   return ok({ id: descriptionId })
+}
+
+// ---- 开播记录 ----
+//
+// 只有一条写入路径：卡片里的粘贴导入。解析在客户端做（与预览共用 liveHistory.ts），
+// 这里对每行再挡一遍边界 —— 接口谁都能直接调，不能信客户端已经校验过。
+
+/**
+ * 批量 upsert 开播记录。去重键 (competitor_id, started_at)：同一场重复粘贴是覆盖
+ * 标题、下播时刻、点赞，不是叠一行；created_at 不在写入列里，覆盖时保留首次导入的时刻。
+ */
+export async function upsertLiveSessions(
+  competitorId: string,
+  rows: unknown,
+): Promise<ServiceResult<{ upserted: number }>> {
+  const checked = validateLiveSessionRows(rows)
+  if (!checked.ok) return err('invalid_input', checked.message)
+  const updatedAt = new Date().toISOString()
+  const db = createServerClient()
+  const { error } = await db
+    .from('competitor_live_sessions')
+    .upsert(
+      checked.rows.map((r) => ({
+        competitor_id: competitorId, ...r, source: 'tiktok_history', updated_at: updatedAt,
+      })),
+      { onConflict: 'competitor_id,started_at' },
+    )
+  if (error) return err('db_error', error.message)
+  return ok({ upserted: checked.rows.length })
 }
