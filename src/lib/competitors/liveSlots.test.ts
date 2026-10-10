@@ -144,3 +144,19 @@ test('clusterMinutes: 45 分钟以内连成一档，跨午夜首尾合并', () =
   assert.deepEqual(clusterMinutes([720, 740, 800, 1140]), [[720, 740], [800], [1140]])
   assert.deepEqual(clusterMinutes([5, 700, 1430]), [[-10, 5], [700]])
 })
+
+test('时区格式化器按时区缓存：两个时区交替调用，每次都按各自的时区算', () => {
+  // 守缓存键：若所有时区共用同一个格式化器，或键取错，第二个时区的结果会串成第一个。
+  const iso = '2026-10-09T03:04:00Z' // JST 12:04 · 加州（夏令时 UTC-7）前一天 20:04
+  for (let i = 0; i < 4; i += 1) {
+    assert.equal(summarizeLiveHabit([iso], JST, 1).slots[0].label, '12:04')
+    assert.equal(summarizeLiveHabit([iso], PT, 1).slots[0].label, '20:04')
+  }
+})
+
+test('时区名非法照旧抛 RangeError，且不污染缓存：之后合法时区与再次非法都表现如常', () => {
+  const iso = '2026-10-09T03:04:00Z'
+  assert.throws(() => summarizeLiveHabit([iso], 'Not/AZone', 1), RangeError)
+  assert.equal(summarizeLiveHabit([iso], JST, 1).slots[0].label, '12:04')
+  assert.throws(() => summarizeLiveHabit([iso], 'Not/AZone', 1), RangeError)
+})

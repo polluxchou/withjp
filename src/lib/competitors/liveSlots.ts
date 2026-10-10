@@ -46,13 +46,29 @@ export interface LiveHabit {
   latestStartedAt: string | null
 }
 
+/**
+ * 按时区缓存格式化器。new Intl.DateTimeFormat 的构造远比 formatToParts 贵（实测约 10 倍），
+ * 而卡片/弹窗每张卡要对每一场调几次这里；时区只有寥寥几个，缓存一份就够。
+ * 时区名非法时构造会抛 RangeError——抛出发生在 set 之前，不会缓存出坏值，行为与不缓存时一致。
+ */
+const minuteFormatters = new Map<string, Intl.DateTimeFormat>()
+
+function minuteFormatter(timeZone: string): Intl.DateTimeFormat {
+  let fmt = minuteFormatters.get(timeZone)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    })
+    minuteFormatters.set(timeZone, fmt)
+  }
+  return fmt
+}
+
 /** 一天里的第几分钟（指定时区）。时刻非法返回 null。 */
 function minutesOfDayIn(iso: string, timeZone: string): number | null {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).formatToParts(d)
+  const parts = minuteFormatter(timeZone).formatToParts(d)
   const hour = parts.find((p) => p.type === 'hour')?.value
   const minute = parts.find((p) => p.type === 'minute')?.value
   if (hour == null || minute == null) return null

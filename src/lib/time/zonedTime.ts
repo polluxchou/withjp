@@ -21,18 +21,34 @@ export interface WallTime {
   minute: number
 }
 
+/**
+ * 按时区缓存格式化器。new Intl.DateTimeFormat 的构造远比 formatToParts 贵（实测约 10 倍），
+ * 而开播记录弹窗与看板卡片每张卡要对每一场调好几次本文件的函数；时区只有寥寥几个，缓存一份就够。
+ * 时区名非法时构造会抛 RangeError——抛出发生在 set 之前，不会缓存出坏值，行为与不缓存时一致。
+ */
+const partsFormatters = new Map<string, Intl.DateTimeFormat>()
+
+function partsFormatter(timeZone: string): Intl.DateTimeFormat {
+  let fmt = partsFormatters.get(timeZone)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    })
+    partsFormatters.set(timeZone, fmt)
+  }
+  return fmt
+}
+
 /** 读出某时刻在指定时区的日历/时钟各部件。hourCycle h23：午夜是 00 不是 24。 */
 function zonedParts(ms: number, timeZone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(ms))
+  const parts = partsFormatter(timeZone).formatToParts(new Date(ms))
   const at = (type: string) => Number(parts.find((p) => p.type === type)?.value)
   return { year: at('year'), month: at('month'), day: at('day'), hour: at('hour'), minute: at('minute'), second: at('second') }
 }

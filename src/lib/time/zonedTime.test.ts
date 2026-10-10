@@ -80,3 +80,25 @@ test('formatDayTimeInZone: MM-DD HH:mm，非法返回 null', () => {
   // 跨日：UTC 还是前一天，当地已是次日。
   assert.equal(formatDayTimeInZone('2026-10-09T15:30:00Z', 'Asia/Tokyo'), '10-10 00:30')
 })
+
+test('时区格式化器按时区缓存：两个时区交替调用，每个函数每次都按各自的时区算', () => {
+  // 守缓存键：若所有时区共用同一个格式化器，或键取错，第二个时区的结果会串成第一个。
+  const t = '2026-10-09T15:30:00.000Z' // JST 10-10 00:30 · 加州（夏令时 UTC-7）10-09 08:30
+  for (let i = 0; i < 4; i += 1) {
+    assert.equal(zonedHm(t, JST), '00:30')
+    assert.equal(zonedHm(t, PT), '08:30')
+    assert.equal(zonedYmd(t, JST), '2026-10-10')
+    assert.equal(zonedYmd(t, PT), '2026-10-09')
+    assert.equal(minuteOfDayInZone(t, JST), 30)
+    assert.equal(minuteOfDayInZone(t, PT), 8 * 60 + 30)
+    assert.equal(zoneOffsetMinutes(Date.parse(t), JST), 540)
+    assert.equal(zoneOffsetMinutes(Date.parse(t), PT), -420)
+  }
+})
+
+test('时区名非法照旧抛 RangeError，且不污染缓存：之后合法时区与再次非法都表现如常', () => {
+  const t = '2026-10-09T15:30:00.000Z'
+  assert.throws(() => zonedHm(t, 'Not/AZone'), RangeError)
+  assert.equal(zonedHm(t, JST), '00:30')
+  assert.throws(() => zonedHm(t, 'Not/AZone'), RangeError)
+})
