@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { liveSpansOf, liveStartsOf, regionTimeZone } from './liveSessions.ts'
+import { liveSpansOf, liveStartsOf, regionTimeZone, REGION_TIME_ZONE } from './liveSessions.ts'
+import { REGION_CODES } from './regions.ts'
 
 const hist = (start: string, end: string, likes: number | null = 1000) =>
   ({ started_at: start, ended_at: end, likes, title: 'Sample LIVE' })
 const shot = (start: string | null, cap: string | null) => ({ stream_started_at: start, captured_at: cap })
+
+const H_START = '2026-08-20T00:04:00Z'
+const H_END = '2026-08-20T02:44:00Z'
+const TEN_MIN = 10 * 60_000
+/** 在一个 ISO 时刻上加减毫秒，返回 toISOString 写法，便于写边界用例。 */
+const at = (iso: string, deltaMs: number) => new Date(Date.parse(iso) + deltaMs).toISOString()
 
 test('regionTimeZone: 已知地区给 IANA 时区，未填或未知回落', () => {
   assert.equal(regionTimeZone('JP', 'Asia/Shanghai'), 'Asia/Tokyo')
@@ -12,6 +19,12 @@ test('regionTimeZone: 已知地区给 IANA 时区，未填或未知回落', () =
   assert.equal(regionTimeZone('MY', 'Asia/Shanghai'), 'Asia/Kuala_Lumpur')
   assert.equal(regionTimeZone(null, 'Asia/Shanghai'), 'Asia/Shanghai')
   assert.equal(regionTimeZone('ZZ', 'America/Los_Angeles'), 'America/Los_Angeles')
+})
+
+test('每个地区的时区都能被 Intl 识别（前端格式化时不会抛 RangeError）', () => {
+  for (const code of REGION_CODES) {
+    assert.doesNotThrow(() => new Intl.DateTimeFormat('en-US', { timeZone: REGION_TIME_ZONE[code] }), code)
+  }
 })
 
 test('只有截图：按开播时刻去重，下播取最后一张截图，标记为估计', () => {
@@ -35,7 +48,7 @@ test('截图时刻早于开播（脏数据）时，下播取开播时刻，不�
   assert.equal(s.endedAt, s.startedAt)
 })
 
-test('导入与截图是同一场（±10 分钟内）只算一场，保留导入那条', () => {
+test('导入与截图是同一场（截图开播落在导入区间内）只算一场，保留导入那条', () => {
   const spans = liveSpansOf({
     live_sessions: [hist('2026-08-22T03:17:00+00:00', '2026-08-22T05:33:00+00:00', 131800)],
     shots: [
@@ -49,12 +62,48 @@ test('导入与截图是同一场（±10 分钟内）只算一场，保留导入
   assert.equal(spans[1].approxEnd, false)
 })
 
-test('相差超过 10 分钟的截图场次不被吞掉', () => {
+test('截图开播落在导入场次中途（直播断线重连）：即使晚于导入开播 10 分钟以上，也算同一场', () => {
   const spans = liveSpansOf({
     live_sessions: [hist('2026-08-22T03:00:00Z', '2026-08-22T05:00:00Z')],
     shots: [shot('2026-08-22T03:11:00Z', '2026-08-22T03:40:00Z')],
   })
-  assert.equal(spans.length, 2)
+  assert.equal(spans.length, 1)
+  assert.equal(spans[0].source, 'history')
+})
+
+test('同一场：截图开播落在导入场次中间（中途重连）合并为 1 场', () => {
+  const spans = liveSpansOf({
+    live_sessions: [hist(H_START, H_END)],
+    shots: [shot('2026-08-20T01:11:31Z', '2026-08-20T02:00:00Z')],
+  })
+  assert.equal(spans.length, 1)
+  assert.equal(spans[0].source, 'history')
+})
+
+test('同一场下沿边界：截图开播恰为导入开播前 10 分钟仍合并，再早 1 毫秒就分开', () => {
+  const merged = liveSpansOf({
+    live_sessions: [hist(H_START, H_END)],
+    shots: [shot(at(H_START, -TEN_MIN), at(H_START, 30 * 60_000))],
+  })
+  assert.equal(merged.length, 1)
+  const kept = liveSpansOf({
+    live_sessions: [hist(H_START, H_END)],
+    shots: [shot(at(H_START, -TEN_MIN - 1), at(H_START, 30 * 60_000))],
+  })
+  assert.equal(kept.length, 2)
+})
+
+test('同一场上沿边界：截图开播恰为导入下播时刻仍合并，晚 1 毫秒就分开', () => {
+  const merged = liveSpansOf({
+    live_sessions: [hist(H_START, H_END)],
+    shots: [shot(H_END, at(H_END, 30 * 60_000))],
+  })
+  assert.equal(merged.length, 1)
+  const kept = liveSpansOf({
+    live_sessions: [hist(H_START, H_END)],
+    shots: [shot(at(H_END, 1), at(H_END, 30 * 60_000))],
+  })
+  assert.equal(kept.length, 2)
 })
 
 test('输出按开播时刻降序，写法统一成 toISOString；liveStartsOf 与之一致', () => {
