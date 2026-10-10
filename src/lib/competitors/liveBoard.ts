@@ -48,10 +48,11 @@ export interface LiveAccount {
 }
 
 /**
- * 一个号在开播时段页上的全部场次（导入的 LIVE History + 截图推断，合并去重，降序）。
+ * 一个号的全部场次（导入的 LIVE History + 截图推断，合并去重，降序）。
+ * 卡片（CompetitorCard）、开播记录弹窗（LiveSessionsModal）、开播时段页（flattenAccounts）取场次都只经过这里，组件里别再直接对 c 调 liveSpansOf。
  * 开播场次喂哪批截图只在这里定：现在读 c.shots（看板上该号的全部截图）。
  * 相册改成窗口加载（c.shots 只剩近 10 个截图日左右）后，这里改成 shots: c.sessionShots——
- * 它是每场一条（开播时刻 + 最后一张截图时刻）的全量，不随相册窗口缩水；开播时段页的场次都经过这里，页面代码别再直接拿 c.shots 算场次。
+ * 它是每场一条（开播时刻 + 最后一张截图时刻）的全量，不随相册窗口缩水；组件代码别再直接拿 c.shots 算场次。
  * 配对的另一处是 liveCoverage.patrolDaysOfBoard（巡检日的来源）。
  */
 export function accountSpans(c: CompetitorWithHistory): LiveSpan[] {

@@ -15,7 +15,7 @@ import { useRegionZone } from './live/useRegionZone'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
 import { ANCHOR_GAP } from '@/lib/competitors/navScroll'
-import { liveSpansOf } from '@/lib/competitors/liveSessions'
+import { accountSpans } from '@/lib/competitors/liveBoard'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
 import { locateSpans, windowStats } from '@/lib/competitors/liveStats'
 import { coverageOf } from '@/lib/competitors/liveCoverage'
@@ -88,7 +88,7 @@ export default function CompetitorCard({
   const zoneNote = zoneLabel ? t('liveZoneNote', { zone: zoneLabel }) : undefined
   const withZone = (text: string) => (zoneLabel ? `${text}${t('liveZoneSuffix', { zone: zoneLabel })}` : text)
   // 场次 = 导入的开播记录 + 截图推断，合并去重（降序）。开播时刻、档案行摘要、弹窗都吃这一份。
-  const spans = useMemo(() => liveSpansOf(c), [c])
+  const spans = useMemo(() => accountSpans(c), [c])
   const starts = useMemo(() => spans.map((s) => s.startedAt), [spans])
   const habit = useMemo(() => summarizeLiveHabit(starts, liveZone), [starts, liveZone])
   const slotLabels = habit.slots.map((s) => s.label).join(' / ')

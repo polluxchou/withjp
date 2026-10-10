@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { ChevronLeft } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { LiveImportPanel } from '../LiveSessionImport'
-import { liveSpansOf } from '@/lib/competitors/liveSessions'
+import { accountSpans } from '@/lib/competitors/liveBoard'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import LiveRecordsPanel from './LiveRecordsPanel'
@@ -53,7 +53,7 @@ export default function LiveSessionsModal({
   // 竞品的开播时刻按账号所在地区的时区显示，地区没填才回落到界面语言时区；口径见 useRegionZone。
   const { timeZone, zoneLabel } = useRegionZone(competitor.region)
 
-  const spans = useMemo(() => liveSpansOf(competitor), [competitor])
+  const spans = useMemo(() => accountSpans(competitor), [competitor])
 
   // 切换视图会卸载刚点的那颗按钮，焦点掉回 <body>，跑出弹窗的 Tab 圈定范围。
   // 切换后把焦点放进新视图：导入视图给输入框，记录视图给第一颗按钮（统计范围）。
