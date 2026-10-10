@@ -205,3 +205,64 @@ test('windowStats: 平均时长四舍五入（150 与 151 分钟的均值 150.5 
   assert.equal(s.avgMinutes, 151)
   assert.equal(s.medianMinutes, 150)
 })
+
+// ---- 「无数据」≠「没播」：hasData 判定哪些日子我们知道播没播 ----
+
+const daysOf = (...ds: string[]) => {
+  const set = new Set(ds)
+  return (d: string) => set.has(d)
+}
+
+test('windowStats: 不传 hasData 时每天都算有数据，dataDays = spanDays（原有口径不变）', () => {
+  const located = locateSpans([span('2026-09-02', '12:00', '13:00')], TZ)
+  const s = windowStats(located, '2026-09-01', '2026-09-07')
+  assert.equal(s.dataDays, 7)
+  assert.equal(s.longestGapDays, 5)
+})
+
+test('windowStats: dataDays 只数有数据的日子；有场次的日子哪怕不在 hasData 里也算有数据', () => {
+  const located = locateSpans([span('2026-09-03', '12:00', '13:00')], TZ)
+  const s = windowStats(located, '2026-09-01', '2026-09-07', daysOf('2026-09-01', '2026-09-02'))
+  assert.equal(s.spanDays, 7)
+  assert.equal(s.dataDays, 3) // 09-01、09-02 巡检过 + 09-03 有场次
+  assert.equal(s.liveDays, 1)
+})
+
+test('windowStats: 最长断播只连有数据却没播的日子，无数据的日子把连续段截断', () => {
+  // 09-01..09-03 有数据没播（3 天）· 09-04 无数据 · 09-05..09-06 有数据没播（2 天）· 09-07 无数据
+  const s = windowStats([], '2026-09-01', '2026-09-07', daysOf('2026-09-01', '2026-09-02', '2026-09-03', '2026-09-05', '2026-09-06'))
+  assert.equal(s.longestGapDays, 3)
+  assert.equal(s.dataDays, 5)
+})
+
+test('windowStats: 整段都无数据时断播为 0、dataDays 为 0，周均不除以零', () => {
+  const s = windowStats([], '2026-09-01', '2026-09-30', () => false)
+  assert.equal(s.dataDays, 0)
+  assert.equal(s.longestGapDays, 0)
+  assert.equal(s.perWeek, 0)
+})
+
+test('windowStats: 周均按有数据的天数算，无数据的日子不摊薄', () => {
+  // 30 天里只有 7 天有数据，其中 2 天各播 1 场 → 周均 2 场，而不是 2 / 30 × 7 ≈ 0.5
+  const located = locateSpans([span('2026-09-10', '12:00', '13:00'), span('2026-09-12', '12:00', '13:00')], TZ)
+  const data = daysOf('2026-09-08', '2026-09-09', '2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14')
+  const s = windowStats(located, '2026-09-01', '2026-09-30', data)
+  assert.equal(s.dataDays, 7)
+  assert.equal(s.perWeek, 2)
+})
+
+test('calendarWeeks: 不传 hasData 时没有任何一天是无数据', () => {
+  const weeks = calendarWeeks([], { today: '2026-10-08', weeks: 1, rangeFrom: '2026-10-01' })
+  assert.equal(weeks[0].some((d) => d.noData), false)
+})
+
+test('calendarWeeks: 没场次且不在 hasData 里 = 无数据；有场次的日子永远有数据', () => {
+  const located = locateSpans([span('2026-10-07', '12:00', '13:00')], TZ)
+  // 周一 10-05 起：只有 10-06 巡检过；10-07 有场次但不在 hasData 里
+  const [week] = calendarWeeks(located, { today: '2026-10-11', weeks: 1, rangeFrom: '2026-10-01' }, daysOf('2026-10-06'))
+  assert.equal(week[0].noData, true)  // 10-05
+  assert.equal(week[1].noData, false) // 10-06 巡检过、没播
+  assert.equal(week[1].level, 0)
+  assert.equal(week[2].noData, false) // 10-07 有场次
+  assert.equal(week[2].level, 1)
+})

@@ -61,6 +61,14 @@ function round1(x: number): number {
   return Math.round(x * 10) / 10
 }
 
+/**
+ * 某天有没有数据（我们知不知道这个号那天播没播），由调用方注入，口径见 liveCoverage.ts。
+ * 不传时每天都算有数据 —— 即「没场次 = 没播」的老口径。
+ */
+export type HasData = (date: string) => boolean
+
+const EVERY_DAY: HasData = () => true
+
 /** [from, to] 闭区间内逐日列出 YYYY-MM-DD。 */
 function daysBetweenInclusive(from: string, to: string): string[] {
   const out: string[] = []
@@ -75,36 +83,47 @@ export interface LiveWindowStats {
   liveDays: number
   /** 区间总天数（含首尾） */
   spanDays: number
+  /** 区间内有数据的天数（有场次的日子一定算）；不传 hasData 时等于 spanDays */
+  dataDays: number
   /** 平均时长（分钟）；无场次为 null */
   avgMinutes: number | null
   /** 中位时长（分钟）；无场次为 null */
   medianMinutes: number | null
   totalMinutes: number
-  /** 区间内最长连续无场次天数 */
+  /** 区间内最长连续「有数据却没播」的天数；无数据的日子会把连续段截断 */
   longestGapDays: number
   /** 中位点赞；只算 likes 非 null 的场次 */
   medianLikes: number | null
-  /** 周均场次，保留一位小数 */
+  /** 周均场次（按有数据的天数摊），保留一位小数 */
   perWeek: number
 }
 
 /**
  * 区间内的汇总指标。
- * - spanDays 按整个区间算，不只算有场次的日子：周均场次要的是「每周播几场」，
- *   分母得是区间天数，否则只播过一两天的号会被算得很高。
- * - longestGapDays 是区间内最长连续无场次天数，用来看断播的最长一段。
+ * - 周均场次的分母是区间里**有数据**的天数，不只算有场次的日子：周均要的是「每周播几场」，
+ *   只除以开播天数，只播过一两天的号会被算得很高；但也不能除以整个区间 —— 巡检没跑的日子
+ *   我们不知道它播没播，摊进分母会把只有截图的号算得很低。
+ * - longestGapDays 是最长一段连续「有数据却没播」的天数。无数据的日子不算断播，也不能让
+ *   断播跨过它连起来（「无数据」≠「没播」）。
  */
-export function windowStats(located: LocatedSpan[], from: string, to: string): LiveWindowStats {
+export function windowStats(located: LocatedSpan[], from: string, to: string, hasData: HasData = EVERY_DAY): LiveWindowStats {
   const w = inRange(located, from, to)
   const days = daysBetweenInclusive(from, to)
   const live = new Set(w.map((s) => s.date))
   let run = 0
   let gap = 0
+  let dataDays = 0
   for (const d of days) {
-    if (live.has(d)) run = 0
-    else {
+    // 有场次的日子一定有数据，不管 hasData 怎么说。
+    if (live.has(d)) {
+      dataDays += 1
+      run = 0
+    } else if (hasData(d)) {
+      dataDays += 1
       run += 1
       gap = Math.max(gap, run)
+    } else {
+      run = 0
     }
   }
   const minutes = w.map((s) => s.end - s.start)
@@ -113,12 +132,13 @@ export function windowStats(located: LocatedSpan[], from: string, to: string): L
     sessions: w.length,
     liveDays: live.size,
     spanDays: days.length,
+    dataDays,
     avgMinutes: w.length ? Math.round(total / w.length) : null,
     medianMinutes: lowerMedian(minutes),
     totalMinutes: total,
     longestGapDays: gap,
     medianLikes: lowerMedian(w.map((s) => s.likes).filter((l): l is number => l != null)),
-    perWeek: days.length ? round1((w.length / days.length) * 7) : 0,
+    perWeek: dataDays ? round1((w.length / dataDays) * 7) : 0,
   }
 }
 
@@ -132,6 +152,8 @@ export interface CalendarDay {
   future: boolean
   /** date >= rangeFrom，即落在当前统计区间里 */
   inRange: boolean
+  /** 无数据：当天没场次，且我们不知道它播没播（见 liveCoverage.ts）。有场次的日子永远是 false */
+  noData: boolean
 }
 
 /** 按当天总时长分档。没场次一律 0，哪怕时长为 0 也算「播了」所以至少是 1。 */
@@ -147,6 +169,7 @@ function levelOf(minutes: number, sessions: number): CalendarDay['level'] {
 export function calendarWeeks(
   located: LocatedSpan[],
   opts: { today: string; weeks: number; rangeFrom: string },
+  hasData: HasData = EVERY_DAY,
 ): CalendarDay[][] {
   const byDay = new Map<string, { n: number; m: number }>()
   for (const s of located) {
@@ -169,6 +192,7 @@ export function calendarWeeks(
         level: levelOf(rec?.m ?? 0, rec?.n ?? 0),
         future: date > opts.today,
         inRange: date >= opts.rangeFrom,
+        noData: !rec && !hasData(date),
       })
     }
     cols.push(col)
