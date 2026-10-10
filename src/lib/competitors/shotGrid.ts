@@ -1,6 +1,6 @@
 // src/lib/competitors/shotGrid.ts
 // 纯函数：把竞品截图按日期归并成一条整页共用的日期轴与窗口。
-import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
+import type { CompetitorShot } from './types.ts'
 
 /** 无日期图片在日期轴上的占位键。 */
 export const UNDATED_KEY = '—'
@@ -64,29 +64,6 @@ export function isValidShotDate(value: unknown): boolean {
 }
 
 /**
- * 递归收集所有竞品（含 related 子主播）有图的日期，升序去重。
- * 存在 shot_on 为空的图时，末尾追加 UNDATED_KEY 作为兜底列。
- */
-export function collectShotDates(competitors: CompetitorWithHistory[]): string[] {
-  const dated = new Set<string>()
-  let hasUndated = false
-  const walk = (list: CompetitorWithHistory[]) => {
-    for (const c of list) {
-      for (const s of c.shots ?? []) {
-        if (s.shot_on) dated.add(s.shot_on)
-        else hasUndated = true
-      }
-      if (c.related?.length) walk(c.related)
-    }
-  }
-  walk(competitors ?? [])
-  // Array.from 而非展开：避免 Set 展开在当前 tsconfig 下触发 TS2802
-  const axis = Array.from(dated).sort((a, b) => a.localeCompare(b))
-  if (hasUndated) axis.push(UNDATED_KEY)
-  return axis
-}
-
-/**
  * 以 anchorIndex 为中心取 size 列，夹逼到 [0, axis.length)。
  * 靠边时向另一侧补足，仍尽量取满 size 列，保证每个竞品行的列数一致。
  * anchorIndex 为 -1（anchor 不在轴上）时按贴右处理，即取轴末尾 size 列。
@@ -109,7 +86,7 @@ export function windowOf(axis: string[], anchorIndex: number, size: number): str
 export function resolveAnchor(axis: string[], anchor: string | null): string | null {
   if (!axis.length) return null
   if (anchor && axis.includes(anchor)) return anchor
-  // 注意：UNDATED_KEY 被 collectShotDates 追加在轴尾，所以"最新一天"必须从
+  // 注意：UNDATED_KEY 被追加在轴尾（见 shotWindow.ts 的 buildShotIndex），所以"最新一天"必须从
   // 过滤掉占位键的 dated 里取，不能直接拿 axis 的末位。
   const dated = axis.filter((d) => d !== UNDATED_KEY)
   const newest = dated.length ? dated[dated.length - 1] : axis[axis.length - 1]

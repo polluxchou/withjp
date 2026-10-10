@@ -5,7 +5,6 @@ import test from 'node:test'
 import {
   SHOT_DATE_FUTURE_DAYS,
   UNDATED_KEY,
-  collectShotDates,
   compareShotsForBoard,
   groupShotsByDate,
   isValidShotDate,
@@ -14,7 +13,7 @@ import {
   shiftDate,
   windowOf,
 } from './shotGrid.ts'
-import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
+import type { CompetitorShot } from './types.ts'
 
 test('UNDATED_KEY: 无日期占位键', () => {
   assert.equal(UNDATED_KEY, '—')
@@ -68,72 +67,6 @@ function shot(id: string, shot_on: string | null): CompetitorShot {
     captured_at: null,
   }
 }
-
-function competitor(
-  id: string,
-  shots: CompetitorShot[],
-  related: CompetitorWithHistory[] = [],
-): CompetitorWithHistory {
-  return {
-    id,
-    platform: 'tiktok',
-    handle: id,
-    profile_url: `https://www.tiktok.com/@${id}`,
-    display_name: null,
-    note: '',
-    created_at: '2026-08-01T00:00:00Z',
-    parent_id: null,
-    avatar_url: null,
-    region: 'JP',
-    member_count: null,
-    composition: null,
-    launch_city: null,
-    launched_on: null,
-    mc_note: null,
-    online_note: null,
-    latest_videos: null,
-    latest: null,
-    history: [],
-    shots,
-    sessionStarts: [],
-    weekly: [],
-    related,
-    descriptions: [],
-  }
-}
-
-test('collectShotDates: 跨竞品去重并升序', () => {
-  const axis = collectShotDates([
-    competitor('a', [shot('s1', '2026-08-05'), shot('s2', '2026-08-03')]),
-    competitor('b', [shot('s3', '2026-08-05'), shot('s4', '2026-08-01')]),
-  ])
-  assert.deepEqual(axis, ['2026-08-01', '2026-08-03', '2026-08-05'])
-})
-
-test('collectShotDates: 递归收集 related 子主播的日期', () => {
-  const axis = collectShotDates([
-    competitor('parent', [shot('s1', '2026-08-05')], [
-      competitor('kid', [shot('s2', '2026-08-02')]),
-    ]),
-  ])
-  assert.deepEqual(axis, ['2026-08-02', '2026-08-05'])
-})
-
-test('collectShotDates: 存在无日期图时末尾追加 UNDATED_KEY', () => {
-  const axis = collectShotDates([
-    competitor('a', [shot('s1', '2026-08-05'), shot('s2', null)]),
-  ])
-  assert.deepEqual(axis, ['2026-08-05', UNDATED_KEY])
-})
-
-test('collectShotDates: 只有无日期图时轴上只有占位键', () => {
-  assert.deepEqual(collectShotDates([competitor('a', [shot('s1', null)])]), [UNDATED_KEY])
-})
-
-test('collectShotDates: 全空返回空数组', () => {
-  assert.deepEqual(collectShotDates([]), [])
-  assert.deepEqual(collectShotDates([competitor('a', [])]), [])
-})
 
 const AXIS10 = ['d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9']
 
@@ -197,7 +130,7 @@ test('resolveAnchor: anchor 本身是 UNDATED_KEY 但已脱轴时取最新一天
 })
 
 test('resolveAnchor: 轴尾有 UNDATED_KEY 时默认仍取最新的有日期那天', () => {
-  // collectShotDates 把占位键追加在轴尾,不能直接拿 axis 末位当"最新一天"
+  // 轴尾会追加占位键,不能直接拿 axis 末位当"最新一天"
   assert.equal(resolveAnchor(['2026-08-01', '2026-08-05', UNDATED_KEY], null), '2026-08-05')
 })
 

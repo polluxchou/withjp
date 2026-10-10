@@ -1817,6 +1817,7 @@
     "belongsTo": "Parent account",
     "uploadFailed": "Upload failed",
     "noShots": "No screenshots yet",
+    "shotsLoadFailed": "Couldn't load screenshots",
     "undated": "Undated",
     "bio": "Bio",
     "fieldMembers": "Members",

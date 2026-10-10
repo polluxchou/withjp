@@ -45,7 +45,7 @@ const ANCHOR_STYLE = { scrollMarginTop: `calc(var(--competitor-sticky-head, 120p
 
 export default function CompetitorCard({
   c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, onUpdateRegion,
-  dateWindow, selectedDate, regionPeers, nested = false, selected = false, today = null,
+  dateWindow, selectedDate, shotsLoadedFrom, shotLoadFailed, regionPeers, nested = false, selected = false, today = null,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -57,6 +57,10 @@ export default function CompetitorCard({
   onUpdateRegion: (id: string, region: string) => void
   dateWindow: string[]
   selectedDate: string | null
+  /** 相册已加载起点，见 CompetitorBoard.shotsLoadedFrom。 */
+  shotsLoadedFrom: string | null
+  /** 往历史补取截图失败：相册占位格停止闪烁。 */
+  shotLoadFailed: boolean
   /** 整个看板的竞品：地区标签的浮层要拿同区所有账号画标尺。 */
   regionPeers: CompetitorWithHistory[]
   nested?: boolean
@@ -349,6 +353,8 @@ export default function CompetitorCard({
           onChanged={onChanged}
           dateWindow={dateWindow}
           selectedDate={selectedDate}
+          loadedFrom={shotsLoadedFrom}
+          loadFailed={shotLoadFailed}
         />
       </div>
 
@@ -378,6 +384,8 @@ export default function CompetitorCard({
                   onUpdateRegion={onUpdateRegion}
                   dateWindow={dateWindow}
                   selectedDate={selectedDate}
+                  shotsLoadedFrom={shotsLoadedFrom}
+                  shotLoadFailed={shotLoadFailed}
                   regionPeers={regionPeers}
                   today={today}
                   nested
