@@ -49,6 +49,7 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
   async function doRefresh(s) {
     const r = await authRequest('refresh_token', { refresh_token: s.refreshToken })
     if (r.session) {
+      lastRotation = { from: s.refreshToken, to: r.session }
       await storage.set(SESSION_KEY, r.session)
       return { session: r.session }
     }
@@ -62,11 +63,16 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
   // Supabase 会轮换 refresh token，两次并发续期拿同一个旧 token，后到的会被判复用而拒绝、
   // 把刚存好的新会话清掉——所以同一时刻只发一次续期，其余调用共用结果。
   let refreshing = null
+  // 最近一次成功的轮换（旧 refresh token → 新会话），只放内存
+  let lastRotation = null
 
   // 取可用会话，必要时续期。force=true 跳过「是否快过期」的判断，直接续期；
   // 强制续期撞上正在进行的续期时同样共用那一次。没有存过会话 → { session: null }。
   async function ensureSession(force = false) {
-    const s = await storage.get(SESSION_KEY)
+    let s = await storage.get(SESSION_KEY)
+    // 读存储与续期完成之间的窗口：读到的是刚被轮换掉的旧会话时，直接用内存里的新会话，
+    // 不再拿旧 refresh token 去续期
+    if (lastRotation && s && s.refreshToken === lastRotation.from) s = lastRotation.to
     if (!s) return { session: null }
     if (!force && !needsRefresh(s, now())) return { session: s }
     if (!refreshing) refreshing = doRefresh(s).finally(() => { refreshing = null })
@@ -95,10 +101,10 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     } catch {
       return networkError()
     }
-    // 网关返回的 413/504 是 HTML，合法 JSON 也可能是 null / 数组：保留状态码，body 恒为对象，
+    // 网关返回的 413/504 是 HTML，合法 JSON 也可能是 null / 数组：保留状态码，body 恒为普通对象，
     // 交给弹窗按「上传失败」处理
     const json = await res.json().catch(() => null)
-    const bodyObj = json && typeof json === 'object' ? json : { data: null, error: 'bad_response' }
+    const bodyObj = json && typeof json === 'object' && !Array.isArray(json) ? json : { data: null, error: 'bad_response' }
     return { status: res.status, body: bodyObj }
   }
 
