@@ -67,3 +67,39 @@ test('问答服务改走 getAskBoard（全量历史），不再用相册窗口�
   assert.match(ASK_SERVICE, /import \{ getAskBoard \} from '\.\/service\.ts'/)
   assert.doesNotMatch(ASK_SERVICE, /getCompetitorBoard/)
 })
+
+const BOARD_ROUTE = readFileSync(new URL('../../app/api/competitors/route.ts', import.meta.url), 'utf8')
+const SHOTS_ROUTE = readFileSync(new URL('../../app/api/competitors/shots/route.ts', import.meta.url), 'utf8')
+
+test('getCompetitorBoard：先瘦查询建全量索引，截图本体按已加载范围过滤', () => {
+  const body = bodyOf(SERVICE, 'getCompetitorBoard')
+  assert.match(body, /db\.from\('competitor_shots'\)\.select\('competitor_id, shot_on, stream_started_at'\)/)
+  assert.match(body, /buildShotIndex\(/)
+  assert.match(body, /resolveLoadedFrom\(index\.shotAxis, since\)/)
+  assert.match(body, /db\.from\('competitor_shots'\)\.select\('\*'\)\s*\.or\(loadedRangeOrFilter\(loadedFrom\)\)/)
+  // 全量索引与已加载起点必须一起交给 assembleBoard，否则前端拿不到完整日期轴
+  assert.match(body, /shotsLoadedFrom: loadedFrom/)
+})
+
+test('getCompetitorBoard：since 进查询前自己再校验一道', () => {
+  const body = bodyOf(SERVICE, 'getCompetitorBoard')
+  assert.match(body, /isValidShotDate\(since\)/)
+})
+
+test('getShotsInRange：按 [from, before) 取整段，入参再校验一道', () => {
+  const body = bodyOf(SERVICE, 'getShotsInRange')
+  assert.match(body, /parseShotRangeQuery\(rangeFrom, rangeBefore\)/)
+  assert.match(body, /\.gte\('shot_on', q\.from\)\.lt\('shot_on', q\.before\)/)
+})
+
+test('GET /api/competitors：鉴权后解析 since 再取看板', () => {
+  assert.match(BOARD_ROUTE, /parseSinceQuery\(req\.nextUrl\.searchParams\.get\('since'\)\)/)
+  assert.match(BOARD_ROUTE, /getCompetitorBoard\(user\.id, \{ since: q\.since \}\)/)
+  assert.ok(BOARD_ROUTE.indexOf('authGuard()') < BOARD_ROUTE.indexOf('parseSinceQuery('), 'GET 必须先鉴权')
+})
+
+test('GET /api/competitors/shots：鉴权后解析区间再取', () => {
+  assert.match(SHOTS_ROUTE, /parseShotRangeQuery\(params\.get\('from'\), params\.get\('before'\)\)/)
+  assert.match(SHOTS_ROUTE, /getShotsInRange\(q\.from, q\.before\)/)
+  assert.ok(SHOTS_ROUTE.indexOf('authGuard()') >= 0 && SHOTS_ROUTE.indexOf('authGuard()') < SHOTS_ROUTE.indexOf('parseShotRangeQuery('), '必须先鉴权')
+})
