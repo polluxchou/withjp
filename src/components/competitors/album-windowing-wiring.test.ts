@@ -120,3 +120,27 @@ test('封面：相册格子取 coverOf，灯箱从封面那张打开', () => {
   assert.match(ALBUM, /initialId=\{coverOf\(grouped\.get\(openDate\) \?\? \[\]\)\?\.id\}/)
   assert.match(LIGHTBOX, /useState<string \| null>\(initialId \?\? null\)/)
 })
+
+test('封面：FilledCell 的图、人数角标都读 cover，不再碰 shots[0]', () => {
+  const start = ALBUM.indexOf('function FilledCell')
+  assert.ok(start >= 0, '找不到 FilledCell')
+  const rest = ALBUM.slice(start + 'function FilledCell'.length)
+  const end = rest.search(/\nfunction |\nexport default/)
+  const body = end >= 0 ? rest.slice(0, end) : rest
+  assert.doesNotMatch(body, /shots\[0\]/)
+  assert.ok(body.includes('src={cover.image_url}'), '封面图必须读 cover.image_url')
+  assert.ok(body.includes('{cover.viewer_count != null && ('), '人数角标必须读 cover.viewer_count')
+})
+
+test('灯箱：选中项被删后回落到最新一张，翻页的起点也一致', () => {
+  assert.match(LIGHTBOX, /\?\? coverOf\(shots\)/)
+  assert.match(LIGHTBOX, /at >= 0 \? at : shots\.length - 1/)
+  assert.doesNotMatch(LIGHTBOX, /\?\? shots\[0\]/)
+})
+
+test('灯箱：胶片条把选中缩略图滚进可视区，用容器自己的 scrollLeft，不用 scrollIntoView', () => {
+  assert.match(LIGHTBOX, /revealScrollDelta\(/)
+  assert.match(LIGHTBOX, /\.scrollLeft \+=/)
+  // scrollIntoView 会连祖先和页面一起滚，而灯箱开着时视口滚动是被锁住的
+  assert.doesNotMatch(LIGHTBOX, /scrollIntoView/)
+})
