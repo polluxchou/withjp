@@ -140,3 +140,16 @@ test('boardRefreshPath / shotRangePath', () => {
   assert.equal(boardRefreshPath('2026-08-16'), '/api/competitors?since=2026-08-16')
   assert.equal(shotRangePath({ from: '2026-08-01', before: '2026-08-16' }), '/api/competitors/shots?from=2026-08-01&before=2026-08-16')
 })
+
+test('parseShotRangeQuery: before 本身非法时拒绝（字符串上仍晚于 from，靠校验而不是顺序挡住）', () => {
+  assert.deepEqual(parseShotRangeQuery('2026-08-01', '2026-09-31'), { ok: false })
+  assert.deepEqual(parseShotRangeQuery('2026-08-01', '2026-08-17,id.gt.0'), { ok: false })
+})
+
+test('initialLoadedFrom: 按有图日切段而不是按日历天（轴上有空档）', () => {
+  const gapped = [
+    '2026-07-01', '2026-07-02', '2026-07-10', '2026-07-11', '2026-07-20', '2026-07-21',
+    '2026-08-01', '2026-08-02', '2026-08-10', '2026-08-11', '2026-08-20', '2026-08-21',
+  ]
+  assert.equal(initialLoadedFrom(gapped), '2026-07-10')
+})
