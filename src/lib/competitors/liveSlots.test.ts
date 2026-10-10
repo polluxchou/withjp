@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { SLOT_MIN_SESSIONS, minutesToLabel, recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
+import { SLOT_MIN_SESSIONS, clusterMinutes, minutesToLabel, recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
 
 const JST = 'Asia/Tokyo'
 const PT = 'America/Los_Angeles'
@@ -111,4 +111,36 @@ test('recentSessionStarts: 去重 + 按时刻降序 + 截断', () => {
   assert.deepEqual(recentSessionStarts([a, b, b, c], 8), [c, b, a], '最近的在前,同一场只算一次')
   assert.deepEqual(recentSessionStarts([a, b, c], 2), [c, b], '按 limit 截断')
   assert.deepEqual(recentSessionStarts([null, undefined, '', 'not-a-date'], 8), [])
+})
+
+test('密集数据不坍缩：零散场次不能把午场和晚场桥接成一档', () => {
+  const lunch = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((m, i) => jst(1 + i, 12, m))
+  const evening = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m, i) => jst(1 + i, 19, m))
+  // 每隔 50 分钟一场的零散场次：旧算法（<180 分钟连成一档）会把它们和两头全部串起来
+  const bridges = [[13, 0], [13, 50], [14, 40], [15, 30], [16, 20], [17, 10], [18, 0]]
+    .map(([h, m], i) => jst(1 + i, h, m))
+  const h = summarizeLiveHabit([...lunch, ...evening, ...bridges], JST)
+  assert.equal(h.sessions, 27)
+  assert.deepEqual(h.slots.map((s) => s.label), ['12:05', '19:07'])
+  assert.deepEqual(h.slots.map((s) => s.count), [10, 10])
+})
+
+test('占比门槛：总场次多时，凑够 3 场的小档也不算主档', () => {
+  const main = Array.from({ length: 20 }, (_, i) => jst(1 + (i % 28), 13, 30 + (i % 5)))
+  const minor = [jst(1, 22, 0), jst(2, 22, 5), jst(3, 22, 10)]
+  const h = summarizeLiveHabit([...main, ...minor], JST)
+  // 23 场 × 15% = 3.45 → 门槛 4；22 点那 3 场不够
+  assert.deepEqual(h.slots.map((s) => s.label), ['13:32'])
+  // 地区标尺传 minSessions=1，占比门槛照样生效
+  assert.deepEqual(summarizeLiveHabit([...main, ...minor], JST, 1).slots.map((s) => s.label), ['13:32'])
+})
+
+test('场次少时占比门槛不起作用：标尺的 minSessions=1 仍能摆出单场', () => {
+  const h = summarizeLiveHabit([jst(1, 13, 30), jst(2, 20, 0)], JST, 1)
+  assert.deepEqual(h.slots.map((s) => s.label), ['13:30', '20:00'])
+})
+
+test('clusterMinutes: 45 分钟以内连成一档，跨午夜首尾合并', () => {
+  assert.deepEqual(clusterMinutes([720, 740, 800, 1140]), [[720, 740], [800], [1140]])
+  assert.deepEqual(clusterMinutes([5, 700, 1430]), [[-10, 5], [700]])
 })

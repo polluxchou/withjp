@@ -10,11 +10,18 @@
 // 「一天里的第几分钟」这个概念本身依赖时区，没有时区无法聚类。
 // 纯函数、不读时钟，可单测。
 
-/** 相邻场次差到这个分钟数就算另一档。3h 足够分开日区的午后档与晚间档。 */
-export const SLOT_GAP_MINUTES = 180
+/**
+ * 相邻开播差 ≥ 45 分钟就算另一档。原来是 180：数据一密，13/15/17/18 点的零散场次
+ * 会把午场和晚场桥接成一整档（实测 80 场的号坍缩成一档 12:25）。45 分钟仍能容纳
+ * 同一档常见的十几分钟浮动。
+ */
+export const SLOT_GAP_MINUTES = 45
 
 /** 一档至少要有这么多场才敢叫「常见」。低于此只报最近一场，不把单次说成规律。 */
 export const SLOT_MIN_SESSIONS = 3
+
+/** 一档至少占总场次的这个比例才算主档。数据密时，凑够 3 场的零散时刻不该被说成规律。 */
+export const SLOT_MIN_SHARE = 0.15
 
 const DAY_MINUTES = 1440
 
@@ -80,6 +87,26 @@ export function recentSessionStarts(
   return distinct.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).slice(0, limit)
 }
 
+/**
+ * 已按分钟升序的一天内分钟数 → 档（单链聚类，相邻差 < SLOT_GAP_MINUTES 连成一档）。
+ * 跨午夜：首尾两组绕过 24 点仍在间隔内就合并，末组减去一天放到前面（结果里会出现负数）。
+ */
+export function clusterMinutes(minutes: number[]): number[][] {
+  if (minutes.length === 0) return []
+  const groups: number[][] = [[minutes[0]]]
+  for (let i = 1; i < minutes.length; i += 1) {
+    if (minutes[i] - minutes[i - 1] < SLOT_GAP_MINUTES) groups[groups.length - 1].push(minutes[i])
+    else groups.push([minutes[i]])
+  }
+  // 跨午夜：23:50 与 00:10 在数轴两端，按差值算是 23 小时"远"，其实是同一档。
+  // 首尾两组绕过 24 点仍在间隔内就合并，末组减去一天再参与中位数计算。
+  if (groups.length > 1 && minutes[0] + DAY_MINUTES - minutes[minutes.length - 1] < SLOT_GAP_MINUTES) {
+    const last = groups.pop()!
+    groups[0] = [...last.map((m) => m - DAY_MINUTES), ...groups[0]].sort((a, b) => a - b)
+  }
+  return groups
+}
+
 export function summarizeLiveHabit(
   startedAts: (string | null | undefined)[],
   timeZone: string,
@@ -87,6 +114,7 @@ export function summarizeLiveHabit(
    * 一档至少几场才收进 slots。默认 SLOT_MIN_SESSIONS（卡片上「常见开播时段」
    * 的门槛：不把单次开播说成规律）。地区标尺传 1 —— 它要把只播过一次的账号
    * 也摆上轴、另用浅色标成推测，否则图上几乎是空的、看不出分布。
+   * 实际门槛还要与总场次 × SLOT_MIN_SHARE 取大。
    */
   minSessions: number = SLOT_MIN_SESSIONS,
 ): LiveHabit {
@@ -102,23 +130,12 @@ export function summarizeLiveHabit(
   const latestStartedAt = withMinutes.reduce((a, b) => (b.iso > a.iso ? b : a)).iso
 
   const minutes = withMinutes.map((x) => x.minutes).sort((a, b) => a - b)
-  const groups: number[][] = [[minutes[0]]]
-  for (let i = 1; i < minutes.length; i += 1) {
-    if (minutes[i] - minutes[i - 1] < SLOT_GAP_MINUTES) groups[groups.length - 1].push(minutes[i])
-    else groups.push([minutes[i]])
-  }
-  // 跨午夜：23:50 与 00:10 在数轴两端，按差值算是 23 小时"远"，其实是同一档。
-  // 首尾两组绕过 24 点仍在间隔内就合并，末组减去一天再参与中位数计算。
-  if (
-    groups.length > 1 &&
-    minutes[0] + DAY_MINUTES - minutes[minutes.length - 1] < SLOT_GAP_MINUTES
-  ) {
-    const last = groups.pop()!
-    groups[0] = [...last.map((m) => m - DAY_MINUTES), ...groups[0]].sort((a, b) => a - b)
-  }
+  const groups = clusterMinutes(minutes)
 
+  // 占比门槛：场次多时，凑够 minSessions 的零散小档不算主档（占不到总场次的 15%）。
+  const floor = Math.max(minSessions, Math.ceil(withMinutes.length * SLOT_MIN_SHARE))
   const slots = groups
-    .filter((g) => g.length >= minSessions)
+    .filter((g) => g.length >= floor)
     .map((g) => ({ startMinutes: median(g), label: minutesToLabel(median(g)), count: g.length }))
     // 跨午夜合并出的负数中位数要归一到 0-1439 之后再排序，否则它会排到最前面。
     .sort((a, b) => (((a.startMinutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES)
