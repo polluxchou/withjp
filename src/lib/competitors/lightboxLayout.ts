@@ -72,3 +72,21 @@ export function lightboxNeighbors(
     right: fits && index < total - 1,
   }
 }
+
+/**
+ * 胶片条里选中的缩略图要滚多少才进可视区。入参是两者 getBoundingClientRect() 的 left/right
+ * （同一个视口坐标系），返回值直接加到容器的 scrollLeft 上：0 表示已完全可见，
+ * 负数往左滚、正数往右滚，量刚好是露出的那一截。
+ *
+ * 默认选中改成当天最新一张之后，一天的张数多到排不下时高亮的缩略图一开始就在可视区右侧之外；
+ * 方向键翻页同样会把选中项带出可视区。比容器还宽的项放不下，退而对齐左边缘。
+ */
+export function revealScrollDelta(
+  container: { left: number; right: number },
+  item: { left: number; right: number },
+): number {
+  if (item.right - item.left > container.right - container.left) return item.left - container.left
+  if (item.left < container.left) return item.left - container.left
+  if (item.right > container.right) return item.right - container.right
+  return 0
+}

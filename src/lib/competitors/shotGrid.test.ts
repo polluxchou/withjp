@@ -176,6 +176,25 @@ test('groupShotsByDate: 没有截图时刻时按入库时刻升序', () => {
   assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['early', 'late'])
 })
 
+test('groupShotsByDate: 人工上传（无 captured_at）按入库时刻排，不被 id 字母序带偏', () => {
+  // id 字母序与时间正序相反：只看 captured_at 的实现会把两张都当"读不出"，退到 id 兜底排成 a, z
+  const g = groupShotsByDate([
+    shotAt('a', '2026-08-01', 0, '2026-08-01T11:00:00Z'),
+    shotAt('z', '2026-08-01', 0, '2026-08-01T09:00:00Z'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['z', 'a'])
+})
+
+test('groupShotsByDate: sort_order 优先于时刻与 id', () => {
+  // sort_order、时刻、id 三者全部相反：删掉 sort_order 这一项就会排成 a, b
+  const g = groupShotsByDate([
+    shotAt('a', '2026-08-01', 2, '2026-08-01T09:00:00Z'),
+    shotAt('b', '2026-08-01', 1, '2026-08-01T11:00:00Z'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['b', 'a'])
+  assert.equal(coverOf(g.get('2026-08-01')!)!.id, 'a')
+})
+
 test('groupShotsByDate: 截图时刻（captured_at）优先于入库时刻', () => {
   // 自动截图批量补传：入库晚，但截图时刻早
   const g = groupShotsByDate([
