@@ -2202,7 +2202,7 @@ Expected: 全部 PASS，`fail 0`。
 
 1. 在 worktree 根目录跑 `npm run build`。不要只看退出码，要确认产物里有 `.next/BUILD_ID`，路由表里有 `/api/competitors/shots`。
 2. 后台起服务：`npx next start -p 3002`。
-3. 用内置浏览器打开 `http://localhost:3002/zh/competitors`，**请 pollux 在浏览器面板里自己登录**，我们不代填账号密码。
+3. 用内置浏览器打开 `http://localhost:3002/zh/competitors`，**请用户在浏览器面板里自己登录**，我们不代填账号密码。
 4. 逐项检查。交互是否生效一律用 JS 读 DOM 或网络记录来断言，截图只用来留档：
    - 首屏：网络记录里没有 `/api/competitors/shots`，相册 5 列都有内容，没有 `role="status"` 的占位格；
    - 点一次「更早」：这一屏立刻有图，同时发出且只发出一次 `/api/competitors/shots?from=…&before=…`；
@@ -2219,4 +2219,4 @@ Expected: 全部 PASS，`fail 0`。
 
 - 按 subagent-driven-development 的流程派一次全分支终审，要求跨任务整体走查，并对关键判据交出突变探针的击杀表。
 - 推送功能分支，开 PR。PR 描述里写：本次改了什么、对拍结果、体积对比、实机验证清单。不写本机路径和人名。结尾附上 `🤖 Generated with [Claude Code](https://claude.com/claude-code)`。
-- **合并前先问 pollux。** 合并后以 Vercel 生产部署状态和线上实测为准，确认首屏、翻页、标签、封面都正常，不凭 CI 绿灯推断已经上线。
+- **合并前先问用户。** 合并后以 Vercel 生产部署状态和线上实测为准，确认首屏、翻页、标签、封面都正常，不凭 CI 绿灯推断已经上线。

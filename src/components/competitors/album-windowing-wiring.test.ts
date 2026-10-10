@@ -47,8 +47,13 @@ test('补取失败：报错行有文案与重试按钮，由失败态包裹', ()
   assert.match(VIEW, /tCommon\('retry'\)/)
 })
 
-test('刷新用的起点 ref 每次都同步到最新已加载起点（否则刷新会按过期起点缩回去）', () => {
-  assert.match(VIEW, /useEffect\(\(\) => \{ loadedFromRef\.current = board\.shotsLoadedFrom \}, \[board\.shotsLoadedFrom\]\)/)
+test('刷新用的 since ref 每次都同步到最新（起点 + 轴）：否则刷新会按过期起点缩回去；起点 null 也要带上轴首', () => {
+  assert.match(
+    VIEW,
+    /useEffect\(\(\) => \{ refreshSinceRef\.current = refreshSince\(board\.shotsLoadedFrom, board\.shotAxis\) \}, \[board\.shotsLoadedFrom, board\.shotAxis\]\)/,
+  )
+  assert.match(VIEW, /useRef\(refreshSince\(board\.shotsLoadedFrom, board\.shotAxis\)\)/)
+  assert.doesNotMatch(VIEW, /loadedFromRef/)
 })
 
 test('卡片调用处把已加载起点与失败态相邻透传', () => {
@@ -56,7 +61,8 @@ test('卡片调用处把已加载起点与失败态相邻透传', () => {
 })
 
 test('刷新带上已加载起点，翻到历史后刷新不回缩', () => {
-  assert.match(VIEW, /fetch\(boardRefreshPath\(loadedFromRef\.current\)/)
+  assert.match(VIEW, /fetch\(boardRefreshPath\(refreshSinceRef\.current\)/)
+  assert.doesNotMatch(VIEW, /boardRefreshPath\(board\./, '不能在 refresh 里直接读 state（useCallback 闭包会过期）')
   assert.doesNotMatch(VIEW, /fetch\('\/api\/competitors', \{ cache/)
 })
 

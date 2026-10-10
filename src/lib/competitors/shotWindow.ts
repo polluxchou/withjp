@@ -105,6 +105,17 @@ export function parseShotRangeQuery(
   return { ok: true, from, before }
 }
 
+/**
+ * 刷新请求该带的 since。已加载起点非 null 时原样给；null 表示「全部已加载」，
+ * 但不能不带参数——服务端缺省会回最近一段，翻到轴首后刷新就缩回去了。
+ * 所以 null 时带上轴上第一个有图日，服务端 resolveLoadedFrom 会把它归一回 null（全部）。
+ * 轴上没有有图日（空轴、只有无日期截图）时没东西可带，返回 null（不带参数）。
+ */
+export function refreshSince(loadedFrom: string | null, axis: string[]): string | null {
+  if (loadedFrom !== null) return loadedFrom
+  return datedOf(axis)[0] ?? null
+}
+
 /** 改完数据后刷新看板的请求路径：带上已加载起点，翻到历史后刷新不会被缩回首屏范围。 */
 export function boardRefreshPath(loadedFrom: string | null): string {
   return loadedFrom === null ? '/api/competitors' : `/api/competitors?since=${loadedFrom}`
