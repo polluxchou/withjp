@@ -9,6 +9,7 @@ import { isShotDateLoaded } from '@/lib/competitors/shotWindow'
 import { imageFromClipboard, uploadShot } from '@/lib/competitors/uploadShot'
 import ShotUploader from './ShotUploader'
 import ShotLightbox from './ShotLightbox'
+import { useShotTagLabel } from './useShotTagLabel'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
 // 格子是 overflow-hidden 的全出血容器，FOCUS_RING 的 offset 变体会被裁掉一圈，
@@ -118,15 +119,17 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
   onOpen: () => void
 }) {
   const t = useTranslations('competitors')
+  const tagLabel = useShotTagLabel()
   const cover = shots[0]
   const extra = shots.length - 1
+  const coverTag = tagLabel(cover.tag)
 
   return (
     <div className={`relative ${BOX} ${ring} overflow-hidden rounded-field bg-line-soft`}>
       <button type="button" onClick={onOpen} className={`block h-full w-full ${CELL_FOCUS_RING}`}>
         {/* caption 默认空串、tag 常为 null,兜底到日期,否则读屏只念"按钮" */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cover.image_url} alt={cover.caption || cover.tag || (dateKey === UNDATED_KEY ? t('undated') : dateKey)} className="h-full w-full object-cover" loading="lazy" />
+        <img src={cover.image_url} alt={cover.caption || coverTag || (dateKey === UNDATED_KEY ? t('undated') : dateKey)} className="h-full w-full object-cover" loading="lazy" />
       </button>
       {extra > 0 && (
         <span className="pointer-events-none absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
@@ -139,9 +142,9 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
           {t('shotViewers', { count: cover.viewer_count })}
         </span>
       )}
-      {cover.tag && (
+      {coverTag && (
         <span className="pointer-events-none absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-[9px] text-white">
-          {cover.tag}
+          {coverTag}
         </span>
       )}
     </div>

@@ -1578,6 +1578,7 @@
     "noShots": "スクショはまだありません",
     "shotsLoadFailed": "スクリーンショットを読み込めませんでした",
     "undated": "日付なし",
+    "shotTag": { "live_auto": "自動巡回", "live_manual": "拡張機能" },
     "bio": "プロフィール文",
     "fieldMembers": "人数",
     "fieldComposition": "構成",

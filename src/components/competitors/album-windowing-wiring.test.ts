@@ -86,3 +86,12 @@ test('占位格：失败时停止闪烁，且对读屏标明是否仍在加载',
 test('shotGrid.ts 里不再残留 collectShotDates（日期轴只来自服务端）', () => {
   assert.doesNotMatch(read('../../lib/competitors/shotGrid.ts'), /collectShotDates/)
 })
+
+const LIGHTBOX = read('./ShotLightbox.tsx')
+
+test('标签：相册与灯箱不直接渲染 tag 原文，一律经 useShotTagLabel', () => {
+  assert.match(ALBUM, /useShotTagLabel\(\)/)
+  assert.match(LIGHTBOX, /useShotTagLabel\(\)/)
+  assert.doesNotMatch(ALBUM, /\{cover\.tag\}|cover\.caption \|\| cover\.tag/)
+  assert.doesNotMatch(LIGHTBOX, /selected\.caption \|\| selected\.tag/)
+})
