@@ -92,43 +92,48 @@ test('assembleBoard: parent_id 悬空则回退为顶层', () => {
   assert.deepEqual(board.competitors.map((c) => c.id), ['o'])
 })
 
-test('assembleBoard: 不给 meta 时日期轴与开播时刻从 shots 算，视为全部已加载', () => {
-  const s1 = { ...shot('a', '2026-07-20'), stream_started_at: '2026-07-20T05:00:00+00:00' }
+test('assembleBoard: 不给 meta 时日期轴与截图场次从 shots 算，视为全部已加载', () => {
+  const s1 = { ...shot('a', '2026-07-20'), stream_started_at: '2026-07-20T05:00:00+00:00', captured_at: '2026-07-20T06:00:00+00:00' }
   const s2 = { ...shot('b', '2026-07-25'), stream_started_at: '2026-07-25T05:00:00+00:00' }
   const board = assembleBoard([comp()], [], [s1, s2], true)
   assert.deepEqual(board.shotAxis, ['2026-07-20', '2026-07-25'])
   assert.equal(board.shotsLoadedFrom, null)
-  assert.deepEqual(board.competitors[0].sessionStarts, ['2026-07-20T05:00:00+00:00', '2026-07-25T05:00:00+00:00'])
+  assert.deepEqual(board.competitors[0].sessionShots, [
+    { stream_started_at: '2026-07-20T05:00:00+00:00', captured_at: '2026-07-20T06:00:00.000Z' },
+    { stream_started_at: '2026-07-25T05:00:00+00:00', captured_at: '2026-07-25T05:00:00.000Z' },
+  ])
 })
 
-test('assembleBoard: 给了 meta 就原样挂上，开播时刻不受已加载截图影响', () => {
+test('assembleBoard: 给了 meta 就原样挂上，截图场次不受已加载截图影响', () => {
   const parent = comp({ id: 'p', handle: 'parent' })
   const child = comp({ id: 'k', handle: 'kid', parent_id: 'p' })
+  const pShot = { stream_started_at: '2026-07-01T05:00:00+00:00', captured_at: '2026-07-01T06:00:00.000Z' }
+  const kShot = { stream_started_at: '2026-07-02T05:00:00+00:00', captured_at: '2026-07-02T05:00:00.000Z' }
   const board = assembleBoard([parent, child], [], [], true, [], [], {
     shotAxis: ['2026-07-01', '2026-07-20'],
-    sessionStartsBy: new Map([['p', ['2026-07-01T05:00:00+00:00']], ['k', ['2026-07-02T05:00:00+00:00']]]),
+    sessionShotsBy: new Map([['p', [pShot]], ['k', [kShot]]]),
     shotsLoadedFrom: '2026-07-20',
   })
   assert.deepEqual(board.shotAxis, ['2026-07-01', '2026-07-20'])
   assert.equal(board.shotsLoadedFrom, '2026-07-20')
-  // 已加载截图为空，开播时刻照样来自全量索引——卡片的开播时段不该跟着相册翻页变
-  assert.deepEqual(board.competitors[0].sessionStarts, ['2026-07-01T05:00:00+00:00'])
-  assert.deepEqual(board.competitors[0].related[0].sessionStarts, ['2026-07-02T05:00:00+00:00'])
+  // 已加载截图为空，场次照样来自全量索引——卡片的开播统计不该跟着相册翻页变
+  assert.deepEqual(board.competitors[0].sessionShots, [pShot])
+  assert.deepEqual(board.competitors[0].related[0].sessionShots, [kShot])
 })
 
-test('assembleBoard: 没有开播记录的账号 sessionStarts 为空数组', () => {
+test('assembleBoard: 没有截图场次的账号 sessionShots 为空数组', () => {
   const board = assembleBoard([comp()], [], [], true)
-  assert.deepEqual(board.competitors[0].sessionStarts, [])
+  assert.deepEqual(board.competitors[0].sessionShots, [])
 })
 
 test('assembleBoard: meta 的日期轴为空数组时也以 meta 为准，不回退到 shots 推算', () => {
   const board = assembleBoard([comp()], [], [shot('a', '2026-07-20')], true, [], [], {
     shotAxis: [],
-    sessionStartsBy: new Map(),
+    sessionShotsBy: new Map(),
     shotsLoadedFrom: null,
   })
   assert.deepEqual(board.shotAxis, [])
-  assert.deepEqual(board.competitors[0].sessionStarts, [])
+  assert.deepEqual(board.competitors[0].sessionShots, [])
 })
 
 const live = (id: string, competitor_id: string, started_at: string): CompetitorLiveSession => ({

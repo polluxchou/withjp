@@ -55,12 +55,29 @@ test('getAskBoard：竞品按 created_at 升序再 id 升序（问答数据包�
   )
 })
 
-test('getAskBoard：快照取全列；错误按三表顺序传播；截图原样交给 assembleBoard', () => {
+test('getAskBoard：快照取全列；错误按四表顺序传播；截图原样交给 assembleBoard', () => {
   // createServerClient 在函数内构造、无法注入，没法跑真实调用，只能钉源码形态。
   const body = bodyOf(SERVICE, 'getAskBoard')
   assert.match(body, /db\.from\('competitor_snapshots'\)\.select\('\*'\)/)
-  assert.ok(body.includes('compRes.error ?? snapRes.error ?? shotRes.error'), '三表任一出错都应返回 db_error')
+  assert.ok(
+    body.includes('compRes.error ?? snapRes.error ?? shotRes.error ?? liveRes.error'),
+    '竞品、快照、截图、开播记录任一出错都应返回 db_error',
+  )
   assert.ok(body.includes('(shotRes.data ?? []) as AskShot[]'), '截图应原样交给 assembleBoard')
+})
+
+test('getAskBoard：开播记录全量拉取，作为 assembleBoard 的第 6 个实参（问答与卡片同一口径合并场次）', () => {
+  const body = bodyOf(SERVICE, 'getAskBoard')
+  assert.match(
+    body,
+    /db\.from\('competitor_live_sessions'\)\.select\('\*'\)\s*\.order\('id', \{ ascending: true \}\)\.range\(from, to\)\)/,
+  )
+  assert.match(
+    body,
+    /assembleBoard\(\s*\(compRes\.data \?\? \[\]\) as Competitor\[\],\s*\(snapRes\.data \?\? \[\]\) as CompetitorSnapshot\[\],\s*\(shotRes\.data \?\? \[\]\) as AskShot\[\],\s*true,\s*\[\],\s*\(liveRes\.data \?\? \[\]\) as CompetitorLiveSession\[\],?\s*\)/,
+  )
+  // 截图仍是全量：问答不按相册窗口过滤
+  assert.doesNotMatch(body, /loadedRangeOrFilter|\.or\(|\.gte\('shot_on'/)
 })
 
 test('问答服务改走 getAskBoard（全量历史），不再用相册窗口化的 getCompetitorBoard', () => {
@@ -73,7 +90,8 @@ const SHOTS_ROUTE = readFileSync(new URL('../../app/api/competitors/shots/route.
 
 test('getCompetitorBoard：先瘦查询建全量索引，截图本体按已加载范围过滤', () => {
   const body = bodyOf(SERVICE, 'getCompetitorBoard')
-  assert.match(body, /db\.from\('competitor_shots'\)\.select\('competitor_id, shot_on, stream_started_at'\)/)
+  // captured_at 也要：场次的下播取该场最晚的截图时刻（见 shotWindow.ts 的 buildShotIndex）
+  assert.match(body, /db\.from\('competitor_shots'\)\.select\('competitor_id, shot_on, stream_started_at, captured_at'\)/)
   assert.match(body, /buildShotIndex\(/)
   assert.match(body, /resolveLoadedFrom\(index\.shotAxis, since\)/)
   assert.match(body, /db\.from\('competitor_shots'\)\.select\('\*'\)\s*\.or\(loadedRangeOrFilter\(loadedFrom\)\)/)

@@ -58,7 +58,12 @@ export default function LiveSessionsModal({
   const zoneCode = normalizeRegion(competitor.region)
   const zoneLabel = zoneCode ? t(`zoneName.${zoneCode}`) : null
 
-  const spans = useMemo(() => liveSpansOf(competitor), [competitor])
+  // 截图一侧读 sessionShots（全部历史、每场一行）而不是 shots：后者只是相册已加载的那一段，
+  // 弹窗的场次、日历、指标不能跟着相册翻页变。
+  const spans = useMemo(
+    () => liveSpansOf({ live_sessions: competitor.live_sessions, shots: competitor.sessionShots }),
+    [competitor.live_sessions, competitor.sessionShots],
+  )
 
   // 切换视图会卸载刚点的那颗按钮，焦点掉回 <body>，跑出弹窗的 Tab 圈定范围。
   // 切换后把焦点放进新视图：导入视图给输入框，记录视图给第一颗按钮（统计范围）。

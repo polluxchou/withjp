@@ -3,40 +3,64 @@
 // 零 IO、零时钟，可单测。设计见
 // docs/superpowers/specs/2026-10-10-competitor-shot-album-windowing-design.md
 import { SHOT_WINDOW_SIZE, UNDATED_KEY, compareShotsForBoard, isValidShotDate } from './shotGrid.ts'
-import type { BoardShot, CompetitorBoard, CompetitorShot, CompetitorWithHistory } from './types.ts'
+import type { BoardShot, CompetitorBoard, CompetitorShot, CompetitorWithHistory, SessionShot } from './types.ts'
 
-/** 全量瘦查询的一行：只要归属、日期、开播时刻三列。 */
-export type ShotIndexRow = Pick<CompetitorShot, 'competitor_id' | 'shot_on' | 'stream_started_at'>
+/** 全量瘦查询的一行：只要归属、日期、开播时刻、截图时刻四列。 */
+export type ShotIndexRow = Pick<CompetitorShot, 'competitor_id' | 'shot_on' | 'stream_started_at' | 'captured_at'>
 
 export interface ShotIndex {
   /** 完整日期轴：有图日期升序去重；存在无日期截图时末尾追加 UNDATED_KEY。 */
   shotAxis: string[]
-  /** 账号 id → 全部历史里去重后的开播时刻（升序）。从没采到开播时刻的账号不在里面。 */
-  sessionStartsBy: Map<string, string[]>
+  /**
+   * 账号 id → 截图推断的场次（每场一行，按开播时刻升序），即 CompetitorWithHistory.sessionShots。
+   * 从没采到开播时刻的账号不在里面。
+   */
+  sessionShotsBy: Map<string, SessionShot[]>
 }
 
+const parseMs = (iso: string | null | undefined): number | null => {
+  if (!iso) return null
+  const t = Date.parse(iso)
+  return Number.isNaN(t) ? null : t
+}
+
+/**
+ * 全量截图 → 日期轴 + 各账号的场次。
+ *
+ * 场次的聚合规则必须与 liveSessions.ts 里 liveSpansOf 对截图的分组完全一致——
+ * 把这里的输出喂给 liveSpansOf，结果要与直接喂全部截图逐字节相同（shotWindow.test.ts 对拍钉着）：
+ * 按开播时刻的毫秒值分组（读不出的跳过；同一毫秒的不同写法算一场），组内截图时刻读不出或为 null
+ * 时按开播时刻算，取最大（不早于开播）。每组输出该组第一条的原始开播串 + 最大截图时刻的 toISOString。
+ * 身份是 (账号, 开播时刻)：跨账号同一秒开播是两场。
+ */
 export function buildShotIndex(rows: ShotIndexRow[]): ShotIndex {
   const dated = new Set<string>()
   let hasUndated = false
-  const starts = new Map<string, Set<string>>()
+  // 账号 id → 开播毫秒 → { 原始开播串, 最大截图毫秒 }
+  const groups = new Map<string, Map<number, { raw: string; last: number }>>()
   for (const r of rows ?? []) {
     if (r.shot_on) dated.add(r.shot_on)
     else hasUndated = true
-    if (r.stream_started_at) {
-      // 同一场直播的多张截图报同一个开播时刻；身份是 (账号, 时刻)，跨账号不去重。
-      const set = starts.get(r.competitor_id) ?? new Set<string>()
-      set.add(r.stream_started_at)
-      starts.set(r.competitor_id, set)
-    }
+    const start = parseMs(r.stream_started_at)
+    if (start == null) continue
+    const cap = parseMs(r.captured_at) ?? start
+    const byStart = groups.get(r.competitor_id) ?? new Map<number, { raw: string; last: number }>()
+    const g = byStart.get(start)
+    if (g) g.last = Math.max(g.last, cap)
+    else byStart.set(start, { raw: r.stream_started_at as string, last: Math.max(start, cap) })
+    groups.set(r.competitor_id, byStart)
   }
   // Array.from 而非展开：避免 Set 展开在当前 tsconfig 下触发 TS2802
   const shotAxis = Array.from(dated).sort((a, b) => a.localeCompare(b))
   if (hasUndated) shotAxis.push(UNDATED_KEY)
-  const sessionStartsBy = new Map<string, string[]>()
-  starts.forEach((set, id) => {
-    sessionStartsBy.set(id, Array.from(set).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)))
+  const sessionShotsBy = new Map<string, SessionShot[]>()
+  groups.forEach((byStart, id) => {
+    const list = Array.from(byStart)
+      .sort((a, b) => a[0] - b[0])
+      .map(([, g]) => ({ stream_started_at: g.raw, captured_at: new Date(g.last).toISOString() }))
+    sessionShotsBy.set(id, list)
   })
-  return { shotAxis, sessionStartsBy }
+  return { shotAxis, sessionShotsBy }
 }
 
 /** 首屏与每次补取的段长：有图日的个数，正好两屏（SHOT_WINDOW_SIZE = 5）。 */

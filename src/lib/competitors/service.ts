@@ -106,7 +106,8 @@ async function assertValidParent(
  * 开播记录一个号三个月就有几十场，同样很快过千，所以也要分页拉全。
  *
  * 截图分两层取：
- * 1. 瘦查询（三列、全量）建索引：完整日期轴 + 各账号全部历史的开播时刻——统计口径与相册加载范围无关；
+ * 1. 瘦查询（四列、全量）建索引：完整日期轴 + 各账号全部历史的截图场次（开播时刻 + 该场最晚截图时刻）
+ *    ——统计口径与相册加载范围无关；
  * 2. 截图本体只取已加载范围：默认最近 SHOT_CHUNK_DAYS 个有图日（两屏），since 可把起点往前推
  *    （改完数据刷新时保住用户已翻到的范围）。更早的由前端按需走 getShotsInRange 补取。
  * 第 2 步要用第 1 步算出的日期轴，所以两次查询串行。
@@ -128,7 +129,7 @@ export async function getCompetitorBoard(
       .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
       .order('id', { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => db.from('competitor_shots').select('competitor_id, shot_on, stream_started_at')
+    fetchAllRows((from, to) => db.from('competitor_shots').select('competitor_id, shot_on, stream_started_at, captured_at')
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_descriptions').select('*')
       .order('id', { ascending: true }).range(from, to)),
@@ -183,25 +184,31 @@ export const ASK_SHOT_COLUMNS = 'competitor_id, shot_on, sort_order, stream_star
 /**
  * 竞品问答的数据源。截图取**全部历史**——问答的采集日历、累计场次、在线峰值都是全量口径，
  * 不能跟着相册的日期窗口走；但只查问答读得到的几列，图片地址、备注这些大字段问答用不上。
- * 风格描述、开播记录问答都不读，不查。不传 meta：shots 就是全部截图，日期轴与开播时刻由 assembleBoard 现算。
+ * 开播记录（LIVE History 导入）也要：问答的开播时段与截图推断的场次合并去重后才算（见 liveSessions.ts），
+ * 与卡片同一口径；同样很快过千，分页拉全。风格描述问答不读，不查。
+ * 不传 meta：shots 就是全部截图，日期轴与截图场次由 assembleBoard 现算。
  */
 export async function getAskBoard(_userId: string): Promise<ServiceResult<CompetitorBoard<AskShot>>> {
   const db = createServerClient()
-  const [compRes, snapRes, shotRes] = await Promise.all([
+  const [compRes, snapRes, shotRes, liveRes] = await Promise.all([
     fetchAllRows((from, to) => db.from('competitors').select('*')
       .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_shots').select(ASK_SHOT_COLUMNS)
       .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_live_sessions').select('*')
+      .order('id', { ascending: true }).range(from, to)),
   ])
-  const firstErr = compRes.error ?? snapRes.error ?? shotRes.error
+  const firstErr = compRes.error ?? snapRes.error ?? shotRes.error ?? liveRes.error
   if (firstErr) return err('db_error', firstErr.message)
   return ok(assembleBoard(
     (compRes.data ?? []) as Competitor[],
     (snapRes.data ?? []) as CompetitorSnapshot[],
     (shotRes.data ?? []) as AskShot[],
     true,
+    [],
+    (liveRes.data ?? []) as CompetitorLiveSession[],
   ))
 }
 

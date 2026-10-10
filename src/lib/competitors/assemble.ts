@@ -73,7 +73,7 @@ export function assembleBoard<S extends BoardShot = CompetitorShot>(
     const shotRows = (shotsBy.get(c.id) ?? []).slice().sort(compareShotsForBoard)
     return {
       ...c, latest, history, weekly, shots: shotRows, related: [],
-      sessionStarts: shotMeta.sessionStartsBy.get(c.id) ?? [],
+      sessionShots: shotMeta.sessionShotsBy.get(c.id) ?? [],
       descriptions: sortDescriptions(descsBy.get(c.id) ?? []),
       // 按时刻比而不是按字符串比：timestamptz 读回来的写法（+00:00 / 带不带毫秒）不保证定长。
       live_sessions: (liveBy.get(c.id) ?? []).slice()

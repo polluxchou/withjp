@@ -9,10 +9,33 @@ import test from 'node:test'
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8')
 const CARD = read('./CompetitorCard.tsx')
 
-test('卡片开播时段读全量 sessionStarts，不读已加载截图（否则数字会跟着相册翻页变）', () => {
-  assert.match(CARD, /summarizeLiveHabit\(c\.sessionStarts, timeZoneForLocale\(locale\)\)/)
-  assert.match(CARD, /recentSessionStarts\(c\.sessionStarts, RECENT_SESSIONS\)/)
-  assert.doesNotMatch(CARD, /c\.shots\.map\(\(s\) => s\.stream_started_at\)/)
+test('卡片场次读全量 sessionShots，不读已加载截图（否则常见开播、近 30 天会跟着相册翻页变）', () => {
+  assert.ok(
+    CARD.includes('liveSpansOf({ live_sessions: c.live_sessions, shots: c.sessionShots })'),
+    '卡片的场次必须由导入记录 + 全量截图场次合并',
+  )
+  assert.match(CARD, /\[c\.live_sessions, c\.sessionShots\]/)
+  assert.doesNotMatch(CARD, /liveSpansOf\(c\)/, '整个 c 喂进去会读 c.shots（只是已加载的那段）')
+  assert.doesNotMatch(CARD, /liveStartsOf\(c\)/)
+  assert.doesNotMatch(CARD, /c\.shots\.map\(/)
+})
+
+const MODAL = read('./live/LiveSessionsModal.tsx')
+
+test('开播记录弹窗的场次同样读全量 sessionShots，不读已加载截图', () => {
+  assert.ok(
+    MODAL.includes('liveSpansOf({ live_sessions: competitor.live_sessions, shots: competitor.sessionShots })'),
+    '弹窗的场次必须由导入记录 + 全量截图场次合并',
+  )
+  assert.match(MODAL, /\[competitor\.live_sessions, competitor\.sessionShots\]/)
+  assert.doesNotMatch(MODAL, /liveSpansOf\(competitor\)/)
+  assert.doesNotMatch(MODAL, /competitor\.shots\b/)
+})
+
+test('开播记录弹窗的其它子组件不读截图本体（.shots 只是已加载的那段）', () => {
+  for (const f of ['LiveCalendar', 'LiveCoverageHistogram', 'LiveKpiTiles', 'LiveLikesBars', 'LiveRecordsPanel', 'LiveSessionTable']) {
+    assert.doesNotMatch(read(`./live/${f}.tsx`), /\.shots\b/, f)
+  }
 })
 
 const VIEW = read('./CompetitorDossierView.tsx')
@@ -62,6 +85,12 @@ test('卡片调用处把已加载起点与失败态相邻透传', () => {
 
 test('刷新带上已加载起点，翻到历史后刷新不回缩', () => {
   assert.match(VIEW, /fetch\(boardRefreshPath\(refreshSinceRef\.current\)/)
+  // 会抛的 loadBoard（开播记录弹窗导入后用）与不抛的 refresh 走同一条请求，两条路都不能缩回首屏
+  const loadBoard = VIEW.slice(VIEW.indexOf('const loadBoard = useCallback('), VIEW.indexOf('const refresh = useCallback('))
+  assert.ok(loadBoard.length > 0, '找不到 loadBoard（须在 refresh 之前定义）')
+  assert.match(loadBoard, /fetch\(boardRefreshPath\(refreshSinceRef\.current\), \{ cache: 'no-store' \}\)/)
+  assert.match(VIEW, /const refresh = useCallback\(async \(\) => \{\s*try \{\s*await loadBoard\(\)/)
+  assert.match(VIEW, /onReload=\{loadBoard\}/)
   assert.doesNotMatch(VIEW, /boardRefreshPath\(board\./, '不能在 refresh 里直接读 state（useCallback 闭包会过期）')
   assert.doesNotMatch(VIEW, /fetch\('\/api\/competitors', \{ cache/)
 })

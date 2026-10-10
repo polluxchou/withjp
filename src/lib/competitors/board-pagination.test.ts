@@ -19,7 +19,7 @@ function bodyOf(name: string): string {
 const LOADERS: [name: string, minFroms: number][] = [
   ['getCompetitorBoard', 6],
   ['getCompanyBoard', 4],
-  ['getAskBoard', 3],
+  ['getAskBoard', 4],
   ['getShotsInRange', 1],
 ]
 
