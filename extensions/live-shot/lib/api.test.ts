@@ -419,7 +419,7 @@ test('logout：先带 Bearer 令牌请求服务端吊销（/auth/v1/logout），
   const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
   await api.logout()
   assert.equal(f.calls.length, 1)
-  assert.equal(f.calls[0].url, 'https://p.supabase.co/auth/v1/logout')
+  assert.equal(f.calls[0].url, 'https://p.supabase.co/auth/v1/logout?scope=local', '只退出扩展这份会话，不能 global 把后台网页也登出')
   assert.equal(f.calls[0].init.method, 'POST')
   assert.equal(headersOf(f.calls[0]).Authorization, 'Bearer acc')
   assert.equal(headersOf(f.calls[0]).apikey, 'anon')

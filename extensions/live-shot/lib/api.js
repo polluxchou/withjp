@@ -92,7 +92,8 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     try {
       const s = await storage.get(SESSION_KEY)
       if (s && s.accessToken) {
-        await fetchImpl(`${supabaseUrl}/auth/v1/logout`, {
+        // scope=local：只吊销扩展自己这份会话。不带 scope 时 Supabase 默认 global，会把后台网页和另一个 Chrome 里的扩展一起登出
+        await fetchImpl(`${supabaseUrl}/auth/v1/logout?scope=local`, {
           method: 'POST',
           headers: { apikey: anonKey, Authorization: `Bearer ${s.accessToken}` },
           signal: AbortSignal.timeout(5000), // 网络黑洞时别让「退出」按钮卡住
