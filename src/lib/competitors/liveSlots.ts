@@ -127,6 +127,19 @@ export function clusterMinutes(minutes: number[]): number[][] {
   return groups
 }
 
+/** 去重后带上当地「一天里的第几分钟」的场次；时刻解析不了的丢掉。同一场的多张截图报同一个 stream_started_at，去重后才是「场次」。 */
+function sessionsWithMinutes(
+  startedAts: (string | null | undefined)[],
+  timeZone: string,
+): { iso: string; minutes: number }[] {
+  const distinct = Array.from(new Set(startedAts.filter((s): s is string => !!s)))
+  return distinct
+    .map((iso) => ({ iso, minutes: minutesOfDayIn(iso, timeZone) }))
+    .filter((x): x is { iso: string; minutes: number } => x.minutes != null)
+}
+
+const normalizeMinutes = (m: number) => ((m % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES
+
 export function summarizeLiveHabit(
   startedAts: (string | null | undefined)[],
   timeZone: string,
@@ -138,11 +151,7 @@ export function summarizeLiveHabit(
    */
   minSessions: number = SLOT_MIN_SESSIONS,
 ): LiveHabit {
-  // 同一场的多张截图报同一个 stream_started_at，去重后才是「场次」。
-  const distinct = Array.from(new Set(startedAts.filter((s): s is string => !!s)))
-  const withMinutes = distinct
-    .map((iso) => ({ iso, minutes: minutesOfDayIn(iso, timeZone) }))
-    .filter((x): x is { iso: string; minutes: number } => x.minutes != null)
+  const withMinutes = sessionsWithMinutes(startedAts, timeZone)
 
   if (withMinutes.length === 0) return { slots: [], sessions: 0, latestStartedAt: null }
 
@@ -158,8 +167,35 @@ export function summarizeLiveHabit(
     .filter((g) => g.length >= floor)
     .map((g) => ({ startMinutes: median(g), label: minutesToLabel(median(g)), count: g.length }))
     // 跨午夜合并出的负数中位数要归一到 0-1439 之后再排序，否则它会排到最前面。
-    .sort((a, b) => (((a.startMinutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES)
-      - (((b.startMinutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES))
+    .sort((a, b) => normalizeMinutes(a.startMinutes) - normalizeMinutes(b.startMinutes))
 
   return { slots, sessions: withMinutes.length, latestStartedAt }
+}
+
+/**
+ * 最大的那一档（不管够不够门槛）：地区标尺给「场次多但时刻零散」的账号兜底用。
+ * 这种账号（如 8 场分在 8 个互隔 ≥45 分钟的时段）过不了占比门槛，summarizeLiveHabit
+ * 一档也给不出；但它有开播，标尺上不能凭空消失，所以退一步取「相对最集中的那一档」做推测。
+ * 并列（零散账号里全是单场簇时几乎必然并列）取含最近一场的那档——最近的作息最有代表性。
+ * 返回的 startMinutes 与 LiveSlot 同口径（档内偏早的中位数，跨午夜时可能是负数）；没有可用时刻返回 null。
+ */
+export function dominantCluster(
+  startedAts: (string | null | undefined)[],
+  timeZone: string,
+): { startMinutes: number; count: number } | null {
+  const withMinutes = sessionsWithMinutes(startedAts, timeZone)
+  if (withMinutes.length === 0) return null
+
+  // 每个「一天里的第几分钟」上最近一场的时刻（毫秒）：簇里的值可能是跨午夜减过一天的负数，查表前要归一。
+  const newestAt = new Map<number, number>()
+  for (const { iso, minutes } of withMinutes) {
+    newestAt.set(minutes, Math.max(newestAt.get(minutes) ?? -Infinity, Date.parse(iso)))
+  }
+  const recency = (g: number[]) => Math.max(...g.map((m) => newestAt.get(normalizeMinutes(m)) ?? -Infinity))
+
+  const groups = clusterMinutes(withMinutes.map((x) => x.minutes).sort((a, b) => a - b))
+  const best = groups.reduce((a, b) =>
+    b.length > a.length || (b.length === a.length && recency(b) > recency(a)) ? b : a,
+  )
+  return { startMinutes: median(best), count: best.length }
 }

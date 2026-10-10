@@ -14,7 +14,7 @@
 //
 // 纯函数、不读时钟（now 由调用方注入），可单测。
 import { liveStartsOf } from './liveSessions.ts'
-import { SLOT_MIN_SESSIONS, minutesToLabel, summarizeLiveHabit } from './liveSlots.ts'
+import { SLOT_MIN_SESSIONS, dominantCluster, minutesToLabel, summarizeLiveHabit } from './liveSlots.ts'
 
 /** 只看最近这些天：更早的档次代表不了现在的作息。 */
 export const RULER_WINDOW_DAYS = 14
@@ -50,7 +50,10 @@ export interface RulerBand {
   centerLabel: string
   /** 这一档的场次数。 */
   sessions: number
-  /** 是否达到「成档」门槛（SLOT_MIN_SESSIONS）。未达标的只是推测。 */
+  /**
+   * 是否达到「成档」门槛（SLOT_MIN_SESSIONS）。未达标的只是推测。
+   * 一档都成不了的零散账号只留一条兜底段，这条一律是 false，与场次数无关。
+   */
   established: boolean
 }
 
@@ -95,6 +98,17 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), h
 
 /** 归一到 [0, 1440)：跨午夜合并出的中位数可能是负数（见 liveSlots 的注释）。 */
 const normalize = (m: number) => ((m % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES
+
+/**
+ * 一档都成不了时的兜底：最集中的那一档，永远标成推测（established: false）。
+ * 即便这一档的场次数碰巧 ≥ SLOT_MIN_SESSIONS（场次很多、占比门槛被顶高的账号），
+ * 它也没过占比门槛——不是「常见时段」，不能画成实心。
+ * starts 非空时 dominantCluster 一定有值；返回数组是为了与成档路径共用同一套画段代码。
+ */
+function fallbackSlot(starts: string[], timeZone: string): { startMinutes: number; count: number; established: boolean }[] {
+  const d = dominantCluster(starts, timeZone)
+  return d ? [{ ...d, established: false }] : []
+}
 
 export function buildRegionRuler({
   competitors,
@@ -150,13 +164,17 @@ export function buildRegionRuler({
     // 否则 15 个账号里只有 4 个够 3 场，图上几乎是空的、看不出分布。
     // 但这句话只在样本小时成立：summarizeLiveHabit 的实际门槛是
     // max(minSessions, ceil(总场次 × SLOT_MIN_SHARE))，总场次到 7 场起这个占比项就 ≥ 2。
-    // 所以只有场次少（≤ 6 场）的账号才连「只播过一次」的时刻都摆得上去；场次多了，
-    // 占不到总场次 15% 的零散时刻不再上轴（免得密集账号被零散时刻糊成一片），
-    // 一档都凑不够的账号整个不上轴。
+    // 所以场次多了，占不到总场次 15% 的零散时刻不再上轴（免得密集账号被零散时刻糊成一片）。
+    // 一档都凑不够的账号（如 8 场分在 8 个互隔 ≥ 45 分钟的时段）**不能**因此从标尺上消失：
+    // 它明明有开播，整个跳过会让浮层里没有「本账号」，地区里全是这种账号时还会报
+    // 「没采到开播时刻」这句假话。退一步取相对最集中的那一档，画一条推测段。
     const habit = summarizeLiveHabit(starts, timeZone, 1)
-    if (!habit.slots.length) continue
+    const slots = habit.slots.length
+      ? habit.slots.map((slot) => ({ startMinutes: slot.startMinutes, count: slot.count, established: slot.count >= SLOT_MIN_SESSIONS }))
+      : fallbackSlot(starts, timeZone)
+    if (!slots.length) continue
 
-    const bands: RulerBand[] = habit.slots.map((slot) => {
+    const bands: RulerBand[] = slots.map((slot) => {
       const center = normalize(slot.startMinutes)
       return {
         // 跨午夜的段会被夹断（例如 00:10 的段左边界 -20 夹到 0）。日区团播的
@@ -165,7 +183,7 @@ export function buildRegionRuler({
         endMinutes: clamp(center + RULER_HALF_BAND_MINUTES, 0, DAY_MINUTES),
         centerLabel: minutesToLabel(center),
         sessions: slot.count,
-        established: slot.count >= SLOT_MIN_SESSIONS,
+        established: slot.established,
       }
     })
 

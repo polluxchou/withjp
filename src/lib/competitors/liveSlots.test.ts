@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { SLOT_MIN_SESSIONS, clusterMinutes, minutesToLabel, recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
+import {
+  SLOT_MIN_SESSIONS,
+  clusterMinutes,
+  dominantCluster,
+  minutesToLabel,
+  recentSessionStarts,
+  summarizeLiveHabit,
+} from './liveSlots.ts'
 
 const JST = 'Asia/Tokyo'
 const PT = 'America/Los_Angeles'
@@ -143,6 +150,40 @@ test('场次少时占比门槛不起作用：标尺的 minSessions=1 仍能摆�
 test('clusterMinutes: 45 分钟以内连成一档，跨午夜首尾合并', () => {
   assert.deepEqual(clusterMinutes([720, 740, 800, 1140]), [[720, 740], [800], [1140]])
   assert.deepEqual(clusterMinutes([5, 700, 1430]), [[-10, 5], [700]])
+})
+
+test('dominantCluster: 最大的那档胜出，不论够不够门槛', () => {
+  // 19:50 / 20:10 是一档 2 场；12:00 单场（时刻更靠前）且是最近一场——大小优先于新旧、也优先于排位。
+  const d = dominantCluster([jst(15, 19, 50), jst(16, 20, 10), jst(18, 12, 0)], JST)
+  assert.deepEqual(d, { startMinutes: 19 * 60 + 50, count: 2 }, '档内取偏早的中位数，与 summarizeLiveHabit 同口径')
+})
+
+test('dominantCluster: 并列时取含最近一场的那档，与时刻先后无关', () => {
+  const at = (newestHour: number) => {
+    const hours = [10, 14, 20]
+    return dominantCluster(hours.map((h, i) => jst(h === newestHour ? 18 : 10 + i, h, 0)), JST)
+  }
+  assert.deepEqual(at(10), { startMinutes: 600, count: 1 })
+  assert.deepEqual(at(14), { startMinutes: 840, count: 1 })
+  assert.deepEqual(at(20), { startMinutes: 1200, count: 1 })
+})
+
+test('dominantCluster: 跨午夜合并的档照常参与（负数中位数），并列时按成员里最近的一场比新旧', () => {
+  // 23:50 与次日 00:10 合成一档 2 场（中位数 -10，即 23:50）；12:00 / 12:20 另一档 2 场。两档并列。
+  const crossNewest = [jst(15, 23, 50), jst(18, 0, 10), jst(16, 12, 0), jst(17, 12, 20)]
+  assert.deepEqual(dominantCluster(crossNewest, JST), { startMinutes: -10, count: 2 }, '最近一场 00:10 在跨午夜那档里')
+  const noonNewest = [jst(15, 23, 50), jst(16, 0, 10), jst(16, 12, 0), jst(18, 12, 20)]
+  assert.deepEqual(dominantCluster(noonNewest, JST), { startMinutes: 12 * 60, count: 2 }, '最近一场 12:20 在正午那档里')
+  // 最近一场是 23:50 那个：合并后它在簇里是 -10，查新旧前要归一回 1430 才找得到它的时刻。
+  const lateNewest = [jst(18, 23, 50), jst(16, 0, 10), jst(15, 12, 0), jst(17, 12, 20)]
+  assert.deepEqual(dominantCluster(lateNewest, JST), { startMinutes: -10, count: 2 }, '最近一场 23:50 在跨午夜那档里')
+})
+
+test('dominantCluster: 没有可用时刻返回 null；重复的开播时刻只算一场', () => {
+  assert.equal(dominantCluster([], JST), null)
+  assert.equal(dominantCluster([null, undefined, '', 'not-a-date'], JST), null)
+  const one = jst(18, 13, 0)
+  assert.deepEqual(dominantCluster([one, one, one], JST), { startMinutes: 13 * 60, count: 1 })
 })
 
 test('时区格式化器按时区缓存：两个时区交替调用，每次都按各自的时区算', () => {
