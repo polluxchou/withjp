@@ -99,6 +99,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     weekly: [],
     related: over.related ?? [],
     descriptions: over.descriptions ?? [],
+    live_sessions: over.live_sessions ?? [],
   }
 }
 

@@ -1,6 +1,6 @@
 // src/lib/competitors/assemble.ts
 import type {
-  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription,
+  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorLiveSession,
   CompetitorBoard, CompetitorWithHistory, HistoryPoint,
 } from './types.ts'
 import { sortDescriptions } from './descriptions.ts'
@@ -16,13 +16,14 @@ export function parseHandleFromUrl(input: string): string | null {
   return bare ? s : null
 }
 
-/** 把竞品 + 快照 + 截图 + 风格描述组装成看板；下探发现的子账号（parent_id）挂到父的 related,首页只列顶层。 */
+/** 把竞品 + 快照 + 截图 + 风格描述 + 开播记录组装成看板；下探发现的子账号（parent_id）挂到父的 related,首页只列顶层。 */
 export function assembleBoard(
   competitors: Competitor[],
   snapshots: CompetitorSnapshot[],
   shots: CompetitorShot[],
   canEdit: boolean,
   descriptions: CompetitorDescription[] = [],
+  liveSessions: CompetitorLiveSession[] = [],
 ): CompetitorBoard {
   const snapsBy = new Map<string, CompetitorSnapshot[]>()
   for (const s of snapshots) {
@@ -41,6 +42,12 @@ export function assembleBoard(
     const arr = descsBy.get(d.competitor_id) ?? []
     arr.push(d)
     descsBy.set(d.competitor_id, arr)
+  }
+  const liveBy = new Map<string, CompetitorLiveSession[]>()
+  for (const s of liveSessions) {
+    const arr = liveBy.get(s.competitor_id) ?? []
+    arr.push(s)
+    liveBy.set(s.competitor_id, arr)
   }
 
   const build = (c: Competitor): CompetitorWithHistory => {
@@ -62,6 +69,9 @@ export function assembleBoard(
     return {
       ...c, latest, history, weekly, shots: shotRows, related: [],
       descriptions: sortDescriptions(descsBy.get(c.id) ?? []),
+      // 按时刻比而不是按字符串比：timestamptz 读回来的写法（+00:00 / 带不带毫秒）不保证定长。
+      live_sessions: (liveBy.get(c.id) ?? []).slice()
+        .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()),
     }
   }
 

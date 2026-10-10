@@ -14,10 +14,12 @@ import type {
   CompanyAccountRow, CompanyBoard, CompanyCompetitorInput, CompanySnapshotInput, CompetitorCompany,
 } from './companies.ts'
 import { normalizeDescriptionBody } from './descriptions.ts'
+import { validateLiveSessionRows } from './liveHistory.ts'
 import { normalizeRegion, resolveNewRegion } from './regions.ts'
 import { isValidShotDate } from './shotGrid.ts'
 import type {
-  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorBoard, CompetitorPlatform,
+  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorLiveSession,
+  CompetitorBoard, CompetitorPlatform,
 } from './types.ts'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
@@ -97,12 +99,13 @@ async function assertValidParent(
 
 /**
  * 加载看板：任意登录用户可读可写（canEdit 恒 true）。
- * 四张表都整表分页拉全（fetchAllRows）：Supabase 单次响应最多 1000 行且静默截断，
- * 截图表已过千行，不分页会让最近上传的截图在页面上凭空消失。
+ * 五张表都整表分页拉全（fetchAllRows）：Supabase 单次响应最多 1000 行且静默截断，
+ * 截图表已过千行，不分页会让最近上传的截图在页面上凭空消失。开播记录一个号三个月就有
+ * 几十场，同样很快过千。任何一张表报错都让整个看板报错，不拿半套数据假装完整。
  */
 export async function getCompetitorBoard(_userId: string): Promise<ServiceResult<CompetitorBoard>> {
   const db = createServerClient()
-  const [compRes, snapRes, shotRes, descRes] = await Promise.all([
+  const [compRes, snapRes, shotRes, descRes, liveRes] = await Promise.all([
     fetchAllRows((from, to) => db.from('competitors').select('*')
       .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
@@ -111,17 +114,18 @@ export async function getCompetitorBoard(_userId: string): Promise<ServiceResult
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_descriptions').select('*')
       .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_live_sessions').select('*')
+      .order('id', { ascending: true }).range(from, to)),
   ])
-  if (compRes.error || snapRes.error || shotRes.error || descRes.error) {
-    return err('db_error',
-      compRes.error?.message ?? snapRes.error?.message ?? shotRes.error?.message ?? descRes.error?.message ?? 'load failed')
-  }
+  const firstErr = compRes.error ?? snapRes.error ?? shotRes.error ?? descRes.error ?? liveRes.error
+  if (firstErr) return err('db_error', firstErr.message || 'load failed')
   return ok(assembleBoard(
     (compRes.data ?? []) as Competitor[],
     (snapRes.data ?? []) as CompetitorSnapshot[],
     (shotRes.data ?? []) as CompetitorShot[],
     true,
     (descRes.data ?? []) as CompetitorDescription[],
+    (liveRes.data ?? []) as CompetitorLiveSession[],
   ))
 }
 
@@ -347,4 +351,33 @@ export async function deleteDescription(descriptionId: string): Promise<ServiceR
   const { error } = await db.from('competitor_descriptions').delete().eq('id', descriptionId)
   if (error) return err('db_error', error.message)
   return ok({ id: descriptionId })
+}
+
+// ---- 开播记录 ----
+//
+// 只有一条写入路径：卡片里的粘贴导入。解析在客户端做（与预览共用 liveHistory.ts），
+// 这里对每行再挡一遍边界 —— 接口谁都能直接调，不能信客户端已经校验过。
+
+/**
+ * 批量 upsert 开播记录。去重键 (competitor_id, started_at)：同一场重复粘贴是覆盖
+ * 标题、下播时刻、点赞，不是叠一行；created_at 不在写入列里，覆盖时保留首次导入的时刻。
+ */
+export async function upsertLiveSessions(
+  competitorId: string,
+  rows: unknown,
+): Promise<ServiceResult<{ upserted: number }>> {
+  const checked = validateLiveSessionRows(rows)
+  if (!checked.ok) return err('invalid_input', checked.message)
+  const updatedAt = new Date().toISOString()
+  const db = createServerClient()
+  const { error } = await db
+    .from('competitor_live_sessions')
+    .upsert(
+      checked.rows.map((r) => ({
+        competitor_id: competitorId, ...r, source: 'tiktok_history', updated_at: updatedAt,
+      })),
+      { onConflict: 'competitor_id,started_at' },
+    )
+  if (error) return err('db_error', error.message)
+  return ok({ upserted: checked.rows.length })
 }
