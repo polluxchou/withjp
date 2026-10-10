@@ -1732,6 +1732,8 @@
     "liveKpiDataDaysHint": "取り込み履歴がなく巡回もしていない日は配信の有無が分からないため、休止にも配信日数の分母にも数えていません",
     "liveKpiPrevPartial": "前30日はデータ不足",
     "liveKpiApproxNote": "スクショ推定の回を含むため短めの値",
+    "liveRefreshing": "取り込みました。データを更新しています…",
+    "liveRefreshFailed": "取り込みは完了しましたが、データの更新に失敗しました。以下は最新でない可能性があります。ページを再読み込みしてください。",
     "liveSlotsValueZone": "{slots}（{zone}）前後 · 直近 {count} 回"
   },
   "items": {

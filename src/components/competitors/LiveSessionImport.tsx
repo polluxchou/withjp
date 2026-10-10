@@ -88,7 +88,8 @@ export function LiveImportPanel({
 }: {
   competitorId: string
   existing: CompetitorLiveSession[]
-  onImported: () => void
+  /** 导入成功后调用；返回 Promise 时等它结束再放开「导入」按钮（弹窗在这段时间里刷新数据）。 */
+  onImported: () => void | Promise<void>
   onCancel: () => void
 }) {
   const t = useTranslations('competitors')
@@ -147,7 +148,7 @@ export function LiveImportPanel({
         setError(json?.error ? t('liveImportFailedDetail', { message: json.error }) : t('liveImportFailed'))
         return
       }
-      onImported()
+      await onImported()
     } catch {
       setError(t('liveImportFailed'))
     } finally {

@@ -1973,6 +1973,8 @@
     "liveKpiDataDaysHint": "没有导入记录、巡检也没跑的日子不知道播没播：不算断播，也不计入开播天数的分母",
     "liveKpiPrevPartial": "前 30 天数据不全",
     "liveKpiApproxNote": "含截图推断场次，时长偏短",
+    "liveRefreshing": "导入成功，正在刷新数据…",
+    "liveRefreshFailed": "已导入，但刷新数据失败：下面的数据可能不是最新的，请刷新页面后再看。",
     "liveSlotsValueZone": "{slots}（{zone}）前后 · 近 {count} 场"
   },
   "site": {

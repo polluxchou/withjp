@@ -1973,6 +1973,8 @@
     "liveKpiDataDaysHint": "Days with no imported history and no patrol run are unknown: they are not counted as breaks or toward live days",
     "liveKpiPrevPartial": "prev. 30d incomplete",
     "liveKpiApproxNote": "incl. screenshot-inferred; durations run short",
+    "liveRefreshing": "Imported. Refreshing data…",
+    "liveRefreshFailed": "Imported, but refreshing the data failed. What is shown below may be out of date; reload the page to see the latest.",
     "liveSlotsValueZone": "around {slots} ({zone}) · {count} sessions"
   },
   "site": {

@@ -50,12 +50,17 @@ function Field({ label, value }: { label: string; value: string | null }) {
 const ANCHOR_STYLE = { scrollMarginTop: `calc(var(--competitor-sticky-head, 120px) + ${ANCHOR_GAP}px)` }
 
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, onUpdateRegion,
+  c, canEdit, onChanged, onReload, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, onUpdateRegion,
   dateWindow, selectedDate, regionPeers, patrolDays, nested = false, selected = false, today = null,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
   onChanged: () => void
+  /**
+   * 与 onChanged 同样是「重新取看板」，区别是失败时 reject：开播记录弹窗导入后要据此提示
+   * 「数据可能不是最新」。onChanged 不抛（子组件里有不 await 的调用），所以另给这一个。
+   */
+  onReload: () => Promise<void>
   onDeleteId: (id: string) => void
   parentOptions: { id: string; label: string }[]
   onAssignParent: (id: string, parentId: string | null) => void
@@ -437,6 +442,7 @@ export default function CompetitorCard({
                   c={child}
                   canEdit={canEdit}
                   onChanged={onChanged}
+                  onReload={onReload}
                   onDeleteId={onDeleteId}
                   parentOptions={parentOptions}
                   onAssignParent={onAssignParent}
@@ -560,7 +566,7 @@ export default function CompetitorCard({
           patrolDays={patrolDays}
           initialView={liveModal}
           onClose={() => setLiveModal(null)}
-          onChanged={onChanged}
+          onChanged={onReload}
         />
       )}
     </div>

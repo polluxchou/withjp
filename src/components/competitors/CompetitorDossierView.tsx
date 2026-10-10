@@ -131,16 +131,23 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     }
   }, [today])
 
+  // 重新取一遍看板，失败就抛。开播记录弹窗导入后要拿它判断「数据是不是最新的」，所以单独留出一个会抛的版本。
+  const loadBoard = useCallback(async () => {
+    const res = await fetch('/api/competitors', { cache: 'no-store' })
+    if (!res.ok) throw new Error('load failed')
+    const json = await res.json()
+    if (json.data) setBoard(json.data as CompetitorBoard)
+  }, [])
+
+  // 页面自己的各个操作与卡片内的保存（上传、备注…）用这个：失败只置错误条、不抛——
+  // 卡片里大多是不 await 的调用，抛出来就成了未处理的 rejection。
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch('/api/competitors', { cache: 'no-store' })
-      if (!res.ok) throw new Error('load failed')
-      const json = await res.json()
-      if (json.data) setBoard(json.data as CompetitorBoard)
+      await loadBoard()
     } catch {
       setError(t('actionFailed'))
     }
-  }, [t])
+  }, [loadBoard, t])
 
   const add = useCallback(() => {
     const value = input.trim()
@@ -334,6 +341,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               c={c}
               canEdit={board.canEdit}
               onChanged={refresh}
+              onReload={loadBoard}
               onDeleteId={remove}
               parentOptions={parentOptions}
               onAssignParent={assignParent}
