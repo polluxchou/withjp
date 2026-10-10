@@ -14,6 +14,7 @@ import { fetchBytes, saveBlob } from '@/lib/competitors/downloadFile'
 import { buildZip } from '@/lib/competitors/zip'
 import { formatDayTimeInLocaleZone } from '@/lib/time/localeZone'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
+import { useShotTagLabel } from './useShotTagLabel'
 
 /**
  * 一张主图 + 宽屏时两侧各露一张。所有信息都叠在主图身上。
@@ -45,6 +46,7 @@ export default function ShotLightbox({
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
+  const tagLabel = useShotTagLabel()
   // 开播时刻按界面语言换算（ja=日本 / zh=北京 / en=加州），库里是 UTC。
   const locale = useLocale()
   const [pickedId, setPickedId] = useState<string | null>(null)
@@ -426,7 +428,7 @@ export default function ShotLightbox({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={selected.image_url}
-                  alt={selected.caption || selected.tag || ''}
+                  alt={selected.caption || tagLabel(selected.tag) || ''}
                   className={`max-w-full rounded-card ${
                     cleanView
                       ? 'max-h-[92vh]'
