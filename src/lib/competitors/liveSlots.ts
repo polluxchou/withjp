@@ -6,15 +6,23 @@
 // 那恰好是它们**不**开播的时刻——一个看着精确、实际错误的数。
 // 所以先按间隔聚类，再在每档内部取中位数。
 //
-// 时区由调用方注入（界面语言 → 时区，见 src/lib/time/localeZone.ts）：
-// 「一天里的第几分钟」这个概念本身依赖时区，没有时区无法聚类。
+// 时区由调用方注入：「一天里的第几分钟」这个概念本身依赖时区，没有时区无法聚类。
+// 卡片、弹窗、地区标尺传的是账号所在地区的时区（regionTimeZone，看的是对方当地作息，
+// 与界面语言无关）；Ask 数据包按界面语言的时区报时刻，传的是 localeZone.ts 解出的那个。
 // 纯函数、不读时钟，可单测。
 
-/** 相邻场次差到这个分钟数就算另一档。3h 足够分开日区的午后档与晚间档。 */
-export const SLOT_GAP_MINUTES = 180
+/**
+ * 相邻开播差 ≥ 45 分钟就算另一档。原来是 180：数据一密，13/15/17/18 点的零散场次
+ * 会把午场和晚场桥接成一整档（实测 80 场的号坍缩成一档 12:25）。45 分钟仍能容纳
+ * 同一档常见的十几分钟浮动。
+ */
+export const SLOT_GAP_MINUTES = 45
 
 /** 一档至少要有这么多场才敢叫「常见」。低于此只报最近一场，不把单次说成规律。 */
 export const SLOT_MIN_SESSIONS = 3
+
+/** 一档至少占总场次的这个比例才算主档。数据密时，凑够 3 场的零散时刻不该被说成规律。 */
+export const SLOT_MIN_SHARE = 0.15
 
 const DAY_MINUTES = 1440
 
@@ -28,7 +36,10 @@ export interface LiveSlot {
 }
 
 export interface LiveHabit {
-  /** 达到 SLOT_MIN_SESSIONS 的档，按时刻升序。 */
+  /**
+   * 成档的那些档，按时刻升序。门槛是 max(minSessions, ceil(总场次 × SLOT_MIN_SHARE))：
+   * minSessions 默认 SLOT_MIN_SESSIONS，场次一多占比项会把它顶高。
+   */
   slots: LiveSlot[]
   /** 去重后的总场次（同一场的多张截图只算一次）。 */
   sessions: number
@@ -36,13 +47,29 @@ export interface LiveHabit {
   latestStartedAt: string | null
 }
 
+/**
+ * 按时区缓存格式化器。new Intl.DateTimeFormat 的构造远比 formatToParts 贵（实测约 10 倍），
+ * 而卡片/弹窗每张卡要对每一场调几次这里；时区只有寥寥几个，缓存一份就够。
+ * 时区名非法时构造会抛 RangeError——抛出发生在 set 之前，不会缓存出坏值，行为与不缓存时一致。
+ */
+const minuteFormatters = new Map<string, Intl.DateTimeFormat>()
+
+function minuteFormatter(timeZone: string): Intl.DateTimeFormat {
+  let fmt = minuteFormatters.get(timeZone)
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    })
+    minuteFormatters.set(timeZone, fmt)
+  }
+  return fmt
+}
+
 /** 一天里的第几分钟（指定时区）。时刻非法返回 null。 */
 function minutesOfDayIn(iso: string, timeZone: string): number | null {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).formatToParts(d)
+  const parts = minuteFormatter(timeZone).formatToParts(d)
   const hour = parts.find((p) => p.type === 'hour')?.value
   const minute = parts.find((p) => p.type === 'minute')?.value
   if (hour == null || minute == null) return null
@@ -80,28 +107,12 @@ export function recentSessionStarts(
   return distinct.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).slice(0, limit)
 }
 
-export function summarizeLiveHabit(
-  startedAts: (string | null | undefined)[],
-  timeZone: string,
-  /**
-   * 一档至少几场才收进 slots。默认 SLOT_MIN_SESSIONS（卡片上「常见开播时段」
-   * 的门槛：不把单次开播说成规律）。地区标尺传 1 —— 它要把只播过一次的账号
-   * 也摆上轴、另用浅色标成推测，否则图上几乎是空的、看不出分布。
-   */
-  minSessions: number = SLOT_MIN_SESSIONS,
-): LiveHabit {
-  // 同一场的多张截图报同一个 stream_started_at，去重后才是「场次」。
-  const distinct = Array.from(new Set(startedAts.filter((s): s is string => !!s)))
-  const withMinutes = distinct
-    .map((iso) => ({ iso, minutes: minutesOfDayIn(iso, timeZone) }))
-    .filter((x): x is { iso: string; minutes: number } => x.minutes != null)
-
-  if (withMinutes.length === 0) return { slots: [], sessions: 0, latestStartedAt: null }
-
-  // ISO 8601 同格式定长，字符串比较即时刻比较（库里都是 timestamptz 序列化的 UTC）。
-  const latestStartedAt = withMinutes.reduce((a, b) => (b.iso > a.iso ? b : a)).iso
-
-  const minutes = withMinutes.map((x) => x.minutes).sort((a, b) => a - b)
+/**
+ * 已按分钟升序的一天内分钟数 → 档（单链聚类，相邻差 < SLOT_GAP_MINUTES 连成一档）。
+ * 跨午夜：首尾两组绕过 24 点仍在间隔内就合并，末组减去一天放到前面（结果里会出现负数）。
+ */
+export function clusterMinutes(minutes: number[]): number[][] {
+  if (minutes.length === 0) return []
   const groups: number[][] = [[minutes[0]]]
   for (let i = 1; i < minutes.length; i += 1) {
     if (minutes[i] - minutes[i - 1] < SLOT_GAP_MINUTES) groups[groups.length - 1].push(minutes[i])
@@ -109,20 +120,82 @@ export function summarizeLiveHabit(
   }
   // 跨午夜：23:50 与 00:10 在数轴两端，按差值算是 23 小时"远"，其实是同一档。
   // 首尾两组绕过 24 点仍在间隔内就合并，末组减去一天再参与中位数计算。
-  if (
-    groups.length > 1 &&
-    minutes[0] + DAY_MINUTES - minutes[minutes.length - 1] < SLOT_GAP_MINUTES
-  ) {
+  if (groups.length > 1 && minutes[0] + DAY_MINUTES - minutes[minutes.length - 1] < SLOT_GAP_MINUTES) {
     const last = groups.pop()!
     groups[0] = [...last.map((m) => m - DAY_MINUTES), ...groups[0]].sort((a, b) => a - b)
   }
+  return groups
+}
 
+/** 去重后带上当地「一天里的第几分钟」的场次；时刻解析不了的丢掉。同一场的多张截图报同一个 stream_started_at，去重后才是「场次」。 */
+function sessionsWithMinutes(
+  startedAts: (string | null | undefined)[],
+  timeZone: string,
+): { iso: string; minutes: number }[] {
+  const distinct = Array.from(new Set(startedAts.filter((s): s is string => !!s)))
+  return distinct
+    .map((iso) => ({ iso, minutes: minutesOfDayIn(iso, timeZone) }))
+    .filter((x): x is { iso: string; minutes: number } => x.minutes != null)
+}
+
+const normalizeMinutes = (m: number) => ((m % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES
+
+export function summarizeLiveHabit(
+  startedAts: (string | null | undefined)[],
+  timeZone: string,
+  /**
+   * 一档至少几场才收进 slots。默认 SLOT_MIN_SESSIONS（卡片上「常见开播时段」
+   * 的门槛：不把单次开播说成规律）。地区标尺传 1 —— 它要把只播过一次的账号
+   * 也摆上轴、另用浅色标成推测，否则图上几乎是空的、看不出分布。
+   * 实际门槛还要与总场次 × SLOT_MIN_SHARE 取大。
+   */
+  minSessions: number = SLOT_MIN_SESSIONS,
+): LiveHabit {
+  const withMinutes = sessionsWithMinutes(startedAts, timeZone)
+
+  if (withMinutes.length === 0) return { slots: [], sessions: 0, latestStartedAt: null }
+
+  // ISO 8601 同格式定长，字符串比较即时刻比较（库里都是 timestamptz 序列化的 UTC）。
+  const latestStartedAt = withMinutes.reduce((a, b) => (b.iso > a.iso ? b : a)).iso
+
+  const minutes = withMinutes.map((x) => x.minutes).sort((a, b) => a - b)
+  const groups = clusterMinutes(minutes)
+
+  // 占比门槛：场次多时，凑够 minSessions 的零散小档不算主档（占不到总场次的 15%）。
+  const floor = Math.max(minSessions, Math.ceil(withMinutes.length * SLOT_MIN_SHARE))
   const slots = groups
-    .filter((g) => g.length >= minSessions)
+    .filter((g) => g.length >= floor)
     .map((g) => ({ startMinutes: median(g), label: minutesToLabel(median(g)), count: g.length }))
     // 跨午夜合并出的负数中位数要归一到 0-1439 之后再排序，否则它会排到最前面。
-    .sort((a, b) => (((a.startMinutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES)
-      - (((b.startMinutes % DAY_MINUTES) + DAY_MINUTES) % DAY_MINUTES))
+    .sort((a, b) => normalizeMinutes(a.startMinutes) - normalizeMinutes(b.startMinutes))
 
   return { slots, sessions: withMinutes.length, latestStartedAt }
+}
+
+/**
+ * 最大的那一档（不管够不够门槛）：地区标尺给「场次多但时刻零散」的账号兜底用。
+ * 这种账号（如 8 场分在 8 个互隔 ≥45 分钟的时段）过不了占比门槛，summarizeLiveHabit
+ * 一档也给不出；但它有开播，标尺上不能凭空消失，所以退一步取「相对最集中的那一档」做推测。
+ * 并列（零散账号里全是单场簇时几乎必然并列）取含最近一场的那档——最近的作息最有代表性。
+ * 返回的 startMinutes 与 LiveSlot 同口径（档内偏早的中位数，跨午夜时可能是负数）；没有可用时刻返回 null。
+ */
+export function dominantCluster(
+  startedAts: (string | null | undefined)[],
+  timeZone: string,
+): { startMinutes: number; count: number } | null {
+  const withMinutes = sessionsWithMinutes(startedAts, timeZone)
+  if (withMinutes.length === 0) return null
+
+  // 每个「一天里的第几分钟」上最近一场的时刻（毫秒）：簇里的值可能是跨午夜减过一天的负数，查表前要归一。
+  const newestAt = new Map<number, number>()
+  for (const { iso, minutes } of withMinutes) {
+    newestAt.set(minutes, Math.max(newestAt.get(minutes) ?? -Infinity, Date.parse(iso)))
+  }
+  const recency = (g: number[]) => Math.max(...g.map((m) => newestAt.get(normalizeMinutes(m)) ?? -Infinity))
+
+  const groups = clusterMinutes(withMinutes.map((x) => x.minutes).sort((a, b) => a - b))
+  const best = groups.reduce((a, b) =>
+    b.length > a.length || (b.length === a.length && recency(b) > recency(a)) ? b : a,
+  )
+  return { startMinutes: median(best), count: best.length }
 }

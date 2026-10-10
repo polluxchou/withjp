@@ -11,7 +11,8 @@ import ShotDateStrip from './ShotDateStrip'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { competitorAnchorId, competitorIdFromHash } from '@/lib/competitors/anchors'
 import { scrollToCompetitorCard } from './scrollToCard'
-import { SHOT_WINDOW_SIZE, collectShotDates, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
+import { SHOT_WINDOW_SIZE, UNDATED_KEY, collectShotDates, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
+import { patrolDaysOf } from '@/lib/competitors/liveCoverage'
 import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
 import { REGION_CODES } from '@/lib/competitors/regions'
 import type { CompetitorBoard } from '@/lib/competitors/types'
@@ -37,6 +38,10 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     () => windowOf(shotAxis, selectedDate ? shotAxis.indexOf(selectedDate) : -1, SHOT_WINDOW_SIZE),
     [shotAxis, selectedDate],
   )
+  // 巡检日 = 全库（含子主播）任意截图的 shot_on，正是上面日期轴的那些日子。某号那天没截图、
+  // 别的号有，说明巡检跑过、它没在播；全库都没截图的日子对只有截图的号是「无数据」，不是没播。
+  // shot_on 按日区业务日（JST）落库，口径见 lib/competitors/liveCoverage.ts。
+  const patrolDays = useMemo(() => patrolDaysOf(shotAxis.filter((d) => d !== UNDATED_KEY)), [shotAxis])
 
   // 顶层竞品可作为父账号选项。
   const parentOptions = useMemo(
@@ -126,16 +131,23 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     }
   }, [today])
 
+  // 重新取一遍看板，失败就抛。开播记录弹窗导入后要拿它判断「数据是不是最新的」，所以单独留出一个会抛的版本。
+  const loadBoard = useCallback(async () => {
+    const res = await fetch('/api/competitors', { cache: 'no-store' })
+    if (!res.ok) throw new Error('load failed')
+    const json = await res.json()
+    if (json.data) setBoard(json.data as CompetitorBoard)
+  }, [])
+
+  // 页面自己的各个操作与卡片内的保存（上传、备注…）用这个：失败只置错误条、不抛——
+  // 卡片里大多是不 await 的调用，抛出来就成了未处理的 rejection。
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch('/api/competitors', { cache: 'no-store' })
-      if (!res.ok) throw new Error('load failed')
-      const json = await res.json()
-      if (json.data) setBoard(json.data as CompetitorBoard)
+      await loadBoard()
     } catch {
       setError(t('actionFailed'))
     }
-  }, [t])
+  }, [loadBoard, t])
 
   const add = useCallback(() => {
     const value = input.trim()
@@ -329,6 +341,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               c={c}
               canEdit={board.canEdit}
               onChanged={refresh}
+              onReload={loadBoard}
               onDeleteId={remove}
               parentOptions={parentOptions}
               onAssignParent={assignParent}
@@ -337,6 +350,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               dateWindow={dateWindow}
               selectedDate={selectedDate}
               regionPeers={board.competitors}
+              patrolDays={patrolDays}
               selected={c.id === selectedId}
               today={today}
             />

@@ -12,7 +12,10 @@ import { captionOverflowsClamp, shotOverlaySections } from '@/lib/competitors/sh
 import { dayZipName, shotFileName } from '@/lib/competitors/shotDownload'
 import { fetchBytes, saveBlob } from '@/lib/competitors/downloadFile'
 import { buildZip } from '@/lib/competitors/zip'
-import { formatDayTimeInLocaleZone } from '@/lib/time/localeZone'
+import { regionTimeZone } from '@/lib/competitors/liveSessions'
+import { normalizeRegion } from '@/lib/competitors/regions'
+import { timeZoneForLocale } from '@/lib/time/localeZone'
+import { formatDayTimeInZone } from '@/lib/time/zonedTime'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
 
 /**
@@ -32,11 +35,13 @@ import { lockViewportScroll } from '@/lib/ui/scrollLock'
  *   max-h-[50vh] ↔ MAIN_MAX_VH × PEEK_SCALE  邻图
  */
 export default function ShotLightbox({
-  shots, handle, dateKey, canEdit, onClose, onChanged,
+  shots, handle, region, dateKey, canEdit, onClose, onChanged,
 }: {
   shots: CompetitorShot[]
   /** 对方平台上的用户名。只用于下载文件名。 */
   handle: string
+  /** 账号地区：开播时刻按它的时区显示。 */
+  region: string | null
   /** 当天的日期键（未标日期那一列为 UNDATED_KEY）。只用于打包文件名。 */
   dateKey: string
   canEdit: boolean
@@ -45,8 +50,11 @@ export default function ShotLightbox({
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
-  // 开播时刻按界面语言换算（ja=日本 / zh=北京 / en=加州），库里是 UTC。
+  // 开播时刻按账号所在地区的时区换算（库里是 UTC），与卡片「常见开播」、开播记录弹窗同一口径；
+  // 地区没填才回落到界面语言时区（ja=日本 / zh=北京 / en=加州）。
   const locale = useLocale()
+  const zone = regionTimeZone(region, timeZoneForLocale(locale))
+  const zoneCode = normalizeRegion(region)
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
   // 惰性初始化而不是先给一个默认值再用 effect 纠正:后者会让宽屏上先画出没有邻图的
@@ -207,7 +215,7 @@ export default function ShotLightbox({
 
   const atStart = index <= 0
   const atEnd = index >= shots.length - 1
-  const startedAt = formatDayTimeInLocaleZone(selected.stream_started_at, locale)
+  const startedAt = formatDayTimeInZone(selected.stream_started_at, zone)
   const uptime = shotUptimeParts(selected.stream_started_at, selected.captured_at)
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
 
@@ -465,7 +473,14 @@ export default function ShotLightbox({
                       {selected.viewer_count != null && (
                         <span>{t('shotViewers', { count: selected.viewer_count })}</span>
                       )}
-                      {startedAt && <span>{t('shotStartedAt', { time: startedAt })}</span>}
+                      {/* 地区在清单里就写地区时区名；否则时刻按界面语言时区，沿用原来那句（自带该时区的简称）。 */}
+                      {startedAt && (
+                        <span>
+                          {zoneCode
+                            ? t('shotStartedAtZone', { time: startedAt, zone: t(`zoneName.${zoneCode}`) })
+                            : t('shotStartedAt', { time: startedAt })}
+                        </span>
+                      )}
                       {/* 不足 1 小时只显示分钟,免得出现"0时20分" */}
                       {uptime && (
                         <span>
