@@ -9,6 +9,7 @@ import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import CompetitorDescriptions from './CompetitorDescriptions'
 import ShotAlbum from './ShotAlbum'
 import RegionLiveRuler from './RegionLiveRuler'
+import LiveSessionImport from './LiveSessionImport'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
 import { ANCHOR_GAP } from '@/lib/competitors/navScroll'
@@ -400,6 +401,14 @@ export default function CompetitorCard({
             value={slotLabels ? t('liveSlotsValue', { slots: slotLabels, count: habit.sessions }) : null}
           />
           <Field label={t('fieldRecentSessions')} value={recentSessions.join(' · ') || null} />
+          {/* 开播记录来自 TikTok LIVE History 的粘贴导入，比截图覆盖的场次全得多；
+              没有记录也照样占一行，导入入口就挂在这一行上。 */}
+          <LiveSessionImport
+            competitorId={c.id}
+            sessions={c.live_sessions}
+            canEdit={canEdit}
+            onChanged={onChanged}
+          />
           {/* 地区回退到竞品表:快照的 region 实测一直是空的(采集脚本不读它),
               只看快照会让这一行永远不渲染。人工值才是权威值。 */}
           {canEdit ? (
