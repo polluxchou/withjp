@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { zoneOffsetMinutes, zonedHm, zonedWallTimeToUtc, zonedYmd } from './zonedTime.ts'
+import { addDaysYmd, minuteOfDayInZone, weekdayOfYmd, zoneOffsetMinutes, zonedHm, zonedWallTimeToUtc, zonedYmd } from './zonedTime.ts'
 
 const JST = 'Asia/Tokyo'
 const PT = 'America/Los_Angeles'
@@ -50,4 +50,15 @@ test('zonedYmd / zonedHm: 按指定时区取日期与时刻，非法时刻给 nu
   assert.equal(zonedHm(t, PT), '08:30')
   assert.equal(zonedYmd('not-a-date', JST), null)
   assert.equal(zonedHm('not-a-date', JST), null)
+})
+
+test('addDaysYmd / weekdayOfYmd: 纯日历运算，跨月跨年', () => {
+  assert.equal(addDaysYmd('2026-12-31', 1), '2027-01-01')
+  assert.equal(addDaysYmd('2026-03-01', -1), '2026-02-28')
+  assert.equal(weekdayOfYmd('2026-10-09'), 5)
+})
+
+test('minuteOfDayInZone: 按时区取一天里的第几分钟', () => {
+  assert.equal(minuteOfDayInZone('2026-10-09T03:04:00Z', 'Asia/Tokyo'), 12 * 60 + 4)
+  assert.equal(minuteOfDayInZone('bad', 'Asia/Tokyo'), null)
 })

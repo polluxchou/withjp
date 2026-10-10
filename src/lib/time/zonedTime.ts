@@ -81,3 +81,29 @@ export function zonedHm(instant: Date | string | number, timeZone: string): stri
   const p = zonedParts(ms, timeZone)
   return `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`
 }
+
+/**
+ * YYYY-MM-DD 加减天数。纯日历运算：按 UTC 零点算，结果只跟日历有关、与任何时区无关，
+ * 所以跨夏令时切换日也不会少一天或多一天（不能用毫秒相加，夏令时那天只有 23 或 25 小时）。
+ */
+export function addDaysYmd(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/** YYYY-MM-DD 是星期几，0 = 周日。同样按 UTC 零点算，理由同 addDaysYmd。 */
+export function weekdayOfYmd(ymd: string): number {
+  return new Date(`${ymd}T00:00:00Z`).getUTCDay()
+}
+
+/**
+ * UTC 时刻在指定时区是一天里的第几分钟（0–1439）。时刻非法返回 null。
+ * 午夜是 0 而不是 1440：与 zonedHm 一样用 hourCycle h23，保证落在 0–1439 之内。
+ */
+export function minuteOfDayInZone(instant: Date | string | number, timeZone: string): number | null {
+  const ms = new Date(instant).getTime()
+  if (Number.isNaN(ms)) return null
+  const p = zonedParts(ms, timeZone)
+  return p.hour * 60 + p.minute
+}
