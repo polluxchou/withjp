@@ -13,7 +13,7 @@ import type { ChatTurn, DeepseekResult } from '../llm/deepseek.ts'
 // 调用了它。deps 参数（board/chat）就是为了让下面这些测试能观察到「校验
 // 没过，就绝不会碰到 board/chat」这条边界，而不是只测 parseAskBody 本身。
 
-const EMPTY_BOARD: CompetitorBoard = { competitors: [], canEdit: true }
+const EMPTY_BOARD: CompetitorBoard = { competitors: [], canEdit: true, shotAxis: [], shotsLoadedFrom: null }
 
 function okBoard(board: CompetitorBoard = EMPTY_BOARD) {
   return async (): Promise<ServiceResult<CompetitorBoard>> => ({ data: board, error: null })

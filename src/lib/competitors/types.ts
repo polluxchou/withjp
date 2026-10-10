@@ -107,18 +107,46 @@ export interface WeeklyPoint {
   captured_on: string
 }
 
-export interface CompetitorWithHistory extends Competitor {
+export interface CompetitorWithHistory<S = CompetitorShot> extends Competitor {
   latest: CompetitorSnapshot | null
   history: HistoryPoint[]
-  shots: CompetitorShot[]
+  /**
+   * **已加载范围内**的截图（见 CompetitorBoard.shotsLoadedFrom），不一定是全部历史。
+   * 要全量口径的统计别用它：开播时刻用 sessionStarts，日期轴用 board.shotAxis。
+   */
+  shots: S[]
+  /**
+   * 全部历史里去重后的开播时刻（ISO，升序），与相册加载到哪一天无关。
+   * 卡片的开播时段、地区标尺都读它——统计数字不能跟着相册翻页变。
+   */
+  sessionStarts: string[]
   /** 风格描述，已按生成日期倒序。 */
   descriptions: CompetitorDescription[]
   weekly: WeeklyPoint[]
   /** 下探发现的关联主播（子账号），只在父卡片里下钻展示,不在首页平铺。 */
-  related: CompetitorWithHistory[]
+  related: CompetitorWithHistory<S>[]
 }
 
-export interface CompetitorBoard {
-  competitors: CompetitorWithHistory[]
+export interface CompetitorBoard<S = CompetitorShot> {
+  competitors: CompetitorWithHistory<S>[]
   canEdit: boolean
+  /** 完整日期轴：全部有图日期升序去重；存在无日期截图时末尾追加 UNDATED_KEY。 */
+  shotAxis: string[]
+  /**
+   * 已加载 = 所有 shot_on >= shotsLoadedFrom 的截图 + 全部无日期截图；null = 全部已加载。
+   * 已加载范围总包含最新一天（统计条的「最近采集日」依赖这一点，见 summary.ts）。
+   */
+  shotsLoadedFrom: string | null
 }
+
+/** 看板装配对截图只依赖这几列：归属、排序、日期轴与开播时刻。 */
+export type BoardShot = Pick<CompetitorShot, 'competitor_id' | 'shot_on' | 'sort_order' | 'stream_started_at'>
+
+/**
+ * 竞品问答需要的截图列（getAskBoard 只查这几列）。ask-context.ts 新读一个截图字段时，
+ * 要同时加到这里和 service.ts 的 ASK_SHOT_COLUMNS，否则那一列在问答里恒为 undefined。
+ */
+export type AskShot = Pick<
+  CompetitorShot,
+  'competitor_id' | 'shot_on' | 'sort_order' | 'stream_started_at' | 'viewer_count' | 'captured_at'
+>

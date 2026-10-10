@@ -20,7 +20,7 @@ export default async function CompetitorsPage({ params }: { params: { locale: st
     getCompetitorBoard((user as { id: string }).id),
   ])
 
-  const board: CompetitorBoard = boardRes.data ?? { competitors: [], canEdit: false }
+  const board: CompetitorBoard = boardRes.data ?? { competitors: [], canEdit: false, shotAxis: [], shotsLoadedFrom: null }
 
   return (
     <div className="mx-auto max-w-5xl">

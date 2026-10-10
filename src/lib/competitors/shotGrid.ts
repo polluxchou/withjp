@@ -130,6 +130,21 @@ export function resolveAnchor(axis: string[], anchor: string | null): string | n
 }
 
 /**
+ * 看板里单个账号截图的排列：有日期的按 shot_on 倒序、同日按 sort_order 升序，无日期的垫底。
+ * assembleBoard 与 mergeShotRange 共用——补取合并后的顺序才和首屏一致。
+ */
+export function compareShotsForBoard(
+  a: Pick<CompetitorShot, 'shot_on' | 'sort_order'>,
+  b: Pick<CompetitorShot, 'shot_on' | 'sort_order'>,
+): number {
+  if (a.shot_on == null && b.shot_on == null) return a.sort_order - b.sort_order
+  if (a.shot_on == null) return 1
+  if (b.shot_on == null) return -1
+  const cmp = b.shot_on.localeCompare(a.shot_on)
+  return cmp !== 0 ? cmp : a.sort_order - b.sort_order
+}
+
+/**
  * 按日期归组；shot_on 为空归入 UNDATED_KEY。
  * 组内按 sort_order 再 created_at 升序，首张即该日封面。
  */

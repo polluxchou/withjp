@@ -6,6 +6,7 @@ import {
   SHOT_DATE_FUTURE_DAYS,
   UNDATED_KEY,
   collectShotDates,
+  compareShotsForBoard,
   groupShotsByDate,
   isValidShotDate,
   missesShotOn,
@@ -94,6 +95,7 @@ function competitor(
     latest: null,
     history: [],
     shots,
+    sessionStarts: [],
     weekly: [],
     related,
     descriptions: [],
@@ -251,6 +253,17 @@ test('groupShotsByDate: 不修改入参数组的顺序', () => {
   const input = [shotAt('b', '2026-08-01', 2, '2026-08-01T00:00:00Z'), shotAt('a', '2026-08-01', 1, '2026-08-01T00:00:00Z')]
   groupShotsByDate(input)
   assert.deepEqual(input.map((s) => s.id), ['b', 'a'])
+})
+
+test('compareShotsForBoard: 有日期的按日期倒序、同日 sort_order 升序，无日期垫底且按 sort_order', () => {
+  const list = [
+    shotAt('x2', null, 2, '2026-08-01T00:00:00Z'),
+    shotAt('x1', null, 1, '2026-08-01T00:00:00Z'),
+    shotAt('a', '2026-07-20', 0, '2026-08-01T00:00:00Z'),
+    shotAt('c', '2026-07-25', 1, '2026-08-01T00:00:00Z'),
+    shotAt('b', '2026-07-25', 0, '2026-08-01T00:00:00Z'),
+  ]
+  assert.deepEqual(list.slice().sort(compareShotsForBoard).map((s) => s.id), ['b', 'c', 'a', 'x1', 'x2'])
 })
 
 
