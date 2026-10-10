@@ -9,16 +9,18 @@ import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import CompetitorDescriptions from './CompetitorDescriptions'
 import ShotAlbum from './ShotAlbum'
 import RegionLiveRuler from './RegionLiveRuler'
-import LiveSessionImport from './LiveSessionImport'
+import LiveSessionsRow from './LiveSessionImport'
+import LiveSessionsModal from './live/LiveSessionsModal'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
 import { ANCHOR_GAP } from '@/lib/competitors/navScroll'
-import { liveStartsOf, regionTimeZone } from '@/lib/competitors/liveSessions'
+import { liveSpansOf, regionTimeZone } from '@/lib/competitors/liveSessions'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
+import { locateSpans, windowStats } from '@/lib/competitors/liveStats'
 import { checkProfileLanguage } from '@/lib/competitors/profileLanguage'
-import { REGION_CODES, regionOptions } from '@/lib/competitors/regions'
+import { REGION_CODES, normalizeRegion, regionOptions } from '@/lib/competitors/regions'
 import { timeZoneForLocale } from '@/lib/time/localeZone'
-import { formatDayTimeInZone } from '@/lib/time/zonedTime'
+import { addDaysYmd, formatDayTimeInZone, zonedYmd } from '@/lib/time/zonedTime'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import Tag from '@/components/ui/Tag'
@@ -74,8 +76,15 @@ export default function CompetitorCard({
   // "一天里的第几分钟"这个概念本身依赖时区。地区没填才回落到界面语言的时区。
   const locale = useLocale()
   const liveZone = regionTimeZone(c.region, timeZoneForLocale(locale))
-  // 场次 = 导入的开播记录 + 截图推断，合并去重后的开播时刻（降序）。
-  const starts = useMemo(() => liveStartsOf(c), [c])
+  // 按地区时区显示的时刻都要说明是哪个时区；地区不在清单里（实际回落到界面语言时区）
+  // 没有对应的地区时区名可报，宁可不写也不写错。
+  const zoneCode = normalizeRegion(c.region)
+  const zoneLabel = zoneCode ? t(`zoneName.${zoneCode}`) : null
+  const zoneNote = zoneLabel ? t('liveZoneNote', { zone: zoneLabel }) : undefined
+  const withZone = (text: string) => (zoneLabel ? `${text}${t('liveZoneSuffix', { zone: zoneLabel })}` : text)
+  // 场次 = 导入的开播记录 + 截图推断，合并去重（降序）。开播时刻、档案行摘要、弹窗都吃这一份。
+  const spans = useMemo(() => liveSpansOf(c), [c])
+  const starts = useMemo(() => spans.map((s) => s.startedAt), [spans])
   const habit = useMemo(() => summarizeLiveHabit(starts, liveZone), [starts, liveZone])
   const slotLabels = habit.slots.map((s) => s.label).join(' / ')
   // 没有任何一档成档（成档要至少 3 场，且占总场次的 15% 以上）时只报最近一场，不把单次开播说成规律。
@@ -87,6 +96,24 @@ export default function CompetitorCard({
   )
   const [open, setOpen] = useState(false)
   const [relOpen, setRelOpen] = useState(false)
+  // 开播记录弹窗：指标行「近 30 天 N 场」与档案行「查看 / 粘贴导入」是同一个弹窗的两个入口。
+  const [liveModal, setLiveModal] = useState<null | 'records' | 'import'>(null)
+  // 「近 30 天」要读时钟：服务端与浏览器的今天可能不同，挂载后才取（首帧不画这个按钮）。
+  const [nowMs, setNowMs] = useState<number | null>(null)
+  useEffect(() => { setNowMs(Date.now()) }, [])
+  // 与弹窗「近 30 天」同一口径（windowStats，账号地区时区的今天往前 30 个自然日），两处的数必须一致。
+  const recent30 = useMemo(() => {
+    const today = nowMs == null ? null : zonedYmd(nowMs, liveZone)
+    if (!today || spans.length === 0) return 0
+    return windowStats(locateSpans(spans, liveZone), addDaysYmd(today, -29), today).sessions
+  }, [nowMs, spans, liveZone])
+  // 档案行摘要的起止日期：最早 / 最近一场的当地日期（账号地区时区，与弹窗同一口径）。
+  const spanRange = spans.length
+    ? {
+        from: zonedYmd(spans[spans.length - 1].startedAt, liveZone)?.slice(5) ?? '',
+        to: zonedYmd(spans[0].startedAt, liveZone)?.slice(5) ?? '',
+      }
+    : { from: '', to: '' }
   const [editingHandle, setEditingHandle] = useState(false)
   const [handleInput, setHandleInput] = useState('')
   const [copyState, setCopyState] = useState<'ok' | 'fail' | null>(null)
@@ -136,10 +163,25 @@ export default function CompetitorCard({
     <span key="likes">{t('colLikes')} <span className="tabular-nums">{formatCount(c.latest?.likes ?? null)}</span></span>,
     c.composition ?? null,
     c.online_note ? `${t('fieldOnline')} ${c.online_note}` : null,
-    slotLabels ? t('liveSlotsCompact', { slots: slotLabels })
-      : habit.latestStartedAt
-        ? t('liveSlotsLatest', { time: formatDayTimeInZone(habit.latestStartedAt, liveZone)! })
-        : null,
+    // 一行里放不下「（日本时间）」这类后缀（这行本来就会截断），时区名放在悬停提示里；
+    // 展开档案里的同一组时刻再明写出来。
+    slotLabels || habit.latestStartedAt ? (
+      <span key="slots" title={zoneNote}>
+        {slotLabels
+          ? t('liveSlotsCompact', { slots: slotLabels })
+          : t('liveSlotsLatest', { time: formatDayTimeInZone(habit.latestStartedAt, liveZone)! })}
+      </span>
+    ) : null,
+    recent30 > 0 ? (
+      <button
+        key="recent30"
+        type="button"
+        onClick={() => setLiveModal('records')}
+        className={`rounded-btn bg-primary-soft px-2 text-primary-hover hover:bg-primary-soft-hover tabular-nums ${FOCUS_RING}`}
+      >
+        {t('liveRecent30', { count: recent30 })} <span aria-hidden>›</span>
+      </button>
+    ) : null,
     c.latest ? t('latestOn', { date: c.latest.captured_on }) : null,
   ].filter((part) => part != null && part !== '')
 
@@ -401,16 +443,16 @@ export default function CompetitorCard({
           {/* 手填的「在线」保留并与实测并列:对方公告的排班和实际开播时间不一致本身就是情报。 */}
           <Field
             label={t('fieldLiveSlots')}
-            value={slotLabels ? t('liveSlotsValue', { slots: slotLabels, count: habit.sessions }) : null}
+            value={slotLabels ? withZone(t('liveSlotsValue', { slots: slotLabels, count: habit.sessions })) : null}
           />
-          <Field label={t('fieldRecentSessions')} value={recentSessions.join(' · ') || null} />
-          {/* 开播记录来自 TikTok LIVE History 的粘贴导入，比截图覆盖的场次全得多；
-              没有记录也照样占一行，导入入口就挂在这一行上。 */}
-          <LiveSessionImport
-            competitorId={c.id}
-            sessions={c.live_sessions}
+          <Field label={t('fieldRecentSessions')} value={recentSessions.length ? withZone(recentSessions.join(' · ')) : null} />
+          {/* 开播记录 = LIVE History 导入 ∪ 截图推断；没有任何场次也照样占一行，导入入口就挂在这一行上。 */}
+          <LiveSessionsRow
+            count={spans.length}
+            from={spanRange.from}
+            to={spanRange.to}
             canEdit={canEdit}
-            onChanged={onChanged}
+            onOpen={setLiveModal}
           />
           {/* 地区回退到竞品表:快照的 region 实测一直是空的(采集脚本不读它),
               只看快照会让这一行永远不渲染。人工值才是权威值。 */}
@@ -480,6 +522,17 @@ export default function CompetitorCard({
             </table>
           )}
         </div>
+      )}
+
+      {/* 关着时不挂载：弹窗里的「今天」、统计范围、导入草稿每次打开都是新的。 */}
+      {liveModal && (
+        <LiveSessionsModal
+          competitor={c}
+          canEdit={canEdit}
+          initialView={liveModal}
+          onClose={() => setLiveModal(null)}
+          onChanged={onChanged}
+        />
       )}
     </div>
   )
