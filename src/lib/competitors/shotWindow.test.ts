@@ -211,6 +211,8 @@ test('nextChunk: 轴上已经没有比起点更早的日期时不补', () => {
 
 test('nextChunk: 窗口里只有无日期列时不补', () => {
   assert.equal(nextChunk([...AXIS, UNDATED_KEY], [UNDATED_KEY], '2026-08-16'), null)
+  // 起点离轴尾不足一屏时也一样：无日期列不能拿来当"当前屏第一天"去定位
+  assert.equal(nextChunk([...AXIS, UNDATED_KEY], [UNDATED_KEY], '2026-08-24'), null)
 })
 
 function shotRow(id: string, competitor_id: string, shot_on: string | null, sort_order = 0): CompetitorShot {
@@ -244,10 +246,19 @@ test('mergeShotRange: 按账号（含子主播）并入，排序与首屏一致�
   assert.equal(next.shotsLoadedFrom, '2026-08-06')
   assert.deepEqual(next.competitors[0].shots.map((s) => s.id), ['p20', 'p12', 'p10'])
   assert.deepEqual(next.competitors[0].related[0].shots.map((s) => s.id), ['k12'])
+  // 看板上与截图无关的字段原样带过
+  assert.equal(next.canEdit, true)
+  assert.deepEqual(next.shotAxis, AXIS)
 })
 
 test('mergeShotRange: 补到轴首时起点归一成 null', () => {
   const next = mergeShotRange(boardOf([node('p', [])], '2026-08-06'), [], { from: '2026-08-01', before: '2026-08-06' })
+  assert.equal(next.shotsLoadedFrom, null)
+})
+
+test('mergeShotRange: 轴上没有有图日时起点也归一成 null', () => {
+  const board = { ...boardOf([node('p', [])], '2026-08-16'), shotAxis: [UNDATED_KEY] }
+  const next = mergeShotRange(board, [], { from: '2026-08-06', before: '2026-08-16' })
   assert.equal(next.shotsLoadedFrom, null)
 })
 
@@ -260,12 +271,13 @@ test('mergeShotRange: 过期结果（起点已不是这段的右端）原样返�
 test('mergeShotRange: 区间外的行与找不到账号的行丢弃', () => {
   const next = mergeShotRange(boardOf([node('p', [])], '2026-08-16'), [
     shotRow('in', 'p', '2026-08-10'),
+    shotRow('edge', 'p', '2026-08-06'),   // 恰在区间左端，闭区间要收
     shotRow('late', 'p', '2026-08-16'),   // 已加载范围里的，接口不该给；给了也不能重复
     shotRow('early', 'p', '2026-08-05'),
     shotRow('undated', 'p', null),        // 无日期截图首屏已全量带上
     shotRow('ghost', 'deleted', '2026-08-10'),
   ], { from: '2026-08-06', before: '2026-08-16' })
-  assert.deepEqual(next.competitors[0].shots.map((s) => s.id), ['in'])
+  assert.deepEqual(next.competitors[0].shots.map((s) => s.id), ['in', 'edge'])
 })
 
 test('mergeShotRange: 区间内已有的旧行被新行替换，不重复', () => {
@@ -273,6 +285,13 @@ test('mergeShotRange: 区间内已有的旧行被新行替换，不重复', () =
   const next = mergeShotRange(board, [{ ...shotRow('p10', 'p', '2026-08-10'), caption: 'new' }],
     { from: '2026-08-06', before: '2026-08-16' })
   assert.deepEqual(next.competitors[0].shots.map((s) => [s.id, s.caption]), [['p10', 'new']])
+})
+
+test('mergeShotRange: 区间左端当天的旧行同样被新行替换，不重复', () => {
+  const board = boardOf([node('p', [shotRow('p06', 'p', '2026-08-06')])], '2026-08-16')
+  const next = mergeShotRange(board, [{ ...shotRow('p06', 'p', '2026-08-06'), caption: 'new' }],
+    { from: '2026-08-06', before: '2026-08-16' })
+  assert.deepEqual(next.competitors[0].shots.map((s) => [s.id, s.caption]), [['p06', 'new']])
 })
 
 test('mergeShotRange: 不修改入参看板', () => {
