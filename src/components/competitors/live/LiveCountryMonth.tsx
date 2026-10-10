@@ -8,6 +8,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Tag from '@/components/ui/Tag'
 import {
+  barBox,
   barClock,
   clampMonth,
   countryAccounts,
@@ -20,15 +21,14 @@ import {
   monthRow,
   monthTotals,
   pickCountry,
-  shiftMonth,
+  regionlessLiveCount,
   spanSource,
+  stepMonth,
   type LiveAccount,
-  type MonthBar,
   type MonthCell,
 } from '@/lib/competitors/liveBoard'
 import { regionTimeZone } from '@/lib/competitors/liveSessions'
 import { minutesToLabel } from '@/lib/competitors/liveSlots'
-import { AXIS_END, AXIS_START } from '@/lib/competitors/liveStats'
 import type { RegionCode } from '@/lib/competitors/regions'
 import { weekdayOfYmd } from '@/lib/time/zonedTime'
 import { FOCUS_RING } from '@/lib/ui/recipes'
@@ -42,21 +42,14 @@ import { useRegionZone } from './useRegionZone'
  */
 const FALLBACK_ZONE = 'Asia/Tokyo'
 
-/** 迷你竖条区高度（px）：40px 装下 06:00 → 次日 02:00 的 1200 分钟。 */
+/** 迷你竖条区高度（px）：40px 装下 06:00 → 次日 02:00 的 1200 分钟。几何在 liveBoard.barBox。 */
 const STRIP_H = 40
-const PX_PER_MIN = STRIP_H / (AXIS_END - AXIS_START)
 /** 竖条最矮 3px：几分钟的短场、或 02:00 之后才开播被夹到轴尾的零长度条，也得看得见。 */
 const MIN_BAR_H = 3
-/** 12:00、18:00 两条点线的位置（px），给竖条一个读时刻的参照。 */
-const GUIDE_TOPS = [12 * 60, 18 * 60].map((m) => (m - AXIS_START) * PX_PER_MIN)
+/** 12:00、18:00 两条点线的位置（px），给竖条一个读时刻的参照。与竖条同一套几何。 */
+const GUIDE_TOPS = [12 * 60, 18 * 60].map((m) => barBox({ start: m, end: m }, STRIP_H, 0).top)
 /** 底行热度超过这个透明度，格子够深，数字改用白字。 */
 const DARK_ALPHA = 0.55
-
-/** 竖条的纵向位置：夹在条区内——零长度条加了最小高度后不能从格子底边冒出去。 */
-function barBox(bar: MonthBar): { top: number; height: number } {
-  const height = Math.max(MIN_BAR_H, (bar.end - bar.start) * PX_PER_MIN)
-  return { top: Math.min((bar.start - AXIS_START) * PX_PER_MIN, STRIP_H - height), height }
-}
 
 const isWeekend = (ymd: string) => {
   const wd = weekdayOfYmd(ymd)
@@ -93,7 +86,11 @@ export default function LiveCountryMonth({
   country: string | null
   month: string | null
   onCountryChange: (code: RegionCode) => void
-  onMonthChange: (month: string) => void
+  /**
+   * 翻月。给的是「拿地址栏当前的月份算目标月」的函数，不是算好的月份：连点两下时第二下还没等到重渲染，
+   * 用渲染时的月份会算出同一个月（见 CompetitorLiveView.setQuery 与 liveBoard.stepMonth）。
+   */
+  onMonthChange: (next: (current: string | null) => string) => void
   onOpenRecords: (competitorId: string) => void
 }) {
   const t = useTranslations('competitors')
@@ -106,6 +103,8 @@ export default function LiveCountryMonth({
   const month = clampMonth(requestedMonth, bounds)
   const days = useMemo(() => monthDays(month), [month])
   const { zoneLabel } = useRegionZone(country)
+  // 有场次、但地区未填 / 不在清单里的号哪个国家都进不去：不提一句它们就悄无声息地消失了。
+  const regionless = useMemo(() => regionlessLiveCount(accounts), [accounts])
 
   const groups = useMemo(
     () =>
@@ -114,26 +113,35 @@ export default function LiveCountryMonth({
         rows: g.accounts.map((account) => ({
           account,
           source: spanSource(account.spans),
-          result: monthRow(account, month, regionTimeZone(account.region, FALLBACK_ZONE), patrolDays),
+          result: monthRow(account, month, regionTimeZone(account.region, FALLBACK_ZONE), patrolDays, today),
         })),
       })),
-    [listed, month, patrolDays],
+    [listed, month, patrolDays, today],
   )
   const rows = useMemo(() => groups.flatMap((g) => g.rows), [groups])
   const totals = useMemo(() => monthTotals(rows.map((r) => r.result.cells)), [rows])
   const kpis = useMemo(() => countryMonthKpis(rows.map((r) => r.result), totals), [rows, totals])
   const maxLive = kpis.busiest?.live ?? 0
 
+  const regionlessNote =
+    regionless > 0 ? <p className="basis-full text-micro text-ink-500">{t('liveMonthRegionless', { count: regionless })}</p> : null
+
   if (!country) {
-    return <EmptyState title={t('liveMonthEmpty')} hint={t('liveMonthEmptyHint')} />
+    return (
+      <div>
+        <EmptyState title={t('liveMonthEmpty')} hint={t('liveMonthEmptyHint')} />
+        {regionlessNote}
+      </div>
+    )
   }
 
   const sourceLabel = (source: ReturnType<typeof spanSource>) =>
     source === 'history' ? t('liveSourceHistory') : source === 'mixed' ? t('liveSourceMixed') : t('liveSourceShot')
 
-  // 提示框：日期 · 每场精确起止（截图推断的下播前加「约」，跨午夜标 +1）/ 没播 / 无数据。
+  // 提示框：日期 · 每场精确起止（截图推断的下播前加「约」，跨午夜标 +1）/ 没播 / 无数据 / 未到。
   const cellTip = (cell: MonthCell) => {
     const head = `${cell.date.slice(5)} ${fmt.weekday(cell.date)}`
+    if (cell.future && cell.status !== 'live') return `${head} · ${t('liveCalendarFuture')}`
     if (cell.status === 'nodata') return `${head} · ${t('liveCalendarNoData')}`
     if (cell.status === 'idle') return `${head} · ${t('liveCalendarNone')}`
     const sessions = cell.tip.map((bar) => {
@@ -169,15 +177,22 @@ export default function LiveCountryMonth({
     <div className="space-y-4">
       {/* 控件行：国家 · ‹ 月份 › · 时区说明 */}
       <div className="flex flex-wrap items-center gap-2 rounded-card border border-line bg-surface p-3">
-        <SegmentedControl
-          label={t('liveCountryLabel')}
-          value={country}
-          onChange={(v) => onCountryChange(v as RegionCode)}
-          items={options.map((o) => ({
-            value: o.code,
-            label: t('liveCountryOption', { name: t(`regionName.${o.code}`), count: o.count }),
-          }))}
-        />
+        {/* 国家多了分段控件会比手机屏还宽：包一层自己横向滚动（min-w-0 让它能被压窄），整页不出横向滚动条。
+            -m-0.5 p-0.5：滚动容器会裁掉溢出的内容，给按钮的焦点环留出 2px。
+            里层 w-max：否则分段控件按滚动容器的宽度收缩，「Japan 4」这类标签会被挤成两行。 */}
+        <div className="-m-0.5 min-w-0 max-w-full overflow-x-auto p-0.5 scrollbar-thin">
+          <div className="w-max">
+            <SegmentedControl
+              label={t('liveCountryLabel')}
+              value={country}
+              onChange={(v) => onCountryChange(v as RegionCode)}
+              items={options.map((o) => ({
+                value: o.code,
+                label: t('liveCountryOption', { name: t(`regionName.${o.code}`), count: o.count }),
+              }))}
+            />
+          </div>
+        </div>
         <span aria-hidden className="mx-1 h-4 w-px bg-line" />
         <button
           type="button"
@@ -185,7 +200,7 @@ export default function LiveCountryMonth({
           aria-label={t('liveMonthPrev')}
           title={t('liveMonthPrev')}
           disabled={month <= bounds.from}
-          onClick={() => onMonthChange(shiftMonth(month, -1))}
+          onClick={() => onMonthChange((current) => stepMonth(current, -1, bounds))}
         >
           <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
         </button>
@@ -198,11 +213,12 @@ export default function LiveCountryMonth({
           aria-label={t('liveMonthNext')}
           title={t('liveMonthNext')}
           disabled={month >= bounds.to}
-          onClick={() => onMonthChange(shiftMonth(month, 1))}
+          onClick={() => onMonthChange((current) => stepMonth(current, 1, bounds))}
         >
           <ChevronRight size={16} strokeWidth={1.5} aria-hidden />
         </button>
         {zoneLabel && <span className="ml-auto text-xs text-ink-500">{t('liveZoneNote', { zone: zoneLabel })}</span>}
+        {regionlessNote}
       </div>
 
       {/* 三个指标 */}
@@ -229,6 +245,10 @@ export default function LiveCountryMonth({
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden className="box-border h-3.5 w-3.5 rounded-sm border border-line" style={NO_DATA_FILL} />
           {t('liveMonthLegendNoData')}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="box-border h-3.5 w-3.5 rounded-sm border border-dashed border-line-strong" />
+          {t('liveCalendarFuture')}
         </span>
       </div>
 
@@ -272,33 +292,46 @@ export default function LiveCountryMonth({
                     <span className="truncate text-xs font-semibold text-ink-900 group-hover:text-primary">{account.handle}</span>
                     <span className="truncate text-[10px] text-ink-500">{sourceLabel(source)}</span>
                   </button>
-                  {result.cells.map((cell) => (
-                    <div
-                      key={cell.date}
-                      title={cellTip(cell)}
-                      className={`box-border w-[34px] shrink-0 border-l border-line-soft pt-px ${
-                        cell.status === 'nodata' ? '' : isWeekend(cell.date) ? 'bg-canvas' : 'bg-surface'
-                      }`}
-                      style={cell.status === 'nodata' ? NO_DATA_FILL : undefined}
-                    >
-                      <div className="relative" style={{ height: STRIP_H }}>
-                        {GUIDE_TOPS.map((top) => (
-                          <div key={top} aria-hidden className="absolute inset-x-1 border-t border-dotted border-line" style={{ top }} />
-                        ))}
-                        {cell.bars.map((bar, i) => (
-                          <span
-                            key={i}
-                            aria-hidden
-                            className="absolute left-1/2 w-3 -translate-x-1/2 rounded-sm"
-                            style={{ ...barBox(bar), ...(bar.approx ? SHOT_FILL : HISTORY_FILL) }}
-                          />
-                        ))}
+                  {result.cells.map((cell) => {
+                    // 今天之后的日子：画成虚线框、不画斜线与参照线（同弹窗日历的「未到」）——
+                    // 画成「无数据」斜线会被读成巡检漏了这些天。
+                    const upcoming = cell.future && cell.status !== 'live'
+                    const hatched = cell.status === 'nodata' && !upcoming
+                    return (
+                      <div
+                        key={cell.date}
+                        title={cellTip(cell)}
+                        data-cell={upcoming ? 'future' : cell.status}
+                        className={`relative box-border w-[34px] shrink-0 border-l border-line-soft pt-px ${
+                          hatched ? '' : isWeekend(cell.date) ? 'bg-canvas' : 'bg-surface'
+                        }`}
+                        style={hatched ? NO_DATA_FILL : undefined}
+                      >
+                        {upcoming ? (
+                          <div aria-hidden className="absolute inset-1 rounded-sm border border-dashed border-line-strong" />
+                        ) : (
+                          <>
+                            <div className="relative" style={{ height: STRIP_H }}>
+                              {GUIDE_TOPS.map((top) => (
+                                <div key={top} aria-hidden className="absolute inset-x-1 border-t border-dotted border-line" style={{ top }} />
+                              ))}
+                              {cell.bars.map((bar, i) => (
+                                <span
+                                  key={i}
+                                  aria-hidden
+                                  className="absolute left-1/2 w-3 -translate-x-1/2 rounded-sm"
+                                  style={{ ...barBox(bar, STRIP_H, MIN_BAR_H), ...(bar.approx ? SHOT_FILL : HISTORY_FILL) }}
+                                />
+                              ))}
+                            </div>
+                            <div className="h-3.5 whitespace-nowrap text-center text-[10px] leading-[14px] tracking-tighter text-ink-700 tabular-nums">
+                              {cell.firstStart != null ? `${minutesToLabel(cell.firstStart)}${cell.bars.length > 1 ? '+' : ''}` : ''}
+                            </div>
+                          </>
+                        )}
                       </div>
-                      <div className="h-3.5 whitespace-nowrap text-center text-[10px] leading-[14px] tracking-tighter text-ink-700 tabular-nums">
-                        {cell.firstStart != null ? `${minutesToLabel(cell.firstStart)}${cell.bars.length > 1 ? '+' : ''}` : ''}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                   <div className="flex w-[112px] shrink-0 flex-col justify-center pl-3">
                     <span className="text-xs font-semibold text-ink-900 tabular-nums">
                       {t('liveMonthLiveDays', { days: result.liveDays })}

@@ -2010,7 +2010,8 @@
     "liveMonthTotalsTip": "{live} of {withData} accounts with data went live",
     "liveMonthOpenRecords": "Open live records for {handle}",
     "liveMonthEmpty": "No live sessions yet",
-    "liveMonthEmptyHint": "Import LIVE History from a competitor card under Group accounts, or wait for patrol screenshots to build up"
+    "liveMonthEmptyHint": "Import LIVE History from a competitor card under Group accounts, or wait for patrol screenshots to build up",
+    "liveMonthRegionless": "{count, plural, =1 {1 more account has} other {# more accounts have}} no region set and {count, plural, =1 {is} other {are}} not listed"
   },
   "site": {
     "meta": {

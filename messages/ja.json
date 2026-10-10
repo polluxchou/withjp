@@ -1769,7 +1769,8 @@
     "liveMonthTotalsTip": "データのある {withData} アカウント中 {live} アカウントが配信",
     "liveMonthOpenRecords": "{handle} の配信記録を開く",
     "liveMonthEmpty": "配信記録はまだありません",
-    "liveMonthEmptyHint": "「グループ配信アカウント」の競合カードで LIVE History を取り込むか、巡回スクショがたまるのを待ってください"
+    "liveMonthEmptyHint": "「グループ配信アカウント」の競合カードで LIVE History を取り込むか、巡回スクショがたまるのを待ってください",
+    "liveMonthRegionless": "ほかに地域未設定のアカウントが {count} 件あり、表示していません"
   },
   "items": {
     "fieldItemValuePlaceholder": "¥{price}（デフォルト）",
