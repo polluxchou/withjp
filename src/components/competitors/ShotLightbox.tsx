@@ -295,7 +295,7 @@ export default function ShotLightbox({
       if (!res.ok) { setError(t('actionFailed')); return }
       await onChanged()
       // 只在删掉最后一张时才关。否则清理某天的多张图要"开→删→关→再开"循环一遍;
-      // 留着不关的话,refetch 后 shots 变短、选中项会自动兜底到第一张。
+      // 留着不关的话,refetch 后 shots 变短、选中项会回落到当天最新一张（coverOf）。
       if (shots.length <= 1) onClose()
     } catch {
       setError(t('actionFailed'))

@@ -12,7 +12,7 @@ import { todayLocal } from '@/lib/competitors/localDate'
 import { competitorAnchorId, competitorIdFromHash } from '@/lib/competitors/anchors'
 import { scrollToCompetitorCard } from './scrollToCard'
 import { SHOT_WINDOW_SIZE, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
-import { boardRefreshPath, isShotDateLoaded, mergeShotRange, nextChunk } from '@/lib/competitors/shotWindow'
+import { boardRefreshPath, isShotDateLoaded, mergeShotRange, nextChunk, refreshSince } from '@/lib/competitors/shotWindow'
 import { createChunkLoader, fetchShotRange } from '@/lib/competitors/chunkLoader'
 import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
 import { REGION_CODES } from '@/lib/competitors/regions'
@@ -148,14 +148,16 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   )
   useEffect(() => { loader.want(pendingChunk) }, [loader, pendingChunk])
 
-  // refresh 是 useCallback，闭包里的 board 会过期；起点走 ref 读最新值。
-  const loadedFromRef = useRef(board.shotsLoadedFrom)
-  useEffect(() => { loadedFromRef.current = board.shotsLoadedFrom }, [board.shotsLoadedFrom])
+  // refresh 是 useCallback，闭包里的 board 会过期；since 走 ref 读最新值。
+  // 起点为 null（已翻到轴首、全部已加载）时也要带上轴首那一天：不带的话服务端缺省回最近一段，
+  // 刷新会把已加载的全部历史缩回去；带轴首服务端会归一回 null（全部）。判据见 refreshSince。
+  const refreshSinceRef = useRef(refreshSince(board.shotsLoadedFrom, board.shotAxis))
+  useEffect(() => { refreshSinceRef.current = refreshSince(board.shotsLoadedFrom, board.shotAxis) }, [board.shotsLoadedFrom, board.shotAxis])
 
   const refresh = useCallback(async () => {
     try {
       // 带上已加载起点：翻到历史后上传/改日期/删图再刷新，不会被缩回首屏那两屏。
-      const res = await fetch(boardRefreshPath(loadedFromRef.current), { cache: 'no-store' })
+      const res = await fetch(boardRefreshPath(refreshSinceRef.current), { cache: 'no-store' })
       if (!res.ok) throw new Error('load failed')
       const json = await res.json()
       if (json.data) setBoard(json.data as CompetitorBoard)

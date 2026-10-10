@@ -2,10 +2,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { UNDATED_KEY } from './shotGrid.ts'
+import { SHOT_WINDOW_SIZE, UNDATED_KEY } from './shotGrid.ts'
 import {
   SHOT_CHUNK_DAYS, boardRefreshPath, buildShotIndex, initialLoadedFrom, isShotDateLoaded, loadedRangeOrFilter,
-  mergeShotRange, nextChunk, parseShotRangeQuery, parseSinceQuery, resolveLoadedFrom, shotRangePath,
+  mergeShotRange, nextChunk, parseShotRangeQuery, parseSinceQuery, refreshSince, resolveLoadedFrom, shotRangePath,
 } from './shotWindow.ts'
 import type { CompetitorBoard, CompetitorShot, CompetitorWithHistory } from './types.ts'
 
@@ -299,4 +299,56 @@ test('mergeShotRange: 不修改入参看板', () => {
   mergeShotRange(board, [shotRow('p10', 'p', '2026-08-10')], { from: '2026-08-06', before: '2026-08-16' })
   assert.equal(board.shotsLoadedFrom, '2026-08-16')
   assert.deepEqual(board.competitors[0].shots.map((s) => s.id), ['p20'])
+})
+
+test('refreshSince: 起点非 null 时原样返回', () => {
+  assert.equal(refreshSince('2026-08-06', axisOf(25)), '2026-08-06')
+  assert.equal(refreshSince('2026-08-16', [...axisOf(25), UNDATED_KEY]), '2026-08-16')
+})
+
+test('refreshSince: 起点为 null（全部已加载）时取轴上第一个有图日', () => {
+  assert.equal(refreshSince(null, axisOf(25)), '2026-08-01')
+  assert.equal(refreshSince(null, [...axisOf(25), UNDATED_KEY]), '2026-08-01')
+  assert.equal(refreshSince(null, ['2026-08-05', '2026-08-09']), '2026-08-05')
+})
+
+test('refreshSince: 轴上没有有图日时返回 null（不带参数）', () => {
+  assert.equal(refreshSince(null, []), null)
+  assert.equal(refreshSince(null, [UNDATED_KEY]), null)
+})
+
+test('refreshSince 往返：从首屏一路补到轴首（起点 null）后刷新，服务端仍判全部已加载，不缩回最近一段', () => {
+  const axis = axisOf(25)
+  let board: CompetitorBoard = { ...boardOf([node('p', [])], initialLoadedFrom(axis)), shotAxis: axis }
+  assert.equal(board.shotsLoadedFrom, '2026-08-16')
+  // 一屏一屏往历史翻：窗口从倒数第二屏起，每次窗口移动后把该补的段补完
+  for (let start = axis.length - 2 * SHOT_WINDOW_SIZE; start >= 0; start -= SHOT_WINDOW_SIZE) {
+    const dateWindow = axis.slice(start, start + SHOT_WINDOW_SIZE)
+    for (let chunk = nextChunk(axis, dateWindow, board.shotsLoadedFrom); chunk; chunk = nextChunk(axis, dateWindow, board.shotsLoadedFrom)) {
+      board = mergeShotRange(board, [], chunk)
+    }
+  }
+  assert.equal(board.shotsLoadedFrom, null)
+  // 刷新请求带上的 since，服务端按原规则归一，结果仍是「全部已加载」
+  const since = refreshSince(board.shotsLoadedFrom, board.shotAxis)
+  assert.equal(since, '2026-08-01')
+  assert.equal(resolveLoadedFrom(axis, since), null)
+  assert.equal(boardRefreshPath(since), '/api/competitors?since=2026-08-01')
+})
+
+test('refreshSince 往返：翻到半路（起点非 null）刷新，范围原样保住', () => {
+  const axis = axisOf(25)
+  const half = '2026-08-06'
+  assert.equal(resolveLoadedFrom(axis, refreshSince(half, axis)), half)
+})
+
+test('refreshSince 往返：轴不超过一段（首屏就是全部）时，带不带 since 结果一致', () => {
+  for (const n of [1, 8, 10]) {
+    const axis = axisOf(n)
+    assert.equal(resolveLoadedFrom(axis, refreshSince(null, axis)), resolveLoadedFrom(axis, null))
+    assert.equal(resolveLoadedFrom(axis, refreshSince(null, axis)), null)
+  }
+  // 恰好 11 个有图日、已翻到轴首：仍是全部已加载
+  const axis11 = axisOf(11)
+  assert.equal(resolveLoadedFrom(axis11, refreshSince(null, axis11)), null)
 })
