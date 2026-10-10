@@ -32,6 +32,10 @@ export interface AskCoverage {
   withMetrics: number
   metricsDays: number
   shotDays: number
+  /**
+   * 已采到开播时刻的场次总数：导入的开播记录与截图推断合并去重后，各账号场次数之和
+   * （与各账号 liveHabit.sessionsAllTime 同口径，未来时刻不计）。
+   */
   sessionsWithStartTime: number
 }
 
@@ -239,6 +243,18 @@ export function followersOf(history: HistoryPoint[]): AskFollowers {
 }
 
 /**
+ * 一个账号「已采到开播时刻」的全部场次（ISO，降序）：导入的开播记录与截图推断合并去重，
+ * 只挡未来时刻的脏数据（<= now），不设下限。
+ *
+ * 账号层的 liveHabit.sessionsAllTime 与全局的 meta.coverage.sessionsWithStartTime 都从这里取数，
+ * 两处才不会各算各的——这个数据包整份交给模型，一处说「播过 3 场」、另一处说「0 场有开播时刻」
+ * 是模型没法调和的矛盾。
+ */
+function startsUpTo(c: CompetitorWithHistory, nowMs: number): string[] {
+  return liveStartsOf(c).filter((iso) => Date.parse(iso) <= nowMs)
+}
+
+/**
  * 开播作息。窗口只挡"这是不是规律"这一层推论（slots/sessionsInWindow/
  * recentSessionsLocal），不挡"上一次是什么时候/总共播过几场"这两个硬事实
  * （latestStartedAtLocal/sessionsAllTime）——半年前连播三场、之后再没开播过
@@ -261,7 +277,7 @@ function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): Ask
   // 场次来源是导入的开播记录与截图合并后的（同一场只计一次，见 liveSessions.ts），
   // 与卡片、地区标尺同源，模型读到的场次数才和页面上看到的一致。
   // 显示时区不动：仍是 buildAskContext 按界面语言解出的 timeZone，这里只换数据来源。
-  const allStarts = liveStartsOf(c).filter((iso) => Date.parse(iso) <= nowMs)
+  const allStarts = startsUpTo(c, nowMs)
   // ISO 8601 定长同格式，字符串比较即时刻比较（同 liveSlots.ts 的做法）。
   // 排序/取最大值都在格式化之前对原始 ISO 做——格式化后的字符串在固定时区下
   // 恰好也保序，但排序逻辑不该依赖这个巧合。
@@ -352,6 +368,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
   const displayTimeZone = timeZoneForLocale(locale)
   const todayTokyo = dayIn(now, SHOT_TZ)
   const flat = flatten(board.competitors, null)
+  const nowMs = now.getTime()
 
   const competitors: AskCompetitor[] = flat.map(({ c, parentHandle }) => {
     const followers = followersOf(c.history)
@@ -373,15 +390,16 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
 
   const metricsDays = new Set<string>()
   const shotDays = new Set<string>()
-  const sessions = new Set<string>()
+  // 已采到开播时刻的场次总数 = 逐号合并后的场次数之和（与各账号 liveHabit.sessionsAllTime 同口径）。
+  // 场次的身份是 (竞品, 开播时刻)，不是裸时刻——两个竞品凑巧在同一秒开播是真实可能发生的巧合，
+  // 不该被去重塌成一场；逐号计数再求和天然保持这一点。
+  let sessionsWithStartTime = 0
   for (const { c } of flat) {
     for (const p of c.history) metricsDays.add(p.captured_on)
     for (const s of c.shots) {
       if (s.shot_on != null) shotDays.add(s.shot_on)
-      // 场次的身份是 (竞品, 开播时刻)，不是裸时刻——两个竞品凑巧在同一秒开播
-      // 是真实可能发生的巧合，不该被去重塌成一场。
-      if (s.stream_started_at != null) sessions.add(`${c.id}|${s.stream_started_at}`)
     }
+    sessionsWithStartTime += startsUpTo(c, nowMs).length
   }
 
   return {
@@ -394,7 +412,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
         withMetrics: competitors.filter((x) => x.followers.latest != null).length,
         metricsDays: metricsDays.size,
         shotDays: shotDays.size,
-        sessionsWithStartTime: sessions.size,
+        sessionsWithStartTime,
       },
       captureNote: CAPTURE_NOTE,
     },

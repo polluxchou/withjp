@@ -280,14 +280,19 @@ test('liveHabit: 三场同档达到门槛，confidence 为 ok', () => {
   assert.equal(h.latestStartedAtLocal, '2026-08-19 20:28')
 })
 
+/** 导入的开播记录（LIVE History），只覆盖测试关心的字段。 */
+function importedSession(started_at: string, ended_at: string, competitor_id = 'id-1') {
+  return {
+    id: `${competitor_id}|${started_at}`, competitor_id, started_at, ended_at, title: '', likes: null,
+    source: 'tiktok_history' as const, created_at: started_at, updated_at: started_at,
+  }
+}
+
 test('liveHabit: 只有导入的开播记录（没有截图）也能成档——场次来源是导入与截图合并后的', () => {
   // 之前 liveHabit 只吃截图的 stream_started_at：一个号导入了 3 场开播记录、却一张截图都没有，
   // 模型会读到「0 场、证据不足」。现在合并两个来源，这三场都算。
   // 三场都在东京 12:0x（03:0x UTC），ja 界面 = 东京时区，所以档位显示 12:0x。
-  const session = (started_at: string, ended_at: string) => ({
-    id: started_at, competitor_id: 'id-1', started_at, ended_at, title: '', likes: null,
-    source: 'tiktok_history' as const, created_at: started_at, updated_at: started_at,
-  })
+  const session = importedSession
   const ctx = buildAskContext(
     board([comp({
       shots: [],
@@ -305,6 +310,62 @@ test('liveHabit: 只有导入的开播记录（没有截图）也能成档——
   assert.equal(h.slots[0].sessions, 3)
   assert.equal(h.slots[0].at, '12:04')
   assert.equal(h.confidence, 'ok')
+  // 数据包里两处说的是同一件事：账号层 sessionsAllTime 与全局 coverage 必须同口径，
+  // 不能出现「这个号播过 3 场、覆盖面却说 0 场有开播时刻」的自相矛盾。
+  assert.equal(h.sessionsAllTime, 3)
+  assert.equal(ctx.meta.coverage.sessionsWithStartTime, 3)
+})
+
+test('coverage: 导入的场次与同一场的截图只算一场（截图开播时刻落在导入场次的起止之内）', () => {
+  const ctx = buildAskContext(
+    board([comp({
+      live_sessions: [importedSession('2026-08-19T03:04:00Z', '2026-08-19T05:00:00Z')],
+      // 直播间自报的开播时刻比导入的整分钟晚 30 秒，落在导入场次区间内 → 同一场。
+      shots: [shot({ id: 's1', stream_started_at: '2026-08-19T03:04:30Z', captured_at: '2026-08-19T04:00:00Z' })],
+    })]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  assert.equal(ctx.meta.coverage.sessionsWithStartTime, 1)
+  assert.equal(ctx.competitors[0].liveHabit.sessionsAllTime, 1)
+})
+
+test('coverage: 两个竞品的导入场次恰好同一时刻开播，按 (竞品,时刻) 计 2 场，不会塌成 1', () => {
+  const ctx = buildAskContext(
+    board([
+      comp({ id: 'id-1', handle: 'alpha', live_sessions: [importedSession('2026-08-19T03:00:00Z', '2026-08-19T05:00:00Z', 'id-1')] }),
+      comp({ id: 'id-2', handle: 'beta', live_sessions: [importedSession('2026-08-19T03:00:00Z', '2026-08-19T05:00:00Z', 'id-2')] }),
+    ]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  assert.equal(ctx.meta.coverage.sessionsWithStartTime, 2)
+})
+
+test('coverage: 与逐号 sessionsAllTime 之和恒等（导入与截图混合，未来时刻两边都不算）', () => {
+  const ctx = buildAskContext(
+    board([
+      comp({
+        id: 'id-1', handle: 'alpha',
+        live_sessions: [
+          importedSession('2026-08-19T03:00:00Z', '2026-08-19T05:00:00Z', 'id-1'),
+          importedSession('2026-08-25T03:00:00Z', '2026-08-25T05:00:00Z', 'id-1'), // 晚于 now（脏数据）
+        ],
+        // 第一张落在导入场次里（同一场）；第二张是另一场；第三张在未来。
+        shots: [
+          shot({ id: 'a1', stream_started_at: '2026-08-19T03:02:00Z', captured_at: '2026-08-19T04:00:00Z' }),
+          shot({ id: 'a2', stream_started_at: '2026-08-17T12:00:00Z', captured_at: '2026-08-17T13:00:00Z' }),
+          shot({ id: 'a3', stream_started_at: '2026-08-30T12:00:00Z', captured_at: '2026-08-30T13:00:00Z' }),
+        ],
+      }),
+      comp({ id: 'id-2', handle: 'beta', shots: [shot({ id: 'b1', stream_started_at: '2026-08-18T12:00:00Z' })] }),
+    ]),
+    new Date('2026-08-20T01:00:00Z'),
+    'zh',
+  )
+  const perAccount = ctx.competitors.map((x) => x.liveHabit.sessionsAllTime)
+  assert.deepEqual(perAccount, [2, 1])
+  assert.equal(ctx.meta.coverage.sessionsWithStartTime, 3)
 })
 
 test('liveHabit: 同一场的多张截图只算一次场次', () => {
