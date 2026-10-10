@@ -14,12 +14,12 @@
 
 ## 执行须知（每个任务开工前都看一遍）
 
-- **工作区**：一律在 `/Users/fengzhou/Code/newWith/.claude/worktrees/live-shot-extension` 里干活，分支 `feat/live-shot-extension`。**每次 commit 前先跑 `git branch --show-current`，必须输出 `feat/live-shot-extension`**；主仓 `/Users/fengzhou/Code/newWith` 是共享工作区，别在那里改文件、切分支。
-- **worktree 没有 `.env.local`**：需要环境变量时用主仓的 `/Users/fengzhou/Code/newWith/.env.local`。
+- **工作区**：一律在 `<主仓目录>/.claude/worktrees/live-shot-extension` 里干活，分支 `feat/live-shot-extension`。**每次 commit 前先跑 `git branch --show-current`，必须输出 `feat/live-shot-extension`**；主仓 `<主仓目录>` 是共享工作区，别在那里改文件、切分支。
+- **worktree 没有 `.env.local`**：需要环境变量时用主仓的 `<主仓目录>/.env.local`。
 - **测试命令**：单测用 `node --test --experimental-strip-types <文件>`；全量用 `npm test`。**新测试文件必须追加进 `package.json` 的 `test` 脚本**，否则 CI 不跑它。
 - **`node --test` 不做类型检查**：每个任务提交前额外跑 `npx tsc --noEmit`。纯类型的 import 要写成 `import { type X }` 或 `import type`。
 - **注释里别写 `(#123)` 这种 PR 编号**：`check-style-tokens.mjs` 会把它当裸 hex 色值挂 CI。写成 `PR 250`。
-- **生产数据库与线上部署是对外动作**：任务 12、14 里标了「先问 pollux」的步骤，必须拿到 pollux 在对话里的明确同意再执行。
+- **生产数据库与线上部署是对外动作**：任务 12、14 里标了「先问负责人」的步骤，必须拿到负责人在对话里的明确同意再执行。
 
 ## 文件结构
 
@@ -54,7 +54,7 @@
 
 **Files:** 无（只读核实）
 
-- [ ] **Step 1: 请 pollux 在已登录的 Chrome 里打开任一在播竞品直播间，在 DevTools Console 运行：**
+- [ ] **Step 1: 请负责人在已登录的 Chrome 里打开任一在播竞品直播间，在 DevTools Console 运行：**
 
 ```js
 [...document.querySelectorAll('[data-e2e="live-side-nav-channel"]')].map((c, i) => ({
@@ -69,7 +69,7 @@
 预期：数组长度 2；`i: 0` 的 `title` 是「Following」（或本地化的「关注」「フォロー中」），`handles` 与页面左侧 Following 区显示的账号一致；`i: 1` 是 Suggested。
 
 - 符合 → 继续 Task 1。
-- 不符合（只有一个频道、顺序相反、Following 条目不在 channel 容器里）→ **停下，把输出贴给 pollux**，不要自行换判据。
+- 不符合（只有一个频道、顺序相反、Following 条目不在 channel 容器里）→ **停下，把输出贴给负责人**，不要自行换判据。
 
 ---
 
@@ -2216,7 +2216,7 @@ start()
 1. 生成本机配置（只含公开值，已 gitignore）：
 
    ```bash
-   node --env-file=/Users/fengzhou/Code/newWith/.env.local scripts/gen-extension-config.mjs
+   node --env-file=<主仓目录>/.env.local scripts/gen-extension-config.mjs
    ```
 
    本地联调后台时加 `--api-base http://localhost:3100`。
@@ -2239,12 +2239,12 @@ node --experimental-strip-types scripts/gen-extension-reader.mjs
 
 Run:
 ```bash
-node --env-file=/Users/fengzhou/Code/newWith/.env.local scripts/gen-extension-config.mjs --api-base http://localhost:3100
+node --env-file=<主仓目录>/.env.local scripts/gen-extension-config.mjs --api-base http://localhost:3100
 git status --short extensions/live-shot
 ```
 Expected: 第一条输出 `✓ .../config.local.js（API_BASE=http://localhost:3100）`；第二条**不出现** `config.local.js`（被 gitignore 了）。
 
-请 pollux 在 Chrome 里按 README 第 2 步加载扩展，在任意非 TikTok 页面点图标：应出现登录表单；`chrome://extensions` 里本扩展没有红色「错误」按钮。
+请负责人在 Chrome 里按 README 第 2 步加载扩展，在任意非 TikTok 页面点图标：应出现登录表单；`chrome://extensions` 里本扩展没有红色「错误」按钮。
 
 - [ ] **Step 7: 提交**
 
@@ -2290,7 +2290,7 @@ Expected: 全部通过。`next build` 输出的路由表里有 `ƒ /api/competit
 
 全部击杀才算通过；有存活的，先补测试再继续。
 
-- [ ] **Step 3: 应用迁移（先问 pollux）**
+- [ ] **Step 3: 应用迁移（先问负责人）**
 
 **先跑两条只读核对**（生产库，只读）：
 
@@ -2305,12 +2305,12 @@ where not exists (select 1 from public.users u where u.id = a.id)
   and coalesce(a.is_anonymous, false) = false;
 ```
 
-两条结果不符合预期就停下、报给 pollux。
+两条结果不符合预期就停下、报给负责人。
 
-**向 pollux 明确请求：「迁移只加一列可空字段和一张新表，现在可以在生产库执行吗？」拿到明确的「你来执行」后再跑。** 被 auto 模式拦截时不要换写法绕过，改为把 SQL 文件路径给 pollux，请他在 Supabase Dashboard → SQL Editor 执行。
+**向负责人明确请求：「迁移只加一列可空字段和一张新表，现在可以在生产库执行吗？」拿到明确的「你来执行」后再跑。** 被 auto 模式拦截时不要换写法绕过，改为把 SQL 文件路径给负责人，请他在 Supabase Dashboard → SQL Editor 执行。
 
 ```bash
-set -a; . /Users/fengzhou/Code/newWith/agent-service/.env.local; set +a
+# 先把数据库直连串放进环境变量 SUPABASE_DB_URL（来自本机私有配置，不入库、不打印）
 /opt/homebrew/opt/postgresql@17/bin/psql "$SUPABASE_DB_URL" -1 -v ON_ERROR_STOP=1 -f supabase/migrations/*_competitor_quick_shot.sql
 /opt/homebrew/opt/postgresql@17/bin/psql "$SUPABASE_DB_URL" -1 -v ON_ERROR_STOP=1 -f supabase/migrations/*_competitor_quick_shot.sql
 ```
@@ -2333,12 +2333,12 @@ Expected: 表结构与迁移一致；`created_by` 一行；`audit:rls` 不报 `c
 - [ ] **Step 1: 在 worktree 起本地后台（端口 3100）**
 
 ```bash
-cp /Users/fengzhou/Code/newWith/.env.local .env.local
+cp <主仓目录>/.env.local .env.local
 npx next dev -p 3100
 ```
 （用 Bash 的 `run_in_background` 跑，别用 `preview_start`——它会跑主仓。`.env.local` 已在根 `.gitignore` 里。）
 
-- [ ] **Step 2: 请 pollux 在已登录 TikTok 的 Chrome 里操作**
+- [ ] **Step 2: 请负责人在已登录 TikTok 的 Chrome 里操作**
 
 1. 确认扩展配置指向本地（Task 11 Step 6 已用 `--api-base http://localhost:3100` 生成），在 `chrome://extensions` 刷新本扩展。
 2. 点图标 → 用 MCN 后台账号登录。
@@ -2358,9 +2358,9 @@ npx next dev -p 3100
 - 下载 `image_url`，用 Read 工具看图：是竖屏直播画面本身、两侧无深色空白。
 - readings：1 行 `current`（来源 `room`）+ Following 区里在竞品库的账号数个 `sidebar` 行；Suggested 区的账号**不出现**。
 
-- [ ] **Step 4: 清理测试数据（先问 pollux）**
+- [ ] **Step 4: 清理测试数据（先问负责人）**
 
-问 pollux 验收截图要保留还是删除。要删：用 service role 删 `competitor_shots` 对应行（readings 的 `shot_id` 会被置空，需另删 readings 对应行）并删桶里的对象。
+问负责人验收截图要保留还是删除。要删：用 service role 删 `competitor_shots` 对应行（readings 的 `shot_id` 会被置空，需另删 readings 对应行）并删桶里的对象。
 
 - [ ] **Step 5: 停掉本地后台，删掉 worktree 里的 `.env.local`**
 
@@ -2428,20 +2428,20 @@ EOF
 
 然后按会话约定用 ccd_pr 工具绑定 PR、查看 CI。
 
-- [ ] **Step 4: 合并前问 pollux**
+- [ ] **Step 4: 合并前问负责人**
 
-CI 全绿后**询问 pollux 是否合并**，不要自行合并。
+CI 全绿后**询问负责人是否合并**，不要自行合并。
 
 - [ ] **Step 5: 上线核对（合并后）**
 
 部署要验证、不能靠 CI 推断：
 1. 查 Vercel 生产部署已包含本次提交，且 `mcn.agenova.chat` 指向它。
 2. `curl -s -o /dev/null -w '%{http_code}\n' https://mcn.agenova.chat/api/competitors/quick-shot` → 预期 `401`（无令牌），证明路由已上线。
-   另请 pollux 在 Supabase Dashboard → Authentication 确认「Allow new user signups」与「Allow anonymous sign-ins」都是关闭的（全仓 RLS 是 auth.uid() is not null，匿名登录也会被放行）：anon key 是公开值，开着的话任何人都能自助注册拿到令牌（这个风险此前就存在，不是本 PR 引入，但扩展把 anon key 又多分发了一份）。
+   另请负责人按私下的上线核对清单检查 Supabase Auth 设置。
 3. 重新生成线上配置并刷新扩展：
 
 ```bash
-node --env-file=/Users/fengzhou/Code/newWith/.env.local scripts/gen-extension-config.mjs
+node --env-file=<主仓目录>/.env.local scripts/gen-extension-config.mjs
 ```
 
-4. 请 pollux 在真实直播间点一次上传，确认「已上传」与今日计数 +1。
+4. 请负责人在真实直播间点一次上传，确认「已上传」与今日计数 +1。

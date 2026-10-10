@@ -62,10 +62,18 @@ POST https://mcn.agenova.chat/api/competitors/quick-shot   (Authorization: Beare
 ```
 extensions/live-shot/
   manifest.json
-  popup.html / popup.css / popup.js   弹窗三态 + 登录表单 + 今日计数
-  capture.js                          截图裁剪（captureVisibleTab + OffscreenCanvas）
-  api.js                              登录、续期、上传、取今日数
-  generated/page-reader.js            由生成脚本产出，见 4.4，禁止手改
+  package.json                        只有 "type": "module"，让 node 测试按 ESM 加载扩展里的 .js
+  popup.html / popup.css / popup.js   弹窗三态 + 登录表单 + 今日计数 + 退出；只做编排与渲染
+  lib/liveUrl.js                      当前页是否直播间、取 handle
+  lib/crop.js                         画面矩形 → 位图源矩形（位图宽 / 视口宽换算）
+  lib/day.js                          日本时间「今日」与本地截图计数
+  lib/session.js                      Supabase 登录返回体 → 本地会话、是否该续期
+  lib/view.js                         弹窗状态判定与错误文案
+  lib/api.js                          登录、续期（单飞、区分拒绝与暂时失败）、上传、今日上传数、退出
+  lib/*.test.ts                       上述纯函数与 api 客户端的 node 测试
+  generated/page-reader.js            由 scripts/gen-extension-reader.mjs 生成，见 4.4，禁止手改
+  config.local.js                     由 scripts/gen-extension-config.mjs 从 .env.local 生成，gitignore
+  README.md                           安装、使用、已知限制
 ```
 
 纯 JS，无打包步骤，开发者模式「加载已解压的扩展程序」安装。主 Chrome 与专用采集 Chrome 想用就各装一份。
@@ -75,7 +83,7 @@ extensions/live-shot/
 - `activeTab`：只有人点了图标，扩展才获得当前标签页的临时权限。**不声明** tiktok.com 的 host 权限，不挂常驻 content script。
 - `scripting`：在那一刻注入一次页内读取函数。
 - `storage`：存登录令牌（`chrome.storage.local`）与本地截图计数。
-- `host_permissions`：仅 `https://mcn.agenova.chat/*` 与 Supabase 项目域名（登录、续期用）。扩展页面对有 host 权限的域名发请求不受 CORS 限制，后台不需要改 CORS。
+- `host_permissions`：`https://mcn.agenova.chat/*`（后台接口）、`https://*.supabase.co/*`（登录、续期；用通配是为了不把项目 ref 写进公开仓库）、`http://localhost/*`（本地联调，任意端口）。扩展页面对有 host 权限的域名发请求不受 CORS 限制，后台不需要改 CORS。
 
 ### 4.3 截图
 
@@ -186,7 +194,7 @@ multipart 字段：
 - 两条 check 约束：`source in ('current', 'sidebar')`；`viewer_source` 为 null，或 `source = 'current'` 且取值为 `room` / `anchored` / `sole`（三档来源只对当前房间有意义，侧栏行一律为空）。
 - RLS 沿用仓库约定：`enable row level security` + `authenticated_only`（`for all to authenticated using (auth.uid() is not null)`）。
 
-迁移写完必须真正执行（agent-service 的 `SUPABASE_DB_URL` + `psql`），再跑 `npm run audit:rls` 核查。迁移文件只是意图，不代表数据库状态。
+迁移写完必须真正执行（Supabase SQL Editor 整段执行），再跑 `npm run audit:rls` 核查。迁移文件只是意图，不代表数据库状态。
 
 ## 8. 出错处理
 
@@ -225,7 +233,7 @@ multipart 字段：
 
 ## 11. 开工前必须验证
 
-1. **已登录页面上 Following 是不是第一个频道**：游客态已实测频道结构（见 4.4），已登录页面需在 pollux 的 Chrome 里跑一段只读脚本核实：频道数为 2，第一个标题是 Following 且条目与页面左侧一致。不符合就停下，不自行换判据。
+1. **已登录页面上 Following 是不是第一个频道**：游客态已实测频道结构（见 4.4），已登录页面需在负责人的 Chrome 里跑一段只读脚本核实：频道数为 2，第一个标题是 Following 且条目与页面左侧一致。不符合就停下，不自行换判据。
 2. ~~`captureVisibleTab` 的分辨率~~：设计上已消解——裁剪比例取位图宽 / 视口宽，不依赖 DPR 假设；真机验收时看图核对。
 3. **Bearer 令牌在生产环境的校验**：`auth.getUser(token)` 在生产环境可用，且不需要额外配置；上线核对时用无令牌请求得 401、真机上传成功两步确认。
 
@@ -237,7 +245,15 @@ multipart 字段：
 - 上架 Chrome 应用商店、给公司外部的人用。
 - 批量、轮询、自动进房（那是 `scripts/live-watch/` 的职责）。
 
+## 12.1 已知限制（有意不在本期处理）
+
+- 本机时钟偏差超过 5 分钟（快）或 1 小时（慢）时，读数时刻改用服务器时间；此时「回复丢了再点重试」不会被认成同一张，可能多出一张截图。
+- 上传人列沿用通用名 `created_by`（迁移已在生产执行，改名需另写迁移）。
+- 弹窗在上传途中被关掉时看不到确认；再打开会重新截一张，可能多出一张，去竞品页相册删掉即可。
+- 跨日本时间零点（23:59 截、00:00 传）时，这一张归前一天，弹窗「今日上传」不加一。
+
 ## 13. 仓库与 CI 落位
 
-- `extensions/` 在 `src/` 之外：style 检查（`check-style-tokens.mjs` 只扫 `src/`）、`next lint`、`next build` 都不会碰到它；`tsconfig` 只 include `**/*.ts`，扩展的 `.js` 不进 `tsc`。实施时逐项确认一遍，不靠推断。
+- `extensions/` 在 `src/` 之外：style 检查（`check-style-tokens.mjs` 只扫 `src/`）、`next lint`、`next build` 都不会碰到它。`tsconfig` include `**/*.ts`：扩展的 `lib/*.test.ts` 会被 `tsc` 检查，并经 `allowJs` 把被测的 `.js` 带进来做类型推断（`checkJs` 关闭，不报 JS 本身的错）。
+- 生成文件 `extensions/live-shot/generated/*` 在 `.gitattributes` 里固定 LF，避免 Windows 检出后一致性测试误红。
 - 生成脚本放 `scripts/gen-extension-reader.mjs`，需要时手动运行；一致性由测试保证。
