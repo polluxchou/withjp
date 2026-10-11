@@ -2,16 +2,15 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { LiveImportPanel } from '../LiveSessionImport'
-import { liveSpansOf, regionTimeZone } from '@/lib/competitors/liveSessions'
-import { normalizeRegion } from '@/lib/competitors/regions'
+import { accountSpans } from '@/lib/competitors/liveBoard'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
-import { timeZoneForLocale } from '@/lib/time/localeZone'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import LiveRecordsPanel from './LiveRecordsPanel'
+import { useRegionZone } from './useRegionZone'
 
 /**
  * 单个竞品的开播记录弹窗：记录视图（指标 / 日历 / 时段分布 / 点赞 / 清单）与粘贴导入视图共用一个弹窗。
@@ -45,20 +44,16 @@ export default function LiveSessionsModal({
   onChanged: () => void | Promise<void>
 }) {
   const t = useTranslations('competitors')
-  const locale = useLocale()
   // 没有编辑权限就没有导入视图，哪怕调用方传了 import。
   const [view, setView] = useState<'records' | 'import'>(canEdit ? initialView : 'records')
   // 导入成功后的刷新：进行中 / 失败（失败时记录视图顶部提示数据可能是旧的）。
   const [refreshing, setRefreshing] = useState(false)
   const [refreshFailed, setRefreshFailed] = useState(false)
 
-  // 竞品的开播时刻按账号所在地区的时区显示（看的是对方当地作息，三地同事读到同一个数）；
-  // 地区没填才回落到界面语言时区。时区名只在地区在清单里时才有，宁可不写也不写错。
-  const timeZone = regionTimeZone(competitor.region, timeZoneForLocale(locale))
-  const zoneCode = normalizeRegion(competitor.region)
-  const zoneLabel = zoneCode ? t(`zoneName.${zoneCode}`) : null
+  // 竞品的开播时刻按账号所在地区的时区显示，地区没填才回落到界面语言时区；口径见 useRegionZone。
+  const { timeZone, zoneLabel } = useRegionZone(competitor.region)
 
-  const spans = useMemo(() => liveSpansOf(competitor), [competitor])
+  const spans = useMemo(() => accountSpans(competitor), [competitor])
 
   // 切换视图会卸载刚点的那颗按钮，焦点掉回 <body>，跑出弹窗的 Tab 圈定范围。
   // 切换后把焦点放进新视图：导入视图给输入框，记录视图给第一颗按钮（统计范围）。

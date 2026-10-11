@@ -2,7 +2,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Download, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
@@ -12,11 +12,9 @@ import { captionOverflowsClamp, shotOverlaySections } from '@/lib/competitors/sh
 import { dayZipName, shotFileName } from '@/lib/competitors/shotDownload'
 import { fetchBytes, saveBlob } from '@/lib/competitors/downloadFile'
 import { buildZip } from '@/lib/competitors/zip'
-import { regionTimeZone } from '@/lib/competitors/liveSessions'
-import { normalizeRegion } from '@/lib/competitors/regions'
-import { timeZoneForLocale } from '@/lib/time/localeZone'
 import { formatDayTimeInZone } from '@/lib/time/zonedTime'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
+import { useRegionZone } from './live/useRegionZone'
 
 /**
  * 一张主图 + 宽屏时两侧各露一张。所有信息都叠在主图身上。
@@ -51,10 +49,8 @@ export default function ShotLightbox({
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
   // 开播时刻按账号所在地区的时区换算（库里是 UTC），与卡片「常见开播」、开播记录弹窗同一口径；
-  // 地区没填才回落到界面语言时区（ja=日本 / zh=北京 / en=加州）。
-  const locale = useLocale()
-  const zone = regionTimeZone(region, timeZoneForLocale(locale))
-  const zoneCode = normalizeRegion(region)
+  // 地区没填才回落到界面语言时区（ja=日本 / zh=北京 / en=加州），那时没有地区时区名（zoneLabel 为 null）。
+  const { timeZone: zone, zoneLabel } = useRegionZone(region)
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
   // 惰性初始化而不是先给一个默认值再用 effect 纠正:后者会让宽屏上先画出没有邻图的
@@ -476,8 +472,8 @@ export default function ShotLightbox({
                       {/* 地区在清单里就写地区时区名；否则时刻按界面语言时区，沿用原来那句（自带该时区的简称）。 */}
                       {startedAt && (
                         <span>
-                          {zoneCode
-                            ? t('shotStartedAtZone', { time: startedAt, zone: t(`zoneName.${zoneCode}`) })
+                          {zoneLabel
+                            ? t('shotStartedAtZone', { time: startedAt, zone: zoneLabel })
                             : t('shotStartedAt', { time: startedAt })}
                         </span>
                       )}
