@@ -138,7 +138,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | `liveProbe.ts` | 注入直播间页面的探针源码：在线人数三档判据、Following 侧栏横截面（可限定只读 Following 频道）、按 object-fit 算画面矩形（可选不静音） | `liveProbe.test.ts` |
 | `pageReader.ts` | 扩展点击那一刻注入的一次性读取函数（复用 liveProbe，装在一次性宿主上、不留状态）；`renderReaderModule()` 生成 `extensions/live-shot/generated/page-reader.js` | `pageReader.test.ts`（含生成文件逐字一致） |
 | `quickShot.ts` | 一键上传的纯函数：Bearer 解析、handle 规范化、读数时刻窗口、日本时间 `shot_on`、人数原文限长与 int4 钳位、侧栏条目解析、读数行组装 | `quickShot.test.ts` |
-| `quickShotService.ts` | `/api/competitors/quick-shot` 业务逻辑（依赖注入，不 import next）：鉴权、不在库 404、重试幂等、207 部分成功、今日上传数 | `quick-shot-api.integration.test.ts` |
+| `quickShotService.ts` | `/api/competitors/quick-shot` 业务逻辑（依赖注入，不 import next）：鉴权、不在库 404、重试幂等、207 部分成功、今日上传数（按上传时刻的日本时间自然日） | `quick-shot-api.integration.test.ts` |
 
 > 迭代 Map/Set/matchAll 结果时用 `Array.from(...)` 包裹——本项目 tsconfig target 较低，`for...of` 直接迭代会触发 TS2802（strip-types 单测不报、build 才报）。
 
@@ -156,7 +156,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | POST | `/api/competitors/upload` | 截图文件 → Storage → 返回公开 URL |
 | POST | `/api/competitors/[id]/shots` | 加一条截图记录 `{image_url, shot_on?, tag?, caption?, sort_order?}` |
 | PATCH·DELETE | `/api/competitors/shots/[shotId]` | 改 / 删截图 |
-| POST·GET | `/api/competitors/quick-shot` | 浏览器扩展专用（只认 `Authorization: Bearer`，不走 Cookie）：POST multipart 上传截图 + 人数读数；GET 返回本人今天（日本时间）的上传数 |
+| POST·GET | `/api/competitors/quick-shot` | 浏览器扩展专用（只认 `Authorization: Bearer`，不走 Cookie）：POST multipart 上传截图 + 人数读数；GET 返回本人今天（日本时间，按上传时刻）的上传数 |
 
 约定：`authGuard()` → `instanceof NextResponse` 兜 401 → service → `NextResponse.json({data,error})`。无 server action、无 `revalidatePath`；client 增删改后重取 `GET /api/competitors`。
 

@@ -11,13 +11,16 @@ import type { CompetitorRef, ReadingRow } from '../../../../lib/competitors/quic
 //   4. 正常 → 201：截图行字段（tag/上传人/日本时间日期/人数）+ 读数行 + 今日计数
 //   5. 截图写入后的一切失败（读数写入失败/抛错、计数失败/抛错）都不能报整体失败
 //   6. 重试幂等：同一读数时刻已有截图 → 不重复传桶、不重复写截图，读数照常补写
-//   7. 日期口径：shot_on 取读数时刻的日本时间日期，今日计数取服务器当下的日本时间日期
+//   7. 日期口径：shot_on 取读数时刻的日本时间日期；今日计数按上传时刻，取服务器当下所在的日本时间自然日
 //   8. 本机时钟快了 → 用服务器时间；人数原文超长 / 非整数 → 按未读到处理
 //   9. GET 今日计数
 //  10. Supabase Auth 暂时不可用（verifyToken 抛错）→ 503 auth_unavailable，与「令牌无效」的 401 区分开，扩展不会因此登出
+//  11. 插件暂存后补传：24 小时内用原截图时刻（shot_on 是截图那天），超过就改用服务器时间
 // ============================================================
 
 const SERVER_NOW = Date.UTC(2026, 9, 9, 15, 30) // 日本时间 2026-10-10 00:30 —— 与 UTC 不在同一天，日期写成 UTC 会被抓到
+// 服务器当下（日本 2026-10-10）所在自然日的上传时刻区间
+const TODAY_JST = { startIso: '2026-10-09T15:00:00.000Z', endIso: '2026-10-10T15:00:00.000Z' }
 const LIB: CompetitorRef[] = [
   { id: 'c-dear', handle: '1mb.dear', display_name: '1MB DEAR' },
   { id: 'c-uni', handle: 'uni.chuuu', display_name: 'UNi Chuuu' },
@@ -31,7 +34,7 @@ function makeDeps(over: Partial<QuickShotDeps> = {}, existingShotId: string | nu
     finds: [] as [string, string, string][],
     shots: [] as ShotRow[],
     readings: [] as ReadingRow[][],
-    counts: [] as [string, string][],
+    counts: [] as [string, { startIso: string; endIso: string }][],
   }
   const deps: QuickShotDeps = {
     verifyToken: async (t) => (t === 'good' ? { id: 'user-1' } : null),
@@ -44,7 +47,7 @@ function makeDeps(over: Partial<QuickShotDeps> = {}, existingShotId: string | nu
     },
     insertShot: async (row) => { calls.shots.push(row); return { id: 'shot-1' } },
     insertReadings: async (rows) => { calls.readings.push(rows); return true },
-    countTodayUploads: async (userId, shotOn) => { calls.counts.push([userId, shotOn]); return 7 },
+    countTodayUploads: async (userId, day) => { calls.counts.push([userId, day]); return 7 },
     now: () => SERVER_NOW,
     ...over,
   }
@@ -183,17 +186,38 @@ test('正常上传 → 201，截图行与读数行字段都对', async () => {
     assert.equal(row.created_by, 'user-1')
     assert.equal(row.captured_at, CAPTURED_ISO)
   }
-  assert.deepEqual(calls.counts, [['user-1', '2026-10-10']])
+  assert.deepEqual(calls.counts, [['user-1', TODAY_JST]])
 })
 
-test('跨日本时间午夜：shot_on 取读数时刻（10-09），今日计数取服务器当下（10-10）', async () => {
+test('跨日本时间午夜：shot_on 取读数时刻（10-09），今日计数按服务器当下（10-10）的上传时刻区间', async () => {
   const serverNow = Date.UTC(2026, 9, 9, 15, 0, 30) // 日本时间 2026-10-10 00:00:30
   const capturedAt = Date.UTC(2026, 9, 9, 14, 59, 50) // 日本时间 2026-10-09 23:59:50
   const { deps, calls } = makeDeps({ now: () => serverNow })
   const r = await createQuickShotHandlers(deps).post(postReq({ ...OK_FIELDS(), captured_at: String(capturedAt) }))
   assert.equal(r.status, 201)
   assert.equal(calls.shots[0].shot_on, '2026-10-09')
-  assert.deepEqual(calls.counts, [['user-1', '2026-10-10']])
+  assert.deepEqual(calls.counts, [['user-1', TODAY_JST]])
+})
+
+test('插件暂存后隔天补传：20 小时前截的图用原截图时刻，shot_on 是截图那天，今日计数是今天的区间', async () => {
+  const serverNow = Date.UTC(2026, 9, 10, 3, 0) // 日本时间 2026-10-10 12:00
+  const capturedAt = serverNow - 20 * 60 * 60_000 // 日本时间 2026-10-09 16:00
+  const { deps, calls } = makeDeps({ now: () => serverNow })
+  const r = await createQuickShotHandlers(deps).post(postReq({ ...OK_FIELDS(), captured_at: String(capturedAt) }))
+  assert.equal(r.status, 201)
+  assert.equal(calls.shots[0].captured_at, new Date(capturedAt).toISOString())
+  assert.equal(calls.shots[0].shot_on, '2026-10-09')
+  assert.deepEqual(calls.finds, [['user-1', 'c-dear', new Date(capturedAt).toISOString()]], '重试去重认的是原截图时刻')
+  assert.deepEqual(calls.counts, [['user-1', TODAY_JST]])
+})
+
+test('截图时刻早于 24 小时 → 改用服务器时间（插件那边早该置灰，这里兜底）', async () => {
+  const serverNow = Date.UTC(2026, 9, 10, 3, 0)
+  const { deps, calls } = makeDeps({ now: () => serverNow })
+  const r = await createQuickShotHandlers(deps).post(postReq({ ...OK_FIELDS(), captured_at: String(serverNow - 25 * 60 * 60_000) }))
+  assert.equal(r.status, 201)
+  assert.equal(calls.shots[0].captured_at, new Date(serverNow).toISOString())
+  assert.equal(calls.shots[0].shot_on, '2026-10-10')
 })
 
 test('display_name 为空串 → competitor_name 回落到 handle', async () => {
@@ -309,7 +333,7 @@ test('GET：返回我今天（日本时间）的上传数', async () => {
   const r = await createQuickShotHandlers(deps).get(req)
   assert.equal(r.status, 200)
   assert.deepEqual(r.body, { data: { today_uploads: 7 }, error: null })
-  assert.deepEqual(calls.counts, [['user-1', '2026-10-10']])
+  assert.deepEqual(calls.counts, [['user-1', TODAY_JST]])
 })
 
 test('GET：计数查询失败 → 500 db_error', async () => {

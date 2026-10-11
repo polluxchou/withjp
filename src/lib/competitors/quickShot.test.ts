@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  bearerToken, buildReadings, indexByHandle, normalizeHandle, parseCoLive,
+  bearerToken, buildReadings, indexByHandle, jstDayBounds, normalizeHandle, parseCoLive,
   parseViewerSource, parseViewerText, resolveCapturedAt, shotOnFor, toViewerCount, type CompetitorRef,
 } from './quickShot.ts'
 
@@ -33,18 +33,38 @@ test('resolveCapturedAt：正常用客户端时刻；比服务器快 5 分钟以
   assert.equal(resolveCapturedAt('0', server), server)
 })
 
-test('resolveCapturedAt：太久以前（秒/毫秒单位搞混、1970 年）也回落到服务器时间，只认 1 小时内', () => {
+test('resolveCapturedAt：太久以前（秒/毫秒单位搞混、1970 年）也回落到服务器时间，只认 24 小时内', () => {
   const server = 1_760_000_000_000
+  const DAY = 24 * 60 * 60_000
   assert.equal(resolveCapturedAt(String(Math.floor(server / 1000)), server), server, '客户端传了秒而不是毫秒')
   assert.equal(resolveCapturedAt('1', server), server)
   assert.equal(resolveCapturedAt('0.4', server), server, '四舍五入后为 0')
-  assert.equal(resolveCapturedAt(String(server - 2 * 60 * 60_000), server), server, '2 小时前')
-  assert.equal(resolveCapturedAt(String(server - 59 * 60_000), server), server - 59 * 60_000, '59 分钟前仍是真实读数时刻')
+  assert.equal(resolveCapturedAt(String(server - 2 * 60 * 60_000), server), server - 2 * 60 * 60_000, '插件暂存 2 小时后补传，仍是真实截图时刻')
+  assert.equal(resolveCapturedAt(String(server - (23 * 60 + 59) * 60_000), server), server - (23 * 60 + 59) * 60_000, '23 小时 59 分前')
+  assert.equal(resolveCapturedAt(String(server - DAY), server), server - DAY, '恰好 24 小时仍认')
+  assert.equal(resolveCapturedAt(String(server - DAY - 1), server), server, '超过 24 小时 → 服务器时间')
+  assert.equal(resolveCapturedAt(String(server - 25 * 60 * 60_000), server), server, '25 小时前')
 })
 
 test('shotOnFor：按日本时间算日期，UTC 15:00 之后就是日本的第二天', () => {
   assert.equal(shotOnFor(Date.UTC(2026, 9, 8, 14, 59)), '2026-10-08')
   assert.equal(shotOnFor(Date.UTC(2026, 9, 8, 15, 0)), '2026-10-09')
+})
+
+test('jstDayBounds：日本时间自然日的 [00:00, 次日 00:00)，UTC 跨日也对', () => {
+  const oct10 = { startIso: '2026-10-09T15:00:00.000Z', endIso: '2026-10-10T15:00:00.000Z' }
+  assert.deepEqual(jstDayBounds(Date.UTC(2026, 9, 9, 15, 30)), oct10, '日本 10-10 00:30（UTC 还是 10-09）')
+  assert.deepEqual(jstDayBounds(Date.UTC(2026, 9, 10, 3, 0)), oct10, '日本 10-10 12:00')
+  assert.deepEqual(jstDayBounds(Date.UTC(2026, 9, 10, 14, 59, 59, 999)), oct10, '日本 10-10 23:59:59.999')
+  assert.deepEqual(jstDayBounds(Date.UTC(2026, 9, 10, 15, 0)), { startIso: '2026-10-10T15:00:00.000Z', endIso: '2026-10-11T15:00:00.000Z' }, '恰好日本零点属于新的一天')
+  assert.deepEqual(jstDayBounds(Date.UTC(2026, 9, 9, 14, 59, 59, 999)), { startIso: '2026-10-08T15:00:00.000Z', endIso: '2026-10-09T15:00:00.000Z' })
+})
+
+test('jstDayBounds：与 shotOnFor 同一口径——起点的日本日期就是 shotOnFor(ms)', () => {
+  for (const ms of [Date.UTC(2026, 0, 1, 0, 0), Date.UTC(2026, 11, 31, 14, 59), Date.UTC(2026, 11, 31, 15, 0), Date.UTC(2026, 9, 10, 3, 0)]) {
+    const { startIso } = jstDayBounds(ms)
+    assert.equal(shotOnFor(Date.parse(startIso)), shotOnFor(ms))
+  }
 })
 
 test('parseViewerSource：只认三档来源', () => {
