@@ -24,6 +24,11 @@ const storage = {
 const api = createApi({ apiBase: API_BASE, supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, storage })
 const $ = (id) => document.getElementById(id)
 
+// 版本号显示在弹窗里：刷新插件或换了加载目录之后，一眼能看出跑的是不是新版
+const VERSION = `v${chrome.runtime.getManifest().version}`
+$('version').textContent = `${VERSION} · `
+$('login-version').textContent = ` · ${VERSION}`
+
 // 顶部这张：{ item, state, name, message }
 //   state：ready 就绪 / uploading 上传中 / uploaded 已上传 / partial 人数待补 / error 出错 / deleted 已在确认页删掉
 //   item 已写进暂存区；暂存失败时只在内存里，照样能传
