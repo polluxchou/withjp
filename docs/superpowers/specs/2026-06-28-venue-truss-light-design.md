@@ -2,7 +2,7 @@
 
 日期:2026-06-28
 状态:已评审通过,待实现
-实现隔离:独立 git worktree `/Users/fengzhou/Code/newWith-truss`(分支 `feat/venue-truss-light`),主仓被并行会话高频改动。
+实现隔离:独立 git worktree(分支 `feat/venue-truss-light`),主仓被并行会话高频改动。
 
 ## 背景与目标
 

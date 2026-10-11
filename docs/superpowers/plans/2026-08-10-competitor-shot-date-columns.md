@@ -10,9 +10,9 @@
 
 **设计文档:** `docs/superpowers/specs/2026-08-10-competitor-shot-date-columns-design.md`
 
-**工作区:** `/Users/fengzhou/Code/newWith/.claude/worktrees/shot-date-columns`，分支 `feat/competitor-shot-date-columns`（已从 `origin/main` 切出）。所有命令都在这个目录里跑，**不要**在 `/Users/fengzhou/Code/newWith` 主仓操作——主仓正跑着另一个分支。每次提交前先跑 `git rev-parse --abbrev-ref HEAD` 确认分支是 `feat/competitor-shot-date-columns`。
+**工作区:** 本次功能的 git worktree 根目录（主仓下的 `.claude/worktrees/shot-date-columns`），分支 `feat/competitor-shot-date-columns`（已从 `origin/main` 切出）。所有命令都在这个目录里跑，**不要**在主仓操作——主仓正跑着另一个分支。每次提交前先跑 `git rev-parse --abbrev-ref HEAD` 确认分支是 `feat/competitor-shot-date-columns`。
 
-**关于 `node_modules`：worktree 里没有，这是正常的，不要去 `npm install`。** worktree 位于主仓目录内部，Node 的模块解析会向上走到 `/Users/fengzhou/Code/newWith/node_modules`，`tsc` / `next` / `react` 都能解析到。已实测：`npx tsc --noEmit` 确实检查了 worktree 里的 285 个源文件（`--listFiles` 验证过），`npm test` 与 `npm run test:copy` 也正常。看到 `ls node_modules` 报 No such file 不代表工具链不可用。
+**关于 `node_modules`：worktree 里没有，这是正常的，不要去 `npm install`。** worktree 位于主仓目录内部，Node 的模块解析会向上走到主仓根目录的 `node_modules`，`tsc` / `next` / `react` 都能解析到。已实测：`npx tsc --noEmit` 确实检查了 worktree 里的 285 个源文件（`--listFiles` 验证过），`npm test` 与 `npm run test:copy` 也正常。看到 `ls node_modules` 报 No such file 不代表工具链不可用。
 
 ---
 
@@ -1955,4 +1955,4 @@ git commit -m "fix(competitors): 修复轨道被 min-content 撑开导致的列�
 - [ ] `ShotDateStrip.tsx` / `ShotLightbox.tsx` 零样式违规（新文件无基线兜底）
 - [ ] 没有动 `src/lib/competitors/weekly.ts`
 - [ ] `messages/` 三份文件键位一致，`competitors` 下已无 `viewAll` / `collapse`
-- [ ] 分支是 `feat/competitor-shot-date-columns`，主仓 `/Users/fengzhou/Code/newWith` 未被改动
+- [ ] 分支是 `feat/competitor-shot-date-columns`，主仓未被改动

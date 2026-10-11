@@ -12,7 +12,7 @@
 
 ## Task 0: 工作区
 
-worktree 已建好：`/Users/fengzhou/Code/newWith/.claude/worktrees/ui-uplift-pr3`，分支 `feat/ui-uplift-pr3-islands`。`npm install` → 本计划 cp 进 docs 并首 commit → 基线五绿验证。
+worktree 已建好：主仓下的 `.claude/worktrees/ui-uplift-pr3`，分支 `feat/ui-uplift-pr3-islands`。`npm install` → 本计划 cp 进 docs 并首 commit → 基线五绿验证。
 
 ## Task 1: 物品管理（items/page.tsx + items/ItemForm.tsx + ItemDetail.tsx）
 

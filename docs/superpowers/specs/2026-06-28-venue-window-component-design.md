@@ -2,7 +2,7 @@
 
 日期:2026-06-28
 状态:已评审通过,待实现
-实现隔离:独立 git worktree `/Users/fengzhou/Code/newWith-window`(分支 `feat/venue-window`),因主仓被并行「地面/空中」会话高频改动。
+实现隔离:独立 git worktree(分支 `feat/venue-window`),因主仓被并行「地面/空中」会话高频改动。
 
 ## 背景与目标
 
@@ -110,5 +110,5 @@ alter table venue_items add column thickness integer not null default 0;
 
 ## 风险与隔离
 
-- 主仓被并行会话高频改动 → 全程在 worktree `/Users/fengzhou/Code/newWith-window` 实现,完成后走 PR;合并若冲突再处理。
+- 主仓被并行会话高频改动 → 全程在独立 worktree 实现,完成后走 PR;合并若冲突再处理。
 - 3D 墙体分段是本功能最复杂处:窗台/窗楣/玻璃三块的坐标与墙厚对齐要仔细,但门已铺好坐标系(area-local + side),按既有 `doorPose`/`segmentWall` 模式扩展即可。
