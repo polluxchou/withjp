@@ -1984,8 +1984,16 @@
     "liveView": {
       "month": "By country",
       "room": "Single room",
-      "timetable": "Timetable"
+      "timetable": "Timetable",
+      "summary": "Trends"
     },
+    "liveSummaryListCaption": "By date generated · newest first",
+    "liveSummaryGenerated": "Generated {date} ({weekday})",
+    "liveSummarySourceAuto": "Auto",
+    "liveSummarySourceManual": "Manual",
+    "liveSummaryUntitled": "Live-time trend summary",
+    "liveSummaryEmpty": "No trend summaries yet",
+    "liveSummaryEmptyHint": "Ask Claude to generate a live-time trend summary and it will appear here by date. Regenerating on the same day replaces that day’s summary.",
     "liveCountryLabel": "Country",
     "liveCountryOption": "{name} {count}",
     "liveMonthPrev": "Previous month",

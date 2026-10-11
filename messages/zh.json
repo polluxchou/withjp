@@ -1984,8 +1984,16 @@
     "liveView": {
       "month": "国家月历",
       "room": "单个直播间",
-      "timetable": "时段对比"
+      "timetable": "时段对比",
+      "summary": "趋势总结"
     },
+    "liveSummaryListCaption": "按生成日期 · 最新在上",
+    "liveSummaryGenerated": "{date} {weekday} 生成",
+    "liveSummarySourceAuto": "自动",
+    "liveSummarySourceManual": "手写",
+    "liveSummaryUntitled": "开播时段趋势总结",
+    "liveSummaryEmpty": "还没有趋势总结",
+    "liveSummaryEmptyHint": "让 Claude 生成一份开播时段趋势总结后，会按生成日期出现在这里；同一天重新生成会覆盖当天那份。",
     "liveCountryLabel": "国家",
     "liveCountryOption": "{name} {count}",
     "liveMonthPrev": "上个月",
