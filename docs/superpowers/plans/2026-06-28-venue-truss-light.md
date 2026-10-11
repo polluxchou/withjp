@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js + React Three Fiber/@react-three/drei + Supabase + `node --test --experimental-strip-types`。
 
-**工作目录:** worktree `/Users/fengzhou/Code/newWith-truss`(分支 `feat/venue-truss-light`)。命令用 `cd /Users/fengzhou/Code/newWith-truss`;提交前 `git -C /Users/fengzhou/Code/newWith-truss branch --show-current` 须为 `feat/venue-truss-light`;只 `git add` 指名文件。
+**工作目录:** 本次功能的 git worktree 根目录,下文命令记作 `$WORKTREE`(分支 `feat/venue-truss-light`)。命令用 `cd "$WORKTREE"`;提交前 `git -C "$WORKTREE" branch --show-current` 须为 `feat/venue-truss-light`;只 `git add` 指名文件。
 
 **可测性:** Task 1 纯数据/几何,走 TDD。Task 3/4 在 `Venue3DCanvas.client.tsx`(R3F),tsc + build + 人工。
 
@@ -51,7 +51,7 @@ test('lightTrussAttachments: 灯吸附阈值内最近桁架的 elevation', () =>
 
 (`VenueItem`/`VenueItemType` 若未导入则以 type 形式加入导入。)
 
-- [ ] **Step 2: 运行确认失败** — `cd /Users/fengzhou/Code/newWith-truss && npm test`（FAIL:类型/函数未定义）。
+- [ ] **Step 2: 运行确认失败** — `cd "$WORKTREE" && npm test`（FAIL:类型/函数未定义）。
 
 - [ ] **Step 3: 实现** 在 `src/venue/layoutData.ts`:
 1. `VenueShapeType` 增加 `'truss' | 'light'`:`export type VenueShapeType = 'equipment' | 'renovation' | 'area' | 'corridor' | 'window' | 'truss' | 'light'`。
@@ -92,8 +92,8 @@ export function lightTrussAttachments(items: VenueItem[]): Map<string, number> {
 
 - [ ] **Step 5: 提交**
 ```bash
-git -C /Users/fengzhou/Code/newWith-truss add src/venue/layoutData.ts src/venue/layoutData.test.ts
-git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): truss/light 类型 + 默认 + 灯桁架匹配纯函数"
+git -C "$WORKTREE" add src/venue/layoutData.ts src/venue/layoutData.test.ts
+git -C "$WORKTREE" commit -m "feat(venue): truss/light 类型 + 默认 + 灯桁架匹配纯函数"
 ```
 
 ---
@@ -114,8 +114,8 @@ alter table venue_items add constraint venue_items_type_valid check (type in
 
 - [ ] **Step 2: 提交 + 提醒**
 ```bash
-git -C /Users/fengzhou/Code/newWith-truss add supabase/migrations/038_venue_item_truss_light.sql
-git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): 迁移 038 — type 约束加 truss/light"
+git -C "$WORKTREE" add supabase/migrations/038_venue_item_truss_light.sql
+git -C "$WORKTREE" commit -m "feat(venue): 迁移 038 — type 约束加 truss/light"
 ```
 实现末尾**提醒用户执行迁移 038**(插入 truss/light 前必须,否则违反 check)。
 
@@ -202,12 +202,12 @@ if (item.type === 'light') {
 ```
 （`truss` 不加分支 → 落到默认 `VenueItem3DMesh`,渲染为深色细长盒 = 横梁。）
 
-- [ ] **Step 5: tsc + build** — `cd /Users/fengzhou/Code/newWith-truss && npx tsc --noEmit && npm run build`（通过）。
+- [ ] **Step 5: tsc + build** — `cd "$WORKTREE" && npx tsc --noEmit && npm run build`（通过）。
 
 - [ ] **Step 6: 提交**
 ```bash
-git -C /Users/fengzhou/Code/newWith-truss add src/venue/Venue3DCanvas.client.tsx
-git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): 3D 桁架横梁 + 吊灯柔光箱/吊臂"
+git -C "$WORKTREE" add src/venue/Venue3DCanvas.client.tsx
+git -C "$WORKTREE" commit -m "feat(venue): 3D 桁架横梁 + 吊灯柔光箱/吊臂"
 ```
 
 ---
@@ -260,8 +260,8 @@ function CeilingView({ nonce, floor }: { nonce: number; floor: VenueFloor }) {
 
 - [ ] **Step 5: 提交**
 ```bash
-git -C /Users/fengzhou/Code/newWith-truss add src/venue/Venue3DCanvas.client.tsx messages/zh.json messages/en.json messages/ja.json
-git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): 3D 看天花板仰视预设"
+git -C "$WORKTREE" add src/venue/Venue3DCanvas.client.tsx messages/zh.json messages/en.json messages/ja.json
+git -C "$WORKTREE" commit -m "feat(venue): 3D 看天花板仰视预设"
 ```
 
 ---
@@ -282,8 +282,8 @@ git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): 3D 看天花�
 
 - [ ] **Step 4: 提交**
 ```bash
-git -C /Users/fengzhou/Code/newWith-truss add src/venue/VenueCanvas.tsx src/venue/VenueInspector.tsx
-git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): 2D 桁架/吊灯配色 + Inspector 排除地面空中"
+git -C "$WORKTREE" add src/venue/VenueCanvas.tsx src/venue/VenueInspector.tsx
+git -C "$WORKTREE" commit -m "feat(venue): 2D 桁架/吊灯配色 + Inspector 排除地面空中"
 ```
 
 ---
@@ -307,15 +307,15 @@ git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): 2D 桁架/吊�
 
 - [ ] **Step 4: 提交**
 ```bash
-git -C /Users/fengzhou/Code/newWith-truss add "src/app/[locale]/(app)/guild-venue/page.tsx" messages/zh.json messages/en.json messages/ja.json
-git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): + 桁架/+ 灯 按钮 + 图标 + 文案"
+git -C "$WORKTREE" add "src/app/[locale]/(app)/guild-venue/page.tsx" messages/zh.json messages/en.json messages/ja.json
+git -C "$WORKTREE" commit -m "feat(venue): + 桁架/+ 灯 按钮 + 图标 + 文案"
 ```
 
 ---
 
 ### Task 7: 全量校验 + 人工 3D 验证 + changelog
 
-- [ ] **Step 1: 全量** — `cd /Users/fengzhou/Code/newWith-truss && npm test && npx tsc --noEmit && npm run build`（测试全绿、tsc 干净、build 通过）。
+- [ ] **Step 1: 全量** — `cd "$WORKTREE" && npm test && npx tsc --noEmit && npm run build`（测试全绿、tsc 干净、build 通过）。
 
 - [ ] **Step 2: 人工 3D 验证(前置:迁移 038 已执行)** — dev(`PORT=3011 npm run dev` 避免端口冲突)或 PR 预览:加桁架(贴天花深色横梁)、加吊灯到桁架下方(八角柔光箱 + 竖直细杆连到桁架);点「看天花板」应切到仰视、能看清吊顶布局;吊灯远离桁架时无杆。`preview_screenshot` 留证。
 
@@ -328,7 +328,7 @@ git -C /Users/fengzhou/Code/newWith-truss commit -m "feat(venue): + 桁架/+ 灯
   details: '工具栏新增「+ 桁架」「+ 灯」。桁架是贴天花的横梁,吊灯会自动吸附最近的桁架、从其下方吊下(3D 里渲染成柔光箱 + 竖直吊臂),挂高可在 Inspector 调。3D 视图新增「看天花板」按钮,一键仰视吊顶,方便查看桁架/灯光布局。',
 },
 ```
-提交:`git -C /Users/fengzhou/Code/newWith-truss add src/lib/changelog/entries.ts && git -C /Users/fengzhou/Code/newWith-truss commit -m "docs(changelog): 桁架/吊灯 + 看天花板"`
+提交:`git -C "$WORKTREE" add src/lib/changelog/entries.ts && git -C "$WORKTREE" commit -m "docs(changelog): 桁架/吊灯 + 看天花板"`
 
 ---
 

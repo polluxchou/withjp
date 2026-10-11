@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js + React Three Fiber(@react-three/drei)+ Supabase + `node --test --experimental-strip-types`。
 
-**工作目录:** 全程在 worktree `/Users/fengzhou/Code/newWith-window`(分支 `feat/venue-window`)。所有命令/路径用此绝对路径。提交前 `git -C /Users/fengzhou/Code/newWith-window branch --show-current` 必须为 `feat/venue-window`。
+**工作目录:** 全程在本次功能的 git worktree 根目录,下文命令记作 `$WORKTREE`(分支 `feat/venue-window`)。所有命令/路径都以它为准。提交前 `git -C "$WORKTREE" branch --show-current` 必须为 `feat/venue-window`。
 
 **可测性说明:** Task 1/2 是纯数据逻辑,走 TDD(node --test)。Task 4/5/6 在 `Venue3DCanvas.client.tsx`/`VenueCanvas.tsx`(引入 three/react),不单测,靠 `npx tsc --noEmit` + `next build` + 人工 3D 验证。
 
@@ -46,7 +46,7 @@ test('每个 item 都带 thickness(默认 0)', () => {
 
 - [ ] **Step 2: 运行,确认失败**
 
-Run: `cd /Users/fengzhou/Code/newWith-window && npm test`
+Run: `cd "$WORKTREE" && npm test`
 Expected: FAIL(`thickness` 未定义 / window 不是合法类型 / 默认不匹配)。
 
 - [ ] **Step 3: 实现**
@@ -73,8 +73,8 @@ Expected: PASS(2 条新用例 + 既有 layoutData 用例全绿)。
 - [ ] **Step 5: 提交**
 
 ```bash
-git -C /Users/fengzhou/Code/newWith-window add src/venue/layoutData.ts src/venue/layoutData.test.ts
-git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): 新增 window 类型 + thickness 字段 + 默认"
+git -C "$WORKTREE" add src/venue/layoutData.ts src/venue/layoutData.test.ts
+git -C "$WORKTREE" commit -m "feat(venue): 新增 window 类型 + thickness 字段 + 默认"
 ```
 
 ---
@@ -132,8 +132,8 @@ Expected: PASS。
 - [ ] **Step 5: 提交**
 
 ```bash
-git -C /Users/fengzhou/Code/newWith-window add src/lib/venue/layout-sync.ts src/lib/venue/layout-sync.test.ts
-git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): layout-sync thickness 往返"
+git -C "$WORKTREE" add src/lib/venue/layout-sync.ts src/lib/venue/layout-sync.test.ts
+git -C "$WORKTREE" commit -m "feat(venue): layout-sync thickness 往返"
 ```
 
 ---
@@ -163,14 +163,14 @@ alter table venue_items add column thickness integer not null default 0;
 
 - [ ] **Step 3: 类型检查**
 
-Run: `cd /Users/fengzhou/Code/newWith-window && npx tsc --noEmit`
+Run: `cd "$WORKTREE" && npx tsc --noEmit`
 Expected: 无新增错误。
 
 - [ ] **Step 4: 提交 + 提醒**
 
 ```bash
-git -C /Users/fengzhou/Code/newWith-window add src/lib/venue/service.ts supabase/migrations/036_venue_item_window.sql
-git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): getVenueLayout 读取 thickness + 迁移 036"
+git -C "$WORKTREE" add src/lib/venue/service.ts supabase/migrations/036_venue_item_window.sql
+git -C "$WORKTREE" commit -m "feat(venue): getVenueLayout 读取 thickness + 迁移 036"
 ```
 实现者在任务末尾**提醒用户在 Supabase SQL Editor 执行迁移 036**(本项目无 CLI)。
 
@@ -259,8 +259,8 @@ Expected: 通过(此时窗户已在墙上挖出满墙厚的洞,但还没渲染�
 - [ ] **Step 5: 提交**
 
 ```bash
-git -C /Users/fengzhou/Code/newWith-window add src/venue/Venue3DCanvas.client.tsx
-git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): 窗户匹配最近墙体,产出带 band 的 WallPort"
+git -C "$WORKTREE" add src/venue/Venue3DCanvas.client.tsx
+git -C "$WORKTREE" commit -m "feat(venue): 窗户匹配最近墙体,产出带 band 的 WallPort"
 ```
 
 ---
@@ -344,8 +344,8 @@ Expected: 通过。(若 `JSX.Element` 类型不被识别,用 `React.ReactElement
 - [ ] **Step 4: 提交**
 
 ```bash
-git -C /Users/fengzhou/Code/newWith-window add src/venue/Venue3DCanvas.client.tsx
-git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): 3D 窗洞渲染窗台+窗楣+玻璃构件"
+git -C "$WORKTREE" add src/venue/Venue3DCanvas.client.tsx
+git -C "$WORKTREE" commit -m "feat(venue): 3D 窗洞渲染窗台+窗楣+玻璃构件"
 ```
 
 ---
@@ -371,8 +371,8 @@ Expected: 通过。
 - [ ] **Step 4: 提交**
 
 ```bash
-git -C /Users/fengzhou/Code/newWith-window add src/venue/VenueCanvas.tsx
-git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): 2D 画布渲染窗户矩形"
+git -C "$WORKTREE" add src/venue/VenueCanvas.tsx
+git -C "$WORKTREE" commit -m "feat(venue): 2D 画布渲染窗户矩形"
 ```
 
 ---
@@ -398,8 +398,8 @@ Expected: 通过(此时 `fieldThickness` 文案可能缺失,会回退显示 key 
 - [ ] **Step 4: 提交**
 
 ```bash
-git -C /Users/fengzhou/Code/newWith-window add src/venue/VenueInspector.tsx
-git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): Inspector 窗户厚度输入 + 排除地面/空中开关"
+git -C "$WORKTREE" add src/venue/VenueInspector.tsx
+git -C "$WORKTREE" commit -m "feat(venue): Inspector 窗户厚度输入 + 排除地面/空中开关"
 ```
 
 ---
@@ -440,8 +440,8 @@ Expected: 通过。
 - [ ] **Step 4: 提交**
 
 ```bash
-git -C /Users/fengzhou/Code/newWith-window add "src/app/[locale]/(app)/guild-venue/page.tsx" messages/zh.json messages/en.json messages/ja.json
-git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): + 窗户 按钮 + 图标 + 三语文案"
+git -C "$WORKTREE" add "src/app/[locale]/(app)/guild-venue/page.tsx" messages/zh.json messages/en.json messages/ja.json
+git -C "$WORKTREE" commit -m "feat(venue): + 窗户 按钮 + 图标 + 三语文案"
 ```
 
 ---
@@ -450,12 +450,12 @@ git -C /Users/fengzhou/Code/newWith-window commit -m "feat(venue): + 窗户 按�
 
 - [ ] **Step 1: 全量测试 + 构建**
 
-Run: `cd /Users/fengzhou/Code/newWith-window && npm test && npx tsc --noEmit && npm run build`
+Run: `cd "$WORKTREE" && npm test && npx tsc --noEmit && npm run build`
 Expected: 测试全绿、tsc 干净、build 通过。
 
 - [ ] **Step 2: 人工 3D 验证(前置:迁移 036 已执行)**
 
-启动 dev(在 worktree:`cd /Users/fengzhou/Code/newWith-window && npm run dev`,注意端口与主仓冲突——用 `PORT=3010 npm run dev` 或停掉主仓 dev)。在场地页:
+启动 dev(在 worktree:`cd "$WORKTREE" && npm run dev`,注意端口与主仓冲突——用 `PORT=3010 npm run dev` 或停掉主仓 dev)。在场地页:
 - 点「+ 窗户」添加窗户,拖到某空间墙边。
 - 切 3D:确认该墙在窗户位置挖出**抬高的洞**,洞下有窗台、洞上有窗楣,中间有半透明玻璃。
 - 调 Inspector 的离地高度/高度/厚度,确认 3D 实时变化(离地抬高窗台、高度改变洞高、厚度改变玻璃进深)。
@@ -473,7 +473,7 @@ Expected: 测试全绿、tsc 干净、build 通过。
   details: '工具栏新增「+ 窗户」。把窗户拖到空间墙边,3D 视图会在对应墙体上挖出一个抬高的窗洞(下留窗台、上留窗楣),中间嵌半透明玻璃。可在 Inspector 配置离地高度、窗户高度与厚度(进深);共享墙两侧空间都会开窗。',
 },
 ```
-提交:`git -C /Users/fengzhou/Code/newWith-window add src/lib/changelog/entries.ts && git -C /Users/fengzhou/Code/newWith-window commit -m "docs(changelog): 窗户组件"`
+提交:`git -C "$WORKTREE" add src/lib/changelog/entries.ts && git -C "$WORKTREE" commit -m "docs(changelog): 窗户组件"`
 
 ---
 

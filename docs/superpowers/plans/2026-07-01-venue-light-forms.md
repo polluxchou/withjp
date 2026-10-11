@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js + React Three Fiber + Supabase + `node --test --experimental-strip-types`。
 
-**工作目录:** worktree `/Users/fengzhou/Code/newWith-lightforms`(分支 `feat/venue-light-forms`)。命令用 `cd /Users/fengzhou/Code/newWith-lightforms`;提交前分支须为 `feat/venue-light-forms`;只 `git add` 指名文件。
+**工作目录:** 本次功能的 git worktree 根目录,下文命令记作 `$WORKTREE`(分支 `feat/venue-light-forms`)。命令用 `cd "$WORKTREE"`;提交前分支须为 `feat/venue-light-forms`;只 `git add` 指名文件。
 
 **可测性:** Task 1 的纯函数(默认值 / `isLightType` / `lightTrussAttachments`)走 TDD;跨文件的 3D/2D/入口改动靠 `npx tsc --noEmit` + `npm run build`。Task 3 的几何靠 build + 人工。
 
@@ -56,7 +56,7 @@ test('lightTrussAttachments: 只有 light_spot 吸附桁架', () => {
 })
 ```
 
-- [ ] **Step 2: 运行确认失败** — `cd /Users/fengzhou/Code/newWith-lightforms && npm test`。
+- [ ] **Step 2: 运行确认失败** — `cd "$WORKTREE" && npm test`。
 
 - [ ] **Step 3: layoutData.ts 改造**
 1. `VenueShapeType`:删 `'light'`,加 `'light_grille4' | 'light_grille8_stand' | 'light_spot' | 'light_grille4_stand'`。
@@ -94,8 +94,8 @@ test('lightTrussAttachments: 只有 light_spot 吸附桁架', () => {
 
 - [ ] **Step 6: 提交**
 ```bash
-git -C /Users/fengzhou/Code/newWith-lightforms add src/venue/layoutData.ts src/venue/layoutData.test.ts src/venue/Venue3DCanvas.client.tsx src/venue/VenueCanvas.tsx src/venue/VenueInspector.tsx "src/app/[locale]/(app)/guild-venue/page.tsx" messages/zh.json messages/en.json messages/ja.json
-git -C /Users/fengzhou/Code/newWith-lightforms commit -m "feat(venue): 灯拆为 4 种类型(数据+接线,暂用旧几何)"
+git -C "$WORKTREE" add src/venue/layoutData.ts src/venue/layoutData.test.ts src/venue/Venue3DCanvas.client.tsx src/venue/VenueCanvas.tsx src/venue/VenueInspector.tsx "src/app/[locale]/(app)/guild-venue/page.tsx" messages/zh.json messages/en.json messages/ja.json
+git -C "$WORKTREE" commit -m "feat(venue): 灯拆为 4 种类型(数据+接线,暂用旧几何)"
 ```
 
 ---
@@ -117,8 +117,8 @@ alter table venue_items add constraint venue_items_type_valid check (type in
 
 - [ ] **Step 2: 提交 + 提醒**
 ```bash
-git -C /Users/fengzhou/Code/newWith-lightforms add supabase/migrations/039_venue_item_light_forms.sql
-git -C /Users/fengzhou/Code/newWith-lightforms commit -m "feat(venue): 迁移 039 — 4 种灯 type 约束 + 删旧 light"
+git -C "$WORKTREE" add supabase/migrations/039_venue_item_light_forms.sql
+git -C "$WORKTREE" commit -m "feat(venue): 迁移 039 — 4 种灯 type 约束 + 删旧 light"
 ```
 实现末尾**提醒用户执行迁移 039**(含 `delete`,会清掉旧 light 数据,已授权)。
 
@@ -206,19 +206,19 @@ git -C /Users/fengzhou/Code/newWith-lightforms commit -m "feat(venue): 迁移 03
 ```
 (删除旧的 `coneH`/`softboxCenterY`/`softboxTopY`/`rodH` 顶部变量,用上面新变量。若 `React` 未导入,用 `JSX.Element`/`ReactNode` 时改成不标注或从 react 导入 —— 沿用文件现有风格,让 tsc 通过。`Edges`/`SELECTION_ACCENT`/`ThreeEvent` 已在文件中。)
 
-- [ ] **Step 2: tsc + build** — `cd /Users/fengzhou/Code/newWith-lightforms && npx tsc --noEmit && npm run build`（通过）。
+- [ ] **Step 2: tsc + build** — `cd "$WORKTREE" && npx tsc --noEmit && npm run build`（通过）。
 
 - [ ] **Step 3: 提交**
 ```bash
-git -C /Users/fengzhou/Code/newWith-lightforms add src/venue/Venue3DCanvas.client.tsx
-git -C /Users/fengzhou/Code/newWith-lightforms commit -m "feat(venue): 4 种灯的真实 3D 几何(格栅/支架/射灯)"
+git -C "$WORKTREE" add src/venue/Venue3DCanvas.client.tsx
+git -C "$WORKTREE" commit -m "feat(venue): 4 种灯的真实 3D 几何(格栅/支架/射灯)"
 ```
 
 ---
 
 ### Task 4: 全量校验 + 人工 3D 验证 + changelog
 
-- [ ] **Step 1: 全量** — `cd /Users/fengzhou/Code/newWith-lightforms && npm test && npx tsc --noEmit && npm run build`（测试全绿、tsc 干净、build 通过）。
+- [ ] **Step 1: 全量** — `cd "$WORKTREE" && npm test && npx tsc --noEmit && npm run build`（测试全绿、tsc 干净、build 通过）。
 
 - [ ] **Step 2: 人工 3D 验证(前置:迁移 039 已执行)** — dev(`PORT=3012 npm run dev`)或 PR 预览。「+ 设施」下拉应有:窗户 / 桁架 / 格栅灯 / 格栅灯·支架 / 八角格栅灯 / 射灯。逐个添加、切 3D 确认:格栅灯贴地方板;支架款有竖杆+底座、灯面抬高;八角款灯面是八边形;射灯是小筒+锥、放到桁架下有竖直吊臂。`preview_screenshot` 留证。
 
@@ -231,7 +231,7 @@ git -C /Users/fengzhou/Code/newWith-lightforms commit -m "feat(venue): 4 种灯�
   details: '原来的「灯」拆成 4 种独立组件,各有真实 3D 外观:直接落地的四角格栅灯、带支架的四角/八角格栅灯、以及吸附桁架吊在天花的射灯。都在工具栏「+ 设施」下拉里选择。',
 },
 ```
-提交:`git -C /Users/fengzhou/Code/newWith-lightforms add src/lib/changelog/entries.ts && git -C /Users/fengzhou/Code/newWith-lightforms commit -m "docs(changelog): 灯拆 4 种形态"`
+提交:`git -C "$WORKTREE" add src/lib/changelog/entries.ts && git -C "$WORKTREE" commit -m "docs(changelog): 灯拆 4 种形态"`
 
 ---
 

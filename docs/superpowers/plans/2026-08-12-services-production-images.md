@@ -139,12 +139,12 @@ git commit -m "test(site): define services production media"
 - Create: `public/site/services-character.webp`
 - Create: `public/site/services-expression.webp`
 
-- [ ] **Step 1: Inspect source dimensions before conversion**
+- [ ] **Step 1: Inspect source dimensions before conversion** (`$ASSET_DIR` is the local folder holding the two supplied source JPGs; it is not checked in)
 
 Run:
 
 ```bash
-sips -g pixelWidth -g pixelHeight '/Users/fengzhou/Desktop/人物设定.jpg' '/Users/fengzhou/Desktop/表情Bom.jpg'
+sips -g pixelWidth -g pixelHeight "$ASSET_DIR/人物设定.jpg" "$ASSET_DIR/表情Bom.jpg"
 ```
 
 Expected: both source images report valid positive dimensions.
@@ -154,8 +154,8 @@ Expected: both source images report valid positive dimensions.
 Run:
 
 ```bash
-sips -s format webp -s formatOptions 82 '/Users/fengzhou/Desktop/人物设定.jpg' --out public/site/services-character.webp
-sips -s format webp -s formatOptions 82 '/Users/fengzhou/Desktop/表情Bom.jpg' --out public/site/services-expression.webp
+sips -s format webp -s formatOptions 82 "$ASSET_DIR/人物设定.jpg" --out public/site/services-character.webp
+sips -s format webp -s formatOptions 82 "$ASSET_DIR/表情Bom.jpg" --out public/site/services-expression.webp
 ```
 
 Expected: both commands create WebP files under `public/site/` and leave the Desktop JPGs untouched.
