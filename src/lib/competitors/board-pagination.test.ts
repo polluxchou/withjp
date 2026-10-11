@@ -16,11 +16,13 @@ function bodyOf(name: string): string {
 }
 
 // 每个看板取数函数至少有几个整表/整段加载。数少了说明有查询被删了或绕开了 fetchAllRows。
+// getCompanyOfCompetitor 是「开播时段」页的公司归属（关联表 + 公司表），关联表一样会过千行。
 const LOADERS: [name: string, minFroms: number][] = [
   ['getCompetitorBoard', 6],
   ['getCompanyBoard', 4],
   ['getAskBoard', 4],
   ['getShotsInRange', 1],
+  ['getCompanyOfCompetitor', 2],
 ]
 
 for (const [name, minFroms] of LOADERS) {

@@ -4,6 +4,7 @@
 import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { calendarWeeks, type CalendarDay, type HasData, type LocatedSpan } from '@/lib/competitors/liveStats'
+import { NO_DATA_FILL } from './liveFills'
 import { useLiveFormat } from './useLiveFormat'
 
 const WEEKS = 13
@@ -19,11 +20,9 @@ const levelStyle = (level: CalendarDay['level']) =>
 
 /**
  * 「无数据」格：中性斜线，和「没播」（实底浅灰）一眼分得开 —— 只有截图的号，巡检没跑的日子
- * 我们不知道它播没播，画成没播会被读成「断播一个月」。颜色用墨色低透明度，不用主色，免得被读成场次。
+ * 我们不知道它播没播，画成没播会被读成「断播一个月」。填充与开播时段页共用，见 liveFills.ts。
  */
-const NO_DATA_STYLE = {
-  backgroundImage: 'repeating-linear-gradient(45deg, rgb(var(--ink-900) / 0.07) 0 2px, transparent 2px 6px)',
-}
+const NO_DATA_STYLE = NO_DATA_FILL
 
 /**
  * 开播日历：最近 13 周 × 周一到周日，按当天总时长分 5 档深浅。
