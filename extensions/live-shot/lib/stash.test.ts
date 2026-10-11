@@ -97,7 +97,7 @@ test('tileTime：洛杉矶时区（NOW 是 LA 10-09 20:00）——「同一天�
   const LA = 'America/Los_Angeles'
   assert.equal(tileTime(Date.UTC(2026, 9, 9, 20, 0), NOW, LA), '13:00', 'LA 10-09 13:00，与 NOW 同一天')
   assert.equal(tileTime(Date.UTC(2026, 9, 9, 3, 0), NOW, LA), '昨 20:00', 'LA 10-08 20:00，是 LA 的昨天')
-  assert.equal(tileTime(Date.UTC(2026, 9, 10, 6, 0), NOW, LA), '23:00', 'LA 10-09 23:00，与 NOW 同一天（LA）；本机时区下会得出别的结果，专门防「同一天」分支漏传时区')
+  assert.equal(tileTime(Date.UTC(2026, 9, 10, 6, 0), NOW, LA), '23:00', 'LA 10-09 23:00，与 NOW 同一天（LA）')
 })
 
 const pad = (n: number) => String(n).padStart(2, '0')
