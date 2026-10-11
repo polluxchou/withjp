@@ -31,3 +31,11 @@ export function densityFill(alpha: number, hatched: boolean): CSSProperties {
       }
     : { backgroundColor: `rgb(var(--primary) / ${a})` }
 }
+
+/**
+ * 横向滚动的图卡片右缘渐隐：右边还有没露出来的列时盖在卡片右缘（useScrollFade 决定显不显示）。
+ * 渐到卡片底色，读起来是「内容在这里被截断、往右还有」；macOS 默认藏起滚动条，没有它用户看不出图被裁了。
+ */
+export const SCROLL_FADE: CSSProperties = {
+  backgroundImage: 'linear-gradient(to right, transparent, var(--surface))',
+}

@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import EmptyState from '@/components/ui/EmptyState'
 import { Select } from '@/components/ui/Field'
 import {
+  ROOM_GRID,
   clampMonth,
   monthBounds,
   monthRow,
@@ -27,9 +28,10 @@ import { AXIS_START } from '@/lib/competitors/liveStats'
 import { normalizeRegion } from '@/lib/competitors/regions'
 import { weekdayOfYmd } from '@/lib/time/zonedTime'
 import { FOCUS_RING } from '@/lib/ui/recipes'
-import { HISTORY_FILL, NO_DATA_FILL, SHOT_FILL } from './liveFills'
+import { HISTORY_FILL, NO_DATA_FILL, SCROLL_FADE, SHOT_FILL } from './liveFills'
 import { useLiveFormat } from './useLiveFormat'
 import { useRegionZone } from './useRegionZone'
+import { useScrollFade } from './useScrollFade'
 
 /** 图高 600px 装 06:00 → 次日 02:00 的 1200 分钟：0.5px / 分钟，一小时 30px。 */
 const STRIP_H = 600
@@ -54,6 +56,11 @@ const HOUR_LINES: CSSProperties = {
   backgroundImage: `repeating-linear-gradient(to bottom, rgb(var(--ink-900) / 0.06) 0 1px, transparent 1px ${60 * PX_PER_MIN}px)`,
 }
 
+/** 列宽、时间轴宽、右侧主档标签槽宽（px）在 liveBoard.ROOM_GRID 定，测试量 31 天排不排得进宽屏卡片。 */
+const DAY_W: CSSProperties = { width: ROOM_GRID.dayPx }
+/** 主档标签在槽里离最后一列的距离（px）：虚线从图左端一直画到标签左缘，标签读起来是这条线的端点。 */
+const SLOT_CHIP_INSET = 4
+
 /** 条上下方时刻标签的公共样式：白底小字压在网格线与相邻竖条之上（z-[3]），居中于本列。 */
 const LABEL =
   'absolute left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap rounded-sm bg-surface px-px text-[10px] leading-3 tabular-nums'
@@ -64,8 +71,10 @@ const isWeekend = (ymd: string) => {
 }
 
 /**
- * 单个直播间：选一个号、一个月，横轴当月每天（一列 36px），纵轴 06:00 → 次日 02:00（600px）。
- * 每场一根竖条（导入实色 / 截图斜纹），上方粗体开播、下方灰字下播；主档开播画成横向虚线。
+ * 单个直播间：选一个号、一个月，横轴当月每天（一列 32px），纵轴 06:00 → 次日 02:00（600px）。
+ * 每场一根竖条（导入实色 / 截图斜纹），上方粗体开播、下方灰字下播；主档开播画成横向虚线，
+ * 时刻标在图右侧单独的一条槽里（不压在月末几列上盖住那几天的开播时刻）。
+ * 版面见 liveBoard.ROOM_GRID：31 天连同槽在 1440 宽屏上一屏放下，更窄时在卡片里横向滚动、右缘渐隐。
  *
  * 「无数据」≠「没播」：不知道播没播的日子整列斜线，确实没播的日子留白，今天之后的日子画虚线框。
  * 时区：整张图按这个号的地区时区（useRegionZone，与卡片、弹窗同一份推导），控件行写明时区名。
@@ -124,6 +133,8 @@ export default function LiveRoomMonth({
   )
   const slotLines = useMemo(() => roomSlotLines(habit?.slots ?? []), [habit])
   const history = useMemo(() => (account ? roomHistoryRange(account, timeZone) : null), [account, timeZone])
+  // Hook 不能放在下面的提前返回之后。
+  const scroll = useScrollFade<HTMLDivElement>()
 
   if (!account || !row || !summary || !habit) {
     return <EmptyState title={t('liveMonthEmpty')} hint={t('liveMonthEmptyHint')} />
@@ -189,6 +200,8 @@ export default function LiveRoomMonth({
   ]
 
   const navBtn = `inline-flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface text-ink-700 hover:bg-row-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-surface ${FOCUS_RING}`
+  // 日期列的总宽：网格线只盖到这里，主档虚线从这里再往右伸进标签槽。
+  const daysPx = row.cells.length * ROOM_GRID.dayPx
 
   return (
     <div className="space-y-4">
@@ -197,9 +210,17 @@ export default function LiveRoomMonth({
         <label htmlFor={selectId} className="text-xs text-ink-500">
           {t('liveRoomAccountLabel')}
         </label>
-        {/* 选项文案可能很长：给定宽度并允许被压窄，窄屏上不把整页撑出横向滚动。 */}
-        <div className="w-64 min-w-0 max-w-full">
-          <Select id={selectId} value={account.id} onChange={(e) => onPickAccount(e.target.value)} className="font-semibold">
+        {/* 下拉按选项文案的宽度排（原生 select 的自然宽度 = 最长的那个选项），不再定死 256px 把
+            「handle · 地区 · 公司」截掉一半；最宽不超过控件行，窄屏上仍能被压窄、不把整页撑出横向滚动。
+            被压窄截断时 title 里有选中项的全文。 */}
+        <div className="min-w-0 max-w-full">
+          <Select
+            id={selectId}
+            value={account.id}
+            onChange={(e) => onPickAccount(e.target.value)}
+            title={optionLabel(account)}
+            className="font-semibold"
+          >
             {options.map((a) => (
               <option key={a.id} value={a.id}>
                 {optionLabel(a)}
@@ -267,119 +288,144 @@ export default function LiveRoomMonth({
         ))}
       </div>
 
-      {/* 图：左 46px 时间轴 + 每天一列 36px；31 天放不下时整块在自己的容器里横向滚动，整页不出横向滚动条。 */}
-      <div className="overflow-x-auto rounded-card border border-line bg-surface px-3 pb-2 pt-3 scrollbar-thin">
-        <div className="flex w-max gap-1.5">
-          <div aria-hidden className="relative mt-10 w-[46px] shrink-0" style={{ height: STRIP_H }}>
-            {AXIS_HOURS.map((hour) => (
-              <span
-                key={hour}
-                className={`absolute right-1 whitespace-nowrap leading-4 tabular-nums ${
-                  STRONG_HOURS.has(hour) ? 'text-xs font-bold text-ink-900' : 'text-[10px] text-ink-400'
-                }`}
-                style={{ top: hourTop(hour) - 8 }}
-              >
-                {`${String(hour % 24).padStart(2, '0')}:00`}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex flex-col">
-            {/* 日期表头：周末暖色；有场次的日子底部一道主色条，扫一眼就知道哪几天播了。 */}
-            <div className="flex h-10 items-end">
-              {row.cells.map((cell) => (
-                <div
-                  key={cell.date}
-                  className={`relative flex h-full w-[36px] shrink-0 flex-col items-center justify-end pb-1 leading-tight ${
-                    isWeekend(cell.date) ? 'text-warning-text' : 'text-ink-700'
+      {/* 图：左时间轴 + 每天一列 + 右侧主档标签槽（宽度见 ROOM_GRID）。放不下时整块在自己的容器里横向滚动，
+          整页不出横向滚动条；右边还有没露出来的日子时右缘渐隐。 */}
+      <div className="relative">
+        <div ref={scroll.ref} className="overflow-x-auto rounded-card border border-line bg-surface px-3 pb-2 pt-3 scrollbar-thin">
+          <div className="flex w-max" style={{ gap: ROOM_GRID.gapPx }}>
+            <div aria-hidden className="relative mt-10 shrink-0" style={{ width: ROOM_GRID.axisPx, height: STRIP_H }}>
+              {AXIS_HOURS.map((hour) => (
+                <span
+                  key={hour}
+                  className={`absolute right-1 whitespace-nowrap leading-4 tabular-nums ${
+                    STRONG_HOURS.has(hour) ? 'text-xs font-bold text-ink-900' : 'text-[10px] text-ink-400'
                   }`}
+                  style={{ top: hourTop(hour) - 8 }}
                 >
-                  <span className="text-xs font-semibold tabular-nums">{Number(cell.date.slice(8))}</span>
-                  <span className="text-[10px]">{fmt.weekdayNarrow(cell.date)}</span>
-                  {cell.status === 'live' && <span aria-hidden data-live-day className="absolute inset-x-0 bottom-0 h-[3px] bg-primary" />}
-                </div>
+                  {`${String(hour % 24).padStart(2, '0')}:00`}
+                </span>
               ))}
             </div>
 
-            {/* mb-3.5：轴尾那场的下播标签画在条区下方，留出一行的位置，不让它撑出纵向滚动条。 */}
-            <div className="relative mb-3.5 flex" style={{ height: STRIP_H }}>
-              {columns.map(({ cell, bars }) => {
-                // 今天之后的日子：虚线框、不画斜线（同国家月历）——画成「无数据」会被读成巡检漏了这些天。
-                const upcoming = cell.future && cell.status !== 'live'
-                const hatched = cell.status === 'nodata' && !upcoming
-                return (
+            <div className="flex flex-col">
+              {/* 日期表头：周末暖色；有场次的日子底部一道主色条，扫一眼就知道哪几天播了。最右是标签槽的表头。 */}
+              <div className="flex h-10 items-end">
+                {row.cells.map((cell) => (
                   <div
                     key={cell.date}
-                    title={columnTip(cell, bars)}
-                    data-cell={upcoming ? 'future' : cell.status}
-                    data-date={cell.date}
-                    className={`relative box-border h-full w-[36px] shrink-0 border-l border-line-soft ${
-                      hatched ? '' : isWeekend(cell.date) ? 'bg-canvas' : 'bg-surface'
+                    className={`relative flex h-full shrink-0 flex-col items-center justify-end pb-1 leading-tight ${
+                      isWeekend(cell.date) ? 'text-warning-text' : 'text-ink-700'
                     }`}
-                    style={hatched ? NO_DATA_FILL : undefined}
+                    style={DAY_W}
                   >
-                    {upcoming ? (
-                      <div aria-hidden className="absolute inset-1 rounded-sm border border-dashed border-line-strong" />
-                    ) : (
-                      bars.map((b, i) => (
-                        <Fragment key={i}>
-                          <span
-                            aria-hidden
-                            data-bar={b.approx ? 'shot' : 'history'}
-                            className="absolute left-1/2 z-[1] w-4 -translate-x-1/2 rounded"
-                            style={{ top: b.top, height: b.height, ...(b.approx ? SHOT_FILL : HISTORY_FILL) }}
-                          />
-                          {b.showStart && (
-                            <span data-label="start" className={`${LABEL} font-bold text-ink-900`} style={{ top: b.top - LABEL_PX }}>
-                              {b.start}
-                            </span>
-                          )}
-                          {b.showEnd && (
-                            <span data-label="end" className={`${LABEL} text-ink-500`} style={{ top: b.top + b.height + 1 }}>
-                              {b.end}
-                            </span>
-                          )}
-                        </Fragment>
-                      ))
-                    )}
+                    <span className="text-xs font-semibold tabular-nums">{Number(cell.date.slice(8))}</span>
+                    <span className="text-[10px]">{fmt.weekdayNarrow(cell.date)}</span>
+                    {cell.status === 'live' && <span aria-hidden data-live-day className="absolute inset-x-0 bottom-0 h-[3px] bg-primary" />}
                   </div>
-                )
-              })}
-
-              {/* 网格线覆盖层：每小时一条细线，12/18/24 三条加深。放在列之后，盖在列底色之上、竖条之下。 */}
-              <div aria-hidden className="pointer-events-none absolute inset-0" style={HOUR_LINES} />
-              {Array.from(STRONG_HOURS).map((hour) => (
+                ))}
                 <div
-                  key={hour}
-                  aria-hidden
-                  className="pointer-events-none absolute inset-x-0 border-t border-ink-900/15"
-                  style={{ top: hourTop(hour) }}
-                />
-              ))}
+                  className="shrink-0 truncate pb-1 text-micro text-ink-500"
+                  style={{ width: ROOM_GRID.gutterPx, paddingLeft: SLOT_CHIP_INSET }}
+                >
+                  {slotLines.length > 0 ? t('liveRoomSlotGutter') : ''}
+                </div>
+              </div>
 
-              {/* 主档参考线：横贯整月的虚线，右端深色标签。
-                  虚线压在竖条之上、时刻标签之下（z-[2]）；标签单独一层压在最上面（z-[4]）：
-                  开播标签恰好贴在主档线上方，同层的话月末几列的开播标签会把「主档 HH:mm 开」盖住。
-                  被盖住的开播时刻提示框里还有，主档标签被盖住就没处看了。 */}
-              {slotLines.map((line) => (
-                <Fragment key={line.minute}>
+              {/* mb-3.5：轴尾那场的下播标签画在条区下方，留出一行的位置，不让它撑出纵向滚动条。 */}
+              <div className="relative mb-3.5 flex" style={{ height: STRIP_H }}>
+                {columns.map(({ cell, bars }) => {
+                  // 今天之后的日子：虚线框、不画斜线（同国家月历）——画成「无数据」会被读成巡检漏了这些天。
+                  const upcoming = cell.future && cell.status !== 'live'
+                  const hatched = cell.status === 'nodata' && !upcoming
+                  return (
+                    <div
+                      key={cell.date}
+                      title={columnTip(cell, bars)}
+                      data-cell={upcoming ? 'future' : cell.status}
+                      data-date={cell.date}
+                      className={`relative box-border h-full shrink-0 border-l border-line-soft ${
+                        hatched ? '' : isWeekend(cell.date) ? 'bg-canvas' : 'bg-surface'
+                      }`}
+                      style={hatched ? { ...DAY_W, ...NO_DATA_FILL } : DAY_W}
+                    >
+                      {upcoming ? (
+                        <div aria-hidden className="absolute inset-1 rounded-sm border border-dashed border-line-strong" />
+                      ) : (
+                        bars.map((b, i) => (
+                          <Fragment key={i}>
+                            <span
+                              aria-hidden
+                              data-bar={b.approx ? 'shot' : 'history'}
+                              className="absolute left-1/2 z-[1] w-4 -translate-x-1/2 rounded"
+                              style={{ top: b.top, height: b.height, ...(b.approx ? SHOT_FILL : HISTORY_FILL) }}
+                            />
+                            {b.showStart && (
+                              <span data-label="start" className={`${LABEL} font-bold text-ink-900`} style={{ top: b.top - LABEL_PX }}>
+                                {b.start}
+                              </span>
+                            )}
+                            {b.showEnd && (
+                              <span data-label="end" className={`${LABEL} text-ink-500`} style={{ top: b.top + b.height + 1 }}>
+                                {b.end}
+                              </span>
+                            )}
+                          </Fragment>
+                        ))
+                      )}
+                    </div>
+                  )
+                })}
+                {/* 主档标签槽：不画网格，只让虚线伸进来、标签落在线的右端。 */}
+                <div aria-hidden className="shrink-0" style={{ width: ROOM_GRID.gutterPx }} />
+
+                {/* 网格线覆盖层：每小时一条细线，12/18/24 三条加深。放在列之后，盖在列底色之上、竖条之下；只盖日期列，不伸进标签槽。 */}
+                <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0" style={{ width: daysPx, ...HOUR_LINES }} />
+                {Array.from(STRONG_HOURS).map((hour) => (
                   <div
+                    key={hour}
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0 z-[2] border-t-[1.5px] border-dashed border-ink-900/55"
-                    style={{ top: minuteTop(line.minute) }}
+                    className="pointer-events-none absolute left-0 border-t border-ink-900/15"
+                    style={{ top: hourTop(hour), width: daysPx }}
                   />
-                  <span
-                    data-slot-line={line.label}
-                    className="pointer-events-none absolute right-0 z-[4] whitespace-nowrap rounded bg-ink-900 px-1.5 text-micro font-bold leading-[18px] text-white tabular-nums"
-                    style={{ top: minuteTop(line.minute) - 9 }}
-                  >
-                    {t('liveRoomSlotLine', { time: line.label })}
-                  </span>
-                </Fragment>
-              ))}
+                ))}
+
+                {/* 主档参考线：横贯整月的虚线，一直伸进右侧的槽，深色标签是线的右端。
+                    虚线压在竖条之上、开播 / 下播标签之下（z-[2]），线上的开播时刻照常读得到。
+                    标签放在槽里而不是压在最后一列上：原来标签贴着图的右缘，月末两三天的开播标签全被它盖住。
+                    几档之间不会叠：同一档的开播相邻相差不到 SLOT_GAP_MINUTES（45 分钟）才连成一档，
+                    两档的中位至少差 45 分钟 = 22.5px，比标签高 18px 还多。 */}
+                {slotLines.map((line) => (
+                  <Fragment key={line.minute}>
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute left-0 z-[2] border-t-[1.5px] border-dashed border-ink-900/55"
+                      style={{ top: minuteTop(line.minute), width: daysPx + SLOT_CHIP_INSET }}
+                    />
+                    {/* 槽只有 56px，标签里只写时刻；「主档」写在槽的表头，整句（主档 HH:mm 开）给读屏与悬停提示。 */}
+                    <span
+                      data-slot-line={line.label}
+                      title={t('liveRoomSlotLine', { time: line.label })}
+                      className="absolute z-[4] whitespace-nowrap rounded bg-ink-900 px-1.5 text-micro font-bold leading-[18px] text-white tabular-nums"
+                      style={{ top: minuteTop(line.minute) - 9, left: daysPx + SLOT_CHIP_INSET }}
+                    >
+                      <span className="sr-only">{t('liveRoomSlotLine', { time: line.label })}</span>
+                      <span aria-hidden>{line.label}</span>
+                    </span>
+                  </Fragment>
+                ))}
+              </div>
             </div>
           </div>
         </div>
+        {/* 右缘渐隐：只在右边还有没露出来的日子时出现（滚到底就撤），压在卡片边框以内、不挡点击。 */}
+        {scroll.fade && (
+          <div
+            aria-hidden
+            data-scroll-fade
+            className="pointer-events-none absolute inset-y-px right-px z-20 w-10 rounded-r-card"
+            style={SCROLL_FADE}
+          />
+        )}
       </div>
 
       {/* 图例：怎么读一列 + 几种样式 */}

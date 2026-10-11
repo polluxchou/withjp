@@ -19,7 +19,9 @@ import {
   flattenAccounts,
   groupByCompany,
   heatAlpha,
+  hiddenRight,
   liveCountries,
+  MONTH_GRID,
   monthBounds,
   monthDays,
   monthRow,
@@ -32,6 +34,7 @@ import {
   regionlessLiveCount,
   roomAccounts,
   roomDayBars,
+  ROOM_GRID,
   roomHistoryRange,
   roomMonthSummary,
   roomSlotLines,
@@ -45,6 +48,7 @@ import {
   timetableSlotLabels,
   timetableSplit,
   timetableZone,
+  WIDE_CARD_PX,
   type DensityColumn,
   type LiveAccount,
   type TimetableColumn,
@@ -649,6 +653,26 @@ test('barBox: 竖条的纵向位置与高度（px），夹在条区内', () => {
   assert.deepEqual(barBox({ start: 360, end: 1560 }, 40, 3), { top: 0, height: 40 })
   // 同一套几何换个尺寸（单个直播间视图 600px 高）
   assert.deepEqual(barBox({ start: 720, end: 840 }, 600, 4), { top: 180, height: 60 })
+})
+
+test('版面预算: 31 天的国家月历与单个直播间都排得进 1440 宽屏上的图卡片（约 1110px），1280 宽屏（约 950px）上月历要滚', () => {
+  const month = MONTH_GRID.accountPx + 31 * MONTH_GRID.dayPx
+  const room = ROOM_GRID.axisPx + ROOM_GRID.gapPx + 31 * ROOM_GRID.dayPx + ROOM_GRID.gutterPx
+  assert.equal(month, 1062)
+  assert.equal(room, 1100)
+  assert.ok(month <= WIDE_CARD_PX, '月历：第 31 天与左列汇总都不被裁')
+  assert.ok(room <= WIDE_CARD_PX, '单个直播间：主档标签槽也在卡片内')
+  // 1280 宽屏：1280 − 240 − 64 − 26 = 950，放不下 → 卡片内横向滚动，靠 sticky 左列与右缘渐隐兜住
+  assert.ok(month > 950)
+})
+
+test('hiddenRight: 内容比容器宽且没滚到底才算右边还有；留 1px 容差', () => {
+  assert.equal(hiddenRight({ scrollLeft: 0, clientWidth: 1134, scrollWidth: 1086 }), false, '没溢出')
+  assert.equal(hiddenRight({ scrollLeft: 0, clientWidth: 1134, scrollWidth: 1134 }), false, '恰好等宽')
+  assert.equal(hiddenRight({ scrollLeft: 0, clientWidth: 974, scrollWidth: 1086 }), true, '溢出、在最左')
+  assert.equal(hiddenRight({ scrollLeft: 60, clientWidth: 974, scrollWidth: 1086 }), true, '滚到一半')
+  assert.equal(hiddenRight({ scrollLeft: 112, clientWidth: 974, scrollWidth: 1086 }), false, '滚到底')
+  assert.equal(hiddenRight({ scrollLeft: 111.5, clientWidth: 974, scrollWidth: 1086 }), false, '小数像素差 0.5 也算到底')
 })
 
 // ---- 单个直播间 ----

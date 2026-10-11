@@ -422,6 +422,38 @@ export function barClock(bar: MonthBar): { start: string; end: string; nextDay: 
   return { start: minutesToLabel(bar.start), end: minutesToLabel(bar.end), nextDay: bar.end - dayStart >= 1440 }
 }
 
+// ---- 版面预算 ----
+// 国家月历与单个直播间都是「一天一列」，31 天的月份要在常见的宽屏上一屏放下，列宽在这里定、测试里量。
+// 放不下时图在自己的卡片里横向滚动（整页不出横向滚动条），右缘用渐隐提示「右边还有」——
+// macOS 默认把滚动条藏起来，第 31 天被裁掉一半用户也看不出来。
+
+/**
+ * 宽屏上一张图卡片里排得下的宽度（px）：1440 宽的屏幕减去侧栏 240（--sidebar-width）与主区 md:p-8 两侧 64，
+ * 内容区约 1136；再减卡片左右边框 2、内边距 24，约 1110。1280 宽的屏幕只剩约 950，31 天就得滚了。
+ */
+export const WIDE_CARD_PX = 1110
+
+/**
+ * 国家月历：左列账号 132px（handle 下面写本月汇总，不再单开右列）、每天 30px。
+ * 31 天 = 132 + 930 = 1062，排得进 WIDE_CARD_PX。格下的开播时刻按 30px 定字号（9.5px、等宽数字）。
+ */
+export const MONTH_GRID = { accountPx: 132, dayPx: 30 } as const
+
+/**
+ * 单个直播间：左 46px 时间轴、轴与图之间 6px、每天 32px，图右侧留 56px 的槽放主档标签——
+ * 标签不再压在最后几天的列上，盖住那几天的开播时刻。
+ * 31 天 = 46 + 6 + 992 + 56 = 1100。32px 的列装得下 16px 宽的竖条与 10px 粗体的「HH:mm」开播标签。
+ */
+export const ROOM_GRID = { axisPx: 46, gapPx: 6, dayPx: 32, gutterPx: 56 } as const
+
+/**
+ * 横向滚动容器的右边还有没露出来的内容：内容比容器宽、且还没滚到底。右缘渐隐只在这时出现。
+ * 留 1px 容差：缩放与小数像素下，滚到底时 scrollLeft + clientWidth 仍可能比 scrollWidth 差零点几。
+ */
+export function hiddenRight(box: { scrollLeft: number; clientWidth: number; scrollWidth: number }): boolean {
+  return box.scrollWidth - box.clientWidth - box.scrollLeft > 1
+}
+
 // ---- 单个直播间 ----
 // 一个号、一个月：横轴当月每天（一天一列），纵轴 06:00 → 次日 02:00，每场一根竖条，
 // 条上方粗体标开播、下方灰字标下播；主档画成横向虚线。这里管「列哪些号、默认选哪个」、
