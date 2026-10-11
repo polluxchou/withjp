@@ -151,8 +151,10 @@
 
 | 位置 | 现在的数据源 | 改为 | 结果 |
 | --- | --- | --- | --- |
-| 卡片「常见开播时段」「最近 8 场」「近 30 天」、档案摘要 | `liveSpansOf(c)`（读 `c.shots`，全量） | `liveSpansOf({ live_sessions: c.live_sessions, shots: c.sessionShots })` | 不变：`sessionShots` 与全部截图喂给 `liveSpansOf` 结果相同 |
-| 开播记录弹窗 | `liveSpansOf(competitor)` | 同上，读 `competitor.sessionShots` | 不变 |
+| 卡片「常见开播时段」「最近 8 场」「近 30 天」、档案摘要 | `liveSpansOf(c)`（读 `c.shots`，全量） | 经场次接缝 `accountSpans(c)`（`liveBoard.ts`），它喂 `liveSpansOf({ live_sessions: c.live_sessions, shots: c.sessionShots })` | 不变：`sessionShots` 与全部截图喂给 `liveSpansOf` 结果相同 |
+| 开播记录弹窗 | `liveSpansOf(competitor)` | 同上，`accountSpans(competitor)` | 不变 |
+| 开播时段页（国家月历 / 单个直播间 / 时段对比）的场次 | `flattenAccounts` → `accountSpans(c)`（原读 `c.shots`） | `accountSpans` 改喂 `c.sessionShots`（与上两行同一个接缝，组件里不再直接调 `liveSpansOf`） | 不变 |
+| 开播时段页的巡检日（「无数据」斜线格的判据） | `patrolDaysOfBoard(board)` 遍历全部截图的 `shot_on` | `patrolDaysOfBoard` 改读 `board.shotAxis`（剔掉 `UNDATED_KEY`），入参只要 `{ shotAxis }` | 不变：轴就是全库有图日期 |
 | 地区标尺 | `liveStartsOf({ live_sessions, shots })`，在近 14 天内过滤 | `RulerInput.sessionShots` 代替 `shots`，窗口过滤原样保留 | 不变 |
 | 问答面板 | `getCompetitorBoard`（全量 `*`） | `getAskBoard`（全量、只取需要的列） | 不变 |
 | 统计条最近采集日 | 已加载截图 | 不改（见 4.7） | 不变 |
