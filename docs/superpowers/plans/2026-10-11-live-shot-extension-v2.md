@@ -1907,13 +1907,27 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 6: 真机验收清单（负责人操作，逐项记录结果）**
 
 1. 截 3 张不传，关弹窗再开 → 3 张都在，刚截的那张蓝框。
-2. 点开其中一张上传 → 移出暂存区，「上传 M」加一；在竞品相册里出现在截图时刻对应的日期下。
+2. 点开其中一张上传 → 移出暂存区，「上传 M」加一；在竞品相册里出现在截图时刻对应的日期下。用只读 SQL 核对：`select count(*) from competitor_shots where created_by = <本人 id> and tag = 'live_manual' and created_at >= <今天日本 0 点> and created_at < <明天日本 0 点>` 等于弹窗「上传 M」。
 3. 连续截到第 10 张 → 最旧的被挤掉，顶部有一行提示写明是哪张。
 4. 点「删掉」后 3 秒不点 → 按钮复原；再点两次 → 删掉并回到主界面。
 5. 在非直播间页面打开弹窗 → 顶部报「当前页不是直播间」，暂存区照常能点开、上传。
 6. 退出再登录 → 暂存区还在。
-7. 正常直播间里，卡片第三行显示「✓ 同期 N 个」；上传后查 `competitor_viewer_readings` 里该次截图的 `source = 'sidebar'` 行数，等于 N 里在竞品库的账号数（只读查询）。
-8. 过期置灰：DevTools 打开弹窗（右键弹窗 →「检查」）→ Application → IndexedDB → `live-shot` → `stash`，把一条记录 `reading.capturedAt` 改成一天前的毫秒数 → 重开弹窗，该图置灰、时间带「昨」或日期，点开只有「删掉」「返回」和「已过期，请重新截」。再把它改成一个字符串 → 重开弹窗不白屏，该图时间显示「—」且只能删。
+7. 侧栏同期（要能分清「按标题认 Following」和「≥2 个取第一个」两条规则）：
+   - 在直播间页面的 DevTools Console 先运行
+     `[...document.querySelectorAll('[data-e2e="live-side-nav-channel"]')].map(c => c.querySelector('[data-e2e="live-side-nav-channel-title"]')?.textContent)`
+     确认打出 Following 与推荐区两个标题（或本地化标题）。
+   - 正常页面点插件：第三行「✓ 同期 N 个」，上传后查 `competitor_viewer_readings` 该次截图 `source = 'sidebar'` 的行数 = N 里在竞品库的账号数（只读）。
+   - 模拟「侧栏只剩 Following」：在 Console 里把推荐区那个频道节点 `.remove()`，再点插件 → 第三行仍是「✓ 同期 N 个」（第一版规则这里会报没读到）。
+   - 模拟「只剩推荐区」：刷新后把 Following 频道节点 `.remove()`，再点插件 → 第三行「⚠ 同期没读到：侧栏只有推荐区…」。
+   - 测完刷新页面；这两次模拟截到的图在暂存区里删掉，不上传。
+8. 过期置灰 / 坏时刻不白屏（Application 面板改不了 IndexedDB 的值，用 Console）：右键弹窗 →「检查」，在弹窗的 Console 运行
+   ```js
+   const db = await new Promise((ok, no) => { const r = indexedDB.open('live-shot'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error) })
+   const st = () => db.transaction('stash', 'readwrite').objectStore('stash')
+   const [it] = await new Promise((ok) => { const r = st().getAll(); r.onsuccess = () => ok(r.result) })
+   it.reading.capturedAt = Date.now() - 24 * 3600e3; st().put(it)
+   ```
+   关掉再开弹窗：该图置灰、时间带「昨」或日期，点开只有「删掉」「返回」和「已过期，请重新截」。再把赋值改成 `'x'` 重跑一遍、重开弹窗：不白屏，该图时间显示「—」且只能删。
 
 任何一项不符：记下现象，回到对应任务修复（新提交），修完重跑 Step 3 与对应验收项。
 

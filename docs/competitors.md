@@ -135,7 +135,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | `assemble.ts` | `parseHandleFromUrl` + `assembleBoard(competitors,snapshots,shots,canEdit)`：组装 latest/history/weekly/shots，并做**父子嵌套**（`parent_id` 空→顶层，非空→挂到父的 `related`；悬空 parent_id 回退顶层） | `assemble.test.ts` |
 | `types.ts` | 领域类型（`Competitor`/`CompetitorSnapshot`/`CompetitorShot`/`WeeklyPoint`/`CompetitorWithHistory`(含 `related`)/`CompetitorBoard`） | — |
 | `service.ts` | `ServiceResult<T>` + `getCompetitorBoard` / `addCompetitor` / `updateCompetitor` / `deleteCompetitor` / `addShot` / `updateShot` / `deleteShot` / `assertValidParent`；`CompetitorFields`（含 `parent_id`） | — |
-| `liveProbe.ts` | 注入直播间页面的探针源码：在线人数三档判据、Following 侧栏横截面（可限定只读 Following 频道）、按 object-fit 算画面矩形（可选不静音） | `liveProbe.test.ts` |
+| `liveProbe.ts` | 注入直播间页面的探针源码：在线人数三档判据、Following 侧栏横截面（可限定只读 Following 频道）、按 object-fit 算画面矩形（可选不静音）；扩展用法按频道标题认 Following，读数附带侧栏状态 `co_live_status` | `liveProbe.test.ts` |
 | `pageReader.ts` | 扩展点击那一刻注入的一次性读取函数（复用 liveProbe，装在一次性宿主上、不留状态）；`renderReaderModule()` 生成 `extensions/live-shot/generated/page-reader.js` | `pageReader.test.ts`（含生成文件逐字一致） |
 | `quickShot.ts` | 一键上传的纯函数：Bearer 解析、handle 规范化、读数时刻窗口、日本时间 `shot_on`、人数原文限长与 int4 钳位、侧栏条目解析、读数行组装 | `quickShot.test.ts` |
 | `quickShotService.ts` | `/api/competitors/quick-shot` 业务逻辑（依赖注入，不 import next）：鉴权、不在库 404、重试幂等、207 部分成功、今日上传数（按上传时刻的日本时间自然日） | `quick-shot-api.integration.test.ts` |

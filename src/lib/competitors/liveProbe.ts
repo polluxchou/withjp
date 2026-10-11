@@ -26,8 +26,9 @@ export type ProbeConfig = {
   /** 弹幕容器是否需要监听子树（容器频繁重建时打开） */
   chatSubtree: boolean
   /**
-   * 侧栏频道容器的候选选择器。设了 = 同期横截面只读第一个频道（已登录时即 Following），
-   * 且页面上频道数不足 2 时报 null（只剩 Suggested）。不设 = 整页读（分钟级采集器现状）。
+   * 侧栏频道容器的候选选择器。设了 = 同期横截面只读 Following：先按 sidebarChannelTitle /
+   * followingTitles 认标题；认不出且频道 ≥ 2 取第一个；只剩 1 个且标题不像 Following 时报 null
+   * （不拿 Suggested 顶替）。不设 = 整页读（分钟级采集器现状）。
    */
   sidebarChannel?: string[]
   /**
