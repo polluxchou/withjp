@@ -88,7 +88,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | `20260819000000_competitor_snapshot_language.sql` | `competitor_snapshots` 加 `language`（主页语言，地区的辅助参考） |
 | `20261009212901_competitor_quick_shot.sql` | 浏览器扩展一键上传：`competitor_shots` 加 `created_by`（→ users，上传人）+ 按人按天索引 + 去重部分唯一索引；新建 `competitor_viewer_readings`（在线人数读数）+ RLS |
 
-> ⚠️ 迁移只能在 Supabase 面板 SQL Editor 手动跑（本仓库不本地 push 迁移）。线上项目 ref：`<project-ref>`。042/043/044 均已应用。
+> ⚠️ 迁移只能在 Supabase 面板 SQL Editor 手动跑（本仓库不本地 push 迁移）。042/043/044 均已应用。
 
 ### 8.2 表
 

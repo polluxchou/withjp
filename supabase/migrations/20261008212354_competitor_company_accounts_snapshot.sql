@@ -5,6 +5,8 @@
 -- profile_snapshot：一次性存档的主页数据
 --   { captured_on, followers, likes, following, videos, nickname, avatar_url }
 --   只给没在追踪的团用；已追踪的团看 competitor_snapshots。
+--   avatar_url 在生产库里是 competitor-shots 桶的 URL；本仓库是 public，迁移文件里不写
+--   具体存储地址，这里留 null，由后台页面上传头像时再补。
 --
 -- 全文幂等：列 if not exists；约束先查后建；数据只写仍为空的行。
 
@@ -44,7 +46,7 @@ set handle = 'kiwii_girls',
       "following": 41,
       "videos": 41,
       "nickname": "Kiwii_girls",
-      "avatar_url": "https://<project-ref>.supabase.co/storage/v1/object/public/competitor-shots/avatars/d1f47151-588d-452d-b46e-3f48e54494f7.jpeg"
+      "avatar_url": null
     }'::jsonb
 from competitor_companies co
 where co.name = 'MaGo'
