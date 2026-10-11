@@ -264,7 +264,7 @@ export function parseMarkdown(input: string): Block[] {
 }
 
 function parseBlocks(input: string): Block[] {
-  const lines = input.replace(/^﻿/, '').split(/\r\n?|\n/)
+  const lines = input.replace(/^\uFEFF/, '').split(/\r\n?|\n/)
   const blocks: Block[] = []
 
   // 当前正在累积的块：段落、列表、表格三选一（或都没有）。新块开始时前一个自然结束——

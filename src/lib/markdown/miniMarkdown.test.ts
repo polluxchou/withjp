@@ -281,6 +281,11 @@ test('parseInline: 两侧是空格的 ** 不算粗体（2 ** 3 ** 4）', () => {
   assert.deepEqual(parseInline('2 ** 3 ** 4'), [text('2 ** 3 ** 4')])
 })
 
+test('parseInline: 开头 ** 后紧跟空格不算开粗体；中间两侧是空格的 ** 不算收尾', () => {
+  assert.deepEqual(parseInline('** 不是粗体**'), [text('** 不是粗体**')])
+  assert.deepEqual(parseInline('**甲 ** 乙**'), [strong(text('甲 ** 乙'))])
+})
+
 test('parseInline: 反斜杠转义', () => {
   assert.deepEqual(parseInline('\\*\\*字面星号\\*\\*'), [text('**字面星号**')])
 })
@@ -303,6 +308,10 @@ test('parseMarkdown: CRLF 与 CR 和 LF 结果一致', () => {
   assert.deepEqual(parseMarkdown(lf.replace(/\n/g, '\r\n')), expected)
   assert.deepEqual(parseMarkdown(lf.replace(/\n/g, '\r')), expected)
   assert.equal(expected.length, 4)
+})
+
+test('parseMarkdown: 开头的 BOM 不影响首行识别', () => {
+  assert.deepEqual(parseMarkdown('\uFEFF## 标题'), [{ type: 'heading', level: 2, children: [text('标题')] }])
 })
 
 // ---------- 永不抛错 ----------
