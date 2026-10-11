@@ -394,9 +394,21 @@ function setDetailBusy(text) {
   $('detail-status').className = 'line'
 }
 
+// 确认页看着的这张已不在暂存区（顶部卡片传掉了、被新截图挤掉了、或在另一个窗口处理掉了）
+function showGone() {
+  $('detail-status').hidden = false
+  $('detail-status').textContent = '这张已不在暂存区（已上传或被挤掉）'
+  $('detail-status').className = 'line'
+  $('detail-upload').hidden = true
+  $('detail-delete').disabled = false
+  $('detail-back').disabled = false
+}
+
 function backToMain() {
   resetDetail()
   show('main')
+  const act = $('action')
+  if (!act.hidden && !act.disabled) act.focus() // 回到主界面后恢复回车即上传
 }
 
 function disarmDelete() {
@@ -409,9 +421,15 @@ $('detail-back').addEventListener('click', backToMain)
 
 $('detail-upload').addEventListener('click', async () => {
   const it = stashItems.find((x) => x.id === detailId)
-  if (!it || isStale(it, Date.now())) return
-  // 顶部卡片正在传同一张：别重复发
-  if (current && current.item.id === it.id && current.state === 'uploading') return
+  if (!it) return showGone()
+  if (isStale(it, Date.now())) return
+  // 顶部卡片正在传同一张：别重复发，也别静默无反应
+  if (current && current.item.id === it.id && current.state === 'uploading') {
+    $('detail-status').hidden = false
+    $('detail-status').textContent = '顶部正在上传这张'
+    $('detail-status').className = 'line'
+    return
+  }
   setDetailBusy('上传中…')
   const out = await sendItem(it)
   if (out.kind === 'login') return showLogin('登录已过期，请重新登录')
