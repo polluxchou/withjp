@@ -45,6 +45,11 @@ test('planInsert：截图时刻坏了的记录最先被挤', () => {
   assert.deepEqual(ids(planInsert(items, shot('new', NOW + MIN))), ['bad'])
 })
 
+test('planInsert：越界的截图时刻（1e20，有限数但超出 Date 范围）同样最先被挤', () => {
+  const items = [...Array.from({ length: STASH_MAX - 1 }, (_, i) => shot(`s${i}`, NOW - i * MIN)), shot('bad', 1e20)]
+  assert.deepEqual(ids(planInsert(items, shot('new', NOW + MIN))), ['bad'])
+})
+
 test('isStale：满 23 小时 50 分才置灰（比后台的 24 小时提前 10 分钟）', () => {
   assert.equal(STALE_AFTER_MS, (23 * 60 + 50) * MIN)
   assert.equal(isStale(shot('a', NOW - STALE_AFTER_MS + 1000), NOW), false)
@@ -57,6 +62,15 @@ test('isStale：截图时刻坏了（缺失 / 字符串 / NaN / 连 reading 都�
   assert.equal(isStale(shot('a', String(NOW)), NOW), true)
   assert.equal(isStale(shot('a', Number.NaN), NOW), true)
   assert.equal(isStale({ id: 'a', handle: 'a' }, NOW), true)
+})
+
+test('isStale：越界的截图时刻（有限数但超出 Date 范围）也当坏的；8.64e15 是 Date 上界，本身合法', () => {
+  assert.equal(isStale(shot('a', 1e20), NOW), true)
+  assert.equal(isStale(shot('a', 1e16), NOW), true)
+  assert.equal(isStale(shot('a', Number.MAX_VALUE), NOW), true)
+  assert.equal(isStale(shot('a', -1e20), NOW), true)
+  assert.equal(isStale(shot('a', 8.64e15 + 1), NOW), true)
+  assert.equal(isStale(shot('a', 8.64e15), NOW), false, '上界本身合法，且在未来，不过期')
 })
 
 test('stripOrder：新的在前，不改原数组', () => {
@@ -79,12 +93,43 @@ test('tileTime：时区决定「同一天」——同一时刻在东京是今天
   assert.equal(tileTime(t, NOW, 'Asia/Shanghai'), '昨 23:30')
 })
 
+test('tileTime：洛杉矶时区（NOW 是 LA 10-09 20:00）——「同一天」与「昨」两个分支都必须用传入的时区', () => {
+  const LA = 'America/Los_Angeles'
+  assert.equal(tileTime(Date.UTC(2026, 9, 9, 20, 0), NOW, LA), '13:00', 'LA 10-09 13:00，与 NOW 同一天')
+  assert.equal(tileTime(Date.UTC(2026, 9, 9, 3, 0), NOW, LA), '昨 20:00', 'LA 10-08 20:00，是 LA 的昨天')
+  assert.equal(tileTime(Date.UTC(2026, 9, 10, 6, 0), NOW, LA), '23:00', 'LA 10-09 23:00，与 NOW 同一天（LA）；本机时区下会得出别的结果，专门防「同一天」分支漏传时区')
+})
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+test('tileTime / stampTime：不传时区 → 按运行机器的本机时区（不硬编码 Asia/Tokyo 或 UTC）', () => {
+  const t = NOW - 30 * MIN
+  const d = new Date(t)
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const md = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  assert.equal(stampTime(t), `${md} ${hm}`)
+  const sameDay = d.toDateString() === new Date(NOW).toDateString()
+  const yesterday = d.toDateString() === new Date(NOW - 24 * 60 * MIN).toDateString()
+  const expected = sameDay ? hm : yesterday ? `昨 ${hm}` : `${md} ${hm}`
+  assert.equal(tileTime(t, NOW), expected)
+})
+
 test('tileTime / stampTime：时刻坏了给「—」，不抛错（Intl 遇到无效日期会抛 RangeError）', () => {
   assert.equal(tileTime(Number.NaN, NOW, TZ), '—')
   assert.equal(tileTime(undefined, NOW, TZ), '—')
   assert.equal(tileTime('1760000000000', NOW, TZ), '—')
   assert.equal(stampTime(Number.NaN, TZ), '—')
   assert.equal(stampTime(undefined, TZ), '—')
+})
+
+test('tileTime / stampTime：越界的时刻（1e16、1e20、MAX_VALUE）给「—」，不抛错；上界 8.64e15 照常格式化', () => {
+  assert.equal(tileTime(1e20, NOW, TZ), '—')
+  assert.equal(stampTime(1e16, TZ), '—')
+  for (const v of [1e16, 1e20, Number.MAX_VALUE, -1e20, 8.64e15 + 1]) {
+    assert.equal(tileTime(v, NOW, TZ), '—')
+    assert.equal(stampTime(v, TZ), '—')
+  }
+  assert.equal(stampTime(8.64e15, TZ), '09-13 09:00', 'Date 上界本身合法')
 })
 
 test('stampTime：月-日 时:分', () => {
@@ -98,4 +143,8 @@ test('evictionNotice：没挤是空串；一张写账号和时间；多张写张
     evictionNotice([shot('y', Date.UTC(2026, 9, 10, 1, 5), 'uni.chuuu'), shot('x', Date.UTC(2026, 9, 9, 14, 0), '1mb.rizz')], NOW, TZ),
     '最早 2 张未上传的已被挤掉（最早一张 @1mb.rizz 昨 23:00）',
   )
+})
+
+test('evictionNotice：被挤的记录截图时刻越界（1e20）→ 不抛错，时间写「—」', () => {
+  assert.equal(evictionNotice([shot('x', 1e20)], NOW, TZ), '最早 1 张未上传的已被挤掉（@1mb.dear —）')
 })

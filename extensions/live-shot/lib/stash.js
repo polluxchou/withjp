@@ -9,9 +9,13 @@ export const STALE_AFTER_MS = 24 * 60 * 60 * 1000 - 10 * 60 * 1000
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+// JS Date 的表示范围是 ±8.64e15 毫秒；超出的有限数 new Date() 得到 Invalid Date，Intl 随即抛 RangeError。
+// 截图时刻与缩略图/确认页共用这一个判断：「坏」的含义两边必须一致（坏了 = 当过期 = 显示「—」）
+const validMs = (ms) => typeof ms === 'number' && Number.isFinite(ms) && Math.abs(ms) <= 8.64e15
+
 function capturedAtOf(item) {
   const c = item && item.reading ? item.reading.capturedAt : undefined
-  return typeof c === 'number' && Number.isFinite(c) ? c : null
+  return validMs(c) ? c : null
 }
 
 // 从旧到新；截图时刻坏了的当作最旧（最先被挤）；同一时刻按 id 定序，结果确定
@@ -48,8 +52,6 @@ function parts(ms, timeZone) {
   for (const p of f.formatToParts(new Date(ms))) o[p.type] = p.value
   return { day: `${o.year}-${o.month}-${o.day}`, md: `${o.month}-${o.day}`, hm: `${o.hour}:${o.minute}` }
 }
-
-const validMs = (ms) => typeof ms === 'number' && Number.isFinite(ms)
 
 // 缩略图下的时间：与 nowMs 同一天「14:05」，前一天「昨 09:02」，其它「10-08 09:02」。
 // timeZone 缺省为本机时区；时刻坏了给「—」——Intl 遇到无效日期会抛 RangeError，不能让整个弹窗白屏
