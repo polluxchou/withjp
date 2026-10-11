@@ -1133,7 +1133,7 @@ Expected: 三段全部 PASS。第三段 `npm test` 跑 `package.json` 里 `"test
 npx next dev -p 3010
 ```
 
-（等 `Ready` 输出后再进行下一步；这个 worktree 需要先把仓库根目录的 `.env.local` 拷贝进来才能连上 Supabase 渲染真实页面——如果还没拷贝，先 `cp $HOME/Code/newWith/.env.local .env.local`。）
+（等 `Ready` 输出后再进行下一步；这个 worktree 需要先把仓库根目录的 `.env.local` 拷贝进来才能连上 Supabase 渲染真实页面——如果还没拷贝，先 `cp "$MAIN_REPO"/.env.local .env.local`（`$MAIN_REPO` 即主仓根目录）。）
 
 - [ ] **Step 3: 浏览器核对三语表单 UI（不提交表单）**
 
