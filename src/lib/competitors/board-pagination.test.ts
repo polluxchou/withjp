@@ -15,15 +15,21 @@ function bodyOf(name: string): string {
   return src.slice(start, next < 0 ? undefined : next)
 }
 
-// 第二项是该函数里整表加载的最少个数：防止有人把整段查询挪走后这条断言变成空转。
+// 每个看板取数函数至少有几个整表/整段加载。数少了说明有查询被删了或绕开了 fetchAllRows。
 // getCompanyOfCompetitor 是「开播时段」页的公司归属（关联表 + 公司表），关联表一样会过千行。
-const LOADERS: [string, number][] = [['getCompetitorBoard', 4], ['getCompanyBoard', 4], ['getCompanyOfCompetitor', 2]]
+const LOADERS: [name: string, minFroms: number][] = [
+  ['getCompetitorBoard', 6],
+  ['getCompanyBoard', 4],
+  ['getAskBoard', 4],
+  ['getShotsInRange', 1],
+  ['getCompanyOfCompetitor', 2],
+]
 
-for (const [name, minLoads] of LOADERS) {
+for (const [name, minFroms] of LOADERS) {
   test(`${name}：每个整表 db.from(...) 都包在 fetchAllRows 里，并带稳定排序与 range`, () => {
     const body = bodyOf(name)
     const froms = body.match(/db\.from\(/g) ?? []
-    assert.ok(froms.length >= minLoads, `${name} 里应有至少 ${minLoads} 个整表加载，实际 ${froms.length}`)
+    assert.ok(froms.length >= minFroms, `${name} 里应有至少 ${minFroms} 个整表加载，实际 ${froms.length}`)
     const wrapped = body.match(/fetchAllRows\(\(from, to\) => db\.from\(/g) ?? []
     assert.equal(wrapped.length, froms.length, `${name} 里有 db.from 没走 fetchAllRows，超过 1000 行会被静默截断`)
     const ranged = body.match(/\.range\(from, to\)/g) ?? []

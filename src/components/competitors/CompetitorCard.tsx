@@ -51,7 +51,8 @@ const ANCHOR_STYLE = { scrollMarginTop: `calc(var(--competitor-sticky-head, 120p
 
 export default function CompetitorCard({
   c, canEdit, onChanged, onReload, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, onUpdateRegion,
-  dateWindow, selectedDate, regionPeers, patrolDays, nested = false, selected = false, today = null,
+  dateWindow, selectedDate, shotsLoadedFrom, shotLoadFailed, regionPeers, patrolDays,
+  nested = false, selected = false, today = null,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
@@ -68,6 +69,10 @@ export default function CompetitorCard({
   onUpdateRegion: (id: string, region: string) => void
   dateWindow: string[]
   selectedDate: string | null
+  /** 相册已加载起点，见 CompetitorBoard.shotsLoadedFrom。 */
+  shotsLoadedFrom: string | null
+  /** 往历史补取截图失败：相册占位格停止闪烁。 */
+  shotLoadFailed: boolean
   /** 整个看板的竞品：地区标签的浮层要拿同区所有账号画标尺。 */
   regionPeers: CompetitorWithHistory[]
   /** 巡检日（全库截图的 shot_on）：判断哪些日子「无数据」而不是「没播」，见 liveCoverage.ts。 */
@@ -88,6 +93,7 @@ export default function CompetitorCard({
   const zoneNote = zoneLabel ? t('liveZoneNote', { zone: zoneLabel }) : undefined
   const withZone = (text: string) => (zoneLabel ? `${text}${t('liveZoneSuffix', { zone: zoneLabel })}` : text)
   // 场次 = 导入的开播记录 + 截图推断，合并去重（降序）。开播时刻、档案行摘要、弹窗都吃这一份。
+  // 截图一侧由 accountSpans 喂全量 c.sessionShots（每场一行），不读相册已加载的 c.shots。
   const spans = useMemo(() => accountSpans(c), [c])
   const starts = useMemo(() => spans.map((s) => s.startedAt), [spans])
   const habit = useMemo(() => summarizeLiveHabit(starts, liveZone), [starts, liveZone])
@@ -417,6 +423,8 @@ export default function CompetitorCard({
           onChanged={onChanged}
           dateWindow={dateWindow}
           selectedDate={selectedDate}
+          loadedFrom={shotsLoadedFrom}
+          loadFailed={shotLoadFailed}
         />
       </div>
 
@@ -447,6 +455,8 @@ export default function CompetitorCard({
                   onUpdateRegion={onUpdateRegion}
                   dateWindow={dateWindow}
                   selectedDate={selectedDate}
+                  shotsLoadedFrom={shotsLoadedFrom}
+                  shotLoadFailed={shotLoadFailed}
                   regionPeers={regionPeers}
                   patrolDays={patrolDays}
                   today={today}

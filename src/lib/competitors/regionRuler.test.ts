@@ -4,11 +4,13 @@ import test from 'node:test'
 import {
   RULER_HALF_BAND_MINUTES,
   RULER_MIN_SPAN_MINUTES,
+  RULER_WINDOW_DAYS,
   axisTicks,
   buildRegionRuler,
   tickStepHours,
 } from './regionRuler.ts'
 import type { RulerInput } from './regionRuler.ts'
+import type { SessionShot } from './types.ts'
 
 const TZ = 'Asia/Tokyo'
 const NOW = '2026-08-19T12:00:00Z'
@@ -22,18 +24,19 @@ function jst(day: number, hh: number, mm: number): string {
 }
 
 function acc(over: Partial<RulerInput> & { id: string; handle: string }): RulerInput {
-  return { region: 'JP', shots: [], ...over }
+  return { region: 'JP', sessionShots: [], ...over }
 }
 
-function shots(...isos: string[]) {
-  return isos.map((iso) => ({ stream_started_at: iso }))
+/** 每个开播时刻一场，没有截图时刻（captured_at 为 null 时合并按开播时刻算下播）。 */
+function sessionsAt(...isos: string[]): SessionShot[] {
+  return isos.map((iso) => ({ stream_started_at: iso, captured_at: null }))
 }
 
 test('只画指定地区的账号', () => {
   const r = buildRegionRuler({
     competitors: [
-      acc({ id: 'jp', handle: 'jp1', shots: shots(jst(18, 13, 30)) }),
-      acc({ id: 'kr', handle: 'kr1', region: 'KR', shots: shots(jst(18, 10, 0)) }),
+      acc({ id: 'jp', handle: 'jp1', sessionShots: sessionsAt(jst(18, 13, 30)) }),
+      acc({ id: 'kr', handle: 'kr1', region: 'KR', sessionShots: sessionsAt(jst(18, 10, 0)) }),
     ],
     region: 'JP',
     timeZone: TZ,
@@ -45,7 +48,7 @@ test('只画指定地区的账号', () => {
 
 test('地区比对忽略大小写与空白', () => {
   const r = buildRegionRuler({
-    competitors: [acc({ id: 'a', handle: 'a', region: ' jp ', shots: shots(jst(18, 13, 0)) })],
+    competitors: [acc({ id: 'a', handle: 'a', region: ' jp ', sessionShots: sessionsAt(jst(18, 13, 0)) })],
     region: 'JP',
     timeZone: TZ,
     now: NOW,
@@ -59,8 +62,8 @@ test('子主播递归纳入', () => {
       acc({
         id: 'parent',
         handle: 'p',
-        shots: shots(jst(18, 13, 0)),
-        related: [acc({ id: 'kid', handle: 'k', shots: shots(jst(18, 20, 0)) })],
+        sessionShots: sessionsAt(jst(18, 13, 0)),
+        related: [acc({ id: 'kid', handle: 'k', sessionShots: sessionsAt(jst(18, 20, 0)) })],
       }),
     ],
     region: 'JP',
@@ -73,8 +76,8 @@ test('子主播递归纳入', () => {
 test('窗口外的场次不算，窗口内的算', () => {
   const r = buildRegionRuler({
     competitors: [
-      acc({ id: 'old', handle: 'old', shots: shots('2026-07-20T04:00:00Z') }),
-      acc({ id: 'fresh', handle: 'fresh', shots: shots(jst(18, 13, 0)) }),
+      acc({ id: 'old', handle: 'old', sessionShots: sessionsAt('2026-07-20T04:00:00Z') }),
+      acc({ id: 'fresh', handle: 'fresh', sessionShots: sessionsAt(jst(18, 13, 0)) }),
     ],
     region: 'JP',
     timeZone: TZ,
@@ -85,7 +88,7 @@ test('窗口外的场次不算，窗口内的算', () => {
 
 test('未来时刻不算（时钟错乱或数据脏）', () => {
   const r = buildRegionRuler({
-    competitors: [acc({ id: 'a', handle: 'a', shots: shots('2026-09-01T04:00:00Z') })],
+    competitors: [acc({ id: 'a', handle: 'a', sessionShots: sessionsAt('2026-09-01T04:00:00Z') })],
     region: 'JP',
     timeZone: TZ,
     now: NOW,
@@ -95,7 +98,7 @@ test('未来时刻不算（时钟错乱或数据脏）', () => {
 
 test('段是中位数 ±30 分钟', () => {
   const r = buildRegionRuler({
-    competitors: [acc({ id: 'a', handle: 'a', shots: shots(jst(18, 13, 30)) })],
+    competitors: [acc({ id: 'a', handle: 'a', sessionShots: sessionsAt(jst(18, 13, 30)) })],
     region: 'JP',
     timeZone: TZ,
     now: NOW,
@@ -113,7 +116,7 @@ test('≥3 场才算成档，1-2 场标为推测', () => {
       acc({
         id: 'rizz',
         handle: 'rizz',
-        shots: shots(jst(17, 13, 29), jst(18, 13, 31), jst(19, 13, 42), jst(18, 17, 15)),
+        sessionShots: sessionsAt(jst(17, 13, 29), jst(18, 13, 31), jst(19, 13, 42), jst(18, 17, 15)),
       }),
     ],
     region: 'JP',
@@ -132,8 +135,8 @@ test('≥3 场才算成档，1-2 场标为推测', () => {
 test('当前账号被标出来', () => {
   const r = buildRegionRuler({
     competitors: [
-      acc({ id: 'a', handle: 'a', shots: shots(jst(18, 12, 0)) }),
-      acc({ id: 'b', handle: 'b', shots: shots(jst(18, 14, 0)) }),
+      acc({ id: 'a', handle: 'a', sessionShots: sessionsAt(jst(18, 12, 0)) }),
+      acc({ id: 'b', handle: 'b', sessionShots: sessionsAt(jst(18, 14, 0)) }),
     ],
     region: 'JP',
     timeZone: TZ,
@@ -144,7 +147,7 @@ test('当前账号被标出来', () => {
 })
 
 test('时区决定「一天里的第几分钟」：同一时刻在北京时区整体左移一小时', () => {
-  const competitors = [acc({ id: 'a', handle: 'a', shots: shots(jst(18, 13, 30)) })]
+  const competitors = [acc({ id: 'a', handle: 'a', sessionShots: sessionsAt(jst(18, 13, 30)) })]
   const tokyo = buildRegionRuler({ competitors, region: 'JP', timeZone: TZ, now: NOW })
   const beijing = buildRegionRuler({ competitors, region: 'JP', timeZone: 'Asia/Shanghai', now: NOW })
   assert.equal(tokyo.rows[0].bands[0].centerLabel, '13:30')
@@ -154,9 +157,9 @@ test('时区决定「一天里的第几分钟」：同一时刻在北京时区�
 test('显示名三级回退：快照名 → 竞品名 → handle', () => {
   const r = buildRegionRuler({
     competitors: [
-      acc({ id: 'a', handle: 'ha', latest: { display_name: '快照名' }, display_name: '竞品名', shots: shots(jst(18, 9, 0)) }),
-      acc({ id: 'b', handle: 'hb', display_name: '竞品名B', shots: shots(jst(18, 10, 0)) }),
-      acc({ id: 'c', handle: 'hc', shots: shots(jst(18, 11, 0)) }),
+      acc({ id: 'a', handle: 'ha', latest: { display_name: '快照名' }, display_name: '竞品名', sessionShots: sessionsAt(jst(18, 9, 0)) }),
+      acc({ id: 'b', handle: 'hb', display_name: '竞品名B', sessionShots: sessionsAt(jst(18, 10, 0)) }),
+      acc({ id: 'c', handle: 'hc', sessionShots: sessionsAt(jst(18, 11, 0)) }),
     ],
     region: 'JP',
     timeZone: TZ,
@@ -167,7 +170,7 @@ test('显示名三级回退：快照名 → 竞品名 → handle', () => {
 
 test('没有任何开播时刻时返回空图而不是崩', () => {
   const r = buildRegionRuler({
-    competitors: [acc({ id: 'a', handle: 'a', shots: [{ stream_started_at: null }] })],
+    competitors: [acc({ id: 'a', handle: 'a', sessionShots: [] })],
     region: 'JP',
     timeZone: TZ,
     now: NOW,
@@ -178,7 +181,7 @@ test('没有任何开播时刻时返回空图而不是崩', () => {
 })
 
 test('地区为空或 now 非法时返回空图', () => {
-  const competitors = [acc({ id: 'a', handle: 'a', shots: shots(jst(18, 13, 0)) })]
+  const competitors = [acc({ id: 'a', handle: 'a', sessionShots: sessionsAt(jst(18, 13, 0)) })]
   assert.equal(buildRegionRuler({ competitors, region: null, timeZone: TZ, now: NOW }).rows.length, 0)
   assert.equal(buildRegionRuler({ competitors, region: '  ', timeZone: TZ, now: NOW }).rows.length, 0)
   assert.equal(buildRegionRuler({ competitors, region: 'JP', timeZone: TZ, now: 'x' }).rows.length, 0)
@@ -186,7 +189,7 @@ test('地区为空或 now 非法时返回空图', () => {
 
 test('轴至少 8 小时宽，且始终落在一天之内', () => {
   const r = buildRegionRuler({
-    competitors: [acc({ id: 'a', handle: 'a', shots: shots(jst(18, 13, 30)) })],
+    competitors: [acc({ id: 'a', handle: 'a', sessionShots: sessionsAt(jst(18, 13, 30)) })],
     region: 'JP',
     timeZone: TZ,
     now: NOW,
@@ -198,8 +201,8 @@ test('轴至少 8 小时宽，且始终落在一天之内', () => {
 test('轴包住所有段', () => {
   const r = buildRegionRuler({
     competitors: [
-      acc({ id: 'early', handle: 'e', shots: shots(jst(18, 8, 25)) }),
-      acc({ id: 'late', handle: 'l', shots: shots(jst(18, 22, 5)) }),
+      acc({ id: 'early', handle: 'e', sessionShots: sessionsAt(jst(18, 8, 25)) }),
+      acc({ id: 'late', handle: 'l', sessionShots: sessionsAt(jst(18, 22, 5)) }),
     ],
     region: 'JP',
     timeZone: TZ,
@@ -235,7 +238,7 @@ test('标尺把导入的场次也算进去，同一场的截图不重复计', ()
         { started_at: '2026-10-08T03:04:00+00:00', ended_at: '2026-10-08T05:09:00+00:00', likes: 1, title: '' },
         { started_at: '2026-10-09T03:06:00+00:00', ended_at: '2026-10-09T05:00:00+00:00', likes: 1, title: '' },
       ],
-      shots: [{ stream_started_at: '2026-10-09T03:06:30+00:00', captured_at: '2026-10-09T04:00:00+00:00' }],
+      sessionShots: [{ stream_started_at: '2026-10-09T03:06:30+00:00', captured_at: '2026-10-09T04:00:00+00:00' }],
     }],
     region: 'JP', timeZone: 'Asia/Tokyo', now,
   })
@@ -270,7 +273,7 @@ function scatteredAccount(id: string) {
   const hours = [10, 12, 13, 14, 16, 18, 20, 22]
   // 8-18 往前每天一场；hours 顺序与日期对应，16 点落在最近一天。
   const dayOf = (h: number) => 18 - ((hours.indexOf(16) - hours.indexOf(h) + 8) % 8)
-  return acc({ id, handle: `sample.${id}`, shots: shots(...hours.map((h) => jst(dayOf(h), h, 0))) })
+  return acc({ id, handle: `sample.${id}`, sessionShots: sessionsAt(...hours.map((h) => jst(dayOf(h), h, 0))) })
 }
 
 test('零散开播的账号不会从标尺上消失：留一条推测段，按它的总场次计数', () => {
@@ -296,7 +299,7 @@ test('零散账号与成档账号并存：两者都上轴，场次各算各的',
   const r = buildRegionRuler({
     competitors: [
       scatteredAccount('s'),
-      acc({ id: 'ok', handle: 'ok', shots: shots(jst(16, 20, 0), jst(17, 20, 5), jst(18, 19, 55)) }),
+      acc({ id: 'ok', handle: 'ok', sessionShots: sessionsAt(jst(16, 20, 0), jst(17, 20, 5), jst(18, 19, 55)) }),
     ],
     region: 'JP',
     timeZone: TZ,
@@ -312,7 +315,7 @@ test('当前账号只要窗口内有任何开播时刻就一定有一行（浮�
   const r = buildRegionRuler({
     competitors: [
       scatteredAccount('s'),
-      acc({ id: 'ok', handle: 'ok', shots: shots(jst(16, 20, 0), jst(17, 20, 5), jst(18, 19, 55)) }),
+      acc({ id: 'ok', handle: 'ok', sessionShots: sessionsAt(jst(16, 20, 0), jst(17, 20, 5), jst(18, 19, 55)) }),
     ],
     region: 'JP',
     timeZone: TZ,
@@ -346,7 +349,7 @@ test('零散账号里最大的那簇优先：多场簇胜过只有一场的簇�
   const singles = [6, 7, 8, 9, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 3, 4, 5]
   singles.forEach((h, i) => starts.push(jst(6 + (i % 12), h, 0))) // 日期取 8-06 到 8-17，都在 14 天窗口内
   const r = buildRegionRuler({
-    competitors: [acc({ id: 'dense', handle: 'dense', shots: shots(...starts) })],
+    competitors: [acc({ id: 'dense', handle: 'dense', sessionShots: sessionsAt(...starts) })],
     region: 'JP',
     timeZone: TZ,
     now: NOW,
@@ -356,4 +359,55 @@ test('零散账号里最大的那簇优先：多场簇胜过只有一场的簇�
   const [band] = r.rows[0].bands
   assert.equal(band.established, false)
   assert.equal(band.centerLabel, '11:50', '2 场的 11:50/12:10 簇取偏早的中位数')
+})
+
+test('读不出的开播时刻跳过，不影响同账号其它场次', () => {
+  const r = buildRegionRuler({
+    competitors: [acc({ id: 'a', handle: 'a', sessionShots: sessionsAt('not-a-date', jst(18, 13, 0)) })],
+    region: 'JP',
+    timeZone: TZ,
+    now: NOW,
+  })
+  assert.equal(r.sessions, 1)
+})
+
+// 14 天窗口的两条边界：时刻按毫秒精确比对，cutoff 与 now 本身都算窗口内。
+const NOW_MS = Date.parse(NOW)
+const CUTOFF_MS = NOW_MS - RULER_WINDOW_DAYS * 86_400_000
+const isoAt = (ms: number) => new Date(ms).toISOString()
+
+function rulerOf(isos: string[] | undefined) {
+  return buildRegionRuler({
+    competitors: [acc({ id: 'a', handle: 'a', sessionShots: isos && sessionsAt(...isos) })],
+    region: 'JP',
+    timeZone: TZ,
+    now: NOW,
+  })
+}
+
+test('窗口下沿：恰好在 now 往前 14 天的场次算，早 1 毫秒不算', () => {
+  assert.equal(rulerOf([isoAt(CUTOFF_MS)]).sessions, 1)
+  const before = rulerOf([isoAt(CUTOFF_MS - 1)])
+  assert.equal(before.sessions, 0)
+  assert.equal(before.rows.length, 0)
+})
+
+test('窗口上沿：恰好等于 now 的场次算，晚 1 毫秒不算', () => {
+  assert.equal(rulerOf([isoAt(NOW_MS)]).sessions, 1)
+  const after = rulerOf([isoAt(NOW_MS + 1)])
+  assert.equal(after.sessions, 0)
+  assert.equal(after.rows.length, 0)
+})
+
+test('同一账号新旧场次混在一起：窗口外的旧场次不进场次数，也不进档位', () => {
+  const r = rulerOf(['2026-08-18T04:00:00Z', '2026-07-20T11:00:00Z'])
+  assert.equal(r.sessions, 1)
+  assert.equal(r.rows[0].sessions, 1)
+  assert.equal(r.rows[0].bands.length, 1)
+})
+
+test('sessionShots 缺失（类型允许）时不崩，该账号不上轴', () => {
+  const r = rulerOf(undefined)
+  assert.equal(r.rows.length, 0)
+  assert.equal(r.sessions, 0)
 })

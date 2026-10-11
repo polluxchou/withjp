@@ -17,8 +17,10 @@ import { normalizeDescriptionBody } from './descriptions.ts'
 import { validateLiveSessionRows } from './liveHistory.ts'
 import { normalizeRegion, resolveNewRegion } from './regions.ts'
 import { isValidShotDate } from './shotGrid.ts'
+import { buildShotIndex, loadedRangeOrFilter, parseShotRangeQuery, resolveLoadedFrom } from './shotWindow.ts'
+import type { ShotIndexRow } from './shotWindow.ts'
 import type {
-  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorLiveSession,
+  AskShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorLiveSession,
   CompetitorBoard, CompetitorPlatform,
 } from './types.ts'
 
@@ -99,32 +101,113 @@ async function assertValidParent(
 
 /**
  * 加载看板：任意登录用户可读可写（canEdit 恒 true）。
- * 五张表都整表分页拉全（fetchAllRows）：Supabase 单次响应最多 1000 行且静默截断，
- * 截图表已过千行，不分页会让最近上传的截图在页面上凭空消失。开播记录一个号三个月就有
- * 几十场，同样很快过千。任何一张表报错都让整个看板报错，不拿半套数据假装完整。
+ *
+ * 第一轮并行整表拉全：竞品、快照、截图索引（瘦查询）、风格描述、开播记录。
+ * 开播记录一个号三个月就有几十场，同样很快过千，所以也要分页拉全。
+ *
+ * 截图分两层取：
+ * 1. 瘦查询（四列、全量）建索引：完整日期轴 + 各账号全部历史的截图场次（开播时刻 + 该场最晚截图时刻）
+ *    ——统计口径与相册加载范围无关；
+ * 2. 截图本体只取已加载范围：默认最近 SHOT_CHUNK_DAYS 个有图日（两屏），since 可把起点往前推
+ *    （改完数据刷新时保住用户已翻到的范围）。更早的由前端按需走 getShotsInRange 补取。
+ * 第 2 步要用第 1 步算出的日期轴，所以两次查询串行。
+ * 每段都走 fetchAllRows：Supabase 单次响应最多 1000 行且静默截断。
+ * 任何一段查询报错都让整个看板报错，不拿半套数据假装完整。
  */
-export async function getCompetitorBoard(_userId: string): Promise<ServiceResult<CompetitorBoard>> {
+export async function getCompetitorBoard(
+  _userId: string,
+  opts: { since?: string | null } = {},
+): Promise<ServiceResult<CompetitorBoard>> {
+  const since = opts.since ?? null
+  // since 会拼进 PostgREST 过滤串：路由层校验过，这里自己再挡一道，不只依赖调用方。
+  if (since !== null && !isValidShotDate(since)) {
+    return err('invalid_input', 'since must be a real calendar date in YYYY-MM-DD')
+  }
   const db = createServerClient()
-  const [compRes, snapRes, shotRes, descRes, liveRes] = await Promise.all([
+  const [compRes, snapRes, indexRes, descRes, liveRes] = await Promise.all([
     fetchAllRows((from, to) => db.from('competitors').select('*')
       .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
       .order('id', { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+    fetchAllRows((from, to) => db.from('competitor_shots').select('competitor_id, shot_on, stream_started_at, captured_at')
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_descriptions').select('*')
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_live_sessions').select('*')
       .order('id', { ascending: true }).range(from, to)),
   ])
-  const firstErr = compRes.error ?? snapRes.error ?? shotRes.error ?? descRes.error ?? liveRes.error
+  const firstErr = compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error ?? liveRes.error
   if (firstErr) return err('db_error', firstErr.message || 'load failed')
+
+  const index = buildShotIndex((indexRes.data ?? []) as ShotIndexRow[])
+  const loadedFrom = resolveLoadedFrom(index.shotAxis, since)
+  const shotRes = await fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+    .or(loadedRangeOrFilter(loadedFrom))
+    .order('id', { ascending: true }).range(from, to))
+  if (shotRes.error) return err('db_error', shotRes.error.message)
+
   return ok(assembleBoard(
     (compRes.data ?? []) as Competitor[],
     (snapRes.data ?? []) as CompetitorSnapshot[],
     (shotRes.data ?? []) as CompetitorShot[],
     true,
     (descRes.data ?? []) as CompetitorDescription[],
+    (liveRes.data ?? []) as CompetitorLiveSession[],
+    { ...index, shotsLoadedFrom: loadedFrom },
+  ))
+}
+
+/**
+ * 一段日期 [rangeFrom, rangeBefore) 的截图本体，给前端往历史翻页时补取。
+ * 区间在路由层已由 parseShotRangeQuery 校验，这里再挡一道（值会进查询）。
+ */
+export async function getShotsInRange(
+  rangeFrom: string,
+  rangeBefore: string,
+): Promise<ServiceResult<CompetitorShot[]>> {
+  const q = parseShotRangeQuery(rangeFrom, rangeBefore)
+  if (!q.ok) return err('invalid_input', 'from/before must be real dates in YYYY-MM-DD with from < before')
+  const db = createServerClient()
+  const res = await fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+    .gte('shot_on', q.from).lt('shot_on', q.before)
+    .order('id', { ascending: true }).range(from, to))
+  if (res.error) return err('db_error', res.error.message)
+  return ok((res.data ?? []) as CompetitorShot[])
+}
+
+/**
+ * 竞品问答要的截图列。ask-context.ts 新读一个截图字段时，同时加到这里和 types.ts 的 AskShot，
+ * 否则那一列在问答里恒为 undefined——shot-window-wiring.test.ts 钉着这份清单。
+ */
+export const ASK_SHOT_COLUMNS = 'competitor_id, shot_on, sort_order, stream_started_at, viewer_count, captured_at'
+
+/**
+ * 竞品问答的数据源。截图取**全部历史**——问答的采集日历、累计场次、在线峰值都是全量口径，
+ * 不能跟着相册的日期窗口走；但只查问答读得到的几列，图片地址、备注这些大字段问答用不上。
+ * 开播记录（LIVE History 导入）也要：问答的开播时段与截图推断的场次合并去重后才算（见 liveSessions.ts），
+ * 与卡片同一口径；同样很快过千，分页拉全。风格描述问答不读，不查。
+ * 不传 meta：shots 就是全部截图，日期轴与截图场次由 assembleBoard 现算。
+ */
+export async function getAskBoard(_userId: string): Promise<ServiceResult<CompetitorBoard<AskShot>>> {
+  const db = createServerClient()
+  const [compRes, snapRes, shotRes, liveRes] = await Promise.all([
+    fetchAllRows((from, to) => db.from('competitors').select('*')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_shots').select(ASK_SHOT_COLUMNS)
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_live_sessions').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+  ])
+  const firstErr = compRes.error ?? snapRes.error ?? shotRes.error ?? liveRes.error
+  if (firstErr) return err('db_error', firstErr.message)
+  return ok(assembleBoard(
+    (compRes.data ?? []) as Competitor[],
+    (snapRes.data ?? []) as CompetitorSnapshot[],
+    (shotRes.data ?? []) as AskShot[],
+    true,
+    [],
     (liveRes.data ?? []) as CompetitorLiveSession[],
   ))
 }

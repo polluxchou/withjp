@@ -11,17 +11,20 @@ import ShotDateStrip from './ShotDateStrip'
 import { todayLocal } from '@/lib/competitors/localDate'
 import { competitorAnchorId, competitorIdFromHash } from '@/lib/competitors/anchors'
 import { scrollToCompetitorCard } from './scrollToCard'
-import { SHOT_WINDOW_SIZE, UNDATED_KEY, collectShotDates, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
+import { SHOT_WINDOW_SIZE, UNDATED_KEY, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
+import { boardRefreshPath, isShotDateLoaded, mergeShotRange, nextChunk, refreshSince } from '@/lib/competitors/shotWindow'
+import { createChunkLoader, fetchShotRange } from '@/lib/competitors/chunkLoader'
 import { patrolDaysOf } from '@/lib/competitors/liveCoverage'
 import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
 import { REGION_CODES } from '@/lib/competitors/regions'
-import type { CompetitorBoard } from '@/lib/competitors/types'
+import type { CompetitorBoard, CompetitorShot } from '@/lib/competitors/types'
 import Button from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/Field'
 
 
 export default function CompetitorDossierView({ initial }: { initial: CompetitorBoard }) {
   const t = useTranslations('competitors')
+  const tCommon = useTranslations('common')
   const [board, setBoard] = useState<CompetitorBoard>(initial)
   const [input, setInput] = useState('')
   const [addType, setAddType] = useState<'group' | 'streamer'>('group')
@@ -30,9 +33,10 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   const [addRegion, setAddRegion] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
-  // 整页共用的截图日期轴：所有竞品(含子主播)有图日期的并集
+  // 整页共用的截图日期轴：服务端下发的完整轴（全部有图日期），不从已加载的截图里拼——
+  // 截图只加载了最近一段，从它拼出来的轴会让「更早」键以为历史到头了。
   const [anchorDate, setAnchorDate] = useState<string | null>(null)
-  const shotAxis = useMemo(() => collectShotDates(board.competitors), [board.competitors])
+  const shotAxis = board.shotAxis
   const selectedDate = useMemo(() => resolveAnchor(shotAxis, anchorDate), [shotAxis, anchorDate])
   const dateWindow = useMemo(
     () => windowOf(shotAxis, selectedDate ? shotAxis.indexOf(selectedDate) : -1, SHOT_WINDOW_SIZE),
@@ -41,6 +45,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
   // 巡检日 = 全库（含子主播）任意截图的 shot_on，正是上面日期轴的那些日子。某号那天没截图、
   // 别的号有，说明巡检跑过、它没在播；全库都没截图的日子对只有截图的号是「无数据」，不是没播。
   // shot_on 按日区业务日（JST）落库，口径见 lib/competitors/liveCoverage.ts。
+  // board.shotAxis 是全量日期轴（服务端瘦查询算的），不随相册已加载到哪一天变。
   const patrolDays = useMemo(() => patrolDaysOf(shotAxis.filter((d) => d !== UNDATED_KEY)), [shotAxis])
 
   // 顶层竞品可作为父账号选项。
@@ -68,9 +73,10 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
       name: competitorName(c),
       handle: c.handle,
       region: c.region,
-      missingShot: missesShotOn(c.shots, selectedDate),
+      // 选中日还没加载时一律不标：那天的截图还没取回来，不等于没图。
+      missingShot: isShotDateLoaded(selectedDate, board.shotsLoadedFrom) && missesShotOn(c.shots, selectedDate),
     })),
-    [board.competitors, selectedDate],
+    [board.competitors, board.shotsLoadedFrom, selectedDate],
   )
 
   // 选中态常驻,不再是"跳过去闪一下"的临时高亮:芯片和卡片共用这一个 id,
@@ -131,9 +137,33 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     }
   }, [today])
 
+  // 往历史翻页时按需补取截图。判据全在 shotWindow.ts：nextChunk 决定补哪段，
+  // mergeShotRange 合并并丢弃过期结果（请求飞行期间看板被刷新换掉的情况）；
+  // 去重、失败、重试、被取代的异步状态机在 chunkLoader.ts（有行为测试），这里只接线。
+  // 不在 effect 清理里取消请求：dev 的 StrictMode 双挂载会把在途请求取消掉、又被去重挡住重发，
+  // 永远卡在占位格；靠去重 + 过期丢弃就够了。
+  const [shotLoadFailed, setShotLoadFailed] = useState(false)
+  const [loader] = useState(() => createChunkLoader<CompetitorShot>({
+    fetchRows: (range) => fetchShotRange<CompetitorShot>(range),
+    merge: (rows, range) => setBoard((b) => mergeShotRange(b, rows, range)),
+    setFailed: setShotLoadFailed,
+  }))
+  const pendingChunk = useMemo(
+    () => nextChunk(shotAxis, dateWindow, board.shotsLoadedFrom),
+    [shotAxis, dateWindow, board.shotsLoadedFrom],
+  )
+  useEffect(() => { loader.want(pendingChunk) }, [loader, pendingChunk])
+
+  // refresh 是 useCallback，闭包里的 board 会过期；since 走 ref 读最新值。
+  // 起点为 null（已翻到轴首、全部已加载）时也要带上轴首那一天：不带的话服务端缺省回最近一段，
+  // 刷新会把已加载的全部历史缩回去；带轴首服务端会归一回 null（全部）。判据见 refreshSince。
+  const refreshSinceRef = useRef(refreshSince(board.shotsLoadedFrom, board.shotAxis))
+  useEffect(() => { refreshSinceRef.current = refreshSince(board.shotsLoadedFrom, board.shotAxis) }, [board.shotsLoadedFrom, board.shotAxis])
+
   // 重新取一遍看板，失败就抛。开播记录弹窗导入后要拿它判断「数据是不是最新的」，所以单独留出一个会抛的版本。
+  // 带上已加载起点：翻到历史后上传/改日期/删图/导入再刷新，不会被缩回首屏那两屏。
   const loadBoard = useCallback(async () => {
-    const res = await fetch('/api/competitors', { cache: 'no-store' })
+    const res = await fetch(boardRefreshPath(refreshSinceRef.current), { cache: 'no-store' })
     if (!res.ok) throw new Error('load failed')
     const json = await res.json()
     if (json.data) setBoard(json.data as CompetitorBoard)
@@ -295,6 +325,14 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
         </div>
       )}
       {error && <p className="text-sm text-danger-text">{error}</p>}
+      {shotLoadFailed && (
+        <p className="flex items-center gap-2 text-sm text-danger-text">
+          {t('shotsLoadFailed')}
+          <Button variant="secondary" size="sm" onClick={() => loader.retry()}>
+            {tCommon('retry')}
+          </Button>
+        </p>
+      )}
 
       {board.competitors.length === 0 ? (
         <p className="text-sm text-ink-500">{t('empty')}</p>
@@ -349,6 +387,8 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               onUpdateRegion={updateRegion}
               dateWindow={dateWindow}
               selectedDate={selectedDate}
+              shotsLoadedFrom={board.shotsLoadedFrom}
+              shotLoadFailed={shotLoadFailed}
               regionPeers={board.competitors}
               patrolDays={patrolDays}
               selected={c.id === selectedId}

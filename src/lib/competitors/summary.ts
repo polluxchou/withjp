@@ -60,6 +60,8 @@ export function daysBetween(from: string, to: string): number {
 /**
  * 递归取最新的 shot_on。子主播的截图照算：这里是取最大值，不像账号数和
  * 粉丝总量那样会被子账号稀释，漏掉它们只会让"最近采集"报得比实际旧。
+ * 看板的截图只加载了最近一段，但已加载范围总包含最新一天（见 CompetitorBoard.shotsLoadedFrom），
+ * 所以这里取到的最大值不受影响。
  */
 function maxShotOn(list: SummaryInput[], acc: string | null): string | null {
   let latest = acc

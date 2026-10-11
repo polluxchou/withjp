@@ -5,7 +5,8 @@ import test from 'node:test'
 import {
   SHOT_DATE_FUTURE_DAYS,
   UNDATED_KEY,
-  collectShotDates,
+  compareShotsForBoard,
+  coverOf,
   groupShotsByDate,
   isValidShotDate,
   missesShotOn,
@@ -13,7 +14,7 @@ import {
   shiftDate,
   windowOf,
 } from './shotGrid.ts'
-import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
+import type { CompetitorShot } from './types.ts'
 
 test('UNDATED_KEY: 无日期占位键', () => {
   assert.equal(UNDATED_KEY, '—')
@@ -67,72 +68,6 @@ function shot(id: string, shot_on: string | null): CompetitorShot {
     captured_at: null,
   }
 }
-
-function competitor(
-  id: string,
-  shots: CompetitorShot[],
-  related: CompetitorWithHistory[] = [],
-): CompetitorWithHistory {
-  return {
-    id,
-    platform: 'tiktok',
-    handle: id,
-    profile_url: `https://www.tiktok.com/@${id}`,
-    display_name: null,
-    note: '',
-    created_at: '2026-08-01T00:00:00Z',
-    parent_id: null,
-    avatar_url: null,
-    region: 'JP',
-    member_count: null,
-    composition: null,
-    launch_city: null,
-    launched_on: null,
-    mc_note: null,
-    online_note: null,
-    latest_videos: null,
-    latest: null,
-    history: [],
-    shots,
-    weekly: [],
-    related,
-    descriptions: [],
-    live_sessions: [],
-  }
-}
-
-test('collectShotDates: 跨竞品去重并升序', () => {
-  const axis = collectShotDates([
-    competitor('a', [shot('s1', '2026-08-05'), shot('s2', '2026-08-03')]),
-    competitor('b', [shot('s3', '2026-08-05'), shot('s4', '2026-08-01')]),
-  ])
-  assert.deepEqual(axis, ['2026-08-01', '2026-08-03', '2026-08-05'])
-})
-
-test('collectShotDates: 递归收集 related 子主播的日期', () => {
-  const axis = collectShotDates([
-    competitor('parent', [shot('s1', '2026-08-05')], [
-      competitor('kid', [shot('s2', '2026-08-02')]),
-    ]),
-  ])
-  assert.deepEqual(axis, ['2026-08-02', '2026-08-05'])
-})
-
-test('collectShotDates: 存在无日期图时末尾追加 UNDATED_KEY', () => {
-  const axis = collectShotDates([
-    competitor('a', [shot('s1', '2026-08-05'), shot('s2', null)]),
-  ])
-  assert.deepEqual(axis, ['2026-08-05', UNDATED_KEY])
-})
-
-test('collectShotDates: 只有无日期图时轴上只有占位键', () => {
-  assert.deepEqual(collectShotDates([competitor('a', [shot('s1', null)])]), [UNDATED_KEY])
-})
-
-test('collectShotDates: 全空返回空数组', () => {
-  assert.deepEqual(collectShotDates([]), [])
-  assert.deepEqual(collectShotDates([competitor('a', [])]), [])
-})
 
 const AXIS10 = ['d0', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9']
 
@@ -196,7 +131,7 @@ test('resolveAnchor: anchor 本身是 UNDATED_KEY 但已脱轴时取最新一天
 })
 
 test('resolveAnchor: 轴尾有 UNDATED_KEY 时默认仍取最新的有日期那天', () => {
-  // collectShotDates 把占位键追加在轴尾,不能直接拿 axis 末位当"最新一天"
+  // 轴尾会追加占位键,不能直接拿 axis 末位当"最新一天"
   assert.equal(resolveAnchor(['2026-08-01', '2026-08-05', UNDATED_KEY], null), '2026-08-05')
 })
 
@@ -209,8 +144,10 @@ test('resolveAnchor: 空轴返回 null', () => {
   assert.equal(resolveAnchor([], null), null)
 })
 
-function shotAt(id: string, shot_on: string | null, sort_order: number, created_at: string): CompetitorShot {
-  return { ...shot(id, shot_on), sort_order, created_at }
+function shotAt(
+  id: string, shot_on: string | null, sort_order: number, created_at: string, captured_at: string | null = null,
+): CompetitorShot {
+  return { ...shot(id, shot_on), sort_order, created_at, captured_at }
 }
 
 test('groupShotsByDate: 按日期归组', () => {
@@ -223,7 +160,7 @@ test('groupShotsByDate: 按日期归组', () => {
   assert.deepEqual(g.get('2026-08-02')!.map((s) => s.id), ['s2'])
 })
 
-test('groupShotsByDate: 组内按 sort_order 升序，首张为封面', () => {
+test('groupShotsByDate: 组内按 sort_order 升序', () => {
   const g = groupShotsByDate([
     shotAt('b', '2026-08-01', 2, '2026-08-01T00:00:00Z'),
     shotAt('a', '2026-08-01', 1, '2026-08-01T00:00:00Z'),
@@ -231,12 +168,70 @@ test('groupShotsByDate: 组内按 sort_order 升序，首张为封面', () => {
   assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['a', 'b'])
 })
 
-test('groupShotsByDate: sort_order 相同时按 created_at 升序', () => {
+test('groupShotsByDate: 没有截图时刻时按入库时刻升序', () => {
   const g = groupShotsByDate([
     shotAt('late', '2026-08-01', 0, '2026-08-01T10:00:00Z'),
     shotAt('early', '2026-08-01', 0, '2026-08-01T09:00:00Z'),
   ])
   assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['early', 'late'])
+})
+
+test('groupShotsByDate: 人工上传（无 captured_at）按入库时刻排，不被 id 字母序带偏', () => {
+  // id 字母序与时间正序相反：只看 captured_at 的实现会把两张都当"读不出"，退到 id 兜底排成 a, z
+  const g = groupShotsByDate([
+    shotAt('a', '2026-08-01', 0, '2026-08-01T11:00:00Z'),
+    shotAt('z', '2026-08-01', 0, '2026-08-01T09:00:00Z'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['z', 'a'])
+})
+
+test('groupShotsByDate: sort_order 优先于时刻与 id', () => {
+  // sort_order、时刻、id 三者全部相反：删掉 sort_order 这一项就会排成 a, b
+  const g = groupShotsByDate([
+    shotAt('a', '2026-08-01', 2, '2026-08-01T09:00:00Z'),
+    shotAt('b', '2026-08-01', 1, '2026-08-01T11:00:00Z'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['b', 'a'])
+  assert.equal(coverOf(g.get('2026-08-01')!)!.id, 'a')
+})
+
+test('groupShotsByDate: 截图时刻（captured_at）优先于入库时刻', () => {
+  // 自动截图批量补传：入库晚，但截图时刻早
+  const g = groupShotsByDate([
+    shotAt('batch', '2026-08-01', 0, '2026-08-01T12:00:00Z', '2026-08-01T05:00:00Z'),
+    shotAt('manual', '2026-08-01', 0, '2026-08-01T08:00:00Z'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['batch', 'manual'])
+})
+
+test('groupShotsByDate: 时刻按数值比，不按字符串（Z 与 +00:00、小数秒混用）', () => {
+  // 字符串比较会把 "…10:00:00Z" 排在 "…10:00:00.5+00:00" 之后（'Z' > '.'），实际前者更早
+  const g = groupShotsByDate([
+    shotAt('later', '2026-08-01', 0, '2026-08-01T10:00:00.5+00:00'),
+    shotAt('earlier', '2026-08-01', 0, '2026-08-01T10:00:00Z'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id), ['earlier', 'later'])
+})
+
+test('groupShotsByDate: 时刻相同或读不出时按 id 兜底，结果稳定', () => {
+  const g = groupShotsByDate([
+    shotAt('b', '2026-08-01', 0, '2026-08-01T10:00:00Z'),
+    shotAt('a', '2026-08-01', 0, '2026-08-01T10:00:00Z'),
+    shotAt('d', '2026-08-01', 0, 'garbage'),
+    shotAt('c', '2026-08-01', 0, 'garbage'),
+  ])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id).filter((id) => id === 'a' || id === 'b'), ['a', 'b'])
+  assert.deepEqual(g.get('2026-08-01')!.map((s) => s.id).filter((id) => id === 'c' || id === 'd'), ['c', 'd'])
+})
+
+test('coverOf: 封面是组内最后一张（当天最新），空组为 undefined', () => {
+  const g = groupShotsByDate([
+    shotAt('first', '2026-08-01', 0, '2026-08-01T09:00:00Z'),
+    shotAt('newest', '2026-08-01', 0, '2026-08-01T11:00:00Z'),
+    shotAt('middle', '2026-08-01', 0, '2026-08-01T10:00:00Z'),
+  ])
+  assert.equal(coverOf(g.get('2026-08-01')!)!.id, 'newest')
+  assert.equal(coverOf([]), undefined)
 })
 
 test('groupShotsByDate: shot_on 为空归入 UNDATED_KEY', () => {
@@ -252,6 +247,25 @@ test('groupShotsByDate: 不修改入参数组的顺序', () => {
   const input = [shotAt('b', '2026-08-01', 2, '2026-08-01T00:00:00Z'), shotAt('a', '2026-08-01', 1, '2026-08-01T00:00:00Z')]
   groupShotsByDate(input)
   assert.deepEqual(input.map((s) => s.id), ['b', 'a'])
+})
+
+test('compareShotsForBoard: 有日期的按日期倒序、同日 sort_order 升序，无日期垫底且按 sort_order', () => {
+  const list = [
+    shotAt('x2', null, 2, '2026-08-01T00:00:00Z'),
+    shotAt('x1', null, 1, '2026-08-01T00:00:00Z'),
+    shotAt('a', '2026-07-20', 0, '2026-08-01T00:00:00Z'),
+    shotAt('c', '2026-07-25', 1, '2026-08-01T00:00:00Z'),
+    shotAt('b', '2026-07-25', 0, '2026-08-01T00:00:00Z'),
+  ]
+  assert.deepEqual(list.slice().sort(compareShotsForBoard).map((s) => s.id), ['b', 'c', 'a', 'x1', 'x2'])
+})
+
+test('compareShotsForBoard: 无日期垫底是双向的——(无日期, 有日期) > 0 且 (有日期, 无日期) < 0', () => {
+  const dated = shotAt('d', '2026-07-20', 0, '2026-08-01T00:00:00Z')
+  const undated = shotAt('u', null, 0, '2026-08-01T00:00:00Z')
+  // 数组 sort 只会朝某一个方向调比较函数，只测排序结果会漏掉另一半分支，所以直接断言比较函数
+  assert.ok(compareShotsForBoard(undated, dated) > 0)
+  assert.ok(compareShotsForBoard(dated, undated) < 0)
 })
 
 

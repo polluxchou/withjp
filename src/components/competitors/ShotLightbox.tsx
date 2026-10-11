@@ -7,13 +7,15 @@ import { ChevronLeft, ChevronRight, Download, Loader2, Maximize2, Minimize2, Pac
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
 import { maxShotDate } from '@/lib/competitors/localDate'
-import { lightboxNeighbors } from '@/lib/competitors/lightboxLayout'
+import { lightboxNeighbors, revealScrollDelta } from '@/lib/competitors/lightboxLayout'
+import { coverOf } from '@/lib/competitors/shotGrid'
 import { captionOverflowsClamp, shotOverlaySections } from '@/lib/competitors/shotOverlay'
 import { dayZipName, shotFileName } from '@/lib/competitors/shotDownload'
 import { fetchBytes, saveBlob } from '@/lib/competitors/downloadFile'
 import { buildZip } from '@/lib/competitors/zip'
 import { formatDayTimeInZone } from '@/lib/time/zonedTime'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
+import { useShotTagLabel } from './useShotTagLabel'
 import { useRegionZone } from './live/useRegionZone'
 
 /**
@@ -33,9 +35,11 @@ import { useRegionZone } from './live/useRegionZone'
  *   max-h-[50vh] ↔ MAIN_MAX_VH × PEEK_SCALE  邻图
  */
 export default function ShotLightbox({
-  shots, handle, region, dateKey, canEdit, onClose, onChanged,
+  shots, initialId, handle, region, dateKey, canEdit, onClose, onChanged,
 }: {
   shots: CompetitorShot[]
+  /** 打开时先停在哪张（相册传当天封面，即最新一张）。不传就从第一张开始。 */
+  initialId?: string
   /** 对方平台上的用户名。只用于下载文件名。 */
   handle: string
   /** 账号地区：开播时刻按它的时区显示。 */
@@ -48,10 +52,11 @@ export default function ShotLightbox({
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
+  const tagLabel = useShotTagLabel()
   // 开播时刻按账号所在地区的时区换算（库里是 UTC），与卡片「常见开播」、开播记录弹窗同一口径；
   // 地区没填才回落到界面语言时区（ja=日本 / zh=北京 / en=加州），那时没有地区时区名（zoneLabel 为 null）。
   const { timeZone: zone, zoneLabel } = useRegionZone(region)
-  const [pickedId, setPickedId] = useState<string | null>(null)
+  const [pickedId, setPickedId] = useState<string | null>(initialId ?? null)
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
   // 惰性初始化而不是先给一个默认值再用 effect 纠正:后者会让宽屏上先画出没有邻图的
   // 一帧、下一帧才把两侧补进来。灯箱只在用户点开某天后才渲染,不参与 SSR,
@@ -85,12 +90,16 @@ export default function ShotLightbox({
   // TikTok 直播截图最要紧的礼物栏、排行榜、评论都压在画面下缘,而渐变层正好
   // 盖在那儿(常态占主图 32%) —— 这个模式存在的理由就是把那块让出来。
   const [cleanView, setCleanView] = useState(false)
+  // 胶片条的滚动容器。同 captionEl:条被好几层开关决定挂不挂载(仅看图、图没加载完、
+  // 当天只有一张都不画),用 state 存节点,挂载与卸载本身就会重跑下面的滚动 effect。
+  const [stripEl, setStripEl] = useState<HTMLDivElement | null>(null)
   // 下载进度。打包一天六张(每张上限 5MB)要花几秒,不给反馈会被当成没点上。
   const [saving, setSaving] = useState<{ done: number; total: number } | null>(null)
 
-  // 选中项兜底到第一张,一次覆盖"选中项被删"与"刚打开还没选"两种情况。
+  // 选中项兜底到最新一张(封面),一次覆盖"选中项被删"与"没传 initialId"两种情况。
+  // 兜底的落点与"打开时停在封面"一致:删掉选中的那张,不会突然跳到当天最早的一张。
   // 删除不可逆,作用对象必须永远在画面里。
-  const selected = shots.find((s) => s.id === pickedId) ?? shots[0]
+  const selected = shots.find((s) => s.id === pickedId) ?? coverOf(shots)
   const index = selected ? shots.findIndex((s) => s.id === selected.id) : -1
 
   const neighbors = lightboxNeighbors(viewport.w, viewport.h, shots.length, index)
@@ -165,12 +174,21 @@ export default function ShotLightbox({
     setCaptionClipped(captionOverflowsClamp(captionEl.scrollHeight, lineHeight))
   }, [captionEl, selectedId, selectedCaption, captionOpen, viewport.w, viewport.h, editOpen])
 
+  // 选中的缩略图滚进胶片条的可视区。默认选中的是最后一张,一天的张数排不下时它一开始
+  // 就在可视区外;方向键翻页也会把选中项带出去。只改胶片条自己的 scrollLeft:
+  // 灯箱开着时视口滚动是锁住的,不能让祖先和页面跟着滚。
+  useEffect(() => {
+    const thumb = stripEl?.querySelector<HTMLElement>('[data-selected="true"]')
+    if (!stripEl || !thumb) return
+    stripEl.scrollLeft += revealScrollDelta(stripEl.getBoundingClientRect(), thumb.getBoundingClientRect())
+  }, [stripEl, selectedId])
+
   // 翻页:纯 index 位移,夹逼到两端。没有窗口概念了,比改版前的"窗口起点 + 选中项"
   // 两套状态简单得多。
   const step = useCallback((direction: -1 | 1) => {
     setPickedId((prev) => {
       const at = shots.findIndex((s) => s.id === prev)
-      const from = at >= 0 ? at : 0
+      const from = at >= 0 ? at : shots.length - 1
       const next = Math.min(Math.max(from + direction, 0), shots.length - 1)
       return shots[next]?.id ?? prev
     })
@@ -281,7 +299,7 @@ export default function ShotLightbox({
       if (!res.ok) { setError(t('actionFailed')); return }
       await onChanged()
       // 只在删掉最后一张时才关。否则清理某天的多张图要"开→删→关→再开"循环一遍;
-      // 留着不关的话,refetch 后 shots 变短、选中项会自动兜底到第一张。
+      // 留着不关的话,refetch 后 shots 变短、选中项会回落到当天最新一张（coverOf）。
       if (shots.length <= 1) onClose()
     } catch {
       setError(t('actionFailed'))
@@ -430,7 +448,7 @@ export default function ShotLightbox({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={selected.image_url}
-                  alt={selected.caption || selected.tag || ''}
+                  alt={selected.caption || tagLabel(selected.tag) || ''}
                   className={`max-w-full rounded-card ${
                     cleanView
                       ? 'max-h-[92vh]'
@@ -518,13 +536,14 @@ export default function ShotLightbox({
                       {/* 胶片条:当天全部张数直接可见,序号写在片上。只读 + 人工上传的多张
                           也要留着它 —— 否则画面上没有任何"共几张"的交代。 */}
                       {ov.strip && (
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+                        <div ref={setStripEl} className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
                           {shots.map((s, i) => (
                             <button
                               key={s.id}
                               type="button"
                               onClick={() => setPickedId(s.id)}
                               aria-pressed={s.id === selected.id}
+                              data-selected={s.id === selected.id}
                               aria-label={t('shotIndexOf', { index: i + 1, total: shots.length })}
                               className={`relative h-9 w-6 shrink-0 overflow-hidden rounded-field border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring ${
                                 s.id === selected.id ? 'border-primary' : 'border-transparent opacity-60'

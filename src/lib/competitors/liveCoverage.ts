@@ -11,6 +11,7 @@
 // 当地日期。JP 号两者一致；MY/TW/CN 等相差 1 小时左右，只在午夜前后那一小时会错一天，可以接受。
 // 纯函数、不读时钟，可单测。
 import type { LocatedSpan } from './liveStats.ts'
+import { UNDATED_KEY } from './shotGrid.ts'
 
 /** 全库截图的 shot_on → 巡检日集合（去重，丢掉空值）。 */
 export function patrolDaysOf(shotDates: (string | null | undefined)[]): Set<string> {
@@ -19,35 +20,24 @@ export function patrolDaysOf(shotDates: (string | null | undefined)[]): Set<stri
   return days
 }
 
-/** patrolDaysOfBoard 只读这两个字段；看板的 CompetitorWithHistory 结构上满足它。 */
-export interface PatrolBoardNode {
-  shots?: readonly { shot_on: string | null }[] | null
-  related?: readonly PatrolBoardNode[] | null
-}
-
-/** patrolDaysOfBoard 吃的看板：整个 CompetitorBoard 结构上满足它。 */
+/**
+ * patrolDaysOfBoard 吃的看板：只读完整日期轴 shotAxis，整个 CompetitorBoard 结构上满足它。
+ * 用 PatrolBoard 这个名字而不是直接写 CompetitorBoard：调用处只需要轴，单测也只造轴。
+ */
 export interface PatrolBoard {
-  competitors: readonly PatrolBoardNode[]
+  shotAxis: readonly string[]
 }
 
 /**
- * 开播时段页的巡检日：整个看板（递归 related，子主播的截图也算巡检跑过）所有截图的 shot_on。
- * 巡检日取自哪里只在这里定，开播时段页（CompetitorLiveView）只调它：
- * 现在遍历 competitors 的全部截图；相册改成窗口加载（c.shots 只剩近 10 个截图日左右）后，
- * 改读 board.shotAxis（全库有图日期，剔掉 UNDATED_KEY），入参已经是整个看板，调用处不用动。
+ * 开播时段页的巡检日：全库有图日期（board.shotAxis，剔掉无日期占位 UNDATED_KEY）。
+ * 巡检日取自哪里只在这里定，开播时段页（CompetitorLiveView）只调它。
+ * 不遍历 competitors 的截图：相册按日期窗口加载，c.shots 只是已加载的那一段，而 shotAxis 由服务端
+ * 从全量截图算出（含子主播的截图），与相册加载到哪一天无关。
  * 配对的另一处是 liveBoard.accountSpans（场次的来源）。
  * 竞品看板（CompetitorDossierView）不走这里：它手里本来就有日期轴，自己从 shotAxis 推。
  */
 export function patrolDaysOfBoard(board: PatrolBoard): Set<string> {
-  const dates: (string | null)[] = []
-  const walk = (list: readonly PatrolBoardNode[]) => {
-    for (const c of list) {
-      for (const s of c.shots ?? []) dates.push(s.shot_on)
-      if (c.related?.length) walk(c.related)
-    }
-  }
-  walk(board.competitors)
-  return patrolDaysOf(dates)
+  return patrolDaysOf(board.shotAxis.filter((d) => d !== UNDATED_KEY))
 }
 
 /**
