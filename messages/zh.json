@@ -2032,6 +2032,8 @@
     "liveTimetablePeakCount": "{count} 个号常在播",
     "liveTimetablePeakNone": "没有哪个时段常在播",
     "liveTimetablePeakHint": "15 分钟一格：数每个号在这一格在播的天数是否占它开播日的 30% 以上，取号数最多的一格",
+    "liveTimetablePeakLocal": "当地钟点里在播号数最多",
+    "liveTimetablePeakHintLocal": "各号按自己所在地区的当地钟点对齐，同一格在不同国家不是同一时刻。15 分钟一格：数每个号在这一格在播的天数是否占它开播日的 30% 以上，取号数最多的一格",
     "liveTimetableAll": "全部 {count}",
     "liveTimetableGuildAll": "全部",
     "liveTimetableGuildLabel": "公会",

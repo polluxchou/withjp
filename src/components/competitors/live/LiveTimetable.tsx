@@ -80,6 +80,7 @@ const OUR_SLOTS = OUR_SCHEDULE_JST.map(([a, b]) => `${minutesToLabel(a)}–${min
  * 时段对比（番组表）：一个号一列、按国家 → 公会分组，时间从上往下走（06:00 → 次日 02:00）。
  * 每列 80 格是近 90 天里「这一刻在播的天数 / 开播天数」（导入实色、只有截图的号斜纹），白底标签是主档的开播 / 下播时刻；
  * 我方排期画成 warning 色虚线框；右上「同时在播最多」是常在播（≥ 30%）的号最多的那一格；下方逐号列表按列序给精确时刻。
+ * 「各自当地时间」下那一格比的是各国同一个当地钟点、不是同一时刻，卡片改叫「当地钟点里在播号数最多」，不说「同时」。
  *
  * 时区：「统一按日本时间」全部列按日本时间（跨国看同一时刻谁在播），「各自当地时间」每列按账号地区时区
  * （看各自的作息）。我方排期是日本时间的钟点，在各列上换成该列的当地钟点（同一时刻），见 liveBoard.timetableSchedule。
@@ -206,13 +207,23 @@ export default function LiveTimetable({
       {/* 怎么读 + 同时在播最多 */}
       <div className="flex flex-wrap items-end gap-3">
         <p className="min-w-0 flex-[1_1_420px] text-pretty text-xs text-ink-500">{t('liveTimetableIntro')}</p>
+        {/* 各自当地时间：东京 20:00 与吉隆坡 20:00 差一小时，落在同一格并不是「同时」在播。
+            这时卡片说的是「当地钟点里在播号数最多」（各号按自己的作息对齐后哪个钟点最挤），提示框也讲明这一点；
+            统一按日本时间才是真正的同一时刻，沿用「同时在播最多（日本时间）」。 */}
         <div
           className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-field border border-line bg-surface px-3 py-2 text-xs"
-          title={t('liveTimetablePeakHint')}
+          title={mode === 'local' ? t('liveTimetablePeakHintLocal') : t('liveTimetablePeakHint')}
+          data-peak-mode={mode}
         >
           <span className="text-ink-500">
-            {t('liveTimetablePeak')}
-            {t('liveZoneSuffix', { zone: zoneLabel })}
+            {mode === 'local' ? (
+              t('liveTimetablePeakLocal')
+            ) : (
+              <>
+                {t('liveTimetablePeak')}
+                {t('liveZoneSuffix', { zone: zoneLabel })}
+              </>
+            )}
           </span>
           {peak && peakClock ? (
             <>

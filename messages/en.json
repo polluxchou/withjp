@@ -2032,6 +2032,8 @@
     "liveTimetablePeakCount": "{count, plural, =1 {1 account} other {# accounts}} usually live",
     "liveTimetablePeakNone": "No time stands out",
     "liveTimetablePeakHint": "In 15-minute cells: counts the accounts that were live in a cell on at least 30% of their live days, and shows the cell with the most",
+    "liveTimetablePeakLocal": "Local time with the most accounts live",
+    "liveTimetablePeakHintLocal": "Each account is aligned on its own local clock, so one cell is not the same moment across countries. In 15-minute cells: counts the accounts that were live in a cell on at least 30% of their live days, and shows the cell with the most",
     "liveTimetableAll": "All {count}",
     "liveTimetableGuildAll": "All",
     "liveTimetableGuildLabel": "Agency",

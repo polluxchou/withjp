@@ -1791,6 +1791,8 @@
     "liveTimetablePeakCount": "{count}アカウントがよく配信中",
     "liveTimetablePeakNone": "よく配信している時間帯はありません",
     "liveTimetablePeakHint": "15分ごとのマスで、配信日の30%以上そのマスで配信していたアカウントを数え、最も多いマスを表示しています",
+    "liveTimetablePeakLocal": "現地時刻で配信アカウントが最も多い時間帯",
+    "liveTimetablePeakHintLocal": "各アカウントを地域の現地時刻でそろえているため、同じマスでも国が違えば同じ瞬間ではありません。15分ごとのマスで、配信日の30%以上そのマスで配信していたアカウントを数え、最も多いマスを表示しています",
     "liveTimetableAll": "すべて {count}",
     "liveTimetableGuildAll": "すべて",
     "liveTimetableGuildLabel": "事務所",
