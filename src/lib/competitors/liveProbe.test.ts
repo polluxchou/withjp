@@ -744,6 +744,19 @@ test('按标题认 Following：大小写、换行、多余空白不影响；配�
   assert.equal(s.co_live_status, 'no_following')
 })
 
+// 上一条里的 '  FOLLOWING\n ' 只测得到大小写：页面标题进 normTitle 之前已被 textOf 去过首尾
+// 空白。要测空白规范化本身，得让空白出现在「词与词之间」，并且配置那一侧也带留白。
+test('按标题认 Following：标题内部的空白串与配置侧的首尾/多重空白一律规范化；压成一个空格但不会吞掉空格', () => {
+  const over = { ...BY_TITLE, followingTitles: ['  Live   Following '] }
+  const s = sampleWith([titled('live\n  FOLLOWING', [navItem('a', '99')])], over)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+  // 反向：压空白不是删空白 —— 词之间没有空白的标题不能被当成同一个
+  const glued = sampleWith([titled('livefollowing', [navItem('stranger', '692')])], over)
+  assert.equal(glued.co_live, null)
+  assert.equal(glued.co_live_status, 'no_following')
+})
+
 test('按标题认 Following：标题都不认识、频道 ≥2 → 退回读第一个（防 TikTok 改了标题文案）', () => {
   const s = sampleWith([
     titled('Abonnements', [navItem('a', '99')]),
