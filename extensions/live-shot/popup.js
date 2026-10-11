@@ -304,7 +304,13 @@ function renderCurrent() {
 
 // 上传一条记录，按结果处理暂存区与底部计数，返回 uploadOutcome 的结果
 async function sendItem(item) {
-  const r = await api.upload(item).catch(() => ({ status: 0, body: { data: null, error: 'network_error' } }))
+  // try/await 而不是 .catch：暂存记录被改坏（blob 不是 Blob）时 upload 会在拼表单那一步同步抛错，.catch 接不住
+  let r
+  try {
+    r = await api.upload(item)
+  } catch {
+    r = { status: 0, body: { data: null, error: 'network_error' } }
+  }
   const out = uploadOutcome(r, item.handle)
   if ('todayUploads' in out) {
     uploadedThisOpen = true
