@@ -6,19 +6,24 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import { findCompetitor, flattenAccounts } from '@/lib/competitors/liveBoard'
+import type { LiveSummary } from '@/lib/competitors/liveSummaries'
 import { patrolDaysOfBoard } from '@/lib/competitors/liveCoverage'
 import type { CompetitorBoard, CompetitorWithHistory } from '@/lib/competitors/types'
 import { zonedYmd } from '@/lib/time/zonedTime'
 import LiveCountryMonth from './LiveCountryMonth'
 import LiveRoomMonth from './LiveRoomMonth'
 import LiveSessionsModal from './LiveSessionsModal'
+import LiveSummaries from './LiveSummaries'
 import LiveTimetable from './LiveTimetable'
 import { useRegionZone } from './useRegionZone'
 
-type LiveView = 'month' | 'room' | 'timetable'
+type LiveView = 'month' | 'room' | 'timetable' | 'summary'
 
-/** 分段顺序照评审过的 mock：时段对比 · 国家月历 · 单个直播间。默认视图是国家月历。 */
-const VIEWS: LiveView[] = ['timetable', 'month', 'room']
+/**
+ * 分段顺序照评审过的 mock：时段对比 · 国家月历 · 单个直播间 · 趋势总结。默认视图是国家月历。
+ * 趋势总结放最后：前三个是看数据，它是对这些数据的文字解读。
+ */
+const VIEWS: LiveView[] = ['timetable', 'month', 'room', 'summary']
 const DEFAULT_VIEW: LiveView = 'month'
 
 const parseView = (raw: string | null): LiveView =>
@@ -28,9 +33,9 @@ const parseView = (raw: string | null): LiveView =>
 type QueryValue = string | null | ((current: string | null) => string | null)
 
 /**
- * 「开播时段」页的客户端壳：三个视图的切换、URL 查询参数、开播记录弹窗。
+ * 「开播时段」页的客户端壳：四个视图的切换、URL 查询参数、开播记录弹窗。
  *
- * 状态全挂在 URL 上（?view=month|room|timetable&country=JP&month=YYYY-MM&acc=<竞品 id>）：
+ * 状态全挂在 URL 上（?view=month|room|timetable|summary&country=JP&month=YYYY-MM&acc=<竞品 id>）：
  * 链接发给同事打开就是同一个画面，刷新也不丢。时段对比（番组表）另有四个，缺省值不写进 URL：
  *   - tcountry=<地区码>：国家筛选，缺省 = 全部。不与国家月历共用 country——月历缺省是日本、番组表缺省是全部，
  *     共用的话在月历里选个国家，切到番组表就被悄悄筛掉了别的国家。
@@ -39,6 +44,7 @@ type QueryValue = string | null | ((current: string | null) => string | null)
  *   - ours=0：关掉我方排期参考线，缺省 = 开。
  * 必须从 URL 派生而不是 useState + 初始值——
  * 在本页再点一次侧栏或 tab，URL 变了但组件没卸载，初始值不会重跑（同 tasks/page.tsx 的教训）。
+ * 趋势总结另有 day=YYYY-MM-DD（选中哪天那份，缺省 = 最新）与 sid=<总结 id>（只在同一天有多份时写）。
  * 这里只认 view；其余参数原样交给各视图，合不合法、越不越界由视图自己收敛（各视图的范围不同）。
  *
  * 改参数用 window.history.replaceState，不用 router.replace：页面是 force-dynamic，而 Next 14 的
@@ -53,12 +59,15 @@ export default function CompetitorLiveView({
   board: initial,
   companyOf,
   today,
+  summaries,
 }: {
   board: CompetitorBoard
   /** 竞品 id → 公司名（getCompanyOfCompetitor）。 */
   companyOf: Record<string, string>
   /** 页面级「今天」：日区业务日 YYYY-MM-DD，服务端按请求时刻取好（见 page.tsx）。默认月份、可翻范围都按它。 */
   today: string
+  /** 趋势总结（getLiveSummaries）；null = 读库失败，只在趋势总结视图里报错。 */
+  summaries: LiveSummary[] | null
 }) {
   const t = useTranslations('competitors')
   const searchParams = useSearchParams()
@@ -119,6 +128,13 @@ export default function CompetitorLiveView({
           onCountryChange={(code) => setQuery({ country: code })}
           onMonthChange={(next) => setQuery({ month: next })}
           onOpenRecords={openRecords}
+        />
+      ) : view === 'summary' ? (
+        <LiveSummaries
+          summaries={summaries}
+          day={searchParams.get('day')}
+          sid={searchParams.get('sid')}
+          onPick={(day, sid) => setQuery({ day, sid })}
         />
       ) : view === 'timetable' ? (
         <LiveTimetable

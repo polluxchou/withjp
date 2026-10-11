@@ -1743,8 +1743,16 @@
     "liveView": {
       "month": "国別カレンダー",
       "room": "ルーム別",
-      "timetable": "時間帯比較"
+      "timetable": "時間帯比較",
+      "summary": "傾向まとめ"
     },
+    "liveSummaryListCaption": "生成日順 · 新しい順",
+    "liveSummaryGenerated": "{date}（{weekday}）生成",
+    "liveSummarySourceAuto": "自動",
+    "liveSummarySourceManual": "手書き",
+    "liveSummaryUntitled": "配信時間帯の傾向まとめ",
+    "liveSummaryEmpty": "傾向まとめはまだありません",
+    "liveSummaryEmptyHint": "Claude に配信時間帯の傾向まとめを作ってもらうと、生成日ごとにここに並びます。同じ日に作り直すと、その日の分が上書きされます。",
     "liveCountryLabel": "国",
     "liveCountryOption": "{name} {count}",
     "liveMonthPrev": "前の月",

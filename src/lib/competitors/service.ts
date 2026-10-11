@@ -15,6 +15,7 @@ import type {
 } from './companies.ts'
 import { normalizeDescriptionBody } from './descriptions.ts'
 import { validateLiveSessionRows } from './liveHistory.ts'
+import { sortSummaries, type LiveSummary } from './liveSummaries.ts'
 import { normalizeRegion, resolveNewRegion } from './regions.ts'
 import { isValidShotDate } from './shotGrid.ts'
 import { buildShotIndex, loadedRangeOrFilter, parseShotRangeQuery, resolveLoadedFrom } from './shotWindow.ts'
@@ -261,6 +262,23 @@ export async function getCompanyOfCompetitor(): Promise<ServiceResult<Record<str
     if (link.competitor_id && name) out[link.competitor_id] = name
   }
   return ok(out)
+}
+
+/**
+ * 「开播时段」页「趋势总结」视图：全部总结，生成日期倒序（最新在前）。
+ * 正文整份随页面下发：视图里切换哪一份走 history.replaceState、不回服务端，
+ * 所以浏览器手里得有全部正文。总结是按请求才生成的，一年也就几十份，体积可控；
+ * 真涨到几百份时再改成只下发列表、点开再取正文。
+ * 同样分页拉全（理由见 getCompetitorBoard）；排序再补 id，保证翻页时顺序稳定。
+ */
+export async function getLiveSummaries(): Promise<ServiceResult<LiveSummary[]>> {
+  const db = createServerClient()
+  const res = await fetchAllRows((from, to) => db.from('competitor_live_summaries')
+    .select('id, generated_on, title, subtitle, body, source, created_at, updated_at')
+    .order('generated_on', { ascending: false }).order('created_at', { ascending: false })
+    .order('id', { ascending: true }).range(from, to))
+  if (res.error) return err('db_error', res.error.message || 'load failed')
+  return ok(sortSummaries((res.data ?? []) as LiveSummary[]))
 }
 
 /** 加入清单：入参 url 或 handle 二选一；已存在则返回其 id（确保存在，不覆盖）。 */
