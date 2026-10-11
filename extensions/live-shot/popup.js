@@ -42,6 +42,7 @@ let deleteTimer = null
 let backTimer = null
 
 $('action').addEventListener('click', () => actionHandler && actionHandler())
+$('again').addEventListener('click', () => captureAgain())
 
 function show(view) {
   $('login').hidden = view !== 'login'
@@ -49,7 +50,9 @@ function show(view) {
   $('detail').hidden = view !== 'detail'
 }
 
-function render({ name = '', line1 = '', line1Tone = '', line2 = '', line2Tone = '', line3 = '', line3Tone = '', thumbUrl = null, warn = false, action = null }) {
+// again：在主按钮下面再给一个「再截一张」
+function render({ name = '', line1 = '', line1Tone = '', line2 = '', line2Tone = '', line3 = '', line3Tone = '', thumbUrl = null, warn = false, action = null, again = false }) {
+  $('again').hidden = !again
   $('name').textContent = name
   $('line1').textContent = line1
   $('line1').className = `line ${line1Tone}`
@@ -218,6 +221,19 @@ async function captureCrop(tab, reading) {
   return { error: '截图过大，请缩小浏览器窗口后重试' }
 }
 
+// 弹窗开着时插件仍有当前标签页的权限，不关弹窗就能再截一张（同一个直播间连截几个瞬间）。
+// 上一张没传的留在暂存区。截图过程中按钮都收起，再加一道标志防连点（Chrome 每秒最多截 2 次）
+let capturing = false
+async function captureAgain() {
+  if (capturing) return
+  capturing = true
+  try {
+    await prepare()
+  } finally {
+    capturing = false
+  }
+}
+
 function fail(handle, message, retry) {
   render({ name: handle ? `@${handle}` : '', line1: message, warn: true, action: { label: '重试', run: retry } })
 }
@@ -288,7 +304,7 @@ function renderCurrent() {
   if (state === 'deleted') return render({ name, line1: '这张已删掉', line1Tone: 'warn', action: { label: '重新截', run: prepare } })
   const thumbUrl = urlFor(item) || null
   if (state === 'uploading') return render({ name, line1: '上传中…', thumbUrl, action: { label: '上传中…', disabled: true } })
-  if (state === 'uploaded') return render({ name, line1: '已上传', line1Tone: 'ok', thumbUrl, action: { label: '关闭', run: () => window.close() } })
+  if (state === 'uploaded') return render({ name, line1: '已上传', line1Tone: 'ok', thumbUrl, action: { label: '再截一张', run: captureAgain } })
   if (state === 'partial') {
     return render({ name, line1: '截图已上传，人数没写进去', line1Tone: 'warn', thumbUrl, action: { label: '补写人数', primary: true, run: uploadCurrent } })
   }
@@ -304,6 +320,7 @@ function renderCurrent() {
     line3Tone: co.tone,
     thumbUrl,
     action: { label: '上传', primary: true, run: uploadCurrent },
+    again: true,
   })
 }
 

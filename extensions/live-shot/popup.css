@@ -67,3 +67,5 @@ button.tile { flex: none; width: 48px; margin: 0; padding: 0; border: 0; backgro
 .big.stale { filter: grayscale(1); opacity: 0.5; }
 .btns { display: flex; gap: 8px; }
 .btns button { margin-top: 8px; }
+/* 「上传」下面的「再截一张」：紧贴主按钮 */
+#again { margin-top: 6px; }
