@@ -185,6 +185,17 @@ test('uploadOutcome：竞品名缺失回落到 @handle，今日数不是数字�
   )
 })
 
+test('uploadOutcome：今日数缺键或不是数字（字符串 "3"）→ 一律 null，不把字符串当数字', () => {
+  assert.deepEqual(
+    uploadOutcome({ status: 201, body: { data: { competitor_name: '1MB DEAR' } } }, '1mb.dear'),
+    { kind: 'ok', stash: 'remove', name: '1MB DEAR', todayUploads: null },
+  )
+  assert.deepEqual(
+    uploadOutcome({ status: 201, body: { data: { competitor_name: '1MB DEAR', today_uploads: '3' } } }, '1mb.dear'),
+    { kind: 'ok', stash: 'remove', name: '1MB DEAR', todayUploads: null },
+  )
+})
+
 test('uploadOutcome：401 → 回登录，图留着', () => {
   assert.deepEqual(uploadOutcome({ status: 401, body: { data: null, error: 'unauthorized' } }, 'a'), { kind: 'login', stash: 'keep' })
 })
@@ -198,6 +209,11 @@ test('uploadOutcome：响应残缺（201/207 却没有 data、data 不是对象�
     { status: 0, body: { data: null, error: 'network_error' } },
     { status: 500, body: { data: null, error: 'db_error' } },
     null,
+    // 带着合法 data、但状态码不是 201/207：也不能移出暂存区（只有 201 + data 才算传完）
+    { status: 200, body: { data: { competitor_name: 'x', today_uploads: 1 }, error: null } },
+    { status: 500, body: { data: { competitor_name: 'x', today_uploads: 1 }, error: 'db_error' } },
+    { status: 404, body: { data: { competitor_name: 'x', today_uploads: 1 }, error: 'not_in_library' } },
+    { status: 0, body: { data: { competitor_name: 'x', today_uploads: 1 }, error: 'network_error' } },
   ]) {
     const out = uploadOutcome(r, '1mb.dear')
     assert.equal(out.kind, 'error', JSON.stringify(r))
