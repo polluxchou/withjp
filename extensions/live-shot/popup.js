@@ -42,7 +42,7 @@ let deleteTimer = null
 let backTimer = null
 
 $('action').addEventListener('click', () => actionHandler && actionHandler())
-$('again').addEventListener('click', () => captureAgain())
+$('again').addEventListener('click', () => prepare())
 
 function show(view) {
   $('login').hidden = view !== 'login'
@@ -197,6 +197,7 @@ $('logout').addEventListener('click', async () => {
   recycleUrls()
   uploadedThisOpen = false
   actionHandler = null
+  $('again').hidden = true // 重新登录后、新一轮截图渲染之前，旧卡片上的按钮不能点
   showLogin()
 })
 
@@ -221,14 +222,15 @@ async function captureCrop(tab, reading) {
   return { error: '截图过大，请缩小浏览器窗口后重试' }
 }
 
-// 弹窗开着时插件仍有当前标签页的权限，不关弹窗就能再截一张（同一个直播间连截几个瞬间）。
-// 上一张没传的留在暂存区。截图过程中按钮都收起，再加一道标志防连点（Chrome 每秒最多截 2 次）
+// 每次截图（打开弹窗、「再截一张」「重试」「重新截」）都走这里。弹窗开着时插件仍有当前标签页的权限，
+// 不关弹窗就能再截一张；上一张没传的留在暂存区。截图过程中按钮收起、版面上移，双击的第二下会落到
+// 暂存区缩略图上——所以截图期间既不起第二次截图（Chrome 每秒最多截 2 次），也不打开确认页
 let capturing = false
-async function captureAgain() {
+async function prepare() {
   if (capturing) return
   capturing = true
   try {
-    await prepare()
+    await captureNow()
   } finally {
     capturing = false
   }
@@ -238,7 +240,7 @@ function fail(handle, message, retry) {
   render({ name: handle ? `@${handle}` : '', line1: message, warn: true, action: { label: '重试', run: retry } })
 }
 
-async function prepare() {
+async function captureNow() {
   current = null
   showNotice('')
   render({ name: '读取中…' })
@@ -304,7 +306,7 @@ function renderCurrent() {
   if (state === 'deleted') return render({ name, line1: '这张已删掉', line1Tone: 'warn', action: { label: '重新截', run: prepare } })
   const thumbUrl = urlFor(item) || null
   if (state === 'uploading') return render({ name, line1: '上传中…', thumbUrl, action: { label: '上传中…', disabled: true } })
-  if (state === 'uploaded') return render({ name, line1: '已上传', line1Tone: 'ok', thumbUrl, action: { label: '再截一张', run: captureAgain } })
+  if (state === 'uploaded') return render({ name, line1: '已上传', line1Tone: 'ok', thumbUrl, action: { label: '再截一张', run: prepare } })
   if (state === 'partial') {
     return render({ name, line1: '截图已上传，人数没写进去', line1Tone: 'warn', thumbUrl, action: { label: '补写人数', primary: true, run: uploadCurrent } })
   }
@@ -320,7 +322,8 @@ function renderCurrent() {
     line3Tone: co.tone,
     thumbUrl,
     action: { label: '上传', primary: true, run: uploadCurrent },
-    again: true,
+    // 暂存失败时这张只在内存里：再截一张会把它丢掉，所以不给这个按钮
+    again: stashItems.some((x) => x.id === item.id),
   })
 }
 
@@ -374,6 +377,7 @@ async function uploadCurrent() {
 // ---- 放大确认页 ----------------------------------------------------------------
 
 function openDetail(id) {
+  if (capturing) return // 截图中版面上移，这一下多半是双击「再截一张」的第二下
   const it = stashItems.find((x) => x.id === id)
   if (!it) return
   resetDetail()
@@ -430,7 +434,8 @@ function backToMain() {
   resetDetail()
   show('main')
   const act = $('action')
-  if (!act.hidden && !act.disabled) act.focus() // 回到主界面后恢复回车即上传
+  // 回到主界面后恢复回车即上传；只对主按钮，免得回车误触「再截一张」之类
+  if (!act.hidden && !act.disabled && act.classList.contains('primary')) act.focus()
 }
 
 function disarmDelete() {
