@@ -185,7 +185,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 
 ### 12.1 浏览器扩展一键上传
 
-`extensions/live-shot/`（Chrome MV3，开发者模式加载）：人在 TikTok 直播间页面点图标，扩展截下竖屏直播画面、读当前房间与 Following 侧栏同期竞品的在线人数，用后台账号登录后上传到 `/api/competitors/quick-shot`。弹窗显示日本时间当日的截图数与上传数。安装与已知限制见 `extensions/live-shot/README.md`，设计见 `docs/superpowers/specs/2026-10-09-live-shot-extension-design.md`。
+`extensions/live-shot/`（Chrome MV3，开发者模式加载）：人在 TikTok 直播间页面点图标，扩展截下竖屏直播画面、读当前房间与 Following 侧栏同期竞品的在线人数，用后台账号登录后上传到 `/api/competitors/quick-shot`。弹窗显示日本时间当日的截图数与上传数（上传数按上传时刻计）；没上传的截图在插件本地暂存最近 9 张，24 小时内补传仍按截图时刻归档。安装与已知限制见 `extensions/live-shot/README.md`，设计见 `docs/superpowers/specs/2026-10-09-live-shot-extension-design.md`，第二版见 `docs/superpowers/specs/2026-10-11-live-shot-extension-v2-design.md`。
 
 ## 13. 测试与守卫
 
