@@ -442,7 +442,7 @@ export const MONTH_GRID = { accountPx: 132, dayPx: 30 } as const
 /**
  * 单个直播间：左 46px 时间轴、轴与图之间 6px、每天 32px，图右侧留 56px 的槽放主档标签——
  * 标签不再压在最后几天的列上，盖住那几天的开播时刻。
- * 31 天 = 46 + 6 + 992 + 56 = 1100。32px 的列装得下 16px 宽的竖条与 10px 粗体的「HH:mm」开播标签。
+ * 31 天 = 46 + 6 + 992 + 56 = 1100。32px 的列装得下 16px 宽的竖条与 9.5px 粗体、收紧字距的「HH:mm」开播标签（约 30px）。
  */
 export const ROOM_GRID = { axisPx: 46, gapPx: 6, dayPx: 32, gutterPx: 56 } as const
 

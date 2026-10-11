@@ -38,7 +38,7 @@ const STRIP_H = 600
 const PX_PER_MIN = 0.5
 /** 竖条最矮 4px：几分钟的短场、02:00 之后才开播被夹到轴尾的零长度条，也得看得见。 */
 const MIN_BAR_H = 4
-/** 标签占的高度：10px 字、12px 行高，再空 1px。标签取舍（lib roomDayBars）按它量会不会叠字。 */
+/** 标签占的高度：9.5px 字、12px 行高，再空 1px。标签取舍（lib roomDayBars）按它量会不会叠字。 */
 const LABEL_PX = 13
 const GEOMETRY = { stripPx: STRIP_H, minPx: MIN_BAR_H, labelPx: LABEL_PX }
 
@@ -61,9 +61,13 @@ const DAY_W: CSSProperties = { width: ROOM_GRID.dayPx }
 /** 主档标签在槽里离最后一列的距离（px）：虚线从图左端一直画到标签左缘，标签读起来是这条线的端点。 */
 const SLOT_CHIP_INSET = 4
 
-/** 条上下方时刻标签的公共样式：白底小字压在网格线与相邻竖条之上（z-[3]），居中于本列。 */
+/**
+ * 条上下方时刻标签的公共样式：白底小字压在网格线与相邻竖条之上（z-[3]），居中于本列。
+ * 9.5px + tracking-tight：列收到 32px 后，10px 粗体的「14:27」连白底内边距量出来 33px，比列还宽，
+ * 相邻两天同一高度的开播标签会互相压掉一像素；这样收窄到约 30px，两个标签之间还空 3px 多。行高仍是 12px（LABEL_PX 不变）。
+ */
 const LABEL =
-  'absolute left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap rounded-sm bg-surface px-px text-[10px] leading-3 tabular-nums'
+  'absolute left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap rounded-sm bg-surface px-px text-[9.5px] leading-3 tracking-tight tabular-nums'
 
 const isWeekend = (ymd: string) => {
   const wd = weekdayOfYmd(ymd)
@@ -231,31 +235,34 @@ export default function LiveRoomMonth({
         <span className="min-w-0 text-xs text-ink-500 tabular-nums" data-room-meta>
           {meta}
         </span>
-        {/* 分隔线只在一行排得下时有意义；窄屏换行后它会孤零零挂在新一行行首。 */}
-        <span aria-hidden className="mx-1 hidden h-4 w-px bg-line sm:block" />
-        <button
-          type="button"
-          className={navBtn}
-          aria-label={t('liveMonthPrev')}
-          title={t('liveMonthPrev')}
-          disabled={month <= bounds.from}
-          onClick={() => onMonthChange((current) => stepMonth(current, -1, bounds))}
-        >
-          <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
-        </button>
-        <strong className="min-w-[104px] text-center text-sm font-semibold text-ink-900 tabular-nums" aria-live="polite">
-          {fmt.monthYear(month)}
-        </strong>
-        <button
-          type="button"
-          className={navBtn}
-          aria-label={t('liveMonthNext')}
-          title={t('liveMonthNext')}
-          disabled={month >= bounds.to}
-          onClick={() => onMonthChange((current) => stepMonth(current, 1, bounds))}
-        >
-          <ChevronRight size={16} strokeWidth={1.5} aria-hidden />
-        </button>
+        {/* ‹ 月份 › 绑成一个不拆开的小组：下拉按选项文案排宽以后，一行常排不下，
+            散着放的话会在中间折行，把「‹」留在上一行、月份和「›」掉到下一行。
+            也不再画分隔线：折行后它会孤零零挂在新一行行首。 */}
+        <div className="flex shrink-0 items-center gap-2" data-month-nav>
+          <button
+            type="button"
+            className={navBtn}
+            aria-label={t('liveMonthPrev')}
+            title={t('liveMonthPrev')}
+            disabled={month <= bounds.from}
+            onClick={() => onMonthChange((current) => stepMonth(current, -1, bounds))}
+          >
+            <ChevronLeft size={16} strokeWidth={1.5} aria-hidden />
+          </button>
+          <strong className="min-w-[104px] text-center text-sm font-semibold text-ink-900 tabular-nums" aria-live="polite">
+            {fmt.monthYear(month)}
+          </strong>
+          <button
+            type="button"
+            className={navBtn}
+            aria-label={t('liveMonthNext')}
+            title={t('liveMonthNext')}
+            disabled={month >= bounds.to}
+            onClick={() => onMonthChange((current) => stepMonth(current, 1, bounds))}
+          >
+            <ChevronRight size={16} strokeWidth={1.5} aria-hidden />
+          </button>
+        </div>
         <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
           {zoneLabel && <span className="text-xs text-ink-500">{t('liveZoneNote', { zone: zoneLabel })}</span>}
           <button

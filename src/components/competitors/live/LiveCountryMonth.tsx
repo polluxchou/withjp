@@ -394,12 +394,14 @@ export default function LiveCountryMonth({
               </div>
             ))}
 
-            {/* 底行：当天开播号数。分母只算那天有数据的号，没人有数据的日子留空，不写 0。 */}
-            <div className="mt-1.5 flex h-10 items-stretch border-t border-line-strong">
+            {/* 底行：当天开播号数。分母只算那天有数据的号，没人有数据的日子留空，不写 0。
+                h-11 + 说明最多两行：左列收到 132px 后「Among accounts with data」「データのあるアカウントのみ」一行放不下，
+                截成「…」就读不出分母是谁了。 */}
+            <div className="mt-1.5 flex h-11 items-stretch border-t border-line-strong">
               <div className="sticky left-0 z-10 flex shrink-0 bg-surface pl-3">
                 <div className="flex min-w-0 flex-col justify-center pr-2" style={ACCOUNT_W}>
                   <span className="truncate text-xs font-semibold text-ink-900">{t('liveMonthTotals')}</span>
-                  <span className="truncate text-[10px] text-ink-500">{t('liveMonthTotalsHint')}</span>
+                  <span className="line-clamp-2 text-[10px] leading-[13px] text-ink-500">{t('liveMonthTotalsHint')}</span>
                 </div>
               </div>
               {totals.map((d, i) => {
