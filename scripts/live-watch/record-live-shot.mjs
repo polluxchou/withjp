@@ -63,7 +63,9 @@ function todayInShotTz() {
 const shotOn = opt('shot-on', todayInShotTz())
 const tag = opt('tag', 'live_auto')
 const caption = opt('caption', '')
-const dryRun = opt('dry-run') === true
+// 只看有没有这个开关、不看它后面跟了什么：opt() 遇到后面跟值（--dry-run yes）会返回那个值，
+// 拿它 === true 判断就成了 false —— 本想预览，结果真写了库。
+const dryRun = args.includes('--dry-run')
 const replaceId = opt('replace') // 传 shot_id：上传新图 → 更新该行 image_url → 删旧桶文件
 
 // 直播态指标（可选，epoch 秒）。采集脚本探到什么就带什么 —— 不传就是 null，
