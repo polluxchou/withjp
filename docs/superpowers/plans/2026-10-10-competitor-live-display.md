@@ -11,13 +11,13 @@
 **Spec:** `docs/superpowers/specs/2026-10-10-competitor-live-display-design.md`
 
 **Visual reference（本机，未入库——含竞品真实数据，仓库是 public）：**
-`/private/tmp/claude-501/-Users-fengzhou-Code-newWith/5f3de1e1-311d-4b35-a783-2e5eb41cb7f0/scratchpad/design/project/`
+设计稿导出目录 `design/project/`（本机会话的临时 scratchpad，不入库）
 下的 `Main.dc.html`（卡片入口）、`Records.dc.html`（弹窗）、`Import.dc.html`（导入视图）、`CountryMonth.dc.html`、`Room.dc.html`、`Timetable.dc.html`。
 每个文件的 `<x-dc>` 里是版式，`renderVals()` 里是计算口径——版式照抄、颜色换成 token，计算以本计划的纯函数为准。
 
 ## Global Constraints
 
-- 工作目录：`$HOME/Code/newWith/.claude/worktrees/live-display`，分支 `feat/competitor-live-display`（叠在 PR 320 的分支上）。每次提交前 `git branch --show-current` 自检。不许 `git stash`，不许动主仓 `$HOME/Code/newWith`。
+- 工作目录：本次功能的 git worktree 根目录，分支 `feat/competitor-live-display`（叠在 PR 320 的分支上）。每次提交前 `git branch --show-current` 自检。不许 `git stash`，不许动主仓。
 - 仓库是 PUBLIC：测试夹具、注释、提交信息里不出现任何真实竞品 handle / 名称；用 `sample.a`、`Sample LIVE` 之类。
 - lib 文件用相对路径 + `.ts` 后缀导入；纯类型导入写 `import type` 或内联 `type`（node --test 不做类型检查，tsc 会）。
 - 新测试文件必须登记进 `package.json` 的 `test` 脚本。

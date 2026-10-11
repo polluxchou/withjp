@@ -10,7 +10,7 @@
 
 **设计稿：** `docs/superpowers/specs/2026-09-04-nav-ia-consolidation-design.md`
 
-**工作区：** `$HOME/Code/newWith-nav`，分支 `feat/nav-ia-consolidation`（基于 origin/main `488e9f2`）。**所有命令都在这个目录跑，不要在 `$HOME/Code/newWith` 主仓操作**——主仓有其他会话未提交的改动。
+**工作区：** 本次功能的 git worktree 根目录（下文命令里记作 `$WORKTREE`），分支 `feat/nav-ia-consolidation`（基于 origin/main `488e9f2`）。**所有命令都在这个目录跑，不要在主仓操作**——主仓有其他会话未提交的改动。
 
 ---
 
@@ -130,7 +130,7 @@ test('hrefWithQuery 无 query 时原样返回，有 query 时拼上问号', () =
 - [ ] **Step 2: 跑一遍确认它失败**
 
 ```bash
-cd $HOME/Code/newWith-nav && node --test --experimental-strip-types src/lib/nav/nav.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/nav/nav.test.ts
 ```
 
 Expected: FAIL —— `Cannot find module '.../src/lib/nav/nav.ts'`。
@@ -234,7 +234,7 @@ export function hrefWithQuery(leaf: Pick<NavLeaf, 'href' | 'query'>): string {
 - [ ] **Step 4: 跑测试确认全绿**
 
 ```bash
-cd $HOME/Code/newWith-nav && node --test --experimental-strip-types src/lib/nav/nav.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/nav/nav.test.ts
 ```
 
 Expected: PASS，`# pass 12`、`# fail 0`。
@@ -244,7 +244,7 @@ Expected: PASS，`# pass 12`、`# fail 0`。
 `scripts.test` 是一条超长的 `node --test --experimental-strip-types <一堆文件>`。**没登记的测试文件 CI 完全不会跑**——本仓踩过这个坑。在 `src/lib/ui/scrollLock.test.ts` 后面插入 `src/lib/nav/nav.test.ts`：
 
 ```bash
-cd $HOME/Code/newWith-nav && node -e "
+cd "$WORKTREE" && node -e "
 const fs = require('fs')
 const p = JSON.parse(fs.readFileSync('package.json', 'utf8'))
 const anchor = 'src/lib/ui/scrollLock.test.ts'
@@ -261,7 +261,7 @@ console.log('registered')
 - [ ] **Step 6: 确认全量测试通过**
 
 ```bash
-cd $HOME/Code/newWith-nav && npm test 2>&1 | tail -15
+cd "$WORKTREE" && npm test 2>&1 | tail -15
 ```
 
 Expected: `# fail 0`，且总测试数比改动前多 12。
@@ -271,7 +271,7 @@ Expected: `# fail 0`，且总测试数比改动前多 12。
 测试全绿不等于测试有效。在**已提交的基线上**跑（本仓踩过「探针里的 git checkout 冲掉未提交实现」的坑），所以先提交，再探。
 
 ```bash
-cd $HOME/Code/newWith-nav && git add src/lib/nav/nav.ts src/lib/nav/nav.test.ts package.json && git commit -q -m "feat(nav): 抽出导航匹配逻辑与 query 深链支持
+cd "$WORKTREE" && git add src/lib/nav/nav.ts src/lib/nav/nav.test.ts package.json && git commit -q -m "feat(nav): 抽出导航匹配逻辑与 query 深链支持
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -279,7 +279,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 然后逐条注入变异，每条都必须让测试变红：
 
 ```bash
-cd $HOME/Code/newWith-nav
+cd "$WORKTREE"
 
 # 变异 1：query 匹配整个失效（永远返回 true）
 sed -i '' 's|  if (!leaf.query) return true|  if (!leaf.query) return true\n  return true|' src/lib/nav/nav.ts
@@ -307,7 +307,7 @@ Expected: **四条变异全部 `# fail` 大于 0**。任何一条仍然全绿，
 跑完确认工作区干净：
 
 ```bash
-cd $HOME/Code/newWith-nav && git status --short
+cd "$WORKTREE" && git status --short
 ```
 
 Expected: 无输出。
@@ -444,7 +444,7 @@ Expected: 无输出。
 - [ ] **Step 4: 跑 i18n 门禁**
 
 ```bash
-cd $HOME/Code/newWith-nav && npm run test:i18n
+cd "$WORKTREE" && npm run test:i18n
 ```
 
 Expected: 三语 key parity 通过。**`nav.*` 的键在 Sidebar 里是 `t(item.key)` 动态取的，静态分析看不见，所以会进「unused messages」告警**——该检查是 warning-only，不 fatal。确认输出里没有 `missing reference` 类的 fatal 错误即可。
@@ -452,7 +452,7 @@ Expected: 三语 key parity 通过。**`nav.*` 的键在 Sidebar 里是 `t(item.
 - [ ] **Step 5: 提交**
 
 ```bash
-cd $HOME/Code/newWith-nav && git add messages/zh.json messages/en.json messages/ja.json && git commit -q -m "feat(nav): 导航文案按新信息架构三语重排
+cd "$WORKTREE" && git add messages/zh.json messages/en.json messages/ja.json && git commit -q -m "feat(nav): 导航文案按新信息架构三语重排
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -690,7 +690,7 @@ const NAV_ACCENT: NavAccentMap = {
 - [ ] **Step 6: 类型检查**
 
 ```bash
-cd $HOME/Code/newWith-nav && npx tsc --noEmit 2>&1 | head -20
+cd "$WORKTREE" && npx tsc --noEmit 2>&1 | head -20
 ```
 
 Expected: 无输出。有报错就按报错修——尤其留意 `NAV_ACCENT` 的漏登记检查和 `CollapsedNavGroup` 的 props 签名。
@@ -698,7 +698,7 @@ Expected: 无输出。有报错就按报错修——尤其留意 `NAV_ACCENT` �
 - [ ] **Step 7: lint + style 门禁**
 
 ```bash
-cd $HOME/Code/newWith-nav && npm run lint -- --max-warnings=0 && npm run test:style
+cd "$WORKTREE" && npm run lint -- --max-warnings=0 && npm run test:style
 ```
 
 Expected: 双绿。style 门禁会把注释里的裸 hex 当违规——上面的注释里没有 `#` 开头的东西，但**如果后续补注释时要提 PR 编号，写成 `PR 198` 不要写 `(#198)`**，本仓踩过这个坑。
@@ -706,7 +706,7 @@ Expected: 双绿。style 门禁会把注释里的裸 hex 当违规——上面�
 - [ ] **Step 8: 提交**
 
 ```bash
-cd $HOME/Code/newWith-nav && git add src/components/layout/Sidebar.tsx && git commit -q -m "feat(nav): 侧边栏收拢成 7 个按业务归属组织的一级入口
+cd "$WORKTREE" && git add src/components/layout/Sidebar.tsx && git commit -q -m "feat(nav): 侧边栏收拢成 7 个按业务归属组织的一级入口
 
 11 个一级入口重排为 工作台/创作者运营/团队协作/成本管理/AI 助手/
 官网管理/系统设置。路由 URL 一律不变。/tasks 靠 query 拆成两个入口，
@@ -769,7 +769,7 @@ import { hrefWithQuery, resolveNavQuery } from '@/lib/nav/nav'
 - [ ] **Step 3: 类型检查**
 
 ```bash
-cd $HOME/Code/newWith-nav && npx tsc --noEmit 2>&1 | head -20
+cd "$WORKTREE" && npx tsc --noEmit 2>&1 | head -20
 ```
 
 Expected: 无输出。
@@ -777,7 +777,7 @@ Expected: 无输出。
 - [ ] **Step 4: 提交**
 
 ```bash
-cd $HOME/Code/newWith-nav && git add "src/app/[locale]/(app)/tasks/page.tsx" && git commit -q -m "feat(tasks): tab 状态接到 URL query，支持从侧栏深链直达
+cd "$WORKTREE" && git add "src/app/[locale]/(app)/tasks/page.tsx" && git commit -q -m "feat(tasks): tab 状态接到 URL query，支持从侧栏深链直达
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -791,7 +791,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - [ ] **Step 1: 全套门禁**
 
 ```bash
-cd $HOME/Code/newWith-nav && npm test 2>&1 | tail -8 && npm run test:copy 2>&1 | tail -20
+cd "$WORKTREE" && npm test 2>&1 | tail -8 && npm run test:copy 2>&1 | tail -20
 ```
 
 Expected: `# fail 0`；`test:copy`（i18n parity + 裸汉字 + style token + lint）全绿。
@@ -801,7 +801,7 @@ Expected: `# fail 0`；`test:copy`（i18n parity + 裸汉字 + style token + lin
 这是本轮唯一的真风险点。`useSearchParams()` 在静态预渲染时要求 Suspense 边界；`src/app/[locale]/(app)/layout.tsx` 第 1 行的 `export const dynamic = 'force-dynamic'` 是段级声明，理论上该 layout 下不会发生静态预渲染——**但这只是推导，必须实测**。
 
 ```bash
-cd $HOME/Code/newWith-nav && npm run build 2>&1 | tail -40
+cd "$WORKTREE" && npm run build 2>&1 | tail -40
 ```
 
 Expected: 构建成功，输出里**没有** `useSearchParams() should be wrapped in a suspense boundary` 或 `Missing Suspense boundary with useSearchParams`。
@@ -813,7 +813,7 @@ Expected: 构建成功，输出里**没有** `useSearchParams() should be wrappe
 worktree 不能用 `preview_start`（它跑的是主仓），手动起且换端口避开主仓的 3000：
 
 ```bash
-cd $HOME/Code/newWith-nav && npx next dev -p 3021
+cd "$WORKTREE" && npx next dev -p 3021
 ```
 
 - [ ] **Step 4: 展开态人工回归**
@@ -865,7 +865,7 @@ cd $HOME/Code/newWith-nav && npx next dev -p 3021
 - [ ] **Step 9: 关掉 dev server，确认工作区干净**
 
 ```bash
-cd $HOME/Code/newWith-nav && git status --short && git log --oneline origin/main..HEAD
+cd "$WORKTREE" && git status --short && git log --oneline origin/main..HEAD
 ```
 
 Expected: `git status` 无输出；`git log` 列出 5 条提交（设计稿 + 4 个 Task）。
@@ -873,13 +873,13 @@ Expected: `git status` 无输出；`git log` 列出 5 条提交（设计稿 + 4 
 - [ ] **Step 10: 推分支开 PR**
 
 ```bash
-cd $HOME/Code/newWith-nav && git push -u origin feat/nav-ia-consolidation
+cd "$WORKTREE" && git push -u origin feat/nav-ia-consolidation
 ```
 
 然后开 PR（本仓约定：改动走 PR，不直连 main）：
 
 ```bash
-cd $HOME/Code/newWith-nav && gh pr create --base main --title "feat(nav): 导航按业务归属收拢成 7 个一级入口" --body "$(cat <<'BODY'
+cd "$WORKTREE" && gh pr create --base main --title "feat(nav): 导航按业务归属收拢成 7 个一级入口" --body "$(cat <<'BODY'
 ## 问题
 
 侧边栏 11 个一级入口按模块堆叠而非业务归属，几处归属让人困惑：「流程管理」实际是创作者生命周期却和「创作者」分家；「团队（AI代理）」下面挂着真实公司的业务分工；「工作区」是 AI 对话但名字看不出来；官网内容、战略时间轴、任务挤在同一层没有主次。
@@ -922,7 +922,7 @@ BODY
 - [ ] **Step 11: 确认 CI**
 
 ```bash
-cd $HOME/Code/newWith-nav && gh pr checks --watch 2>&1 | tail -20
+cd "$WORKTREE" && gh pr checks --watch 2>&1 | tail -20
 ```
 
 Expected: 全绿。红了就看具体 job 日志修，不要靠猜。
