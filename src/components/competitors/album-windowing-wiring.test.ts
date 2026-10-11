@@ -3,38 +3,54 @@
 // 本仓没有 DOM 测试环境，判据都在 src/lib/competitors/shotWindow.ts 里单测；
 // 这里只钉「组件真的在用它们」——接线一旦被改回旧写法，别的测试一个都不会红。
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import test from 'node:test'
 
 const read = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8')
 const CARD = read('./CompetitorCard.tsx')
-
-test('卡片场次读全量 sessionShots，不读已加载截图（否则常见开播、近 30 天会跟着相册翻页变）', () => {
-  assert.ok(
-    CARD.includes('liveSpansOf({ live_sessions: c.live_sessions, shots: c.sessionShots })'),
-    '卡片的场次必须由导入记录 + 全量截图场次合并',
-  )
-  assert.match(CARD, /\[c\.live_sessions, c\.sessionShots\]/)
-  assert.doesNotMatch(CARD, /liveSpansOf\(c\)/, '整个 c 喂进去会读 c.shots（只是已加载的那段）')
-  assert.doesNotMatch(CARD, /liveStartsOf\(c\)/)
-  assert.doesNotMatch(CARD, /c\.shots\.map\(/)
-})
-
 const MODAL = read('./live/LiveSessionsModal.tsx')
 
-test('开播记录弹窗的场次同样读全量 sessionShots，不读已加载截图', () => {
-  assert.ok(
-    MODAL.includes('liveSpansOf({ live_sessions: competitor.live_sessions, shots: competitor.sessionShots })'),
-    '弹窗的场次必须由导入记录 + 全量截图场次合并',
-  )
-  assert.match(MODAL, /\[competitor\.live_sessions, competitor\.sessionShots\]/)
-  assert.doesNotMatch(MODAL, /liveSpansOf\(competitor\)/)
-  assert.doesNotMatch(MODAL, /competitor\.shots\b/)
+/** 取 lib 文件里某个导出函数的函数体（到第一个顶格的 `}` 为止），断言只看函数本身、不看注释。 */
+function fnBody(src: string, name: string): string {
+  const start = src.indexOf(`export function ${name}(`)
+  assert.ok(start >= 0, `找不到 ${name}`)
+  const end = src.indexOf('\n}\n', start)
+  assert.ok(end > start, `${name} 的函数体没有闭合`)
+  return src.slice(start, end + 2)
+}
+
+test('场次接缝 accountSpans 喂全量 sessionShots，不喂已加载截图（卡片、开播记录弹窗、开播时段页都经过它）', () => {
+  const body = fnBody(read('../../lib/competitors/liveBoard.ts'), 'accountSpans')
+  assert.ok(body.includes('shots: c.sessionShots'), 'accountSpans 的截图一侧必须是 c.sessionShots（全部历史、每场一行）')
+  assert.ok(!body.includes('shots: c.shots'), 'c.shots 只是相册已加载的那一段，场次会跟着相册翻页变')
+  assert.doesNotMatch(body, /liveSpansOf\(c\)/, '整个 c 喂进去会读 c.shots')
 })
 
-test('开播记录弹窗的其它子组件不读截图本体（.shots 只是已加载的那段）', () => {
-  for (const f of ['LiveCalendar', 'LiveCoverageHistogram', 'LiveKpiTiles', 'LiveLikesBars', 'LiveRecordsPanel', 'LiveSessionTable']) {
-    assert.doesNotMatch(read(`./live/${f}.tsx`), /\.shots\b/, f)
+test('巡检日接缝 patrolDaysOfBoard 读完整日期轴 shotAxis，不遍历截图', () => {
+  const body = fnBody(read('../../lib/competitors/liveCoverage.ts'), 'patrolDaysOfBoard')
+  assert.match(body, /board\.shotAxis/)
+  assert.match(body, /UNDATED_KEY/, '无日期占位不是巡检日，要剔掉')
+  assert.doesNotMatch(body, /\.shots\b/, '各号的 shots 只是相册已加载的那一段')
+})
+
+test('卡片与开播记录弹窗的场次只经 accountSpans 取，不在组件里直接调 liveSpansOf', () => {
+  assert.match(CARD, /const spans = useMemo\(\(\) => accountSpans\(c\), \[c\]\)/)
+  assert.doesNotMatch(CARD, /liveSpansOf\(/)
+  assert.doesNotMatch(CARD, /liveStartsOf\(/)
+  assert.doesNotMatch(CARD, /c\.shots\.map\(/)
+  assert.match(MODAL, /const spans = useMemo\(\(\) => accountSpans\(competitor\), \[competitor\]\)/)
+  assert.doesNotMatch(MODAL, /liveSpansOf\(/)
+})
+
+test('开播记录弹窗与开播时段页（live/ 下全部组件）都不读截图本体（.shots 只是已加载的那段）', () => {
+  const dir = new URL('./live/', import.meta.url)
+  const files = readdirSync(dir).filter((f) => /\.tsx?$/.test(f) && !f.endsWith('.test.ts'))
+  // 下限防空转：目录挪走或改名时 files 为空，循环一次都不跑也会「通过」
+  for (const f of ['LiveSessionsModal.tsx', 'CompetitorLiveView.tsx', 'LiveCountryMonth.tsx', 'LiveRoomMonth.tsx', 'LiveTimetable.tsx']) {
+    assert.ok(files.includes(f), `live/ 下找不到 ${f}`)
+  }
+  for (const f of files) {
+    assert.doesNotMatch(readFileSync(new URL(f, dir), 'utf8'), /\.shots\b/, f)
   }
 })
 
