@@ -4,6 +4,7 @@ import test from 'node:test'
 import type { LiveSpan } from './liveSessions.ts'
 import { locateSpans } from './liveStats.ts'
 import { coverageOf, patrolDaysOf, patrolDaysOfBoard } from './liveCoverage.ts'
+import { UNDATED_KEY } from './shotGrid.ts'
 
 const TZ = 'Asia/Tokyo'
 const j = (ymd: string, hm: string) => new Date(`${ymd}T${hm}:00+09:00`).toISOString()
@@ -16,15 +17,21 @@ test('patrolDaysOf: 去重，丢掉空值', () => {
   assert.deepEqual(Array.from(days).sort(), ['2026-09-01', '2026-09-03'])
 })
 
-test('patrolDaysOfBoard: 全看板（递归 related）截图的 shot_on，去重、丢掉未标日期的', () => {
-  const shot = (shot_on: string | null) => ({ shot_on })
-  const board = [
-    { shots: [shot('2026-09-01'), shot(null), shot('2026-09-03')], related: [{ shots: [shot('2026-09-02'), shot('2026-09-01')], related: [] }] },
-    { shots: [shot('')], related: [{ shots: [], related: [{ shots: [shot('2026-09-09')] }] }] },
-    { shots: null },
-  ]
-  assert.deepEqual(Array.from(patrolDaysOfBoard({ competitors: board })).sort(), ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-09'])
-  assert.equal(patrolDaysOfBoard({ competitors: [] }).size, 0)
+test('patrolDaysOfBoard: 巡检日 = 看板完整日期轴 shotAxis 上的有图日期，剔掉无日期占位', () => {
+  const days = patrolDaysOfBoard({ shotAxis: ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-09', UNDATED_KEY] })
+  assert.deepEqual(Array.from(days).sort(), ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-09'])
+  assert.equal(days.has(UNDATED_KEY), false)
+  assert.equal(patrolDaysOfBoard({ shotAxis: [] }).size, 0)
+  assert.equal(patrolDaysOfBoard({ shotAxis: [UNDATED_KEY] }).size, 0, '只有无日期截图时没有巡检日')
+})
+
+test('patrolDaysOfBoard: 只读 shotAxis，不读各号已加载的截图（相册窗口外的日期照样算巡检日）', () => {
+  // 结构上就是一块看板：competitors 里的 shots 只是相册已加载的那一段（这里只剩 09-09），轴是全量。
+  const board = {
+    shotAxis: ['2026-08-01', '2026-08-15', '2026-09-09'],
+    competitors: [{ shots: [{ shot_on: '2026-09-09' }, { shot_on: '2026-07-01' }], related: [] }],
+  }
+  assert.deepEqual(Array.from(patrolDaysOfBoard(board)).sort(), ['2026-08-01', '2026-08-15', '2026-09-09'])
 })
 
 test('coverageOf: 导入场次的首末日期之间（两端都含）算有数据，哪怕当天没播', () => {

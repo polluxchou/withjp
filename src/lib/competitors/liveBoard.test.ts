@@ -84,6 +84,7 @@ function comp(over: Partial<CompetitorWithHistory> & { id: string; handle: strin
     latest: null,
     history: [],
     shots: [],
+    sessionShots: [],
     descriptions: [],
     live_sessions: [],
     weekly: [],
@@ -128,7 +129,7 @@ test('flattenAccounts: 递归展开 related，子账号公司回落到父账号�
     handle: 'sample.c1',
     parent_id: 'p',
     region: 'MY',
-    shots: [{ stream_started_at: j('2026-09-02', '20:00'), captured_at: j('2026-09-02', '21:00') } as CompetitorWithHistory['shots'][number]],
+    sessionShots: [{ stream_started_at: j('2026-09-02', '20:00'), captured_at: j('2026-09-02', '21:00') }],
     related: [grandchild],
   })
   const own = comp({ id: 'c2', handle: 'sample.c2', parent_id: 'p' })
@@ -144,7 +145,7 @@ test('flattenAccounts: 递归展开 related，子账号公司回落到父账号�
   assert.deepEqual(out.map((a) => a.company), ['Guild A', 'Guild A', 'Guild A', 'Guild B', null])
   assert.equal(out[1].region, 'MY')
   assert.equal(out[2].region, null)
-  // 场次来自 accountSpans（liveSpansOf 喂导入 + 截图）
+  // 场次来自 accountSpans（liveSpansOf 喂导入 + 全量截图场次 sessionShots）
   assert.equal(out[0].spans.length, 1)
   assert.equal(out[0].spans[0].source, 'history')
   assert.equal(out[1].spans.length, 1)
@@ -159,12 +160,12 @@ test('accountSpans: 导入 + 截图推断合并（同一场以导入为准），
     id: 'a',
     handle: 'sample.a',
     live_sessions: [{ started_at: j('2026-09-01', '12:00'), ended_at: j('2026-09-01', '14:00'), likes: 5, title: 'T' } as CompetitorWithHistory['live_sessions'][number]],
-    shots: [
+    sessionShots: [
       // 落在导入场次里：同一场，丢掉截图那条
       { stream_started_at: j('2026-09-01', '12:03'), captured_at: j('2026-09-01', '12:30') },
       // 单独一场：只有截图
       { stream_started_at: j('2026-09-02', '20:00'), captured_at: j('2026-09-02', '21:00') },
-    ] as CompetitorWithHistory['shots'],
+    ],
   })
   const spans = accountSpans(c)
   assert.deepEqual(spans.map((x) => x.source), ['shot', 'history'])
@@ -172,6 +173,25 @@ test('accountSpans: 导入 + 截图推断合并（同一场以导入为准），
   assert.equal(spans[1].likes, 5)
   // 摊平后的账号用的就是这一份：「开播场次喂哪批截图」只在 accountSpans 一处定
   assert.deepEqual(flattenAccounts([c], {})[0].spans, spans)
+})
+
+test('accountSpans: 截图一侧只读全量 sessionShots，不读相册已加载的 shots（统计不跟着相册翻页变）', () => {
+  // shots 只是相册已加载的那一段：这里故意放一场 sessionShots 里没有的，它不能变成场次；
+  // sessionShots 里的老场次（早于已加载范围）照样要算。
+  const c = comp({
+    id: 'a',
+    handle: 'sample.a',
+    shots: [
+      { stream_started_at: j('2026-09-20', '19:00'), captured_at: j('2026-09-20', '19:30') },
+    ] as CompetitorWithHistory['shots'],
+    sessionShots: [
+      { stream_started_at: j('2026-08-03', '20:00'), captured_at: j('2026-08-03', '21:00') },
+      { stream_started_at: j('2026-09-02', '20:00'), captured_at: j('2026-09-02', '21:00') },
+    ],
+  })
+  const spans = accountSpans(c)
+  assert.deepEqual(spans.map((x) => x.startedAt), [j('2026-09-02', '20:00'), j('2026-08-03', '20:00')])
+  assert.ok(spans.every((x) => x.source === 'shot'))
 })
 
 test('flattenAccounts: 子账号自己登记了公司就用自己的', () => {

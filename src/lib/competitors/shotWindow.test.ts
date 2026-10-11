@@ -1,0 +1,450 @@
+// src/lib/competitors/shotWindow.test.ts
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
+import { SHOT_WINDOW_SIZE, UNDATED_KEY } from './shotGrid.ts'
+import {
+  SHOT_CHUNK_DAYS, boardRefreshPath, buildShotIndex, initialLoadedFrom, isShotDateLoaded, loadedRangeOrFilter,
+  mergeShotRange, nextChunk, parseShotRangeQuery, parseSinceQuery, refreshSince, resolveLoadedFrom, shotRangePath,
+} from './shotWindow.ts'
+import type { ShotIndexRow } from './shotWindow.ts'
+import { liveSpansOf } from './liveSessions.ts'
+import type { CompetitorBoard, CompetitorLiveSession, CompetitorShot, CompetitorWithHistory } from './types.ts'
+
+const row = (
+  competitor_id: string,
+  shot_on: string | null,
+  stream_started_at: string | null = null,
+  captured_at: string | null = null,
+): ShotIndexRow => ({ competitor_id, shot_on, stream_started_at, captured_at })
+
+/** 只有开播时刻、没有截图时刻的一场：captured_at 按开播时刻算，输出 toISOString 写法。 */
+const bare = (stream_started_at: string) =>
+  ({ stream_started_at, captured_at: new Date(stream_started_at).toISOString() })
+
+test('buildShotIndex: 日期轴跨账号去重并升序', () => {
+  const { shotAxis } = buildShotIndex([
+    row('a', '2026-08-05'), row('a', '2026-08-03'), row('b', '2026-08-05'), row('b', '2026-08-01'),
+  ])
+  assert.deepEqual(shotAxis, ['2026-08-01', '2026-08-03', '2026-08-05'])
+})
+
+test('buildShotIndex: 有无日期截图时轴尾追加 UNDATED_KEY', () => {
+  assert.deepEqual(buildShotIndex([row('a', '2026-08-05'), row('a', null)]).shotAxis, ['2026-08-05', UNDATED_KEY])
+  assert.deepEqual(buildShotIndex([row('a', null)]).shotAxis, [UNDATED_KEY])
+})
+
+test('buildShotIndex: 空表', () => {
+  const idx = buildShotIndex([])
+  assert.deepEqual(idx.shotAxis, [])
+  assert.equal(idx.sessionShotsBy.size, 0)
+})
+
+test('buildShotIndex: 场次按账号去重、忽略空值、升序', () => {
+  const idx = buildShotIndex([
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00'), // 同一场的第二张截图
+    row('a', '2026-08-03', '2026-08-03T04:30:00+00:00'),
+    row('a', '2026-08-04', null),
+    row('b', '2026-08-05', '2026-08-05T05:00:00+00:00'), // 另一个号凑巧同一秒开播，不能被并掉
+  ])
+  assert.deepEqual(idx.sessionShotsBy.get('a'), [bare('2026-08-03T04:30:00+00:00'), bare('2026-08-05T05:00:00+00:00')])
+  assert.deepEqual(idx.sessionShotsBy.get('b'), [bare('2026-08-05T05:00:00+00:00')])
+})
+
+test('buildShotIndex: 只有无开播时刻截图的账号不进 sessionShotsBy', () => {
+  assert.equal(buildShotIndex([row('a', '2026-08-05')]).sessionShotsBy.has('a'), false)
+})
+
+test('buildShotIndex: 无日期截图的开播时刻照样记入该账号，日期轴仍追加 UNDATED_KEY', () => {
+  const idx = buildShotIndex([
+    row('a', null, '2026-08-02T05:00:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00'),
+  ])
+  assert.deepEqual(idx.sessionShotsBy.get('a'), [bare('2026-08-02T05:00:00+00:00'), bare('2026-08-05T05:00:00+00:00')])
+  assert.deepEqual(idx.shotAxis, ['2026-08-05', UNDATED_KEY])
+  // 只有无日期截图的账号同样不能丢开播时刻
+  const only = buildShotIndex([row('b', null, '2026-08-03T04:00:00+00:00')])
+  assert.deepEqual(only.sessionShotsBy.get('b'), [bare('2026-08-03T04:00:00+00:00')])
+  assert.deepEqual(only.shotAxis, [UNDATED_KEY])
+})
+
+test('buildShotIndex: 同一场取最晚的截图时刻；早于开播或读不出的截图时刻按开播算', () => {
+  const idx = buildShotIndex([
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:30:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T06:10:00+00:00'), // 最晚的不是第一张
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:45:00+00:00'),
+    row('a', '2026-08-06', '2026-08-06T10:00:00+00:00', '2026-08-06T09:00:00+00:00'), // 早于开播（脏数据）
+    row('a', '2026-08-07', '2026-08-07T10:00:00+00:00', 'garbage'),
+  ])
+  assert.deepEqual(idx.sessionShotsBy.get('a'), [
+    { stream_started_at: '2026-08-05T05:00:00+00:00', captured_at: '2026-08-05T06:10:00.000Z' },
+    { stream_started_at: '2026-08-06T10:00:00+00:00', captured_at: '2026-08-06T10:00:00.000Z' },
+    { stream_started_at: '2026-08-07T10:00:00+00:00', captured_at: '2026-08-07T10:00:00.000Z' },
+  ])
+})
+
+test('buildShotIndex: 同一时刻的不同写法算一场（留第一条的原始写法），按时刻而不是字符串排序', () => {
+  const idx = buildShotIndex([
+    row('a', '2026-08-05', '2026-08-05T14:00:00+09:00', '2026-08-05T05:20:00Z'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00Z', '2026-08-05T05:40:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00.000+00:00', null),
+    // 字符串序在 08-05T14 之前，时刻上却晚：按字符串排会排反
+    row('a', '2026-08-05', '2026-08-05T06:00:00Z', null),
+    row('a', '2026-08-05', 'not-a-date', '2026-08-05T07:00:00Z'), // 读不出的开播跳过
+  ])
+  assert.deepEqual(idx.sessionShotsBy.get('a'), [
+    { stream_started_at: '2026-08-05T14:00:00+09:00', captured_at: '2026-08-05T05:40:00.000Z' },
+    { stream_started_at: '2026-08-05T06:00:00Z', captured_at: '2026-08-05T06:00:00.000Z' },
+  ])
+})
+
+// 整次「统计改喂全量场次索引」的护栏：把 buildShotIndex 聚合出的 sessionShots 喂给 liveSpansOf，
+// 结果必须与直接喂全部原始截图逐字节相同——聚合只是压缩，不能改变任何一场的起止、来源与去重。
+test('buildShotIndex 的场次喂 liveSpansOf，与喂全部原始截图结果完全相同', () => {
+  const raw: ShotIndexRow[] = [
+    // a：同一场三张，Z / +00:00 / 带毫秒混写，最晚的截图时刻在中间那张
+    row('a', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:30:00+00:00'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00Z', '2026-08-05T06:10:00Z'),
+    row('a', '2026-08-05', '2026-08-05T05:00:00.000Z', null),
+    // a：截图时刻早于开播 / 读不出
+    row('a', '2026-08-06', '2026-08-06T10:00:00+00:00', '2026-08-06T09:00:00+00:00'),
+    row('a', '2026-08-06', '2026-08-06T12:00:00+00:00', 'garbage'),
+    // a：与导入场次 [03:06, 05:00] 重叠——区间内、下沿容差内各一场，都应被丢弃
+    row('a', '2026-08-07', '2026-08-07T03:06:30+00:00', '2026-08-07T04:00:00+00:00'),
+    row('a', '2026-08-07', '2026-08-07T02:58:00+00:00', '2026-08-07T03:10:00+00:00'),
+    // a：导入场次下播之后才开播——另一场，保留
+    row('a', '2026-08-07', '2026-08-07T05:01:00+00:00', '2026-08-07T05:40:00+00:00'),
+    row('a', '2026-08-07', '2026-08-07T05:01:00+00:00', '2026-08-07T06:20:00+00:00'),
+    // a：时区写法不同的同一时刻
+    row('a', '2026-08-08', '2026-08-08T14:00:00+09:00', '2026-08-08T05:15:00Z'),
+    row('a', '2026-08-08', '2026-08-08T05:00:00Z', '2026-08-08T05:50:00Z'),
+    // a：读不出的开播、没有开播时刻（人工上传）
+    row('a', '2026-08-08', 'not-a-date', '2026-08-08T07:00:00Z'),
+    row('a', '2026-08-09', null, null),
+    row('a', null, null, '2026-08-09T07:00:00Z'),
+    // b：与 a 同一秒开播——跨账号是两场
+    row('b', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:05:00+00:00'),
+    row('b', '2026-08-05', '2026-08-05T05:00:00+00:00', '2026-08-05T05:02:00+00:00'),
+    // b：与它自己的导入场次不重叠
+    row('b', '2026-08-10', '2026-08-10T12:00:00+00:00', '2026-08-10T13:00:00+00:00'),
+  ]
+  const live: Record<string, Pick<CompetitorLiveSession, 'started_at' | 'ended_at' | 'likes' | 'title'>[]> = {
+    a: [{ started_at: '2026-08-07T03:06:00+00:00', ended_at: '2026-08-07T05:00:00+00:00', likes: 10, title: 'x' }],
+    b: [{ started_at: '2026-08-09T03:00:00+00:00', ended_at: '2026-08-09T04:00:00+00:00', likes: null, title: '' }],
+    c: [{ started_at: '2026-08-09T03:00:00+00:00', ended_at: '2026-08-09T04:00:00+00:00', likes: 3, title: 'only' }],
+  }
+  const idx = buildShotIndex(raw)
+  for (const id of ['a', 'b', 'c']) {
+    const direct = liveSpansOf({ live_sessions: live[id], shots: raw.filter((r) => r.competitor_id === id) })
+    const viaIndex = liveSpansOf({ live_sessions: live[id], shots: idx.sessionShotsBy.get(id) ?? [] })
+    assert.deepEqual(viaIndex, direct, `账号 ${id}`)
+  }
+  // 不是空对空：a 的截图场次与导入场次都在，且重叠的两场确实被丢掉了
+  const a = liveSpansOf({ live_sessions: live.a, shots: idx.sessionShotsBy.get('a') ?? [] })
+  assert.deepEqual(a.map((s) => [s.source, s.startedAt, s.endedAt]), [
+    ['shot', '2026-08-08T05:00:00.000Z', '2026-08-08T05:50:00.000Z'],
+    ['shot', '2026-08-07T05:01:00.000Z', '2026-08-07T06:20:00.000Z'],
+    ['history', '2026-08-07T03:06:00.000Z', '2026-08-07T05:00:00.000Z'],
+    ['shot', '2026-08-06T12:00:00.000Z', '2026-08-06T12:00:00.000Z'],
+    ['shot', '2026-08-06T10:00:00.000Z', '2026-08-06T10:00:00.000Z'],
+    ['shot', '2026-08-05T05:00:00.000Z', '2026-08-05T06:10:00.000Z'],
+  ])
+  const b = liveSpansOf({ live_sessions: live.b, shots: idx.sessionShotsBy.get('b') ?? [] })
+  assert.equal(b.length, 3)
+  assert.equal(b.find((s) => s.startedAt === '2026-08-05T05:00:00.000Z')?.endedAt, '2026-08-05T05:05:00.000Z')
+})
+
+/** 2026-08-01 起连续 n 天的日期轴。 */
+function axisOf(n: number): string[] {
+  return Array.from({ length: n }, (_, i) => `2026-08-${String(i + 1).padStart(2, '0')}`)
+}
+
+test('SHOT_CHUNK_DAYS: 一段 10 个有图日（两屏）', () => {
+  assert.equal(SHOT_CHUNK_DAYS, 10)
+})
+
+test('initialLoadedFrom: 有图日不超过一段时全取（null）', () => {
+  assert.equal(initialLoadedFrom([]), null)
+  assert.equal(initialLoadedFrom(axisOf(10)), null)
+})
+
+test('initialLoadedFrom: 超过一段时取倒数第 10 个有图日', () => {
+  assert.equal(initialLoadedFrom(axisOf(11)), '2026-08-02')
+  assert.equal(initialLoadedFrom(axisOf(25)), '2026-08-16')
+})
+
+test('initialLoadedFrom: 轴尾的 UNDATED_KEY 不算一天', () => {
+  assert.equal(initialLoadedFrom([...axisOf(10), UNDATED_KEY]), null)
+  assert.equal(initialLoadedFrom([...axisOf(11), UNDATED_KEY]), '2026-08-02')
+})
+
+test('resolveLoadedFrom: 不带 since 就是首屏默认起点', () => {
+  assert.equal(resolveLoadedFrom(axisOf(25), null), '2026-08-16')
+})
+
+test('resolveLoadedFrom: since 更早时用 since（刷新保住已翻到的范围）', () => {
+  assert.equal(resolveLoadedFrom(axisOf(25), '2026-08-05'), '2026-08-05')
+})
+
+test('resolveLoadedFrom: since 比默认起点还晚时仍至少盖住默认两屏', () => {
+  assert.equal(resolveLoadedFrom(axisOf(25), '2026-08-20'), '2026-08-16')
+})
+
+test('resolveLoadedFrom: 起点早于或等于轴首时归一成 null（全部）', () => {
+  assert.equal(resolveLoadedFrom(axisOf(25), '2026-08-01'), null)
+  assert.equal(resolveLoadedFrom(axisOf(25), '2026-07-01'), null)
+})
+
+test('resolveLoadedFrom: 轴不足一段时不管 since 都是 null', () => {
+  assert.equal(resolveLoadedFrom(axisOf(8), '2026-08-05'), null)
+})
+
+test('loadedRangeOrFilter: 已加载 = 不早于起点或无日期', () => {
+  assert.equal(loadedRangeOrFilter('2026-08-16'), 'shot_on.gte.2026-08-16,shot_on.is.null')
+})
+
+test('loadedRangeOrFilter: null（全部）给恒真式', () => {
+  assert.equal(loadedRangeOrFilter(null), 'shot_on.is.null,shot_on.not.is.null')
+})
+
+test('parseSinceQuery: 缺省为 null，合法日期原样返回', () => {
+  assert.deepEqual(parseSinceQuery(null), { ok: true, since: null })
+  assert.deepEqual(parseSinceQuery('2026-08-16'), { ok: true, since: '2026-08-16' })
+})
+
+test('parseSinceQuery: 空串、假日期、带注入的串一律拒绝', () => {
+  assert.deepEqual(parseSinceQuery(''), { ok: false })
+  assert.deepEqual(parseSinceQuery('2026-02-30'), { ok: false })
+  assert.deepEqual(parseSinceQuery('2026-08-16,id.gt.0'), { ok: false })
+})
+
+test('parseShotRangeQuery: 合法区间', () => {
+  assert.deepEqual(parseShotRangeQuery('2026-08-01', '2026-08-16'), { ok: true, from: '2026-08-01', before: '2026-08-16' })
+})
+
+test('parseShotRangeQuery: 缺参数、假日期、空区间、倒置区间一律拒绝', () => {
+  assert.deepEqual(parseShotRangeQuery(null, '2026-08-16'), { ok: false })
+  assert.deepEqual(parseShotRangeQuery('2026-08-01', null), { ok: false })
+  assert.deepEqual(parseShotRangeQuery('2026-02-30', '2026-08-16'), { ok: false })
+  assert.deepEqual(parseShotRangeQuery('2026-08-01', '2026-04-31'), { ok: false })
+  assert.deepEqual(parseShotRangeQuery('2026-08-16', '2026-08-16'), { ok: false })
+  assert.deepEqual(parseShotRangeQuery('2026-08-17', '2026-08-16'), { ok: false })
+})
+
+test('boardRefreshPath / shotRangePath', () => {
+  assert.equal(boardRefreshPath(null), '/api/competitors')
+  assert.equal(boardRefreshPath('2026-08-16'), '/api/competitors?since=2026-08-16')
+  assert.equal(shotRangePath({ from: '2026-08-01', before: '2026-08-16' }), '/api/competitors/shots?from=2026-08-01&before=2026-08-16')
+})
+
+test('parseShotRangeQuery: before 本身非法时拒绝（字符串上仍晚于 from，靠校验而不是顺序挡住）', () => {
+  assert.deepEqual(parseShotRangeQuery('2026-08-01', '2026-09-31'), { ok: false })
+  assert.deepEqual(parseShotRangeQuery('2026-08-01', '2026-08-17,id.gt.0'), { ok: false })
+})
+
+test('initialLoadedFrom: 按有图日切段而不是按日历天（轴上有空档）', () => {
+  const gapped = [
+    '2026-07-01', '2026-07-02', '2026-07-10', '2026-07-11', '2026-07-20', '2026-07-21',
+    '2026-08-01', '2026-08-02', '2026-08-10', '2026-08-11', '2026-08-20', '2026-08-21',
+  ]
+  assert.equal(initialLoadedFrom(gapped), '2026-07-10')
+})
+
+test('isShotDateLoaded: 全部已加载、轴为空、无日期列一律算已加载', () => {
+  assert.equal(isShotDateLoaded('2026-08-01', null), true)
+  assert.equal(isShotDateLoaded(null, '2026-08-16'), true)
+  assert.equal(isShotDateLoaded(UNDATED_KEY, '2026-08-16'), true)
+})
+
+test('isShotDateLoaded: 不早于起点才算已加载', () => {
+  assert.equal(isShotDateLoaded('2026-08-16', '2026-08-16'), true)
+  assert.equal(isShotDateLoaded('2026-08-20', '2026-08-16'), true)
+  assert.equal(isShotDateLoaded('2026-08-15', '2026-08-16'), false)
+})
+
+// 轴 08-01…08-25；首屏起点 08-16（下标 15）
+const AXIS = axisOf(25)
+const win = (firstDay: number) => AXIS.slice(firstDay - 1, firstDay + 4)
+
+test('nextChunk: 全部已加载时不补', () => {
+  assert.equal(nextChunk(AXIS, win(1), null), null)
+})
+
+test('nextChunk: 当前屏之前还剩整整一屏缓冲时不补', () => {
+  // 首屏看 08-21..08-25，起点 08-16：前面正好 5 天缓冲
+  assert.equal(nextChunk(AXIS, win(21), '2026-08-16'), null)
+})
+
+test('nextChunk: 缓冲不足一屏就补起点之前 10 个有图日', () => {
+  // 点一次「更早」→ 看 08-16..08-20，缓冲 0
+  assert.deepEqual(nextChunk(AXIS, win(16), '2026-08-16'), { from: '2026-08-06', before: '2026-08-16' })
+})
+
+test('nextChunk: 补到轴首为止', () => {
+  assert.deepEqual(nextChunk(AXIS, win(6), '2026-08-06'), { from: '2026-08-01', before: '2026-08-06' })
+})
+
+test('nextChunk: 窗口一次跳很远时，补的这一段盖住整屏再往前一屏', () => {
+  // 窗口 08-03..08-07 整屏落在未加载区，起点还在 08-16
+  assert.deepEqual(nextChunk(AXIS, win(3), '2026-08-16'), { from: '2026-08-01', before: '2026-08-16' })
+  const axis40 = Array.from({ length: 40 }, (_, i) => new Date(Date.UTC(2026, 6, 1 + i)).toISOString().slice(0, 10))
+  // 起点 08-05（下标 35），窗口从 07-11（下标 10）开始：from 取 10-5=5 → 07-06
+  assert.deepEqual(nextChunk(axis40, axis40.slice(10, 15), '2026-08-05'), { from: '2026-07-06', before: '2026-08-05' })
+})
+
+test('nextChunk: 起点那天的图被删光、已不在轴上时按轴上下一个日期定位', () => {
+  const axis = AXIS.filter((d) => d !== '2026-08-16')
+  // 起点 08-16 不在轴上 → 定位到 08-17（新下标 15），窗口 08-17..08-21 缓冲 0
+  assert.deepEqual(nextChunk(axis, ['2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20', '2026-08-21'], '2026-08-16'),
+    { from: '2026-08-06', before: '2026-08-16' })
+})
+
+test('nextChunk: 轴上已经没有比起点更早的日期时不补', () => {
+  const axis = AXIS.slice(15) // 08-16 之前的日期全被删光
+  assert.equal(nextChunk(axis, axis.slice(0, 5), '2026-08-16'), null)
+})
+
+test('nextChunk: 窗口里只有无日期列时不补', () => {
+  assert.equal(nextChunk([...AXIS, UNDATED_KEY], [UNDATED_KEY], '2026-08-16'), null)
+  // 起点离轴尾不足一屏时也一样：无日期列不能拿来当"当前屏第一天"去定位
+  assert.equal(nextChunk([...AXIS, UNDATED_KEY], [UNDATED_KEY], '2026-08-24'), null)
+})
+
+function shotRow(id: string, competitor_id: string, shot_on: string | null, sort_order = 0): CompetitorShot {
+  return {
+    id, competitor_id, image_url: `https://example.test/${id}.png`, shot_on, tag: null, caption: '',
+    sort_order, created_at: '2026-08-01T00:00:00Z', viewer_count: null, stream_started_at: null, captured_at: null,
+  }
+}
+
+function node(id: string, shots: CompetitorShot[], related: CompetitorWithHistory[] = []): CompetitorWithHistory {
+  return {
+    id, platform: 'tiktok', handle: id, profile_url: '', display_name: null, note: '',
+    created_at: '2026-08-01T00:00:00Z', parent_id: null, avatar_url: null, region: 'JP',
+    member_count: null, composition: null, launch_city: null, launched_on: null, mc_note: null,
+    online_note: null, latest_videos: null, latest: null, history: [], shots, sessionShots: [],
+    weekly: [], related, descriptions: [], live_sessions: [],
+  }
+}
+
+function boardOf(competitors: CompetitorWithHistory[], shotsLoadedFrom: string | null): CompetitorBoard {
+  return { competitors, canEdit: true, shotAxis: AXIS, shotsLoadedFrom }
+}
+
+test('mergeShotRange: 按账号（含子主播）并入，排序与首屏一致，起点推进', () => {
+  const board = boardOf([
+    node('p', [shotRow('p20', 'p', '2026-08-20')], [node('k', [])]),
+  ], '2026-08-16')
+  const next = mergeShotRange(board, [
+    shotRow('p10', 'p', '2026-08-10'), shotRow('k12', 'k', '2026-08-12'), shotRow('p12', 'p', '2026-08-12'),
+  ], { from: '2026-08-06', before: '2026-08-16' })
+  assert.equal(next.shotsLoadedFrom, '2026-08-06')
+  assert.deepEqual(next.competitors[0].shots.map((s) => s.id), ['p20', 'p12', 'p10'])
+  assert.deepEqual(next.competitors[0].related[0].shots.map((s) => s.id), ['k12'])
+  // 看板上与截图无关的字段原样带过
+  assert.equal(next.canEdit, true)
+  assert.deepEqual(next.shotAxis, AXIS)
+})
+
+test('mergeShotRange: 补到轴首时起点归一成 null', () => {
+  const next = mergeShotRange(boardOf([node('p', [])], '2026-08-06'), [], { from: '2026-08-01', before: '2026-08-06' })
+  assert.equal(next.shotsLoadedFrom, null)
+})
+
+test('mergeShotRange: 轴上没有有图日时起点也归一成 null', () => {
+  const board = { ...boardOf([node('p', [])], '2026-08-16'), shotAxis: [UNDATED_KEY] }
+  const next = mergeShotRange(board, [], { from: '2026-08-06', before: '2026-08-16' })
+  assert.equal(next.shotsLoadedFrom, null)
+})
+
+test('mergeShotRange: 过期结果（起点已不是这段的右端）原样返回', () => {
+  const board = boardOf([node('p', [])], '2026-08-11')
+  const next = mergeShotRange(board, [shotRow('p10', 'p', '2026-08-10')], { from: '2026-08-06', before: '2026-08-16' })
+  assert.equal(next, board)
+})
+
+test('mergeShotRange: 区间外的行与找不到账号的行丢弃', () => {
+  const next = mergeShotRange(boardOf([node('p', [])], '2026-08-16'), [
+    shotRow('in', 'p', '2026-08-10'),
+    shotRow('edge', 'p', '2026-08-06'),   // 恰在区间左端，闭区间要收
+    shotRow('late', 'p', '2026-08-16'),   // 已加载范围里的，接口不该给；给了也不能重复
+    shotRow('early', 'p', '2026-08-05'),
+    shotRow('undated', 'p', null),        // 无日期截图首屏已全量带上
+    shotRow('ghost', 'deleted', '2026-08-10'),
+  ], { from: '2026-08-06', before: '2026-08-16' })
+  assert.deepEqual(next.competitors[0].shots.map((s) => s.id), ['in', 'edge'])
+})
+
+test('mergeShotRange: 区间内已有的旧行被新行替换，不重复', () => {
+  const board = boardOf([node('p', [shotRow('p10', 'p', '2026-08-10')])], '2026-08-16')
+  const next = mergeShotRange(board, [{ ...shotRow('p10', 'p', '2026-08-10'), caption: 'new' }],
+    { from: '2026-08-06', before: '2026-08-16' })
+  assert.deepEqual(next.competitors[0].shots.map((s) => [s.id, s.caption]), [['p10', 'new']])
+})
+
+test('mergeShotRange: 区间左端当天的旧行同样被新行替换，不重复', () => {
+  const board = boardOf([node('p', [shotRow('p06', 'p', '2026-08-06')])], '2026-08-16')
+  const next = mergeShotRange(board, [{ ...shotRow('p06', 'p', '2026-08-06'), caption: 'new' }],
+    { from: '2026-08-06', before: '2026-08-16' })
+  assert.deepEqual(next.competitors[0].shots.map((s) => [s.id, s.caption]), [['p06', 'new']])
+})
+
+test('mergeShotRange: 不修改入参看板', () => {
+  const board = boardOf([node('p', [shotRow('p20', 'p', '2026-08-20')])], '2026-08-16')
+  mergeShotRange(board, [shotRow('p10', 'p', '2026-08-10')], { from: '2026-08-06', before: '2026-08-16' })
+  assert.equal(board.shotsLoadedFrom, '2026-08-16')
+  assert.deepEqual(board.competitors[0].shots.map((s) => s.id), ['p20'])
+})
+
+test('refreshSince: 起点非 null 时原样返回', () => {
+  assert.equal(refreshSince('2026-08-06', axisOf(25)), '2026-08-06')
+  assert.equal(refreshSince('2026-08-16', [...axisOf(25), UNDATED_KEY]), '2026-08-16')
+})
+
+test('refreshSince: 起点为 null（全部已加载）时取轴上第一个有图日', () => {
+  assert.equal(refreshSince(null, axisOf(25)), '2026-08-01')
+  assert.equal(refreshSince(null, [...axisOf(25), UNDATED_KEY]), '2026-08-01')
+  assert.equal(refreshSince(null, ['2026-08-05', '2026-08-09']), '2026-08-05')
+})
+
+test('refreshSince: 轴上没有有图日时返回 null（不带参数）', () => {
+  assert.equal(refreshSince(null, []), null)
+  assert.equal(refreshSince(null, [UNDATED_KEY]), null)
+})
+
+test('refreshSince 往返：从首屏一路补到轴首（起点 null）后刷新，服务端仍判全部已加载，不缩回最近一段', () => {
+  const axis = axisOf(25)
+  let board: CompetitorBoard = { ...boardOf([node('p', [])], initialLoadedFrom(axis)), shotAxis: axis }
+  assert.equal(board.shotsLoadedFrom, '2026-08-16')
+  // 一屏一屏往历史翻：窗口从倒数第二屏起，每次窗口移动后把该补的段补完
+  for (let start = axis.length - 2 * SHOT_WINDOW_SIZE; start >= 0; start -= SHOT_WINDOW_SIZE) {
+    const dateWindow = axis.slice(start, start + SHOT_WINDOW_SIZE)
+    for (let chunk = nextChunk(axis, dateWindow, board.shotsLoadedFrom); chunk; chunk = nextChunk(axis, dateWindow, board.shotsLoadedFrom)) {
+      board = mergeShotRange(board, [], chunk)
+    }
+  }
+  assert.equal(board.shotsLoadedFrom, null)
+  // 刷新请求带上的 since，服务端按原规则归一，结果仍是「全部已加载」
+  const since = refreshSince(board.shotsLoadedFrom, board.shotAxis)
+  assert.equal(since, '2026-08-01')
+  assert.equal(resolveLoadedFrom(axis, since), null)
+  assert.equal(boardRefreshPath(since), '/api/competitors?since=2026-08-01')
+})
+
+test('refreshSince 往返：翻到半路（起点非 null）刷新，范围原样保住', () => {
+  const axis = axisOf(25)
+  const half = '2026-08-06'
+  assert.equal(resolveLoadedFrom(axis, refreshSince(half, axis)), half)
+})
+
+test('refreshSince 往返：轴不超过一段（首屏就是全部）时，带不带 since 结果一致', () => {
+  for (const n of [1, 8, 10]) {
+    const axis = axisOf(n)
+    assert.equal(resolveLoadedFrom(axis, refreshSince(null, axis)), resolveLoadedFrom(axis, null))
+    assert.equal(resolveLoadedFrom(axis, refreshSince(null, axis)), null)
+  }
+  // 恰好 11 个有图日、已翻到轴首：仍是全部已加载
+  const axis11 = axisOf(11)
+  assert.equal(resolveLoadedFrom(axis11, refreshSince(null, axis11)), null)
+})

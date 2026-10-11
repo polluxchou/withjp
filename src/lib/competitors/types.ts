@@ -126,20 +126,60 @@ export interface WeeklyPoint {
   captured_on: string
 }
 
-export interface CompetitorWithHistory extends Competitor {
+/**
+ * 截图推断的一场直播（每场一行，由 shotWindow.ts 的 buildShotIndex 从全量截图聚合）。
+ * 形状就是 liveSpansOf 的 shots 入参：同一场的多张截图报同一个开播时刻，下播取最晚那张的截图时刻。
+ */
+export type SessionShot = {
+  /** 本场开播时刻：该组第一张截图的原始写法。 */
+  stream_started_at: string
+  /** 该场最晚的截图时刻（toISOString 写法）；截图时刻缺失或读不出的那几张按开播时刻算。 */
+  captured_at: string | null
+}
+
+export interface CompetitorWithHistory<S = CompetitorShot> extends Competitor {
   latest: CompetitorSnapshot | null
   history: HistoryPoint[]
-  shots: CompetitorShot[]
+  /**
+   * **已加载范围内**的截图（见 CompetitorBoard.shotsLoadedFrom），不一定是全部历史。
+   * 要全量口径的统计别用它：场次用 sessionShots，日期轴用 board.shotAxis。
+   */
+  shots: S[]
+  /**
+   * 截图推断的场次：全部历史、每场一行——开播时刻 + 该场最晚的截图时刻，按开播时刻升序。
+   * 与相册加载到哪一天无关。直接喂 liveSpansOf 的 shots 入参（与导入的 live_sessions 合并去重）；
+   * 卡片的常见开播与近 30 天、开播记录弹窗、地区标尺、问答都读它——统计数字不能跟着相册翻页变。
+   */
+  sessionShots: SessionShot[]
   /** 风格描述，已按生成日期倒序。 */
   descriptions: CompetitorDescription[]
   /** 开播记录，已按开播时刻倒序（最新在前）。 */
   live_sessions: CompetitorLiveSession[]
   weekly: WeeklyPoint[]
   /** 下探发现的关联主播（子账号），只在父卡片里下钻展示,不在首页平铺。 */
-  related: CompetitorWithHistory[]
+  related: CompetitorWithHistory<S>[]
 }
 
-export interface CompetitorBoard {
-  competitors: CompetitorWithHistory[]
+export interface CompetitorBoard<S = CompetitorShot> {
+  competitors: CompetitorWithHistory<S>[]
   canEdit: boolean
+  /** 完整日期轴：全部有图日期升序去重；存在无日期截图时末尾追加 UNDATED_KEY。 */
+  shotAxis: string[]
+  /**
+   * 已加载 = 所有 shot_on >= shotsLoadedFrom 的截图 + 全部无日期截图；null = 全部已加载。
+   * 已加载范围总包含最新一天（统计条的「最近采集日」依赖这一点，见 summary.ts）。
+   */
+  shotsLoadedFrom: string | null
 }
+
+/** 看板装配对截图只依赖这几列：归属、排序、日期轴，以及聚合场次用的开播与截图时刻。 */
+export type BoardShot = Pick<CompetitorShot, 'competitor_id' | 'shot_on' | 'sort_order' | 'stream_started_at' | 'captured_at'>
+
+/**
+ * 竞品问答需要的截图列（getAskBoard 只查这几列）。ask-context.ts 新读一个截图字段时，
+ * 要同时加到这里和 service.ts 的 ASK_SHOT_COLUMNS，否则那一列在问答里恒为 undefined。
+ */
+export type AskShot = Pick<
+  CompetitorShot,
+  'competitor_id' | 'shot_on' | 'sort_order' | 'stream_started_at' | 'viewer_count' | 'captured_at'
+>

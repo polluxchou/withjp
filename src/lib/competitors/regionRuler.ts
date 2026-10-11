@@ -6,6 +6,8 @@
 //   - competitor_live_sessions：LIVE History 粘贴导入的开播记录，起止完整，是权威来源；
 //   - competitor_shots.stream_started_at：直播间自报的开播时刻（截图推断），
 //     与导入场次是同一场的那些会被丢弃，不重复计。
+// 截图一侧读看板的 sessionShots（全部历史、每场一行），不读 shots——后者只是相册已加载的那段，
+// 标尺不能跟着相册翻到哪一天变。
 // 人工上传的截图只有 shot_on 一个日期、没有时刻——上传时间不等于开播时间
 // （深夜补传会把点打到凌晨），所以它们进不了这条轴。
 //
@@ -14,6 +16,7 @@
 //
 // 纯函数、不读时钟（now 由调用方注入），可单测。
 import { liveStartsOf } from './liveSessions.ts'
+import type { SessionShot } from './types.ts'
 import { SLOT_MIN_SESSIONS, dominantCluster, minutesToLabel, summarizeLiveHabit } from './liveSlots.ts'
 
 /** 只看最近这些天：更早的档次代表不了现在的作息。 */
@@ -34,10 +37,13 @@ export interface RulerInput {
   display_name?: string | null
   region?: string | null
   latest?: { display_name?: string | null } | null
-  /** LIVE History 粘贴导入的开播记录；与 shots 合并后才是这个账号的场次。 */
+  /** LIVE History 粘贴导入的开播记录；与 sessionShots 合并后才是这个账号的场次。 */
   live_sessions?: { started_at: string; ended_at: string; likes: number | null; title: string }[] | null
-  /** captured_at 是合并时判同一场用的（下播取该场最后一张截图），没有也行。 */
-  shots?: { stream_started_at?: string | null; captured_at?: string | null }[]
+  /**
+   * 截图推断的场次，即 CompetitorWithHistory.sessionShots：全部历史、每场一行，与相册加载范围无关。
+   * captured_at 是合并时判同一场用的（下播取该场最后一张截图）。14 天窗口在这里过滤。
+   */
+  sessionShots?: SessionShot[]
   /** 下钻的子主播也算「已收集账号」，递归纳入。 */
   related?: RulerInput[]
 }
@@ -148,13 +154,7 @@ export function buildRegionRuler({
     if ((c.region?.trim().toUpperCase() ?? '') !== wanted) continue
 
     // 先合并导入与截图两个来源（同一场只计一次），再按窗口过滤。
-    const starts = liveStartsOf({
-      live_sessions: c.live_sessions,
-      shots: (c.shots ?? []).map((s) => ({
-        stream_started_at: s.stream_started_at ?? null,
-        captured_at: s.captured_at ?? null,
-      })),
-    }).filter((iso) => {
+    const starts = liveStartsOf({ live_sessions: c.live_sessions, shots: c.sessionShots ?? [] }).filter((iso) => {
       const t = Date.parse(iso)
       return t >= cutoff && t <= nowMs
     })

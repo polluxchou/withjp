@@ -1,6 +1,6 @@
 // src/lib/competitors/shotGrid.ts
 // 纯函数：把竞品截图按日期归并成一条整页共用的日期轴与窗口。
-import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
+import type { CompetitorShot } from './types.ts'
 
 /** 无日期图片在日期轴上的占位键。 */
 export const UNDATED_KEY = '—'
@@ -64,29 +64,6 @@ export function isValidShotDate(value: unknown): boolean {
 }
 
 /**
- * 递归收集所有竞品（含 related 子主播）有图的日期，升序去重。
- * 存在 shot_on 为空的图时，末尾追加 UNDATED_KEY 作为兜底列。
- */
-export function collectShotDates(competitors: CompetitorWithHistory[]): string[] {
-  const dated = new Set<string>()
-  let hasUndated = false
-  const walk = (list: CompetitorWithHistory[]) => {
-    for (const c of list) {
-      for (const s of c.shots ?? []) {
-        if (s.shot_on) dated.add(s.shot_on)
-        else hasUndated = true
-      }
-      if (c.related?.length) walk(c.related)
-    }
-  }
-  walk(competitors ?? [])
-  // Array.from 而非展开：避免 Set 展开在当前 tsconfig 下触发 TS2802
-  const axis = Array.from(dated).sort((a, b) => a.localeCompare(b))
-  if (hasUndated) axis.push(UNDATED_KEY)
-  return axis
-}
-
-/**
  * 以 anchorIndex 为中心取 size 列，夹逼到 [0, axis.length)。
  * 靠边时向另一侧补足，仍尽量取满 size 列，保证每个竞品行的列数一致。
  * anchorIndex 为 -1（anchor 不在轴上）时按贴右处理，即取轴末尾 size 列。
@@ -109,7 +86,7 @@ export function windowOf(axis: string[], anchorIndex: number, size: number): str
 export function resolveAnchor(axis: string[], anchor: string | null): string | null {
   if (!axis.length) return null
   if (anchor && axis.includes(anchor)) return anchor
-  // 注意：UNDATED_KEY 被 collectShotDates 追加在轴尾，所以"最新一天"必须从
+  // 注意：UNDATED_KEY 被追加在轴尾（见 shotWindow.ts 的 buildShotIndex），所以"最新一天"必须从
   // 过滤掉占位键的 dated 里取，不能直接拿 axis 的末位。
   const dated = axis.filter((d) => d !== UNDATED_KEY)
   const newest = dated.length ? dated[dated.length - 1] : axis[axis.length - 1]
@@ -130,8 +107,30 @@ export function resolveAnchor(axis: string[], anchor: string | null): string | n
 }
 
 /**
+ * 看板里单个账号截图的排列：有日期的按 shot_on 倒序、同日按 sort_order 升序，无日期的垫底。
+ * assembleBoard 与 mergeShotRange 共用——补取合并后的顺序才和首屏一致。
+ */
+export function compareShotsForBoard(
+  a: Pick<CompetitorShot, 'shot_on' | 'sort_order'>,
+  b: Pick<CompetitorShot, 'shot_on' | 'sort_order'>,
+): number {
+  if (a.shot_on == null && b.shot_on == null) return a.sort_order - b.sort_order
+  if (a.shot_on == null) return 1
+  if (b.shot_on == null) return -1
+  const cmp = b.shot_on.localeCompare(a.shot_on)
+  return cmp !== 0 ? cmp : a.sort_order - b.sort_order
+}
+
+/** 截图时刻（毫秒）：采集脚本/插件写的 captured_at 优先，人工上传没有它，退回入库时刻。读不出为 NaN。 */
+function shotMoment(s: Pick<CompetitorShot, 'captured_at' | 'created_at'>): number {
+  return Date.parse(s.captured_at ?? s.created_at)
+}
+
+/**
  * 按日期归组；shot_on 为空归入 UNDATED_KEY。
- * 组内按 sort_order 再 created_at 升序，首张即该日封面。
+ * 组内按时间正序：sort_order → 截图时刻 → id 兜底。末张是当天最新的一张，即封面（见 coverOf）。
+ * 时刻按数值比而不是字符串：时间戳写法不统一（Z / +00:00 混用、小数秒位数不定），字符串比较会排错。
+ * NaN 相减仍是 NaN，被 || 当成"相等"，落到 id 兜底。
  */
 export function groupShotsByDate(shots: CompetitorShot[]): Map<string, CompetitorShot[]> {
   const map = new Map<string, CompetitorShot[]>()
@@ -142,9 +141,17 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
     map.set(key, arr)
   }
   for (const arr of Array.from(map.values())) {
-    arr.sort((a, b) => (a.sort_order - b.sort_order) || a.created_at.localeCompare(b.created_at))
+    arr.sort((a, b) => (a.sort_order - b.sort_order) || (shotMoment(a) - shotMoment(b)) || a.id.localeCompare(b.id))
   }
   return map
+}
+
+/**
+ * 当天封面：组内（groupShotsByDate 的时间正序）最后一张，即最新截的那张——插件刚截的图会立刻
+ * 成为封面，相当于上传成功的回执。灯箱也从这张打开（往左是更早的），胶片条与下载序号仍按时间正序。
+ */
+export function coverOf<T>(dayShots: T[]): T | undefined {
+  return dayShots[dayShots.length - 1]
 }
 
 /**

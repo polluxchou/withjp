@@ -13,7 +13,7 @@ import { checkProfileLanguage } from './profileLanguage.ts'
 import { RULER_WINDOW_DAYS } from './regionRuler.ts'
 import { STALE_DAYS, competitorName, daysBetween } from './summary.ts'
 import { shotUptimeParts } from './types.ts'
-import type { CompetitorBoard, CompetitorShot, CompetitorWithHistory, HistoryPoint } from './types.ts'
+import type { AskShot, CompetitorBoard, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
 const DAY_MS = 86_400_000
 
@@ -250,7 +250,7 @@ export function followersOf(history: HistoryPoint[]): AskFollowers {
  * 两处才不会各算各的——这个数据包整份交给模型，一处说「播过 3 场」、另一处说「0 场有开播时刻」
  * 是模型没法调和的矛盾。
  */
-function startsUpTo(c: CompetitorWithHistory, nowMs: number): string[] {
+function startsUpTo(c: CompetitorWithHistory<AskShot>, nowMs: number): string[] {
   return liveStartsOf(c).filter((iso) => Date.parse(iso) <= nowMs)
 }
 
@@ -269,7 +269,7 @@ function startsUpTo(c: CompetitorWithHistory, nowMs: number): string[] {
  * 把 UTC 时刻转成人话，必须在喂给它之前转好，否则它只能原样报出 UTC 时刻，
  * 读者会拿着 zh/ja 界面读出一个差 7-9 小时的错误钟点。
  */
-function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): AskLiveHabit {
+function liveHabitOf(c: CompetitorWithHistory<AskShot>, timeZone: string, now: Date): AskLiveHabit {
   const nowMs = now.getTime()
   const cutoff = nowMs - RULER_WINDOW_DAYS * DAY_MS
 
@@ -301,8 +301,11 @@ function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): Ask
   }
 }
 
-/** 只收截图列表本身——测试也就不用为了几张图造出整棵档案树（同 summary.ts 的取舍）。 */
-export function shotsOf(shots: CompetitorShot[], timeZone: string): AskShots {
+/**
+ * 只收截图列表本身——测试也就不用为了几张图造出整棵档案树（同 summary.ts 的取舍）。
+ * 入参只要求问答列（AskShot），完整的 CompetitorShot 也照收。
+ */
+export function shotsOf(shots: AskShot[], timeZone: string): AskShots {
   const dates = Array.from(
     new Set(shots.map((s) => s.shot_on).filter((d): d is string => d != null)),
   ).sort((a, b) => b.localeCompare(a))
@@ -330,7 +333,7 @@ export function shotsOf(shots: CompetitorShot[], timeZone: string): AskShots {
 }
 
 interface FlatEntry {
-  c: CompetitorWithHistory
+  c: CompetitorWithHistory<AskShot>
   parentHandle: string | null
 }
 
@@ -342,7 +345,7 @@ interface FlatEntry {
  * （下探发现的子账号 parent_id 只会指向顶层竞品，不会反过来指回子孙），
  * 这个前提一旦被打破这里会死循环——这是文档而非代码修复。
  */
-function flatten(list: CompetitorWithHistory[], parentHandle: string | null): FlatEntry[] {
+function flatten(list: CompetitorWithHistory<AskShot>[], parentHandle: string | null): FlatEntry[] {
   const out: FlatEntry[] = []
   for (const c of list) {
     out.push({ c, parentHandle })
@@ -364,7 +367,7 @@ function healthOf(latestCapturedOn: string | null, todayTokyo: string): AskHealt
   return { metricsAgeDays: age, stale: age > STALE_DAYS }
 }
 
-export function buildAskContext(board: CompetitorBoard, now: Date, locale: string): AskContext {
+export function buildAskContext(board: CompetitorBoard<AskShot>, now: Date, locale: string): AskContext {
   const displayTimeZone = timeZoneForLocale(locale)
   const todayTokyo = dayIn(now, SHOT_TZ)
   const flat = flatten(board.competitors, null)

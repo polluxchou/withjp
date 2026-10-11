@@ -63,6 +63,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     latest: over.latest ?? latestFromHistory(history),
     history,
     shots: over.shots ?? [],
+    sessionShots: over.sessionShots ?? [],
     weekly: over.weekly ?? [],
     related: over.related ?? [],
     descriptions: over.descriptions ?? [],
@@ -71,7 +72,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
 }
 
 function board(competitors: CompetitorWithHistory[]): CompetitorBoard {
-  return { competitors, canEdit: true }
+  return { competitors, canEdit: true, shotAxis: [], shotsLoadedFrom: null }
 }
 
 test('meta.todayTokyo 按东京日算，跨日不会错一天', () => {

@@ -5,6 +5,7 @@ import {
   MAIN_EDITING_NARROW_VH,
   MAIN_MAX_VH,
   lightboxNeighbors,
+  revealScrollDelta,
   showsNeighbors,
 } from './lightboxLayout.ts'
 
@@ -71,4 +72,31 @@ test('邻图显示与否只看折叠态高度：开关编辑区不该让两侧�
   assert.equal(before, after)
   // 常态放不下的视口，不会因为编辑态变矮就突然放得下
   assert.equal(showsNeighbors(768, 1024), false)
+})
+
+// 胶片条的滚动：选中的缩略图要滚进可视区。入参是 getBoundingClientRect 的 left/right（视口坐标），
+// 返回值直接加到容器的 scrollLeft 上。
+const STRIP = { left: 100, right: 300 }
+
+test('revealScrollDelta: 缩略图完全在容器内，不用滚', () => {
+  assert.equal(revealScrollDelta(STRIP, { left: 150, right: 174 }), 0)
+})
+
+test('revealScrollDelta: 左侧露出容器，往左滚（负值，量为超出的那一截）', () => {
+  assert.equal(revealScrollDelta(STRIP, { left: 80, right: 104 }), -20)
+})
+
+test('revealScrollDelta: 右侧露出容器，往右滚（正值，量为超出的那一截）', () => {
+  // 默认选中最后一张、一天的张数多到排不下时的常态
+  assert.equal(revealScrollDelta(STRIP, { left: 290, right: 314 }), 14)
+})
+
+test('revealScrollDelta: 刚好贴边不算露出', () => {
+  assert.equal(revealScrollDelta(STRIP, { left: 100, right: 124 }), 0)
+  assert.equal(revealScrollDelta(STRIP, { left: 276, right: 300 }), 0)
+})
+
+test('revealScrollDelta: 缩略图比容器还宽时对齐左边缘', () => {
+  assert.equal(revealScrollDelta(STRIP, { left: 130, right: 360 }), 30)
+  assert.equal(revealScrollDelta(STRIP, { left: 40, right: 280 }), -60)
 })
