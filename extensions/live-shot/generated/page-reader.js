@@ -35,6 +35,18 @@ export const PROBE_CONFIG = {
   "chatSubtree": true,
   "sidebarChannel": [
     "[data-e2e=\"live-side-nav-channel\"]"
+  ],
+  "sidebarChannelTitle": [
+    "[data-e2e=\"live-side-nav-channel-title\"]"
+  ],
+  "followingTitles": [
+    "following",
+    "关注",
+    "已关注",
+    "正在关注",
+    "追蹤中",
+    "フォロー中",
+    "フォロー"
   ]
 }
 
@@ -439,7 +451,9 @@ export function readLivePage(cfg) {
     clip: clip,
     viewer: sample ? sample.viewer : null,
     viewerSource: sample ? sample.viewer_source : null,
-    coLive: sample ? sample.co_live : null
+    coLive: sample ? sample.co_live : null,
+    // 侧栏读没读到、为什么没读到（liveProbe 的 co_live_status）；弹窗据此提示
+    coLiveStatus: sample && sample.co_live_status ? sample.co_live_status : null
   }
 })(window, document, cfg)
 }
