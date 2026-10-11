@@ -2,7 +2,7 @@
 
 日期:2026-07-01
 状态:已评审通过,待实现
-实现隔离:worktree `$HOME/Code/newWith-spacepan`(分支 `feat/venue-space-pan`)。
+实现隔离:独立 git worktree(分支 `feat/venue-space-pan`)。
 
 ## 背景与目标
 3D 视图目前左键旋转、右键/双指平移、滚轮缩放。用户希望增加一种更顺手的平移方式:**按住空格 + 左键拖拽 = 平移画面中心**(相机角度不变,只移动 orbit 中心),松开空格恢复左键旋转。这是很多 3D 软件的标准手感。
