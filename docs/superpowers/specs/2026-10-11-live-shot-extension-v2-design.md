@@ -64,7 +64,8 @@
 | `isStale(item, nowMs)` | `nowMs - capturedAt >= STALE_AFTER_MS`。截图时刻在未来（本机时钟被往回拨过）不算过期 |
 | `stripOrder(items)` | 新的在左 |
 | `tileTime(capturedAt, nowMs, timeZone?)` | 按 `timeZone`（缺省为本机时区）比日期：与 `nowMs` 同一天给「14:05」，前一天给「昨 09:02」，其它（更早或在未来）给「10-08 09:02」 |
-| `evictionNotice(evicted, timeZone?)` | 「最早 1 张未上传的已被挤掉（@xxx 10:02）」；挤掉多张时写张数和最早那张 |
+| `stampTime(capturedAt, timeZone?)` | 确认页上的完整时刻「10-10 13:41」 |
+| `evictionNotice(evicted, nowMs, timeZone?)` | 「最早 1 张未上传的已被挤掉（@xxx 10:02）」；挤掉多张时写张数和最早那张；时间写法同 `tileTime` |
 
 ### 3.3 存储：`extensions/live-shot/lib/stashDb.js`（IndexedDB 薄外壳）
 
