@@ -41,6 +41,21 @@ test('parseMarkdown: 标题去掉收尾井号，标题里可以有粗体', () =>
   ])
 })
 
+test('parseMarkdown: 标题收尾井号——C# 这种贴着字的不剥，只有井号的空标题不输出', () => {
+  assert.deepEqual(parseMarkdown('## 用 C#'), [{ type: 'heading', level: 2, children: [text('用 C#')] }])
+  assert.deepEqual(parseMarkdown('### 结论 ###   '), [{ type: 'heading', level: 3, children: [text('结论')] }])
+  assert.deepEqual(parseMarkdown('## ##'), [])
+})
+
+test('parseMarkdown: 标题中间一长串空白不会让收尾井号的处理变成平方级', () => {
+  const md = '## a' + ' '.repeat(40000) + 'b'
+  const t0 = performance.now()
+  const blocks = parseMarkdown(md)
+  const ms = performance.now() - t0
+  assert.deepEqual(blocks, [{ type: 'heading', level: 2, children: [text('a' + ' '.repeat(40000) + 'b')] }])
+  assert.ok(ms < 50, `took ${ms.toFixed(1)}ms`)
+})
+
 test('parseMarkdown: 井号后不跟空格不是标题，七个井号也不是', () => {
   assert.deepEqual(parseMarkdown('##没空格'), [{ type: 'paragraph', children: [text('##没空格')] }])
   assert.deepEqual(parseMarkdown('####### 七个'), [{ type: 'paragraph', children: [text('####### 七个')] }])
@@ -119,6 +134,21 @@ test('parseMarkdown: 列表第一项就缩进时按顶层处理', () => {
   assert.deepEqual(blocks, [
     { type: 'list', ordered: false, start: 1, items: [{ children: [text('孤儿')], sublist: null }] },
   ])
+})
+
+test('parseMarkdown: 整体缩进的列表按第一项的缩进算顶层，不把后面几项挂成嵌套', () => {
+  const flat = parseMarkdown('  - a\n  - b\n  - c') as Extract<Block, { type: 'list' }>[]
+  assert.equal(flat.length, 1)
+  assert.deepEqual(flat[0].items.map((it) => [it.children, it.sublist]), [
+    [[text('a')], null],
+    [[text('b')], null],
+    [[text('c')], null],
+  ])
+  // 在这个基准上再缩两格才是嵌套
+  const nested = parseMarkdown('  - a\n    - a1\n  - b') as Extract<Block, { type: 'list' }>[]
+  assert.equal(nested[0].items.length, 2)
+  assert.deepEqual(nested[0].items[0].sublist?.items.map((it) => it.children), [[text('a1')]])
+  assert.equal(nested[0].items[1].sublist, null)
 })
 
 test('parseMarkdown: 1. 有序列表，记住起始序号', () => {

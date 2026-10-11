@@ -1,6 +1,6 @@
 // src/lib/markdown/miniMarkdown.ts
 // 极简 markdown → 块级 AST。只认「开播时段趋势总结」实际会用到的那几样：
-//   块级：## / ### 标题、段落、- 无序列表（两格缩进一层嵌套）、1. 有序列表、GFM 竖线表格、--- 分隔线
+//   块级：## / ### 标题、段落、- 无序列表（比第一项多缩两格 = 一层嵌套）、1. 有序列表、GFM 竖线表格、--- 分隔线
 //   行内：**粗体**、`代码`、普通文本、反斜杠转义
 // 其余语法（链接、斜体、引用、代码块、HTML……）一律当普通文字原样留着，绝不抛错。
 //
@@ -239,6 +239,22 @@ function tableRow(line: string, width: number): InlineNode[][] {
   return cells.map((c) => parseInline(c))
 }
 
+/**
+ * 去掉标题的收尾井号（"## 标题 ##" → "标题"）。井号前必须是空白才算收尾，"C#" 里的不动；
+ * 整行只剩井号返回空串。
+ *
+ * 不用 /(^|\s+)#+\s*$/ 这类正则：标题中间夹一长串空白时它逐个起点回溯，是平方级的
+ * （4 万个空格实测七百多毫秒）。这里只从尾部往前扫一遍。
+ */
+function stripClosingHashes(raw: string): string {
+  const s = raw.trimEnd()
+  let end = s.length
+  while (end > 0 && s[end - 1] === '#') end--
+  if (end === s.length) return s.trim()
+  if (end === 0) return ''
+  return isSpace(s[end - 1]) ? s.slice(0, end).trim() : s.trim()
+}
+
 function appendLine(children: InlineNode[], text: string) {
   if (children.length > 0) children.push({ type: 'break' })
   for (const node of parseInline(text)) {
@@ -272,6 +288,9 @@ function parseBlocks(input: string): Block[] {
   let paragraph: { type: 'paragraph'; children: InlineNode[] } | null = null
   let list: ListBlock | null = null
   let table: TableBlock | null = null
+  // 当前列表第一项的缩进 = 这个列表的顶层基准。整体缩进两格写的列表（"  - a\n  - b"）
+  // 每项都是顶层；比基准再多缩两格才是嵌套。新开列表时重设，所以 close() 不用管它。
+  let listIndent = 0
   const close = () => {
     paragraph = null
     list = null
@@ -303,8 +322,8 @@ function parseBlocks(input: string): Block[] {
     const heading = HEADING_RE.exec(line)
     if (heading) {
       close()
-      // 去掉收尾的井号（"## 标题 ##"）；整行只有井号的空标题不输出。
-      const content = heading[2].replace(/(^|\s+)#+\s*$/, '').trim()
+      // 整行只有井号的空标题不输出。
+      const content = stripClosingHashes(heading[2])
       if (content) blocks.push({ type: 'heading', level: heading[1].length <= 2 ? 2 : 3, children: parseInline(content) })
       continue
     }
@@ -331,8 +350,8 @@ function parseBlocks(input: string): Block[] {
       const item: ListItem = { children: parseInline((bullet ? bullet[2] : ordered![3]).trim()), sublist: null }
       paragraph = null
       const current: ListBlock | null = list
-      if (current && indent >= 2 && current.items.length > 0) {
-        // 缩进 ≥ 2：挂到上一项下面。子列表的有序/无序按它的第一项定，后来混进的另一种也并进去（少见，不另起）。
+      if (current && indent >= listIndent + 2 && current.items.length > 0) {
+        // 比基准多缩 ≥ 2 格：挂到上一项下面。子列表的有序/无序按它的第一项定，后来混进的另一种也并进去（少见，不另起）。
         const parent = current.items[current.items.length - 1]
         if (!parent.sublist) parent.sublist = { type: 'list', ordered: isOrdered, start, items: [] }
         parent.sublist.items.push(item)
@@ -341,6 +360,7 @@ function parseBlocks(input: string): Block[] {
       } else {
         close()
         const next: ListBlock = { type: 'list', ordered: isOrdered, start, items: [item] }
+        listIndent = indent
         list = next
         blocks.push(next)
       }
