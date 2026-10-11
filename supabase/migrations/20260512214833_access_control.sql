@@ -9,12 +9,10 @@
 
 alter table users add column if not exists is_admin boolean not null default false;
 
--- Set the designated admin account
-update users
-set is_admin = true
-from auth.users au
-where users.id = au.id
-  and lower(au.email) = 'hkiaowzf@gmail.com';
+-- 首个管理员不在迁移里指定（本仓库是 public，不写具体邮箱）。
+-- 应用本迁移后，在 Supabase SQL Editor 手动执行一次：
+--   update users set is_admin = true
+--   where id = (select id from auth.users where lower(email) = lower('<admin email>'));
 
 -- ── 2. Ownership tracking on content tables ──────────────────
 
