@@ -63,7 +63,9 @@ const titleArg = opt('title')
 const subtitleArg = opt('subtitle')
 const generatedOn = opt('generated-on', todayLocal())
 const source = opt('source', 'auto')
-const dryRun = opt('dry-run') === true
+// 只看有没有这个开关、不看它后面跟了什么：opt() 遇到后面跟值（--dry-run yes）会返回那个值，
+// 拿它 === true 判断就成了 false —— 本想预览，结果真写了库。
+const dryRun = args.includes('--dry-run')
 
 function usage(msg) {
   console.error(msg)
