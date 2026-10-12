@@ -19,7 +19,9 @@ export interface ShotOverlaySections {
   strip: boolean
   /** 改日期 + 删除的入口。 */
   edit: boolean
-  /** 四段全空 —— 渐变层整个不画，图上只剩左上角那两颗胶囊。 */
+  /** 「同期在播」：这张截图有同一秒别家的读数（或读数请求失败要报一句）时才有。 */
+  coLive: boolean
+  /** 五段全空 —— 渐变层整个不画，图上只剩左上角那两颗胶囊。 */
   footer: boolean
 }
 
@@ -30,6 +32,7 @@ export function shotOverlaySections(
   shot: OverlayInput | null | undefined,
   canEdit: boolean,
   total: number,
+  coLiveAvailable = false,
 ): ShotOverlaySections {
   // 渲染期夹逼兜底那一帧可能没有选中项。此时连编辑入口都不给：
   // 编辑区的作用对象就是选中项，没有对象的"删除"按钮点下去什么都不做。
@@ -43,7 +46,9 @@ export function shotOverlaySections(
   // 仍然要留着它，否则画面上没有任何翻页手段。
   const strip = has && total > 1
   const edit = has && canEdit
-  return { live, caption, strip, edit, footer: live || caption || strip || edit }
+  // 同期段由调用方告知有没有东西可画（读数来自另一次请求，不在 shot 字段里）
+  const coLive = has && coLiveAvailable
+  return { live, caption, strip, edit, coLive, footer: live || caption || strip || edit || coLive }
 }
 
 /** 备注折叠时显示几行。与组件里的 `line-clamp-2` 同步。 */
