@@ -6,7 +6,7 @@ import { parseCount } from './metrics.ts'
 export const QUICK_SHOT_TAG = 'live_manual'
 const SHOT_TZ = 'Asia/Tokyo'
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000
-const MAX_PAST_SKEW_MS = 60 * 60 * 1000
+const MAX_PAST_SKEW_MS = 24 * 60 * 60 * 1000
 const MAX_CO_LIVE = 50
 const MAX_VIEWER_TEXT = 16
 const MAX_HANDLE = 64
@@ -41,8 +41,9 @@ export function normalizeHandle(raw: unknown): string {
 }
 
 /**
- * 读数时刻用客户端传的（弹窗开着等一会儿再上传是正常的，但超过 1 小时前或比服务器快 5 分钟以上
- * 都视为时钟/单位异常，例如传了秒而不是毫秒），异常或非法就改用服务器时间。
+ * 读数时刻用客户端传的。插件会在本地暂存还没上传的截图，隔几个小时再补传是正常的，
+ * 所以「过去」最多认 24 小时（插件那边满 23 小时 50 分就置灰不让传）；比服务器快 5 分钟以上、
+ * 或早于 24 小时都视为时钟/单位异常（例如传了秒而不是毫秒），异常或非法就改用服务器时间。
  */
 export function resolveCapturedAt(clientMs: unknown, serverMs: number): number {
   const raw = typeof clientMs === 'string' ? Number(clientMs) : clientMs
@@ -57,6 +58,18 @@ export function resolveCapturedAt(clientMs: unknown, serverMs: number): number {
 /** 归档日期 = 读数时刻的日本时间日期，与自动巡检的 shot_on 同一口径。 */
 export function shotOnFor(ms: number): string {
   return isoDateInTimeZone(new Date(ms), SHOT_TZ)
+}
+
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * ms 所在日本时间自然日的起止时刻 [00:00, 次日 00:00)，用于「今日上传」按上传时刻计数。
+ * 日本没有夏令时，一天恒为 24 小时，直接按 +09:00 偏移算。
+ */
+export function jstDayBounds(ms: number): { startIso: string; endIso: string } {
+  const start = Math.floor((ms + JST_OFFSET_MS) / DAY_MS) * DAY_MS - JST_OFFSET_MS
+  return { startIso: new Date(start).toISOString(), endIso: new Date(start + DAY_MS).toISOString() }
 }
 
 /** 人数原文：去空白，空串给 null；超过 16 个字符视为异常（正常最长也就「1,234,567」这种），给 null —— 既防 parseCount 的正则回溯拖垮请求，也防超长文本入库。 */

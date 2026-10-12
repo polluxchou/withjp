@@ -5,7 +5,7 @@ import test from 'node:test'
 import vm from 'node:vm'
 
 import { PROBE_VERSION, defaultProbeConfig } from './liveProbe.ts'
-import { PAGE_READER_SRC, SIDEBAR_CHANNEL, extensionProbeConfig, renderReaderModule } from './pageReader.ts'
+import { FOLLOWING_TITLES, PAGE_READER_SRC, SIDEBAR_CHANNEL, SIDEBAR_CHANNEL_TITLE, extensionProbeConfig, renderReaderModule } from './pageReader.ts'
 
 // ---- 假 DOM：只造读取函数会碰到的部分 ----------------------------------------
 // 不叫 Node：会遮住 DOM 的全局类型。
@@ -15,22 +15,29 @@ function navItem(handle: string, count: string): FakeNode {
   const inner: Record<string, FakeNode> = { '[data-e2e="live-side-nav-name"]': el(handle), '[data-e2e="person-count"]': el(count) }
   return { textContent: `${handle} ${count}`, querySelector: (s) => inner[s] ?? null }
 }
-function channel(items: FakeNode[]): FakeNode {
-  return { textContent: '', querySelectorAll: (s) => (s === '[data-e2e="live-side-nav-item"]' ? items : []) }
+const CHANNEL_TITLE = '[data-e2e="live-side-nav-channel-title"]'
+function channel(title: string, items: FakeNode[]): FakeNode {
+  return {
+    textContent: title,
+    querySelector: (s) => (s === CHANNEL_TITLE ? el(title) : null),
+    querySelectorAll: (s) => (s === '[data-e2e="live-side-nav-item"]' ? items : []),
+  }
 }
 
 const CHAT_BOX = '[data-e2e="live-chat-container"]'
 
-function makePage() {
+function makePage(channels?: FakeNode[]) {
   const video = { muted: false, volume: 1, videoWidth: 540, videoHeight: 960, readyState: 4, getBoundingClientRect: () => ({ x: 100, y: 0, width: 800, height: 900 }) }
   const roomKids = [el(''), el('Viewers· 99')]
   const room: FakeNode = { textContent: 'Viewers· 99', querySelectorAll: (s) => (s === 'div' ? roomKids : []) }
-  const following = channel([navItem('1mb.dear', '103'), navItem('uni.chuuu', '64')])
-  const suggested = channel([navItem('stranger', '692')])
+  const chans = channels ?? [
+    channel('Following', [navItem('1mb.dear', '103'), navItem('uni.chuuu', '64')]),
+    channel('Suggested LIVE creators', [navItem('stranger', '692')]),
+  ]
   const map: Record<string, unknown> = { video, [CHAT_BOX]: room }
   const all: Record<string, FakeNode[]> = {
-    '[data-e2e="live-side-nav-channel"]': [following, suggested],
-    '[data-e2e="live-side-nav-item"]': [...following.querySelectorAll!('[data-e2e="live-side-nav-item"]'), ...suggested.querySelectorAll!('[data-e2e="live-side-nav-item"]')],
+    '[data-e2e="live-side-nav-channel"]': chans,
+    '[data-e2e="live-side-nav-item"]': chans.flatMap((c) => c.querySelectorAll!('[data-e2e="live-side-nav-item"]')),
   }
   const doc = {
     location: { pathname: '/@1mb.dear/live', href: 'https://www.tiktok.com/@1mb.dear/live' },
@@ -72,6 +79,7 @@ test('读一次：画面矩形、房间面板人数、只含 Following 的同期
     { handle: '1mb.dear', viewer: '103' },
     { handle: 'uni.chuuu', viewer: '64' },
   ])
+  assert.equal(r.coLiveStatus, 'ok')
 })
 
 test('读一次：不动播放器', () => {
@@ -139,22 +147,46 @@ test('visualScale：触控板双指缩放时如实报出，平时是 1', () => {
   assert.equal(reader(plain.win, plain.doc, extensionProbeConfig()).visualScale, 1)
 })
 
-test('extensionProbeConfig：在默认配置上只改 intervalMs / chatHost / sidebarChannel', () => {
+test('extensionProbeConfig：在默认配置上只改 intervalMs / chatHost / 侧栏三项', () => {
   const c = extensionProbeConfig()
   assert.equal(c.intervalMs, 0)
   assert.deepEqual(c.chatHost, [])
   assert.deepEqual(c.sidebarChannel, SIDEBAR_CHANNEL)
-  const { intervalMs: _i, chatHost: _c, sidebarChannel: _s, ...rest } = c
+  assert.deepEqual(c.sidebarChannelTitle, SIDEBAR_CHANNEL_TITLE)
+  assert.deepEqual(c.followingTitles, FOLLOWING_TITLES)
+  const { intervalMs: _i, chatHost: _c, sidebarChannel: _s, sidebarChannelTitle: _t, followingTitles: _f, ...rest } = c
   const { intervalMs: _di, chatHost: _dc, ...defaults } = defaultProbeConfig()
   assert.deepEqual(rest, defaults)
 })
 
-test('extensionProbeConfig：sidebarChannel 是副本，改它不影响常量', () => {
-  const before = [...SIDEBAR_CHANNEL]
+test('extensionProbeConfig：侧栏三项都是副本，改它们不影响常量', () => {
+  const before = [[...SIDEBAR_CHANNEL], [...SIDEBAR_CHANNEL_TITLE], [...FOLLOWING_TITLES]]
   const c = extensionProbeConfig()
   c.sidebarChannel!.push('x')
-  assert.deepEqual(SIDEBAR_CHANNEL, before)
-  assert.deepEqual(extensionProbeConfig().sidebarChannel, before)
+  c.sidebarChannelTitle!.push('x')
+  c.followingTitles!.push('x')
+  assert.deepEqual([SIDEBAR_CHANNEL, SIDEBAR_CHANNEL_TITLE, FOLLOWING_TITLES], before)
+  const again = extensionProbeConfig()
+  assert.deepEqual([again.sidebarChannel, again.sidebarChannelTitle, again.followingTitles], before)
+})
+
+test('FOLLOWING_TITLES：都已是规范形（小写、无首尾空白），英中日三种界面都在', () => {
+  for (const t of FOLLOWING_TITLES) assert.equal(t, t.trim().toLowerCase())
+  for (const t of ['following', '关注', 'フォロー中']) assert.ok(FOLLOWING_TITLES.includes(t), t)
+})
+
+test('读一次：侧栏只剩 Following 一个频道也照读', () => {
+  const { win, doc } = makePage([channel('Following', [navItem('1mb.dear', '103')])])
+  const r = reader(win, doc, extensionProbeConfig())
+  assert.deepEqual(r.coLive, [{ handle: '1mb.dear', viewer: '103' }])
+  assert.equal(r.coLiveStatus, 'ok')
+})
+
+test('读一次：只有推荐区 → coLive 为 null、coLiveStatus 说明原因', () => {
+  const { win, doc } = makePage([channel('Suggested LIVE creators', [navItem('stranger', '692')])])
+  const r = reader(win, doc, extensionProbeConfig())
+  assert.equal(r.coLive, null)
+  assert.equal(r.coLiveStatus, 'no_following')
 })
 
 test('renderReaderModule：产出可被扩展 import 的模块文本', () => {

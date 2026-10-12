@@ -639,7 +639,7 @@ const CHANNEL = '[data-e2e="live-side-nav-channel"]'
 function channel(items: FakeEl[]): FakeEl {
   return { textContent: '', querySelectorAll: (s) => (s === '[data-e2e="live-side-nav-item"]' ? items : []) }
 }
-function coLiveWith(channels: FakeEl[], over: Record<string, unknown>) {
+function sampleWith(channels: FakeEl[], over: Record<string, unknown>) {
   const all: Record<string, FakeEl[]> = {
     [CHANNEL]: channels,
     '[data-e2e="live-side-nav-item"]': channels.flatMap((c) => c.querySelectorAll!('[data-e2e="live-side-nav-item"]')),
@@ -649,7 +649,10 @@ function coLiveWith(channels: FakeEl[], over: Record<string, unknown>) {
   factory(win, doc, cfg({ ...VIEWER_CFG, ...over }))
   const lw = (win as Record<string, any>).__lw
   lw.tick()
-  return lw.drain()[0].co_live
+  return lw.drain()[0]
+}
+function coLiveWith(channels: FakeEl[], over: Record<string, unknown>) {
+  return sampleWith(channels, over).co_live
 }
 
 test('同期横截面：设了 sidebarChannel 且有两个频道 → 只取第一个（Following）', () => {
@@ -701,6 +704,106 @@ test('同期横截面：Following 频道在但里面没人在播 → null，不�
 
 test('defaultProbeConfig 不带 sidebarChannel —— 采集器的 cfgKey 不能因此变化', () => {
   assert.equal('sidebarChannel' in defaultProbeConfig(), false)
+})
+
+// ---- 按标题认 Following（第二版）-------------------------------------------
+// 首日真机：前 10 次上传侧栏只剩 1 个频道，「不足 2 个就当只剩推荐区」把唯一的
+// Following 也丢了。改成先按标题认，认不出才退回「≥2 取第一个」。
+
+const TITLE = '[data-e2e="live-side-nav-channel-title"]'
+const BY_TITLE = { sidebarChannel: [CHANNEL], sidebarChannelTitle: [TITLE], followingTitles: ['following', 'フォロー中'] }
+function titled(title: string, items: FakeEl[]): FakeEl {
+  return {
+    textContent: title,
+    querySelector: (s) => (s === TITLE ? el(title) : null),
+    querySelectorAll: (s) => (s === '[data-e2e="live-side-nav-item"]' ? items : []),
+  }
+}
+
+test('按标题认 Following：只有一个频道、标题是 Following → 照读，不再当成只剩推荐区', () => {
+  const s = sampleWith([titled('Following', [navItem('a', '99')])], BY_TITLE)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+})
+
+test('按标题认 Following：推荐区排在前面也只读 Following', () => {
+  const s = sampleWith([
+    titled('Suggested LIVE creators', [navItem('stranger', '692')]),
+    titled('Following', [navItem('a', '99')]),
+  ], BY_TITLE)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+})
+
+test('按标题认 Following：大小写、换行、多余空白不影响；配置里写成大写也认；只是「含有」following 字样不算', () => {
+  assert.equal(sampleWith([titled('  FOLLOWING\n ', [navItem('a', '99')])], BY_TITLE).co_live_status, 'ok')
+  assert.equal(sampleWith([titled('フォロー中', [navItem('a', '99')])], BY_TITLE).co_live_status, 'ok')
+  assert.equal(sampleWith([titled('following', [navItem('a', '99')])], { ...BY_TITLE, followingTitles: ['Following'] }).co_live_status, 'ok')
+  const s = sampleWith([titled('Suggested for following', [navItem('stranger', '692')])], BY_TITLE)
+  assert.equal(s.co_live, null)
+  assert.equal(s.co_live_status, 'no_following')
+})
+
+// 上一条里的 '  FOLLOWING\n ' 只测得到大小写：页面标题进 normTitle 之前已被 textOf 去过首尾
+// 空白。要测空白规范化本身，得让空白出现在「词与词之间」，并且配置那一侧也带留白。
+test('按标题认 Following：标题内部的空白串与配置侧的首尾/多重空白一律规范化；压成一个空格但不会吞掉空格', () => {
+  const over = { ...BY_TITLE, followingTitles: ['  Live   Following '] }
+  const s = sampleWith([titled('live\n  FOLLOWING', [navItem('a', '99')])], over)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+  // 反向：压空白不是删空白 —— 词之间没有空白的标题不能被当成同一个
+  const glued = sampleWith([titled('livefollowing', [navItem('stranger', '692')])], over)
+  assert.equal(glued.co_live, null)
+  assert.equal(glued.co_live_status, 'no_following')
+})
+
+test('按标题认 Following：标题都不认识、频道 ≥2 → 退回读第一个（防 TikTok 改了标题文案）', () => {
+  const s = sampleWith([
+    titled('Abonnements', [navItem('a', '99')]),
+    titled('Suggestions', [navItem('stranger', '692')]),
+  ], BY_TITLE)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+})
+
+test('按标题认 Following：只有推荐区一个频道 → null + no_following，绝不拿推荐区顶替', () => {
+  const s = sampleWith([titled('Suggested LIVE creators', [navItem('stranger', '692')])], BY_TITLE)
+  assert.equal(s.co_live, null)
+  assert.equal(s.co_live_status, 'no_following')
+})
+
+test('侧栏状态：一个频道都没有 → no_channels；Following 在但没有带名字的条目 → empty', () => {
+  const none = sampleWith([], BY_TITLE)
+  assert.equal(none.co_live, null)
+  assert.equal(none.co_live_status, 'no_channels')
+  const nameless: FakeEl = { textContent: '5', querySelector: (s) => (s === '[data-e2e="person-count"]' ? el('5') : null) }
+  for (const items of [[], [nameless]]) {
+    const s = sampleWith([titled('Following', items), titled('Suggested LIVE creators', [navItem('stranger', '692')])], BY_TITLE)
+    assert.equal(s.co_live, null)
+    assert.equal(s.co_live_status, 'empty')
+  }
+})
+
+test('侧栏状态：没配标题字段时不按标题认（与第一版一致）——单个 Following 频道仍报 no_following', () => {
+  const s = sampleWith([titled('Following', [navItem('a', '99')])], { sidebarChannel: [CHANNEL] })
+  assert.equal(s.co_live, null)
+  assert.equal(s.co_live_status, 'no_following')
+})
+
+test('侧栏状态：第一版两频道用例的状态是 ok', () => {
+  const s = sampleWith([channel([navItem('a', '99')]), channel([navItem('stranger', '692')])], { sidebarChannel: [CHANNEL] })
+  assert.equal(s.co_live_status, 'ok')
+})
+
+test('侧栏状态：不设 sidebarChannel → 读数里没有 co_live_status 这个键（分钟级采集器的样本结构不变）', () => {
+  const s = sampleWith([titled('Following', [navItem('a', '99')])], {})
+  assert.equal('co_live_status' in s, false)
+})
+
+test('defaultProbeConfig 不带按标题认 Following 的两个字段 —— 采集器的 cfgKey 不变', () => {
+  const d = defaultProbeConfig()
+  assert.equal('sidebarChannelTitle' in d, false)
+  assert.equal('followingTitles' in d, false)
 })
 
 // ---- subtree 模式下只数真弹幕 --------------------------------------------

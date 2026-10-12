@@ -37,3 +37,39 @@ export function uploadErrorMessage(code, handle) {
       return '上传失败，可以重试'
   }
 }
+
+// 侧栏同期人数那一行（顶部卡片第三行、放大确认页共用）。只是提示，不拦上传。
+// status 是页内读取报的 co_live_status；不认识的值（新旧版本混用等）一律按「没读到」说。
+// 用 switch 而不是对象查表：查表遇到 'toString' 这类原型键会把函数拼进文案。
+export function coLiveLine(status, coLive) {
+  const n = Array.isArray(coLive) ? coLive.length : 0
+  if (status === 'ok' && n > 0) return { text: `✓ 同期 ${n} 个`, tone: 'ok' }
+  switch (status) {
+    case 'no_following':
+      return { text: '⚠ 同期没读到：侧栏只有推荐区（TikTok 没登录，或关注的人都没在播）', tone: 'warn' }
+    case 'no_channels':
+      return { text: '⚠ 同期没读到：没找到侧栏（页面结构可能变了）', tone: 'warn' }
+    case 'empty':
+      return { text: '⚠ 同期没读到：Following 区是空的', tone: 'warn' }
+    default:
+      return { text: '⚠ 同期没读到', tone: 'warn' }
+  }
+}
+
+// 上传响应 → 弹窗怎么显示、暂存区怎么处理。
+// 只有带 data 的 201 才算传完、移出暂存区；207 = 截图已入库、人数没写进去，留着并标「人数待补」
+// （再传一次后台按截图时刻认出同一张，只补写人数）；其它一律当失败，图留着、底部计数不动。
+export function uploadOutcome(r, handle) {
+  const status = r ? r.status : 0
+  const body = r && r.body && typeof r.body === 'object' ? r.body : null
+  const data = body && body.data && typeof body.data === 'object' && !Array.isArray(body.data) ? body.data : null
+  if ((status === 201 || status === 207) && data) {
+    const name = typeof data.competitor_name === 'string' && data.competitor_name ? data.competitor_name : `@${handle}`
+    const todayUploads = typeof data.today_uploads === 'number' ? data.today_uploads : null
+    return status === 201
+      ? { kind: 'ok', stash: 'remove', name, todayUploads }
+      : { kind: 'partial', stash: 'partial', name, todayUploads }
+  }
+  if (status === 401) return { kind: 'login', stash: 'keep' }
+  return { kind: 'error', stash: 'keep', message: uploadErrorMessage(body && body.error, handle) }
+}
