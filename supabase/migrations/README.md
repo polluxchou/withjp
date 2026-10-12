@@ -74,7 +74,12 @@ select tablename, policyname from pg_policies where schemaname = 'public';
 
 - `20260512180441_creator_terminated_status.sql` 与 `20260512202100_add_terminated_creator_status.sql`
   内容等效（都是给 `creator_status` 加 `terminated`），幂等所以无害，保留仅为存档。
-- 旧编号 026、028 从未存在过（当年直接跳号），不是丢了文件。
+- ~~旧编号 026、028 从未存在过（当年直接跳号），不是丢了文件。~~ **2026-08-29 更正**：
+  026/027(第二个)/028/036(第二个)/044(第二个) 共 5 个文件当年一直躺在维护者工作区
+  **从未提交进 git**，时间戳化时因此看不到、被误判为跳号。生产库 information_schema
+  核对确认它们都已手工执行过（`agent_runs` 表、`conversations.user_id/deprecated_at`、
+  `items.name_ja`、`competitors.likes_count` 等对象均存在）。2026-08-29 已按各文件
+  mtime 换算 Asia/Tokyo 时间戳补录进本目录（见对照表带「补录」标注的行），内容未改。
 - `enable_rls_all_tables`（旧 038）实际写于旧 039 之后，时间戳命名已还原真实顺序。
 - 本次重命名**只改文件名不改内容**，对已应用的远端数据库无任何影响。
 - `docs/` 下 2026-08-08 之前的计划/设计文档引用的是旧文件名，属历史存档，按下表对照即可。
@@ -117,10 +122,14 @@ select tablename, policyname from pg_policies where schemaname = 'public';
 | 030_items.sql | 20260623014016_items.sql |
 | 031_venue_view_bookmarks.sql | 20260623014017_venue_view_bookmarks.sql |
 | 032_item_photos.sql | 20260623014018_item_photos.sql |
+| 026_agent_runs.sql（2026-08-29 补录） | 20260623014100_agent_runs.sql |
+| 027_w1_followups.sql（2026-08-29 补录） | 20260623014101_w1_followups.sql |
+| 028_deprecate_orphan_conversations.sql（2026-08-29 补录） | 20260623014102_deprecate_orphan_conversations.sql |
 | 033_venue_collaborators.sql | 20260623194634_venue_collaborators.sql |
 | 034_item_value.sql | 20260623194635_item_value.sql |
 | 033_venue_item_name_i18n.sql | 20260628221941_venue_item_name_i18n.sql |
 | 035_venue_item_placement.sql | 20260628224300_venue_item_placement.sql |
+| 036_item_name_i18n.sql（2026-08-29 补录） | 20260628232300_item_name_i18n.sql |
 | 036_venue_item_window.sql | 20260629013411_venue_item_window.sql |
 | 037_venue_item_merged_with.sql | 20260629024648_venue_item_merged_with.sql |
 | 038_venue_item_truss_light.sql | 20260701151400_venue_item_truss_light.sql |
@@ -131,6 +140,7 @@ select tablename, policyname from pg_policies where schemaname = 'public';
 | 042_work_task_org_link.sql | 20260722161523_work_task_org_link.sql |
 | 042_competitor_monitoring.sql | 20260723103402_competitor_monitoring.sql |
 | 043_competitor_dossier.sql | 20260729163344_competitor_dossier.sql |
+| 044_competitor_dossier.sql（2026-08-29 补录，改名 metrics 避免与 043 混淆） | 20260729170600_competitor_dossier_metrics.sql |
 | 044_competitor_parent.sql | 20260729173015_competitor_parent.sql |
 | 045_site_applications.sql | 20260811183310_site_applications.sql |
 | 046_enable_rls_venue_items.sql | 20260812111104_enable_rls_venue_items.sql |
@@ -138,3 +148,6 @@ select tablename, policyname from pg_policies where schemaname = 'public';
 
 （同一 git 提交里加入的多个文件时间戳相同，按原编号顺序逐个 +1 秒保证唯一，如 001–010，
 以及本表末尾的 046/047——两者同属一个提交，按原编号顺序把 047 顺延一秒。）
+
+（带「补录」标注的 5 行从未进过 git，时间戳无法取「首次提交时间」，改取各文件 mtime
+换算 Asia/Tokyo；026–028 同批创建，按编号顺序逐个 +1 秒。）
