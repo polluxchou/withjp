@@ -103,8 +103,9 @@ export default function ShotLightbox({
   // 失败的不进缓存（记在 coLiveFailedId 里）：切走再切回来时 effect 看到缓存没有就重取。
   const [coLiveCache, setCoLiveCache] = useState<Map<string, CoLiveReading[]>>(() => new Map())
   const [coLiveFailedId, setCoLiveFailedId] = useState<string | null>(null)
-  // 名单默认折叠；换一张图重置为折叠。
-  const [coLiveOpen, setCoLiveOpen] = useState(false)
+  // 名单默认展开；换一张图重置为展开。想看干净画面有右上角的「仅看图」,
+  // 和备注段同一个道理:多点一下才看得到的名单等于没画。
+  const [coLiveOpen, setCoLiveOpen] = useState(true)
 
   // 选中项兜底到最新一张(封面),一次覆盖"选中项被删"与"没传 initialId"两种情况。
   // 兜底的落点与"打开时停在封面"一致:删掉选中的那张,不会突然跳到当天最早的一张。
@@ -140,7 +141,7 @@ export default function ShotLightbox({
     // 换一张图把备注恢复成默认的展开态:上一张手动收起过,不该带到下一张。
     // 编辑区反过来保持不动 —— 清理某天的多张图时会连着删好几张。
     setCaptionOpen(true)
-    setCoLiveOpen(false)
+    setCoLiveOpen(true)
   }, [selectedId, selectedShotOn])
 
   // 选中项换了且缓存里没有：取一次。失败只记 coLiveFailedId、不进缓存，

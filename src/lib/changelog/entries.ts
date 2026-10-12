@@ -30,6 +30,12 @@ export const CHANGELOG: DailyChangelog[] = [
     date: '2026-10-12',
     items: [
       {
+        kind: 'improve',
+        scope: '竞品监测',
+        title: '放大截图时「同期在播」名单默认展开，不用再点一下',
+        details: '想看没有任何文字的干净画面，用右上角的「仅看图」即可，和备注一样。',
+      },
+      {
         kind: 'feat',
         scope: '竞品监测',
         title: '放大截图时能看到同一秒其他在播竞品的人数和本号排位',

@@ -122,7 +122,7 @@ export function buildCoLiveView(readings: CoLiveReading[], selfCompetitorId: str
 
 `ShotLightbox` 底部渐变层，直播态 chips 那行（在线 / 开播 / 已播）的正下方、备注段之上，新加一段「同期」。
 
-- **折叠（默认）**：一行摘要「同期在播 {total} 家 · 本号第 {rank} 位」+ 右侧展开箭头。`selfRank` 为 null 时摘要只写「同期在播 {total} 家」。摘要行整行可点，展开/收起与备注段同一套交互。
+- **摘要行**：「同期在播 {total} 家 · 本号第 {rank} 位」+ 右侧展开箭头。名单**默认展开**（2026-10-12 pollux 定：想看干净画面点「仅看图」即可，多点一下才看得到的名单等于没画）。`selfRank` 为 null 时摘要只写「同期在播 {total} 家」。摘要行整行可点，展开/收起与备注段同一套交互。
 - **展开**：名单按 `rows` 顺序，每行三列：名字 / 人数（右对齐、等宽数字）/ 条形（宽度 = `barRatio`）。本号那行高亮（文字与条形换成强调色），其余灰色。名单下方一行小字：「{时刻} 同一秒读数 · 仅限截图人关注且侧栏可见的在库账号」，时刻按账号地区时区显示（复用 `useRegionZone`，与开播时刻同口径）。
 - 摘要行「N 家」旁放一个信息图标，`title` 为覆盖范围说明；`selfFromCurrent` 为 true 时本号名字旁加一个小点，`title` 为「本号按房间内读数」。
 - 名单里点别家那一行：先 `onClose()`，再 `scrollToCompetitorCard(competitorId)`。本号那行不可点。
@@ -137,7 +137,7 @@ export function buildCoLiveView(readings: CoLiveReading[], selfCompetitorId: str
 - 选中截图变化时，若缓存里没有该 `shot_id`，发请求；响应到达时若选中项已换，仍写入缓存但不触发显示。
 - 加载中：这一段不画（不占位、不闪骨架），数据到了再出现。单次请求几十毫秒，闪骨架比晚出现更扰。
 - 请求失败：摘要行位置显示一行「同期数据读取失败」，不可展开，不影响看图与其它段；再次切回该张时重试。
-- 展开/收起状态随选中截图重置为折叠。
+- 展开/收起状态随选中截图重置为展开。
 
 ### 5.4 文案（三语，`competitors` 命名空间）
 
