@@ -9,6 +9,7 @@
 import { createServerClient } from '../supabase/server.ts'
 import { fetchAllRows } from '../supabase/fetchAll.ts'
 import { assembleBoard, parseHandleFromUrl } from './assemble.ts'
+import type { CoLiveReading } from './coLive.ts'
 import { assembleCompanyBoard } from './companies.ts'
 import type {
   CompanyAccountRow, CompanyBoard, CompanyCompetitorInput, CompanySnapshotInput, CompetitorCompany,
@@ -174,6 +175,47 @@ export async function getShotsInRange(
     .order('id', { ascending: true }).range(from, to))
   if (res.error) return err('db_error', res.error.message)
   return ok((res.data ?? []) as CompetitorShot[])
+}
+
+/**
+ * 一张截图关联的全部人数读数（扩展上传时写的 current + sidebar 行），带竞品名。
+ * 单张最多几十行，不分页。截图不存在或没有读数都回空数组，不是错误——
+ * 自动巡检的老截图本来就没有读数行，放大页据此整段不画。
+ */
+export async function getShotReadings(
+  shotId: string,
+): Promise<ServiceResult<{ capturedAt: string | null; rows: CoLiveReading[] }>> {
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('competitor_viewer_readings')
+    .select('competitor_id, captured_at, source, viewer_count, viewer_text, competitors(handle, display_name)')
+    .eq('shot_id', shotId)
+  if (error) return err('db_error', error.message)
+  type Row = {
+    competitor_id: string
+    captured_at: string
+    source: 'current' | 'sidebar'
+    viewer_count: number | null
+    viewer_text: string | null
+    competitors: { handle: string; display_name: string | null } | null
+  }
+  // supabase-js 把嵌套的多对一 join 推断成数组，运行时其实是单个对象，所以先过 unknown
+  const list = (data ?? []) as unknown as Row[]
+  const rows: CoLiveReading[] = []
+  for (const r of list) {
+    // 竞品被删后外键级联会把读数一起删掉，这里的 null 只是类型上的保险
+    if (!r.competitors) continue
+    rows.push({
+      competitorId: r.competitor_id,
+      handle: r.competitors.handle,
+      displayName: r.competitors.display_name,
+      source: r.source,
+      viewerCount: r.viewer_count,
+      viewerText: r.viewer_text,
+    })
+  }
+  const capturedAt = list.length ? (list[0].captured_at ?? null) : null
+  return ok({ capturedAt, rows })
 }
 
 /**

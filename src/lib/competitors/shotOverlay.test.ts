@@ -15,13 +15,13 @@ const auto = {
 
 test('自动采集 + 可编辑 + 多张：渐变层四段全开', () => {
   assert.deepEqual(shotOverlaySections(auto, true, 3), {
-    live: true, caption: true, strip: true, edit: true, footer: true,
+    live: true, caption: true, strip: true, edit: true, coLive: false, footer: true,
   })
 })
 
 test('只读 + 人工上传 + 仅此一张：渐变层整个不画，图上只剩日期胶囊', () => {
   assert.deepEqual(shotOverlaySections(manual, false, 1), {
-    live: false, caption: false, strip: false, edit: false, footer: false,
+    live: false, caption: false, strip: false, edit: false, coLive: false, footer: false,
   })
 })
 
@@ -34,7 +34,7 @@ test('只读 + 人工上传 + 多张：胶片条必须留着，否则没法翻�
 
 test('人工上传 + 可编辑 + 仅此一张：只为编辑钮留渐变层', () => {
   const s = shotOverlaySections(manual, true, 1)
-  assert.deepEqual(s, { live: false, caption: false, strip: false, edit: true, footer: true })
+  assert.deepEqual(s, { live: false, caption: false, strip: false, edit: true, coLive: false, footer: true })
 })
 
 test('caption 只有空白字符时不算有备注', () => {
@@ -57,7 +57,7 @@ test('只有开播时刻、没有在线人数：直播态照样成立', () => {
 
 test('没有选中项时全关：夹逼兜底期间不该渲染半层叠加', () => {
   assert.deepEqual(shotOverlaySections(null, true, 3), {
-    live: false, caption: false, strip: false, edit: false, footer: false,
+    live: false, caption: false, strip: false, edit: false, coLive: false, footer: false,
   })
   assert.equal(shotOverlaySections(undefined, true, 3).footer, false)
 })
@@ -99,4 +99,23 @@ test('captionOverflowsClamp: 拿不到行高时一律当作没超出', () => {
   assert.equal(captionOverflowsClamp(96, Number.NaN), false)
   assert.equal(captionOverflowsClamp(96, -5), false)
   assert.equal(captionOverflowsClamp(Number.NaN, 16), false)
+})
+
+test('coLive 为 true：只读 + 人工上传 + 仅此一张也要画渐变层，承载「同期」段', () => {
+  const s = shotOverlaySections(manual, false, 1, true)
+  assert.equal(s.coLive, true)
+  assert.equal(s.footer, true)
+  assert.equal(s.live, false)
+  assert.equal(s.caption, false)
+})
+
+test('coLive 省略或 false：返回值与改动前一致，footer 不受影响', () => {
+  assert.deepEqual(shotOverlaySections(manual, false, 1), {
+    live: false, caption: false, strip: false, edit: false, coLive: false, footer: false,
+  })
+  assert.equal(shotOverlaySections(auto, true, 3, false).coLive, false)
+})
+
+test('没有选中项时 coLive 也不画：这一段的作用对象就是选中项', () => {
+  assert.equal(shotOverlaySections(null, true, 3, true).coLive, false)
 })
