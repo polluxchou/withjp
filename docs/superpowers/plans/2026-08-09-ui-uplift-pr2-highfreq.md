@@ -14,7 +14,7 @@
 
 ## Task 0: 工作区
 
-worktree 已建好：`$HOME/Code/newWith/.claude/worktrees/ui-uplift-pr2`，分支 `feat/ui-uplift-pr2-highfreq`（origin/main 含 PR1）。`npm install` → 本计划文件 cp 进 `docs/superpowers/plans/` 并首 commit → 基线验证五绿。
+worktree 已建好：主仓下的 `.claude/worktrees/ui-uplift-pr2`，分支 `feat/ui-uplift-pr2-highfreq`（origin/main 含 PR1）。`npm install` → 本计划文件 cp 进 `docs/superpowers/plans/` 并首 commit → 基线验证五绿。
 
 ## Task 1: 仪表盘（`(app)/page.tsx` + dashboard/StatsCard + tasks/TaskCard + creators/LifecycleBadge）
 

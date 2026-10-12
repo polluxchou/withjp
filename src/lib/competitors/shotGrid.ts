@@ -1,6 +1,6 @@
 // src/lib/competitors/shotGrid.ts
 // 纯函数：把竞品截图按日期归并成一条整页共用的日期轴与窗口。
-import type { CompetitorShot, CompetitorWithHistory } from './types.ts'
+import type { CompetitorShot } from './types.ts'
 
 /** 无日期图片在日期轴上的占位键。 */
 export const UNDATED_KEY = '—'
@@ -9,6 +9,38 @@ export const UNDATED_KEY = '—'
 export const SHOT_WINDOW_SIZE = 5
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * 截图日期最多能往后选几天。
+ *
+ * 允许未来日期不是笔误：团队分布在不同时区，而 shot_on 记的是**直播当地**那一天。
+ * 加州的人（UTC-7）看到的"今天"比日本晚一天，日本 09-14 凌晨那场直播，他要归档时
+ * 本地时钟还停在 09-13 —— 只开放到"今天"的话，这一天他根本选不到。
+ *
+ * 仍然留一个上限而不是完全放开：再往后就不是时区差了，而是手滑，
+ * 一个 2027 年的日期会在日期轴上拉出一列没人能解释的孤儿。
+ */
+export const SHOT_DATE_FUTURE_DAYS = 3
+
+/**
+ * 在 YYYY-MM-DD 上加减天数，跨月跨年跨闰年都按日历天走。
+ *
+ * 走 Date.UTC 而不是本地时区的 Date：本地时区在夏令时切换那天只有 23 或 25 小时，
+ * 用 `d.setDate(d.getDate() + n)` 那一套在边界上会算出前一天（美西 3 月 8 日、
+ * 11 月 1 日各一次，团队里有人在加州）。当成 UTC 上的纯日历日就没有这个坑。
+ *
+ * 认不出的输入原样返回：产出 "NaN-NaN-NaN" 会被塞进 input 的 max，
+ * 让整个日期控件静默失效 —— 那种失效在界面上没有任何痕迹。
+ */
+export function shiftDate(ymd: string, days: number): string {
+  const t = Date.parse(ymd + 'T00:00:00Z')
+  if (Number.isNaN(t)) return ymd
+  // 回读比对一次就够：能原样回读的输入，必然是规范写法的 YYYY-MM-DD 且是真实日历日。
+  // 这一句同时挡掉了 2026-02-30(被 Date 自动进位)、2026-9-13(非规范写法)、
+  // 空串与乱码 —— 再在前面加一道正则守卫是死代码,突变探针证实过没有任何测试能杀它。
+  if (new Date(t).toISOString().slice(0, 10) !== ymd) return ymd
+  return new Date(t + days * 86_400_000).toISOString().slice(0, 10)
+}
 
 /**
  * shot_on 是否合法：null / undefined 或真实存在的 YYYY-MM-DD 日历日。
@@ -29,29 +61,6 @@ export function isValidShotDate(value: unknown): boolean {
   const d = new Date(value + 'T00:00:00Z')
   if (Number.isNaN(d.getTime())) return false
   return d.toISOString().slice(0, 10) === value
-}
-
-/**
- * 递归收集所有竞品（含 related 子主播）有图的日期，升序去重。
- * 存在 shot_on 为空的图时，末尾追加 UNDATED_KEY 作为兜底列。
- */
-export function collectShotDates(competitors: CompetitorWithHistory[]): string[] {
-  const dated = new Set<string>()
-  let hasUndated = false
-  const walk = (list: CompetitorWithHistory[]) => {
-    for (const c of list) {
-      for (const s of c.shots ?? []) {
-        if (s.shot_on) dated.add(s.shot_on)
-        else hasUndated = true
-      }
-      if (c.related?.length) walk(c.related)
-    }
-  }
-  walk(competitors ?? [])
-  // Array.from 而非展开：避免 Set 展开在当前 tsconfig 下触发 TS2802
-  const axis = Array.from(dated).sort((a, b) => a.localeCompare(b))
-  if (hasUndated) axis.push(UNDATED_KEY)
-  return axis
 }
 
 /**
@@ -77,7 +86,7 @@ export function windowOf(axis: string[], anchorIndex: number, size: number): str
 export function resolveAnchor(axis: string[], anchor: string | null): string | null {
   if (!axis.length) return null
   if (anchor && axis.includes(anchor)) return anchor
-  // 注意：UNDATED_KEY 被 collectShotDates 追加在轴尾，所以"最新一天"必须从
+  // 注意：UNDATED_KEY 被追加在轴尾（见 shotWindow.ts 的 buildShotIndex），所以"最新一天"必须从
   // 过滤掉占位键的 dated 里取，不能直接拿 axis 的末位。
   const dated = axis.filter((d) => d !== UNDATED_KEY)
   const newest = dated.length ? dated[dated.length - 1] : axis[axis.length - 1]
@@ -98,8 +107,30 @@ export function resolveAnchor(axis: string[], anchor: string | null): string | n
 }
 
 /**
+ * 看板里单个账号截图的排列：有日期的按 shot_on 倒序、同日按 sort_order 升序，无日期的垫底。
+ * assembleBoard 与 mergeShotRange 共用——补取合并后的顺序才和首屏一致。
+ */
+export function compareShotsForBoard(
+  a: Pick<CompetitorShot, 'shot_on' | 'sort_order'>,
+  b: Pick<CompetitorShot, 'shot_on' | 'sort_order'>,
+): number {
+  if (a.shot_on == null && b.shot_on == null) return a.sort_order - b.sort_order
+  if (a.shot_on == null) return 1
+  if (b.shot_on == null) return -1
+  const cmp = b.shot_on.localeCompare(a.shot_on)
+  return cmp !== 0 ? cmp : a.sort_order - b.sort_order
+}
+
+/** 截图时刻（毫秒）：采集脚本/插件写的 captured_at 优先，人工上传没有它，退回入库时刻。读不出为 NaN。 */
+function shotMoment(s: Pick<CompetitorShot, 'captured_at' | 'created_at'>): number {
+  return Date.parse(s.captured_at ?? s.created_at)
+}
+
+/**
  * 按日期归组；shot_on 为空归入 UNDATED_KEY。
- * 组内按 sort_order 再 created_at 升序，首张即该日封面。
+ * 组内按时间正序：sort_order → 截图时刻 → id 兜底。末张是当天最新的一张，即封面（见 coverOf）。
+ * 时刻按数值比而不是字符串：时间戳写法不统一（Z / +00:00 混用、小数秒位数不定），字符串比较会排错。
+ * NaN 相减仍是 NaN，被 || 当成"相等"，落到 id 兜底。
  */
 export function groupShotsByDate(shots: CompetitorShot[]): Map<string, CompetitorShot[]> {
   const map = new Map<string, CompetitorShot[]>()
@@ -110,54 +141,17 @@ export function groupShotsByDate(shots: CompetitorShot[]): Map<string, Competito
     map.set(key, arr)
   }
   for (const arr of Array.from(map.values())) {
-    arr.sort((a, b) => (a.sort_order - b.sort_order) || a.created_at.localeCompare(b.created_at))
+    arr.sort((a, b) => (a.sort_order - b.sort_order) || (shotMoment(a) - shotMoment(b)) || a.id.localeCompare(b.id))
   }
   return map
 }
 
-/** 灯箱一次并排显示的张数。 */
-export const LIGHTBOX_VISIBLE = 3
-
 /**
- * 把灯箱窗口起点夹逼到 [0, max(0, total - size)]。
- *
- * total <= size 时恒为 0：当天照片不够铺满窗口就不该滑动，
- * 否则会滑出一段空位，而空位会被读成「图没加载出来」。
+ * 当天封面：组内（groupShotsByDate 的时间正序）最后一张，即最新截的那张——插件刚截的图会立刻
+ * 成为封面，相当于上传成功的回执。灯箱也从这张打开（往左是更早的），胶片条与下载序号仍按时间正序。
  */
-export function clampWindowStart(start: number, total: number, size: number): number {
-  const max = Math.max(total - size, 0)
-  return Math.min(Math.max(start, 0), max)
-}
-
-/**
- * 灯箱单张图的高度上限,单位是视口高度的比例。
- *
- * 必须与 ShotLightbox 里 <img> 的 `max-h-[64vh]` 保持一致 —— 容量计算靠它
- * 反推单张宽度,两处不同步会算出放不下的张数。
- */
-const IMAGE_MAX_VH = 0.64
-
-/** 竖屏截图的宽高比(TikTok LIVE 截图的常态)。 */
-const SHOT_ASPECT = 9 / 16
-
-/** 两个箭头按钮(各 36px)与格间距(12px)占掉的横向空间:72 + 12×(n+1)。 */
-const ARROWS_PX = 72
-const GAP_PX = 12
-
-/**
- * 当前视口能并排放下几张截图,夹逼到 [1, max]。
- *
- * 竖图是**由高度约束宽度**的:单张宽 = IMAGE_MAX_VH × vh × 9/16。所以能否
- * 三连排取决于视口的宽高比而不只是宽度 —— 竖屏平板宽度有 768 却照样放不下,
- * 而横屏平板只有 1024 反而放得下。
- *
- * 至少返回 1:再窄也要显示一张,否则灯箱是空的。SSR 或尚未测到尺寸时
- * (vw/vh 为 0)同样落到 1。
- */
-export function visibleCountFor(vw: number, vh: number, max: number): number {
-  const perImage = IMAGE_MAX_VH * vh * SHOT_ASPECT
-  const fits = Math.floor((vw - ARROWS_PX - GAP_PX) / (perImage + GAP_PX))
-  return Math.min(Math.max(fits, 1), max)
+export function coverOf<T>(dayShots: T[]): T | undefined {
+  return dayShots[dayShots.length - 1]
 }
 
 /**

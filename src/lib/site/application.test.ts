@@ -4,6 +4,7 @@ import {
   validateApplication,
   isBotSubmission,
   LIMITS,
+  DANCE_SKILL_LEVELS,
 } from './application.ts'
 import { hashIp } from './application-ip-hash.ts'
 
@@ -187,4 +188,78 @@ test('不传 kind 时按主播类处理（向后兼容在飞的旧表单）', ()
   })
   assert.equal(r.ok, true)
   if (r.ok) assert.equal(r.value.kind, 'creator')
+})
+
+test('舞蹈字段选填：不传时落成 null', () => {
+  const r = validateApplication(valid)
+  assert.equal(r.ok, true)
+  if (r.ok) {
+    assert.equal(r.value.danceSkillLevel, null)
+    assert.equal(r.value.danceYears, null)
+  }
+})
+
+test('舞蹈能力类型：四个合法值都能通过', () => {
+  for (const level of DANCE_SKILL_LEVELS) {
+    const r = validateApplication({ ...valid, danceSkillLevel: level })
+    assert.equal(r.ok, true, `expected ${level} to be accepted`)
+    if (r.ok) assert.equal(r.value.danceSkillLevel, level)
+  }
+})
+
+test('舞蹈能力类型：不在枚举里的值报 invalidChoice', () => {
+  const r = validateApplication({ ...valid, danceSkillLevel: 'expert' })
+  assert.equal(r.ok, false)
+  if (!r.ok) assert.equal(r.fields.danceSkillLevel, 'invalidChoice')
+})
+
+test('舞蹈年限：0 是合法值且落成数字 0 而不是 null', () => {
+  const r = validateApplication({ ...valid, danceYears: 0 })
+  assert.equal(r.ok, true)
+  if (r.ok) assert.equal(r.value.danceYears, 0)
+})
+
+test('舞蹈年限：边界值 0 与 36 都通过，字符串数字也接受', () => {
+  assert.equal(validateApplication({ ...valid, danceYears: LIMITS.danceYearsMin }).ok, true)
+  assert.equal(validateApplication({ ...valid, danceYears: LIMITS.danceYearsMax }).ok, true)
+  const asString = validateApplication({ ...valid, danceYears: '20' })
+  assert.equal(asString.ok, true)
+  if (asString.ok) assert.equal(asString.value.danceYears, 20)
+})
+
+test('舞蹈年限：越界或非整数报 invalidChoice', () => {
+  for (const bad of [LIMITS.danceYearsMin - 1, LIMITS.danceYearsMax + 1, 5.5, 'abc', '3.5']) {
+    const r = validateApplication({ ...valid, danceYears: bad })
+    assert.equal(r.ok, false, `expected ${JSON.stringify(bad)} to be rejected`)
+    if (!r.ok) assert.equal(r.fields.danceYears, 'invalidChoice')
+  }
+})
+
+test('舞蹈年限：非标量形状（数组/对象/布尔）一律报 invalidChoice', () => {
+  for (const bad of [[1, 2], {}, true]) {
+    const r = validateApplication({ ...valid, danceYears: bad })
+    assert.equal(r.ok, false, `expected ${JSON.stringify(bad)} to be rejected`)
+    if (!r.ok) assert.equal(r.fields.danceYears, 'invalidChoice')
+  }
+})
+
+test('舞蹈能力类型：数组这类非字符串值按未选择处理，落成 null', () => {
+  // asTrimmed() 只认字符串，其它类型一律当空串处理——和其它非字符串输入行为一致，
+  // 不应该报错（跟 danceYears 不同：那边任何非空的非法输入都要拦）。
+  const r = validateApplication({ ...valid, danceSkillLevel: ['x'] })
+  assert.equal(r.ok, true)
+  if (r.ok) assert.equal(r.value.danceSkillLevel, null)
+})
+
+test('员工类：即使传了舞蹈字段也静默丢弃，不落库不报错', () => {
+  const r = validateApplication({
+    kind: 'makeup', name: '花子', contact: '090', email: 'a@b.com',
+    commuteMode: 'subway', consent: true, locale: 'ja',
+    danceSkillLevel: 'teaching_level', danceYears: 10,
+  })
+  assert.equal(r.ok, true)
+  if (r.ok) {
+    assert.equal(r.value.danceSkillLevel, null)
+    assert.equal(r.value.danceYears, null)
+  }
 })

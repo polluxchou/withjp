@@ -20,7 +20,7 @@
 
 ## Task 0: 工作区
 
-worktree 已就位：`$HOME/Code/newWith/.claude/worktrees/ui-uplift-pr4`，分支 `feat/ui-uplift-pr4-sweep`（基于含 PR #155/#161 的 main 23eeb33）。`npm install` → 本计划 commit → 五绿基线验证。
+worktree 已就位：主仓下的 `.claude/worktrees/ui-uplift-pr4`，分支 `feat/ui-uplift-pr4-sweep`（基于含 PR #155/#161 的 main 23eeb33）。`npm install` → 本计划 commit → 五绿基线验证。
 
 ## Task 1: finance-forecast 清扫（FFD 非图表段 153 + ForecastViewBar 41 + LifecycleTemplateEditor 25）
 
