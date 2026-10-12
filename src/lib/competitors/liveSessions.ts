@@ -46,9 +46,15 @@ export interface LiveSpan {
   source: 'history' | 'shot'
 }
 
+/**
+ * 两个来源都必须显式给出，没有就传 null。
+ * 不能设成可选：看板上的竞品对象只剩 liveSessionPack（PR 334），没有 live_sessions 字段，
+ * 字段可选时把整只对象直接喂进来照样过 tsc，结果导入的场次全部静默丢掉，shots 也会误用相册已加载窗口。
+ * 开播记录走 liveSessionRows(c)；看板上的截图场次走 c.sessionShots。
+ */
 export interface LiveSpanInput {
-  live_sessions?: { started_at: string; ended_at: string; likes: number | null; title: string }[] | null
-  shots?: { stream_started_at: string | null; captured_at: string | null }[] | null
+  live_sessions: { started_at: string; ended_at: string; likes: number | null; title: string }[] | null
+  shots: { stream_started_at: string | null; captured_at: string | null }[] | null
 }
 
 const ms = (iso: string | null | undefined): number | null => {

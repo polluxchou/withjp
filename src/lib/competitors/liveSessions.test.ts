@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { liveSpansOf, liveStartsOf, regionTimeZone, REGION_TIME_ZONE } from './liveSessions.ts'
 import { REGION_CODES } from './regions.ts'
+import type { CompetitorWithHistory } from './types.ts'
 
 const hist = (start: string, end: string, likes: number | null = 1000) =>
   ({ started_at: start, ended_at: end, likes, title: 'Sample LIVE' })
@@ -29,6 +30,7 @@ test('每个地区的时区都能被 Intl 识别（前端格式化时不会抛 R
 
 test('只有截图：按开播时刻去重，下播取最后一张截图，标记为估计', () => {
   const spans = liveSpansOf({
+    live_sessions: null,
     shots: [
       shot('2026-08-20T03:10:00+00:00', '2026-08-20T03:30:00+00:00'),
       shot('2026-08-20T03:10:00+00:00', '2026-08-20T04:45:00+00:00'),
@@ -44,7 +46,7 @@ test('只有截图：按开播时刻去重，下播取最后一张截图，标�
 })
 
 test('截图时刻早于开播（脏数据）时，下播取开播时刻，不出现负时长', () => {
-  const [s] = liveSpansOf({ shots: [shot('2026-08-20T03:10:00Z', '2026-08-20T03:00:00Z')] })
+  const [s] = liveSpansOf({ live_sessions: null, shots: [shot('2026-08-20T03:10:00Z', '2026-08-20T03:00:00Z')] })
   assert.equal(s.endedAt, s.startedAt)
 })
 
@@ -109,11 +111,26 @@ test('同一场上沿边界：截图开播恰为导入下播时刻仍合并，�
 test('输出按开播时刻降序，写法统一成 toISOString；liveStartsOf 与之一致', () => {
   const input = {
     live_sessions: [hist('2026-07-13T00:06:00+00:00', '2026-07-13T02:42:00+00:00'), hist('2026-10-09T03:04:00+00:00', '2026-10-09T05:09:00+00:00')],
+    shots: null,
   }
   assert.deepEqual(liveStartsOf(input), ['2026-10-09T03:04:00.000Z', '2026-07-13T00:06:00.000Z'])
 })
 
 test('空输入 / null 字段不崩', () => {
-  assert.deepEqual(liveSpansOf({}), [])
+  assert.deepEqual(liveSpansOf({ live_sessions: [], shots: [] }), [])
   assert.deepEqual(liveSpansOf({ live_sessions: null, shots: null }), [])
+})
+
+test('类型防线：整只竞品对象不能直接喂 liveSpansOf / liveStartsOf（由 tsc 把关，函数体从不执行）', () => {
+  // 下面几个 @ts-expect-error 一旦变成「未使用」，tsc 就会报错——说明 LiveSpanInput 又放宽成了可选字段，
+  // 整只竞品对象喂进来照样过类型检查，导入的场次被静默丢掉。
+  const typeOnly = (c: CompetitorWithHistory) => {
+    // @ts-expect-error 竞品对象没有 live_sessions：开播记录要经 liveSessionRows(c) 取
+    liveSpansOf(c)
+    // @ts-expect-error 同上，liveStartsOf 走的是同一个入参类型
+    liveStartsOf(c)
+    // @ts-expect-error 漏给截图场次也不行，没有就显式传 null
+    liveSpansOf({ live_sessions: [] })
+  }
+  assert.equal(typeof typeOnly, 'function')
 })
