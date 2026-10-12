@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { buildAskContext, dayIn, followersOf, shotsOf } from './ask-context.ts'
+import { packLiveSessions } from './liveSessionPack.ts'
 import { RULER_WINDOW_DAYS } from './regionRuler.ts'
 import type { CompetitorBoard, CompetitorShot, CompetitorSnapshot, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
@@ -67,7 +68,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     weekly: over.weekly ?? [],
     related: over.related ?? [],
     descriptions: over.descriptions ?? [],
-    live_sessions: over.live_sessions ?? [],
+    liveSessionPack: over.liveSessionPack ?? packLiveSessions([]),
   }
 }
 
@@ -297,11 +298,11 @@ test('liveHabit: 只有导入的开播记录（没有截图）也能成档——
   const ctx = buildAskContext(
     board([comp({
       shots: [],
-      live_sessions: [
+      liveSessionPack: packLiveSessions([
         session('2026-08-19T03:04:00Z', '2026-08-19T05:00:00Z'),
         session('2026-08-18T03:06:00Z', '2026-08-18T05:00:00Z'),
         session('2026-08-17T03:02:00Z', '2026-08-17T05:00:00Z'),
-      ],
+      ]),
     })]),
     new Date('2026-08-20T01:00:00Z'),
     'ja',
@@ -320,7 +321,7 @@ test('liveHabit: 只有导入的开播记录（没有截图）也能成档——
 test('coverage: 导入的场次与同一场的截图只算一场（截图开播时刻落在导入场次的起止之内）', () => {
   const ctx = buildAskContext(
     board([comp({
-      live_sessions: [importedSession('2026-08-19T03:04:00Z', '2026-08-19T05:00:00Z')],
+      liveSessionPack: packLiveSessions([importedSession('2026-08-19T03:04:00Z', '2026-08-19T05:00:00Z')]),
       // 直播间自报的开播时刻比导入的整分钟晚 30 秒，落在导入场次区间内 → 同一场。
       shots: [shot({ id: 's1', stream_started_at: '2026-08-19T03:04:30Z', captured_at: '2026-08-19T04:00:00Z' })],
     })]),
@@ -334,8 +335,8 @@ test('coverage: 导入的场次与同一场的截图只算一场（截图开播�
 test('coverage: 两个竞品的导入场次恰好同一时刻开播，按 (竞品,时刻) 计 2 场，不会塌成 1', () => {
   const ctx = buildAskContext(
     board([
-      comp({ id: 'id-1', handle: 'alpha', live_sessions: [importedSession('2026-08-19T03:00:00Z', '2026-08-19T05:00:00Z', 'id-1')] }),
-      comp({ id: 'id-2', handle: 'beta', live_sessions: [importedSession('2026-08-19T03:00:00Z', '2026-08-19T05:00:00Z', 'id-2')] }),
+      comp({ id: 'id-1', handle: 'alpha', liveSessionPack: packLiveSessions([importedSession('2026-08-19T03:00:00Z', '2026-08-19T05:00:00Z', 'id-1')]) }),
+      comp({ id: 'id-2', handle: 'beta', liveSessionPack: packLiveSessions([importedSession('2026-08-19T03:00:00Z', '2026-08-19T05:00:00Z', 'id-2')]) }),
     ]),
     new Date('2026-08-20T01:00:00Z'),
     'zh',
@@ -348,10 +349,10 @@ test('coverage: 与逐号 sessionsAllTime 之和恒等（导入与截图混合�
     board([
       comp({
         id: 'id-1', handle: 'alpha',
-        live_sessions: [
+        liveSessionPack: packLiveSessions([
           importedSession('2026-08-19T03:00:00Z', '2026-08-19T05:00:00Z', 'id-1'),
           importedSession('2026-08-25T03:00:00Z', '2026-08-25T05:00:00Z', 'id-1'), // 晚于 now（脏数据）
-        ],
+        ]),
         // 第一张落在导入场次里（同一场）；第二张是另一场；第三张在未来。
         shots: [
           shot({ id: 'a1', stream_started_at: '2026-08-19T03:02:00Z', captured_at: '2026-08-19T04:00:00Z' }),

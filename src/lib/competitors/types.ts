@@ -1,3 +1,5 @@
+import type { LiveSessionPack } from './liveSessionPack.ts'
+
 export type CompetitorPlatform = 'tiktok'
 
 export interface Competitor {
@@ -147,14 +149,17 @@ export interface CompetitorWithHistory<S = CompetitorShot> extends Competitor {
   shots: S[]
   /**
    * 截图推断的场次：全部历史、每场一行——开播时刻 + 该场最晚的截图时刻，按开播时刻升序。
-   * 与相册加载到哪一天无关。直接喂 liveSpansOf 的 shots 入参（与导入的 live_sessions 合并去重）；
+   * 与相册加载到哪一天无关。直接喂 liveSpansOf 的 shots 入参（与导入的开播记录合并去重）；
    * 卡片的常见开播与近 30 天、开播记录弹窗、地区标尺、问答都读它——统计数字不能跟着相册翻页变。
    */
   sessionShots: SessionShot[]
   /** 风格描述，已按生成日期倒序。 */
   descriptions: CompetitorDescription[]
-  /** 开播记录，已按开播时刻倒序（最新在前）。 */
-  live_sessions: CompetitorLiveSession[]
+  /**
+   * 开播记录（LIVE History 导入），列式紧凑格式，已按开播时刻倒序（最新在前）。
+   * 读取只经 liveSessionRows(c)（见 liveSessionPack.ts），别直接读里面的数组。
+   */
+  liveSessionPack: LiveSessionPack
   weekly: WeeklyPoint[]
   /** 下探发现的关联主播（子账号），只在父卡片里下钻展示,不在首页平铺。 */
   related: CompetitorWithHistory<S>[]
@@ -174,6 +179,13 @@ export interface CompetitorBoard<S = CompetitorShot> {
 
 /** 看板装配对截图只依赖这几列：归属、排序、日期轴，以及聚合场次用的开播与截图时刻。 */
 export type BoardShot = Pick<CompetitorShot, 'competitor_id' | 'shot_on' | 'sort_order' | 'stream_started_at' | 'captured_at'>
+
+/**
+ * 看板与问答查开播记录只查这几列（service.ts 的 LIVE_SESSION_COLUMNS）。
+ * id / source / created_at / updated_at 没有消费方读，不查不下发。新读一个字段时两边同时加
+ * ——shot-window-wiring.test.ts 钉着两边一致。
+ */
+export type BoardLiveSession = Pick<CompetitorLiveSession, 'competitor_id' | 'started_at' | 'ended_at' | 'title' | 'likes'>
 
 /**
  * 竞品问答需要的截图列（getAskBoard 只查这几列）。ask-context.ts 新读一个截图字段时，

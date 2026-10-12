@@ -9,6 +9,7 @@ import {
   windowHasUnloaded,
 } from './shotWindow.ts'
 import type { ShotIndexRow } from './shotWindow.ts'
+import { packLiveSessions } from './liveSessionPack.ts'
 import { liveSpansOf } from './liveSessions.ts'
 import type { CompetitorBoard, CompetitorLiveSession, CompetitorShot, CompetitorWithHistory } from './types.ts'
 
@@ -341,7 +342,7 @@ function node(id: string, shots: CompetitorShot[], related: CompetitorWithHistor
     created_at: '2026-08-01T00:00:00Z', parent_id: null, avatar_url: null, region: 'JP',
     member_count: null, composition: null, launch_city: null, launched_on: null, mc_note: null,
     online_note: null, latest_videos: null, latest: null, history: [], shots, sessionShots: [],
-    weekly: [], related, descriptions: [], live_sessions: [],
+    weekly: [], related, descriptions: [], liveSessionPack: packLiveSessions([]),
   }
 }
 

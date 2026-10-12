@@ -5,8 +5,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
-import { ASK_SHOT_COLUMNS, getCompetitorBoard, getShotsInRange } from './service.ts'
-import type { AskShot } from './types.ts'
+import { ASK_SHOT_COLUMNS, LIVE_SESSION_COLUMNS, getCompetitorBoard, getShotsInRange } from './service.ts'
+import type { AskShot, BoardLiveSession } from './types.ts'
 
 const SERVICE = readFileSync(new URL('./service.ts', import.meta.url), 'utf8')
 const ASK_SERVICE = readFileSync(new URL('./ask-service.ts', import.meta.url), 'utf8')
@@ -34,6 +34,31 @@ test('问答截图列：与 AskShot 的键集合完全一致', () => {
   assert.deepEqual(
     ASK_SHOT_COLUMNS.split(',').map((s) => s.trim()).sort(),
     Object.keys(askShotKeys).sort(),
+  )
+})
+
+// BoardLiveSession ↔ LIVE_SESSION_COLUMNS 的联动，写法同上面的 AskShot：
+// 类型增删键时这个 Record 让 tsc 报错，列清单漏改时下面的对拍变红。
+const boardLiveSessionKeys: Record<keyof BoardLiveSession, true> = {
+  competitor_id: true,
+  started_at: true,
+  ended_at: true,
+  title: true,
+  likes: true,
+}
+
+test('开播记录列：与 BoardLiveSession 的键集合完全一致；service 里不再整表 select(*) 开播记录', () => {
+  assert.deepEqual(
+    LIVE_SESSION_COLUMNS.split(',').map((s) => s.trim()).sort(),
+    Object.keys(boardLiveSessionKeys).sort(),
+  )
+  assert.doesNotMatch(SERVICE, /competitor_live_sessions'\)\.select\('\*'\)/)
+})
+
+test('getCompetitorBoard：开播记录只查 LIVE_SESSION_COLUMNS，仍全量分页（select → order(id 升序) → range，中间不夹过滤）', () => {
+  assert.match(
+    bodyOf(SERVICE, 'getCompetitorBoard'),
+    /db\.from\('competitor_live_sessions'\)\.select\(LIVE_SESSION_COLUMNS\)\s*\.order\('id', \{ ascending: true \}\)\.range\(from, to\)\)/,
   )
 })
 
@@ -66,15 +91,15 @@ test('getAskBoard：快照取全列；错误按四表顺序传播；截图原样
   assert.ok(body.includes('(shotRes.data ?? []) as AskShot[]'), '截图应原样交给 assembleBoard')
 })
 
-test('getAskBoard：开播记录全量拉取，作为 assembleBoard 的第 6 个实参（问答与卡片同一口径合并场次）', () => {
+test('getAskBoard：开播记录全量拉取（只查 LIVE_SESSION_COLUMNS），作为 assembleBoard 的第 6 个实参（问答与卡片同一口径合并场次）', () => {
   const body = bodyOf(SERVICE, 'getAskBoard')
   assert.match(
     body,
-    /db\.from\('competitor_live_sessions'\)\.select\('\*'\)\s*\.order\('id', \{ ascending: true \}\)\.range\(from, to\)\)/,
+    /db\.from\('competitor_live_sessions'\)\.select\(LIVE_SESSION_COLUMNS\)\s*\.order\('id', \{ ascending: true \}\)\.range\(from, to\)\)/,
   )
   assert.match(
     body,
-    /assembleBoard\(\s*\(compRes\.data \?\? \[\]\) as Competitor\[\],\s*\(snapRes\.data \?\? \[\]\) as CompetitorSnapshot\[\],\s*\(shotRes\.data \?\? \[\]\) as AskShot\[\],\s*true,\s*\[\],\s*\(liveRes\.data \?\? \[\]\) as CompetitorLiveSession\[\],?\s*\)/,
+    /assembleBoard\(\s*\(compRes\.data \?\? \[\]\) as Competitor\[\],\s*\(snapRes\.data \?\? \[\]\) as CompetitorSnapshot\[\],\s*\(shotRes\.data \?\? \[\]\) as AskShot\[\],\s*true,\s*\[\],\s*\(liveRes\.data \?\? \[\]\) as BoardLiveSession\[\],?\s*\)/,
   )
   // 截图仍是全量：问答不按相册窗口过滤
   assert.doesNotMatch(body, /loadedRangeOrFilter|\.or\(|\.gte\('shot_on'/)
@@ -192,7 +217,7 @@ test('getCompetitorBoard：索引吃瘦查询的行；assembleBoard 的实参依
   )
   assert.match(
     body,
-    /assembleBoard\(\s*\(compRes\.data \?\? \[\]\) as Competitor\[\],\s*\(snapRes\.data \?\? \[\]\) as CompetitorSnapshot\[\],\s*\(shotRes\.data \?\? \[\]\) as CompetitorShot\[\],\s*true,\s*\(descRes\.data \?\? \[\]\) as CompetitorDescription\[\],\s*\(liveRes\.data \?\? \[\]\) as CompetitorLiveSession\[\],\s*\{ \.\.\.index, shotsLoadedFrom: loadedFrom \},?\s*\)/,
+    /assembleBoard\(\s*\(compRes\.data \?\? \[\]\) as Competitor\[\],\s*\(snapRes\.data \?\? \[\]\) as CompetitorSnapshot\[\],\s*\(shotRes\.data \?\? \[\]\) as CompetitorShot\[\],\s*true,\s*\(descRes\.data \?\? \[\]\) as CompetitorDescription\[\],\s*\(liveRes\.data \?\? \[\]\) as BoardLiveSession\[\],\s*\{ \.\.\.index, shotsLoadedFrom: loadedFrom \},?\s*\)/,
   )
 })
 

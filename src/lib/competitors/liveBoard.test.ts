@@ -1,6 +1,7 @@
 // 仓库是 public：夹具一律是合成数据，不放任何真实竞品的名字或 handle。
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { packLiveSessions } from './liveSessionPack.ts'
 import type { LiveSpan } from './liveSessions.ts'
 import type { CompetitorWithHistory } from './types.ts'
 import {
@@ -86,7 +87,7 @@ function comp(over: Partial<CompetitorWithHistory> & { id: string; handle: strin
     shots: [],
     sessionShots: [],
     descriptions: [],
-    live_sessions: [],
+    liveSessionPack: packLiveSessions([]),
     weekly: [],
     related: [],
     ...over,
@@ -136,7 +137,7 @@ test('flattenAccounts: 递归展开 related，子账号公司回落到父账号�
   const parent = comp({
     id: 'p',
     handle: 'sample.p',
-    live_sessions: [{ started_at: j('2026-09-01', '12:00'), ended_at: j('2026-09-01', '14:00'), likes: 5, title: 'T' } as CompetitorWithHistory['live_sessions'][number]],
+    liveSessionPack: packLiveSessions([{ started_at: j('2026-09-01', '12:00'), ended_at: j('2026-09-01', '14:00'), likes: 5, title: 'T' }]),
     related: [child, own],
   })
   const out = flattenAccounts([parent, comp({ id: 'q', handle: 'sample.q' })], { p: 'Guild A', c2: 'Guild B' })
@@ -159,7 +160,7 @@ test('accountSpans: 导入 + 截图推断合并（同一场以导入为准），
   const c = comp({
     id: 'a',
     handle: 'sample.a',
-    live_sessions: [{ started_at: j('2026-09-01', '12:00'), ended_at: j('2026-09-01', '14:00'), likes: 5, title: 'T' } as CompetitorWithHistory['live_sessions'][number]],
+    liveSessionPack: packLiveSessions([{ started_at: j('2026-09-01', '12:00'), ended_at: j('2026-09-01', '14:00'), likes: 5, title: 'T' }]),
     sessionShots: [
       // 落在导入场次里：同一场，丢掉截图那条
       { stream_started_at: j('2026-09-01', '12:03'), captured_at: j('2026-09-01', '12:30') },
@@ -171,6 +172,7 @@ test('accountSpans: 导入 + 截图推断合并（同一场以导入为准），
   assert.deepEqual(spans.map((x) => x.source), ['shot', 'history'])
   assert.equal(spans[0].startedAt, j('2026-09-02', '20:00'))
   assert.equal(spans[1].likes, 5)
+  assert.equal(spans[1].title, 'T', '标题随包下发，弹窗清单照常显示')
   // 摊平后的账号用的就是这一份：「开播场次喂哪批截图」只在 accountSpans 一处定
   assert.deepEqual(flattenAccounts([c], {})[0].spans, spans)
 })

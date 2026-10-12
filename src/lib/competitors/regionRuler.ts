@@ -15,6 +15,7 @@
 // 十几分钟的浮动（实测 1mb.rizz 13:29/13:31/13:42），画成点会假装精确。
 //
 // 纯函数、不读时钟（now 由调用方注入），可单测。
+import { liveSessionRows, type LiveSessionPack } from './liveSessionPack.ts'
 import { liveStartsOf } from './liveSessions.ts'
 import type { SessionShot } from './types.ts'
 import { SLOT_MIN_SESSIONS, dominantCluster, minutesToLabel, summarizeLiveHabit } from './liveSlots.ts'
@@ -37,8 +38,11 @@ export interface RulerInput {
   display_name?: string | null
   region?: string | null
   latest?: { display_name?: string | null } | null
-  /** LIVE History 粘贴导入的开播记录；与 sessionShots 合并后才是这个账号的场次。 */
-  live_sessions?: { started_at: string; ended_at: string; likes: number | null; title: string }[] | null
+  /**
+   * LIVE History 粘贴导入的开播记录，即 CompetitorWithHistory.liveSessionPack（列式紧凑格式），
+   * 经 liveSessionRows 解包；与 sessionShots 合并后才是这个账号的场次。
+   */
+  liveSessionPack?: LiveSessionPack | null
   /**
    * 截图推断的场次，即 CompetitorWithHistory.sessionShots：全部历史、每场一行，与相册加载范围无关。
    * captured_at 是合并时判同一场用的（下播取该场最后一张截图）。14 天窗口在这里过滤。
@@ -154,7 +158,7 @@ export function buildRegionRuler({
     if ((c.region?.trim().toUpperCase() ?? '') !== wanted) continue
 
     // 先合并导入与截图两个来源（同一场只计一次），再按窗口过滤。
-    const starts = liveStartsOf({ live_sessions: c.live_sessions, shots: c.sessionShots ?? [] }).filter((iso) => {
+    const starts = liveStartsOf({ live_sessions: liveSessionRows(c), shots: c.sessionShots ?? [] }).filter((iso) => {
       const t = Date.parse(iso)
       return t >= cutoff && t <= nowMs
     })

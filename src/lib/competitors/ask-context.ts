@@ -7,6 +7,7 @@
 //
 // 零 IO、零时钟：now 由调用方注入，才能把跨日、跨时区的行为钉死在单测里。
 import { timeZoneForLocale } from '../time/localeZone.ts'
+import { liveSessionRows } from './liveSessionPack.ts'
 import { liveStartsOf } from './liveSessions.ts'
 import { recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
 import { checkProfileLanguage } from './profileLanguage.ts'
@@ -251,7 +252,7 @@ export function followersOf(history: HistoryPoint[]): AskFollowers {
  * 是模型没法调和的矛盾。
  */
 function startsUpTo(c: CompetitorWithHistory<AskShot>, nowMs: number): string[] {
-  return liveStartsOf(c).filter((iso) => Date.parse(iso) <= nowMs)
+  return liveStartsOf({ live_sessions: liveSessionRows(c), shots: c.shots }).filter((iso) => Date.parse(iso) <= nowMs)
 }
 
 /**

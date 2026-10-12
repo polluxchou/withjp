@@ -22,7 +22,7 @@ import { isValidShotDate } from './shotGrid.ts'
 import { buildShotIndex, loadedRangeOrFilter, parseShotRangeQuery, resolveLoadedFrom } from './shotWindow.ts'
 import type { ShotIndexRow } from './shotWindow.ts'
 import type {
-  AskShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorLiveSession,
+  AskShot, BoardLiveSession, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription,
   CompetitorBoard, CompetitorPlatform,
 } from './types.ts'
 
@@ -102,9 +102,17 @@ async function assertValidParent(
 }
 
 /**
+ * 看板与问答查开播记录的列（types.ts 的 BoardLiveSession 的键）。
+ * 整表 select('*') 时每场约七成体积是没人读的 id / source / created_at / updated_at；开播记录又占看板的大头，
+ * 所以只查这几列，再由 assembleBoard 按账号打包成列式紧凑格式（见 liveSessionPack.ts）。
+ * 新读一个开播记录字段时，同时加到这里和 BoardLiveSession——shot-window-wiring.test.ts 钉着两边一致。
+ */
+export const LIVE_SESSION_COLUMNS = 'competitor_id, started_at, ended_at, title, likes'
+
+/**
  * 加载看板：任意登录用户可读可写（canEdit 恒 true）。
  *
- * 第一轮并行整表拉全：竞品、快照、截图索引（瘦查询）、风格描述、开播记录。
+ * 第一轮并行整表拉全：竞品、快照、截图索引（瘦查询）、风格描述、开播记录（只查 LIVE_SESSION_COLUMNS）。
  * 开播记录一个号三个月就有几十场，同样很快过千，所以也要分页拉全。
  *
  * 截图分两层取：
@@ -135,7 +143,7 @@ export async function getCompetitorBoard(
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_descriptions').select('*')
       .order('id', { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => db.from('competitor_live_sessions').select('*')
+    fetchAllRows((from, to) => db.from('competitor_live_sessions').select(LIVE_SESSION_COLUMNS)
       .order('id', { ascending: true }).range(from, to)),
   ])
   const firstErr = compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error ?? liveRes.error
@@ -154,7 +162,7 @@ export async function getCompetitorBoard(
     (shotRes.data ?? []) as CompetitorShot[],
     true,
     (descRes.data ?? []) as CompetitorDescription[],
-    (liveRes.data ?? []) as CompetitorLiveSession[],
+    (liveRes.data ?? []) as BoardLiveSession[],
     { ...index, shotsLoadedFrom: loadedFrom },
   ))
 }
@@ -227,7 +235,7 @@ export const ASK_SHOT_COLUMNS = 'competitor_id, shot_on, sort_order, stream_star
 /**
  * 竞品问答的数据源。截图取**全部历史**——问答的采集日历、累计场次、在线峰值都是全量口径，
  * 不能跟着相册的日期窗口走；但只查问答读得到的几列，图片地址、备注这些大字段问答用不上。
- * 开播记录（LIVE History 导入）也要：问答的开播时段与截图推断的场次合并去重后才算（见 liveSessions.ts），
+ * 开播记录（LIVE History 导入）也要，同样只查 LIVE_SESSION_COLUMNS：问答的开播时段与截图推断的场次合并去重后才算（见 liveSessions.ts），
  * 与卡片同一口径；同样很快过千，分页拉全。风格描述问答不读，不查。
  * 不传 meta：shots 就是全部截图，日期轴与截图场次由 assembleBoard 现算。
  */
@@ -240,7 +248,7 @@ export async function getAskBoard(_userId: string): Promise<ServiceResult<Compet
       .order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('competitor_shots').select(ASK_SHOT_COLUMNS)
       .order('id', { ascending: true }).range(from, to)),
-    fetchAllRows((from, to) => db.from('competitor_live_sessions').select('*')
+    fetchAllRows((from, to) => db.from('competitor_live_sessions').select(LIVE_SESSION_COLUMNS)
       .order('id', { ascending: true }).range(from, to)),
   ])
   const firstErr = compRes.error ?? snapRes.error ?? shotRes.error ?? liveRes.error
@@ -251,7 +259,7 @@ export async function getAskBoard(_userId: string): Promise<ServiceResult<Compet
     (shotRes.data ?? []) as AskShot[],
     true,
     [],
-    (liveRes.data ?? []) as CompetitorLiveSession[],
+    (liveRes.data ?? []) as BoardLiveSession[],
   ))
 }
 
