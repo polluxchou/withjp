@@ -138,9 +138,11 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
 
   // 往历史翻页时按需补取截图。判据全在 shotWindow.ts：nextChunk 决定补哪段，
   // mergeShotRange 合并并丢弃过期结果（请求飞行期间看板被刷新换掉的情况）；
-  // 去重、失败、重试、被取代的异步状态机在 chunkLoader.ts（有行为测试），这里只接线。
+  // 去重、同右端排队、失败、重试、被取代的异步状态机在 chunkLoader.ts（有行为测试），这里只接线。
   // 不在 effect 清理里取消请求：dev 的 StrictMode 双挂载会把在途请求取消掉、又被去重挡住重发，
   // 永远卡在占位格；靠去重 + 过期丢弃就够了。
+  // pendingChunk 的依赖必须带 board.shotsLoadedFrom：排队的缺口在在途段成功后不会自动补发，
+  // 靠合并推进起点 → 这里重算 → 再 want 一次续上。
   const [shotLoadFailed, setShotLoadFailed] = useState(false)
   const [loader] = useState(() => createChunkLoader<CompetitorShot>({
     fetchRows: (range) => fetchShotRange<CompetitorShot>(range),

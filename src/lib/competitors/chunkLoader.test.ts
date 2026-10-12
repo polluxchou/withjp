@@ -1,12 +1,15 @@
 // src/lib/competitors/chunkLoader.test.ts
 // 补取控制器的行为测试：假 fetchRows 由测试手动 resolve / reject，逐个钉住
-// 去重、失败、重试、被取代、重叠在途这些组件里没法单测的异步状态。
+// 去重、同右端排队、失败、重试、被取代、重叠在途这些组件里没法单测的异步状态；
+// 末尾的回放用例把真的 nextChunk / mergeShotRange 接上，模拟组件循环看整体发了哪些请求。
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { createChunkLoader, fetchShotRange } from './chunkLoader.ts'
-import { shotRangePath } from './shotWindow.ts'
+import { SHOT_WINDOW_SIZE, windowOf } from './shotGrid.ts'
+import { isShotDateLoaded, mergeShotRange, nextChunk, shotRangePath } from './shotWindow.ts'
 import type { ShotRange } from './shotWindow.ts'
+import type { BoardShot, CompetitorBoard, CompetitorWithHistory } from './types.ts'
 
 type Row = { id: string }
 
@@ -193,6 +196,292 @@ test('失败路径不产生未处理的 Promise 拒绝', async () => {
   } finally {
     process.off('unhandledRejection', onUnhandled)
   }
+})
+
+// —— 同右端排队：在途那段收尾前，右端相同的新缺口不另发请求 ——
+// 连点「更早」时窗口每变一次，nextChunk 的 from 就更早、before（已加载起点）不变。
+
+const R1: ShotRange = { from: '2026-08-20', before: '2026-09-03' }
+const R2: ShotRange = { from: '2026-08-15', before: '2026-09-03' }
+const R3: ShotRange = { from: '2026-08-10', before: '2026-09-03' }
+
+test('同右端已有一段在途时，want 更早的段只记下、不发请求', async () => {
+  const h = harness()
+  h.loader.want(R1)
+  h.loader.want(R2)
+  h.loader.want(R3)
+  assert.deepEqual(h.calls.map((c) => c.range), [R1])
+})
+
+test('在途段成功后不按排队的旧缺口补发：等调用方按合并后的新起点重新 want', async () => {
+  const h = harness()
+  h.loader.want(R1)
+  h.loader.want(R3)
+  h.calls[0].resolve([{ id: 'r1' }])
+  await settle()
+  // 合并后起点推进到 08-20，旧缺口 [08-10, 09-03) 与刚并入的那段重叠，发出去就是重复请求
+  assert.equal(h.calls.length, 1)
+  assert.deepEqual(h.merges, [{ rows: [{ id: 'r1' }], range: R1 }])
+  const rest: ShotRange = { from: '2026-08-10', before: '2026-08-20' }
+  h.loader.want(rest)
+  assert.deepEqual(h.calls.map((c) => c.range), [R1, rest])
+})
+
+test('在途段失败、同右端有更早的缺口在排队：不报错，立刻按最新缺口补发一次；它再失败才报错，重试重发它', async () => {
+  const h = harness()
+  h.loader.want(R1)
+  h.loader.want(R2)
+  h.loader.want(R3)
+  h.calls[0].reject(new Error('boom'))
+  await settle()
+  assert.equal(h.failedLog.includes(true), false, '失败的那段已被取代，不能挂报错行')
+  assert.deepEqual(h.calls.map((c) => c.range), [R1, R3], '补发的是最新缺口，不是中间那段')
+
+  h.calls[1].reject(new Error('boom again'))
+  await settle()
+  assert.equal(last(h.failedLog), true)
+  assert.equal(h.calls.length, 2, '最新缺口自己失败了就报错，不再自动重发')
+  h.loader.retry()
+  assert.deepEqual(h.calls.map((c) => c.range), [R1, R3, R3])
+})
+
+test('最新缺口就是在途那段（R1→R2→R1）：全程只发一次，失败如实报出', async () => {
+  const h = harness()
+  h.loader.want(R1)
+  h.loader.want(R2)
+  h.loader.want({ ...R1 })
+  assert.equal(h.calls.length, 1)
+  h.calls[0].reject(new Error('boom'))
+  await settle()
+  assert.equal(last(h.failedLog), true)
+  assert.equal(h.calls.length, 1)
+})
+
+test('右端不同的 A→B→A：A 只发一次（不因中间换过缺口而重发在途的 A），A 失败如实报出', async () => {
+  const h = harness()
+  h.loader.want(A)
+  h.loader.want(B)
+  h.loader.want({ ...A })
+  assert.deepEqual(h.calls.map((c) => c.range), [A, B])
+  h.calls[0].reject(new Error('boom'))
+  await settle()
+  assert.equal(last(h.failedLog), true)
+  assert.equal(h.calls.length, 2)
+})
+
+test('排队期间缺口被清空（want(null)）：在途段失败既不报错、也不补发', async () => {
+  const h = harness()
+  h.loader.want(R1)
+  h.loader.want(R2)
+  h.loader.want(null)
+  h.calls[0].reject(new Error('boom'))
+  await settle()
+  assert.equal(h.failedLog.includes(true), false)
+  assert.equal(h.calls.length, 1)
+})
+
+test('排队期间起点变了（新缺口右端不同，看板被刷新换掉）：新缺口立即单独发出，旧段失败既不报错也不重发', async () => {
+  const h = harness()
+  const moved: ShotRange = { from: '2026-08-10', before: '2026-08-25' }
+  h.loader.want(R1)
+  h.loader.want(R2)
+  h.loader.want(moved)
+  assert.deepEqual(h.calls.map((c) => c.range), [R1, moved])
+  h.calls[0].reject(new Error('boom'))
+  await settle()
+  assert.equal(h.failedLog.includes(true), false)
+  assert.equal(h.calls.length, 2)
+  h.calls[1].resolve([{ id: 'm1' }])
+  await settle()
+  assert.deepEqual(h.merges, [{ rows: [{ id: 'm1' }], range: moved }])
+})
+
+test('新缺口（右端不同）自己失败、已报错之后旧段才失败：不替它自动重发，报错保持', async () => {
+  const h = harness()
+  const moved: ShotRange = { from: '2026-08-10', before: '2026-08-25' }
+  h.loader.want(R1)
+  h.loader.want(moved)
+  h.calls[1].reject(new Error('boom'))
+  await settle()
+  assert.equal(last(h.failedLog), true)
+  h.calls[0].reject(new Error('boom'))
+  await settle()
+  assert.equal(h.calls.length, 2, '重发由用户点重试决定')
+  assert.equal(last(h.failedLog), true)
+})
+
+test('成功收尾后这个右端就不算在途了：再 want 同右端的段照常发请求（不会永远排队）', async () => {
+  const h = harness()
+  h.loader.want(R1)
+  h.calls[0].resolve([])
+  await settle()
+  h.loader.want(R3)
+  assert.deepEqual(h.calls.map((c) => c.range), [R1, R3])
+})
+
+test('排队中的缺口不算失败：之前别的缺口挂出的报错要清掉（报错行只属于当前缺口，否则点重试也没反应）', async () => {
+  const h = harness()
+  const other: ShotRange = { from: '2026-08-10', before: '2026-08-25' }
+  h.loader.want(R1)
+  h.loader.want(other)
+  h.calls[1].reject(new Error('boom'))
+  await settle()
+  assert.equal(last(h.failedLog), true)
+  h.loader.want(R2) // R1 仍在途：排队
+  assert.equal(h.calls.length, 2)
+  assert.equal(last(h.failedLog), false)
+})
+
+test('排队中按重试不多发请求', async () => {
+  const h = harness()
+  h.loader.want(R1)
+  h.loader.want(R2)
+  h.loader.retry()
+  assert.equal(h.calls.length, 1)
+})
+
+// —— 回放：真的 nextChunk / mergeShotRange + loader，模拟组件「状态一变就重新 want」的循环 ——
+
+type SimShot = BoardShot & { id: string }
+
+/** 2026-08-01 … 2026-09-12 连续 43 天；首屏起点是倒数第 10 天 09-03。 */
+const SIM_AXIS = Array.from({ length: 43 }, (_, i) => new Date(Date.UTC(2026, 7, 1 + i)).toISOString().slice(0, 10))
+
+const simShot = (day: string, tag = ''): SimShot => ({
+  id: `${day}${tag}`, competitor_id: 'c1', shot_on: day, sort_order: 0, stream_started_at: null, captured_at: null,
+})
+
+/** 一个账号、每天一张图；tag 用来分辨看板是不是被刷新换过。 */
+function simBoard(shotsLoadedFrom: string, tag = ''): CompetitorBoard<SimShot> {
+  const shots = SIM_AXIS.filter((d) => d >= shotsLoadedFrom).map((d) => simShot(d, tag))
+  // mergeShotRange 只读写账号的 id / shots / related，其余字段与这里无关
+  const c = { id: 'c1', shots, related: [] } as unknown as CompetitorWithHistory<SimShot>
+  return { competitors: [c], canEdit: true, shotAxis: SIM_AXIS, shotsLoadedFrom }
+}
+
+/**
+ * 相册的最小模型。组件里 pendingChunk 是 useMemo、want 在 effect 里调：状态变了要等下一次渲染
+ * 才重判，所以这里的「渲染」也是异步的；mergeShotRange 判过期原样返回时 setBoard 不触发渲染，这里同样不触发。
+ */
+function album(initial: CompetitorBoard<SimShot>) {
+  let board = initial
+  let anchor = SIM_AXIS[SIM_AXIS.length - 1]
+  const calls: { range: ShotRange; resolve: (rows: SimShot[]) => void; reject: (err: unknown) => void }[] = []
+  const failedLog: boolean[] = []
+  let renderQueued = false
+  const windowNow = () => windowOf(board.shotAxis, board.shotAxis.indexOf(anchor), SHOT_WINDOW_SIZE)
+  const loader = createChunkLoader<SimShot>({
+    fetchRows: (range) => new Promise<SimShot[]>((resolve, reject) => { calls.push({ range, resolve, reject }) }),
+    merge: (rows, range) => {
+      const next = mergeShotRange(board, rows, range)
+      if (next !== board) { board = next; render() }
+    },
+    setFailed: (f) => { failedLog.push(f) },
+  })
+  function render() {
+    if (renderQueued) return
+    renderQueued = true
+    setImmediate(() => {
+      renderQueued = false
+      loader.want(nextChunk(board.shotAxis, windowNow(), board.shotsLoadedFrom))
+    })
+  }
+  render()
+  return {
+    calls,
+    failedLog,
+    board: () => board,
+    window: windowNow,
+    /** 「更早」：整屏往前翻，同 ShotDateStrip 的 step(-1)。 */
+    earlier() {
+      anchor = board.shotAxis[Math.max(board.shotAxis.indexOf(anchor) - SHOT_WINDOW_SIZE, 0)]
+      render()
+    },
+    refresh(next: CompetitorBoard<SimShot>) { board = next; render() },
+    /** 服务端照实回这一段：区间内每天一张。 */
+    respond(i: number) {
+      const { from, before } = calls[i].range
+      calls[i].resolve(SIM_AXIS.filter((d) => d >= from && d < before).map((d) => simShot(d)))
+    },
+  }
+}
+
+const flush = async () => { for (let i = 0; i < 5; i++) await settle() }
+
+/** 当前屏每一天都在已加载范围里，而且真有图并进来了（不是只挪了起点）。 */
+function assertWindowFilled(a: ReturnType<typeof album>) {
+  const days = new Set(a.board().competitors[0].shots.map((s) => s.shot_on))
+  for (const d of a.window()) {
+    assert.ok(isShotDateLoaded(d, a.board().shotsLoadedFrom), `${d} 未加载`)
+    assert.ok(days.has(d), `${d} 没有图`)
+  }
+}
+
+const FIRST: ShotRange = { from: '2026-08-24', before: '2026-09-03' }
+
+test('回放（10-11 线上实测）：首段在途时连点 4 次「更早」，总共只发 2 段、互不重叠，最后盖住当前屏', async () => {
+  const a = album(simBoard('2026-09-03'))
+  await flush()
+  assert.equal(a.calls.length, 0, '首屏不缺')
+  for (let i = 0; i < 4; i++) { a.earlier(); await flush() }
+  assert.deepEqual(a.calls.map((c) => c.range), [FIRST])
+  a.respond(0)
+  await flush()
+  // 首段并入后起点到 08-24，屏是 08-21..08-25：只差 08-24 之前那段
+  assert.deepEqual(a.calls.map((c) => c.range), [FIRST, { from: '2026-08-14', before: '2026-08-24' }])
+  a.respond(1)
+  await flush()
+  assert.equal(a.calls.length, 2)
+  assert.equal(a.board().shotsLoadedFrom, '2026-08-14')
+  assertWindowFilled(a)
+  assert.equal(a.failedLog.includes(true), false)
+})
+
+test('回放：首段失败时正有更早的缺口在排队——不报错，按最新缺口补发一次，补齐后不再请求', async () => {
+  const a = album(simBoard('2026-09-03'))
+  for (let i = 0; i < 4; i++) { a.earlier(); await flush() }
+  a.calls[0].reject(new Error('timeout'))
+  await flush()
+  assert.deepEqual(a.calls.map((c) => c.range), [FIRST, { from: '2026-08-16', before: '2026-09-03' }])
+  a.respond(1)
+  await flush()
+  assert.equal(a.calls.length, 2)
+  assert.equal(a.board().shotsLoadedFrom, '2026-08-16')
+  assertWindowFilled(a)
+  assert.equal(a.failedLog.includes(true), false)
+})
+
+test('回放：首段在途时看板被刷新换掉（起点不变）——首段并进新看板，再按新起点补一段，不卡住', async () => {
+  const a = album(simBoard('2026-09-03'))
+  for (let i = 0; i < 4; i++) { a.earlier(); await flush() }
+  a.refresh(simBoard('2026-09-03', '-v2'))
+  await flush()
+  assert.equal(a.calls.length, 1)
+  a.respond(0)
+  await flush()
+  assert.deepEqual(a.calls.map((c) => c.range), [FIRST, { from: '2026-08-14', before: '2026-08-24' }])
+  a.respond(1)
+  await flush()
+  assert.equal(a.calls.length, 2)
+  assertWindowFilled(a)
+  assert.ok(a.board().competitors[0].shots.some((s) => s.id === '2026-09-03-v2'), '并进的是刷新后的新看板')
+})
+
+test('回放：首段在途时看板刷新换了起点——新起点的缺口立即单独发出，旧段结果作废，最终补齐', async () => {
+  const a = album(simBoard('2026-09-03'))
+  for (let i = 0; i < 4; i++) { a.earlier(); await flush() }
+  a.refresh(simBoard('2026-09-01', '-v2'))
+  await flush()
+  assert.deepEqual(a.calls.map((c) => c.range), [FIRST, { from: '2026-08-16', before: '2026-09-01' }])
+  a.respond(0)
+  await flush()
+  assert.equal(a.board().shotsLoadedFrom, '2026-09-01', '右端已不是起点的旧结果丢弃')
+  a.respond(1)
+  await flush()
+  assert.equal(a.calls.length, 2)
+  assert.equal(a.board().shotsLoadedFrom, '2026-08-16')
+  assertWindowFilled(a)
+  assert.equal(a.failedLog.includes(true), false)
 })
 
 // —— fetchShotRange ——
