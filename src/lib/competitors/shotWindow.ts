@@ -159,6 +159,15 @@ export function isShotDateLoaded(date: string | null, loadedFrom: string | null)
   return date >= loadedFrom
 }
 
+/**
+ * 当前这屏里有没有还没加载的日期（相册里会画成占位格）。补取失败的提示只在这时挂出：
+ * nextChunk 提前一屏预取，预取失败时当前屏可能完好，屏上什么都没受影响；
+ * 往前翻一屏 loader 会自动重发同一段，再失败就落在有占位格的这屏上。
+ */
+export function windowHasUnloaded(dateWindow: string[], loadedFrom: string | null): boolean {
+  return dateWindow.some((d) => !isShotDateLoaded(d, loadedFrom))
+}
+
 /** 第一个不早于 date 的有图日下标；全都早于它时返回 dated.length。 */
 function lowerBound(dated: string[], date: string): number {
   let i = 0
