@@ -1831,6 +1831,7 @@
     "uploadFailed": "上传失败",
     "noShots": "还没有截图",
     "shotsLoadFailed": "截图加载失败",
+    "shotsLoadFailedShort": "截图加载失败",
     "retryPendingShots": "截图加载失败，点此重试",
     "undated": "未标日期",
     "shotTag": { "live_auto": "自动巡检", "live_manual": "插件" },

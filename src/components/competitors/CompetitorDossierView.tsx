@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus } from 'lucide-react'
+import { AlertTriangle, Plus } from 'lucide-react'
 import CompetitorCard from './CompetitorCard'
 import CompetitorNavBar from './CompetitorNavBar'
 import CompetitorSummaryBar from './CompetitorSummaryBar'
@@ -24,6 +24,7 @@ import { Input, Select } from '@/components/ui/Field'
 
 export default function CompetitorDossierView({ initial }: { initial: CompetitorBoard }) {
   const t = useTranslations('competitors')
+  const tCommon = useTranslations('common')
   const [board, setBoard] = useState<CompetitorBoard>(initial)
   const [input, setInput] = useState('')
   const [addType, setAddType] = useState<'group' | 'streamer'>('group')
@@ -154,8 +155,8 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     [shotAxis, dateWindow, board.shotsLoadedFrom],
   )
   useEffect(() => { loader.want(pendingChunk) }, [loader, pendingChunk])
-  // 失败提示放进吸顶的日期轴（lg 起）和占位格本身（各宽度），不放页面顶部：
-  // 用户多半是滚到中部、用吸顶日期轴翻页的，顶部那行既看不到也够不着。
+  // 失败提示放进吸顶的日期轴（lg 起）、吸顶块正下方那一行（lg 以下）和占位格本身（各宽度），
+  // 不放页面顶部：用户多半是滚到中部、用吸顶日期轴翻页的，顶部那行既看不到也够不着。
   // 只在当前屏真有占位格时挂出，判据见 windowHasUnloaded。
   const shotRetryHint = shotLoadFailed && windowHasUnloaded(dateWindow, board.shotsLoadedFrom)
   const retryShots = useCallback(() => loader.retry(), [loader])
@@ -373,6 +374,20 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               onRetry={retryShots}
             />
           </div>
+          {/* 窄屏的补取失败提示。日期轴那一行窄屏没有空位(见 ShotDateStrip),而停在页面顶部时
+              第一张卡的相册在首屏之下,只靠占位格的话首屏看不到失败。
+              放在吸顶块**下方**、不吸顶:停在顶部时它就在日期行下面;滚到中部时它已滚出视口,
+              由占位格上的重试接手。不放进吸顶块(会加高吸顶区),也不放在吸顶块上方
+              (会把吸顶块连同正要再点的「更早」键挤下去,也是上面长注释里说的挪位扰动源)。 */}
+          {shotRetryHint && (
+            <p role="alert" className="flex items-center gap-2 px-4 text-sm text-danger-text lg:hidden">
+              <AlertTriangle size={16} strokeWidth={1.5} className="shrink-0" aria-hidden />
+              {t('shotsLoadFailed')}
+              <Button variant="secondary" size="sm" onClick={retryShots}>
+                {tCommon('retry')}
+              </Button>
+            </p>
+          )}
           {board.competitors.map((c) => (
             <CompetitorCard
               key={c.id}
