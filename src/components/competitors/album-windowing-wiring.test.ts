@@ -56,6 +56,7 @@ test('开播记录弹窗与开播时段页（live/ 下全部组件）都不读�
 
 const VIEW = read('./CompetitorDossierView.tsx')
 const ALBUM = read('./ShotAlbum.tsx')
+const STRIP = read('./ShotDateStrip.tsx')
 
 test('日期轴用服务端下发的完整轴，不再从已加载截图拼', () => {
   assert.match(VIEW, /const shotAxis = board\.shotAxis/)
@@ -72,7 +73,7 @@ test('补取：nextChunk 判缺口，经 chunkLoader 取回，结果经 mergeSho
 
 test('补取：缺口变化才喂给 loader，重试走 loader.retry()（状态机本身在 chunkLoader.test.ts 里测）', () => {
   assert.match(VIEW, /useEffect\(\(\) => \{ loader\.want\(pendingChunk\) \}, \[loader, pendingChunk\]\)/)
-  assert.match(VIEW, /onClick=\{\(\) => loader\.retry\(\)\}/)
+  assert.match(VIEW, /const retryShots = useCallback\(\(\) => loader\.retry\(\), \[loader\]\)/)
 })
 
 test('补取不取消在途请求：StrictMode 双挂载下取消会卡在占位格', () => {
@@ -80,10 +81,29 @@ test('补取不取消在途请求：StrictMode 双挂载下取消会卡在占位
   assert.doesNotMatch(VIEW, /\.abort\(/)
 })
 
-test('补取失败：报错行有文案与重试按钮，由失败态包裹', () => {
-  assert.match(VIEW, /\{shotLoadFailed && \(/)
-  assert.match(VIEW, /t\('shotsLoadFailed'\)/)
-  assert.match(VIEW, /tCommon\('retry'\)/)
+test('补取失败：不再在吸顶块外的页面顶部挂报错行（滚到中部看不到、也够不着重试）', () => {
+  assert.doesNotMatch(VIEW, /\{shotLoadFailed && \(/)
+  assert.doesNotMatch(VIEW, /t\('shotsLoadFailed'\)/)
+})
+
+test('补取失败：提示进吸顶日期轴，判据走 windowHasUnloaded（预取失败而当前屏完好时不挂）', () => {
+  assert.match(VIEW, /const shotRetryHint = shotLoadFailed && windowHasUnloaded\(dateWindow, board\.shotsLoadedFrom\)/)
+  const head = VIEW.slice(VIEW.indexOf('<div data-sticky-head'), VIEW.indexOf('{board.competitors.map((c) => ('))
+  assert.ok(head.includes('<ShotDateStrip'), '日期轴必须在吸顶块里')
+  assert.match(head, /loadFailed=\{shotRetryHint\}\s+onRetry=\{retryShots\}/)
+  // 吸顶容器不能加 transform / will-change（iOS 上会把整块定在错误偏移，见组件注释）
+  const headTag = head.slice(0, head.indexOf('>'))
+  assert.doesNotMatch(headTag, /transform|will-change|translate/)
+})
+
+test('日期轴：失败提示与重试只在 lg 起显示在左侧空列，窄屏隐藏（那一列窄屏是叠在日期行上的绝对层）', () => {
+  const nav = STRIP.slice(STRIP.indexOf('max-lg:absolute max-lg:inset-0'), STRIP.indexOf("aria-label={t('earlierDates')}"))
+  assert.ok(nav.length > 0, '找不到翻页键所在的左列')
+  assert.match(nav, /\{loadFailed && \(/)
+  assert.match(nav, /max-lg:hidden/)
+  assert.match(nav, /t\('shotsLoadFailed'\)/)
+  assert.match(nav, /onClick=\{onRetry\}/)
+  assert.match(nav, /tCommon\('retry'\)/)
 })
 
 test('刷新用的 since ref 每次都同步到最新（起点 + 轴）：否则刷新会按过期起点缩回去；起点 null 也要带上轴首', () => {
@@ -95,8 +115,8 @@ test('刷新用的 since ref 每次都同步到最新（起点 + 轴）：否则
   assert.doesNotMatch(VIEW, /loadedFromRef/)
 })
 
-test('卡片调用处把已加载起点与失败态相邻透传', () => {
-  assert.match(VIEW, /shotsLoadedFrom=\{board\.shotsLoadedFrom\}\s+shotLoadFailed=\{shotLoadFailed\}/)
+test('卡片调用处把已加载起点、失败态与重试相邻透传', () => {
+  assert.match(VIEW, /shotsLoadedFrom=\{board\.shotsLoadedFrom\}\s+shotLoadFailed=\{shotLoadFailed\}\s+onRetryShots=\{retryShots\}/)
 })
 
 test('刷新带上已加载起点，翻到历史后刷新不回缩', () => {
@@ -123,15 +143,24 @@ test('相册：未加载的日期渲染 PendingCell，且先于空格子判断�
   assert.doesNotMatch(cell, /uploadShot|type="file"|onPaste/, 'PendingCell 不能有补图入口')
 })
 
-test('卡片把已加载起点与失败态透传给相册和子卡', () => {
+test('卡片把已加载起点、失败态与重试透传给相册和子卡', () => {
   assert.match(CARD, /loadedFrom=\{shotsLoadedFrom\}/)
-  assert.match(CARD, /loadFailed=\{shotLoadFailed\}/)
-  assert.match(CARD, /shotsLoadedFrom=\{shotsLoadedFrom\}\s+shotLoadFailed=\{shotLoadFailed\}/)
+  assert.match(CARD, /loadFailed=\{shotLoadFailed\}\s+onRetry=\{onRetryShots\}/)
+  assert.match(CARD, /shotsLoadedFrom=\{shotsLoadedFrom\}\s+shotLoadFailed=\{shotLoadFailed\}\s+onRetryShots=\{onRetryShots\}/)
+  assert.match(ALBUM, /<PendingCell key=\{d\} ring=\{ring\} failed=\{loadFailed\} onRetry=\{onRetry\} \/>/)
 })
 
-test('占位格：失败时停止闪烁，且对读屏标明是否仍在加载', () => {
-  assert.match(ALBUM, /\$\{failed \? '' : 'animate-pulse'\}/)
-  assert.match(ALBUM, /aria-busy=\{!failed\}/)
+test('占位格：加载中闪烁且标 aria-busy；失败时停闪、整格变成重试按钮（窄屏唯一的重试入口）', () => {
+  const cell = ALBUM.slice(ALBUM.indexOf('function PendingCell'), ALBUM.indexOf('function FilledCell'))
+  assert.match(cell, /if \(!failed\) \{/)
+  const loading = cell.slice(cell.indexOf('if (!failed) {'), cell.indexOf('<button'))
+  assert.match(loading, /animate-pulse/)
+  assert.match(loading, /aria-busy/)
+  const failedBranch = cell.slice(cell.indexOf('<button'))
+  assert.doesNotMatch(failedBranch, /animate-pulse/)
+  assert.match(failedBranch, /onClick=\{onRetry\}/)
+  assert.match(failedBranch, /aria-label=\{t\('retryPendingShots'\)\}/)
+  assert.match(failedBranch, /tCommon\('retry'\)/)
 })
 
 test('shotGrid.ts 里不再残留 collectShotDates（日期轴只来自服务端）', () => {

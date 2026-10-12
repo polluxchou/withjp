@@ -12,7 +12,7 @@ import { todayLocal } from '@/lib/competitors/localDate'
 import { competitorAnchorId, competitorIdFromHash } from '@/lib/competitors/anchors'
 import { scrollToCompetitorCard } from './scrollToCard'
 import { SHOT_WINDOW_SIZE, UNDATED_KEY, missesShotOn, resolveAnchor, windowOf } from '@/lib/competitors/shotGrid'
-import { boardRefreshPath, isShotDateLoaded, mergeShotRange, nextChunk, refreshSince } from '@/lib/competitors/shotWindow'
+import { boardRefreshPath, isShotDateLoaded, mergeShotRange, nextChunk, refreshSince, windowHasUnloaded } from '@/lib/competitors/shotWindow'
 import { createChunkLoader, fetchShotRange } from '@/lib/competitors/chunkLoader'
 import { patrolDaysOf } from '@/lib/competitors/liveCoverage'
 import { competitorName, summarizeBoard } from '@/lib/competitors/summary'
@@ -24,7 +24,6 @@ import { Input, Select } from '@/components/ui/Field'
 
 export default function CompetitorDossierView({ initial }: { initial: CompetitorBoard }) {
   const t = useTranslations('competitors')
-  const tCommon = useTranslations('common')
   const [board, setBoard] = useState<CompetitorBoard>(initial)
   const [input, setInput] = useState('')
   const [addType, setAddType] = useState<'group' | 'streamer'>('group')
@@ -153,6 +152,11 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
     [shotAxis, dateWindow, board.shotsLoadedFrom],
   )
   useEffect(() => { loader.want(pendingChunk) }, [loader, pendingChunk])
+  // 失败提示放进吸顶的日期轴（lg 起）和占位格本身（各宽度），不放页面顶部：
+  // 用户多半是滚到中部、用吸顶日期轴翻页的，顶部那行既看不到也够不着。
+  // 只在当前屏真有占位格时挂出，判据见 windowHasUnloaded。
+  const shotRetryHint = shotLoadFailed && windowHasUnloaded(dateWindow, board.shotsLoadedFrom)
+  const retryShots = useCallback(() => loader.retry(), [loader])
 
   // refresh 是 useCallback，闭包里的 board 会过期；since 走 ref 读最新值。
   // 起点为 null（已翻到轴首、全部已加载）时也要带上轴首那一天：不带的话服务端缺省回最近一段，
@@ -325,14 +329,6 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
         </div>
       )}
       {error && <p className="text-sm text-danger-text">{error}</p>}
-      {shotLoadFailed && (
-        <p className="flex items-center gap-2 text-sm text-danger-text">
-          {t('shotsLoadFailed')}
-          <Button variant="secondary" size="sm" onClick={() => loader.retry()}>
-            {tCommon('retry')}
-          </Button>
-        </p>
-      )}
 
       {board.competitors.length === 0 ? (
         <p className="text-sm text-ink-500">{t('empty')}</p>
@@ -371,6 +367,8 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               dateWindow={dateWindow}
               selectedDate={selectedDate}
               onPick={setAnchorDate}
+              loadFailed={shotRetryHint}
+              onRetry={retryShots}
             />
           </div>
           {board.competitors.map((c) => (
@@ -389,6 +387,7 @@ export default function CompetitorDossierView({ initial }: { initial: Competitor
               selectedDate={selectedDate}
               shotsLoadedFrom={board.shotsLoadedFrom}
               shotLoadFailed={shotLoadFailed}
+              onRetryShots={retryShots}
               regionPeers={board.competitors}
               patrolDays={patrolDays}
               selected={c.id === selectedId}

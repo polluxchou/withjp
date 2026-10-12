@@ -2,18 +2,23 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { SHOT_WINDOW_SIZE, UNDATED_KEY } from '@/lib/competitors/shotGrid'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 
 export default function ShotDateStrip({
-  axis, dateWindow, selectedDate, onPick,
+  axis, dateWindow, selectedDate, onPick, loadFailed, onRetry,
 }: {
   axis: string[]
   dateWindow: string[]
   selectedDate: string | null
   onPick: (date: string) => void
+  /** 当前屏的截图补取失败（判据见 CompetitorDossierView 的 shotRetryHint）。 */
+  loadFailed: boolean
+  onRetry: () => void
 }) {
   const t = useTranslations('competitors')
+  const tCommon = useTranslations('common')
   // dateWindow 才是渲染依据,axis 非空不代表窗口非空
   if (axis.length === 0 || dateWindow.length === 0) return null
 
@@ -55,8 +60,26 @@ export default function ShotDateStrip({
             芯片正下方,会被读成「左右切换账号」。所以改成绝对定位浮在日期行两端,
             并用负边距挪进外层 px-4 的留白里:日期网格因此保持满宽,与相册的 5 列
             严格对齐(一旦让翻页键占宽,chip 就整体内缩、对不上列)。
-            pointer-events 只在 lg 以下需要:容器铺满整行,不放行的话中间的日期点不动。*/}
+            pointer-events 只在 lg 以下需要:容器铺满整行,不放行的话中间的日期点不动。
+
+            补取失败的提示也借这一列 lg 起空着的左半段:吸顶块随滚动常驻,失败原因和重试
+            都在用户翻页的手边,而且不加高吸顶块(提示与重试键都不高于翻页键)。
+            lg 以下这一列是叠在日期行上的绝对层,提示放进来会盖住日期,所以 max-lg:hidden,
+            窄屏的重试入口交给占位格本身(见 ShotAlbum 的 PendingCell)。*/}
         <div className="flex items-center justify-end gap-1 max-lg:pointer-events-none max-lg:absolute max-lg:inset-0 max-lg:justify-between">
+          {loadFailed && (
+            <p role="alert" className="mr-auto flex min-w-0 items-center gap-1.5 text-xs text-danger-text max-lg:hidden">
+              <AlertTriangle size={14} strokeWidth={1.5} className="shrink-0" aria-hidden />
+              <span className="truncate" title={t('shotsLoadFailed')}>{t('shotsLoadFailed')}</span>
+              <button
+                type="button"
+                onClick={onRetry}
+                className={`shrink-0 rounded border border-line px-1.5 py-0.5 text-ink-700 hover:text-ink-900 ${FOCUS_RING}`}
+              >
+                {tCommon('retry')}
+              </button>
+            </p>
+          )}
           <button
             type="button"
             onClick={() => step(-1)}

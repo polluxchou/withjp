@@ -3,7 +3,7 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus } from 'lucide-react'
+import { Plus, RotateCcw } from 'lucide-react'
 import { SHOT_WINDOW_SIZE, UNDATED_KEY, coverOf, groupShotsByDate } from '@/lib/competitors/shotGrid'
 import { isShotDateLoaded } from '@/lib/competitors/shotWindow'
 import { imageFromClipboard, uploadShot } from '@/lib/competitors/uploadShot'
@@ -97,18 +97,28 @@ function EmptyCell({ competitorId, dateKey, canEdit, onChanged, ring }: {
 
 /**
  * 还没加载到的日期。和空格子同尺寸，但**不给补图入口**：这天可能其实有图，只是还没取回来，
- * 在这里补图会造出重复截图。补取失败时停止闪烁，免得被读成"还在加载"；
- * 重试入口在页面顶部的报错行。
+ * 在这里补图会造出重复截图。补取失败时停止闪烁（免得被读成"还在加载"），整格变成重试按钮：
+ * 用户盯着这排灰格时，入口就在灰格上。窄屏吸顶日期轴没有空位放失败提示，这里是唯一的重试入口；
+ * lg 起日期轴左列另有一行带原因的提示（见 ShotDateStrip）。
  */
-function PendingCell({ ring, failed }: { ring: string; failed: boolean }) {
+function PendingCell({ ring, failed, onRetry }: { ring: string; failed: boolean; onRetry: () => void }) {
+  const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
+  const shell = `${BOX} ${ring} rounded-field bg-line-soft`
+  if (!failed) {
+    return <div role="status" aria-busy aria-label={tCommon('loading')} className={`${shell} animate-pulse`} />
+  }
   return (
-    <div
-      role="status"
-      aria-busy={!failed}
-      aria-label={failed ? tCommon('loadFailed') : tCommon('loading')}
-      className={`${BOX} ${ring} rounded-field bg-line-soft ${failed ? '' : 'animate-pulse'}`}
-    />
+    <button
+      type="button"
+      onClick={onRetry}
+      aria-label={t('retryPendingShots')}
+      title={t('retryPendingShots')}
+      className={`${shell} flex w-full flex-col items-center justify-center gap-1 text-ink-500 hover:text-ink-900 ${CELL_FOCUS_RING}`}
+    >
+      <RotateCcw size={16} strokeWidth={1.5} aria-hidden />
+      <span className="px-1 text-center text-[10px] leading-tight">{tCommon('retry')}</span>
+    </button>
   )
 }
 
@@ -153,7 +163,7 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
 }
 
 export default function ShotAlbum({
-  competitorId, handle, region, shots, canEdit, onChanged, dateWindow, selectedDate, loadedFrom, loadFailed,
+  competitorId, handle, region, shots, canEdit, onChanged, dateWindow, selectedDate, loadedFrom, loadFailed, onRetry,
 }: {
   competitorId: string
   /** 对方平台上的用户名。只用于下载文件名 —— 截图离开系统后，文件名是它唯一剩下的上下文。 */
@@ -167,8 +177,9 @@ export default function ShotAlbum({
   selectedDate: string | null
   /** 已加载起点（CompetitorBoard.shotsLoadedFrom）：更早的日期还没取回来，格子显示占位而不是"没图"。 */
   loadedFrom: string | null
-  /** 补取失败：占位格停止闪烁。 */
+  /** 补取失败：占位格停止闪烁、变成重试按钮。 */
   loadFailed: boolean
+  onRetry: () => void
 }) {
   const t = useTranslations('competitors')
   const [openDate, setOpenDate] = useState<string | null>(null)
@@ -198,7 +209,7 @@ export default function ShotAlbum({
         {dateWindow.map((d) => {
           // 描边两个分支都要:一列里空格子越多,越需要它告诉你看的是同一天
           const ring = d === selectedDate ? 'ring-2 ring-primary' : ''
-          if (!isShotDateLoaded(d, loadedFrom)) return <PendingCell key={d} ring={ring} failed={loadFailed} />
+          if (!isShotDateLoaded(d, loadedFrom)) return <PendingCell key={d} ring={ring} failed={loadFailed} onRetry={onRetry} />
           const dayShots = grouped.get(d) ?? []
           return dayShots.length
             ? <FilledCell key={d} shots={dayShots} dateKey={d} ring={ring} onOpen={() => setOpenDate(d)} />

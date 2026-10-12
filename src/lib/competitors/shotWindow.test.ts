@@ -6,6 +6,7 @@ import { SHOT_WINDOW_SIZE, UNDATED_KEY } from './shotGrid.ts'
 import {
   SHOT_CHUNK_DAYS, boardRefreshPath, buildShotIndex, initialLoadedFrom, isShotDateLoaded, loadedRangeOrFilter,
   mergeShotRange, nextChunk, parseShotRangeQuery, parseSinceQuery, refreshSince, resolveLoadedFrom, shotRangePath,
+  windowHasUnloaded,
 } from './shotWindow.ts'
 import type { ShotIndexRow } from './shotWindow.ts'
 import { liveSpansOf } from './liveSessions.ts'
@@ -261,6 +262,22 @@ test('isShotDateLoaded: 不早于起点才算已加载', () => {
   assert.equal(isShotDateLoaded('2026-08-16', '2026-08-16'), true)
   assert.equal(isShotDateLoaded('2026-08-20', '2026-08-16'), true)
   assert.equal(isShotDateLoaded('2026-08-15', '2026-08-16'), false)
+})
+
+test('windowHasUnloaded: 窗口里有早于起点的日期才算有未加载格', () => {
+  assert.equal(windowHasUnloaded(['2026-08-14', '2026-08-15', '2026-08-16'], '2026-08-16'), true)
+  assert.equal(windowHasUnloaded(['2026-08-01', '2026-08-02'], '2026-08-16'), true)
+})
+
+test('windowHasUnloaded: 整屏都已加载时为 false（预取失败而当前屏完好，不挂提示）', () => {
+  assert.equal(windowHasUnloaded(['2026-08-16', '2026-08-17', '2026-08-20'], '2026-08-16'), false)
+  assert.equal(windowHasUnloaded(['2026-08-01', '2026-08-02'], null), false)
+})
+
+test('windowHasUnloaded: 无日期列与空窗口都不算未加载', () => {
+  assert.equal(windowHasUnloaded(['2026-08-20', UNDATED_KEY], '2026-08-16'), false)
+  assert.equal(windowHasUnloaded([UNDATED_KEY], '2026-08-16'), false)
+  assert.equal(windowHasUnloaded([], '2026-08-16'), false)
 })
 
 // 轴 08-01…08-25；首屏起点 08-16（下标 15）
