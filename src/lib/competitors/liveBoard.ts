@@ -16,6 +16,7 @@
 //    日区团播普遍一天两档，番组表上画成参考线，方便对照竞品的档期。排期是日本时间的钟点，与账号地区无关。
 import { clusterMinutes, minutesToLabel, SLOT_MIN_SESSIONS, SLOT_MIN_SHARE, type LiveSlot } from './liveSlots.ts'
 import { coverageOf } from './liveCoverage.ts'
+import { liveSessionRows } from './liveSessionPack.ts'
 import { liveSpansOf, regionTimeZone, type LiveSpan } from './liveSessions.ts'
 import {
   AXIS_END,
@@ -50,12 +51,13 @@ export interface LiveAccount {
 /**
  * 一个号的全部场次（导入的 LIVE History + 截图推断，合并去重，降序）。
  * 卡片（CompetitorCard）、开播记录弹窗（LiveSessionsModal）、开播时段页（flattenAccounts）取场次都只经过这里，组件里别再直接对 c 调 liveSpansOf。
+ * 导入一侧经 liveSessionRows 解包：看板下发的是列式紧凑格式（liveSessionPack），见 liveSessionPack.ts。
  * 开播场次喂哪批截图只在这里定：读 c.sessionShots——每场一条（开播时刻 + 最后一张截图时刻）的全部历史。
  * 不读 c.shots：相册按日期窗口加载，c.shots 只是已加载的那一段，场次不能跟着相册翻页变。
  * 配对的另一处是 liveCoverage.patrolDaysOfBoard（巡检日的来源）。
  */
 export function accountSpans(c: CompetitorWithHistory): LiveSpan[] {
-  return liveSpansOf({ live_sessions: c.live_sessions, shots: c.sessionShots })
+  return liveSpansOf({ live_sessions: liveSessionRows(c), shots: c.sessionShots })
 }
 
 /**

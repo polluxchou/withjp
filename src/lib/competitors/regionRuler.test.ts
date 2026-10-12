@@ -9,6 +9,7 @@ import {
   buildRegionRuler,
   tickStepHours,
 } from './regionRuler.ts'
+import { packLiveSessions } from './liveSessionPack.ts'
 import type { RulerInput } from './regionRuler.ts'
 import type { SessionShot } from './types.ts'
 
@@ -234,10 +235,10 @@ test('标尺把导入的场次也算进去，同一场的截图不重复计', ()
   const ruler = buildRegionRuler({
     competitors: [{
       id: 'a', handle: 'sample.a', region: 'JP',
-      live_sessions: [
+      liveSessionPack: packLiveSessions([
         { started_at: '2026-10-08T03:04:00+00:00', ended_at: '2026-10-08T05:09:00+00:00', likes: 1, title: '' },
         { started_at: '2026-10-09T03:06:00+00:00', ended_at: '2026-10-09T05:00:00+00:00', likes: 1, title: '' },
-      ],
+      ]),
       sessionShots: [{ stream_started_at: '2026-10-09T03:06:30+00:00', captured_at: '2026-10-09T04:00:00+00:00' }],
     }],
     region: 'JP', timeZone: 'Asia/Tokyo', now,
@@ -252,11 +253,11 @@ test('只有导入记录（没有截图）的账号也上轴；窗口外与未�
   const ruler = buildRegionRuler({
     competitors: [{
       id: 'a', handle: 'sample.a', region: 'JP',
-      live_sessions: [
+      liveSessionPack: packLiveSessions([
         session('2026-10-09T03:00:00Z'),
         session('2026-09-01T03:00:00Z'), // 早于 14 天窗口
         session('2026-10-11T03:00:00Z'), // 晚于 now（脏数据）
-      ],
+      ]),
     }],
     region: 'JP', timeZone: 'Asia/Tokyo', now,
   })

@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { LiveImportPanel } from '../LiveSessionImport'
 import { accountSpans } from '@/lib/competitors/liveBoard'
+import { liveSessionRows } from '@/lib/competitors/liveSessionPack'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import LiveRecordsPanel from './LiveRecordsPanel'
@@ -55,6 +56,8 @@ export default function LiveSessionsModal({
 
   // 截图一侧由 accountSpans 喂全量 sessionShots（每场一行），弹窗的场次、日历、指标不跟着相册翻页变。
   const spans = useMemo(() => accountSpans(competitor), [competitor])
+  // 导入预览的「新增 / 更新」按开播时刻比对已有场次；看板下发的是紧凑格式，先解包。
+  const existing = useMemo(() => liveSessionRows(competitor), [competitor])
 
   // 切换视图会卸载刚点的那颗按钮，焦点掉回 <body>，跑出弹窗的 Tab 圈定范围。
   // 切换后把焦点放进新视图：导入视图给输入框，记录视图给第一颗按钮（统计范围）。
@@ -110,7 +113,7 @@ export default function LiveSessionsModal({
             </button>
             <LiveImportPanel
               competitorId={competitor.id}
-              existing={competitor.live_sessions}
+              existing={existing}
               onImported={afterImport}
               // 一场都没有时回记录视图也是空的，取消就直接关掉。
               onCancel={() => (spans.length > 0 ? setView('records') : onClose())}

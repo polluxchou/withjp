@@ -7,7 +7,6 @@ import Button from '@/components/ui/Button'
 import { Field, Select, Textarea } from '@/components/ui/Field'
 import { diffAgainstExisting, parseLiveHistory } from '@/lib/competitors/liveHistory'
 import { formatCount } from '@/lib/competitors/metrics'
-import type { CompetitorLiveSession } from '@/lib/competitors/types'
 import { timeZoneForLocale } from '@/lib/time/localeZone'
 import { zonedHm, zonedYmd } from '@/lib/time/zonedTime'
 import { FOCUS_RING } from '@/lib/ui/recipes'
@@ -87,7 +86,8 @@ export function LiveImportPanel({
   onCancel,
 }: {
   competitorId: string
-  existing: CompetitorLiveSession[]
+  /** 已导入的场次：只按开播时刻判「新增 / 更新」（diffAgainstExisting）。 */
+  existing: { started_at: string }[]
   /** 导入成功后调用；返回 Promise 时等它结束再放开「导入」按钮（弹窗在这段时间里刷新数据）。 */
   onImported: () => void | Promise<void>
   onCancel: () => void

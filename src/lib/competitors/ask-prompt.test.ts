@@ -20,6 +20,7 @@ import test from 'node:test'
 
 import { buildAskContext } from './ask-context.ts'
 import { ANSWER_LANGUAGE, RULES, buildSystemPrompt } from './ask-prompt.ts'
+import { packLiveSessions } from './liveSessionPack.ts'
 import type { CompetitorBoard, CompetitorShot, CompetitorSnapshot, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
 /** 折叠掉所有空白(含换行/缩进),规则原文与锚点都过这道折叠再比较。 */
@@ -100,7 +101,7 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     weekly: [],
     related: over.related ?? [],
     descriptions: over.descriptions ?? [],
-    live_sessions: over.live_sessions ?? [],
+    liveSessionPack: over.liveSessionPack ?? packLiveSessions([]),
   }
 }
 

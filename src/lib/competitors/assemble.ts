@@ -1,9 +1,10 @@
 // src/lib/competitors/assemble.ts
 import type {
-  BoardShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorLiveSession,
+  BoardLiveSession, BoardShot, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription,
   CompetitorBoard, CompetitorWithHistory, HistoryPoint,
 } from './types.ts'
 import { sortDescriptions } from './descriptions.ts'
+import { packLiveSessions } from './liveSessionPack.ts'
 import { compareShotsForBoard } from './shotGrid.ts'
 import { buildShotIndex } from './shotWindow.ts'
 import type { ShotIndex } from './shotWindow.ts'
@@ -32,7 +33,7 @@ export function assembleBoard<S extends BoardShot = CompetitorShot>(
   shots: S[],
   canEdit: boolean,
   descriptions: CompetitorDescription[] = [],
-  liveSessions: CompetitorLiveSession[] = [],
+  liveSessions: BoardLiveSession[] = [],
   meta?: ShotMeta,
 ): CompetitorBoard<S> {
   const shotMeta: ShotMeta = meta ?? { ...buildShotIndex(shots), shotsLoadedFrom: null }
@@ -54,7 +55,7 @@ export function assembleBoard<S extends BoardShot = CompetitorShot>(
     arr.push(d)
     descsBy.set(d.competitor_id, arr)
   }
-  const liveBy = new Map<string, CompetitorLiveSession[]>()
+  const liveBy = new Map<string, BoardLiveSession[]>()
   for (const s of liveSessions) {
     const arr = liveBy.get(s.competitor_id) ?? []
     arr.push(s)
@@ -75,9 +76,10 @@ export function assembleBoard<S extends BoardShot = CompetitorShot>(
       ...c, latest, history, weekly, shots: shotRows, related: [],
       sessionShots: shotMeta.sessionShotsBy.get(c.id) ?? [],
       descriptions: sortDescriptions(descsBy.get(c.id) ?? []),
-      // 按时刻比而不是按字符串比：timestamptz 读回来的写法（+00:00 / 带不带毫秒）不保证定长。
-      live_sessions: (liveBy.get(c.id) ?? []).slice()
-        .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()),
+      // 先按开播时刻倒序再打包（包里保持这个顺序）。按时刻比而不是按字符串比：
+      // timestamptz 读回来的写法（+00:00 / 带不带毫秒）不保证定长。
+      liveSessionPack: packLiveSessions((liveBy.get(c.id) ?? []).slice()
+        .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())),
     }
   }
 
