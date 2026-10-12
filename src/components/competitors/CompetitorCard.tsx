@@ -51,7 +51,7 @@ const ANCHOR_STYLE = { scrollMarginTop: `calc(var(--competitor-sticky-head, 120p
 
 export default function CompetitorCard({
   c, canEdit, onChanged, onReload, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, onUpdateRegion,
-  dateWindow, selectedDate, shotsLoadedFrom, shotLoadFailed, regionPeers, patrolDays,
+  dateWindow, selectedDate, shotsLoadedFrom, shotLoadFailed, onRetryShots, regionPeers, patrolDays,
   nested = false, selected = false, today = null,
 }: {
   c: CompetitorWithHistory
@@ -71,8 +71,10 @@ export default function CompetitorCard({
   selectedDate: string | null
   /** 相册已加载起点，见 CompetitorBoard.shotsLoadedFrom。 */
   shotsLoadedFrom: string | null
-  /** 往历史补取截图失败：相册占位格停止闪烁。 */
+  /** 往历史补取截图失败：相册占位格停止闪烁、变成重试按钮。 */
   shotLoadFailed: boolean
+  /** 重试那一段补取（占位格上的重试按钮）。 */
+  onRetryShots: () => void
   /** 整个看板的竞品：地区标签的浮层要拿同区所有账号画标尺。 */
   regionPeers: CompetitorWithHistory[]
   /** 巡检日（全库截图的 shot_on）：判断哪些日子「无数据」而不是「没播」，见 liveCoverage.ts。 */
@@ -425,6 +427,7 @@ export default function CompetitorCard({
           selectedDate={selectedDate}
           loadedFrom={shotsLoadedFrom}
           loadFailed={shotLoadFailed}
+          onRetry={onRetryShots}
         />
       </div>
 
@@ -457,6 +460,7 @@ export default function CompetitorCard({
                   selectedDate={selectedDate}
                   shotsLoadedFrom={shotsLoadedFrom}
                   shotLoadFailed={shotLoadFailed}
+                  onRetryShots={onRetryShots}
                   regionPeers={regionPeers}
                   patrolDays={patrolDays}
                   today={today}
