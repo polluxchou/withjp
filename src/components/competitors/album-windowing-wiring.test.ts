@@ -75,6 +75,13 @@ test('补取：缺口变化才喂给 loader，重试走 loader.retry()（状态�
   assert.match(VIEW, /onClick=\{\(\) => loader\.retry\(\)\}/)
 })
 
+test('补取：已加载起点一变就重判缺口——loader 成功后不补发排队的旧缺口，全靠这次重判续上', () => {
+  assert.match(
+    VIEW,
+    /const pendingChunk = useMemo\(\s*\(\) => nextChunk\(shotAxis, dateWindow, board\.shotsLoadedFrom\),\s*\[shotAxis, dateWindow, board\.shotsLoadedFrom\],\s*\)/,
+  )
+})
+
 test('补取不取消在途请求：StrictMode 双挂载下取消会卡在占位格', () => {
   assert.doesNotMatch(VIEW, /AbortController/)
   assert.doesNotMatch(VIEW, /\.abort\(/)
