@@ -319,6 +319,19 @@ test('成功收尾后这个右端就不算在途了：再 want 同右端的段�
   assert.deepEqual(h.calls.map((c) => c.range), [R1, R3])
 })
 
+test('排队中的缺口不算失败：之前别的缺口挂出的报错要清掉（报错行只属于当前缺口，否则点重试也没反应）', async () => {
+  const h = harness()
+  const other: ShotRange = { from: '2026-08-10', before: '2026-08-25' }
+  h.loader.want(R1)
+  h.loader.want(other)
+  h.calls[1].reject(new Error('boom'))
+  await settle()
+  assert.equal(last(h.failedLog), true)
+  h.loader.want(R2) // R1 仍在途：排队
+  assert.equal(h.calls.length, 2)
+  assert.equal(last(h.failedLog), false)
+})
+
 test('排队中按重试不多发请求', async () => {
   const h = harness()
   h.loader.want(R1)
