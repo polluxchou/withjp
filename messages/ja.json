@@ -1598,6 +1598,7 @@
     "uploadFailed": "アップロード失敗",
     "noShots": "スクショはまだありません",
     "shotsLoadFailed": "スクリーンショットを読み込めませんでした",
+    "shotsLoadFailedShort": "読み込みに失敗",
     "retryPendingShots": "スクリーンショットを読み込めませんでした。再試行",
     "undated": "日付なし",
     "shotTag": { "live_auto": "自動巡回", "live_manual": "拡張機能" },

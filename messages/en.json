@@ -1839,6 +1839,7 @@
     "uploadFailed": "Upload failed",
     "noShots": "No screenshots yet",
     "shotsLoadFailed": "Couldn't load screenshots",
+    "shotsLoadFailedShort": "Couldn't load",
     "retryPendingShots": "Couldn't load screenshots. Retry",
     "undated": "Undated",
     "shotTag": { "live_auto": "Auto patrol", "live_manual": "Extension" },

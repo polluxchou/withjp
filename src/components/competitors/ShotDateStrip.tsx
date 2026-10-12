@@ -65,12 +65,14 @@ export default function ShotDateStrip({
             补取失败的提示也借这一列 lg 起空着的左半段:吸顶块随滚动常驻,失败原因和重试
             都在用户翻页的手边,而且不加高吸顶块(提示与重试键都不高于翻页键)。
             lg 以下这一列是叠在日期行上的绝对层,提示放进来会盖住日期,所以 max-lg:hidden,
-            窄屏的重试入口交给占位格本身(见 ShotAlbum 的 PendingCell)。*/}
+            窄屏交给吸顶块下方那一行和占位格本身(见 CompetitorDossierView、ShotAlbum 的 PendingCell)。
+            1024px 侧栏展开时这里只剩约 140px,日文完整文案要 240px,会被截成只剩主语,
+            所以这里显示短文案、完整文案放 title。*/}
         <div className="flex items-center justify-end gap-1 max-lg:pointer-events-none max-lg:absolute max-lg:inset-0 max-lg:justify-between">
           {loadFailed && (
             <p role="alert" className="mr-auto flex min-w-0 items-center gap-1.5 text-xs text-danger-text max-lg:hidden">
               <AlertTriangle size={14} strokeWidth={1.5} className="shrink-0" aria-hidden />
-              <span className="truncate" title={t('shotsLoadFailed')}>{t('shotsLoadFailed')}</span>
+              <span className="truncate" title={t('shotsLoadFailed')}>{t('shotsLoadFailedShort')}</span>
               <button
                 type="button"
                 onClick={onRetry}

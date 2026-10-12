@@ -88,9 +88,28 @@ test('补取不取消在途请求：StrictMode 双挂载下取消会卡在占位
   assert.doesNotMatch(VIEW, /\.abort\(/)
 })
 
-test('补取失败：不再在吸顶块外的页面顶部挂报错行（滚到中部看不到、也够不着重试）', () => {
+test('补取失败：吸顶块上方（页面顶部）不挂报错行（滚到中部看不到、也够不着重试；插在上方还会挤动吸顶块）', () => {
   assert.doesNotMatch(VIEW, /\{shotLoadFailed && \(/)
-  assert.doesNotMatch(VIEW, /t\('shotsLoadFailed'\)/)
+  // 组件 JSX 的起点：顶格两空格的 `return (` 独占一行（effect 里的 `return () =>` 不算）
+  const jsxStart = VIEW.indexOf('\n  return (\n')
+  const aboveHead = VIEW.slice(jsxStart, VIEW.indexOf('<div data-sticky-head'))
+  assert.ok(jsxStart >= 0 && aboveHead.length > 0, '找不到组件 JSX 或吸顶块')
+  assert.doesNotMatch(aboveHead, /shotsLoadFailed|shotRetryHint/)
+})
+
+test('补取失败：窄屏在吸顶块正下方加一行提示——不吸顶、lg 起隐藏、判据同日期轴，吸顶块本身不动', () => {
+  const headStart = VIEW.indexOf('<div data-sticky-head')
+  const headClose = VIEW.indexOf('</div>', VIEW.indexOf('onRetry={retryShots}', headStart))
+  const between = VIEW.slice(headClose, VIEW.indexOf('{board.competitors.map((c) => ('))
+  assert.ok(headClose > headStart && between.length > 0, '找不到吸顶块与卡片列表之间的位置')
+  assert.match(between, /\{shotRetryHint && \(/)
+  assert.match(between, /lg:hidden/)
+  assert.doesNotMatch(between, /sticky/)
+  assert.match(between, /t\('shotsLoadFailed'\)/)
+  assert.match(between, /onClick=\{retryShots\}/)
+  assert.match(between, /tCommon\('retry'\)/)
+  const head = VIEW.slice(headStart, headClose)
+  assert.doesNotMatch(head, /shotsLoadFailed/, '提示行不能放进吸顶块（会加高吸顶区）')
 })
 
 test('补取失败：提示进吸顶日期轴，判据走 windowHasUnloaded（预取失败而当前屏完好时不挂）', () => {
@@ -108,7 +127,8 @@ test('日期轴：失败提示与重试只在 lg 起显示在左侧空列，窄�
   assert.ok(nav.length > 0, '找不到翻页键所在的左列')
   assert.match(nav, /\{loadFailed && \(/)
   assert.match(nav, /max-lg:hidden/)
-  assert.match(nav, /t\('shotsLoadFailed'\)/)
+  // 1024 宽侧栏展开时这里只剩约 140px：显示短文案，完整文案放 title
+  assert.match(nav, /title=\{t\('shotsLoadFailed'\)\}>\{t\('shotsLoadFailedShort'\)\}</)
   assert.match(nav, /onClick=\{onRetry\}/)
   assert.match(nav, /tCommon\('retry'\)/)
 })

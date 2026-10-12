@@ -62,13 +62,14 @@ function deps(): QuickShotDeps {
         .upsert(rows, { onConflict: 'competitor_id,captured_at,source', ignoreDuplicates: true })
       return !error
     },
-    countTodayUploads: async (userId, shotOn) => {
+    countTodayUploads: async (userId, day) => {
       const { count, error } = await db
         .from('competitor_shots')
         .select('id', { count: 'exact', head: true })
         .eq('created_by', userId)
         .eq('tag', QUICK_SHOT_TAG)
-        .eq('shot_on', shotOn)
+        .gte('created_at', day.startIso)
+        .lt('created_at', day.endIso)
       return error ? null : (count ?? 0)
     },
     now: () => Date.now(),

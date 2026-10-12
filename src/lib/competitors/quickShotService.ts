@@ -4,7 +4,7 @@
 // 本文件由 node --test 直接跑。
 // 鉴权只认 Authorization: Bearer —— 调用方是浏览器扩展，没有后台网页的 Cookie。
 import {
-  QUICK_SHOT_TAG, bearerToken, buildReadings, indexByHandle, normalizeHandle, parseCoLive,
+  QUICK_SHOT_TAG, bearerToken, buildReadings, indexByHandle, jstDayBounds, normalizeHandle, parseCoLive,
   parseViewerSource, parseViewerText, resolveCapturedAt, shotOnFor, toViewerCount, type CompetitorRef, type ReadingRow,
 } from './quickShot.ts'
 
@@ -41,8 +41,11 @@ export interface QuickShotDeps {
   findShot: (createdBy: string, competitorId: string, capturedAtIso: string) => Promise<string | null>
   insertShot: (row: ShotRow) => Promise<{ id: string } | null>
   insertReadings: (rows: ReadingRow[]) => Promise<boolean>
-  /** created_by=userId、tag=live_manual、shot_on=当天 的截图数；查询失败返回 null。 */
-  countTodayUploads: (userId: string, shotOn: string) => Promise<number | null>
+  /**
+   * created_by=userId、tag=live_manual、上传时刻 created_at 落在 [startIso, endIso) 的截图数；查询失败返回 null。
+   * 按上传时刻算「今天」：补传昨天截的图，今天也算一张（归档日期 shot_on 仍是截图那天）。
+   */
+  countTodayUploads: (userId: string, day: { startIso: string; endIso: string }) => Promise<number | null>
   now: () => number
 }
 
@@ -142,8 +145,8 @@ export function createQuickShotHandlers(deps: QuickShotDeps) {
       userId: user.id,
     })
     const readingsOk = readings.length === 0 || (await safely(() => deps.insertReadings(readings), false))
-    // 「今天」与 GET 同一口径：服务器当下的日本时间日期，不是读数时刻的日期
-    const todayUploads = await safely(() => deps.countTodayUploads(user.id, shotOnFor(deps.now())), null)
+    // 「今天」与 GET 同一口径：服务器当下所在的日本时间自然日，按上传时刻（created_at）计
+    const todayUploads = await safely(() => deps.countTodayUploads(user.id, jstDayBounds(deps.now())), null)
 
     // 截图已经写进去了：读数失败不能报整体失败（否则人会重传一张重复的），用 207 如实说部分成功
     return {
@@ -164,7 +167,7 @@ export function createQuickShotHandlers(deps: QuickShotDeps) {
     const auth = await authenticate(deps, req)
     if (!auth.ok) return auth.result
     const user = auth.user
-    const todayUploads = await deps.countTodayUploads(user.id, shotOnFor(deps.now()))
+    const todayUploads = await deps.countTodayUploads(user.id, jstDayBounds(deps.now()))
     if (todayUploads === null) return fail(500, 'db_error')
     return { status: 200, body: { data: { today_uploads: todayUploads }, error: null } }
   }

@@ -5,7 +5,7 @@ import { cropRect } from './crop.js'
 import { bumpShots, jstDay, shotsToday } from './day.js'
 import { handleFromLiveUrl } from './liveUrl.js'
 import { needsRefresh, sessionFromAuth } from './session.js'
-import { readingState, uploadErrorMessage } from './view.js'
+import { coLiveLine, readingState, uploadErrorMessage, uploadOutcome } from './view.js'
 
 test('handleFromLiveUrl：只认 tiktok.com/@handle/live', () => {
   assert.equal(handleFromLiveUrl('https://www.tiktok.com/@1MB.Dear/live?enter_from_merge=others_homepage'), '1mb.dear')
@@ -147,4 +147,79 @@ test('今日截图计数：存储被写坏成字符串时归零，不会把 "3"+
   const now = Date.UTC(2026, 9, 9, 3, 0)
   assert.equal(shotsToday({ day: jstDay(now), shots: '3' }, now), 0)
   assert.deepEqual(bumpShots({ day: jstDay(now), shots: '3' }, now), { day: jstDay(now), shots: 1 })
+})
+
+test('coLiveLine：读到了写条数（含当前房间与不在库的，入库时再过滤），没读到按原因说', () => {
+  assert.deepEqual(coLiveLine('ok', [{ handle: 'a', viewer: '1' }, { handle: 'b', viewer: null }]), { text: '✓ 同期 2 个', tone: 'ok' })
+  assert.deepEqual(coLiveLine('no_following', null), { text: '⚠ 同期没读到：侧栏只有推荐区（TikTok 没登录，或关注的人都没在播）', tone: 'warn' })
+  assert.deepEqual(coLiveLine('no_channels', null), { text: '⚠ 同期没读到：没找到侧栏（页面结构可能变了）', tone: 'warn' })
+  assert.deepEqual(coLiveLine('empty', null), { text: '⚠ 同期没读到：Following 区是空的', tone: 'warn' })
+})
+
+test('coLiveLine：状态缺失 / 不认识 / 恰好是原型上的键 / ok 却没条目 → 只说「没读到」', () => {
+  for (const s of [null, undefined, 'weird', 'toString', 'constructor', '__proto__', 'hasOwnProperty']) {
+    assert.deepEqual(coLiveLine(s, null), { text: '⚠ 同期没读到', tone: 'warn' }, String(s))
+  }
+  assert.deepEqual(coLiveLine('ok', []), { text: '⚠ 同期没读到', tone: 'warn' })
+  assert.deepEqual(coLiveLine('ok', null), { text: '⚠ 同期没读到', tone: 'warn' })
+})
+
+test('uploadOutcome：201 带 data → 传完、移出暂存区，带回竞品名与今日上传数', () => {
+  assert.deepEqual(
+    uploadOutcome({ status: 201, body: { data: { competitor_name: '1MB DEAR', today_uploads: 3 }, error: null } }, '1mb.dear'),
+    { kind: 'ok', stash: 'remove', name: '1MB DEAR', todayUploads: 3 },
+  )
+})
+
+test('uploadOutcome：207 → 截图已入库、人数没写进去：留在暂存区并打「人数待补」', () => {
+  assert.deepEqual(
+    uploadOutcome({ status: 207, body: { data: { competitor_name: '1MB DEAR', today_uploads: 3 }, error: 'readings_failed' } }, '1mb.dear'),
+    { kind: 'partial', stash: 'partial', name: '1MB DEAR', todayUploads: 3 },
+  )
+})
+
+test('uploadOutcome：竞品名缺失回落到 @handle，今日数不是数字给 null', () => {
+  assert.deepEqual(
+    uploadOutcome({ status: 201, body: { data: { competitor_name: '', today_uploads: null } } }, 'uni.chuuu'),
+    { kind: 'ok', stash: 'remove', name: '@uni.chuuu', todayUploads: null },
+  )
+})
+
+test('uploadOutcome：今日数缺键或不是数字（字符串 "3"）→ 一律 null，不把字符串当数字', () => {
+  assert.deepEqual(
+    uploadOutcome({ status: 201, body: { data: { competitor_name: '1MB DEAR' } } }, '1mb.dear'),
+    { kind: 'ok', stash: 'remove', name: '1MB DEAR', todayUploads: null },
+  )
+  assert.deepEqual(
+    uploadOutcome({ status: 201, body: { data: { competitor_name: '1MB DEAR', today_uploads: '3' } } }, '1mb.dear'),
+    { kind: 'ok', stash: 'remove', name: '1MB DEAR', todayUploads: null },
+  )
+})
+
+test('uploadOutcome：401 → 回登录，图留着', () => {
+  assert.deepEqual(uploadOutcome({ status: 401, body: { data: null, error: 'unauthorized' } }, 'a'), { kind: 'login', stash: 'keep' })
+})
+
+test('uploadOutcome：响应残缺（201/207 却没有 data、data 不是对象、网关 HTML、断网、5xx、null）一律当失败，图留着、计数不动', () => {
+  for (const r of [
+    { status: 201, body: { data: null, error: 'bad_response' } },
+    { status: 207, body: { data: null, error: 'readings_failed' } },
+    { status: 201, body: { data: 'x', error: null } },
+    { status: 201, body: { data: [], error: null } },
+    { status: 0, body: { data: null, error: 'network_error' } },
+    { status: 500, body: { data: null, error: 'db_error' } },
+    null,
+    // 带着合法 data、但状态码不是 201/207：也不能移出暂存区（只有 201 + data 才算传完）
+    { status: 200, body: { data: { competitor_name: 'x', today_uploads: 1 }, error: null } },
+    { status: 500, body: { data: { competitor_name: 'x', today_uploads: 1 }, error: 'db_error' } },
+    { status: 404, body: { data: { competitor_name: 'x', today_uploads: 1 }, error: 'not_in_library' } },
+    { status: 0, body: { data: { competitor_name: 'x', today_uploads: 1 }, error: 'network_error' } },
+  ]) {
+    const out = uploadOutcome(r, '1mb.dear')
+    assert.equal(out.kind, 'error', JSON.stringify(r))
+    assert.equal(out.stash, 'keep')
+    assert.equal('todayUploads' in out, false, '失败时不能动底部计数')
+  }
+  assert.equal(uploadOutcome({ status: 0, body: { data: null, error: 'network_error' } }, 'a').message, '网络不通，可以重试')
+  assert.equal(uploadOutcome({ status: 404, body: { data: null, error: 'not_in_library' } }, '1mb.dear').message, '@1mb.dear 不在竞品库')
 })

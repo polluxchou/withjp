@@ -7,13 +7,29 @@ import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, defaultProbeConfig, type ProbeConf
 /** 侧栏频道容器。2026-10-09 实测：每个区块一个，已登录时第一个是 Following。 */
 export const SIDEBAR_CHANNEL = ['[data-e2e="live-side-nav-channel"]']
 
+/** 侧栏频道标题。2026-10-09 / 10-10 已登录实测：Following 与 Suggested LIVE creators 两个频道都有它。 */
+export const SIDEBAR_CHANNEL_TITLE = ['[data-e2e="live-side-nav-channel-title"]']
+
 /**
- * 扩展用的探针配置：不起定时器（手动 tick 一次），同期横截面只读 Following。
+ * Following 频道的标题（已是规范形：小写、无首尾空白）。界面语言不同标题不同；
+ * 标题规范化后整串相等才算，见 liveProbe.ts 的 sidebarRoot。
+ */
+export const FOLLOWING_TITLES = ['following', '关注', '已关注', '正在关注', '追蹤中', 'フォロー中', 'フォロー']
+
+/**
+ * 扩展用的探针配置：不起定时器（手动 tick 一次），同期横截面只读 Following（先按标题认）。
  * 一次性读取用不着弹幕计数，chatHost 置空就不挂 MutationObserver。
- * sidebarChannel 返回副本，调用方改不到常量。
+ * 数组都返回副本，调用方改不到常量。
  */
 export function extensionProbeConfig(): ProbeConfig {
-  return { ...defaultProbeConfig(), intervalMs: 0, chatHost: [], sidebarChannel: [...SIDEBAR_CHANNEL] }
+  return {
+    ...defaultProbeConfig(),
+    intervalMs: 0,
+    chatHost: [],
+    sidebarChannel: [...SIDEBAR_CHANNEL],
+    sidebarChannelTitle: [...SIDEBAR_CHANNEL_TITLE],
+    followingTitles: [...FOLLOWING_TITLES],
+  }
 }
 
 /**
@@ -60,7 +76,9 @@ export const PAGE_READER_SRC = `function (win, doc, cfg) {
     clip: clip,
     viewer: sample ? sample.viewer : null,
     viewerSource: sample ? sample.viewer_source : null,
-    coLive: sample ? sample.co_live : null
+    coLive: sample ? sample.co_live : null,
+    // 侧栏读没读到、为什么没读到（liveProbe 的 co_live_status）；弹窗据此提示
+    coLiveStatus: sample && sample.co_live_status ? sample.co_live_status : null
   }
 }`
 
