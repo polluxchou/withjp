@@ -296,6 +296,29 @@ test('排队期间起点变了（新缺口右端不同，看板被刷新换掉�
   assert.deepEqual(h.merges, [{ rows: [{ id: 'm1' }], range: moved }])
 })
 
+test('新缺口（右端不同）自己失败、已报错之后旧段才失败：不替它自动重发，报错保持', async () => {
+  const h = harness()
+  const moved: ShotRange = { from: '2026-08-10', before: '2026-08-25' }
+  h.loader.want(R1)
+  h.loader.want(moved)
+  h.calls[1].reject(new Error('boom'))
+  await settle()
+  assert.equal(last(h.failedLog), true)
+  h.calls[0].reject(new Error('boom'))
+  await settle()
+  assert.equal(h.calls.length, 2, '重发由用户点重试决定')
+  assert.equal(last(h.failedLog), true)
+})
+
+test('成功收尾后这个右端就不算在途了：再 want 同右端的段照常发请求（不会永远排队）', async () => {
+  const h = harness()
+  h.loader.want(R1)
+  h.calls[0].resolve([])
+  await settle()
+  h.loader.want(R3)
+  assert.deepEqual(h.calls.map((c) => c.range), [R1, R3])
+})
+
 test('排队中按重试不多发请求', async () => {
   const h = harness()
   h.loader.want(R1)
