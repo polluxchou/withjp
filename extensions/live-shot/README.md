@@ -1,0 +1,47 @@
+# 竞品直播截图（Chrome 扩展）
+
+在 TikTok 直播间页面点扩展图标：截下竖屏直播画面、读当前房间与 Following 区同期竞品的在线人数，点「上传」写进竞品监测后台。设计见 `docs/superpowers/specs/2026-10-09-live-shot-extension-design.md`，第二版改动见 `docs/superpowers/specs/2026-10-11-live-shot-extension-v2-design.md`。
+
+## 安装
+
+1. 生成本机配置（只含公开值，已 gitignore）：
+
+   ```bash
+   node --env-file=<主仓目录>/.env.local scripts/gen-extension-config.mjs
+   ```
+
+   本地联调后台时加 `--api-base http://localhost:3100`。
+
+2. Chrome 打开 `chrome://extensions` → 打开右上角「开发者模式」→「加载已解压的扩展程序」→ 选本目录 `extensions/live-shot`。扩展页卡片上的 ID 应为 `kilboknbhfiljilmdninilmpchccdifn`。
+3. 点工具栏的扩展图标，用 MCN 后台的邮箱和密码登录一次。
+
+## 使用
+
+在 TikTok 直播间页面点图标，弹窗会自动截图并读人数；确认缩略图是这个房间后点「上传」；想在同一个直播间多截几个瞬间，不用关弹窗，点「再截一张」即可（上一张没传的会留在「未上传」里）。卡片第三行说明左侧 Following 区的同期人数读到了几个，没读到时写出原因（比如 TikTok 没登录、侧栏只有推荐区）。弹窗底部是今天（日本时间）的截图数与上传数，上传数按上传时刻计；左下角是插件版本号（登录页底部也有），刷新插件或换了加载目录后可以据此确认已是新版。
+
+截不了图时弹窗会说原因：不是直播间页面、页面被双指缩放、直播画面没完整在窗口里、页面刚切换了直播间。
+
+### 未上传的截图
+
+每张截图都会先存在本机（插件自己的本地数据库），上传成功后移出，最多留最近 9 张，满了新截的会挤掉最旧的一张并提示。弹窗下方「未上传 N 张」一排缩略图，点一张放大确认后可以「上传」或「删掉」（删掉要点两次）。在任何页面打开弹窗都能处理这些图。
+
+截图满 23 小时 50 分就置灰、只能删：后台只按截图时刻归档 24 小时内的图，再晚会改用服务器时间、归错日期。
+
+## 已知限制
+
+- 在直播间页面打开弹窗总会自动截一张，哪怕只是想处理积压；满 9 张时会挤掉最旧的一张。
+- 未上传的截图只在当前浏览器里，不跨浏览器同步；退出登录不清，换另一个后台账号登录后上传会记在新账号名下。
+- `manifest.json` 里固定了 `key`（0.2.3 起），不论从哪个目录加载，扩展 ID 都是 `kilboknbhfiljilmdninilmpchccdifn`，换目录后登录状态和未上传的截图都还在；也因此同一个 Chrome 里不能同时加载两份本插件（例如主仓一份、某个工作目录一份），先移除旧的再加载新的。
+- 本机时钟比服务器慢 10 分钟以上时，临近过期的图仍可能被后台改用服务器时间。
+- 点了「上传」后立刻关掉弹窗：图会留在「未上传」里；再传一次后台会认出是同一张，不会多出一张。
+- 没生成 `config.local.js` 时弹窗是空白的，先跑「安装」第 1 步。
+
+## 改了判据之后
+
+`generated/page-reader.js` 由 `src/lib/competitors/pageReader.ts` 生成，禁止手改。改了 `liveProbe.ts` 或 `pageReader.ts` 后运行：
+
+```bash
+node --experimental-strip-types scripts/gen-extension-reader.mjs
+```
+
+然后在 `chrome://extensions` 里点本扩展的刷新按钮。

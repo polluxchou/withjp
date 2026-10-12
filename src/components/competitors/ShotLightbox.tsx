@@ -2,18 +2,24 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
-import { ChevronLeft, ChevronRight, Download, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Info, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
 import { maxShotDate } from '@/lib/competitors/localDate'
-import { lightboxNeighbors } from '@/lib/competitors/lightboxLayout'
+import { lightboxNeighbors, revealScrollDelta } from '@/lib/competitors/lightboxLayout'
+import { coverOf } from '@/lib/competitors/shotGrid'
+import { buildCoLiveView, type CoLiveReading } from '@/lib/competitors/coLive'
 import { captionOverflowsClamp, shotOverlaySections } from '@/lib/competitors/shotOverlay'
 import { dayZipName, shotFileName } from '@/lib/competitors/shotDownload'
 import { fetchBytes, saveBlob } from '@/lib/competitors/downloadFile'
 import { buildZip } from '@/lib/competitors/zip'
-import { formatDayTimeInLocaleZone } from '@/lib/time/localeZone'
+import { formatDayTimeInZone, zonedHm } from '@/lib/time/zonedTime'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
+import { useShotTagLabel } from './useShotTagLabel'
+import { useRegionZone } from './live/useRegionZone'
+import { competitorAnchorId } from '@/lib/competitors/anchors'
+import { scrollToCompetitorCard } from './scrollToCard'
 
 /**
  * 一张主图 + 宽屏时两侧各露一张。所有信息都叠在主图身上。
@@ -32,11 +38,15 @@ import { lockViewportScroll } from '@/lib/ui/scrollLock'
  *   max-h-[50vh] ↔ MAIN_MAX_VH × PEEK_SCALE  邻图
  */
 export default function ShotLightbox({
-  shots, handle, dateKey, canEdit, onClose, onChanged,
+  shots, initialId, handle, region, dateKey, canEdit, onClose, onChanged,
 }: {
   shots: CompetitorShot[]
+  /** 打开时先停在哪张（相册传当天封面，即最新一张）。不传就从第一张开始。 */
+  initialId?: string
   /** 对方平台上的用户名。只用于下载文件名。 */
   handle: string
+  /** 账号地区：开播时刻按它的时区显示。 */
+  region: string | null
   /** 当天的日期键（未标日期那一列为 UNDATED_KEY）。只用于打包文件名。 */
   dateKey: string
   canEdit: boolean
@@ -45,9 +55,11 @@ export default function ShotLightbox({
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
-  // 开播时刻按界面语言换算（ja=日本 / zh=北京 / en=加州），库里是 UTC。
-  const locale = useLocale()
-  const [pickedId, setPickedId] = useState<string | null>(null)
+  const tagLabel = useShotTagLabel()
+  // 开播时刻按账号所在地区的时区换算（库里是 UTC），与卡片「常见开播」、开播记录弹窗同一口径；
+  // 地区没填才回落到界面语言时区（ja=日本 / zh=北京 / en=加州），那时没有地区时区名（zoneLabel 为 null）。
+  const { timeZone: zone, zoneLabel } = useRegionZone(region)
+  const [pickedId, setPickedId] = useState<string | null>(initialId ?? null)
   const [settled, setSettled] = useState<Set<string>>(() => new Set())
   // 惰性初始化而不是先给一个默认值再用 effect 纠正:后者会让宽屏上先画出没有邻图的
   // 一帧、下一帧才把两侧补进来。灯箱只在用户点开某天后才渲染,不参与 SSR,
@@ -81,12 +93,24 @@ export default function ShotLightbox({
   // TikTok 直播截图最要紧的礼物栏、排行榜、评论都压在画面下缘,而渐变层正好
   // 盖在那儿(常态占主图 32%) —— 这个模式存在的理由就是把那块让出来。
   const [cleanView, setCleanView] = useState(false)
+  // 胶片条的滚动容器。同 captionEl:条被好几层开关决定挂不挂载(仅看图、图没加载完、
+  // 当天只有一张都不画),用 state 存节点,挂载与卸载本身就会重跑下面的滚动 effect。
+  const [stripEl, setStripEl] = useState<HTMLDivElement | null>(null)
   // 下载进度。打包一天六张(每张上限 5MB)要花几秒,不给反馈会被当成没点上。
   const [saving, setSaving] = useState<{ done: number; total: number } | null>(null)
+  // 同期读数按 shot_id 缓存。读数来自另一次请求，不在 shot 字段里；缓存键是 shot_id，
+  // 快速翻图时晚到的响应只会写进它自己那张的槽位，不会把 A 的名单画到 B 上。
+  // 失败的不进缓存（记在 coLiveFailedId 里）：切走再切回来时 effect 看到缓存没有就重取。
+  const [coLiveCache, setCoLiveCache] = useState<Map<string, CoLiveReading[]>>(() => new Map())
+  const [coLiveFailedId, setCoLiveFailedId] = useState<string | null>(null)
+  // 名单默认展开；换一张图重置为展开。想看干净画面有右上角的「仅看图」,
+  // 和备注段同一个道理:多点一下才看得到的名单等于没画。
+  const [coLiveOpen, setCoLiveOpen] = useState(true)
 
-  // 选中项兜底到第一张,一次覆盖"选中项被删"与"刚打开还没选"两种情况。
+  // 选中项兜底到最新一张(封面),一次覆盖"选中项被删"与"没传 initialId"两种情况。
+  // 兜底的落点与"打开时停在封面"一致:删掉选中的那张,不会突然跳到当天最早的一张。
   // 删除不可逆,作用对象必须永远在画面里。
-  const selected = shots.find((s) => s.id === pickedId) ?? shots[0]
+  const selected = shots.find((s) => s.id === pickedId) ?? coverOf(shots)
   const index = selected ? shots.findIndex((s) => s.id === selected.id) : -1
 
   const neighbors = lightboxNeighbors(viewport.w, viewport.h, shots.length, index)
@@ -104,9 +128,12 @@ export default function ShotLightbox({
   const selectedShotOn = selected?.shot_on ?? ''
   const selectedCaption = selected?.caption ?? ''
 
-  // 渐变层渲染哪几段。四段全空(只读 + 人工上传 + 当天仅此一张)时整层不画,
+  const coLiveRaw = selectedId ? coLiveCache.get(selectedId) : undefined
+  const coLiveFailed = coLiveRaw === undefined && coLiveFailedId === selectedId
+  const coLiveView = coLiveRaw && selected ? buildCoLiveView(coLiveRaw, selected.competitor_id) : null
+  // 渐变层渲染哪几段。五段全空(只读 + 人工上传 + 当天仅此一张 + 无同期)时整层不画,
   // 画面上只剩左上角那两颗胶囊。
-  const ov = shotOverlaySections(selected, canEdit, shots.length)
+  const ov = shotOverlaySections(selected, canEdit, shots.length, coLiveView != null || coLiveFailed)
 
   useEffect(() => {
     setDateInput(selectedShotOn)
@@ -114,7 +141,32 @@ export default function ShotLightbox({
     // 换一张图把备注恢复成默认的展开态:上一张手动收起过,不该带到下一张。
     // 编辑区反过来保持不动 —— 清理某天的多张图时会连着删好几张。
     setCaptionOpen(true)
+    setCoLiveOpen(true)
   }, [selectedId, selectedShotOn])
+
+  // 选中项换了且缓存里没有：取一次。失败只记 coLiveFailedId、不进缓存，
+  // 所以切走再切回来 effect 会再取一次（依赖里的 coLiveCache 失败时不变，不会原地死循环）。
+  // 不做竞态取消：响应按自己的 shot_id 落槽，晚到也只影响它自己那张；
+  // 选中项已换时照样写进缓存，下次翻回来直接有。
+  useEffect(() => {
+    if (!selectedId || coLiveCache.has(selectedId)) return
+    const id = selectedId
+    // 重试在途时清掉上一次的失败标记，免得回到失败过的那张时仍显示「读取失败」。
+    setCoLiveFailedId((f) => (f === id ? null : f))
+    fetch(`/api/competitors/shots/${id}/readings`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status))
+        const body = (await res.json()) as { data: { rows: CoLiveReading[] } | null }
+        return body.data?.rows ?? []
+      })
+      .then(
+        (rows) => {
+          setCoLiveCache((m) => new Map(m).set(id, rows))
+          setCoLiveFailedId((f) => (f === id ? null : f))
+        },
+        () => setCoLiveFailedId(id),
+      )
+  }, [selectedId, coLiveCache])
 
   // 预加载当天全部截图。预加载整天(通常 3-6 张)而不只是当前三张,是为了让画面外的图
   // 提前开始下载,翻过去时多半已在缓存里。注意这只是"多半":实测若在某张下载完成前就
@@ -161,12 +213,21 @@ export default function ShotLightbox({
     setCaptionClipped(captionOverflowsClamp(captionEl.scrollHeight, lineHeight))
   }, [captionEl, selectedId, selectedCaption, captionOpen, viewport.w, viewport.h, editOpen])
 
+  // 选中的缩略图滚进胶片条的可视区。默认选中的是最后一张,一天的张数排不下时它一开始
+  // 就在可视区外;方向键翻页也会把选中项带出去。只改胶片条自己的 scrollLeft:
+  // 灯箱开着时视口滚动是锁住的,不能让祖先和页面跟着滚。
+  useEffect(() => {
+    const thumb = stripEl?.querySelector<HTMLElement>('[data-selected="true"]')
+    if (!stripEl || !thumb) return
+    stripEl.scrollLeft += revealScrollDelta(stripEl.getBoundingClientRect(), thumb.getBoundingClientRect())
+  }, [stripEl, selectedId])
+
   // 翻页:纯 index 位移,夹逼到两端。没有窗口概念了,比改版前的"窗口起点 + 选中项"
   // 两套状态简单得多。
   const step = useCallback((direction: -1 | 1) => {
     setPickedId((prev) => {
       const at = shots.findIndex((s) => s.id === prev)
-      const from = at >= 0 ? at : 0
+      const from = at >= 0 ? at : shots.length - 1
       const next = Math.min(Math.max(from + direction, 0), shots.length - 1)
       return shots[next]?.id ?? prev
     })
@@ -207,8 +268,20 @@ export default function ShotLightbox({
 
   const atStart = index <= 0
   const atEnd = index >= shots.length - 1
-  const startedAt = formatDayTimeInLocaleZone(selected.stream_started_at, locale)
+  const startedAt = formatDayTimeInZone(selected.stream_started_at, zone)
   const uptime = shotUptimeParts(selected.stream_started_at, selected.captured_at)
+  const coLiveTime = zonedHm(selected.captured_at ?? '', zone)
+  // 子账号卡片嵌在母号卡片里、没有锚点，这里画成不可点；
+  // 跳到母号卡片是后续项，需要 readings 里带 parent_id。
+  const cardOnPage = (id: string) =>
+    typeof document !== 'undefined' && document.getElementById(competitorAnchorId(id)) != null
+  const jumpToCard = (competitorId: string) => {
+    if (!cardOnPage(competitorId)) return
+    onClose()
+    // 程序化滚动不会被 overflow: hidden 拦住；推迟一帧是因为滚动锁补偿的 paddingRight
+    // 只在灯箱卸载时才撤掉，卸载前量卡片位置会差一次回流。
+    requestAnimationFrame(() => scrollToCompetitorCard(competitorId))
+  }
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
 
   const saveDate = async () => {
@@ -277,7 +350,7 @@ export default function ShotLightbox({
       if (!res.ok) { setError(t('actionFailed')); return }
       await onChanged()
       // 只在删掉最后一张时才关。否则清理某天的多张图要"开→删→关→再开"循环一遍;
-      // 留着不关的话,refetch 后 shots 变短、选中项会自动兜底到第一张。
+      // 留着不关的话,refetch 后 shots 变短、选中项会回落到当天最新一张（coverOf）。
       if (shots.length <= 1) onClose()
     } catch {
       setError(t('actionFailed'))
@@ -426,7 +499,7 @@ export default function ShotLightbox({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={selected.image_url}
-                  alt={selected.caption || selected.tag || ''}
+                  alt={selected.caption || tagLabel(selected.tag) || ''}
                   className={`max-w-full rounded-card ${
                     cleanView
                       ? 'max-h-[92vh]'
@@ -465,7 +538,14 @@ export default function ShotLightbox({
                       {selected.viewer_count != null && (
                         <span>{t('shotViewers', { count: selected.viewer_count })}</span>
                       )}
-                      {startedAt && <span>{t('shotStartedAt', { time: startedAt })}</span>}
+                      {/* 地区在清单里就写地区时区名；否则时刻按界面语言时区，沿用原来那句（自带该时区的简称）。 */}
+                      {startedAt && (
+                        <span>
+                          {zoneLabel
+                            ? t('shotStartedAtZone', { time: startedAt, zone: zoneLabel })
+                            : t('shotStartedAt', { time: startedAt })}
+                        </span>
+                      )}
                       {/* 不足 1 小时只显示分钟,免得出现"0时20分" */}
                       {uptime && (
                         <span>
@@ -473,6 +553,86 @@ export default function ShotLightbox({
                             ? t('shotUptime', { h: uptime.h, m: uptime.m })
                             : t('shotUptimeMin', { m: uptime.m })}
                         </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 同期在播：扩展上传时从 Following 侧栏抄下的同一秒别家人数。
+                      默认折叠成一行摘要；没有读数的截图(自动巡检的老图)整段不出现。
+                      判定全在 lib/competitors/coLive.ts，这里只画。 */}
+                  {ov.coLive && (
+                    <div className="text-white/90">
+                      {coLiveFailed || !coLiveView ? (
+                        <p className="text-white/60">{t('coLiveLoadFailed')}</p>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setCoLiveOpen((v) => !v)}
+                            aria-expanded={coLiveOpen}
+                            className="flex w-full items-center justify-between gap-2 rounded-btn text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
+                          >
+                            <span className="inline-flex items-center gap-1 tabular-nums">
+                              {coLiveView.selfRank != null
+                                ? t('coLiveSummary', { total: coLiveView.total, rank: coLiveView.selfRank })
+                                : t('coLiveSummaryNoRank', { total: coLiveView.total })}
+                              <span title={t('coLiveScopeHint')}>
+                                <Info className="h-3.5 w-3.5 text-white/50" aria-hidden="true" />
+                              </span>
+                              <span className="sr-only">{t('coLiveScopeHint')}</span>
+                            </span>
+                            <ChevronDown
+                              className={`h-4 w-4 shrink-0 text-white/60 transition-transform ${coLiveOpen ? 'rotate-180' : ''}`}
+                              aria-hidden="true"
+                            />
+                          </button>
+                          {coLiveOpen && (
+                            <div className="mt-1.5">
+                              {/* 手机上最多露 8 行(8 × 1.5rem)，超出内部滚动；≥sm 不限高。 */}
+                              <ul className="grid max-h-[12rem] grid-cols-[minmax(0,7rem)_2.75rem_minmax(0,1fr)] items-center gap-x-2 gap-y-1 overflow-y-auto tabular-nums sm:max-h-none">
+                                {coLiveView.rows.map((r) => (
+                                  <li key={r.competitorId} className="contents">
+                                    {r.isSelf ? (
+                                      <span className="truncate font-medium text-amber-300">
+                                        {r.label}
+                                        {coLiveView.selfFromCurrent && (
+                                          <span
+                                            title={t('coLiveSelfFromRoom')}
+                                            aria-label={t('coLiveSelfFromRoom')}
+                                            className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-300 align-middle"
+                                          />
+                                        )}
+                                      </span>
+                                    ) : !cardOnPage(r.competitorId) ? (
+                                      <span className="truncate text-white/80">{r.label}</span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => jumpToCard(r.competitorId)}
+                                        className="truncate rounded-btn text-left text-white/80 underline-offset-2 hover:text-white hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
+                                      >
+                                        {r.label}
+                                      </button>
+                                    )}
+                                    <span className={`text-right ${r.isSelf ? 'font-medium text-amber-300' : ''}`}>
+                                      {r.viewerCount ?? r.viewerText ?? ''}
+                                    </span>
+                                    <div className="h-1.5 overflow-hidden rounded-full bg-white/15">
+                                      <div
+                                        className={`h-full rounded-full ${r.isSelf ? 'bg-amber-400' : 'bg-white/60'}`}
+                                        style={{ width: `${Math.round(r.barRatio * 100)}%` }}
+                                      />
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="mt-1 text-[11px] text-white/50">
+                                {coLiveTime ? `${t('coLiveFootnote', { time: coLiveTime })} · ` : ''}
+                                {t('coLiveScopeHint')}
+                              </p>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
@@ -507,13 +667,14 @@ export default function ShotLightbox({
                       {/* 胶片条:当天全部张数直接可见,序号写在片上。只读 + 人工上传的多张
                           也要留着它 —— 否则画面上没有任何"共几张"的交代。 */}
                       {ov.strip && (
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+                        <div ref={setStripEl} className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
                           {shots.map((s, i) => (
                             <button
                               key={s.id}
                               type="button"
                               onClick={() => setPickedId(s.id)}
                               aria-pressed={s.id === selected.id}
+                              data-selected={s.id === selected.id}
                               aria-label={t('shotIndexOf', { index: i + 1, total: shots.length })}
                               className={`relative h-9 w-6 shrink-0 overflow-hidden rounded-field border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring ${
                                 s.id === selected.id ? 'border-primary' : 'border-transparent opacity-60'

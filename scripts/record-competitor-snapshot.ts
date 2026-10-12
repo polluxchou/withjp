@@ -62,7 +62,7 @@ async function run() {
     const { data: comp, error: cErr } = await db
       .from('competitors')
       .upsert(compRow, { onConflict: 'platform,handle' })
-      .select('id')
+      .select('id, region')
       .single()
     if (cErr || !comp) { console.error('competitor upsert failed', handle, cErr?.message); continue }
 
@@ -91,11 +91,14 @@ async function run() {
     const mentioned = extractMentionedHandles(r.bio, handle)
     if (mentioned.length) {
       const parentId = (comp as { id: string }).id
+      // 子账号沿用父账号地区（region 列已无默认值，不带的话子账号会落成空）。
+      const parentRegion = (comp as { region: string | null }).region
       const childRows = mentioned.map((h) => ({
         platform,
         handle: h,
         profile_url: `https://www.tiktok.com/@${h}`,
         parent_id: parentId,
+        region: parentRegion,
         note: `来自 @${handle} 简介`,
       }))
       const { error: rErr } = await db

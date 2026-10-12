@@ -19,10 +19,25 @@ export type ProbeConfig = {
   likes: string[]
   /** 弹幕列表容器 */
   chatHost: string[]
+  /** 弹幕节点本身的判据；subtree 模式下滤掉礼物/进场等非弹幕节点。空表示不过滤 */
+  message: string[]
   /** 弹幕节点内的发言人元素；一个都没命中就不猜，speakers 报 null */
   speaker: string[]
   /** 弹幕容器是否需要监听子树（容器频繁重建时打开） */
   chatSubtree: boolean
+  /**
+   * 侧栏频道容器的候选选择器。设了 = 同期横截面只读 Following：先按 sidebarChannelTitle /
+   * followingTitles 认标题；认不出且频道 ≥ 2 取第一个；只剩 1 个且标题不像 Following 时报 null
+   * （不拿 Suggested 顶替）。不设 = 整页读（分钟级采集器现状）。
+   */
+  sidebarChannel?: string[]
+  /**
+   * 频道标题元素的候选选择器。与 followingTitles 一起用：标题命中的频道就是 Following，
+   * 不论一共几个、排第几。只在设了 sidebarChannel 时生效；两项缺一就不按标题认。
+   */
+  sidebarChannelTitle?: string[]
+  /** Following 频道的标题。两边都小写、去首尾空白、连续空白压成一个后整串相等才算 */
+  followingTitles?: string[]
 }
 
 /**
@@ -56,17 +71,26 @@ export function defaultProbeConfig(): ProbeConfig {
       '[data-e2e="live-like-count"]',
       '[data-e2e="like-count"]',
     ],
+    // 2026-09-16 在 1tb.boiz 房间实测：chat-room 与 live-chat-list 这两个**都不存在**，
+    // 是当初凭猜写进来的 —— 所以 observer 从来没挂上过，第一次真机运行读到的
+    // observer_alive 一直是 false、chat_msgs 一直是 null。真实容器是
+    // live-chat-container。
     chatHost: [
+      '[data-e2e="live-chat-container"]',
       '[data-e2e="chat-room"]',
       '[data-e2e="live-chat-list"]',
     ],
+    // 每条 chat-message 各自套一层 div，不是同一个列表下的兄弟节点，所以必须监听子树。
+    // 但开了 subtree，addedNodes 里就混进礼物动画、进场提示、系统横幅 —— 只有本身是
+    // 弹幕、或内部含一条弹幕的节点才计数，否则 msgs 被灌水，而它正是 engagement 的分子。
+    message: ['[data-e2e="chat-message"]'],
     speaker: [
       '[data-e2e="message-owner-name"]',
     ],
     // 未经验证的猜测：如果弹幕列表是在容器下再深一层重渲染，而不是直接
     // 往这层 append 子节点，childList 观察不到、msgs 会整场停在 0 —— 现象上
     // 和"房间很安静没人发弹幕"完全一样，得留意第一次真实运行的 msgs 是否合理。
-    chatSubtree: false,
+    chatSubtree: true,
   }
 }
 
@@ -76,8 +100,22 @@ export function defaultProbeConfig(): ProbeConfig {
  * 也保证注入后除了 win.__lw 之外不碰页面上的任何东西。
  */
 export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
+  // 复用判据带上配置本身，不只看 version。改了选择器却忘了改版本号的话，页面里
+  // 那个旧探针会被"复用"、静默沿用旧配置 —— 2026-09-16 真机运行就栽在这：
+  // chatHost 候选已经修好了，但第一轮注入的旧探针还在，attached 一直 false，
+  // 而日志和样本看起来一切正常。把配置纳入判据之后，这件事不可能再忘。
+  var cfgKey = ''
+  try { cfgKey = win.JSON.stringify(cfg) } catch (e) { cfgKey = String(cfg.version) }
   if (win.__lw) {
-    if (win.__lw.version === cfg.version) {
+    if (win.__lw.version === cfg.version && win.__lw.cfgKey === cfgKey) {
+      // 复用 = 不重建状态，**不等于**放弃挂载。首次注入时弹幕容器往往还没渲染出来
+      // （SPA 进房后要等一会儿），attach 失败；如果这里直接返回，后续每次重注入都
+      // 命中复用分支，attach() 再也不会被调用一次 —— observer_alive 会从头到尾是
+      // false，而日志只会说"探针已复用"。2026-09-16 真机运行栽的就是这一层：
+      // 配置改对了、容器也在页面上了，就是没人再试一次。
+      if (!win.__lw.attached && typeof win.__lw.reattach === 'function') {
+        win.__lw.attached = !!win.__lw.reattach()
+      }
       return { reused: true, attached: !!win.__lw.attached, version: cfg.version }
     }
     // 版本变了要整个重建。先断开上一版的 observer —— 否则它会永远挂在旧节点上，
@@ -124,6 +162,53 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     return m ? m[1].toLowerCase() : null
   }
   /**
+   * 侧栏从哪儿读，返回 { root, status }。不设 sidebarChannel = 整页（分钟级采集器，一条不漏），
+   * status 为 null；sidebarChannel 为空数组等同未设。
+   * 设了 = 只读 Following：侧栏每个区块是一个频道容器，已登录时有 Following 与 Suggested。
+   * 判定顺序（候选选择器按顺序试，第一个有匹配的就定案）：
+   *   1. 一个频道都没有 → no_channels
+   *   2. 有频道的标题是 Following（见 followingTitles）→ 读它，不论一共几个、排第几
+   *   3. 标题都认不出、频道 ≥ 2 → 读第一个（标题文案改了时的兜底）
+   *   4. 否则（只剩 1 个且标题不像 Following）→ no_following，绝不拿 Suggested 顶替
+   * 首日真机就栽在第 4 步的旧版本上：侧栏只剩 Following 一个频道时，「不足 2 个就当只剩
+   * 推荐区」把它也丢了，所以先按标题认。
+   */
+  function normTitle(s) {
+    return String(s || '').replace(/\\s+/g, ' ').trim().toLowerCase()
+  }
+  function channelTitle(ch) {
+    var sels = cfg.sidebarChannelTitle || []
+    for (var i = 0; i < sels.length; i++) {
+      var t = textOf(ch && ch.querySelector && ch.querySelector(sels[i]))
+      if (t) return normTitle(t)
+    }
+    return ''
+  }
+  function isFollowing(ch) {
+    var t = channelTitle(ch)
+    if (!t) return false
+    var titles = cfg.followingTitles || []
+    for (var i = 0; i < titles.length; i++) {
+      if (normTitle(titles[i]) === t) return true
+    }
+    return false
+  }
+  function sidebarRoot() {
+    if (!cfg.sidebarChannel || !cfg.sidebarChannel.length) return { root: doc, status: null }
+    var byTitle = !!(cfg.sidebarChannelTitle && cfg.sidebarChannelTitle.length && cfg.followingTitles && cfg.followingTitles.length)
+    for (var k = 0; k < cfg.sidebarChannel.length; k++) {
+      var chans = doc.querySelectorAll(cfg.sidebarChannel[k]) || []
+      if (!chans.length) continue
+      if (byTitle) {
+        for (var c = 0; c < chans.length; c++) {
+          if (isFollowing(chans[c])) return { root: chans[c], status: 'ok' }
+        }
+      }
+      return chans.length >= 2 ? { root: chans[0], status: 'ok' } : { root: null, status: 'no_following' }
+    }
+    return { root: null, status: 'no_channels' }
+  }
+  /**
    * 顺手把左侧「已关注」侧栏整条抄下来 —— 那是**同一时刻**其它在播直播间的在线人数。
    *
    * 本来是当噪音要丢掉的（它正是 viewer 读错号的根源），但换个角度看：待在 A 房间
@@ -132,12 +217,17 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
    *
    * 只记 handle 与人数原文，不做解析也不做过滤（谁在竞品库里是入库时的事，
    * 这里多记几个非竞品账号的成本是零，漏记了却补不回来）。
+   * 返回 { list, status }：list 没有就是 null；status 只在设了 sidebarChannel 时有值，
+   * 找到了频道却一条带名字的都没有 → empty。
    */
   function sidebarReading() {
-    if (!doc.querySelectorAll) return null
+    var limited = !!(cfg.sidebarChannel && cfg.sidebarChannel.length)
+    if (!doc.querySelectorAll) return { list: null, status: limited ? 'no_channels' : null }
+    var r = sidebarRoot()
+    if (!r.root || !r.root.querySelectorAll) return { list: null, status: r.status }
     var out = []
     for (var a = 0; a < cfg.viewerItem.length && !out.length; a++) {
-      var items = doc.querySelectorAll(cfg.viewerItem[a]) || []
+      var items = r.root.querySelectorAll(cfg.viewerItem[a]) || []
       for (var i = 0; i < items.length; i++) {
         var nm = null
         for (var b = 0; b < cfg.viewerName.length && !nm; b++) {
@@ -150,7 +240,7 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
         if (nm) out.push({ handle: nm, viewer: pc })
       }
     }
-    return out.length ? out : null
+    return { list: out.length ? out : null, status: r.status === null ? null : (out.length ? 'ok' : 'empty') }
   }
   function viewerReading() {
     // ① 房间自己的面板
@@ -216,7 +306,19 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     }
     return null
   }
+  // 是不是一条真弹幕：节点自己命中、或它内部含一条。没配 message 判据时退回旧行为
+  // （全都算），老配置的语义不被这次改动改变。
+  function isMessage(node) {
+    if (!cfg.message || !cfg.message.length) return true
+    if (!node || node.nodeType !== 1) return false
+    for (var i = 0; i < cfg.message.length; i++) {
+      if (node.matches && node.matches(cfg.message[i])) return true
+      if (node.querySelector && node.querySelector(cfg.message[i])) return true
+    }
+    return false
+  }
   function count(node) {
+    if (!isMessage(node)) return
     st.msgs += 1
     var who = speakerOf(node)
     if (who && !st.seen[who]) { st.seen[who] = 1; st.nSpeakers += 1 }
@@ -247,12 +349,12 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
     var side = sidebarReading()
     var f = firstText(cfg.followers)
     var l = firstText(cfg.likes)
-    st.buf.push({
+    var sample = {
       t: win.Date.now(),
       viewer: v.text,
       viewer_source: v.source,
       // 同期其它在播房间的人数（来自左侧「已关注」侧栏），没有就是 null
-      co_live: side,
+      co_live: side.list,
       followers: f.text,
       likes: l.text,
       // 弹幕容器选择器没命中过就报 null，别把 0 当成"房间很安静"——跟下面 speakers 同一个道理
@@ -264,7 +366,10 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
         viewer: v.source, followers: f.sel, likes: l.sel,
         chatHost: st.hostSel, speaker: st.speakerSel
       }
-    })
+    }
+    // 侧栏状态只给限定了频道的调用方（扩展）；分钟级采集器的样本结构一个键都不多
+    if (side.status !== null) sample.co_live_status = side.status
+    st.buf.push(sample)
     st.msgs = 0
     st.seen = Object.create(null)
     st.nSpeakers = 0
@@ -276,10 +381,19 @@ export const PROBE_FACTORY_SRC = `function (win, doc, cfg) {
   }
   var ok = attach()
   win.__lw = {
+    cfgKey: cfgKey,
     version: cfg.version,
     attached: ok,
     tick: tick,
-    reattach: attach,
+    // 包一层而不是直接暴露 attach：attach() 只改内部 st，不回写 __lw.attached。
+    // 2026-09-16 真机实测 reattach() 返回 true、__lw.attached 却还是 false ——
+    // 看门狗和注入方都读这个标志位，于是"已经挂上了"这件事没人知道，
+    // observer_alive 一路报 false。挂载成败必须落在同一个地方。
+    reattach: function () {
+      var ok2 = attach()
+      if (win.__lw) win.__lw.attached = ok2
+      return ok2
+    },
     alive: alive,
     drain: function () { var out = st.buf; st.buf = []; return out },
     disconnect: function () {
@@ -355,16 +469,21 @@ export function clipRect(
 }
 
 /**
- * 页面里执行的版本：顺手把播放器静音（挂一整场不能出声），
+ * 页面里执行的版本：默认顺手把播放器静音（挂一整场不能出声；扩展传 `{ mute: false }` 不静音），
  * 并回报 video 是否就绪。videoWidth>0 且 readyState>=2 才算能截。
  * 算式与 clipRect 保持一致 —— 改一处必须改两处。
  */
-export const CLIP_FACTORY_SRC = `function (win, doc) {
+export const CLIP_FACTORY_SRC = `function (win, doc, opts) {
   function pct(s) { var n = parseFloat(s); return isFinite(n) ? n : 50 }
+  // 无人值守采集要静音（挂一整场不能出声）；扩展是人正在看的时候点的，不能动播放器。
+  // 不传 opts = 原行为（静音），scripts/live-watch 的调用方不受影响。
+  var mute = !opts || opts.mute !== false
   var v = doc.querySelector('video')
   if (!v) return { hasVideo: false, ready: false, clip: null }
-  v.muted = true
-  v.volume = 0
+  if (mute) {
+    v.muted = true
+    v.volume = 0
+  }
   var r = v.getBoundingClientRect()
   var cs = win.getComputedStyle(v)
   var iw = v.videoWidth, ih = v.videoHeight

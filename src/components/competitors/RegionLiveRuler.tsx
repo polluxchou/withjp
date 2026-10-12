@@ -2,13 +2,13 @@
 'use client'
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import Tag from '@/components/ui/Tag'
 import { SLOT_MIN_SESSIONS, minutesToLabel } from '@/lib/competitors/liveSlots'
 import { axisTicks, buildRegionRuler } from '@/lib/competitors/regionRuler'
 import type { RulerInput } from '@/lib/competitors/regionRuler'
-import { timeZoneForLocale } from '@/lib/time/localeZone'
 import { FOCUS_RING } from '@/lib/ui/recipes'
+import { useRegionZone } from './live/useRegionZone'
 
 /** 浮层最大宽度(px)。够放下 24 小时轴与三条图例,再宽在卡片上就显得笨重。 */
 const PANEL_MAX_PX = 368
@@ -44,7 +44,10 @@ export default function RegionLiveRuler({
   currentId: string
 }) {
   const t = useTranslations('competitors')
-  const locale = useLocale()
+  // 标尺画的是对方当地的作息：按账号所在地区的时区聚档，与界面语言无关；地区不在清单里（历史脏值）
+  // 才回落到界面语言的时区，那时 zoneLabel 为 null（没有对应的地区时区名可报，宁可不写也不写错）。
+  // 这是 Hook，必须在下面 `if (!region) return null` 之前调用。
+  const { timeZone, zoneLabel } = useRegionZone(region)
   const panelId = useId()
   const [open, setOpen] = useState(false)
   // 打开时才取一次「现在」：纯函数不读时钟，而在渲染期读 new Date() 会让
@@ -82,12 +85,12 @@ export default function RegionLiveRuler({
         ? buildRegionRuler({
             competitors: peers,
             region,
-            timeZone: timeZoneForLocale(locale),
+            timeZone,
             now: nowIso,
             currentId,
           })
         : null,
-    [peers, region, locale, nowIso, currentId],
+    [peers, region, timeZone, nowIso, currentId],
   )
 
   const closeTimer = useRef<number | null>(null)
@@ -189,9 +192,13 @@ export default function RegionLiveRuler({
                 {t('rulerMeta', {
                   accounts: ruler.accounts,
                   sessions: ruler.sessions,
-                  zone: t('rulerZone'),
                 })}
               </p>
+              {zoneLabel && (
+                <p className="mt-0.5 text-micro text-ink-500">
+                  {t('liveZoneNote', { zone: zoneLabel })}
+                </p>
+              )}
               {current && (
                 <p className="mt-1 text-micro font-medium text-primary">
                   {t('rulerCurrent', {

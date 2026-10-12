@@ -9,12 +9,14 @@ import { CLIP_FACTORY_SRC, PROBE_FACTORY_SRC, PROBE_VERSION, type Rect, clipRect
 
 type FakeEl = {
   textContent: string
+  /** 真实 DOM 元素恒为 1；探针靠它挡掉 addedNodes 里的文本节点，替身也得有 */
+  nodeType?: number
   querySelector?: (s: string) => FakeEl | null
   querySelectorAll?: (s: string) => FakeEl[]
 }
 
 function el(textContent: string): FakeEl {
-  return { textContent }
+  return { textContent, nodeType: 1 }
 }
 
 /** 造一条侧栏条目：内部能按选择器取到 handle 名与人数。 */
@@ -45,6 +47,7 @@ function makeWin(nowMs = 1_000_000) {
     intervals: [] as { cb: () => void; ms: number; id: number; cleared: boolean }[],
     now: nowMs,
     Date: { now: () => nowMs },
+    JSON,
     setInterval: (cb: () => void, ms: number) => {
       const id = win.intervals.length + 1
       win.intervals.push({ cb, ms, id, cleared: false })
@@ -88,7 +91,11 @@ const factory = new Function(`return (${PROBE_FACTORY_SRC})`)() as (
 function msgNode(speaker: string): FakeEl {
   return {
     textContent: speaker + ': hi',
-    querySelector: (s: string) => (s === '.who' ? el(speaker) : null),
+    nodeType: 1,
+    // 真实弹幕节点自己就是 [data-e2e="chat-message"]；不让替身认这个选择器的话，
+    // 新加的"只数真弹幕"过滤会把它当成礼物动画滤掉。
+    querySelector: (s: string) =>
+      s === '.who' ? el(speaker) : (s === '[data-e2e="chat-message"]' ? el(speaker) : null),
   } as FakeEl
 }
 
@@ -371,7 +378,7 @@ function makeVideoDoc(
 }
 
 const clipFactory = new Function(`return (${CLIP_FACTORY_SRC})`)() as (
-  win: unknown, doc: unknown,
+  win: unknown, doc: unknown, opts?: { mute?: boolean },
 ) => { hasVideo: boolean; ready: boolean; muted?: boolean; fit?: string; clip: Rect | null }
 
 test('CLIP_FACTORY_SRC 与 clipRect 对每个分支算出同一个矩形（两份算式必须同步改）', () => {
@@ -423,8 +430,26 @@ test('CLIP_FACTORY_SRC: video 在但还没拿到尺寸时不给 clip，且照样
   assert.equal(video.muted, true, '还没出画面也要先静音，别让它出声')
 })
 
+test('CLIP_FACTORY_SRC: opts.mute=false 时不动播放器（扩展里人正在看）', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 1080, 1920, 'contain', '50% 50%')
+  const r = clipFactory(win, doc, { mute: false })
+  assert.equal(video.muted, false, '不许静音')
+  assert.equal(r.muted, false, '回报的 muted 也要如实')
+  assert.equal(video.volume, 1, '不许改音量')
+  assert.deepEqual(r.clip, clipRect(box, 1080, 1920, 'contain', '50% 50%'), '矩形照算')
+})
+
+test('CLIP_FACTORY_SRC: 不传 opts 仍然静音（scripts/live-watch 的调用方不受影响）', () => {
+  const box = { x: 0, y: 0, width: 800, height: 600 }
+  const { doc, win, video } = makeVideoDoc(box, 1080, 1920, 'contain', '50% 50%')
+  clipFactory(win, doc)
+  assert.equal(video.muted, true)
+  assert.equal(video.volume, 0)
+})
+
 test('clipSource: 组装出的表达式能被解析', () => {
-  assert.match(clipSource(), /^\(function \(win, doc\)/)
+  assert.match(clipSource(), /^\(function \(win, doc, opts\)/)
   assert.doesNotThrow(() => new Function(`return ${clipSource().replace('(window, document)', '(arguments[0], arguments[1])')}`))
 })
 
@@ -604,4 +629,314 @@ test('同期横截面：有名字没人数的条目也要留，记成 viewer:nul
     { handle: '1tb.boiz', viewer: '98' },
     { handle: 'servauto.my', viewer: null },
   ])
+})
+
+// ---- 只读 Following 频道 ----------------------------------------------------
+// 2026-10-09 实测：侧栏每个区块是一个 live-side-nav-channel；已登录时第一个是
+// Following、第二个是 Suggested。扩展只要 Following，Suggested 不能混进来。
+
+const CHANNEL = '[data-e2e="live-side-nav-channel"]'
+function channel(items: FakeEl[]): FakeEl {
+  return { textContent: '', querySelectorAll: (s) => (s === '[data-e2e="live-side-nav-item"]' ? items : []) }
+}
+function sampleWith(channels: FakeEl[], over: Record<string, unknown>) {
+  const all: Record<string, FakeEl[]> = {
+    [CHANNEL]: channels,
+    '[data-e2e="live-side-nav-item"]': channels.flatMap((c) => c.querySelectorAll!('[data-e2e="live-side-nav-item"]')),
+  }
+  const doc = makeDoc({ '.chat': el('') }, all, '/@a/live')
+  const win = makeWin()
+  factory(win, doc, cfg({ ...VIEWER_CFG, ...over }))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  return lw.drain()[0]
+}
+function coLiveWith(channels: FakeEl[], over: Record<string, unknown>) {
+  return sampleWith(channels, over).co_live
+}
+
+test('同期横截面：设了 sidebarChannel 且有两个频道 → 只取第一个（Following）', () => {
+  const following = channel([navItem('a', '99'), navItem('b', '64')])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.deepEqual(coLiveWith([following, suggested], { sidebarChannel: [CHANNEL] }), [
+    { handle: 'a', viewer: '99' },
+    { handle: 'b', viewer: '64' },
+  ])
+})
+
+test('同期横截面：设了 sidebarChannel 但只有一个频道 → null，不拿 Suggested 顶替', () => {
+  // 游客态、或关注的人都没在播时只剩 Suggested 一个频道
+  const suggested = channel([navItem('stranger', '692')])
+  assert.equal(coLiveWith([suggested], { sidebarChannel: [CHANNEL] }), null)
+})
+
+test('同期横截面：不设 sidebarChannel 时照旧整页读（分钟级采集器行为不变）', () => {
+  const following = channel([navItem('a', '99')])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.deepEqual(coLiveWith([following, suggested], {}), [
+    { handle: 'a', viewer: '99' },
+    { handle: 'stranger', viewer: '692' },
+  ])
+})
+
+test('同期横截面：设了 sidebarChannel 但选择器一个频道都没命中 → null，不退回整页读', () => {
+  // 比如 TikTok 改了 data-e2e 名、或侧栏还没渲染出来。此时整页里其实有条目，
+  // 但没法分清哪个是 Following，退回整页读就会把 Suggested 混进来。
+  const all: Record<string, FakeEl[]> = {
+    '[data-e2e="live-side-nav-item"]': [navItem('stranger', '692')],
+  }
+  const doc = makeDoc({ '.chat': el('') }, all, '/@a/live')
+  const win = makeWin()
+  factory(win, doc, cfg({ ...VIEWER_CFG, sidebarChannel: [CHANNEL] }))
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  assert.equal(lw.drain()[0].co_live, null)
+  // 同一个入口再测一次最简形态：页面上什么侧栏元素都没有
+  assert.equal(coLiveWith([], { sidebarChannel: [CHANNEL] }), null)
+})
+
+test('同期横截面：Following 频道在但里面没人在播 → null，不是空数组', () => {
+  // 沿用「null = 这一分钟没有这份数据」的约定；Suggested 里有人也不能顶替
+  const following = channel([])
+  const suggested = channel([navItem('stranger', '692')])
+  assert.equal(coLiveWith([following, suggested], { sidebarChannel: [CHANNEL] }), null)
+})
+
+test('defaultProbeConfig 不带 sidebarChannel —— 采集器的 cfgKey 不能因此变化', () => {
+  assert.equal('sidebarChannel' in defaultProbeConfig(), false)
+})
+
+// ---- 按标题认 Following（第二版）-------------------------------------------
+// 首日真机：前 10 次上传侧栏只剩 1 个频道，「不足 2 个就当只剩推荐区」把唯一的
+// Following 也丢了。改成先按标题认，认不出才退回「≥2 取第一个」。
+
+const TITLE = '[data-e2e="live-side-nav-channel-title"]'
+const BY_TITLE = { sidebarChannel: [CHANNEL], sidebarChannelTitle: [TITLE], followingTitles: ['following', 'フォロー中'] }
+function titled(title: string, items: FakeEl[]): FakeEl {
+  return {
+    textContent: title,
+    querySelector: (s) => (s === TITLE ? el(title) : null),
+    querySelectorAll: (s) => (s === '[data-e2e="live-side-nav-item"]' ? items : []),
+  }
+}
+
+test('按标题认 Following：只有一个频道、标题是 Following → 照读，不再当成只剩推荐区', () => {
+  const s = sampleWith([titled('Following', [navItem('a', '99')])], BY_TITLE)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+})
+
+test('按标题认 Following：推荐区排在前面也只读 Following', () => {
+  const s = sampleWith([
+    titled('Suggested LIVE creators', [navItem('stranger', '692')]),
+    titled('Following', [navItem('a', '99')]),
+  ], BY_TITLE)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+})
+
+test('按标题认 Following：大小写、换行、多余空白不影响；配置里写成大写也认；只是「含有」following 字样不算', () => {
+  assert.equal(sampleWith([titled('  FOLLOWING\n ', [navItem('a', '99')])], BY_TITLE).co_live_status, 'ok')
+  assert.equal(sampleWith([titled('フォロー中', [navItem('a', '99')])], BY_TITLE).co_live_status, 'ok')
+  assert.equal(sampleWith([titled('following', [navItem('a', '99')])], { ...BY_TITLE, followingTitles: ['Following'] }).co_live_status, 'ok')
+  const s = sampleWith([titled('Suggested for following', [navItem('stranger', '692')])], BY_TITLE)
+  assert.equal(s.co_live, null)
+  assert.equal(s.co_live_status, 'no_following')
+})
+
+// 上一条里的 '  FOLLOWING\n ' 只测得到大小写：页面标题进 normTitle 之前已被 textOf 去过首尾
+// 空白。要测空白规范化本身，得让空白出现在「词与词之间」，并且配置那一侧也带留白。
+test('按标题认 Following：标题内部的空白串与配置侧的首尾/多重空白一律规范化；压成一个空格但不会吞掉空格', () => {
+  const over = { ...BY_TITLE, followingTitles: ['  Live   Following '] }
+  const s = sampleWith([titled('live\n  FOLLOWING', [navItem('a', '99')])], over)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+  // 反向：压空白不是删空白 —— 词之间没有空白的标题不能被当成同一个
+  const glued = sampleWith([titled('livefollowing', [navItem('stranger', '692')])], over)
+  assert.equal(glued.co_live, null)
+  assert.equal(glued.co_live_status, 'no_following')
+})
+
+test('按标题认 Following：标题都不认识、频道 ≥2 → 退回读第一个（防 TikTok 改了标题文案）', () => {
+  const s = sampleWith([
+    titled('Abonnements', [navItem('a', '99')]),
+    titled('Suggestions', [navItem('stranger', '692')]),
+  ], BY_TITLE)
+  assert.deepEqual(s.co_live, [{ handle: 'a', viewer: '99' }])
+  assert.equal(s.co_live_status, 'ok')
+})
+
+test('按标题认 Following：只有推荐区一个频道 → null + no_following，绝不拿推荐区顶替', () => {
+  const s = sampleWith([titled('Suggested LIVE creators', [navItem('stranger', '692')])], BY_TITLE)
+  assert.equal(s.co_live, null)
+  assert.equal(s.co_live_status, 'no_following')
+})
+
+test('侧栏状态：一个频道都没有 → no_channels；Following 在但没有带名字的条目 → empty', () => {
+  const none = sampleWith([], BY_TITLE)
+  assert.equal(none.co_live, null)
+  assert.equal(none.co_live_status, 'no_channels')
+  const nameless: FakeEl = { textContent: '5', querySelector: (s) => (s === '[data-e2e="person-count"]' ? el('5') : null) }
+  for (const items of [[], [nameless]]) {
+    const s = sampleWith([titled('Following', items), titled('Suggested LIVE creators', [navItem('stranger', '692')])], BY_TITLE)
+    assert.equal(s.co_live, null)
+    assert.equal(s.co_live_status, 'empty')
+  }
+})
+
+test('侧栏状态：没配标题字段时不按标题认（与第一版一致）——单个 Following 频道仍报 no_following', () => {
+  const s = sampleWith([titled('Following', [navItem('a', '99')])], { sidebarChannel: [CHANNEL] })
+  assert.equal(s.co_live, null)
+  assert.equal(s.co_live_status, 'no_following')
+})
+
+test('侧栏状态：第一版两频道用例的状态是 ok', () => {
+  const s = sampleWith([channel([navItem('a', '99')]), channel([navItem('stranger', '692')])], { sidebarChannel: [CHANNEL] })
+  assert.equal(s.co_live_status, 'ok')
+})
+
+test('侧栏状态：不设 sidebarChannel → 读数里没有 co_live_status 这个键（分钟级采集器的样本结构不变）', () => {
+  const s = sampleWith([titled('Following', [navItem('a', '99')])], {})
+  assert.equal('co_live_status' in s, false)
+})
+
+test('defaultProbeConfig 不带按标题认 Following 的两个字段 —— 采集器的 cfgKey 不变', () => {
+  const d = defaultProbeConfig()
+  assert.equal('sidebarChannelTitle' in d, false)
+  assert.equal('followingTitles' in d, false)
+})
+
+// ---- subtree 模式下只数真弹幕 --------------------------------------------
+// 实测背景：每条 chat-message 各自套一层 div，不是同一个列表下的兄弟节点，
+// 所以 observer 必须开 subtree；而开了之后 addedNodes 里混着礼物动画、进场提示。
+
+/** 造一个「内部含一条弹幕」的包裹节点（真实 DOM 就是这个形状）。 */
+function wrapped(speaker: string): FakeEl {
+  const msg = { textContent: speaker, nodeType: 1, querySelector: (s: string) => (s === '.who' ? el(speaker) : null) } as FakeEl
+  return {
+    textContent: speaker,
+    nodeType: 1,
+    querySelector: (s: string) =>
+      s === '[data-e2e="chat-message"]' ? msg : (s === '.who' ? el(speaker) : null),
+  } as FakeEl
+}
+/** 礼物动画之类：既不是弹幕，内部也没有弹幕。 */
+function giftNode(): FakeEl {
+  return { textContent: 'sent Rose x1', nodeType: 1, querySelector: () => null } as FakeEl
+}
+
+const CHAT_CFG = {
+  chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: ['.who'],
+  message: ['[data-e2e="chat-message"]'], chatSubtree: true,
+  viewerRoomBox: [], viewerItem: [], viewerName: [],
+}
+
+test('弹幕计数：礼物/进场这类非弹幕节点不计入 msgs', () => {
+  // 不过滤的话 msgs 会被灌水，而它正是 engagement 指标的分子
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  factory(win, doc, cfg(CHAT_CFG))
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [wrapped('a'), giftNode(), wrapped('b'), giftNode()] }])
+  lw.tick()
+  const s = lw.drain()[0]
+  assert.equal(s.msgs, 2, '四个节点里只有两条是真弹幕')
+  assert.equal(s.speakers, 2)
+})
+
+test('弹幕计数：没配 message 判据时退回旧行为，全都算', () => {
+  // 老配置不该被这次改动改变语义
+  const chat = el('')
+  const doc = makeDoc({ '.chat': chat })
+  const win = makeWin()
+  factory(win, doc, cfg({ ...CHAT_CFG, message: [] }))
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [wrapped('a'), giftNode()] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 2)
+})
+
+test('弹幕容器候选：live-chat-container 排在最前 —— 另外两个实测不存在', () => {
+  const d = defaultProbeConfig()
+  assert.equal(d.chatHost[0], '[data-e2e="live-chat-container"]')
+  assert.equal(d.chatSubtree, true, '每条弹幕各自套一层 div，不开 subtree 收不到')
+  assert.deepEqual(d.message, ['[data-e2e="chat-message"]'])
+})
+
+test('探针复用：版本号相同但配置变了，必须重建而不是复用', () => {
+  // 真机栽过一次：chatHost 候选修好了，但页面里第一轮注入的旧探针版本号也是 1，
+  // 走了 reused 分支 —— 新配置根本没生效，attached 一直 false，
+  // 而日志和样本看起来完全正常。
+  const doc = makeDoc({ '.chat': el(''), '.newchat': el('') })
+  const win = makeWin()
+  const a = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(a.reused, false)
+  const b = factory(win, doc, cfg({ chatHost: ['.newchat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(b.reused, false, '配置变了就得重建')
+  // 断言可观测的输出，不碰 __lw 的内部字段：selectorsOk.chatHost 是探针报出来的
+  const lw = (win as Record<string, any>).__lw
+  lw.tick()
+  assert.equal(lw.drain()[0].selectorsOk.chatHost, '.newchat', '新配置真的生效了')
+})
+
+test('探针复用：配置一模一样时仍然复用，不做无谓重建', () => {
+  const doc = makeDoc({ '.chat': el('') })
+  const win = makeWin()
+  const c = cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] })
+  factory(win, doc, c)
+  const again = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(again.reused, true)
+})
+
+test('探针复用：首次没挂上时，复用那一次要重试挂载', () => {
+  // 真机栽的第二层：SPA 进房后弹幕容器要等一会儿才渲染，首次注入 attach 必失败。
+  // 旧写法此后每次重注入都命中复用分支直接返回，attach() 再也不被调用 ——
+  // observer_alive 从头到尾 false，而日志只说"探针已复用"。
+  const map: Record<string, FakeEl> = {}          // 一开始容器还没渲染
+  const doc = makeDoc(map)
+  const win = makeWin()
+  const first = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(first.attached, false, '容器还没出现，首次必然挂不上')
+
+  map['.chat'] = el('')                            // 容器渲染出来了
+  const again = factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(again.reused, true, '配置没变，状态不该重建')
+  assert.equal(again.attached, true, '但必须重试挂载')
+
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [msgNode('a')] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 1, '重挂之后真的开始数弹幕了')
+})
+
+test('探针复用：已经挂上的不重复挂，避免一条弹幕被数两次', () => {
+  const doc = makeDoc({ '.chat': el('') })
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  const before = win.disconnects
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  assert.equal(win.disconnects, before, '已挂上就不该再动 observer')
+  const lw = (win as Record<string, any>).__lw
+  emit(win, [{ addedNodes: [msgNode('a')] }])
+  lw.tick()
+  assert.equal(lw.drain()[0].msgs, 1, '没有被两个 observer 各数一次')
+})
+
+test('reattach 成功后必须回写 __lw.attached', () => {
+  // 真机实测：reattach() 返回 true，__lw.attached 却还是 false。看门狗和注入方
+  // 都读这个标志位，于是"已经挂上了"没人知道，observer_alive 一路报 false。
+  const map: Record<string, FakeEl> = {}
+  const doc = makeDoc(map)
+  const win = makeWin()
+  factory(win, doc, cfg({ chatHost: ['.chat'], viewer: [], followers: [], likes: [], speaker: [] }))
+  const lw = (win as Record<string, any>).__lw
+  assert.equal(lw.attached, false)
+
+  map['.chat'] = el('')
+  assert.equal(lw.reattach(), true, 'attach 本身是成功的')
+  assert.equal(lw.attached, true, '标志位必须跟着更新 —— 这一条就是真机栽的那个点')
+
+  lw.tick()
+  assert.equal(lw.drain()[0].observerAlive, true)
 })

@@ -7,11 +7,23 @@
 // 之类只能在请求生命周期里跑的依赖，relative 导入在 node --test 下能正常
 // 解析到底，不影响 Next.js 构建时的行为。
 import { createServerClient } from '../supabase/server.ts'
+import { fetchAllRows } from '../supabase/fetchAll.ts'
 import { assembleBoard, parseHandleFromUrl } from './assemble.ts'
-import { normalizeDescriptionBody } from './descriptions.ts'
-import { isValidShotDate } from './shotGrid.ts'
+import type { CoLiveReading } from './coLive.ts'
+import { assembleCompanyBoard } from './companies.ts'
 import type {
-  Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription, CompetitorBoard, CompetitorPlatform,
+  CompanyAccountRow, CompanyBoard, CompanyCompetitorInput, CompanySnapshotInput, CompetitorCompany,
+} from './companies.ts'
+import { normalizeDescriptionBody } from './descriptions.ts'
+import { validateLiveSessionRows } from './liveHistory.ts'
+import { sortSummaries, type LiveSummary } from './liveSummaries.ts'
+import { normalizeRegion, resolveNewRegion } from './regions.ts'
+import { isValidShotDate } from './shotGrid.ts'
+import { buildShotIndex, loadedRangeOrFilter, parseShotRangeQuery, resolveLoadedFrom } from './shotWindow.ts'
+import type { ShotIndexRow } from './shotWindow.ts'
+import type {
+  AskShot, BoardLiveSession, Competitor, CompetitorSnapshot, CompetitorShot, CompetitorDescription,
+  CompetitorBoard, CompetitorPlatform,
 } from './types.ts'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
@@ -63,49 +75,260 @@ function pickFields(input: CompetitorFields): Record<string, unknown> {
   return patch
 }
 
-/** 校验父账号赋值:只允许两级层级(父必须是主账号),不能选自己,已有子账号者不能再变成子账号。 */
+/**
+ * 校验父账号赋值:只允许两级层级(父必须是主账号),不能选自己,已有子账号者不能再变成子账号。
+ * 通过时顺带带回父账号的地区——新建子账号要沿用它。
+ */
 async function assertValidParent(
   db: ReturnType<typeof createServerClient>,
   selfId: string | null,
   parentId: string,
-): Promise<ServiceError | null> {
-  if (selfId && parentId === selfId) return { code: 'invalid_input', message: '不能把自己设为父账号' }
+): Promise<{ error: ServiceError } | { error: null; parentRegion: string | null }> {
+  const fail = (code: ServiceErrorCode, message: string) => ({ error: { code, message } })
+  if (selfId && parentId === selfId) return fail('invalid_input', '不能把自己设为父账号')
   const { data: parent, error } = await db
-    .from('competitors').select('id, parent_id').eq('id', parentId).maybeSingle()
-  if (error) return { code: 'db_error', message: error.message }
-  if (!parent) return { code: 'invalid_input', message: '父账号不存在' }
-  if ((parent as { parent_id: string | null }).parent_id) {
-    return { code: 'invalid_input', message: '父账号必须是主账号(不能是子账号)' }
-  }
+    .from('competitors').select('id, parent_id, region').eq('id', parentId).maybeSingle()
+  if (error) return fail('db_error', error.message)
+  if (!parent) return fail('invalid_input', '父账号不存在')
+  const p = parent as { parent_id: string | null; region: string | null }
+  if (p.parent_id) return fail('invalid_input', '父账号必须是主账号(不能是子账号)')
   if (selfId) {
     const { data: kids, error: kidErr } = await db
       .from('competitors').select('id').eq('parent_id', selfId).limit(1)
-    if (kidErr) return { code: 'db_error', message: kidErr.message }
-    if (kids && kids.length) return { code: 'invalid_input', message: '该账号已有子账号,不能再成为子账号' }
+    if (kidErr) return fail('db_error', kidErr.message)
+    if (kids && kids.length) return fail('invalid_input', '该账号已有子账号,不能再成为子账号')
   }
-  return null
+  return { error: null, parentRegion: p.region }
 }
 
-/** 加载看板：任意登录用户可读可写（canEdit 恒 true）。 */
-export async function getCompetitorBoard(_userId: string): Promise<ServiceResult<CompetitorBoard>> {
-  const db = createServerClient()
-  const [compRes, snapRes, shotRes, descRes] = await Promise.all([
-    db.from('competitors').select('*').order('created_at', { ascending: true }),
-    db.from('competitor_snapshots').select('*'),
-    db.from('competitor_shots').select('*'),
-    db.from('competitor_descriptions').select('*'),
-  ])
-  if (compRes.error || snapRes.error || shotRes.error || descRes.error) {
-    return err('db_error',
-      compRes.error?.message ?? snapRes.error?.message ?? shotRes.error?.message ?? descRes.error?.message ?? 'load failed')
+/**
+ * 看板与问答查开播记录的列（types.ts 的 BoardLiveSession 的键）。
+ * 整表 select('*') 时每场约七成体积是没人读的 id / source / created_at / updated_at；开播记录又占看板的大头，
+ * 所以只查这几列，再由 assembleBoard 按账号打包成列式紧凑格式（见 liveSessionPack.ts）。
+ * 新读一个开播记录字段时，同时加到这里和 BoardLiveSession——shot-window-wiring.test.ts 钉着两边一致。
+ */
+export const LIVE_SESSION_COLUMNS = 'competitor_id, started_at, ended_at, title, likes'
+
+/**
+ * 加载看板：任意登录用户可读可写（canEdit 恒 true）。
+ *
+ * 第一轮并行整表拉全：竞品、快照、截图索引（瘦查询）、风格描述、开播记录（只查 LIVE_SESSION_COLUMNS）。
+ * 开播记录一个号三个月就有几十场，同样很快过千，所以也要分页拉全。
+ *
+ * 截图分两层取：
+ * 1. 瘦查询（四列、全量）建索引：完整日期轴 + 各账号全部历史的截图场次（开播时刻 + 该场最晚截图时刻）
+ *    ——统计口径与相册加载范围无关；
+ * 2. 截图本体只取已加载范围：默认最近 SHOT_CHUNK_DAYS 个有图日（两屏），since 可把起点往前推
+ *    （改完数据刷新时保住用户已翻到的范围）。更早的由前端按需走 getShotsInRange 补取。
+ * 第 2 步要用第 1 步算出的日期轴，所以两次查询串行。
+ * 每段都走 fetchAllRows：Supabase 单次响应最多 1000 行且静默截断。
+ * 任何一段查询报错都让整个看板报错，不拿半套数据假装完整。
+ */
+export async function getCompetitorBoard(
+  _userId: string,
+  opts: { since?: string | null } = {},
+): Promise<ServiceResult<CompetitorBoard>> {
+  const since = opts.since ?? null
+  // since 会拼进 PostgREST 过滤串：路由层校验过，这里自己再挡一道，不只依赖调用方。
+  if (since !== null && !isValidShotDate(since)) {
+    return err('invalid_input', 'since must be a real calendar date in YYYY-MM-DD')
   }
+  const db = createServerClient()
+  const [compRes, snapRes, indexRes, descRes, liveRes] = await Promise.all([
+    fetchAllRows((from, to) => db.from('competitors').select('*')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_shots').select('competitor_id, shot_on, stream_started_at, captured_at')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_descriptions').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_live_sessions').select(LIVE_SESSION_COLUMNS)
+      .order('id', { ascending: true }).range(from, to)),
+  ])
+  const firstErr = compRes.error ?? snapRes.error ?? indexRes.error ?? descRes.error ?? liveRes.error
+  if (firstErr) return err('db_error', firstErr.message || 'load failed')
+
+  const index = buildShotIndex((indexRes.data ?? []) as ShotIndexRow[])
+  const loadedFrom = resolveLoadedFrom(index.shotAxis, since)
+  const shotRes = await fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+    .or(loadedRangeOrFilter(loadedFrom))
+    .order('id', { ascending: true }).range(from, to))
+  if (shotRes.error) return err('db_error', shotRes.error.message)
+
   return ok(assembleBoard(
     (compRes.data ?? []) as Competitor[],
     (snapRes.data ?? []) as CompetitorSnapshot[],
     (shotRes.data ?? []) as CompetitorShot[],
     true,
     (descRes.data ?? []) as CompetitorDescription[],
+    (liveRes.data ?? []) as BoardLiveSession[],
+    { ...index, shotsLoadedFrom: loadedFrom },
   ))
+}
+
+/**
+ * 一段日期 [rangeFrom, rangeBefore) 的截图本体，给前端往历史翻页时补取。
+ * 区间在路由层已由 parseShotRangeQuery 校验，这里再挡一道（值会进查询）。
+ */
+export async function getShotsInRange(
+  rangeFrom: string,
+  rangeBefore: string,
+): Promise<ServiceResult<CompetitorShot[]>> {
+  const q = parseShotRangeQuery(rangeFrom, rangeBefore)
+  if (!q.ok) return err('invalid_input', 'from/before must be real dates in YYYY-MM-DD with from < before')
+  const db = createServerClient()
+  const res = await fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+    .gte('shot_on', q.from).lt('shot_on', q.before)
+    .order('id', { ascending: true }).range(from, to))
+  if (res.error) return err('db_error', res.error.message)
+  return ok((res.data ?? []) as CompetitorShot[])
+}
+
+/**
+ * 一张截图关联的全部人数读数（扩展上传时写的 current + sidebar 行），带竞品名。
+ * 单张最多几十行，不分页。截图不存在或没有读数都回空数组，不是错误——
+ * 自动巡检的老截图本来就没有读数行，放大页据此整段不画。
+ */
+export async function getShotReadings(
+  shotId: string,
+): Promise<ServiceResult<{ capturedAt: string | null; rows: CoLiveReading[] }>> {
+  const db = createServerClient()
+  const { data, error } = await db
+    .from('competitor_viewer_readings')
+    .select('competitor_id, captured_at, source, viewer_count, viewer_text, competitors(handle, display_name)')
+    .eq('shot_id', shotId)
+  if (error) return err('db_error', error.message)
+  type Row = {
+    competitor_id: string
+    captured_at: string
+    source: 'current' | 'sidebar'
+    viewer_count: number | null
+    viewer_text: string | null
+    competitors: { handle: string; display_name: string | null } | null
+  }
+  // supabase-js 把嵌套的多对一 join 推断成数组，运行时其实是单个对象，所以先过 unknown
+  const list = (data ?? []) as unknown as Row[]
+  const rows: CoLiveReading[] = []
+  for (const r of list) {
+    // 竞品被删后外键级联会把读数一起删掉，这里的 null 只是类型上的保险
+    if (!r.competitors) continue
+    rows.push({
+      competitorId: r.competitor_id,
+      handle: r.competitors.handle,
+      displayName: r.competitors.display_name,
+      source: r.source,
+      viewerCount: r.viewer_count,
+      viewerText: r.viewer_text,
+    })
+  }
+  const capturedAt = list.length ? (list[0].captured_at ?? null) : null
+  return ok({ capturedAt, rows })
+}
+
+/**
+ * 竞品问答要的截图列。ask-context.ts 新读一个截图字段时，同时加到这里和 types.ts 的 AskShot，
+ * 否则那一列在问答里恒为 undefined——shot-window-wiring.test.ts 钉着这份清单。
+ */
+export const ASK_SHOT_COLUMNS = 'competitor_id, shot_on, sort_order, stream_started_at, viewer_count, captured_at'
+
+/**
+ * 竞品问答的数据源。截图取**全部历史**——问答的采集日历、累计场次、在线峰值都是全量口径，
+ * 不能跟着相册的日期窗口走；但只查问答读得到的几列，图片地址、备注这些大字段问答用不上。
+ * 开播记录（LIVE History 导入）也要，同样只查 LIVE_SESSION_COLUMNS：问答的开播时段与截图推断的场次合并去重后才算（见 liveSessions.ts），
+ * 与卡片同一口径；同样很快过千，分页拉全。风格描述问答不读，不查。
+ * 不传 meta：shots 就是全部截图，日期轴与截图场次由 assembleBoard 现算。
+ */
+export async function getAskBoard(_userId: string): Promise<ServiceResult<CompetitorBoard<AskShot>>> {
+  const db = createServerClient()
+  const [compRes, snapRes, shotRes, liveRes] = await Promise.all([
+    fetchAllRows((from, to) => db.from('competitors').select('*')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_snapshots').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_shots').select(ASK_SHOT_COLUMNS)
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_live_sessions').select(LIVE_SESSION_COLUMNS)
+      .order('id', { ascending: true }).range(from, to)),
+  ])
+  const firstErr = compRes.error ?? snapRes.error ?? shotRes.error ?? liveRes.error
+  if (firstErr) return err('db_error', firstErr.message)
+  return ok(assembleBoard(
+    (compRes.data ?? []) as Competitor[],
+    (snapRes.data ?? []) as CompetitorSnapshot[],
+    (shotRes.data ?? []) as AskShot[],
+    true,
+    [],
+    (liveRes.data ?? []) as BoardLiveSession[],
+  ))
+}
+
+/**
+ * 竞品公司页：公司 + 公司↔团关联 + 追踪清单 + 快照，交给 assembleCompanyBoard 拼。
+ * 快照只取粉丝、获赞这几列 —— 整张表带 raw JSON，这一页用不上。
+ */
+export async function getCompanyBoard(): Promise<ServiceResult<CompanyBoard>> {
+  const db = createServerClient()
+  const [coRes, linkRes, compRes, snapRes] = await Promise.all([
+    fetchAllRows((from, to) => db.from('competitor_companies').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_company_accounts').select('*')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitors').select('id, handle, display_name, parent_id, avatar_url')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_snapshots').select('competitor_id, captured_on, followers, likes')
+      .order('id', { ascending: true }).range(from, to)),
+  ])
+  const firstErr = coRes.error ?? linkRes.error ?? compRes.error ?? snapRes.error
+  if (firstErr) return err('db_error', firstErr.message)
+  return ok(assembleCompanyBoard(
+    (coRes.data ?? []) as CompetitorCompany[],
+    (linkRes.data ?? []) as CompanyAccountRow[],
+    (compRes.data ?? []) as CompanyCompetitorInput[],
+    (snapRes.data ?? []) as CompanySnapshotInput[],
+  ))
+}
+
+/**
+ * 「开播时段」页按公会分组用：竞品 id → 所属公司名。
+ * 一个账号最多归一家公司（competitor_company_accounts.competitor_id 有唯一索引）；
+ * 没被认领的账号不在结果里，页面上落到「未归属公会」。子账号一般不单独登记，
+ * 由 flattenAccounts 沿用父账号的公司。两张表同样分页拉全，理由见 getCompetitorBoard。
+ */
+export async function getCompanyOfCompetitor(): Promise<ServiceResult<Record<string, string>>> {
+  const db = createServerClient()
+  const [linkRes, coRes] = await Promise.all([
+    fetchAllRows((from, to) => db.from('competitor_company_accounts').select('competitor_id, company_id')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('competitor_companies').select('id, name')
+      .order('id', { ascending: true }).range(from, to)),
+  ])
+  const firstErr = linkRes.error ?? coRes.error
+  if (firstErr) return err('db_error', firstErr.message || 'load failed')
+  const nameOf = new Map(((coRes.data ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]))
+  const out: Record<string, string> = {}
+  for (const link of (linkRes.data ?? []) as { competitor_id: string | null; company_id: string }[]) {
+    const name = nameOf.get(link.company_id)
+    if (link.competitor_id && name) out[link.competitor_id] = name
+  }
+  return ok(out)
+}
+
+/**
+ * 「开播时段」页「趋势总结」视图：全部总结，生成日期倒序（最新在前）。
+ * 正文整份随页面下发：视图里切换哪一份走 history.replaceState、不回服务端，
+ * 所以浏览器手里得有全部正文。总结是按请求才生成的，一年也就几十份，体积可控；
+ * 真涨到几百份时再改成只下发列表、点开再取正文。
+ * 同样分页拉全（理由见 getCompetitorBoard）；排序再补 id，保证翻页时顺序稳定。
+ */
+export async function getLiveSummaries(): Promise<ServiceResult<LiveSummary[]>> {
+  const db = createServerClient()
+  const res = await fetchAllRows((from, to) => db.from('competitor_live_summaries')
+    .select('id, generated_on, title, subtitle, body, source, created_at, updated_at')
+    .order('generated_on', { ascending: false }).order('created_at', { ascending: false })
+    .order('id', { ascending: true }).range(from, to))
+  if (res.error) return err('db_error', res.error.message || 'load failed')
+  return ok(sortSummaries((res.data ?? []) as LiveSummary[]))
 }
 
 /** 加入清单：入参 url 或 handle 二选一；已存在则返回其 id（确保存在，不覆盖）。 */
@@ -126,14 +349,23 @@ export async function addCompetitor(
   if (findErr) return err('db_error', findErr.message)
   if (existing) return ok({ id: (existing as { id: string }).id })
 
+  let parentRegion: string | null = null
   if (input.parent_id) {
-    const bad = await assertValidParent(db, null, input.parent_id)
-    if (bad) return { data: null, error: bad }
+    const parent = await assertValidParent(db, null, input.parent_id)
+    if (parent.error) return { data: null, error: parent.error }
+    parentRegion = parent.parentRegion
   }
+  // 数据库不再默认 'JP'：主账号必须选地区，子账号沿用父账号。
+  const region = resolveNewRegion({ parentId: input.parent_id, parentRegion, region: input.region })
+  if (!region.ok) return err('invalid_input', region.message)
 
   const { data, error } = await db
     .from('competitors')
-    .insert({ platform, handle, profile_url, note: input.note ?? '', ...pickFields({ ...input, note: undefined }) })
+    .insert({
+      platform, handle, profile_url, note: input.note ?? '',
+      ...pickFields({ ...input, note: undefined }),
+      region: region.region,
+    })
     .select('id').single()
   if (error) return err('db_error', error.message)
   return ok({ id: (data as { id: string }).id })
@@ -153,11 +385,17 @@ export async function updateCompetitor(
     patch.handle = h
     patch.profile_url = profile_url
   }
+  if (fields.region !== undefined) {
+    // 只收清单里的代码；不允许改回空——空值只留给脚本建档后待补的号。
+    const region = normalizeRegion(fields.region)
+    if (!region) return err('invalid_input', 'invalid region')
+    patch.region = region
+  }
   if (Object.keys(patch).length === 0) return err('invalid_input', 'nothing to update')
   const db = createServerClient()
   if (fields.parent_id !== undefined && fields.parent_id !== null) {
-    const bad = await assertValidParent(db, id, fields.parent_id)
-    if (bad) return { data: null, error: bad }
+    const parent = await assertValidParent(db, id, fields.parent_id)
+    if (parent.error) return { data: null, error: parent.error }
   }
   const { error } = await db.from('competitors').update(patch).eq('id', id)
   if (error) return err('db_error', error.message)
@@ -289,4 +527,33 @@ export async function deleteDescription(descriptionId: string): Promise<ServiceR
   const { error } = await db.from('competitor_descriptions').delete().eq('id', descriptionId)
   if (error) return err('db_error', error.message)
   return ok({ id: descriptionId })
+}
+
+// ---- 开播记录 ----
+//
+// 只有一条写入路径：卡片里的粘贴导入。解析在客户端做（与预览共用 liveHistory.ts），
+// 这里对每行再挡一遍边界 —— 接口谁都能直接调，不能信客户端已经校验过。
+
+/**
+ * 批量 upsert 开播记录。去重键 (competitor_id, started_at)：同一场重复粘贴是覆盖
+ * 标题、下播时刻、点赞，不是叠一行；created_at 不在写入列里，覆盖时保留首次导入的时刻。
+ */
+export async function upsertLiveSessions(
+  competitorId: string,
+  rows: unknown,
+): Promise<ServiceResult<{ upserted: number }>> {
+  const checked = validateLiveSessionRows(rows)
+  if (!checked.ok) return err('invalid_input', checked.message)
+  const updatedAt = new Date().toISOString()
+  const db = createServerClient()
+  const { error } = await db
+    .from('competitor_live_sessions')
+    .upsert(
+      checked.rows.map((r) => ({
+        competitor_id: competitorId, ...r, source: 'tiktok_history', updated_at: updatedAt,
+      })),
+      { onConflict: 'competitor_id,started_at' },
+    )
+  if (error) return err('db_error', error.message)
+  return ok({ upserted: checked.rows.length })
 }

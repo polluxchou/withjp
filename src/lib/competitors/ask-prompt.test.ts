@@ -20,6 +20,7 @@ import test from 'node:test'
 
 import { buildAskContext } from './ask-context.ts'
 import { ANSWER_LANGUAGE, RULES, buildSystemPrompt } from './ask-prompt.ts'
+import { packLiveSessions } from './liveSessionPack.ts'
 import type { CompetitorBoard, CompetitorShot, CompetitorSnapshot, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
 /** 折叠掉所有空白(含换行/缩进),规则原文与锚点都过这道折叠再比较。 */
@@ -96,14 +97,16 @@ function comp(over: Partial<CompetitorWithHistory> = {}): CompetitorWithHistory 
     latest: over.latest ?? (last ? snap({ captured_on: last.captured_on, followers: last.followers }) : null),
     history,
     shots: over.shots ?? [],
+    sessionShots: over.sessionShots ?? [],
     weekly: [],
     related: over.related ?? [],
     descriptions: over.descriptions ?? [],
+    liveSessionPack: over.liveSessionPack ?? packLiveSessions([]),
   }
 }
 
 function board(competitors: CompetitorWithHistory[]): CompetitorBoard {
-  return { competitors, canEdit: true }
+  return { competitors, canEdit: true, shotAxis: [], shotsLoadedFrom: null }
 }
 
 // 一个真实竞品:两个粉丝快照(followers.confidence 为 ok)+ 两场带开播时刻

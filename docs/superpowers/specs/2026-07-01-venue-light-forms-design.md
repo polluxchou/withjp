@@ -2,7 +2,7 @@
 
 日期:2026-07-01
 状态:已评审通过,待实现
-实现隔离:worktree `$HOME/Code/newWith-lightforms`(分支 `feat/venue-light-forms`)。
+实现隔离:独立 git worktree(分支 `feat/venue-light-forms`)。
 
 ## 背景与目标
 

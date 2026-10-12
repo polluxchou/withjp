@@ -3,20 +3,29 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import CompetitorDescriptions from './CompetitorDescriptions'
 import ShotAlbum from './ShotAlbum'
 import RegionLiveRuler from './RegionLiveRuler'
+import LiveSessionsRow from './LiveSessionImport'
+import LiveSessionsModal from './live/LiveSessionsModal'
+import { useRegionZone } from './live/useRegionZone'
 import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { formatCount } from '@/lib/competitors/metrics'
+import { ANCHOR_GAP } from '@/lib/competitors/navScroll'
+import { accountSpans } from '@/lib/competitors/liveBoard'
 import { recentSessionStarts, summarizeLiveHabit } from '@/lib/competitors/liveSlots'
+import { locateSpans, windowStats } from '@/lib/competitors/liveStats'
+import { coverageOf } from '@/lib/competitors/liveCoverage'
 import { checkProfileLanguage } from '@/lib/competitors/profileLanguage'
-import { formatDayTimeInLocaleZone, timeZoneForLocale } from '@/lib/time/localeZone'
+import { REGION_CODES, regionOptions } from '@/lib/competitors/regions'
+import { addDaysYmd, formatDayTimeInZone, zonedYmd } from '@/lib/time/zonedTime'
 import type { CompetitorWithHistory } from '@/lib/competitors/types'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import Tag from '@/components/ui/Tag'
+import { Select } from '@/components/ui/Field'
 
 /** 展开档案里列几场原始开播时刻作证据。8 场够看出本周的档,再多会撑破一行。 */
 const RECENT_SESSIONS = 8
@@ -34,43 +43,94 @@ function Field({ label, value }: { label: string; value: string | null }) {
   )
 }
 
+/**
+ * 顶层卡的锚点偏移：吸顶块实测高度（DossierView 写入的 CSS 变量）+ ANCHOR_GAP。
+ * 变量还没写进来时按 120px 估（桌面端吸顶块实测 117–125px），首帧也不至于盖住头部。
+ */
+const ANCHOR_STYLE = { scrollMarginTop: `calc(var(--competitor-sticky-head, 120px) + ${ANCHOR_GAP}px)` }
+
 export default function CompetitorCard({
-  c, canEdit, onChanged, onDeleteId, parentOptions, onAssignParent, onUpdateHandle,
-  dateWindow, selectedDate, regionPeers, nested = false, selected = false,
+  c, canEdit, onChanged, onReload, onDeleteId, parentOptions, onAssignParent, onUpdateHandle, onUpdateRegion,
+  dateWindow, selectedDate, shotsLoadedFrom, shotLoadFailed, onRetryShots, regionPeers, patrolDays,
+  nested = false, selected = false, today = null,
 }: {
   c: CompetitorWithHistory
   canEdit: boolean
   onChanged: () => void
+  /**
+   * 与 onChanged 同样是「重新取看板」，区别是失败时 reject：开播记录弹窗导入后要据此提示
+   * 「数据可能不是最新」。onChanged 不抛（子组件里有不 await 的调用），所以另给这一个。
+   */
+  onReload: () => Promise<void>
   onDeleteId: (id: string) => void
   parentOptions: { id: string; label: string }[]
   onAssignParent: (id: string, parentId: string | null) => void
   onUpdateHandle: (id: string, raw: string) => void
+  onUpdateRegion: (id: string, region: string) => void
   dateWindow: string[]
   selectedDate: string | null
+  /** 相册已加载起点，见 CompetitorBoard.shotsLoadedFrom。 */
+  shotsLoadedFrom: string | null
+  /** 往历史补取截图失败：相册占位格停止闪烁、变成重试按钮。 */
+  shotLoadFailed: boolean
+  /** 重试那一段补取（占位格上的重试按钮）。 */
+  onRetryShots: () => void
   /** 整个看板的竞品：地区标签的浮层要拿同区所有账号画标尺。 */
   regionPeers: CompetitorWithHistory[]
+  /** 巡检日（全库截图的 shot_on）：判断哪些日子「无数据」而不是「没播」，见 liveCoverage.ts。 */
+  patrolDays: ReadonlySet<string>
   nested?: boolean
   /** 导航条当前选中的账号:与芯片的实心态成对出现,换一个号才熄灭。 */
   selected?: boolean
+  /** 本地今天（挂载后才有，首帧为 null）：曲线右侧「已 N 天未采」那一格靠它算。 */
+  today?: string | null
 }) {
   const t = useTranslations('competitors')
   const tCommon = useTranslations('common')
-  // 开播档按界面语言的时区聚类："一天里的第几分钟"这个概念本身依赖时区。
-  const locale = useLocale()
-  const habit = useMemo(
-    () => summarizeLiveHabit(c.shots.map((s) => s.stream_started_at), timeZoneForLocale(locale)),
-    [c.shots, locale],
-  )
+  // 开播档按账号所在地区的时区聚类：看的是对方当地的作息，且与界面语言无关（三地同事读到同一个数）；
+  // "一天里的第几分钟"这个概念本身依赖时区。地区没填才回落到界面语言的时区。
+  // 按地区时区显示的时刻都要说明是哪个时区；地区不在清单里（实际回落到界面语言时区）
+  // 没有对应的地区时区名可报，zoneLabel 为 null，宁可不写也不写错。口径见 useRegionZone。
+  const { timeZone: liveZone, zoneLabel } = useRegionZone(c.region)
+  const zoneNote = zoneLabel ? t('liveZoneNote', { zone: zoneLabel }) : undefined
+  const withZone = (text: string) => (zoneLabel ? `${text}${t('liveZoneSuffix', { zone: zoneLabel })}` : text)
+  // 场次 = 导入的开播记录 + 截图推断，合并去重（降序）。开播时刻、档案行摘要、弹窗都吃这一份。
+  // 截图一侧由 accountSpans 喂全量 c.sessionShots（每场一行），不读相册已加载的 c.shots。
+  const spans = useMemo(() => accountSpans(c), [c])
+  const starts = useMemo(() => spans.map((s) => s.startedAt), [spans])
+  const habit = useMemo(() => summarizeLiveHabit(starts, liveZone), [starts, liveZone])
   const slotLabels = habit.slots.map((s) => s.label).join(' / ')
-  // 未达 3 场门槛就只报最近一场,不把单次开播说成规律。
+  // 没有任何一档成档（成档要至少 3 场，且占总场次的 15% 以上）时只报最近一场，不把单次开播说成规律。
   const recentSessions = useMemo(
-    () => recentSessionStarts(c.shots.map((s) => s.stream_started_at), RECENT_SESSIONS)
-      .map((iso) => formatDayTimeInLocaleZone(iso, locale))
+    () => recentSessionStarts(starts, RECENT_SESSIONS)
+      .map((iso) => formatDayTimeInZone(iso, liveZone))
       .filter((label): label is string => label != null),
-    [c.shots, locale],
+    [starts, liveZone],
   )
   const [open, setOpen] = useState(false)
   const [relOpen, setRelOpen] = useState(false)
+  // 开播记录弹窗：指标行「近 30 天 N 场」与档案行「查看 / 粘贴导入」是同一个弹窗的两个入口。
+  const [liveModal, setLiveModal] = useState<null | 'records' | 'import'>(null)
+  // 「今天」要读时钟：服务端与浏览器的今天可能不同，挂载后才取（首帧不画「近 30 天」按钮）。
+  // 取一次、按账号地区时区换成日期，再原样交给弹窗：卡片上的 N 和弹窗里的场次必须是同一天算的。
+  const [nowMs, setNowMs] = useState<number | null>(null)
+  useEffect(() => { setNowMs(Date.now()) }, [])
+  const liveToday = nowMs == null ? null : zonedYmd(nowMs, liveZone)
+  const located = useMemo(() => locateSpans(spans, liveZone), [spans, liveZone])
+  // 哪些日子有数据（无数据 ≠ 没播）：卡片与弹窗用同一个判定。
+  const hasData = useMemo(() => coverageOf(located, patrolDays), [located, patrolDays])
+  // 与弹窗「近 30 天」同一口径（windowStats，账号地区时区的今天往前 30 个自然日），两处的数必须一致。
+  const recent30 = useMemo(
+    () => (liveToday ? windowStats(located, addDaysYmd(liveToday, -29), liveToday, hasData).sessions : 0),
+    [located, liveToday, hasData],
+  )
+  // 档案行摘要的起止日期：最早 / 最近一场的当地日期（账号地区时区，与弹窗同一口径）。
+  const spanRange = spans.length
+    ? {
+        from: zonedYmd(spans[spans.length - 1].startedAt, liveZone)?.slice(5) ?? '',
+        to: zonedYmd(spans[0].startedAt, liveZone)?.slice(5) ?? '',
+      }
+    : { from: '', to: '' }
   const [editingHandle, setEditingHandle] = useState(false)
   const [handleInput, setHandleInput] = useState('')
   const [copyState, setCopyState] = useState<'ok' | 'fail' | null>(null)
@@ -81,6 +141,11 @@ export default function CompetitorCard({
   const isStreamer = !!c.parent_id
   const showAsStreamer = isStreamer || pendingStreamer
   const name = c.latest?.display_name ?? c.display_name ?? c.handle
+  // 清单内的代码配上名称（「韩国 KR」），清单外的历史值原样显示代码。
+  const regionLabel = (code: string) =>
+    (REGION_CODES as readonly string[]).includes(code) ? `${t(`regionName.${code}`)} ${code}` : code
+  // 只提示主账号：子账号沿用父账号的地区，父账号补上之前提示两遍没有意义。
+  const regionUnset = !c.parent_id && !c.region?.trim()
 
   // 「@handle」整串(带 @)复制到剪贴板 —— 带着 @ 才能直接粘进 TikTok 搜索框。
   // 库里存的 handle 一律不含 @(service.ts 新增与更新两条路径都过 parseHandleFromUrl),
@@ -115,12 +180,19 @@ export default function CompetitorCard({
     <span key="likes">{t('colLikes')} <span className="tabular-nums">{formatCount(c.latest?.likes ?? null)}</span></span>,
     c.composition ?? null,
     c.online_note ? `${t('fieldOnline')} ${c.online_note}` : null,
-    slotLabels ? t('liveSlotsCompact', { slots: slotLabels })
-      : habit.latestStartedAt
-        ? t('liveSlotsLatest', { time: formatDayTimeInLocaleZone(habit.latestStartedAt, locale)! })
-        : null,
-    c.latest ? t('latestOn', { date: c.latest.captured_on }) : null,
+    // 一行里放不下「（日本时间）」这类后缀（这行本来就会截断），时区名放在悬停提示里；
+    // 展开档案里的同一组时刻再明写出来。
+    slotLabels || habit.latestStartedAt ? (
+      <span key="slots" title={zoneNote}>
+        {slotLabels
+          ? t('liveSlotsCompact', { slots: slotLabels })
+          : t('liveSlotsLatest', { time: formatDayTimeInZone(habit.latestStartedAt, liveZone)! })}
+      </span>
+    ) : null,
   ].filter((part) => part != null && part !== '')
+  // 「近 30 天 N 场 ›」按钮和采集日期不进上面那段会截断的文字：按钮被截掉一半、
+  // 或焦点环被 overflow-hidden 裁掉都不行。截断只发生在前面那段文字里。
+  const latestOn = c.latest ? t('latestOn', { date: c.latest.captured_on }) : null
 
   // 角色区(只读的 Tag / 管理员的两个 select)提成变量:窄屏要把它整体挪到
   // header 第二行,三个分支共用同一个包装 div,免得给不吃 className 的 Tag 加类。
@@ -168,15 +240,17 @@ export default function CompetitorCard({
     // 选中 ring 只出现在顶层卡这一支:子卡那支已经有自己的 ring-1,同一属性
     // 挂两个候选类时谁生效由 Tailwind 生成顺序决定、不看书写顺序(见
     // FilterChip 的同款教训)。互斥分支从结构上避免这个问题。
-    // 这里不需要 scroll-mt:导航跳转不走 scrollIntoView(视口顶被吸顶块占着),
-    // 落点由 CompetitorNavBar 按吸顶块实测高度算,见那里的 ANCHOR_GAP。
+    // 导航条点芯片不走 scrollIntoView,落点按吸顶块实测高度算(见 scrollToCard)。
+    // 但从竞品公司页带 #锚点跳进来时,浏览器自己的锚点滚动(含页面加载完成后的
+    // 那次补滚)会把卡片顶边对齐到视口顶、被吸顶块盖住——下面的 scroll-margin-top
+    // 让原生滚动也停在吸顶块下方。吸顶块高度由 DossierView 实测写进 CSS 变量。
     : `rounded-card border border-line bg-surface p-4 transition-shadow ${
         selected ? 'ring-2 ring-primary' : ''
       }`
 
   return (
     // 子卡不挂锚点:导航条只定位顶层竞品,子主播通过父卡的"关联主播"下钻。
-    <div id={nested ? undefined : competitorAnchorId(c.id)} className={shell}>
+    <div id={nested ? undefined : competitorAnchorId(c.id)} className={shell} style={nested ? undefined : ANCHOR_STYLE}>
       {/* header 拆两行:身份+操作一行,指标一行。指标原先与名字同挤在
           min-w-0 flex-1 里,375px 下那一格只剩 100px,两行都放不开。 */}
       <div className="mb-3">
@@ -270,6 +344,13 @@ export default function CompetitorCard({
               {/* 地区标签兼作「同区开播时段」浮层的触发器（内部自带 shrink-0：
                   它是 flex 子项，默认会被压到换行——实测「日本」被挤成竖排两字）。 */}
               <RegionLiveRuler region={c.region} peers={regionPeers} currentId={c.id} />
+              {/* 地区为空时上面的标签整个不渲染，缺了什么就看不出来——补一枚醒目的提示。
+                  空值只来自脚本建档（后台加主账号必须选地区），在下面档案里的地区一行补。 */}
+              {regionUnset && (
+                <span className="inline-flex shrink-0">
+                  <Tag label={t('regionUnset')} tone="warning" size="sm" />
+                </span>
+              )}
               {/* 风格描述紧跟在身份信息之后：它描述的是"这个号长什么样",
                   和名字/认证/地区是同一类身份信息,不属于下面那行指标。 */}
               <CompetitorDescriptions
@@ -299,10 +380,31 @@ export default function CompetitorCard({
           )}
         </div>
         {/* md 起缩进 52px = 头像 40 + gap-3 12,维持指标行对齐到名字下方的观感 */}
-        <div className="mt-0.5 truncate text-xs text-ink-500 max-md:whitespace-normal md:pl-[52px]">
-          {statParts.map((part, i) => (
-            <span key={i}>{i > 0 ? ' · ' : ''}{part}</span>
-          ))}
+        <div className="mt-0.5 flex items-center gap-x-1 text-xs text-ink-500 max-md:flex-wrap md:pl-[52px]">
+          <span className="min-w-0 truncate max-md:whitespace-normal">
+            {statParts.map((part, i) => (
+              <span key={i}>{i > 0 ? ' · ' : ''}{part}</span>
+            ))}
+          </span>
+          {/* 分隔点和后面那段包在一起：窄屏折行时「·」不会落单在行尾。 */}
+          {recent30 > 0 && (
+            <span className="flex shrink-0 items-center gap-x-1 whitespace-nowrap">
+              <span aria-hidden>·</span>
+              <button
+                type="button"
+                onClick={() => setLiveModal('records')}
+                className={`rounded-btn bg-primary-soft px-2 text-primary-hover hover:bg-primary-soft-hover tabular-nums ${FOCUS_RING}`}
+              >
+                {t('liveRecent30', { count: recent30 })} <span aria-hidden>›</span>
+              </button>
+            </span>
+          )}
+          {latestOn && (
+            <span className="flex shrink-0 items-center gap-x-1 whitespace-nowrap">
+              <span aria-hidden>·</span>
+              {latestOn}
+            </span>
+          )}
         </div>
       </div>
 
@@ -313,15 +415,19 @@ export default function CompetitorCard({
           代价是相册列从 2/3 降到 3/5,缩略图窄约 13%(75px→65px,aspect-[9/16] 保持)。
           改这个比例或改 WeeklyFollowersCurve 的 WEEKS 都要重量一次窄宽度。 */}
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 max-lg:grid-cols-1">
-        <WeeklyFollowersCurve weekly={c.weekly} compact={nested} />
+        <WeeklyFollowersCurve weekly={c.weekly} compact={nested} today={today} />
         <ShotAlbum
           competitorId={c.id}
           handle={c.handle}
+          region={c.region}
           shots={c.shots}
           canEdit={canEdit}
           onChanged={onChanged}
           dateWindow={dateWindow}
           selectedDate={selectedDate}
+          loadedFrom={shotsLoadedFrom}
+          loadFailed={shotLoadFailed}
+          onRetry={onRetryShots}
         />
       </div>
 
@@ -344,13 +450,20 @@ export default function CompetitorCard({
                   c={child}
                   canEdit={canEdit}
                   onChanged={onChanged}
+                  onReload={onReload}
                   onDeleteId={onDeleteId}
                   parentOptions={parentOptions}
                   onAssignParent={onAssignParent}
                   onUpdateHandle={onUpdateHandle}
+                  onUpdateRegion={onUpdateRegion}
                   dateWindow={dateWindow}
                   selectedDate={selectedDate}
+                  shotsLoadedFrom={shotsLoadedFrom}
+                  shotLoadFailed={shotLoadFailed}
+                  onRetryShots={onRetryShots}
                   regionPeers={regionPeers}
+                  patrolDays={patrolDays}
+                  today={today}
                   nested
                 />
               ))}
@@ -369,12 +482,44 @@ export default function CompetitorCard({
           {/* 手填的「在线」保留并与实测并列:对方公告的排班和实际开播时间不一致本身就是情报。 */}
           <Field
             label={t('fieldLiveSlots')}
-            value={slotLabels ? t('liveSlotsValue', { slots: slotLabels, count: habit.sessions }) : null}
+            value={slotLabels
+              // 时区名紧跟在时刻后面（「12:05 / 19:11（日本时间）前后」），不挂在场次数后面。
+              ? zoneLabel
+                ? t('liveSlotsValueZone', { slots: slotLabels, zone: zoneLabel, count: habit.sessions })
+                : t('liveSlotsValue', { slots: slotLabels, count: habit.sessions })
+              : null}
           />
-          <Field label={t('fieldRecentSessions')} value={recentSessions.join(' · ') || null} />
+          <Field label={t('fieldRecentSessions')} value={recentSessions.length ? withZone(recentSessions.join(' · ')) : null} />
+          {/* 开播记录 = LIVE History 导入 ∪ 截图推断；没有任何场次也照样占一行，导入入口就挂在这一行上。 */}
+          <LiveSessionsRow
+            count={spans.length}
+            from={spanRange.from}
+            to={spanRange.to}
+            canEdit={canEdit}
+            onOpen={setLiveModal}
+          />
           {/* 地区回退到竞品表:快照的 region 实测一直是空的(采集脚本不读它),
               只看快照会让这一行永远不渲染。人工值才是权威值。 */}
-          <Field label={t('region')} value={c.latest?.region ?? c.region} />
+          {canEdit ? (
+            // 改了即存，和上面改 handle 一样走 PATCH。地区为空时多一个「地区未填」占位项，
+            // 选中任一地区就不能再改回空——空值只留给脚本建档后待补的号。
+            <div className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-ink-500">{t('region')}</span>
+              <Select
+                size="sm"
+                value={c.region ?? ''}
+                onChange={(e) => { if (e.target.value) onUpdateRegion(c.id, e.target.value) }}
+                aria-label={t('region')}
+              >
+                {!c.region && <option value="">{t('regionUnset')}</option>}
+                {regionOptions(c.region).map((code) => (
+                  <option key={code} value={code}>{regionLabel(code)}</option>
+                ))}
+              </Select>
+            </div>
+          ) : (
+            <Field label={t('region')} value={c.latest?.region ?? (c.region ? regionLabel(c.region) : null)} />
+          )}
           {/* 主页语言只是辅助参考(账号的应用语言设置),与人工地区冲突时给个提示,
               但不改写 region —— 见 lib/competitors/profileLanguage.ts。 */}
           <Field
@@ -421,6 +566,19 @@ export default function CompetitorCard({
             </table>
           )}
         </div>
+      )}
+
+      {/* 关着时不挂载：弹窗里的「今天」、统计范围、导入草稿每次打开都是新的。 */}
+      {liveModal && liveToday && (
+        <LiveSessionsModal
+          competitor={c}
+          canEdit={canEdit}
+          today={liveToday}
+          patrolDays={patrolDays}
+          initialView={liveModal}
+          onClose={() => setLiveModal(null)}
+          onChanged={onReload}
+        />
       )}
     </div>
   )
