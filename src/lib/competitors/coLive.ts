@@ -92,3 +92,12 @@ export function buildCoLiveView(readings: CoLiveReading[], selfCompetitorId: str
   const self = rows.find((x) => x.isSelf)
   return { rows, total: rows.length, selfRank: self?.rank ?? null, selfFromCurrent }
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+
+/** 路由参数里的 shotId：是 uuid 就小写返回，否则 null（400，不打到数据库）。 */
+export function parseShotId(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const s = raw.trim().toLowerCase()
+  return UUID_RE.test(s) ? s : null
+}

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildCoLiveView, type CoLiveReading } from './coLive.ts'
+import { buildCoLiveView, parseShotId, type CoLiveReading } from './coLive.ts'
 
 const SELF = 'self-id'
 
@@ -151,4 +151,13 @@ test('同人数按界面 label 定序：label 顺序与 competitorId 顺序相�
     ['a', 'Z 社', 1],
     [SELF, 'self-id', 3],
   ])
+})
+
+test('parseShotId：合法 uuid 原样小写返回，其它一律 null', () => {
+  assert.equal(parseShotId('3F2504E0-4F89-11D3-9A0C-0305E82C3301'), '3f2504e0-4f89-11d3-9a0c-0305e82c3301')
+  assert.equal(parseShotId('not-a-uuid'), null)
+  assert.equal(parseShotId(''), null)
+  assert.equal(parseShotId(undefined), null)
+  assert.equal(parseShotId(123), null)
+  assert.equal(parseShotId('3f2504e0-4f89-11d3-9a0c-0305e82c3301; drop table x'), null)
 })
