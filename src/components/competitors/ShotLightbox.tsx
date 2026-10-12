@@ -18,6 +18,7 @@ import { formatDayTimeInZone, zonedHm } from '@/lib/time/zonedTime'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
 import { useShotTagLabel } from './useShotTagLabel'
 import { useRegionZone } from './live/useRegionZone'
+import { competitorAnchorId } from '@/lib/competitors/anchors'
 import { scrollToCompetitorCard } from './scrollToCard'
 
 /**
@@ -149,6 +150,8 @@ export default function ShotLightbox({
   useEffect(() => {
     if (!selectedId || coLiveCache.has(selectedId)) return
     const id = selectedId
+    // 重试在途时清掉上一次的失败标记，免得回到失败过的那张时仍显示「读取失败」。
+    setCoLiveFailedId((f) => (f === id ? null : f))
     fetch(`/api/competitors/shots/${id}/readings`)
       .then(async (res) => {
         if (!res.ok) throw new Error(String(res.status))
@@ -267,10 +270,15 @@ export default function ShotLightbox({
   const startedAt = formatDayTimeInZone(selected.stream_started_at, zone)
   const uptime = shotUptimeParts(selected.stream_started_at, selected.captured_at)
   const coLiveTime = zonedHm(selected.captured_at ?? '', zone)
+  // 子账号卡片嵌在母号卡片里、没有锚点，这里画成不可点；
+  // 跳到母号卡片是后续项，需要 readings 里带 parent_id。
+  const cardOnPage = (id: string) =>
+    typeof document !== 'undefined' && document.getElementById(competitorAnchorId(id)) != null
   const jumpToCard = (competitorId: string) => {
+    if (!cardOnPage(competitorId)) return
     onClose()
-    // 灯箱卸载时才释放滚动锁(lockViewportScroll 的清理在 effect cleanup 里)，
-    // 本帧直接 scrollTo 会被锁吞掉；推迟到下一帧再滚。
+    // 程序化滚动不会被 overflow: hidden 拦住；推迟一帧是因为滚动锁补偿的 paddingRight
+    // 只在灯箱卸载时才撤掉，卸载前量卡片位置会差一次回流。
     requestAnimationFrame(() => scrollToCompetitorCard(competitorId))
   }
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
@@ -561,14 +569,15 @@ export default function ShotLightbox({
                             type="button"
                             onClick={() => setCoLiveOpen((v) => !v)}
                             aria-expanded={coLiveOpen}
-                            aria-label={coLiveOpen ? t('coLiveCollapse') : t('coLiveExpand')}
                             className="flex w-full items-center justify-between gap-2 rounded-btn text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
                           >
                             <span className="inline-flex items-center gap-1 tabular-nums">
                               {coLiveView.selfRank != null
                                 ? t('coLiveSummary', { total: coLiveView.total, rank: coLiveView.selfRank })
                                 : t('coLiveSummaryNoRank', { total: coLiveView.total })}
-                              <Info className="h-3.5 w-3.5 text-white/50" aria-hidden="true" />
+                              <span title={t('coLiveScopeHint')}>
+                                <Info className="h-3.5 w-3.5 text-white/50" aria-hidden="true" />
+                              </span>
                               <span className="sr-only">{t('coLiveScopeHint')}</span>
                             </span>
                             <ChevronDown
@@ -593,6 +602,8 @@ export default function ShotLightbox({
                                           />
                                         )}
                                       </span>
+                                    ) : !cardOnPage(r.competitorId) ? (
+                                      <span className="truncate text-white/80">{r.label}</span>
                                     ) : (
                                       <button
                                         type="button"
