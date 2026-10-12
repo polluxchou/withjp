@@ -149,7 +149,9 @@ export function buildCoLiveView(readings: CoLiveReading[], selfCompetitorId: str
 | `coLiveSelfFromRoom` | 本号按房间内读数 | This account uses the in-room count | 本アカウントは配信画面内の数値 |
 | `coLiveFootnote` | {time} 同一秒读数 | Same-second readings at {time} | {time} 時点の同時刻データ |
 | `coLiveLoadFailed` | 同期数据读取失败 | Couldn't load co-live data | 同時配信データを読み込めませんでした |
-| `coLiveExpand` / `coLiveCollapse` | 展开 / 收起 | Show list / Hide list | 一覧を表示 / 一覧を閉じる |
+| `coLiveExpand` / `coLiveCollapse` | 展开名单 / 收起名单 | Show list / Hide list | 一覧を表示 / 一覧を閉じる |
+
+实现备注（2026-10-12 终审后）：摘要按钮不再挂 `aria-label`（它会盖掉可见的摘要文案，读屏只听到「展开名单」），由可见文字 + `aria-expanded` 描述控件，`coLiveExpand` / `coLiveCollapse` 两个 key 暂留未用；信息图标外层 `span` 带 `title`。名单里的子账号（`parent_id` 非空）在页面上没有卡片锚点，本期画成不可点的文本，跳到父账号卡片需要读数带上 `parent_id`，另起一期。
 
 ## 6. 文件清单
 
