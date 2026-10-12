@@ -23,3 +23,12 @@ npm-debug.log*
 
 # superpowers brainstorm sessions
 .superpowers/
+
+# 竞品直播截图扩展的本机配置（脚本生成）
+extensions/live-shot/config.local.js
+
+# 本仓库是 public：内部审计/评估文档只留在本机，不入库
+docs/private/
+
+# 建号脚本的账号清单（含密码），只留在本机
+scripts/seed-users.local.json

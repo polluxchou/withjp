@@ -31,9 +31,22 @@ export default function ResultView({
   if (result.kind === 'venue_preview') {
     return <VenuePreviewView action={result.action} settled={settled} onConfirm={() => onVenueApply(result.action)} onCancel={onCancel} />
   }
-  if (result.kind === 'query_result')   return <QueryResultView r={result} />
-  if (result.kind === 'clarification')  return <ClarificationView r={result} />
+  if (result.kind === 'query_result')      return <QueryResultView r={result} />
+  if (result.kind === 'clarification')     return <ClarificationView r={result} />
+  if (result.kind === 'competitor_answer') return <CompetitorAnswerView answer={result.answer} />
   return <ErrorView code={result.code} message={result.message} inputText={inputText} />
+}
+
+// ── Competitor answer ────────────────────────────────────────
+
+// 纯文本、按段落渲染，不做 markdown 富渲染——与原 AskPanel 的答案气泡同一
+// 措辞契约（system prompt 里的规则都是给人话准备的，不是 markdown）。
+function CompetitorAnswerView({ answer }: { answer: string }) {
+  return (
+    <div className="text-sm text-ink-900 whitespace-pre-wrap break-words">
+      {answer}
+    </div>
+  )
 }
 
 // ── Venue action preview ──────────────────────────────────────
@@ -206,6 +219,12 @@ function ErrorView({
   inputText: string
 }) {
   const t = useTranslations('intent.error')
+  // 竞品问答分支的三个错误码（not_configured/upstream/board）来自
+  // ask-service.ts，原本是 AskPanel 自己的错误文案；AskPanel 下线后这里接手
+  // 渲染，直接复用 competitors.ask.* 下的既有 key，不新起一套重复翻译。
+  const ta = useTranslations('competitors')
+  const askCode = code === 'not_configured' || code === 'upstream' || code === 'board' ? code : null
+
   // Map error code → which sub-key under intent.error.* to read. 'bad_request'
   // is the only one that hides the raw report (it's a user input problem, not
   // a backend failure).
@@ -214,12 +233,24 @@ function ErrorView({
     code === 'executor_failed' ? 'executorFailed' :
     code === 'bad_request'     ? 'badRequest'     :
                                  'unknown'
-  const friendly = {
-    title:       t(`${subKey}.title`),
-    body:        t(`${subKey}.body`),
-    suggestions: t.raw(`${subKey}.suggestions`) as string[],
-    showRaw:     subKey !== 'badRequest',
-  }
+  const friendly = askCode
+    ? {
+        // ask.error* 本身已经是一整句可操作的话，没有 intent.error.* 那种
+        // 「标题 + 正文 + 建议列表」的三段式，标题借用 unknown.title 这个
+        // 已存在的通用文案，不为三个 code 各造一个标题 key。
+        title:       t('unknown.title'),
+        body:        askCode === 'not_configured' ? ta('ask.errorNotConfigured') :
+                     askCode === 'upstream'        ? ta('ask.errorUpstream') :
+                                                      ta('ask.errorBoard'),
+        suggestions: [] as string[],
+        showRaw:     true,
+      }
+    : {
+        title:       t(`${subKey}.title`),
+        body:        t(`${subKey}.body`),
+        suggestions: t.raw(`${subKey}.suggestions`) as string[],
+        showRaw:     subKey !== 'badRequest',
+      }
   const [copied, setCopied] = useState(false)
 
   const report =

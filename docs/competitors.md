@@ -41,6 +41,8 @@
 **范围**：单平台 TikTok；**以日区为主但不限于日区**（2026-08-19 核实：23 个顶层竞品里 `_k.queens` / `the_re_born` / `blank.s9` 是韩国团，简介自报 KST 与韩文成员名）；主页公开指标 + 人工上传截图 + 团级档案 + 两级层级。
 
 > ⚠️ `region` 是**建档时人工填的**，采集从不刷新它。曾经 23 个账号被一律填成 `JP`（含上述 3 个韩国团），错了一个月没人发现——因为卡片上那个地区标签每张都一样，没人会去核。现在采集会额外带回主页语言（`competitor_snapshots.language`）做交叉校验，但它只是辅助参考，`competitors.region` 仍是唯一权威值。
+>
+> 2026-10 又冒出 3 个（`podo.page_x` / `sheesh.sh4` 实为韩国团，`nexgen1021` 是马来西亚团），根因是列默认值 `'JP'` 加上后台没地方选地区。之后的规则（迁移 `20261009183208`）：列**无默认值、可为空**；后台加主账号**必须选地区**，主播沿用所属团；采集脚本建档不带地区时留空，卡片头部显示「地区未填」、在展开档案的地区一行补。可选清单与校验在 `src/lib/competitors/regions.ts`。
 
 **非目标（明确不做）**：
 - 直播间实时数据（在线曲线、逐分钟人数、GMV 实时）——`online_note` 仅存人工观察近似值。
@@ -84,15 +86,16 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | `044_competitor_parent.sql` | `competitors` 加自引用 `parent_id`（`on delete cascade`）+ 索引 `idx_competitors_parent` |
 | `20260818000000_competitor_shots_live_metrics.sql` | `competitor_shots` 加 `viewer_count` / `stream_started_at` / `captured_at`（直播态指标） |
 | `20260819000000_competitor_snapshot_language.sql` | `competitor_snapshots` 加 `language`（主页语言，地区的辅助参考） |
+| `20261009212901_competitor_quick_shot.sql` | 浏览器扩展一键上传：`competitor_shots` 加 `created_by`（→ users，上传人）+ 按人按天索引 + 去重部分唯一索引；新建 `competitor_viewer_readings`（在线人数读数）+ RLS |
 
-> ⚠️ 迁移只能在 Supabase 面板 SQL Editor 手动跑（本仓库不本地 push 迁移）。线上项目 ref：`<project-ref>`。042/043/044 均已应用。
+> ⚠️ 迁移只能在 Supabase 面板 SQL Editor 手动跑（本仓库不本地 push 迁移）。042/043/044 均已应用。
 
 ### 8.2 表
 
 **`competitors`（竞品清单 + 团级档案）** — 唯一键 `unique(platform, handle)`
 - 基础：`id`、`platform`('tiktok' + check)、`handle`、`profile_url`、`display_name`、`note`、`created_at`
 - 层级：`parent_id`（→ competitors.id，`on delete cascade`；空=团播主账号，非空=某主账号的主播子账号）
-- 团级档案（043）：`avatar_url`、`region`(默认 'JP')、`member_count`、`composition`（如「女子团·本地」）、`launch_city`、`launched_on`、`mc_note`、`online_note`、`latest_videos`(jsonb `[{url,title?}]`)
+- 团级档案（043）：`avatar_url`、`region`(两位代码，无默认值、可为空——见上文 2026-10 说明)、`member_count`、`composition`（如「女子团·本地」）、`launch_city`、`launched_on`、`mc_note`、`online_note`、`latest_videos`(jsonb `[{url,title?}]`)
 
 **`competitor_snapshots`（每日主页打点）** — 唯一键 `unique(competitor_id, captured_on)`
 - `followers`、`likes`、`videos`、`following`、`display_name`、`bio`、`region`、`verified`、`raw`(jsonb)、`captured_at`
@@ -100,7 +103,14 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 - 同日重采幂等覆盖（upsert）；`captured_on` 默认脚本运行时 UTC 当天。
 
 **`competitor_shots`（手动上传截图）**
-- `competitor_id`(→competitors, cascade)、`image_url`、`shot_on`(date)、`tag`（全妆/常服/主题）、`caption`、`sort_order`、`created_at`
+- `competitor_id`(→competitors, cascade)、`image_url`、`shot_on`(date)、`tag`（全妆/常服/主题；自动巡检 `live_auto`、扩展一键上传 `live_manual`；界面上这两个机器值分别显示为 自动巡检 / 插件（英文 Auto patrol / Extension，日文 自動巡回 / 拡張機能））、`caption`、`sort_order`、`created_at`
+- 直播态（20260818）：`viewer_count`、`stream_started_at`、`captured_at`
+- `created_by`（20261009，→ users，`on delete set null`）：扩展一键上传写入上传人；历史行与自动巡检为空。部分唯一索引 `(created_by, competitor_id, captured_at) where created_by is not null` 兜住重试与双击去重
+
+**`competitor_viewer_readings`（在线人数读数，20261009）** — 唯一键 `unique(competitor_id, captured_at, source)`
+- 扩展每次上传写：当前房间一行（`source='current'`，`viewer_source` 记 `room`/`anchored`/`sole` 三档来源）+ Following 侧栏里在库竞品各一行（`source='sidebar'`，同一时刻的横截面）
+- `viewer_count`（解析并钳位到 int4，读不出为空）、`viewer_text`（页面原文，如 1.3K）、`shot_id`（→ competitor_shots，`on delete set null`）、`created_by`
+- 同一账号同一时刻会同时有 `current` 与 `sidebar` 两行：两处刷新时刻不同，横向比较各房间统一用 `sidebar`
 
 **Storage**：公开桶 `competitor-shots`（上传照搬 `items/photo` 套路，5MB + 图片类型校验）。
 
@@ -110,7 +120,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 
 ### 8.4 RLS
 
-三表均 `authenticated_only`（`for all to authenticated using (auth.uid() is not null)`）。写权限在 service 层放开给所有登录用户；快照写入走 service-role（绕 RLS）。
+四表（含 `competitor_viewer_readings`）均 `authenticated_only`。写权限在 service 层放开给所有登录用户；快照写入走 service-role（绕 RLS）。
 
 ## 9. 域层（`src/lib/competitors/`）
 
@@ -120,10 +130,15 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 | `chart.ts` | `buildWeeklyCurve(weekly)` → 0–100 百分比点集 + polyline 几何（含日期刻度） | `chart.test.ts` |
 | `weekly.ts` | `weekStartOf(date)`（ISO 周一）/ `bucketFollowersByWeek(history)`（每周取最后一次快照，空值跳过） | `weekly.test.ts` |
 | `regionRuler.ts` | `buildRegionRuler({competitors,region,timeZone,now,currentId})` 把同地区已采到开播时刻的账号摊到一条 24h 轴上：递归含子主播、按 region 过滤、只取近 14 天、每档画中位数 ±30min 段、`established` 标记是否达 3 场门槛；轴端按整点对齐且至少 8 小时宽 | `regionRuler.test.ts` |
+| `regions.ts` | `REGION_CODES` 可选清单 / `normalizeRegion` 入参规整（只收清单内代码）/ `resolveNewRegion` 新建时取值（主账号必选、子账号沿用父账号）/ `regionOptions` 编辑下拉保留清单外现值 | `regions.test.ts` |
 | `mentions.ts` | `extractMentionedHandles(bio, self)` 提取 bio 里 @ 的 handle（排除自身/邮箱域名/去尾点/大小写去重/上限20） | `mentions.test.ts` |
 | `assemble.ts` | `parseHandleFromUrl` + `assembleBoard(competitors,snapshots,shots,canEdit)`：组装 latest/history/weekly/shots，并做**父子嵌套**（`parent_id` 空→顶层，非空→挂到父的 `related`；悬空 parent_id 回退顶层） | `assemble.test.ts` |
 | `types.ts` | 领域类型（`Competitor`/`CompetitorSnapshot`/`CompetitorShot`/`WeeklyPoint`/`CompetitorWithHistory`(含 `related`)/`CompetitorBoard`） | — |
 | `service.ts` | `ServiceResult<T>` + `getCompetitorBoard` / `addCompetitor` / `updateCompetitor` / `deleteCompetitor` / `addShot` / `updateShot` / `deleteShot` / `assertValidParent`；`CompetitorFields`（含 `parent_id`） | — |
+| `liveProbe.ts` | 注入直播间页面的探针源码：在线人数三档判据、Following 侧栏横截面（可限定只读 Following 频道）、按 object-fit 算画面矩形（可选不静音）；扩展用法按频道标题认 Following，读数附带侧栏状态 `co_live_status` | `liveProbe.test.ts` |
+| `pageReader.ts` | 扩展点击那一刻注入的一次性读取函数（复用 liveProbe，装在一次性宿主上、不留状态）；`renderReaderModule()` 生成 `extensions/live-shot/generated/page-reader.js` | `pageReader.test.ts`（含生成文件逐字一致） |
+| `quickShot.ts` | 一键上传的纯函数：Bearer 解析、handle 规范化、读数时刻窗口、日本时间 `shot_on`、人数原文限长与 int4 钳位、侧栏条目解析、读数行组装 | `quickShot.test.ts` |
+| `quickShotService.ts` | `/api/competitors/quick-shot` 业务逻辑（依赖注入，不 import next）：鉴权、不在库 404、重试幂等、207 部分成功、今日上传数（按上传时刻的日本时间自然日） | `quick-shot-api.integration.test.ts` |
 
 > 迭代 Map/Set/matchAll 结果时用 `Array.from(...)` 包裹——本项目 tsconfig target 较低，`for...of` 直接迭代会触发 TS2802（strip-types 单测不报、build 才报）。
 
@@ -133,13 +148,15 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 
 | 方法 | 路由 | 说明 |
 | --- | --- | --- |
-| GET | `/api/competitors` | 看板（含 `canEdit`、嵌套 `related`、`weekly`、`shots`） |
+| GET | `/api/competitors` | 看板（含 `canEdit`、嵌套 `related`、`weekly`、`shots`、`sessionShots`（全部历史的截图场次，每场一行）、`shotAxis`、`shotsLoadedFrom`）。截图默认只带最近 10 个有图日；`?since=YYYY-MM-DD` 把起点往前推 |
+| GET | `/api/competitors/shots?from=&before=` | 往历史翻页时补取 [from, before) 的截图 |
 | POST | `/api/competitors` | 加竞品，body `{ url? \| handle?, platform?, ...团级字段, parent_id? }` |
 | PATCH | `/api/competitors/[id]` | 改团级字段 / 归属（`parent_id`） |
 | DELETE | `/api/competitors/[id]` | 删竞品（级联删其快照 / 截图 / 子账号） |
 | POST | `/api/competitors/upload` | 截图文件 → Storage → 返回公开 URL |
 | POST | `/api/competitors/[id]/shots` | 加一条截图记录 `{image_url, shot_on?, tag?, caption?, sort_order?}` |
 | PATCH·DELETE | `/api/competitors/shots/[shotId]` | 改 / 删截图 |
+| POST·GET | `/api/competitors/quick-shot` | 浏览器扩展专用（只认 `Authorization: Bearer`，不走 Cookie）：POST multipart 上传截图 + 人数读数；GET 返回本人今天（日本时间，按上传时刻）的上传数 |
 
 约定：`authGuard()` → `instanceof NextResponse` 兜 401 → service → `NextResponse.json({data,error})`。无 server action、无 `revalidatePath`；client 增删改后重取 `GET /api/competitors`。
 
@@ -149,7 +166,7 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 - `CompetitorCard`：单卡。档案条（头像 + 团名 + 认证 + @handle + `JP` + 一行指标）+ 「归属」下拉（叶子卡）+ 打开主页 + 展开 + 删除。
   - **主账号（顶层）**：1:3 双栏——左近 4 周粉丝曲线、右**半屏大图**截图墙；「关联主播 (N)」折叠区递归渲染子账号；展开区显示完整团级字段 + 每日历史打点表。
   - **子账号（nested，`compact`）**：紧凑堆叠——纤细一行粉丝曲线 + **小图**截图。
-- `ShotAlbum`：截图相册。折叠态换行网格（大图约「上下 2 张≈一屏」/ 小图更密）；「查看全部」展开为按 ISO 周分组网格；lightbox 放大；每图删除；`compact` 小图模式。
+- `ShotAlbum`：截图相册。整页共用一条日期轴，一屏 5 天，每天一格；封面是当天最新一张，其余显示「+N」；点开进灯箱，默认停在封面。截图按日期窗口加载：首屏只取最近 10 个有图日，往前翻到离已加载边界不足一屏时后台补取下一段；还没取回的日期显示占位格，不提供补图入口。标签 `live_auto` / `live_manual` 按界面语言显示，其它 tag 原样显示。
 - `ShotUploader`：上传格。点击选图或 ⌘V 粘贴（`compressImage` 客户端压缩后上传）；`compact` 小尺寸。
 - `WeeklyFollowersCurve`：近 4 周粉丝曲线（复用 `chart.buildWeeklyCurve`）；`compact` 纤细一行。
 - `compressImage.ts`：canvas 缩到长边 ≤1280 + 转 WebP(q0.82)，压不小则回退原图、GIF 跳过——降低 Supabase 存储 / 出网流量。
@@ -165,6 +182,10 @@ scripts/record-competitor-snapshot.ts          service-role 采集脚本（唯�
 4. **下探一跳**：从该竞品 bio 用 `extractMentionedHandles` 提取 @主播，作为子账号 upsert（`parent_id=父`、`note=来自 @父 简介`，`ignoreDuplicates`——已存在则不动、不重挂）。只加条目不递归、不强抓数据。
 
 > `ignoreDuplicates` 意味着**存量账号不会被自动改归属**；批量纠正存量归属需显式 `UPDATE competitors SET parent_id ... WHERE handle=...`（按 handle 精确匹配）。注意部分主播 handle 是日文昵称，bio 的 @提及未必与库内 handle 一致，需人工核对。
+
+### 12.1 浏览器扩展一键上传
+
+`extensions/live-shot/`（Chrome MV3，开发者模式加载）：人在 TikTok 直播间页面点图标，扩展截下竖屏直播画面、读当前房间与 Following 侧栏同期竞品的在线人数，用后台账号登录后上传到 `/api/competitors/quick-shot`。弹窗显示日本时间当日的截图数与上传数（上传数按上传时刻计）；没上传的截图在插件本地暂存最近 9 张，24 小时内补传仍按截图时刻归档。安装与已知限制见 `extensions/live-shot/README.md`，设计见 `docs/superpowers/specs/2026-10-09-live-shot-extension-design.md`，第二版见 `docs/superpowers/specs/2026-10-11-live-shot-extension-v2-design.md`。
 
 ## 13. 测试与守卫
 

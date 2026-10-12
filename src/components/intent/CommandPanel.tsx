@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Sparkles, X } from 'lucide-react'
 import Tag from '@/components/ui/Tag'
 import Transcript from './Transcript'
 import Composer from './Composer'
 import { notifyIntentApplied } from '@/lib/intent/events'
-import { markSettled, priorContextOf, type ServerResult, type Turn } from '@/lib/intent/conversation'
+import { askHistoryOf, markSettled, priorContextOf, type ServerResult, type Turn } from '@/lib/intent/conversation'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import type { VenueAction } from '@/venue/layoutData'
 
@@ -40,6 +40,7 @@ export function openCommandBar(initialText?: string) {
 
 export default function CommandPanel() {
   const t = useTranslations('intent')
+  const locale = useLocale()
   const [mounted, setMounted] = useState(false)
   const [open,    setOpen]    = useState(false)
   const [draft,   setDraft]   = useState('')
@@ -117,8 +118,15 @@ export default function CommandPanel() {
     pushTurn({ id: nextId(), role: 'user', text })
     setBusy(true)
     try {
+      // history/locale 每次都带上，哪怕本轮问的是支出/工时任务——服务端只在
+      // 分类结果是 competitor 时才会读它们（见 /api/intent/route.ts），这里
+      // 统一带上比先猜一遍分类结果再决定要不要附加更简单。askHistoryOf 已经
+      // 把范围收窄到 user 轮次与竞品回答、并裁到最近 20 条，不会让非竞品场景
+      // 的请求体随对话变长而线性膨胀。
       const body = {
         text,
+        locale,
+        history: askHistoryOf(turns),
         ...(prior ? { prior } : {}),
         ...(venueProvider ? { scope: 'venue', venueItems: venueProvider.getItems() } : {}),
       }
@@ -138,7 +146,7 @@ export default function CommandPanel() {
     } finally {
       setBusy(false)
     }
-  }, [draft, busy, turns, pushTurn])
+  }, [draft, busy, turns, pushTurn, locale])
 
   // 应用成功：标记该卡已结算 + 追加 system 气泡 + 通知列表页刷新。
   // **不关面板**——原来 applied() 里的 setOpen(false) 是「最不像对话」的一处：

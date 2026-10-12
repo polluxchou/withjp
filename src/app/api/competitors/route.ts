@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
 import { getCompetitorBoard, addCompetitor, httpStatusForError } from '@/lib/competitors/service'
 import type { CompetitorFields } from '@/lib/competitors/service'
+import { parseSinceQuery } from '@/lib/competitors/shotWindow'
 
-// GET /api/competitors — 看板（含 canEdit）
-export async function GET() {
+// GET /api/competitors?since=YYYY-MM-DD — 看板（含 canEdit）。截图默认只带最近一段；
+// since 把已加载起点往前推（改完数据刷新时保住用户已翻到的范围）。
+export async function GET(req: NextRequest) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
-  const result = await getCompetitorBoard(user.id)
+  const q = parseSinceQuery(req.nextUrl.searchParams.get('since'))
+  if (!q.ok) return NextResponse.json({ data: null, error: 'since must be YYYY-MM-DD' }, { status: 400 })
+  const result = await getCompetitorBoard(user.id, { since: q.since })
   if (result.error) {
     return NextResponse.json({ data: null, error: result.error.message }, { status: httpStatusForError(result.error.code) })
   }

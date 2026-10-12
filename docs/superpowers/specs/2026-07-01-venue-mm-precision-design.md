@@ -2,7 +2,7 @@
 
 日期:2026-07-01
 状态:已评审通过,待实现
-实现隔离:worktree `$HOME/Code/newWith-mm`(分支 `feat/venue-mm-precision`)。
+实现隔离:独立 git worktree(分支 `feat/venue-mm-precision`)。
 
 ## 背景与目标
 当前场地组件的位置/尺寸以**整数厘米**存储,`centimetersToMeters` 只保留 2 位小数,`metersToCentimeters` 取整到 cm —— 所以距离/长度最细只能到 0.01m(1cm)。目标:**平面尺寸(X/Y/宽/高)与标尺测量距离做到毫米精度(0.001m = 0.1cm)**。

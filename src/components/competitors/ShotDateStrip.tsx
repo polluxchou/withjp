@@ -2,18 +2,23 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { SHOT_WINDOW_SIZE, UNDATED_KEY } from '@/lib/competitors/shotGrid'
+import { FOCUS_RING } from '@/lib/ui/recipes'
 
 export default function ShotDateStrip({
-  axis, dateWindow, selectedDate, onPick,
+  axis, dateWindow, selectedDate, onPick, loadFailed, onRetry,
 }: {
   axis: string[]
   dateWindow: string[]
   selectedDate: string | null
   onPick: (date: string) => void
+  /** 当前屏的截图补取失败（判据见 CompetitorDossierView 的 shotRetryHint）。 */
+  loadFailed: boolean
+  onRetry: () => void
 }) {
   const t = useTranslations('competitors')
+  const tCommon = useTranslations('common')
   // dateWindow 才是渲染依据,axis 非空不代表窗口非空
   if (axis.length === 0 || dateWindow.length === 0) return null
 
@@ -32,25 +37,57 @@ export default function ShotDateStrip({
   }
 
   return (
-    // 外层 px-4 对齐卡片的 p-4,内层复刻卡片的 minmax(0,1fr)/minmax(0,3fr) 轨道与 gap-3。
+    // 外层 px-4 对齐卡片的 p-4,内层轨道必须与卡片正文网格**逐字一致**:
+    // CompetitorCard 的 minmax(0,2fr)/minmax(0,3fr) + gap-3 + max-lg 断点。
     // 这是必须的:格子里不显示任何日期文字,日期条是屏幕上唯一能看到日期的地方,
     // chip 必须正好落在它标注的那一列上方,否则用户只能靠数格子来对应。
+    // 卡片那边动列宽或动断点,这里要跟着动 —— PR 282 把卡片从 1fr/2fr 调成
+    // 2fr/3fr 时漏了这一层,1280px 下日期 chip 整体左偏 132px(实测格心
+    // 471/620/768/917/1066 对相册 604/723/842/961/1080),等于指着隔壁列念日期;
+    // 断点也曾错开一档(卡片 max-lg 单列、这里还是 max-md 两列),768-1023px 整段偏。
     // 吸顶不在这一层做:日期轴和账号导航条要作为一整块吸顶(否则两个
     // sticky top-0 会叠在一起),吸顶容器与不透明底色都提到
     // CompetitorDossierView 的 [data-sticky-head] 上。
     <div className="px-4 py-2">
       <div
-        className="grid grid-cols-[minmax(0,1fr)_minmax(0,3fr)] gap-3 max-md:grid-cols-1"
+        className="relative grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 max-lg:grid-cols-1"
         role="group"
         aria-label={t('shotDates')}
       >
-        <div className="flex items-center justify-end gap-1 max-md:justify-start">
+        {/* lg 起:翻页键待在左侧标签列(与卡片曲线列同宽)的右端,紧挨着它翻的日期。
+            lg 以下标签列消失,翻页键不能再自己占一行 —— 手机上吸顶块已经有
+            搜索、账号芯片、日期三行,再加一行就吃掉近 1/5 屏;而且它孤零零悬在
+            芯片正下方,会被读成「左右切换账号」。所以改成绝对定位浮在日期行两端,
+            并用负边距挪进外层 px-4 的留白里:日期网格因此保持满宽,与相册的 5 列
+            严格对齐(一旦让翻页键占宽,chip 就整体内缩、对不上列)。
+            pointer-events 只在 lg 以下需要:容器铺满整行,不放行的话中间的日期点不动。
+
+            补取失败的提示也借这一列 lg 起空着的左半段:吸顶块随滚动常驻,失败原因和重试
+            都在用户翻页的手边,而且不加高吸顶块(提示与重试键都不高于翻页键)。
+            lg 以下这一列是叠在日期行上的绝对层,提示放进来会盖住日期,所以 max-lg:hidden,
+            窄屏交给吸顶块下方那一行和占位格本身(见 CompetitorDossierView、ShotAlbum 的 PendingCell)。
+            1024px 侧栏展开时这里只剩约 140px,日文完整文案要 240px,会被截成只剩主语,
+            所以这里显示短文案、完整文案放 title。*/}
+        <div className="flex items-center justify-end gap-1 max-lg:pointer-events-none max-lg:absolute max-lg:inset-0 max-lg:justify-between">
+          {loadFailed && (
+            <p role="alert" className="mr-auto flex min-w-0 items-center gap-1.5 text-xs text-danger-text max-lg:hidden">
+              <AlertTriangle size={14} strokeWidth={1.5} className="shrink-0" aria-hidden />
+              <span className="truncate" title={t('shotsLoadFailed')}>{t('shotsLoadFailedShort')}</span>
+              <button
+                type="button"
+                onClick={onRetry}
+                className={`shrink-0 rounded border border-line px-1.5 py-0.5 text-ink-700 hover:text-ink-900 ${FOCUS_RING}`}
+              >
+                {tCommon('retry')}
+              </button>
+            </p>
+          )}
           <button
             type="button"
             onClick={() => step(-1)}
             disabled={atStart}
             aria-label={t('earlierDates')}
-            className="rounded border border-line px-1 py-1 text-ink-500 hover:text-ink-900 disabled:opacity-40"
+            className="rounded border border-line px-1 py-1 text-ink-500 hover:text-ink-900 disabled:opacity-40 max-lg:pointer-events-auto max-lg:-ml-4"
           >
             <ChevronLeft size={14} />
           </button>
@@ -59,7 +96,7 @@ export default function ShotDateStrip({
             onClick={() => step(1)}
             disabled={atEnd}
             aria-label={t('laterDates')}
-            className="rounded border border-line px-1 py-1 text-ink-500 hover:text-ink-900 disabled:opacity-40"
+            className="rounded border border-line px-1 py-1 text-ink-500 hover:text-ink-900 disabled:opacity-40 max-lg:pointer-events-auto max-lg:-mr-4"
           >
             <ChevronRight size={14} />
           </button>

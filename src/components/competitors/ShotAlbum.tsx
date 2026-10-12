@@ -3,11 +3,13 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Plus } from 'lucide-react'
-import { SHOT_WINDOW_SIZE, UNDATED_KEY, groupShotsByDate } from '@/lib/competitors/shotGrid'
+import { Plus, RotateCcw } from 'lucide-react'
+import { SHOT_WINDOW_SIZE, UNDATED_KEY, coverOf, groupShotsByDate } from '@/lib/competitors/shotGrid'
+import { isShotDateLoaded } from '@/lib/competitors/shotWindow'
 import { imageFromClipboard, uploadShot } from '@/lib/competitors/uploadShot'
 import ShotUploader from './ShotUploader'
 import ShotLightbox from './ShotLightbox'
+import { useShotTagLabel } from './useShotTagLabel'
 import type { CompetitorShot } from '@/lib/competitors/types'
 
 // 格子是 overflow-hidden 的全出血容器，FOCUS_RING 的 offset 变体会被裁掉一圈，
@@ -93,6 +95,33 @@ function EmptyCell({ competitorId, dateKey, canEdit, onChanged, ring }: {
   )
 }
 
+/**
+ * 还没加载到的日期。和空格子同尺寸，但**不给补图入口**：这天可能其实有图，只是还没取回来，
+ * 在这里补图会造出重复截图。补取失败时停止闪烁（免得被读成"还在加载"），整格变成重试按钮：
+ * 用户盯着这排灰格时，入口就在灰格上。窄屏吸顶日期轴没有空位放失败提示，这里是唯一的重试入口；
+ * lg 起日期轴左列另有一行带原因的提示（见 ShotDateStrip）。
+ */
+function PendingCell({ ring, failed, onRetry }: { ring: string; failed: boolean; onRetry: () => void }) {
+  const t = useTranslations('competitors')
+  const tCommon = useTranslations('common')
+  const shell = `${BOX} ${ring} rounded-field bg-line-soft`
+  if (!failed) {
+    return <div role="status" aria-busy aria-label={tCommon('loading')} className={`${shell} animate-pulse`} />
+  }
+  return (
+    <button
+      type="button"
+      onClick={onRetry}
+      aria-label={t('retryPendingShots')}
+      title={t('retryPendingShots')}
+      className={`${shell} flex w-full flex-col items-center justify-center gap-1 text-ink-500 hover:text-ink-900 ${CELL_FOCUS_RING}`}
+    >
+      <RotateCcw size={16} strokeWidth={1.5} aria-hidden />
+      <span className="px-1 text-center text-[10px] leading-tight">{tCommon('retry')}</span>
+    </button>
+  )
+}
+
 function FilledCell({ shots, dateKey, ring, onOpen }: {
   shots: CompetitorShot[]
   dateKey: string
@@ -100,15 +129,18 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
   onOpen: () => void
 }) {
   const t = useTranslations('competitors')
-  const cover = shots[0]
+  const tagLabel = useShotTagLabel()
+  // FilledCell 只在当天有图时渲染，coverOf 必有值
+  const cover = coverOf(shots)!
   const extra = shots.length - 1
+  const coverTag = tagLabel(cover.tag)
 
   return (
     <div className={`relative ${BOX} ${ring} overflow-hidden rounded-field bg-line-soft`}>
       <button type="button" onClick={onOpen} className={`block h-full w-full ${CELL_FOCUS_RING}`}>
         {/* caption 默认空串、tag 常为 null,兜底到日期,否则读屏只念"按钮" */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cover.image_url} alt={cover.caption || cover.tag || (dateKey === UNDATED_KEY ? t('undated') : dateKey)} className="h-full w-full object-cover" loading="lazy" />
+        <img src={cover.image_url} alt={cover.caption || coverTag || (dateKey === UNDATED_KEY ? t('undated') : dateKey)} className="h-full w-full object-cover" loading="lazy" />
       </button>
       {extra > 0 && (
         <span className="pointer-events-none absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
@@ -121,9 +153,9 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
           {t('shotViewers', { count: cover.viewer_count })}
         </span>
       )}
-      {cover.tag && (
+      {coverTag && (
         <span className="pointer-events-none absolute inset-x-1 bottom-1 truncate rounded bg-black/50 px-1 py-0.5 text-[9px] text-white">
-          {cover.tag}
+          {coverTag}
         </span>
       )}
     </div>
@@ -131,14 +163,23 @@ function FilledCell({ shots, dateKey, ring, onOpen }: {
 }
 
 export default function ShotAlbum({
-  competitorId, shots, canEdit, onChanged, dateWindow, selectedDate,
+  competitorId, handle, region, shots, canEdit, onChanged, dateWindow, selectedDate, loadedFrom, loadFailed, onRetry,
 }: {
   competitorId: string
+  /** 对方平台上的用户名。只用于下载文件名 —— 截图离开系统后，文件名是它唯一剩下的上下文。 */
+  handle: string
+  /** 账号地区：灯箱里的开播时刻按它的时区显示，与卡片、开播记录弹窗一致。 */
+  region: string | null
   shots: CompetitorShot[]
   canEdit: boolean
   onChanged: () => void
   dateWindow: string[]
   selectedDate: string | null
+  /** 已加载起点（CompetitorBoard.shotsLoadedFrom）：更早的日期还没取回来，格子显示占位而不是"没图"。 */
+  loadedFrom: string | null
+  /** 补取失败：占位格停止闪烁、变成重试按钮。 */
+  loadFailed: boolean
+  onRetry: () => void
 }) {
   const t = useTranslations('competitors')
   const [openDate, setOpenDate] = useState<string | null>(null)
@@ -166,9 +207,10 @@ export default function ShotAlbum({
       )}
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${SHOT_WINDOW_SIZE}, minmax(0, 1fr))` }}>
         {dateWindow.map((d) => {
-          const dayShots = grouped.get(d) ?? []
           // 描边两个分支都要:一列里空格子越多,越需要它告诉你看的是同一天
           const ring = d === selectedDate ? 'ring-2 ring-primary' : ''
+          if (!isShotDateLoaded(d, loadedFrom)) return <PendingCell key={d} ring={ring} failed={loadFailed} onRetry={onRetry} />
+          const dayShots = grouped.get(d) ?? []
           return dayShots.length
             ? <FilledCell key={d} shots={dayShots} dateKey={d} ring={ring} onOpen={() => setOpenDate(d)} />
             : <EmptyCell key={d} competitorId={competitorId} dateKey={d} canEdit={canEdit} onChanged={onChanged} ring={ring} />
@@ -179,7 +221,11 @@ export default function ShotAlbum({
           // key 保证换一天就重新挂载,窗口起点与选中项(start / pickedId)
           // 不会带着上一天的值过来
           key={openDate}
+          handle={handle}
+          region={region}
+          dateKey={openDate}
           shots={grouped.get(openDate) ?? []}
+          initialId={coverOf(grouped.get(openDate) ?? [])?.id}
           canEdit={canEdit}
           onClose={() => setOpenDate(null)}
           onChanged={onChanged}

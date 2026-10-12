@@ -25,6 +25,25 @@ export function centeredScrollLeft({ chipStart, chipWidth, viewWidth, contentWid
   return Math.round(Math.min(Math.max(target, 0), max))
 }
 
+/** 卡片顶边与吸顶块底边之间留的空隙（px）。 */
+export const ANCHOR_GAP = 8
+
+/**
+ * 把竞品卡滚到吸顶块（导航条 + 日期轴）下方时的目标 scrollY。
+ * 不能用 scrollIntoView / 浏览器原生的 #锚点跳转：它们把卡片顶边对齐到视口顶，
+ * 而视口顶被吸顶块占着，卡片头部会被盖掉一截。吸顶块高度由调用方实测传入——
+ * 它随导航条换行、日期轴列数变化，写死的 scroll-mt 迟早对不上。
+ */
+export function anchoredScrollTop({ cardTop, scrollY, headHeight, gap = ANCHOR_GAP }: {
+  /** 卡片当前的 getBoundingClientRect().top */
+  cardTop: number
+  scrollY: number
+  headHeight: number
+  gap?: number
+}): number {
+  return Math.max(0, Math.round(cardTop + scrollY - headHeight - gap))
+}
+
 /**
  * 居中滑动的时长（毫秒）。取 design-system §4 登记的位移档「200ms ease-out」,
  * 不另立一个数——抽屉/侧栏位移用的就是这一档,账号行居中同属位移家族。

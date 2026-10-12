@@ -1,8 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { defaultLocale, isLocale } from '@/i18n/routing'
-
-const PUBLIC_PATHS = ['/login', '/_next', '/api']
+import { PUBLIC_PATHS } from '@/lib/middleware-matcher'
 
 function stripLocale(pathname: string) {
   const segments = pathname.split('/')

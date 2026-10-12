@@ -23,8 +23,10 @@ const SIZE: Record<Size, string> = {
   sm: 'px-5 py-2.5 text-[15px] tracking-[0.12em]',
   md: 'px-[26px] py-3.5 text-[16px] tracking-[0.14em]',
   lg: 'px-8 py-4 text-[18px] tracking-[0.12em]',
-  // 只有首页红条那颗用得上：设计稿把它放得比 lg 明显大一档
-  xl: 'px-11 py-5 text-[22px] tracking-[0.14em]',
+  // 只有首页红条那颗用得上：设计稿把它放得比 lg 明显大一档。sm 以下收回 lg 档：
+  // 22px 字号 + px-11 摆不进 320px 视口的内容区（整宽约 293px，右缘距视口仅 3px），
+  // 外凸 6px 的套准记号会探出视口，整页能左右晃动。
+  xl: 'px-8 py-4 text-[18px] tracking-[0.12em] sm:px-11 sm:py-5 sm:text-[22px] sm:tracking-[0.14em]',
 }
 
 /**
