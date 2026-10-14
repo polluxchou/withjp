@@ -59,11 +59,14 @@ export async function updateSession(request: NextRequest, extraRequestHeaders?: 
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('auth timeout')), 3000)
     )
-    const { data: { user } } = await Promise.race([
-      supabase.auth.getUser(),
+    // getClaims() verifies the JWT locally via the cached JWKS (asymmetric
+    // signing key) instead of a per-navigation round-trip to the Auth server;
+    // it still refreshes an expired session through getSession() → setAll.
+    const { data } = await Promise.race([
+      supabase.auth.getClaims(),
       timeout,
     ])
-    if (!user) {
+    if (!data?.claims?.sub) {
       const url = request.nextUrl.clone()
       url.pathname = localizedLoginPath(pathname)
       return NextResponse.redirect(url)
