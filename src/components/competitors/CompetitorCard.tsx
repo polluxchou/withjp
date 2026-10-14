@@ -416,19 +416,23 @@ export default function CompetitorCard({
           改这个比例或改 WeeklyFollowersCurve 的 WEEKS 都要重量一次窄宽度。 */}
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 max-lg:grid-cols-1">
         <WeeklyFollowersCurve weekly={c.weekly} compact={nested} today={today} />
-        <ShotAlbum
-          competitorId={c.id}
-          handle={c.handle}
-          region={c.region}
-          shots={c.shots}
-          canEdit={canEdit}
-          onChanged={onChanged}
-          dateWindow={dateWindow}
-          selectedDate={selectedDate}
-          loadedFrom={shotsLoadedFrom}
-          loadFailed={shotLoadFailed}
-          onRetry={onRetryShots}
-        />
+        {/* 子账号只看粉丝曲线、不接截图墙（连上传入口一起不出）：截图只归档在顶层账号上。
+            网格照留，曲线仍落在与父卡同一列宽里。 */}
+        {!nested && (
+          <ShotAlbum
+            competitorId={c.id}
+            handle={c.handle}
+            region={c.region}
+            shots={c.shots}
+            canEdit={canEdit}
+            onChanged={onChanged}
+            dateWindow={dateWindow}
+            selectedDate={selectedDate}
+            loadedFrom={shotsLoadedFrom}
+            loadFailed={shotLoadFailed}
+            onRetry={onRetryShots}
+          />
+        )}
       </div>
 
       {c.related.length > 0 && (

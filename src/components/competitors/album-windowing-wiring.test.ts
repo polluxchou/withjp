@@ -251,3 +251,10 @@ test('灯箱：胶片条把选中缩略图滚进可视区，用容器自己的 s
   // scrollIntoView 会连祖先和页面一起滚，而灯箱开着时视口滚动是被锁住的
   assert.doesNotMatch(LIGHTBOX, /scrollIntoView/)
 })
+
+test('子账号卡片不渲染相册（截图墙与上传入口只在顶层账号上）', () => {
+  const at = CARD.indexOf('<ShotAlbum')
+  assert.ok(at >= 0, '卡片里找不到 ShotAlbum')
+  assert.equal(CARD.indexOf('<ShotAlbum', at + 1), -1, '卡片里只该有一处 ShotAlbum')
+  assert.match(CARD.slice(Math.max(0, at - 40), at), /\{!nested && \(\s*$/, 'ShotAlbum 必须包在 !nested 条件里')
+})
