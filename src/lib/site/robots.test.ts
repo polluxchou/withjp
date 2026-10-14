@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import test from 'node:test'
 
 import { PUBLIC_SITE_HOSTS } from './domain-routing.ts'
@@ -29,4 +30,17 @@ test('内部域名、预览部署、本地、缺 host 一律禁止抓取', () =>
   ]) {
     assert.deepEqual(buildRobots(host), DISALLOW, String(host))
   }
+})
+
+// src/app/robots.ts 的接线没有运行时测试环境，只能钉源码：它必须每次请求按 Host 现算。
+// 一旦被静态化（force-static、加 revalidate），构建期 headers() 拿不到 host，所有
+// 域名——包括官网——都会拿到 Disallow: /，官网整站被撤出搜索结果，而 tsc、单测、
+// next build 全是绿的。
+const ROBOTS_ROUTE = 'src/app/robots.ts'
+
+test('robots 路由每次请求按 Host 现算，不能被静态化', () => {
+  const src = fs.readFileSync(ROBOTS_ROUTE, 'utf8')
+  assert.match(src, /export const dynamic = 'force-dynamic'/, `${ROBOTS_ROUTE}: 必须 force-dynamic`)
+  assert.match(src, /buildRobots\(headers\(\)\.get\('host'\)\)/, `${ROBOTS_ROUTE}: 必须用请求的 Host 头判定`)
+  assert.doesNotMatch(src, /force-static|export const revalidate/, `${ROBOTS_ROUTE}: 不能静态化或加 revalidate`)
 })
