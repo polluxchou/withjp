@@ -3,7 +3,6 @@
 > 更新时间：2026-06-28 · 状态：✅ 已上线（[PR #97](https://github.com/polluxchou/withjp/pull/97)）
 > 主入口：`/zh/guild-venue` · 代码：`src/venue/`、`src/lib/venue/`、`src/app/[locale]/(app)/guild-venue/`
 > 相关文档：
-> - [docs/venue.md](./venue.md) — 场地布置整体实现状态（对齐基准）
 > - [docs/venue-3d-design.md](./venue-3d-design.md) — 3D 立体能力设计 RFC
 > - [docs/superpowers/specs/2026-06-28-venue-window-component-design.md](./superpowers/specs/2026-06-28-venue-window-component-design.md) — 本功能设计稿
 > - [docs/superpowers/plans/2026-06-28-venue-window-component.md](./superpowers/plans/2026-06-28-venue-window-component.md) — 本功能实现计划
