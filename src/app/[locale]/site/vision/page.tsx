@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
+import { siteAlternates } from '@/lib/site/seo'
 import type { Locale } from '@/i18n/routing'
 import { createServerClient } from '@/lib/supabase/server'
 import {
@@ -60,7 +61,7 @@ export async function generateMetadata({
   params: { locale: string }
 }): Promise<Metadata> {
   const t = await getTranslations({ locale: params.locale, namespace: 'site.vision' })
-  return { title: t('eyebrow') }
+  return { title: t('eyebrow'), alternates: siteAlternates(params.locale, '/vision') }
 }
 
 export default async function SiteVisionPage({ params }: { params: { locale: string } }) {

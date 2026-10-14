@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
+import { siteAlternates } from '@/lib/site/seo'
 import type { Locale } from '@/i18n/routing'
 import { createServerClient } from '@/lib/supabase/server'
 import { articlesFromListQuery, NEWS_COLUMNS, type SiteArticle } from '@/lib/site/news'
@@ -50,7 +51,7 @@ export async function generateMetadata({
   params: { locale: string }
 }): Promise<Metadata> {
   const t = await getTranslations({ locale: params.locale, namespace: 'site.news' })
-  return { title: t('title') }
+  return { title: t('title'), alternates: siteAlternates(params.locale, '/news') }
 }
 
 export default async function SiteNewsPage({ params }: { params: { locale: string } }) {

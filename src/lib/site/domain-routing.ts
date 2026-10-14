@@ -19,7 +19,7 @@ export const PUBLIC_SITE_LOCALES = ['ja', 'en', 'zh'] as const
 
 const DEFAULT_PUBLIC_LOCALE = PUBLIC_SITE_LOCALES[0]
 
-type PublicLocale = (typeof PUBLIC_SITE_LOCALES)[number]
+export type PublicLocale = (typeof PUBLIC_SITE_LOCALES)[number]
 
 export type PublicSiteRoute =
   | { kind: 'passthrough' }
@@ -33,9 +33,19 @@ const PUBLIC_SITE_VIDEO_RE = /^\/site\/(?:[^/]+\/)*[^/]+\.(?:mp4|webm)$/i
 // 这条正则是官网域名下的白名单，漏改会让新页面只在内部域名可用、
 // 在 eacn.agenova.chat 上 404 —— 而本地与 preview 都发现不了。
 const PUBLIC_PAGE_RE = /^\/(?:news(?:\/[^/]+)?|recruit(?:\/staff)?|vision|live|services|contact)?\/?$/
+// 搜索引擎读的两个站点级文件（src/app/robots.ts、src/app/sitemap.ts）。只认站点
+// 根上的这两个名字：/en/sitemap.xml、/foo.txt 之类仍走下面的页面白名单、得到 404。
+const SEO_FILE_PATHS = new Set(['/robots.txt', '/sitemap.xml'])
 
 function normalizeHostname(hostname: string): string {
   return hostname.trim().toLowerCase().replace(/\.$/, '')
+}
+
+/** host 是否是官网域名。容忍大小写、末尾点、端口、首尾空白（Host 请求头会带端口）。 */
+export function isPublicSiteHost(host: string | null | undefined): boolean {
+  if (!host) return false
+  const hostname = normalizeHostname(host.trim().replace(/:\d+$/, ''))
+  return (PUBLIC_SITE_HOSTS as readonly string[]).includes(hostname)
 }
 
 function splitLocale(pathname: string): { locale: PublicLocale; pathname: string } {
@@ -54,11 +64,21 @@ function cleanPublicPath(locale: PublicLocale, suffix: string): string {
   return `/${locale}${normalizedSuffix}`
 }
 
+/**
+ * 官网某页在规范域名下的绝对网址（canonical、hreflang、sitemap 共用这一处规则）。
+ * suffix 是相对站点根的路径：'/'、'/vision'、'/news/<slug>'。
+ */
+export function publicSiteUrl(locale: PublicLocale, suffix: string): string {
+  return `https://${PUBLIC_SITE_HOST}${cleanPublicPath(locale, suffix)}`
+}
+
 export function resolvePublicSiteRoute(
   hostname: string,
   pathname: string,
 ): PublicSiteRoute | null {
-  if (!(PUBLIC_SITE_HOSTS as readonly string[]).includes(normalizeHostname(hostname))) return null
+  if (!isPublicSiteHost(hostname)) return null
+
+  if (SEO_FILE_PATHS.has(pathname)) return { kind: 'passthrough' }
 
   if (pathname === PUBLIC_APPLICATION_PATH || pathname === `${PUBLIC_APPLICATION_PATH}/`) {
     return { kind: 'passthrough' }
