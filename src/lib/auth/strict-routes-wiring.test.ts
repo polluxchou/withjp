@@ -81,5 +81,12 @@ test('site deps adapter binds authGuardStrict only when asked to', () => {
   const strictAt = src.indexOf('export async function boundSiteContentAuthGuardStrict(')
   assert.ok(strictAt >= 0, 'deps.ts 应导出 boundSiteContentAuthGuardStrict')
   assert.match(src.slice(strictAt, src.indexOf('\n}\n', strictAt)), /await authGuardStrict\(\)/)
-  assert.match(src, /strict \? boundSiteContentAuthGuardStrict : boundSiteContentAuthGuard/)
+  // news 与 members 各自的 deps 工厂都要按 strict 选守卫（逐个查，免得一个
+  // 漏掉、另一个还在时整文件匹配照样通过）。
+  for (const fn of ['newsRouteDeps', 'memberRouteDeps']) {
+    const at = src.indexOf(`export function ${fn}(`)
+    assert.ok(at >= 0, `deps.ts 应导出 ${fn}`)
+    const body = src.slice(at, src.indexOf('\n}\n', at))
+    assert.match(body, /authGuard: strict \? boundSiteContentAuthGuardStrict : boundSiteContentAuthGuard,/, `${fn} 要按 strict 选守卫`)
+  }
 })
