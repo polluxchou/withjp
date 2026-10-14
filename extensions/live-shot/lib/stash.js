@@ -40,6 +40,14 @@ export function isStale(item, nowMs) {
   return c === null || nowMs - c >= STALE_AFTER_MS
 }
 
+// 向后台核对「这张是不是已经传上去了」用的 key：handle@截图毫秒，后台按它找同一张截图并原样回传。
+// 毫秒取整与后台入库口径一致；截图时刻坏了的没法核对，给 null
+export function shotKey(item) {
+  const c = capturedAtOf(item)
+  if (c === null || c <= 0 || !item.handle) return null
+  return `${item.handle}@${Math.round(c)}`
+}
+
 export function stripOrder(items) {
   return [...items].sort(byAge).reverse()
 }

@@ -16,6 +16,7 @@ import type { CompetitorRef, ReadingRow } from '../../../../lib/competitors/quic
 //   9. GET 今日计数
 //  10. Supabase Auth 暂时不可用（verifyToken 抛错）→ 503 auth_unavailable，与「令牌无效」的 401 区分开，扩展不会因此登出
 //  11. 插件暂存后补传：24 小时内用原截图时刻（shot_on 是截图那天），超过就改用服务器时间
+//  12. GET 暂存区核对（shots 参数）：回传后台已有的 key；核对失败给 null、不影响今日计数；不带参数时响应不变
 // ============================================================
 
 const SERVER_NOW = Date.UTC(2026, 9, 9, 15, 30) // 日本时间 2026-10-10 00:30 —— 与 UTC 不在同一天，日期写成 UTC 会被抓到
@@ -35,6 +36,7 @@ function makeDeps(over: Partial<QuickShotDeps> = {}, existingShotId: string | nu
     shots: [] as ShotRow[],
     readings: [] as ReadingRow[][],
     counts: [] as [string, { startIso: string; endIso: string }][],
+    checks: [] as [string, string[], string[]][],
   }
   const deps: QuickShotDeps = {
     verifyToken: async (t) => (t === 'good' ? { id: 'user-1' } : null),
@@ -44,6 +46,10 @@ function makeDeps(over: Partial<QuickShotDeps> = {}, existingShotId: string | nu
     findShot: async (createdBy, competitorId, capturedAtIso) => {
       calls.finds.push([createdBy, competitorId, capturedAtIso])
       return existingShotId
+    },
+    findShotsAt: async (createdBy, competitorIds, capturedAtIsos) => {
+      calls.checks.push([createdBy, competitorIds, capturedAtIsos])
+      return []
     },
     insertShot: async (row) => { calls.shots.push(row); return { id: 'shot-1' } },
     insertReadings: async (rows) => { calls.readings.push(rows); return true },
@@ -369,3 +375,60 @@ test('GET：鉴权服务暂时不可用（verifyToken 抛错）→ 503 auth_unav
   assert.deepEqual(r.body, { data: null, error: 'auth_unavailable' })
   assert.equal(calls.counts.length, 0)
 })
+
+// ---- GET 暂存区核对 ----
+
+const T1 = SERVER_NOW - 60_000
+const T2 = SERVER_NOW - 120_000
+const getReq = (query: string) =>
+  new Request(`http://localhost/api/competitors/quick-shot${query}`, { headers: { authorization: 'Bearer good' } })
+// PostgREST 回 timestamptz 用「+00:00」写法，不是 toISOString 的「Z」
+const pgTime = (ms: number) => new Date(ms).toISOString().replace('Z', '+00:00')
+
+test('GET 不带 shots：响应和原来一样，不查竞品库、不做核对', async () => {
+  const { deps, calls } = makeDeps()
+  const r = await createQuickShotHandlers(deps).get(getReq(''))
+  assert.deepEqual(r.body, { data: { today_uploads: 7 }, error: null })
+  assert.equal(calls.listed, 0)
+  assert.equal(calls.checks.length, 0)
+})
+
+test('GET 带 shots：只回传后台已有的 key（原样），竞品与时刻必须成对对上；不在库、坏项丢掉', async () => {
+  const { deps, calls } = makeDeps({
+    findShotsAt: async (createdBy, competitorIds, capturedAtIsos) => {
+      calls.checks.push([createdBy, competitorIds, capturedAtIsos])
+      // c-uni 在 T2 有图、在 T1 没有：只按竞品或只按时刻匹配都会把 uni@T1 误标
+      return [
+        { competitor_id: 'c-dear', captured_at: pgTime(T1) },
+        { competitor_id: 'c-uni', captured_at: pgTime(T2) },
+      ]
+    },
+  })
+  const keys = [`1mb.dear@${T1}`, `@1MB.DEAR@${T2}`, `uni.chuuu@${T1}`, `uni.chuuu@${T2}`, `stranger@${T1}`, 'broken']
+  const r = await createQuickShotHandlers(deps).get(getReq(`?shots=${encodeURIComponent(keys.join(','))}`))
+  assert.equal(r.status, 200)
+  assert.deepEqual(r.body, { data: { today_uploads: 7, uploaded: [`1mb.dear@${T1}`, `uni.chuuu@${T2}`] }, error: null })
+  assert.deepEqual(calls.checks, [
+    ['user-1', ['c-dear', 'c-uni'], [new Date(T1).toISOString(), new Date(T2).toISOString()]],
+  ])
+})
+
+test('GET 带 shots 但没有一项能查（全是坏项或不在库）→ uploaded 为空数组，不调核对查询', async () => {
+  const { deps, calls } = makeDeps()
+  const r = await createQuickShotHandlers(deps).get(getReq(`?shots=${encodeURIComponent(`stranger@${T1},broken`)}`))
+  assert.deepEqual(r.body, { data: { today_uploads: 7, uploaded: [] }, error: null })
+  assert.equal(calls.checks.length, 0)
+})
+
+for (const [name, over] of [
+  ['竞品库查询失败', { listCompetitors: async () => null }],
+  ['核对查询失败（返回 null）', { findShotsAt: async () => null }],
+  ['核对查询抛错', { findShotsAt: async () => { throw new Error('db down') } }],
+] as [string, Partial<QuickShotDeps>][]) {
+  test(`GET 带 shots，${name} → 仍是 200，today_uploads 照常，uploaded 为 null（不知道）`, async () => {
+    const { deps } = makeDeps(over)
+    const r = await createQuickShotHandlers(deps).get(getReq(`?shots=${encodeURIComponent(`1mb.dear@${T1}`)}`))
+    assert.equal(r.status, 200)
+    assert.deepEqual(r.body, { data: { today_uploads: 7, uploaded: null }, error: null })
+  })
+}

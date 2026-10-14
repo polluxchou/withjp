@@ -4,8 +4,9 @@
 // 本文件由 node --test 直接跑。
 // 鉴权只认 Authorization: Bearer —— 调用方是浏览器扩展，没有后台网页的 Cookie。
 import {
-  QUICK_SHOT_TAG, bearerToken, buildReadings, indexByHandle, jstDayBounds, normalizeHandle, parseCoLive,
+  QUICK_SHOT_TAG, bearerToken, buildReadings, indexByHandle, jstDayBounds, normalizeHandle, parseCoLive, parseShotKeys,
   parseViewerSource, parseViewerText, resolveCapturedAt, shotOnFor, toViewerCount, type CompetitorRef, type ReadingRow,
+  type ShotKey,
 } from './quickShot.ts'
 
 export const SHOT_BUCKET = 'competitor-shots'
@@ -39,6 +40,15 @@ export interface QuickShotDeps {
   uploadImage: (bucket: string, file: File) => Promise<{ url: string; error: null } | { url: null; error: 'upload_failed' }>
   /** 同一上传人、同一竞品、同一读数时刻已有的截图 id（重试去重用）；没有返回 null。 */
   findShot: (createdBy: string, competitorId: string, capturedAtIso: string) => Promise<string | null>
+  /**
+   * 上传人 createdBy 在这些竞品、这些截图时刻上已有的截图（暂存区核对用）；查询失败返回 null。
+   * 两个列表是「任意组合」的条件，精确到哪个竞品配哪个时刻由服务层再对一遍。
+   */
+  findShotsAt: (
+    createdBy: string,
+    competitorIds: string[],
+    capturedAtIsos: string[],
+  ) => Promise<{ competitor_id: string; captured_at: string }[] | null>
   insertShot: (row: ShotRow) => Promise<{ id: string } | null>
   insertReadings: (rows: ReadingRow[]) => Promise<boolean>
   /**
@@ -169,7 +179,33 @@ export function createQuickShotHandlers(deps: QuickShotDeps) {
     const user = auth.user
     const todayUploads = await deps.countTodayUploads(user.id, jstDayBounds(deps.now()))
     if (todayUploads === null) return fail(500, 'db_error')
-    return { status: 200, body: { data: { today_uploads: todayUploads }, error: null } }
+    const shots = new URL(req.url).searchParams.get('shots')
+    if (shots === null) return { status: 200, body: { data: { today_uploads: todayUploads }, error: null } }
+    const uploaded = await safely(() => findUploaded(user.id, parseShotKeys(shots)), null)
+    return { status: 200, body: { data: { today_uploads: todayUploads, uploaded }, error: null } }
+  }
+
+  // 暂存区里哪些截图后台已经有了：上传途中弹窗被关掉时，图其实已经写进去、插件却没收到回执，
+  // 插件据此在缩略图上标「已上传」。只是提示，任何一步失败都回 null（不知道），不影响今日计数
+  async function findUploaded(userId: string, keys: ShotKey[]): Promise<string[] | null> {
+    if (keys.length === 0) return []
+    const competitors = await deps.listCompetitors()
+    if (!competitors) return null
+    const library = indexByHandle(competitors)
+    const wanted = keys.flatMap((k) => {
+      const c = library.get(k.handle)
+      return c ? [{ key: k.key, competitorId: c.id, ms: k.ms }] : []
+    })
+    if (wanted.length === 0) return []
+    const rows = await deps.findShotsAt(
+      userId,
+      Array.from(new Set(wanted.map((w) => w.competitorId))),
+      Array.from(new Set(wanted.map((w) => new Date(w.ms).toISOString()))),
+    )
+    if (!rows) return null
+    // 库里的时刻按毫秒比，不按字符串比：PostgREST 回的是「+00:00」写法，和 toISOString 的「Z」对不上
+    const have = new Set(rows.map((r) => `${r.competitor_id}@${Date.parse(r.captured_at)}`))
+    return wanted.filter((w) => have.has(`${w.competitorId}@${w.ms}`)).map((w) => w.key)
   }
 
   return { post, get }

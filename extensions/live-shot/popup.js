@@ -6,7 +6,7 @@ import { createApi } from './lib/api.js'
 import { cropRect } from './lib/crop.js'
 import { bumpShots, shotsToday } from './lib/day.js'
 import { handleFromLiveUrl } from './lib/liveUrl.js'
-import { evictionNotice, isStale, stampTime, stripOrder, tileTime } from './lib/stash.js'
+import { evictionNotice, isStale, shotKey, stampTime, stripOrder, tileTime } from './lib/stash.js'
 import { insertStash, listStash, markPartial, removeStash } from './lib/stashDb.js'
 import { coLiveLine, readingState, uploadOutcome } from './lib/view.js'
 
@@ -34,6 +34,9 @@ $('login-version').textContent = ` · ${VERSION}`
 //   item 已写进暂存区；暂存失败时只在内存里，照样能传
 let current = null
 let stashItems = [] // 暂存区全部记录（来自 IndexedDB）
+// 打开弹窗时向后台核对过、后台已经有了的暂存截图（shotKey）：上传途中弹窗被关掉，图写进去了却没收到回执
+let uploadedKeys = new Set()
+const confirmedUploaded = (it) => uploadedKeys.has(shotKey(it))
 const thumbUrls = new Map() // 记录 id → object URL
 let actionHandler = null
 let uploadedThisOpen = false // 已有上传响应里的新计数时，初始 GET 迟到的旧数不能盖掉它
@@ -134,7 +137,8 @@ function renderStrip() {
   const now = Date.now()
   const items = stripOrder(stashItems)
   $('stash').hidden = items.length === 0
-  $('stash-count').textContent = String(items.length)
+  // 后台已有的那几张不算「未上传」
+  $('stash-count').textContent = String(items.filter((it) => !confirmedUploaded(it)).length)
   $('strip').replaceChildren(...items.map((it) => tile(it, now)))
 }
 
@@ -145,12 +149,19 @@ function tile(it, now) {
   if (current && current.item.id === it.id) cls.push('current')
   if (it.partial) cls.push('partial')
   if (isStale(it, now)) cls.push('stale')
+  const done = confirmedUploaded(it)
   b.className = cls.join(' ')
-  b.title = `@${it.handle}`
+  b.title = done ? `@${it.handle} · 后台已有这张` : `@${it.handle}`
   const img = document.createElement('span')
   img.className = 'tile-img'
   const u = urlFor(it)
   if (u) img.style.backgroundImage = `url(${u})`
+  if (done) {
+    const ok = document.createElement('span')
+    ok.className = 'tile-ok'
+    ok.textContent = '✓'
+    img.append(ok)
+  }
   const time = document.createElement('span')
   time.className = 'tile-time'
   time.textContent = tileTime(it.reading && it.reading.capturedAt, now)
@@ -399,7 +410,11 @@ function renderDetail(it, status = null, actionLabel = null) {
   const co = coLiveLine(rd.coLiveStatus, rd.coLive)
   $('detail-colive').textContent = co.text
   $('detail-colive').className = `line ${co.tone}`
-  const st = status || (stale ? { text: '已过期，请重新截', tone: '' } : it.partial ? { text: '截图已上传，人数没写进去', tone: 'warn' } : null)
+  // 后台已有的放在「已过期」前面：过期了也能放心删；人数待补的仍按原来的提示走
+  const st =
+    status ||
+    (confirmedUploaded(it) && !it.partial ? { text: '✓ 后台已有这张', tone: 'ok' } : null) ||
+    (stale ? { text: '已过期，请重新截', tone: '' } : it.partial ? { text: '截图已上传，人数没写进去', tone: 'warn' } : null)
   $('detail-status').hidden = !st
   $('detail-status').textContent = st ? st.text : ''
   $('detail-status').className = st ? `line ${st.tone}` : 'line'
@@ -505,16 +520,31 @@ async function start() {
   if (!session) return showLogin()
   show('main')
   renderCounts()
+  await refreshStash()
+  // 今日数与暂存区核对同一个请求：带上此刻暂存区每张图的 key，后台回答哪些已经有了
   api
-    .todayUploads()
-    .then((n) => {
-      if (!uploadedThisOpen) renderCounts(n)
+    .overview(stashItems.map(shotKey).filter(Boolean))
+    .then(({ todayUploads, uploaded }) => {
+      if (!uploadedThisOpen) renderCounts(todayUploads)
+      if (!uploaded) return
+      uploadedKeys = new Set(uploaded)
+      renderStrip()
+      showConfirmedInDetail()
     })
     .catch(() => {
       if (!uploadedThisOpen) renderCounts(null)
     })
-  await refreshStash()
   await prepare()
+}
+
+// 核对结果回来时确认页已经打开：状态行空着才补一句，别盖掉「上传中…」之类正在显示的状态
+function showConfirmedInDetail() {
+  if ($('detail').hidden || !$('detail-status').hidden) return
+  const it = stashItems.find((x) => x.id === detailId)
+  if (!it || !confirmedUploaded(it) || it.partial) return
+  $('detail-status').hidden = false
+  $('detail-status').textContent = '✓ 后台已有这张'
+  $('detail-status').className = 'line ok'
 }
 
 start()

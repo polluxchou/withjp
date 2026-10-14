@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  bearerToken, buildReadings, indexByHandle, jstDayBounds, normalizeHandle, parseCoLive,
+  bearerToken, buildReadings, indexByHandle, jstDayBounds, normalizeHandle, parseCoLive, parseShotKeys,
   parseViewerSource, parseViewerText, resolveCapturedAt, shotOnFor, toViewerCount, type CompetitorRef,
 } from './quickShot.ts'
 
@@ -207,4 +207,28 @@ test('buildReadings：超出 int4 或带小数的人数 viewer_count 记 null，
     ['current', null, '1.5'],
     ['sidebar', null, '2.5B'],
   ])
+})
+
+test('parseShotKeys：「handle@毫秒」逗号分隔，handle 规范化，key 原样保留供插件对号', () => {
+  assert.deepEqual(parseShotKeys('1mb.era@1760341387518,@UNI.chuuu@1760341393231'), [
+    { key: '1mb.era@1760341387518', handle: '1mb.era', ms: 1760341387518 },
+    { key: '@UNI.chuuu@1760341393231', handle: 'uni.chuuu', ms: 1760341393231 },
+  ])
+})
+
+test('parseShotKeys：空值与坏项丢掉——没有 @、handle 为空或超长、毫秒不是正整数或超出 Date 范围', () => {
+  assert.deepEqual(parseShotKeys(null), [])
+  assert.deepEqual(parseShotKeys(''), [])
+  const bad = ['nohandle', '@1760341387518', ' @1760341387518', 'a@', 'a@-5', 'a@0', 'a@1.5', 'a@1e12', 'a@12x',
+    `${'h'.repeat(65)}@1760341387518`, 'a@8640000000000001', '']
+  assert.deepEqual(parseShotKeys(bad.join(',')), [])
+  // 64 位 handle 和 Date 上限本身还认
+  assert.equal(parseShotKeys(`${'h'.repeat(64)}@8640000000000000`).length, 1)
+})
+
+test('parseShotKeys：只看前 20 项，第 21 项起不查', () => {
+  const keys = Array.from({ length: 25 }, (_, i) => `h${i}@${1760000000000 + i}`)
+  const out = parseShotKeys(keys.join(','))
+  assert.equal(out.length, 20)
+  assert.equal(out[19].key, 'h19@1760000000019')
 })

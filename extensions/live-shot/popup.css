@@ -69,3 +69,5 @@ button.tile { flex: none; width: 48px; margin: 0; padding: 0; border: 0; backgro
 .btns button { margin-top: 8px; }
 /* 「上传」下面的「再截一张」：紧贴主按钮 */
 #again { margin-top: 6px; }
+/* 后台已有这张（上传回执丢了的）：缩略图右下角一个绿色小勾 */
+.tile-ok { position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--ok); color: var(--bg); font-size: 10px; font-weight: 700; line-height: 14px; text-align: center; }

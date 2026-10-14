@@ -12,6 +12,8 @@ const MAX_VIEWER_TEXT = 16
 const MAX_HANDLE = 64
 const MAX_CO_LIVE_RAW = 16 * 1024
 const MAX_INT4 = 2_147_483_647
+const MAX_SHOT_KEYS = 20
+const MAX_DATE_MS = 8.64e15
 
 export type ViewerSource = 'room' | 'anchored' | 'sole'
 export type CoLiveEntry = { handle: string; viewer: string | null }
@@ -38,6 +40,28 @@ export function bearerToken(header: string | null): string | null {
 export function normalizeHandle(raw: unknown): string {
   if (typeof raw !== 'string') return ''
   return raw.trim().replace(/^@/, '').toLowerCase()
+}
+
+export type ShotKey = { key: string; handle: string; ms: number }
+
+/**
+ * 插件暂存区核对：GET 的 `shots` 参数是逗号分隔的「handle@截图毫秒」，key 原样回传给插件对号。
+ * 坏项（没有 @、handle 为空或超长、毫秒不是正整数或超出 Date 范围）丢掉；只看前 20 项（插件最多暂存 9 张）。
+ */
+export function parseShotKeys(raw: string | null): ShotKey[] {
+  if (!raw) return []
+  const out: ShotKey[] = []
+  for (const key of raw.split(',').slice(0, MAX_SHOT_KEYS)) {
+    const at = key.lastIndexOf('@')
+    if (at <= 0) continue
+    const handle = normalizeHandle(key.slice(0, at))
+    const msText = key.slice(at + 1)
+    if (!handle || handle.length > MAX_HANDLE || !/^\d{1,16}$/.test(msText)) continue
+    const ms = Number(msText)
+    if (ms <= 0 || ms > MAX_DATE_MS) continue
+    out.push({ key, handle, ms })
+  }
+  return out
 }
 
 /**

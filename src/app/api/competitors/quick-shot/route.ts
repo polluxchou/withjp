@@ -45,6 +45,16 @@ function deps(): QuickShotDeps {
     validateImage,
     uploadImage,
     findShot,
+    findShotsAt: async (createdBy, competitorIds, capturedAtIsos) => {
+      // 用精确值 in 而不是时间区间：结果行数以「竞品数 × 时刻数」为上限，碰不到 1000 行截断
+      const { data, error } = await db
+        .from('competitor_shots')
+        .select('competitor_id, captured_at')
+        .eq('created_by', createdBy)
+        .in('competitor_id', competitorIds)
+        .in('captured_at', capturedAtIsos)
+      return error ? null : ((data ?? []) as { competitor_id: string; captured_at: string }[])
+    },
     insertShot: async (row) => {
       const { data, error } = await db.from('competitor_shots').insert(row).select('id').single()
       if (!error && data) return { id: String((data as { id: string }).id) }
