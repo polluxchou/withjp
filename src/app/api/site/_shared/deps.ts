@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuard, authGuardStrict } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
 import { createServerClient } from '@/lib/supabase/server'
 import type { AuthResult } from '@/lib/site/site-content-shared.ts'
@@ -27,22 +27,33 @@ export async function boundSiteContentAuthGuard(): Promise<AuthResult> {
   return { ok: true, user: { id: user.id } }
 }
 
+// 写官网（新增/修改/删除、上传图片）会直接出现在公网上，用 authGuardStrict()
+// 每次现查：已登出/已删号的会话下一次请求就挡下，不等 access token 过期。
+// 读列表仍用上面的 authGuard() 本地验签。
+export async function boundSiteContentAuthGuardStrict(): Promise<AuthResult> {
+  const user = await authGuardStrict()
+  if (user instanceof NextResponse) return { ok: false, status: 401 }
+  return { ok: true, user: { id: user.id } }
+}
+
+type RouteDepsOptions = { strict?: boolean }
+
 // news-service.ts/members-service.ts 的 NewsDb/MemberDb 是为可测试性收窄过的
 // 最小接口（分阶段的真实 supabase 查询构造器类型在这里会因泛型形状对不上而
 // 编译失败），这里的转换只收窄类型、不改变运行时行为——db 在生产环境仍是
-// 真实 supabase 客户端。
-export function newsRouteDeps(): NewsRouteDeps {
+// 真实 supabase 客户端。写操作的 handler 传 { strict: true }。
+export function newsRouteDeps({ strict = false }: RouteDepsOptions = {}): NewsRouteDeps {
   return {
-    authGuard: boundSiteContentAuthGuard,
+    authGuard: strict ? boundSiteContentAuthGuardStrict : boundSiteContentAuthGuard,
     getActorProfile,
     db: createServerClient() as unknown as NewsDb,
     revalidatePath,
   }
 }
 
-export function memberRouteDeps(): MemberRouteDeps {
+export function memberRouteDeps({ strict = false }: RouteDepsOptions = {}): MemberRouteDeps {
   return {
-    authGuard: boundSiteContentAuthGuard,
+    authGuard: strict ? boundSiteContentAuthGuardStrict : boundSiteContentAuthGuard,
     getActorProfile,
     db: createServerClient() as unknown as MemberDb,
     revalidatePath,

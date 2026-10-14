@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
 import {
   deleteView,
@@ -8,7 +8,7 @@ import {
 } from '@/lib/finance-forecast/views'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const actor = await getActorProfile(user.id)
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const actor = await getActorProfile(user.id)

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 import {
   httpStatusForLifecycleError,
   loadLifecycleTemplates,
@@ -8,7 +8,7 @@ import {
 } from '@/lib/finance-forecast/lifecycle'
 
 export async function GET() {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const result = await loadLifecycleTemplates(user.id)
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   let body: { templates?: LifecycleTemplateSet }

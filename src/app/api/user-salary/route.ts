@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 
 // GET /api/user-salary  — list all salary records (joined with user)
 export async function GET(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const db      = createServerClient()
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/user-salary  — create a salary record
 export async function POST(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const db   = createServerClient()

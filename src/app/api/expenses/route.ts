@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 import {
   listExpenses,
   createExpense,
@@ -9,7 +9,7 @@ import {
 
 // GET /api/expenses
 export async function GET(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const params = req.nextUrl.searchParams
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/expenses
 export async function POST(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   let body: CreateExpenseInput

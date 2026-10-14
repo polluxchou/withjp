@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
 import {
   createView,
@@ -8,7 +8,7 @@ import {
 } from '@/lib/finance-forecast/views'
 
 export async function GET() {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const actor = await getActorProfile(user.id)
@@ -25,7 +25,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const actor = await getActorProfile(user.id)
