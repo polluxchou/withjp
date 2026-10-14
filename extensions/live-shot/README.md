@@ -45,3 +45,13 @@ node --experimental-strip-types scripts/gen-extension-reader.mjs
 ```
 
 然后在 `chrome://extensions` 里点本扩展的刷新按钮。
+
+## 图标
+
+`icons/icon-*.png` 由 `scripts/gen-extension-icons.mjs` 生成（黑底、TikTok 风格的青红错位音符加红色直播点，不写文字），改图形后运行：
+
+```bash
+node scripts/gen-extension-icons.mjs
+```
+
+需要本机有 `rsvg-convert`（`brew install librsvg`）。
