@@ -30,6 +30,13 @@ export const CHANGELOG: DailyChangelog[] = [
     date: '2026-10-14',
     items: [
       {
+        kind: 'infra',
+        scope: '对外官网',
+        title: '官网可以被 Google 正确收录了：补上 robots.txt 与站点地图，每页标明唯一网址和日英中三语对应关系',
+        details:
+          '以前 eacn.agenova.chat 上的 robots.txt 和 sitemap.xml 都打不开，而同一页又能从 /vision、/ja/vision、内部域名的 /ja/site/vision 三处打开，Google 会当成重复页面，日英中三个版本还会互相抢排名。现在官网提供站点地图（全部页面加已发布新闻，日英中各一版，每小时更新），每页声明唯一的规范网址并互相标注语言版本；内部域名的 robots.txt 改为禁止抓取，后台登录页等不会被收录。配合 Google Search Console 即可查看搜索词、展示与点击次数、收录状况。',
+      },
+      {
         kind: 'improve',
         scope: '竞品监测',
         title: '子账号卡片不再显示截图墙，只留粉丝曲线',
