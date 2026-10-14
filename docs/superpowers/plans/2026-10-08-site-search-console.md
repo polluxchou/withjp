@@ -347,7 +347,7 @@ test('官网每个页面都声明了指向自己的 canonical/hreflang', () => {
 - [ ] **Step 2: 跑测试确认失败**
 
 Run: `node --test --experimental-strip-types src/lib/site/seo.test.ts`
-Expected: 新用例 FAIL，报 `news/[slug]/page.tsx: generateMetadata 必须返回 ...`（按排序第一个缺失的文件）。
+Expected: 新用例 FAIL，报 `contact/page.tsx: generateMetadata 必须返回 ...`（测试对文件列表排序，第一个缺失的是 contact）。
 
 - [ ] **Step 3: 逐个页面接入**
 
@@ -803,7 +803,14 @@ Expected：
 npx next start --port 3002
 ```
 
-等服务就绪后逐条跑。用 `--resolve` 让请求真正以官网域名到达本机，中间件看到的 host 才和线上一致（`--resolve` 参数照抄成字面量，不要放进 shell 变量——worktree 隔离钩子会拒绝执行带运行时变量的命令）：
+等服务就绪后逐条跑。`--resolve` 参数照抄成字面量，不要放进 shell 变量——worktree 隔离钩子会拒绝执行带运行时变量的命令。
+
+先说明为什么要起两个服务：`--resolve` 只改了 curl 连到哪里、发什么 Host 头。robots 和 sitemap 直接读 Host 头，所以 `--resolve` 就够了；但自托管的 `next start` 交给中间件的 URL 取自服务自己的绑定 hostname（默认 localhost），不取 Host 头，中间件看到的永远是内部域名，官网域名的重写不会生效，页面类检查（第 6、7、9 条和下面的新闻检查）会一律被内部域名的登录鉴权拦下，返回 307 跳 `/en/login`。所以：
+
+- 第 1–5 条和第 8 条在上面这个 `npx next start --port 3002` 上照常跑。
+- 第 6、7、9 条和新闻检查，要另起第二个服务，让它的绑定 hostname 就是官网域名：`npx next start --port 3003 --hostname eacn.agenova.chat`（同样放后台）。该域名在本机解析不到本机，需要让 Node 把 `eacn.agenova.chat` 解析成 127.0.0.1，例如在 `$SCRATCH` 放一个很小的预加载文件，覆盖 `dns.lookup`、只对这一个域名返回 127.0.0.1，再用 `NODE_OPTIONS="--require <预加载文件路径>"` 传给这条命令。也可以改在 Vercel 预览部署上跑这几条。
+
+第一个服务（3002）上的检查：
 
 ```bash
 curl -s --resolve eacn.agenova.chat:3002:127.0.0.1 http://eacn.agenova.chat:3002/robots.txt
@@ -811,13 +818,18 @@ curl -s http://localhost:3002/robots.txt
 curl -s --resolve eacn.agenova.chat:3002:127.0.0.1 http://eacn.agenova.chat:3002/sitemap.xml | grep -o '<loc>[^<]*</loc>' | head -12
 curl -s --resolve eacn.agenova.chat:3002:127.0.0.1 http://eacn.agenova.chat:3002/sitemap.xml | grep -c '<url>'
 curl -s --resolve eacn.agenova.chat:3002:127.0.0.1 http://eacn.agenova.chat:3002/sitemap.xml | grep -o '<loc>https://eacn.agenova.chat/news/[^<]*</loc>' | wc -l
-curl -s --resolve eacn.agenova.chat:3002:127.0.0.1 http://eacn.agenova.chat:3002/en/vision | grep -oE '<link rel="(canonical|alternate)"[^>]*>'
-curl -s --resolve eacn.agenova.chat:3002:127.0.0.1 http://eacn.agenova.chat:3002/ja/vision | grep -oE '<link rel="canonical"[^>]*>'
 curl -s http://localhost:3002/ja/site/vision | grep -oE '<link rel="canonical"[^>]*>'
-curl -s --resolve eacn.agenova.chat:3002:127.0.0.1 http://eacn.agenova.chat:3002/ | grep -oE '<link rel="canonical"[^>]*>'
 ```
 
-Expected（逐条对应）：
+第二个服务（3003，绑定官网 hostname）上的检查：
+
+```bash
+curl -s --resolve eacn.agenova.chat:3003:127.0.0.1 http://eacn.agenova.chat:3003/en/vision | grep -oE '<link rel="(canonical|alternate)"[^>]*>'
+curl -s --resolve eacn.agenova.chat:3003:127.0.0.1 http://eacn.agenova.chat:3003/ja/vision | grep -oE '<link rel="canonical"[^>]*>'
+curl -s --resolve eacn.agenova.chat:3003:127.0.0.1 http://eacn.agenova.chat:3003/ | grep -oE '<link rel="canonical"[^>]*>'
+```
+
+Expected（编号对应上面两组命令的顺序：3002 组依次是第 1、2、3、4、5、8 条，3003 组依次是第 6、7、9 条）：
 1. 官网 robots：含 `User-Agent: *`、`Allow: /`、`Sitemap: https://eacn.agenova.chat/sitemap.xml`
 2. localhost robots：含 `Disallow: /`，没有 Sitemap 行
 3. 前 12 个 `<loc>` 都是 `https://eacn.agenova.chat/...`，没有 `/site`、没有 `/ja/`
@@ -828,10 +840,10 @@ Expected（逐条对应）：
 8. `href="https://eacn.agenova.chat/vision"`（内部域名路径同样指向官网）
 9. `href="https://eacn.agenova.chat/"`
 
-再从第 3 条结果里任取一篇新闻 slug，跑：
+再从第 3 条结果里任取一篇新闻 slug，在第二个服务（3003）上跑：
 
 ```bash
-curl -s --resolve eacn.agenova.chat:3002:127.0.0.1 http://eacn.agenova.chat:3002/zh/news/<slug> | grep -oE '<link rel="canonical"[^>]*>'
+curl -s --resolve eacn.agenova.chat:3003:127.0.0.1 http://eacn.agenova.chat:3003/zh/news/<slug> | grep -oE '<link rel="canonical"[^>]*>'
 ```
 
 Expected：`href="https://eacn.agenova.chat/zh/news/<slug>"`
@@ -840,6 +852,7 @@ Expected：`href="https://eacn.agenova.chat/zh/news/<slug>"`
 
 ```bash
 pkill -f "next start --port 3002"
+pkill -f "next start --port 3003"
 ```
 
 确认 `git status --short` 里没有 `.env.local`、`.next`（都应被忽略）。
