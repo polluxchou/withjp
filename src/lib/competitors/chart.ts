@@ -6,24 +6,50 @@
 
 export interface WeeklyCurvePoint {
   week_start: string
-  followers: number
+  /** null = 该周缺采（占住槽位但不画点）；与 yPct 同时为 null */
+  followers: number | null
+  /**
+   * 该周实际取用的那条快照的采集日；缺采的周为 null。
+   * 与 week_start 分开：刻度用周一（等距的周格才看得出缺采的空档），提示框用这个。
+   */
+  captured_on: string | null
   /** 横向位置（0–100），含左右内缩 */
   xPct: number
-  /** 纵向位置（0–100，0 = 顶部） */
-  yPct: number
+  /** 纵向位置（0–100，0 = 顶部）；缺采的周为 null */
+  yPct: number | null
   /** 日期刻度文案 M/D */
   tick: string
 }
 
 export interface WeeklyCurve {
   points: WeeklyCurvePoint[]
-  /** <polyline points>；不足 2 点时为空串 */
-  polyline: string
+  /**
+   * 每段连续有数据的 <polyline points>。缺采的周把折线断开，所以是数组而非单串——
+   * 一条横跨空档的直线会把「两周的变化」画成「一周的变化」。
+   * 不足 2 点的段不产出（孤立的点只画圆点）。
+   */
+  segments: string[]
+  /**
+   * 跨缺采空档的连接：两端是空档前后的真点，missing 是中间缺了几周。
+   * 画成虚线并标「N 周未采」——只表示两端相连，不代表中间每周的走势（不插值）。
+   */
+  bridges: WeeklyCurveBridge[]
+}
+
+export interface WeeklyCurveBridge {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  missing: number
 }
 
 interface WeeklyCurveInput {
   week_start: string
-  followers: number
+  /** null 表示该周缺采：占位但不参与量程与折线 */
+  followers: number | null
+  /** 该周实际取用的采集日。缺采的周、以及只关心几何的调用方，留空即为 null。 */
+  captured_on?: string | null
 }
 
 interface WeeklyCurveOptions {
@@ -33,6 +59,19 @@ interface WeeklyCurveOptions {
   minSpanRatio?: number
   /** 数据跨度之上、上下各留白的比例 */
   padRatio?: number
+  /**
+   * 横向定位口径。
+   * 'edge'（默认）：首尾按 inset 内缩，给端点圆点留出不被裁的余量——无标签的
+   *   compact 稀疏图用它。
+   * 'cell'：把 n 个点放到 n 等分格的中心，于是圆点与刻度行的等分 grid 逐列对齐；
+   *   此时 inset 不再生效（格心只由点数决定）。
+   */
+  align?: 'edge' | 'cell'
+  /**
+   * 仅 'cell' 生效：在数据格右侧再预留几格（不放点）。曲线右侧的「已 N 天未采」
+   * 就占这一格——总格数 = 数据格 + trailingCells，圆点按总格数取格心才能和刻度行对齐。
+   */
+  trailingCells?: number
 }
 
 const ISO_DATE = /^\d{4}-(\d{2})-(\d{2})$/
@@ -57,12 +96,17 @@ function weekTick(weekStart: string): string {
  */
 export function buildWeeklyCurve(
   weekly: WeeklyCurveInput[],
-  { inset = 8, minSpanRatio = 0.05, padRatio = 0.25 }: WeeklyCurveOptions = {},
+  { inset = 8, minSpanRatio = 0.05, padRatio = 0.25, align = 'edge', trailingCells = 0 }: WeeklyCurveOptions = {},
 ): WeeklyCurve {
-  const rows = (Array.isArray(weekly) ? weekly : []).filter((w) => w && Number.isFinite(w.followers))
-  if (rows.length === 0) return { points: [], polyline: '' }
+  // null 是「这周缺采」的有效输入，占住槽位；NaN/Infinity 是脏数据，照旧丢掉。
+  const rows = (Array.isArray(weekly) ? weekly : []).filter(
+    (w) => w && (w.followers === null || Number.isFinite(w.followers)),
+  )
+  const values = rows
+    .map((w) => w.followers)
+    .filter((v): v is number => v !== null)
+  if (values.length === 0) return { points: [], segments: [], bridges: [] }
 
-  const values = rows.map((w) => w.followers)
   const max = Math.max(...values)
   const min = Math.min(...values)
   const mid = (max + min) / 2
@@ -70,18 +114,69 @@ export function buildWeeklyCurve(
   const span = Math.max((max - min) * (1 + 2 * padRatio), minSpan)
   const domainMin = mid - span / 2
 
-  const step = rows.length > 1 ? (100 - 2 * inset) / (rows.length - 1) : 0
+  // 'cell' 取 lead = 100/(2n)，于是 step = 100/n、第 i 点落在 (2i+1)·100/(2n)——
+  // 正好是 n 等分格的中心。刻度行用等分 grid 时（保证相邻标签不可能重叠），
+  // 圆点才和它下面的日期/数值同列。'edge' 保持原来的内缩语义。
+  // trailingCells 只在 'cell' 下把总格数撑大：数据点仍占前 rows.length 格的格心。
+  const cells = align === 'cell' ? rows.length + Math.max(0, Math.floor(trailingCells) || 0) : rows.length
+  const lead = align === 'cell' ? 100 / (2 * cells) : inset
+  const step = align === 'cell' ? 100 / cells : rows.length > 1 ? (100 - 2 * lead) / (rows.length - 1) : 0
   const points: WeeklyCurvePoint[] = rows.map((w, i) => ({
     week_start: w.week_start,
     followers: w.followers,
-    xPct: rows.length > 1 ? round2(inset + i * step) : 50,
+    captured_on: w.captured_on ?? null,
+    xPct: cells > 1 ? round2(lead + i * step) : 50,
     // span 为 0 只可能是所有值都是 0，此时落中线避免除零
-    yPct: span > 0 ? round2(100 - ((w.followers - domainMin) / span) * 100) : 50,
+    yPct:
+      w.followers === null ? null : span > 0 ? round2(100 - ((w.followers - domainMin) / span) * 100) : 50,
     tick: weekTick(w.week_start),
   }))
 
-  return {
-    points,
-    polyline: points.length > 1 ? points.map((p) => `${p.xPct},${p.yPct}`).join(' ') : '',
+  // 按缺采周切段：只有连续 ≥2 个真点才成线。
+  const segments: string[] = []
+  let run: string[] = []
+  for (const p of points) {
+    if (p.yPct === null) {
+      if (run.length > 1) segments.push(run.join(' '))
+      run = []
+      continue
+    }
+    run.push(`${p.xPct},${p.yPct}`)
   }
+  if (run.length > 1) segments.push(run.join(' '))
+
+  // 相邻两个真点之间夹着缺采的周 → 一条虚线桥。
+  const bridges: WeeklyCurveBridge[] = []
+  let prev: { i: number; p: WeeklyCurvePoint } | null = null
+  points.forEach((p, i) => {
+    if (p.yPct === null) return
+    if (prev && i - prev.i > 1 && prev.p.yPct !== null) {
+      bridges.push({ x1: prev.p.xPct, y1: prev.p.yPct, x2: p.xPct, y2: p.yPct, missing: i - prev.i - 1 })
+    }
+    prev = { i, p }
+  })
+
+  return { points, segments, bridges }
+}
+
+/** 提示文案的 i18n key 与要填进去的日期。 */
+export interface WeeklyTipLabel {
+  key: 'weeklyPointTipCaptured' | 'weeklyPointTip'
+  date: string
+}
+
+/**
+ * 决定提示框报哪个日期。
+ *
+ * 有采集日就报采集日——这才是数据真正的时点；week_start 只是把它归一化到周一的
+ * 图上刻度，拿周一当"数据日期"会把新鲜度说早好几天（周二采的数会被读成周一的）。
+ * 缺采的周没有采集日可报，退回"某周起"的原文案（数值位那时是「—」）。
+ *
+ * 两条文案的 key 不同而不是共用一条：中日英里"9/16 采集"和"9/14 那一周"是
+ * 两种语义，共用一句会在某个语言里必然别扭。
+ */
+export function weeklyTipLabel(p: { week_start: string; captured_on: string | null }): WeeklyTipLabel {
+  return p.captured_on
+    ? { key: 'weeklyPointTipCaptured', date: p.captured_on }
+    : { key: 'weeklyPointTip', date: p.week_start }
 }

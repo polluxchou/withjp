@@ -4,16 +4,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { SearchInput } from '@/components/ui/Field'
-import { competitorAnchorId } from '@/lib/competitors/anchors'
+import SegmentedControl from '@/components/ui/SegmentedControl'
 import { RECENTER_MS, centeredScrollLeft, scrollLeftAt } from '@/lib/competitors/navScroll'
-
-/** 卡片顶边与吸顶块之间留出的呼吸位（px）。 */
-const ANCHOR_GAP = 8
+import {
+  REGION_CODES, REGION_UNSET, matchesRegionFilter, regionBuckets, regionFlag,
+} from '@/lib/competitors/regions'
+import { scrollToCompetitorCard } from './scrollToCard'
 
 export interface NavTarget {
   id: string
   name: string
   handle: string
+  /** 人工登记的地区代码；null = 未填。供地区快速筛选用。 */
+  region: string | null
   /** 轴上当前那天没留下截图 —— 标成待补（淡黄）。见 shotGrid.missesShotOn。 */
   missingShot?: boolean
 }
@@ -30,6 +33,8 @@ export default function CompetitorNavBar({
 }) {
   const t = useTranslations('competitors')
   const [query, setQuery] = useState('')
+  // 地区快速筛选：'' = 全部，REGION_UNSET = 地区未填，其余为两位代码。
+  const [regionFilter, setRegionFilter] = useState('')
   const rowRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
   // 连点两个账号时取消上一段动画,否则两个 rAF 循环会各写各的 scrollLeft、互相抽帧。
@@ -65,11 +70,33 @@ export default function CompetitorNavBar({
     rafRef.current = requestAnimationFrame(step)
   }
 
+  // 只给库里真有的地区出按钮，按账号数排。
+  const buckets = useMemo(() => regionBuckets(targets.map((x) => x.region)), [targets])
+  // 选中的地区被改没了(比如那个号改了地区)就回到「全部」，免得整行空着却看不出为什么。
+  const activeRegion = buckets.some((b) => b.key === regionFilter) ? regionFilter : ''
+
   const matched = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return targets
-    return targets.filter((x) => x.name.toLowerCase().includes(q) || x.handle.toLowerCase().includes(q))
-  }, [targets, query])
+    return targets.filter((x) =>
+      matchesRegionFilter(x.region, activeRegion)
+      && (!q || x.name.toLowerCase().includes(q) || x.handle.toLowerCase().includes(q)))
+  }, [targets, query, activeRegion])
+
+  const regionName = (key: string) =>
+    key === REGION_UNSET ? t('regionUnset')
+      : (REGION_CODES as readonly string[]).includes(key) ? t(`regionName.${key}`) : key
+  const regionItems = [
+    { value: '', label: `${t('navRegionAll')} ${targets.length}` },
+    ...buckets.map((b) => ({
+      value: b.key,
+      // 国旗 + 数量最省地方；国旗读屏念不出意思、Windows 上也只显示成字母，
+      // 所以无障碍名和悬停提示给完整的「韩国：5 个账号」。
+      label: b.key === REGION_UNSET
+        ? `${t('navRegionUnset')} ${b.count}`
+        : `${regionFlag(b.key) || b.key} ${b.count}`,
+      ariaLabel: t('navRegionOption', { region: regionName(b.key), count: b.count }),
+    })),
+  ]
 
   // 只有一个账号时导航没有意义，整条不渲染。
   if (targets.length < 2) return null
@@ -79,25 +106,9 @@ export default function CompetitorNavBar({
     // "滑到中间之后才变色",看起来像列表自己动了一下、点击没反应。
     onJump(id)
 
-    const el = document.getElementById(competitorAnchorId(id))
-    if (el) {
-      // 不能用 scrollIntoView:它把卡片顶边对齐到视口顶,而视口顶被吸顶块
-      // (导航条 + 日期轴)占着,卡片头部会被盖掉一截。偏移量按吸顶块的实测
-      // 高度算,而不是写死一个 scroll-mt——那块的高度会随导航条换行、
-      // 日期轴列数变化,写死迟早对不上。
-      const head = document.querySelector('[data-sticky-head]')
-      const offset = (head?.getBoundingClientRect().height ?? 0) + ANCHOR_GAP
-      const top = el.getBoundingClientRect().top + window.scrollY - offset
-      // behavior:'smooth' 不是所有引擎都真的执行——实测有环境下它是彻底的空操作
-      // （同一个元素换成 'auto' 立刻就位），点了芯片却纹丝不动。所以给一个兜底：
-      // 发起平滑滚动后下一拍看位置有没有动，没动就直接跳。真会动画的浏览器里
-      // 这一拍已经滚了一段，兜底自然不触发。
-      const before = window.scrollY
-      window.scrollTo({ top, behavior: 'smooth' })
-      setTimeout(() => {
-        if (window.scrollY === before) window.scrollTo({ top })
-      }, 60)
-    }
+    // 不能用 scrollIntoView:视口顶被吸顶块占着,卡片头部会被盖掉一截。
+    // 落点按吸顶块实测高度算,见 scrollToCard / navScroll.anchoredScrollTop。
+    scrollToCompetitorCard(id)
 
     // 双 rAF = 等 React 把选中态真正画到屏幕上再量再滑。不只是为了顺序好看:
     // 选中态把字重从 400 提到 500,芯片会略微变宽,提前量出来的居中位置是错的。
@@ -114,6 +125,18 @@ export default function CompetitorNavBar({
         aria-label={t('navFilterPlaceholder')}
         className="md:w-52"
       />
+      {/* 全是同一个地区时筛了也没区别，不出这组按钮。 */}
+      {buckets.length > 1 && (
+        // 现在 3 个地区约 250px；地区再多时组内横滚，不把整页撑出横向滚动条。
+        <div className="scrollbar-none max-w-full shrink-0 overflow-x-auto max-md:self-start">
+          <SegmentedControl
+            items={regionItems}
+            value={activeRegion}
+            onChange={setRegionFilter}
+            label={t('navRegionFilter')}
+          />
+        </div>
+      )}
       {matched.length === 0 ? (
         <p className="text-xs text-ink-400">{t('navNoMatch')}</p>
       ) : (

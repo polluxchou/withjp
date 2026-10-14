@@ -6,6 +6,7 @@ import { buildServiceMedia } from '@/lib/site/services'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import SiteImage from '@/components/site/SiteImage'
+import { createAutoLinker } from '@/lib/site/autoLink'
 
 export async function generateMetadata({
   params,
@@ -23,6 +24,7 @@ export default function SiteServicesPage({ params }: { params: { locale: string 
   const subItems = t.raw('subItems') as SiteSubItem[]
   const placeholders = t.raw('placeholders') as string[]
   const mediaItems = buildServiceMedia(placeholders)
+  const autoLink = createAutoLinker()
 
   return (
     <SiteSection divider={false} className="pb-20 lg:pb-24">
@@ -46,7 +48,7 @@ export default function SiteServicesPage({ params }: { params: { locale: string 
               <div className="mb-1.5 font-serif-jp text-[26px] lg:text-[30px]">{item.title}</div>
               <div className="font-condensed text-[14px] tracking-[0.2em] text-site-fg/50">{item.en}</div>
             </div>
-            <p className="text-[15px] leading-[2] text-site-fg/72">{item.body}</p>
+            <p className="text-[15px] leading-[2] text-site-fg/72">{autoLink(item.body)}</p>
           </div>
         ))}
       </div>
@@ -57,7 +59,7 @@ export default function SiteServicesPage({ params }: { params: { locale: string 
           <div key={sub.no} className="bg-site-panel px-7 py-8">
             <div className="font-condensed text-[13px] tracking-[0.2em] text-site-hot">{sub.no}</div>
             <div className="mb-2.5 mt-3 font-serif-jp text-[23px]">{sub.title}</div>
-            <p className="text-[14px] leading-[1.9] text-site-fg/68">{sub.body}</p>
+            <p className="text-[14px] leading-[1.9] text-site-fg/68">{autoLink(sub.body)}</p>
           </div>
         ))}
       </div>

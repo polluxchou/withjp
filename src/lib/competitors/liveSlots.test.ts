@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { SLOT_MIN_SESSIONS, minutesToLabel, recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
+import {
+  SLOT_MIN_SESSIONS,
+  clusterMinutes,
+  dominantCluster,
+  minutesToLabel,
+  recentSessionStarts,
+  summarizeLiveHabit,
+} from './liveSlots.ts'
 
 const JST = 'Asia/Tokyo'
 const PT = 'America/Los_Angeles'
@@ -111,4 +118,86 @@ test('recentSessionStarts: 去重 + 按时刻降序 + 截断', () => {
   assert.deepEqual(recentSessionStarts([a, b, b, c], 8), [c, b, a], '最近的在前,同一场只算一次')
   assert.deepEqual(recentSessionStarts([a, b, c], 2), [c, b], '按 limit 截断')
   assert.deepEqual(recentSessionStarts([null, undefined, '', 'not-a-date'], 8), [])
+})
+
+test('密集数据不坍缩：零散场次不能把午场和晚场桥接成一档', () => {
+  const lunch = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((m, i) => jst(1 + i, 12, m))
+  const evening = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m, i) => jst(1 + i, 19, m))
+  // 每隔 50 分钟一场的零散场次：旧算法（<180 分钟连成一档）会把它们和两头全部串起来
+  const bridges = [[13, 0], [13, 50], [14, 40], [15, 30], [16, 20], [17, 10], [18, 0]]
+    .map(([h, m], i) => jst(1 + i, h, m))
+  const h = summarizeLiveHabit([...lunch, ...evening, ...bridges], JST)
+  assert.equal(h.sessions, 27)
+  assert.deepEqual(h.slots.map((s) => s.label), ['12:05', '19:07'])
+  assert.deepEqual(h.slots.map((s) => s.count), [10, 10])
+})
+
+test('占比门槛：总场次多时，凑够 3 场的小档也不算主档', () => {
+  const main = Array.from({ length: 20 }, (_, i) => jst(1 + (i % 28), 13, 30 + (i % 5)))
+  const minor = [jst(1, 22, 0), jst(2, 22, 5), jst(3, 22, 10)]
+  const h = summarizeLiveHabit([...main, ...minor], JST)
+  // 23 场 × 15% = 3.45 → 门槛 4；22 点那 3 场不够
+  assert.deepEqual(h.slots.map((s) => s.label), ['13:32'])
+  // 地区标尺传 minSessions=1，占比门槛照样生效
+  assert.deepEqual(summarizeLiveHabit([...main, ...minor], JST, 1).slots.map((s) => s.label), ['13:32'])
+})
+
+test('场次少时占比门槛不起作用：标尺的 minSessions=1 仍能摆出单场', () => {
+  const h = summarizeLiveHabit([jst(1, 13, 30), jst(2, 20, 0)], JST, 1)
+  assert.deepEqual(h.slots.map((s) => s.label), ['13:30', '20:00'])
+})
+
+test('clusterMinutes: 45 分钟以内连成一档，跨午夜首尾合并', () => {
+  assert.deepEqual(clusterMinutes([720, 740, 800, 1140]), [[720, 740], [800], [1140]])
+  assert.deepEqual(clusterMinutes([5, 700, 1430]), [[-10, 5], [700]])
+})
+
+test('dominantCluster: 最大的那档胜出，不论够不够门槛', () => {
+  // 19:50 / 20:10 是一档 2 场；12:00 单场（时刻更靠前）且是最近一场——大小优先于新旧、也优先于排位。
+  const d = dominantCluster([jst(15, 19, 50), jst(16, 20, 10), jst(18, 12, 0)], JST)
+  assert.deepEqual(d, { startMinutes: 19 * 60 + 50, count: 2 }, '档内取偏早的中位数，与 summarizeLiveHabit 同口径')
+})
+
+test('dominantCluster: 并列时取含最近一场的那档，与时刻先后无关', () => {
+  const at = (newestHour: number) => {
+    const hours = [10, 14, 20]
+    return dominantCluster(hours.map((h, i) => jst(h === newestHour ? 18 : 10 + i, h, 0)), JST)
+  }
+  assert.deepEqual(at(10), { startMinutes: 600, count: 1 })
+  assert.deepEqual(at(14), { startMinutes: 840, count: 1 })
+  assert.deepEqual(at(20), { startMinutes: 1200, count: 1 })
+})
+
+test('dominantCluster: 跨午夜合并的档照常参与（负数中位数），并列时按成员里最近的一场比新旧', () => {
+  // 23:50 与次日 00:10 合成一档 2 场（中位数 -10，即 23:50）；12:00 / 12:20 另一档 2 场。两档并列。
+  const crossNewest = [jst(15, 23, 50), jst(18, 0, 10), jst(16, 12, 0), jst(17, 12, 20)]
+  assert.deepEqual(dominantCluster(crossNewest, JST), { startMinutes: -10, count: 2 }, '最近一场 00:10 在跨午夜那档里')
+  const noonNewest = [jst(15, 23, 50), jst(16, 0, 10), jst(16, 12, 0), jst(18, 12, 20)]
+  assert.deepEqual(dominantCluster(noonNewest, JST), { startMinutes: 12 * 60, count: 2 }, '最近一场 12:20 在正午那档里')
+  // 最近一场是 23:50 那个：合并后它在簇里是 -10，查新旧前要归一回 1430 才找得到它的时刻。
+  const lateNewest = [jst(18, 23, 50), jst(16, 0, 10), jst(15, 12, 0), jst(17, 12, 20)]
+  assert.deepEqual(dominantCluster(lateNewest, JST), { startMinutes: -10, count: 2 }, '最近一场 23:50 在跨午夜那档里')
+})
+
+test('dominantCluster: 没有可用时刻返回 null；重复的开播时刻只算一场', () => {
+  assert.equal(dominantCluster([], JST), null)
+  assert.equal(dominantCluster([null, undefined, '', 'not-a-date'], JST), null)
+  const one = jst(18, 13, 0)
+  assert.deepEqual(dominantCluster([one, one, one], JST), { startMinutes: 13 * 60, count: 1 })
+})
+
+test('时区格式化器按时区缓存：两个时区交替调用，每次都按各自的时区算', () => {
+  // 守缓存键：若所有时区共用同一个格式化器，或键取错，第二个时区的结果会串成第一个。
+  const iso = '2026-10-09T03:04:00Z' // JST 12:04 · 加州（夏令时 UTC-7）前一天 20:04
+  for (let i = 0; i < 4; i += 1) {
+    assert.equal(summarizeLiveHabit([iso], JST, 1).slots[0].label, '12:04')
+    assert.equal(summarizeLiveHabit([iso], PT, 1).slots[0].label, '20:04')
+  }
+})
+
+test('时区名非法照旧抛 RangeError，且不污染缓存：之后合法时区与再次非法都表现如常', () => {
+  const iso = '2026-10-09T03:04:00Z'
+  assert.throws(() => summarizeLiveHabit([iso], 'Not/AZone', 1), RangeError)
+  assert.equal(summarizeLiveHabit([iso], JST, 1).slots[0].label, '12:04')
+  assert.throws(() => summarizeLiveHabit([iso], 'Not/AZone', 1), RangeError)
 })

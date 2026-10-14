@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "竞品直播截图",
+  "version": "0.2.5",
+  "description": "在 TikTok 直播间一键截取画面与在线人数，上传到竞品监测后台。",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "竞品直播截图",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "24": "icons/icon-24.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://mcn.agenova.chat/*",
+    "https://*.supabase.co/*",
+    "http://localhost/*"
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmw+OoeGd0bhf7ybv/frefgHIzDrD5oNWSc5S4XTcFl15ZUK5hvOpT4zO0hvIBNaDeaSrxxq38O2GCIX/hgIMK+ktqLOL459x+u4DF9EjMnd5QQuF1Ob1t8wnJ/ex0MOZsQwA29FPMtxihVSyXBFglkqjkzlJ6Phy6x+DhFkUl6cVu2MrqjKfzaru9z466Gg3Ct1OsQILe8HOT9m7PIqw3OmSJxLysDDlYoMewbqoHMehixFMkOgM12DPAnQpS82K2kJc19A50piDX78x6KEutcPPoZrFRVb9D9d/M1uiVNs9ZpmK4ErjMSWEnkx6Na+Q7BzixbsU6GhD8UDBgl0qHQIDAQAB"
+}

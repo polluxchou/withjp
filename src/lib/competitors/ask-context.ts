@@ -7,12 +7,14 @@
 //
 // 零 IO、零时钟：now 由调用方注入，才能把跨日、跨时区的行为钉死在单测里。
 import { timeZoneForLocale } from '../time/localeZone.ts'
+import { liveSessionRows } from './liveSessionPack.ts'
+import { liveStartsOf } from './liveSessions.ts'
 import { recentSessionStarts, summarizeLiveHabit } from './liveSlots.ts'
 import { checkProfileLanguage } from './profileLanguage.ts'
 import { RULER_WINDOW_DAYS } from './regionRuler.ts'
 import { STALE_DAYS, competitorName, daysBetween } from './summary.ts'
 import { shotUptimeParts } from './types.ts'
-import type { CompetitorBoard, CompetitorShot, CompetitorWithHistory, HistoryPoint } from './types.ts'
+import type { AskShot, CompetitorBoard, CompetitorWithHistory, HistoryPoint } from './types.ts'
 
 const DAY_MS = 86_400_000
 
@@ -31,6 +33,10 @@ export interface AskCoverage {
   withMetrics: number
   metricsDays: number
   shotDays: number
+  /**
+   * 已采到开播时刻的场次总数：导入的开播记录与截图推断合并去重后，各账号场次数之和
+   * （与各账号 liveHabit.sessionsAllTime 同口径，未来时刻不计）。
+   */
   sessionsWithStartTime: number
 }
 
@@ -131,7 +137,8 @@ export interface AskHealth {
 export interface AskCompetitor {
   handle: string
   name: string
-  region: string
+  /** 人工登记的地区代码；null = 还没登记（脚本建档的号，等人在卡片上补）。 */
+  region: string | null
   /**
    * 主页语言观测值（原样，未观测为 null）——只是辅助参考，不是权威地区。
    * 权威值仍是 region；见 profileLanguage.ts 顶部注释。
@@ -237,6 +244,18 @@ export function followersOf(history: HistoryPoint[]): AskFollowers {
 }
 
 /**
+ * 一个账号「已采到开播时刻」的全部场次（ISO，降序）：导入的开播记录与截图推断合并去重，
+ * 只挡未来时刻的脏数据（<= now），不设下限。
+ *
+ * 账号层的 liveHabit.sessionsAllTime 与全局的 meta.coverage.sessionsWithStartTime 都从这里取数，
+ * 两处才不会各算各的——这个数据包整份交给模型，一处说「播过 3 场」、另一处说「0 场有开播时刻」
+ * 是模型没法调和的矛盾。
+ */
+function startsUpTo(c: CompetitorWithHistory<AskShot>, nowMs: number): string[] {
+  return liveStartsOf({ live_sessions: liveSessionRows(c), shots: c.shots }).filter((iso) => Date.parse(iso) <= nowMs)
+}
+
+/**
  * 开播作息。窗口只挡"这是不是规律"这一层推论（slots/sessionsInWindow/
  * recentSessionsLocal），不挡"上一次是什么时候/总共播过几场"这两个硬事实
  * （latestStartedAtLocal/sessionsAllTime）——半年前连播三场、之后再没开播过
@@ -251,18 +270,15 @@ export function followersOf(history: HistoryPoint[]): AskFollowers {
  * 把 UTC 时刻转成人话，必须在喂给它之前转好，否则它只能原样报出 UTC 时刻，
  * 读者会拿着 zh/ja 界面读出一个差 7-9 小时的错误钟点。
  */
-function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): AskLiveHabit {
+function liveHabitOf(c: CompetitorWithHistory<AskShot>, timeZone: string, now: Date): AskLiveHabit {
   const nowMs = now.getTime()
   const cutoff = nowMs - RULER_WINDOW_DAYS * DAY_MS
 
   // 硬事实：只挡未来时刻的脏数据，不设下限——半年前的一场开播依然是「事实」。
-  const allStarts = c.shots
-    .map((s) => s.stream_started_at)
-    .filter((iso): iso is string => {
-      if (!iso) return false
-      const t = Date.parse(iso)
-      return !Number.isNaN(t) && t <= nowMs
-    })
+  // 场次来源是导入的开播记录与截图合并后的（同一场只计一次，见 liveSessions.ts），
+  // 与卡片、地区标尺同源，模型读到的场次数才和页面上看到的一致。
+  // 显示时区不动：仍是 buildAskContext 按界面语言解出的 timeZone，这里只换数据来源。
+  const allStarts = startsUpTo(c, nowMs)
   // ISO 8601 定长同格式，字符串比较即时刻比较（同 liveSlots.ts 的做法）。
   // 排序/取最大值都在格式化之前对原始 ISO 做——格式化后的字符串在固定时区下
   // 恰好也保序，但排序逻辑不该依赖这个巧合。
@@ -286,8 +302,11 @@ function liveHabitOf(c: CompetitorWithHistory, timeZone: string, now: Date): Ask
   }
 }
 
-/** 只收截图列表本身——测试也就不用为了几张图造出整棵档案树（同 summary.ts 的取舍）。 */
-export function shotsOf(shots: CompetitorShot[], timeZone: string): AskShots {
+/**
+ * 只收截图列表本身——测试也就不用为了几张图造出整棵档案树（同 summary.ts 的取舍）。
+ * 入参只要求问答列（AskShot），完整的 CompetitorShot 也照收。
+ */
+export function shotsOf(shots: AskShot[], timeZone: string): AskShots {
   const dates = Array.from(
     new Set(shots.map((s) => s.shot_on).filter((d): d is string => d != null)),
   ).sort((a, b) => b.localeCompare(a))
@@ -315,7 +334,7 @@ export function shotsOf(shots: CompetitorShot[], timeZone: string): AskShots {
 }
 
 interface FlatEntry {
-  c: CompetitorWithHistory
+  c: CompetitorWithHistory<AskShot>
   parentHandle: string | null
 }
 
@@ -327,7 +346,7 @@ interface FlatEntry {
  * （下探发现的子账号 parent_id 只会指向顶层竞品，不会反过来指回子孙），
  * 这个前提一旦被打破这里会死循环——这是文档而非代码修复。
  */
-function flatten(list: CompetitorWithHistory[], parentHandle: string | null): FlatEntry[] {
+function flatten(list: CompetitorWithHistory<AskShot>[], parentHandle: string | null): FlatEntry[] {
   const out: FlatEntry[] = []
   for (const c of list) {
     out.push({ c, parentHandle })
@@ -349,10 +368,11 @@ function healthOf(latestCapturedOn: string | null, todayTokyo: string): AskHealt
   return { metricsAgeDays: age, stale: age > STALE_DAYS }
 }
 
-export function buildAskContext(board: CompetitorBoard, now: Date, locale: string): AskContext {
+export function buildAskContext(board: CompetitorBoard<AskShot>, now: Date, locale: string): AskContext {
   const displayTimeZone = timeZoneForLocale(locale)
   const todayTokyo = dayIn(now, SHOT_TZ)
   const flat = flatten(board.competitors, null)
+  const nowMs = now.getTime()
 
   const competitors: AskCompetitor[] = flat.map(({ c, parentHandle }) => {
     const followers = followersOf(c.history)
@@ -374,15 +394,16 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
 
   const metricsDays = new Set<string>()
   const shotDays = new Set<string>()
-  const sessions = new Set<string>()
+  // 已采到开播时刻的场次总数 = 逐号合并后的场次数之和（与各账号 liveHabit.sessionsAllTime 同口径）。
+  // 场次的身份是 (竞品, 开播时刻)，不是裸时刻——两个竞品凑巧在同一秒开播是真实可能发生的巧合，
+  // 不该被去重塌成一场；逐号计数再求和天然保持这一点。
+  let sessionsWithStartTime = 0
   for (const { c } of flat) {
     for (const p of c.history) metricsDays.add(p.captured_on)
     for (const s of c.shots) {
       if (s.shot_on != null) shotDays.add(s.shot_on)
-      // 场次的身份是 (竞品, 开播时刻)，不是裸时刻——两个竞品凑巧在同一秒开播
-      // 是真实可能发生的巧合，不该被去重塌成一场。
-      if (s.stream_started_at != null) sessions.add(`${c.id}|${s.stream_started_at}`)
     }
+    sessionsWithStartTime += startsUpTo(c, nowMs).length
   }
 
   return {
@@ -395,7 +416,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
         withMetrics: competitors.filter((x) => x.followers.latest != null).length,
         metricsDays: metricsDays.size,
         shotDays: shotDays.size,
-        sessionsWithStartTime: sessions.size,
+        sessionsWithStartTime,
       },
       captureNote: CAPTURE_NOTE,
     },

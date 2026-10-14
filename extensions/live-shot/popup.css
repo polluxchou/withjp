@@ -1,0 +1,73 @@
+:root {
+  --bg: #ffffff;
+  --text: #1f1e1d;
+  --muted: #6b6a66;
+  --line: #e5e4df;
+  --accent: #2563eb;
+  --on-accent: #ffffff;
+  --ok: #15803d;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --thumb-bg: #eff6ff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1f1e1d;
+    --text: #f1efe8;
+    --muted: #a8a69e;
+    --line: #3a3936;
+    --accent: #3b82f6;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --warn-bg: #3a2f12;
+    --thumb-bg: #1e293b;
+  }
+}
+body { width: 260px; margin: 0; padding: 14px 16px 10px; background: var(--bg); color: var(--text); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+p { margin: 0; }
+.title { font-weight: 600; margin-bottom: 10px; }
+label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+input { display: block; width: 100%; box-sizing: border-box; margin-top: 2px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--text); }
+button { width: 100%; margin-top: 12px; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+button:disabled { opacity: 0.6; cursor: default; }
+/* 页脚里的文字按钮：覆盖上面通用 button 的整行宽度/边框/上边距，焦点环仍沿用 button:focus-visible */
+button.link { width: auto; margin: 0 0 0 8px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+button.link:hover { color: var(--text); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hint { color: var(--muted); font-size: 11px; margin-top: 8px; }
+.error { color: var(--warn); font-size: 12px; margin-top: 8px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.thumb { width: 40px; height: 70px; flex: none; border-radius: 6px; background: var(--thumb-bg) center / cover no-repeat; }
+.thumb.warn { background-color: var(--warn-bg); }
+.info { min-width: 0; }
+.name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.line { color: var(--muted); }
+.line.ok { color: var(--ok); }
+.line.warn { color: var(--warn); }
+footer { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+footer b { color: var(--text); font-weight: 600; }
+.notice { color: var(--muted); font-size: 11px; margin-top: 6px; }
+.stash-title { color: var(--muted); font-size: 12px; margin: 12px 0 6px; }
+.stash-title b { color: var(--text); font-weight: 600; }
+/* 横排缩略图，放不下就横向滚动 */
+.strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+/* 缩略图是按钮：覆盖通用 button 的整行宽度/边框/上边距，焦点环仍沿用 button:focus-visible */
+button.tile { flex: none; width: 48px; margin: 0; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.tile-img { position: relative; display: block; width: 44px; height: 78px; border: 2px solid transparent; border-radius: 6px; background: var(--thumb-bg) center / cover no-repeat; }
+.tile.current .tile-img { border-color: var(--accent); }
+.tile.partial .tile-img::after { content: ''; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+.tile-time, .tile-handle { display: block; font-size: 11px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile-time { color: var(--text); }
+.tile-handle { color: var(--muted); }
+.tile.stale .tile-img { filter: grayscale(1); opacity: 0.45; }
+.tile.stale .tile-time { color: var(--muted); }
+/* 放大确认页 */
+.big { width: 130px; height: 231px; margin: 0 auto 8px; border-radius: 6px; background: var(--thumb-bg) center / contain no-repeat; }
+.big.stale { filter: grayscale(1); opacity: 0.5; }
+.btns { display: flex; gap: 8px; }
+.btns button { margin-top: 8px; }
+/* 「上传」下面的「再截一张」：紧贴主按钮 */
+#again { margin-top: 6px; }
+/* 后台已有这张（上传回执丢了的）：缩略图右下角一个绿色小勾 */
+.tile-ok { position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--ok); color: var(--bg); font-size: 10px; font-weight: 700; line-height: 14px; text-align: center; }

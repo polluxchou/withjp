@@ -31,7 +31,7 @@
 - [ ] **Step 1: 建独立 worktree（共享工作区禁令，见记忆/spec §8）**
 
 ```bash
-cd $HOME/Code/newWith
+cd "$MAIN_REPO"   # 主仓根目录
 git fetch origin
 git worktree add .claude/worktrees/ui-uplift-pr1 -b feat/ui-uplift-pr1-pilot origin/main
 cd .claude/worktrees/ui-uplift-pr1
@@ -41,9 +41,9 @@ npm install
 - [ ] **Step 2: 把两份设计文档拷入 worktree 并作为首个提交**
 
 ```bash
-cp ../../docs/design-system.md docs/design-system.md 2>/dev/null || cp $HOME/Code/newWith/docs/design-system.md docs/design-system.md
-cp $HOME/Code/newWith/docs/superpowers/specs/2026-08-08-ui-style-uplift-design.md docs/superpowers/specs/
-cp $HOME/Code/newWith/docs/superpowers/plans/2026-08-08-ui-uplift-pr1-pilot.md docs/superpowers/plans/
+cp ../../docs/design-system.md docs/design-system.md 2>/dev/null || cp "$MAIN_REPO"/docs/design-system.md docs/design-system.md
+cp "$MAIN_REPO"/docs/superpowers/specs/2026-08-08-ui-style-uplift-design.md docs/superpowers/specs/
+cp "$MAIN_REPO"/docs/superpowers/plans/2026-08-08-ui-uplift-pr1-pilot.md docs/superpowers/plans/
 git add docs && git commit -m "docs(design): 设计系统权威文档 + 风格提升 spec + PR1 计划"
 ```
 

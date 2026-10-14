@@ -8,6 +8,7 @@ import ScheduleTable from '@/components/site/ScheduleTable'
 import BlueprintFrame from '@/components/site/BlueprintFrame'
 import SiteImage from '@/components/site/SiteImage'
 import PulseDot from '@/components/site/PulseDot'
+import { createAutoLinker } from '@/lib/site/autoLink'
 
 export async function generateMetadata({
   params,
@@ -23,11 +24,12 @@ export default function SiteLivePage({ params }: { params: { locale: string } })
   const t = useTranslations('site.live')
   const schedule = t.raw('schedule') as SiteScheduleRow[]
   const headers = t.raw('headers') as { day: string; program: string; focus: string; time: string }
+  const autoLink = createAutoLinker()
 
   return (
     <SiteSection divider={false} className="pb-20 lg:pb-24">
       <SectionHead eyebrow={t('eyebrow')} title={t('title')} size="page" />
-      <p className="mb-10 mt-2 max-w-[660px] text-[16px] leading-[1.95] text-site-fg/75">{t('lead')}</p>
+      <p className="mb-10 mt-2 max-w-[660px] text-[16px] leading-[1.95] text-site-fg/75">{autoLink(t('lead'))}</p>
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
         <ScheduleTable rows={schedule} headers={headers} />

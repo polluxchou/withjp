@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-20-competitor-ask-design.md`
 
+**工作目录：** 本次功能的 git worktree 根目录，下文命令里记作 `$WORKTREE`。
+
 ---
 
 ## 关键约定（先读，违反会被 CI 拦下）
@@ -126,7 +128,7 @@ test('空看板不抛异常，competitors 为空数组', () => {
 - [ ] **Step 2: 跑测试确认失败**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: FAIL —— `Cannot find module './ask-context.ts'`
@@ -210,7 +212,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
 - [ ] **Step 4: 跑测试确认通过**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: PASS，4 tests
@@ -228,7 +230,7 @@ Expected: PASS，4 tests
 - [ ] **Step 6: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/lib/competitors/ask-context.ts src/lib/competitors/ask-context.test.ts package.json
 git commit -m "feat(competitors): Ask 上下文包骨架与 meta 块"
 ```
@@ -311,7 +313,7 @@ test('followers: 完全没有快照时全为 null', () => {
 - [ ] **Step 2: 跑测试确认失败**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: FAIL —— `ctx.competitors[0]` 为 undefined（`competitors` 还是空数组）
@@ -390,7 +392,7 @@ function followersOf(c: CompetitorWithHistory): AskFollowers {
 - [ ] **Step 4: 跑测试确认通过**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: PASS，8 tests
@@ -398,7 +400,7 @@ Expected: PASS，8 tests
 - [ ] **Step 5: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/lib/competitors/ask-context.ts src/lib/competitors/ask-context.test.ts
 git commit -m "feat(competitors): Ask 上下文的粉丝块与两快照门槛"
 ```
@@ -503,7 +505,7 @@ test('liveHabit: 钟点随界面语言换算，同一时刻中日相差一小时
 - [ ] **Step 2: 跑测试确认失败**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: FAIL —— `liveHabit` 为 undefined
@@ -581,7 +583,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
 - [ ] **Step 4: 跑测试确认通过**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: PASS，12 tests
@@ -589,7 +591,7 @@ Expected: PASS，12 tests
 - [ ] **Step 5: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/lib/competitors/ask-context.ts src/lib/competitors/ask-context.test.ts
 git commit -m "feat(competitors): Ask 上下文的开播作息块与成档门槛"
 ```
@@ -667,7 +669,7 @@ test('shots: 没有任何截图时形状完整且不抛异常', () => {
 - [ ] **Step 2: 跑测试确认失败**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: FAIL —— `shots` 为 undefined
@@ -731,7 +733,7 @@ function shotsOf(c: CompetitorWithHistory): AskShots {
 - [ ] **Step 4: 跑测试确认通过**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: PASS，16 tests
@@ -739,7 +741,7 @@ Expected: PASS，16 tests
 - [ ] **Step 5: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/lib/competitors/ask-context.ts src/lib/competitors/ask-context.test.ts
 git commit -m "feat(competitors): Ask 上下文的截图块与完整采集日历"
 ```
@@ -827,7 +829,7 @@ test('coverage: 主竞品与子主播都计入 competitors，roots 只数顶层'
 - [ ] **Step 2: 跑测试确认失败**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: FAIL —— `name` / `health` 为 undefined，`competitors.length` 为 1
@@ -946,7 +948,7 @@ export function buildAskContext(board: CompetitorBoard, now: Date, locale: strin
 - [ ] **Step 4: 跑测试确认通过**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-context.test.ts
 ```
 
 Expected: PASS，21 tests
@@ -954,7 +956,7 @@ Expected: PASS，21 tests
 - [ ] **Step 5: 类型检查**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npx tsc --noEmit
+cd "$WORKTREE" && npx tsc --noEmit
 ```
 
 Expected: 无错误
@@ -962,7 +964,7 @@ Expected: 无错误
 - [ ] **Step 6: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/lib/competitors/ask-context.ts src/lib/competitors/ask-context.test.ts
 git commit -m "feat(competitors): Ask 上下文的身份/健康度/父子展开与覆盖率"
 ```
@@ -1014,7 +1016,7 @@ test('语言指令随 locale 切换，未知 locale 回落中文', () => {
 - [ ] **Step 2: 跑测试确认失败**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-prompt.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-prompt.test.ts
 ```
 
 Expected: FAIL —— `Cannot find module './ask-prompt.ts'`
@@ -1076,7 +1078,7 @@ ${JSON.stringify(ctx, null, 2)}`
 - [ ] **Step 4: 跑测试确认通过**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && node --test --experimental-strip-types src/lib/competitors/ask-prompt.test.ts
+cd "$WORKTREE" && node --test --experimental-strip-types src/lib/competitors/ask-prompt.test.ts
 ```
 
 Expected: PASS，3 tests
@@ -1084,7 +1086,7 @@ Expected: PASS，3 tests
 - [ ] **Step 5: 确认 npm test 整体绿灯**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npm test 2>&1 | tail -15
+cd "$WORKTREE" && npm test 2>&1 | tail -15
 ```
 
 Expected: `# fail 0`。若报找不到 `ask-prompt.test.ts` 之外的问题，检查 Task 1 Step 5 的 `package.json` 是否两个文件都注册了。
@@ -1092,7 +1094,7 @@ Expected: `# fail 0`。若报找不到 `ask-prompt.test.ts` 之外的问题，�
 - [ ] **Step 6: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/lib/competitors/ask-prompt.ts src/lib/competitors/ask-prompt.test.ts package.json
 git commit -m "feat(competitors): Ask 的 system prompt 与三条口径硬规则"
 ```
@@ -1176,7 +1178,7 @@ export async function deepseekChat(systemPrompt: string, turns: ChatTurn[]): Pro
 - [ ] **Step 2: 类型检查**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npx tsc --noEmit
+cd "$WORKTREE" && npx tsc --noEmit
 ```
 
 Expected: 无错误
@@ -1184,7 +1186,7 @@ Expected: 无错误
 - [ ] **Step 3: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/lib/llm/deepseek.ts
 git commit -m "feat(llm): DeepSeek chat transport 最小实现"
 ```
@@ -1267,7 +1269,7 @@ export async function POST(req: NextRequest) {
 - [ ] **Step 2: 类型检查与 lint**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npx tsc --noEmit && npm run test:lint 2>&1 | tail -5
+cd "$WORKTREE" && npx tsc --noEmit && npm run test:lint 2>&1 | tail -5
 ```
 
 Expected: 均无错误
@@ -1275,7 +1277,7 @@ Expected: 均无错误
 - [ ] **Step 3: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/app/api/competitors/ask/route.ts
 git commit -m "feat(competitors): Ask 无状态问答端点"
 ```
@@ -1369,7 +1371,7 @@ git commit -m "feat(competitors): Ask 无状态问答端点"
 - [ ] **Step 4: 校验三语 key parity**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npm run test:i18n 2>&1 | tail -15
+cd "$WORKTREE" && npm run test:i18n 2>&1 | tail -15
 ```
 
 Expected: key parity 通过。「unused message」的**警告**会出现（组件还没写），这是预期的，Task 10 后消失。若报的是 parity **错误**，说明三个文件的 key 不一致，修正后重跑。
@@ -1377,7 +1379,7 @@ Expected: key parity 通过。「unused message」的**警告**会出现（组�
 - [ ] **Step 5: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add messages/zh.json messages/en.json messages/ja.json
 git commit -m "feat(competitors): Ask 面板三语文案"
 ```
@@ -1596,7 +1598,7 @@ export default function AskPanel({ open, onClose }: { open: boolean; onClose: ()
 - [ ] **Step 2: 跑门禁**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npx tsc --noEmit && npm run test:no-bare-han && npm run test:style && npm run test:lint 2>&1 | tail -8
+cd "$WORKTREE" && npx tsc --noEmit && npm run test:no-bare-han && npm run test:style && npm run test:lint 2>&1 | tail -8
 ```
 
 Expected: 全部通过。若 `test:no-bare-han` 报错，说明有裸汉字漏进了 JSX——搬进 `messages/*.json`。
@@ -1604,7 +1606,7 @@ Expected: 全部通过。若 `test:no-bare-han` 报错，说明有裸汉字漏�
 - [ ] **Step 3: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/components/competitors/AskPanel.tsx
 git commit -m "feat(competitors): Ask 侧边抽屉面板"
 ```
@@ -1662,7 +1664,7 @@ import AskPanel from './AskPanel'
 - [ ] **Step 3: 跑门禁**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npx tsc --noEmit && npm run test:copy 2>&1 | tail -10
+cd "$WORKTREE" && npx tsc --noEmit && npm run test:copy 2>&1 | tail -10
 ```
 
 Expected: 全绿。此时 Task 9 的「unused message」警告应当消失（所有 `ask.*` key 都已被引用）。
@@ -1670,7 +1672,7 @@ Expected: 全绿。此时 Task 9 的「unused message」警告应当消失（所
 - [ ] **Step 4: 提交**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/components/competitors/CompetitorDossierView.tsx
 git commit -m "feat(competitors): 看板挂载 Ask 面板与入口按钮"
 ```
@@ -1688,7 +1690,7 @@ git commit -m "feat(competitors): 看板挂载 Ask 面板与入口按钮"
 主仓的 `npm run dev` 固定 3001 端口，worktree 要换一个避免撞车：
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npx next dev --port 3012
+cd "$WORKTREE" && npx next dev --port 3012
 ```
 
 - [ ] **Step 2: 走一遍口径清单**
@@ -1737,7 +1739,7 @@ cd $HOME/Code/newWith-competitor-nl && npx next dev --port 3012
 - [ ] **Step 2: 跑全套门禁**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && npm test 2>&1 | tail -5 && npm run test:copy 2>&1 | tail -5 && npx tsc --noEmit
+cd "$WORKTREE" && npm test 2>&1 | tail -5 && npm run test:copy 2>&1 | tail -5 && npx tsc --noEmit
 ```
 
 Expected: `# fail 0`、copy-checks 全绿、tsc 无输出
@@ -1745,7 +1747,7 @@ Expected: `# fail 0`、copy-checks 全绿、tsc 无输出
 - [ ] **Step 3: 提交并推分支**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl
+cd "$WORKTREE"
 git add src/lib/changelog/entries.ts
 git commit -m "docs(changelog): 竞品监测会话式查询上线条目"
 git push -u origin feat/competitor-nl-query
@@ -1754,7 +1756,7 @@ git push -u origin feat/competitor-nl-query
 - [ ] **Step 4: 开 PR**
 
 ```bash
-cd $HOME/Code/newWith-competitor-nl && gh pr create --base main --title "feat(competitors): 竞品看板会话式查询（Ask 面板）" --body "$(cat <<'EOF'
+cd "$WORKTREE" && gh pr create --base main --title "feat(competitors): 竞品看板会话式查询（Ask 面板）" --body "$(cat <<'EOF'
 ## 做了什么
 
 竞品监测看板新增「问数据」侧边面板，多轮对话问竞品数据。设计见 `docs/superpowers/specs/2026-08-20-competitor-ask-design.md`。

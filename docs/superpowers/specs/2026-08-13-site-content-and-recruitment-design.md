@@ -3,7 +3,7 @@
 - 日期：2026-08-13
 - 状态：**已确认方向，待写实施计划**
 - 来源需求：《公会官网和公会后台的项目工程关系》附件 §能力完善（其他招募 / 新闻配置 / members）
-- 相关：`docs/public-site.md`（本文推翻其 §2.4 与 §2.5 各一条）、`docs/2026-08-13-system-audit.md`、
+- 相关：`docs/public-site.md`（本文推翻其 §2.4 与 §2.5 各一条）、2026-08-13 系统审计报告（内部文档，不在本仓库）、
   `tt-agent/docs/domain-b-applications-contract.md`（字段对齐目标）
 
 ---

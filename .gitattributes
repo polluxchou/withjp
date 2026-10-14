@@ -1,0 +1,2 @@
+# 扩展生成文件与源码逐字节比对（pageReader.test.ts），固定 LF 以免 Windows autocrlf 让一致性测试误红
+extensions/live-shot/generated/* text eol=lf
