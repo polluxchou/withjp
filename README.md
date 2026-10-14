@@ -1,6 +1,6 @@
 # Creator Network AI OS / WithJP
 
-WithJP is an internal operating system for a live-streaming creator network. It combines creator operations, PMO workflows, cost management, finance forecasting, venue planning, asset tracking, competitor monitoring, team collaboration, notifications, and the foundation for future LangGraph-based agents.
+WithJP is an internal operating system for a live-streaming creator network. It combines creator operations, PMO workflows, cost management, finance forecasting, venue planning, asset tracking, competitor monitoring, team collaboration, notifications, and AI-assisted operations.
 
 The internal workspace is not a public SaaS surface. It is an internal business workspace for operations, finance, venue management, PMO, and leadership. The repository additionally serves the EchoAmp public website (`/site`, ja/en/zh).
 
@@ -18,13 +18,12 @@ The internal workspace is not a public SaaS surface. It is an internal business 
 | Discussions | Subject-based business discussions | Implemented |
 | Notifications | In-app notification bell, panel, read/read-all APIs, `createNotification()` | Implemented |
 | Knowledge | Team knowledge content | Implemented |
-| Competitors | TikTok competitor monitoring: weekly profile metrics, live-shot archive, common live-slot inference, conversational ask panel | Implemented |
+| Competitors | TikTok competitor monitoring: group accounts and companies, weekly profile metrics, live-screenshot archive fed by a Chrome extension (with same-moment viewer counts of rival rooms), live-session records imported from TikTok LIVE History, live-hours calendar and slot comparison, conversational ask panel | Implemented |
 | Public Site | EchoAmp public website (ja/en/zh): news, vision, recruit application forms, in-app content management | Implemented |
 | Intent / NL operations | Global chat bubble (⌘K): natural-language queries and guarded write operations, multi-turn, DeepSeek-first with cross-provider fallback | Implemented |
 | Workspace Chat | Agent conversation entry point | Implemented |
-| Agent Service | FastAPI safety skeleton, auth middleware, run records, checkpointer setup | In progress |
 | Withflows data intake | TikTok account, live tracking, short video and revenue data integration | Planned |
-| Finance / Ops Agents | Read-only analysis, approval loop, dispatch, memory and observability | Planned |
+| Finance / Ops Agents | Read-only analysis, approval loop, dispatch, memory and observability (planned as a separate service, not part of this repository) | Planned |
 
 ## Core Cost Management Domain
 
@@ -78,9 +77,6 @@ GEMINI_API_KEY=AIza...    # fallback tier of the intent-parsing model ladder
 # Optional Gemini relay/proxy
 GEMINI_BASE_URL=https://your-proxy-endpoint.com
 
-# Optional bridge to the Python agent-service
-AGENT_SERVICE_URL=http://localhost:8000
-AGENT_SERVICE_SECRET=shared_service_token
 ```
 
 Unused provider keys are ignored until that provider is selected. If Gemini requests fail with network errors such as `fetch failed` or `ENOTFOUND`, set `GEMINI_BASE_URL` to a reachable relay endpoint.
@@ -133,50 +129,6 @@ Agent model selection (Team page) has no automatic failover across providers: if
 
 Navigate to `/team`. Each agent card has a model configuration section with provider and model dropdowns. Changes are saved through `PATCH /api/agents/:id`.
 
-## Agent Service
-
-`agent-service/` is a separate Python FastAPI service that provides the W1 safety skeleton for future LangGraph agents.
-
-Current scope:
-
-- `/health`
-- `/agent/chat` stub
-- service-token authentication
-- `X-User-Id` validation
-- conversation existence validation
-- idempotent `agent_runs`
-- completed W1 stub responses
-- LangGraph Postgres checkpointer setup
-- tool registry metadata
-
-It does not yet implement the W2+ business graphs, Finance Agent, Approval Loop, Ops Dispatch, or Agent Memory.
-
-### Agent Service Environment
-
-Use `agent-service/.env.example` as the template:
-
-```env
-AGENT_SERVICE_SECRET=
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
-SUPABASE_DB_URL=
-GEMINI_API_KEY=
-DEEPSEEK_API_KEY=
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-LANGSMITH_API_KEY=
-LANGSMITH_PROJECT=
-```
-
-### Run Agent Service Locally
-
-```bash
-cd agent-service
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
 ## Important Routes
 
 | Route | Purpose |
@@ -191,7 +143,9 @@ uvicorn main:app --reload
 | `/devices` | Device cost management |
 | `/guild-venue` | Venue layout and 2D/3D planning |
 | `/finance-forecast` | Finance forecast |
-| `/competitors` | TikTok competitor monitoring board |
+| `/competitors` | TikTok competitor monitoring board (group accounts) |
+| `/competitors/companies` | Competitor companies |
+| `/competitors/live` | Competitor live hours: calendar, single room, slot comparison |
 | `/workspace` | Agent workspace chat |
 | `/team` | Team and agent model configuration |
 | `/knowledge` | Knowledge base |
@@ -208,30 +162,22 @@ uvicorn main:app --reload
 - `src/components` contains shared UI, layout, sidebar, notifications, and domain components.
 - `src/venue` contains the venue canvas, 3D scene, layout data model, and inspector.
 - `supabase/migrations` contains database migrations.
-- `agent-service` contains the Python FastAPI agent-service skeleton.
-- `docs` contains product requirements, design notes, and current product overview.
+- `extensions/live-shot` contains the Chrome extension that captures competitor live-stream screenshots.
+- `docs` contains design notes, module documentation, feature specs, and implementation plans.
 
 ## Documentation
 
-In the repo:
-
 - `docs/design-system.md` for the design-token contract (enforced by CI).
 - `docs/copy-glossary.md` for i18n copy conventions.
-- `docs/competitors.md` for the competitor monitoring module.
+- `docs/competitors.md` for the competitor monitoring module, and `extensions/live-shot/README.md` for the screenshot extension.
 - `docs/public-site.md` for the EchoAmp public website.
 - `docs/venue-3d-design.md` and `docs/venue-window.md` for Guild Venue internals.
 - `docs/pmo-agent-design.md` for the PMO agent design.
 - `docs/superpowers/` for feature specs, implementation plans, and wrap-up records.
 
-Local working documents, not yet checked in (kept in the maintainer's working tree):
-
-- `docs/current-product-overview.md`, `docs/navigation-and-user-guide.md`
-- `docs/items.md`, `docs/venue.md`, `docs/notifications-requirements.md`
-- `docs/agent-service-design.md` and `docs/w1-requirements.md` / `w2` / `w3` for the staged agent-service plan.
-
 ## Status Notes
 
 - Notifications are implemented as in-app notifications, not email, Slack, realtime push, or a full message center.
-- Agent Service W1 is implemented as infrastructure. W2-W5 are still planned work.
+- Finance / Ops agents are planned as a separate service and are not part of this repository yet.
 - Withflows and TikTok data integration is planned and should define master-data relationships before implementation.
 - Real `.env.local` files and service keys must remain local or in deployment-platform secrets only.
