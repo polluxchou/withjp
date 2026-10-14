@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { STALE_AFTER_MS, STASH_MAX, evictionNotice, isStale, planInsert, stampTime, stripOrder, tileTime } from './stash.js'
+import { STALE_AFTER_MS, STASH_MAX, evictionNotice, isStale, planInsert, shotKey, stampTime, stripOrder, tileTime } from './stash.js'
 
 const TZ = 'Asia/Tokyo'
 const NOW = Date.UTC(2026, 9, 10, 3, 0) // 日本时间 2026-10-10 12:00
@@ -147,4 +147,15 @@ test('evictionNotice：没挤是空串；一张写账号和时间；多张写张
 
 test('evictionNotice：被挤的记录截图时刻越界（1e20）→ 不抛错，时间写「—」', () => {
   assert.equal(evictionNotice([shot('x', 1e20)], NOW, TZ), '最早 1 张未上传的已被挤掉（@1mb.dear —）')
+})
+
+test('shotKey：handle@截图毫秒（取整，与后台入库口径一致）', () => {
+  assert.equal(shotKey(shot('a', NOW, '1mb.era')), `1mb.era@${NOW}`)
+  assert.equal(shotKey(shot('a', NOW + 0.6, '1mb.era')), `1mb.era@${NOW + 1}`)
+})
+
+test('shotKey：截图时刻坏了、非正数或没有 handle → null（没法核对）', () => {
+  for (const c of [undefined, null, NaN, Infinity, '1760000000000', 9e15, 0, -1]) assert.equal(shotKey(shot('a', c)), null, String(c))
+  assert.equal(shotKey(shot('a', NOW, '')), null)
+  assert.equal(shotKey({ id: 'a', handle: 'x' }), null)
 })

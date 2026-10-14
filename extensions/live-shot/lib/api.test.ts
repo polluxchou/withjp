@@ -476,3 +476,50 @@ test('轮换后强制续期被拒（401 重试路径）→ 会话清空，之后
   assert.equal(await api.session(), null)
   assert.equal(storage.data.session, undefined)
 })
+
+test('overview：带暂存区 key 时用 shots 查询参数（整体编码），回今日数与后台已有的 key', async () => {
+  const storage = memoryStorage(VALID)
+  const keys = [`1mb.era@${NOW}`, `uni.chuuu@${NOW + 1}`]
+  const f = fakeFetch({ [BACKEND]: { status: 200, json: { data: { today_uploads: 5, uploaded: [keys[0]] }, error: null } } })
+  const r = await createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW }).overview(keys)
+  assert.deepEqual(r, { todayUploads: 5, uploaded: [keys[0]] })
+  assert.equal(f.calls[0].url, `${CFG.apiBase}${BACKEND}?shots=1mb.era%40${NOW}%2Cuni.chuuu%40${NOW + 1}`)
+  assert.equal(f.calls[0].init.method, 'GET')
+})
+
+test('overview：没有 key 时不带查询参数（与只取今日数的请求完全一样）', async () => {
+  const storage = memoryStorage(VALID)
+  const f = fakeFetch({ [BACKEND]: { status: 200, json: { data: { today_uploads: 5 }, error: null } } })
+  const r = await createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW }).overview([])
+  assert.deepEqual(r, { todayUploads: 5, uploaded: null })
+  assert.equal(f.calls[0].url, `${CFG.apiBase}${BACKEND}`)
+})
+
+test('overview：uploaded 缺失、不是数组、混了非字符串 → null（不知道）；非 200 → 两项都是 null', async () => {
+  const storage = memoryStorage(VALID)
+  for (const uploaded of [undefined, null, 'a@1', { 0: 'a@1' }, ['a@1', 2]]) {
+    const f = fakeFetch({ [BACKEND]: { status: 200, json: { data: { today_uploads: 5, uploaded }, error: null } } })
+    const r = await createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW }).overview(['a@1'])
+    assert.deepEqual(r, { todayUploads: 5, uploaded: null }, JSON.stringify(uploaded))
+  }
+  const bad = fakeFetch({ [BACKEND]: { status: 500, json: { data: { today_uploads: 9, uploaded: ['a@1'] } } } })
+  assert.deepEqual(await createApi({ ...CFG, storage, fetchImpl: bad.impl, now: () => NOW }).overview(['a@1']), { todayUploads: null, uploaded: null })
+  assert.deepEqual(await createApi({ ...CFG, storage, fetchImpl: throwingFetch, now: () => NOW }).overview(['a@1']), { todayUploads: null, uploaded: null })
+})
+
+test('overview：后端 401 → 强制续期后重发，重发的请求也带着 shots 参数', async () => {
+  const storage = memoryStorage(VALID)
+  const f = fakeFetch({
+    'grant_type=refresh_token': { status: 200, json: AUTH_ROTATED },
+    [BACKEND]: [
+      { status: 401, json: { data: null, error: 'unauthorized' } },
+      { status: 200, json: { data: { today_uploads: 3, uploaded: ['a@1'] }, error: null } },
+    ],
+  })
+  const r = await createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW }).overview(['a@1'])
+  assert.deepEqual(r, { todayUploads: 3, uploaded: ['a@1'] })
+  const backend = f.calls.filter((c) => c.url.includes(BACKEND))
+  assert.equal(backend.length, 2)
+  assert.equal(backend[1].url, `${CFG.apiBase}${BACKEND}?shots=a%401`)
+  assert.equal(headersOf(backend[1]).Authorization, 'Bearer acc2')
+})

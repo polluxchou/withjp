@@ -106,11 +106,11 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     await storage.remove(SESSION_KEY)
   }
 
-  async function send(method, body, accessToken) {
+  async function send(method, body, accessToken, query) {
     let res
     try {
       // 不手写 Content-Type：FormData 要由 fetch 自己带上 multipart boundary
-      res = await fetchImpl(`${apiBase}${QUICK_SHOT_PATH}`, {
+      res = await fetchImpl(`${apiBase}${QUICK_SHOT_PATH}${query}`, {
         method,
         headers: { Authorization: `Bearer ${accessToken}` },
         body,
@@ -125,23 +125,31 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     return { status: res.status, body: bodyObj }
   }
 
-  async function call(method, body) {
+  async function call(method, body, query = '') {
     const r = await ensureSession()
     if (r.transient) return networkError()
     if (!r.session) return { status: 401, body: { data: null, error: 'unauthorized' } }
-    const first = await send(method, body, r.session.accessToken)
+    const first = await send(method, body, r.session.accessToken, query)
     if (first.status !== 401) return first
     // 令牌被后端拒了：本地时钟偏慢时，存的过期时刻看着还有效，这里强制续期并只重发一次
     // （FormData 可以重复发送）。续期被拒时会话已清掉，原样返回 401。
     const r2 = await ensureSession(true)
-    if (r2.session) return send(method, body, r2.session.accessToken)
+    if (r2.session) return send(method, body, r2.session.accessToken, query)
     if (r2.transient) return networkError()
     return first
   }
 
+  // 今日上传数，顺带核对暂存区：keys 是暂存截图的 shotKey，后台回答其中哪些已经有了（原样回传）。
+  // uploaded 拿不到（请求失败、核对失败、后台还是不认 shots 参数的旧版本）一律给 null，表示「不知道」
+  async function overview(keys = []) {
+    const r = await call('GET', undefined, keys.length ? `?shots=${encodeURIComponent(keys.join(','))}` : '')
+    const data = r.status === 200 && r.body && r.body.data ? r.body.data : null
+    const uploaded = data && Array.isArray(data.uploaded) && data.uploaded.every((k) => typeof k === 'string') ? data.uploaded : null
+    return { todayUploads: data ? data.today_uploads : null, uploaded }
+  }
+
   async function todayUploads() {
-    const r = await call('GET')
-    return r.status === 200 && r.body && r.body.data ? r.body.data.today_uploads : null
+    return (await overview()).todayUploads
   }
 
   function upload({ blob, handle, reading }) {
@@ -155,5 +163,5 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     return call('POST', form)
   }
 
-  return { login, session, logout, todayUploads, upload }
+  return { login, session, logout, todayUploads, overview, upload }
 }
