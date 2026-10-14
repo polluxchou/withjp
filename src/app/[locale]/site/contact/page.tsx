@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
+import { siteAlternates } from '@/lib/site/seo'
 import SiteSection from '@/components/site/SiteSection'
 import SectionHead from '@/components/site/SectionHead'
 import ContactSection from '@/components/site/ContactSection'
@@ -15,7 +16,7 @@ export async function generateMetadata({
   params: { locale: string }
 }): Promise<Metadata> {
   const t = await getTranslations({ locale: params.locale, namespace: 'site.contact' })
-  return { title: t('title') }
+  return { title: t('title'), alternates: siteAlternates(params.locale, '/contact') }
 }
 
 export default function SiteContactPage({ params }: { params: { locale: string } }) {

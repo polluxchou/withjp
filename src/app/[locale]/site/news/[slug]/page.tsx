@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
+import { siteAlternates } from '@/lib/site/seo'
 import { Link } from '@/i18n/navigation'
 import type { Locale } from '@/i18n/routing'
 import { locales } from '@/i18n/routing'
@@ -82,7 +83,11 @@ export async function generateMetadata({
   if (!isNewsSlug(params.slug)) return {}
   const article = await fetchPublishedArticle(params.locale as Locale, params.slug)
   if (!article) return {}
-  return { title: article.title, description: article.lead }
+  return {
+    title: article.title,
+    description: article.lead,
+    alternates: siteAlternates(params.locale, `/news/${params.slug}`),
+  }
 }
 
 export default async function SiteArticlePage({ params }: { params: { locale: string; slug: string } }) {

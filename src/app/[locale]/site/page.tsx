@@ -1,4 +1,6 @@
+import type { Metadata } from 'next'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
+import { siteAlternates } from '@/lib/site/seo'
 import { Link } from '@/i18n/navigation'
 import type { Locale } from '@/i18n/routing'
 import { createServerClient } from '@/lib/supabase/server'
@@ -21,6 +23,12 @@ import { createAutoLinker } from '@/lib/site/autoLink'
 // revalidatePath 按需失效（news-service.ts 的 revalidateNewsPages），这里不
 // 重复实现失效逻辑。
 export const revalidate = false
+
+// 首页的 title 由 site/layout.tsx 提供，这里只补 canonical/hreflang。别把 alternates
+// 挪进 layout 统一给——原因见 src/lib/site/seo.ts 顶部注释。
+export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+  return { alternates: siteAlternates(params.locale, '/') }
+}
 
 // 查询失败时不抛错——之前的实现会让整个首页（hero/vision/services 等与新闻无关
 // 的区块）500，这与「数据库故障不影响官网可读」的口径（docs/public-site.md

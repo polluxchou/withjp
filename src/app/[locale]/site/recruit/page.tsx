@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
+import { siteAlternates } from '@/lib/site/seo'
 import type { SiteRecruitRow } from '@/lib/site/content'
 import SiteSection from '@/components/site/SiteSection'
 import BlueprintFrame from '@/components/site/BlueprintFrame'
@@ -13,7 +14,7 @@ export async function generateMetadata({
   params: { locale: string }
 }): Promise<Metadata> {
   const t = await getTranslations({ locale: params.locale, namespace: 'site.recruit' })
-  return { title: t('eyebrow') }
+  return { title: t('eyebrow'), alternates: siteAlternates(params.locale, '/recruit') }
 }
 
 export default function SiteRecruitPage({ params }: { params: { locale: string } }) {
