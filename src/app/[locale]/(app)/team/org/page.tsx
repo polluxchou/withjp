@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { getOrgSnapshot } from '@/lib/org/service'
 import Header from '@/components/layout/Header'
 import EmptyState from '@/components/ui/EmptyState'
-import OrgView from '@/components/org/OrgView'
+import OrgPageView from '@/components/org/OrgPageView'
 
 export default async function OrgPage() {
   const user = await authGuard()
@@ -24,7 +24,7 @@ export default async function OrgPage() {
       {!snapshot ? (
         <EmptyState title={t('org.empty')} />
       ) : (
-        <OrgView initial={snapshot} />
+        <OrgPageView initial={snapshot} />
       )}
     </div>
   )

@@ -1,123 +1,26 @@
 'use client'
 
-import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Briefcase, Plus, Users, X } from 'lucide-react'
 import SectionCard from '@/components/ui/SectionCard'
 import Tag from '@/components/ui/Tag'
-import Modal from '@/components/ui/Modal'
-import {
-  applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
-  applySetBusinessOwner, applySetItemOwner,
-  applyAddMember, applyRemoveMember, applySetTaskPositions,
-} from '@/lib/org/tree'
-import type { OrgSnapshot, PersonOption } from '@/lib/types'
-
-interface PickerState {
-  title: string
-  allowClear: boolean
-  onSelect: (person: PersonOption | null) => void
-}
-
-function refOf(person: PersonOption | null) {
-  if (!person) return null
-  return {
-    member_type: person.member_type,
-    user_id: person.member_type === 'user' ? person.id : null,
-    creator_id: person.member_type === 'creator' ? person.id : null,
-  }
-}
+import type { OrgSnapshot } from '@/lib/types'
+import type { PickerRequest } from './PersonPicker'
+import type { OrgActions } from './useOrgSnapshot'
 
 // Small "+ label" text-link idiom shared by every add-affordance in this
 // view (add task / add item / add member) — same visual weight as the
 // edit/delete row actions next to it, no Button chrome.
 const ADD_LINK_CLASS = 'mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover'
 
-export default function OrgView({ initial }: { initial: OrgSnapshot }) {
+export default function OrgView({ snapshot, actions, onPick }: {
+  snapshot: OrgSnapshot
+  actions: OrgActions
+  onPick: (request: PickerRequest) => void
+}) {
   const t = useTranslations('team')
-  const [snapshot, setSnapshot] = useState<OrgSnapshot>(initial)
   const canEdit = snapshot.canEdit
   const posName = (id: string) => snapshot.positions.find((p) => p.id === id)?.name ?? id
-  const [picker, setPicker] = useState<PickerState | null>(null)
-
-  // 写 /api/org/*：成功返回受影响行 { id }；失败（网络异常 / 非 2xx）弹出服务端
-  // 原因并返回 null —— 拒绝的写入不会被静默吞掉。调用方拿返回的 id 直接就地更新
-  // 本地快照，不再依赖一次可能失败的整表 GET /api/org，从而做到「改完即时可见」。
-  const api = async (path: string, method: string, body?: unknown): Promise<{ id: string } | null> => {
-    try {
-      const res = await fetch(`/api/org${path}`, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
-      })
-      const json = await res.json().catch(() => null)
-      if (!res.ok) {
-        console.error('Org write failed:', path, method, res.status, json?.error)
-        window.alert(t('org.saveFailed') + (json?.error ? `: ${json.error}` : ` (${res.status})`))
-        return null
-      }
-      return (json?.data as { id: string }) ?? null
-    } catch (e) {
-      console.error('Org write failed:', path, method, e)
-      window.alert(t('org.saveFailed') + `: ${e instanceof Error ? e.message : String(e)}`)
-      return null
-    }
-  }
-
-  const addTask = async (businessId: string) => {
-    const name = window.prompt(t('org.addTask'))
-    if (!name?.trim()) return
-    const res = await api(`/businesses/${businessId}/tasks`, 'POST', { name })
-    if (res) setSnapshot((s) => applyAddTask(s, businessId, res.id, name.trim()))
-  }
-  const deleteTask = async (taskId: string) => {
-    if (!window.confirm(t('org.confirmDelete'))) return
-    if (await api(`/tasks/${taskId}`, 'DELETE')) setSnapshot((s) => applyDeleteTask(s, taskId))
-  }
-  const addItem = async (taskId: string) => {
-    const name = window.prompt(t('org.addItem'))
-    if (!name?.trim()) return
-    const res = await api(`/tasks/${taskId}/items`, 'POST', { name })
-    if (res) setSnapshot((s) => applyAddItem(s, taskId, res.id, name.trim()))
-  }
-  const deleteItem = async (itemId: string) => {
-    if (!window.confirm(t('org.confirmDelete'))) return
-    if (await api(`/items/${itemId}`, 'DELETE')) setSnapshot((s) => applyDeleteItem(s, itemId))
-  }
-  const setBusinessOwner = async (businessId: string, person: PersonOption | null) => {
-    if (await api(`/businesses/${businessId}`, 'PATCH', { owner: refOf(person) })) setSnapshot((s) => applySetBusinessOwner(s, businessId, person))
-  }
-  const setItemOwner = async (itemId: string, person: PersonOption | null) => {
-    if (await api(`/items/${itemId}`, 'PATCH', { owner: refOf(person) })) setSnapshot((s) => applySetItemOwner(s, itemId, person))
-  }
-  const setTaskPositions = async (taskId: string, positionIds: string[]) => {
-    if (await api(`/tasks/${taskId}/positions`, 'PUT', { positionIds })) setSnapshot((s) => applySetTaskPositions(s, taskId, positionIds))
-  }
-  const editTaskPositions = (taskId: string, currentIds: string[]) => {
-    const lines = snapshot.positions.map((p, i) => `${i + 1}. ${p.name}`).join('\n')
-    const current = currentIds
-      .map((pid) => snapshot.positions.findIndex((p) => p.id === pid) + 1)
-      .filter((n) => n > 0)
-      .join(',')
-    const raw = window.prompt(`${t('org.editPositions')}\n${lines}`, current)
-    if (raw === null) return
-    const ids = raw
-      .split(',')
-      .map((s) => Number(s.trim()))
-      .filter((n) => n >= 1 && n <= snapshot.positions.length)
-      .map((n) => snapshot.positions[n - 1].id)
-    setTaskPositions(taskId, ids)
-  }
-  const addMember = async (positionId: string, person: PersonOption) => {
-    const body = refOf(person)
-    if (!body) return
-    const res = await api(`/positions/${positionId}/members`, 'POST', body)
-    if (res) setSnapshot((s) => applyAddMember(s, positionId, res.id, person))
-  }
-  const removeMember = async (positionId: string, memberId: string) => {
-    if (!window.confirm(t('org.confirmDelete'))) return
-    if (await api(`/positions/${positionId}/members/${memberId}`, 'DELETE')) setSnapshot((s) => applyRemoveMember(s, positionId, memberId))
-  }
 
   return (
     <div className="space-y-5">
@@ -133,7 +36,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
               <button
                 type="button"
                 disabled={!canEdit}
-                onClick={() => setPicker({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => setBusinessOwner(b.id, p) })}
+                onClick={() => onPick({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => actions.setBusinessOwner(b.id, p) })}
                 className={`truncate max-w-[12rem] text-xs ${canEdit ? 'text-primary hover:text-primary-hover' : 'text-ink-500 cursor-default'}`}
               >
                 {t('org.owner')}：{b.owner_name ?? t('org.noOwner')}
@@ -150,8 +53,8 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                     <div className="font-medium text-sm text-ink-900 min-w-0 truncate">{task.name}</div>
                     {canEdit && (
                       <div className="flex gap-3 text-xs flex-none">
-                        <button type="button" className="text-primary hover:text-primary-hover" onClick={() => editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
-                        <button type="button" className="text-ink-400 hover:text-danger-text" onClick={() => deleteTask(task.id)}>{t('org.delete')}</button>
+                        <button type="button" className="text-primary hover:text-primary-hover" onClick={() => actions.editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
+                        <button type="button" className="text-ink-400 hover:text-danger-text" onClick={() => actions.deleteTask(task.id)}>{t('org.delete')}</button>
                       </div>
                     )}
                   </div>
@@ -168,18 +71,18 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                           <button
                             type="button"
                             disabled={!canEdit}
-                            onClick={() => setPicker({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => setItemOwner(it.id, p) })}
+                            onClick={() => onPick({ title: t('org.setOwner'), allowClear: true, onSelect: (p) => actions.setItemOwner(it.id, p) })}
                             className={`text-xs ${canEdit ? 'text-primary hover:text-primary-hover' : 'text-ink-500 cursor-default'}`}
                           >
                             {it.owner_name ?? t('org.noOwner')}
                           </button>
-                          {canEdit && <button type="button" className="text-xs text-ink-400 hover:text-danger-text" onClick={() => deleteItem(it.id)}>{t('org.delete')}</button>}
+                          {canEdit && <button type="button" className="text-xs text-ink-400 hover:text-danger-text" onClick={() => actions.deleteItem(it.id)}>{t('org.delete')}</button>}
                         </span>
                       </li>
                     ))}
                   </ul>
                   {canEdit && (
-                    <button type="button" className={ADD_LINK_CLASS} onClick={() => addItem(task.id)}>
+                    <button type="button" className={ADD_LINK_CLASS} onClick={() => actions.addItem(task.id)}>
                       <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addItem')}
                     </button>
                   )}
@@ -188,7 +91,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
             </div>
 
             {canEdit && (
-              <button type="button" className={ADD_LINK_CLASS} onClick={() => addTask(b.id)}>
+              <button type="button" className={ADD_LINK_CLASS} onClick={() => actions.addTask(b.id)}>
                 <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addTask')}
               </button>
             )}
@@ -213,7 +116,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                         <button
                           type="button"
                           aria-label={t('org.removeMemberNamed', { name: memberLabel })}
-                          onClick={() => removeMember(p.id, m.id)}
+                          onClick={() => actions.removeMember(p.id, m.id)}
                           // Split-axis padding: px-1.5 -mx-1.5 widens the click target to
                           // 25px, py-1 -my-1 only to 21px — deliberately less on the vertical
                           // axis than the horizontal, so the target doesn't grow into the
@@ -230,7 +133,7 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
                 })}
               </div>
               {canEdit && (
-                <button type="button" className={ADD_LINK_CLASS} onClick={() => setPicker({ title: t('org.addMember'), allowClear: false, onSelect: (person) => { if (person) addMember(p.id, person) } })}>
+                <button type="button" className={ADD_LINK_CLASS} onClick={() => onPick({ title: t('org.addMember'), allowClear: false, onSelect: (person) => { if (person) actions.addMember(p.id, person) } })}>
                   <Plus className="w-3 h-3" strokeWidth={1.5} />{t('org.addMember')}
                 </button>
               )}
@@ -238,40 +141,6 @@ export default function OrgView({ initial }: { initial: OrgSnapshot }) {
           ))}
         </div>
       </SectionCard>
-
-      {picker && (
-        <Modal open onClose={() => setPicker(null)} title={picker.title}>
-          <div className="space-y-1.5">
-            {picker.allowClear && (
-              <button
-                type="button"
-                onClick={() => { picker.onSelect(null); setPicker(null) }}
-                className="w-full text-left flex items-center px-3 py-2.5 rounded-field border border-line text-sm text-ink-500 hover:bg-line-soft hover:border-line-strong transition-colors"
-              >
-                {t('org.clearOwner')}
-              </button>
-            )}
-            {snapshot.people.map((p) => (
-              <button
-                key={`${p.member_type}:${p.id}`}
-                type="button"
-                onClick={() => { picker.onSelect(p); setPicker(null) }}
-                className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-field border border-line text-sm text-ink-700 hover:bg-line-soft hover:border-line-strong transition-colors"
-              >
-                <Tag
-                  size="sm"
-                  tone={p.member_type === 'creator' ? 'violet' : 'neutral'}
-                  label={p.member_type === 'creator' ? t('org.sourceCreator') : t('org.sourceUser')}
-                />
-                <span className="font-medium text-ink-900">{p.name}</span>
-              </button>
-            ))}
-            {snapshot.people.length === 0 && (
-              <p className="py-6 text-center text-sm text-ink-400">{t('org.empty')}</p>
-            )}
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }
