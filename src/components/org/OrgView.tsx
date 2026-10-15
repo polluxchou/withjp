@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Briefcase, Plus, Users, X } from 'lucide-react'
 import SectionCard from '@/components/ui/SectionCard'
 import Tag from '@/components/ui/Tag'
 import type { OrgSnapshot } from '@/lib/types'
+import InlineNameInput from './InlineNameInput'
 import type { PickerRequest } from './PersonPicker'
 import type { OrgActions } from './useOrgSnapshot'
 
@@ -12,6 +14,8 @@ import type { OrgActions } from './useOrgSnapshot'
 // view (add task / add item / add member) — same visual weight as the
 // edit/delete row actions next to it, no Button chrome.
 const ADD_LINK_CLASS = 'mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover'
+// 就地改名输入框：占满名称原来的位置，字号与名称一致。
+const NAME_INPUT_CLASS = 'min-w-0 flex-1 h-8 rounded-field border border-primary-border bg-surface px-2 text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring'
 
 export default function OrgView({ snapshot, actions, onPick }: {
   snapshot: OrgSnapshot
@@ -21,6 +25,9 @@ export default function OrgView({ snapshot, actions, onPick }: {
   const t = useTranslations('team')
   const canEdit = snapshot.canEdit
   const posName = (id: string) => snapshot.positions.find((p) => p.id === id)?.name ?? id
+  // 正在就地改名的任务或事项（同一时间只改一个）
+  const [editing, setEditing] = useState<{ kind: 'task' | 'item'; id: string } | null>(null)
+  const isEditing = (kind: 'task' | 'item', id: string) => editing?.kind === kind && editing.id === id
 
   return (
     <div className="space-y-5">
@@ -50,9 +57,19 @@ export default function OrgView({ snapshot, actions, onPick }: {
               {b.tasks.map((task) => (
                 <div key={task.id} className="py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="font-medium text-sm text-ink-900 min-w-0 truncate">{task.name}</div>
+                    {isEditing('task', task.id) ? (
+                      <InlineNameInput
+                        initial={task.name}
+                        onSave={(value) => { setEditing(null); actions.renameTask(task.id, value) }}
+                        onCancel={() => setEditing(null)}
+                        className={`${NAME_INPUT_CLASS} font-medium text-sm`}
+                      />
+                    ) : (
+                      <div className="font-medium text-sm text-ink-900 min-w-0 truncate">{task.name}</div>
+                    )}
                     {canEdit && (
                       <div className="flex gap-3 text-xs flex-none">
+                        <button type="button" className="text-primary hover:text-primary-hover" onClick={() => setEditing({ kind: 'task', id: task.id })}>{t('org.rename')}</button>
                         <button type="button" className="text-primary hover:text-primary-hover" onClick={() => actions.editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
                         <button type="button" className="text-ink-400 hover:text-danger-text" onClick={() => actions.deleteTask(task.id)}>{t('org.delete')}</button>
                       </div>
@@ -66,7 +83,16 @@ export default function OrgView({ snapshot, actions, onPick }: {
                   <ul className="mt-3 divide-y divide-line-soft">
                     {task.items.map((it) => (
                       <li key={it.id} className="flex items-center justify-between gap-2 text-sm py-1.5">
-                        <span className="min-w-0 truncate text-ink-700">{it.name}</span>
+                        {isEditing('item', it.id) ? (
+                          <InlineNameInput
+                            initial={it.name}
+                            onSave={(value) => { setEditing(null); actions.renameItem(it.id, value) }}
+                            onCancel={() => setEditing(null)}
+                            className={`${NAME_INPUT_CLASS} text-sm`}
+                          />
+                        ) : (
+                          <span className="min-w-0 truncate text-ink-700">{it.name}</span>
+                        )}
                         <span className="flex items-center gap-2 flex-none">
                           <button
                             type="button"
@@ -76,6 +102,7 @@ export default function OrgView({ snapshot, actions, onPick }: {
                           >
                             {it.owner_name ?? t('org.noOwner')}
                           </button>
+                          {canEdit && <button type="button" className="text-xs text-ink-400 hover:text-primary" onClick={() => setEditing({ kind: 'item', id: it.id })}>{t('org.rename')}</button>}
                           {canEdit && <button type="button" className="text-xs text-ink-400 hover:text-danger-text" onClick={() => actions.deleteItem(it.id)}>{t('org.delete')}</button>}
                         </span>
                       </li>

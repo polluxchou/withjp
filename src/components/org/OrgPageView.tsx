@@ -49,7 +49,7 @@ export default function OrgPageView({ initial, initialToday }: { initial: OrgSna
         ]}
       />
       {view === 'quadrant'
-        ? <QuadrantView snapshot={snapshot} today={today} onUpdateItem={actions.updateItemFields} onPickOwner={pickItemOwner} />
+        ? <QuadrantView snapshot={snapshot} today={today} onUpdateItem={actions.updateItemFields} onPickOwner={pickItemOwner} onRenameItem={actions.renameItem} />
         : <OrgView snapshot={snapshot} actions={actions} onPick={setPicker} />}
       {picker && <PersonPicker request={picker} people={snapshot.people} onClose={() => setPicker(null)} />}
     </div>
