@@ -38,11 +38,9 @@ const BADGE_TONE: Record<DueBadge['tone'], string> = {
 }
 const FOCUS = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring'
 
-// 鼠标 / 触控：指针落在哪个区就算哪个；键盘没有指针，退回矩形相交（覆盖层被方向键移到区中心）。
-const collision: CollisionDetection = (args) => {
-  const hits = pointerWithin(args)
-  return hits.length > 0 ? hits : rectIntersection(args)
-}
+// 鼠标 / 触控：只看指针落在哪个区（落在区外 = 不放）；键盘没有指针坐标，退回矩形相交（覆盖层被方向键移到区中心）。
+const collision: CollisionDetection = (args) =>
+  args.pointerCoordinates ? pointerWithin(args) : rectIntersection(args)
 
 interface Props {
   snapshot: OrgSnapshot
