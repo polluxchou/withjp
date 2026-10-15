@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-// 薪资、全局规则配置、Agent 定义与执行这几组接口的权限表。判定本身的行为在
+// 薪资、全局规则配置、Agent 定义与执行、任务改删这几组接口的权限表。判定本身的行为在
 // admin-gate.test.ts 里测；这里钉住 route.ts 确实接上了它，且顺序是
 // 「鉴权（未登录 401 早退）→ 管理员判定（403 早退）→ 才碰数据库」。
 // route.ts 引用 next/server 与 @/ 别名，node --test 加载不了，只能读源码。
@@ -31,9 +31,7 @@ const LOGIN_PREAMBLE_RE =
   /^export async function \w+\([^)]*\) \{\n\s*const user = await authGuard(?:Strict)?\(\);?\n\s*if \(user instanceof NextResponse\) return user;?\n/
 
 // self = 管理员看全部，其他人只读自己的（目前只有薪资 GET）。
-// execute-admin = 登录即可，但 body.action === 'execute' 那一支仅管理员
-// （PATCH /api/tasks/:id：手动改字段与触发执行共用一个方法）。
-type Access = 'admin' | 'self' | 'login' | 'execute-admin'
+type Access = 'admin' | 'self' | 'login'
 
 // 这些文件里每个导出的方法都必须出现在表里——以后新增方法要先在这里定口径。
 const POLICY: Record<string, Record<string, Access>> = {
@@ -44,7 +42,7 @@ const POLICY: Record<string, Record<string, Access>> = {
   'agents/[id]/route.ts': { PATCH: 'admin' },
   'agents/[id]/execute/route.ts': { POST: 'admin' },
   'agents/test-connection/route.ts': { POST: 'admin' },
-  'tasks/[id]/route.ts': { GET: 'login', PATCH: 'execute-admin', DELETE: 'login' },
+  'tasks/[id]/route.ts': { GET: 'login', PATCH: 'admin', DELETE: 'admin' },
 }
 
 test('每个导出的方法都在权限表里，表里的方法也都还在', () => {
@@ -66,33 +64,30 @@ test('管理员专属的方法：先鉴权，紧接 forbidUnlessAdmin，之后�
       checked++
     }
   }
-  // 当前盘点：薪资写 3 + config PATCH 1 + agents 写 2 + 执行 1 + 测试连接 1。
+  // 当前盘点：薪资写 3 + config PATCH 1 + agents 写 2 + 执行 1 + 测试连接 1
+  // + 任务改删 2（PATCH 的手动更新与 execute 共用一个方法，整个方法仅管理员）。
   // 少了说明表或切分出了问题。
-  assert.equal(checked, 8)
+  assert.equal(checked, 10)
 })
 
-test('执行 Agent 的分支：鉴权之后、调 executeAgent 之前先过 forbidUnlessAdmin', () => {
-  let checked = 0
-  for (const [file, policy] of Object.entries(POLICY)) {
-    const hs = handlers(read(file))
-    for (const [method, access] of Object.entries(policy)) {
-      if (access !== 'execute-admin') continue
-      const body = hs.get(method) ?? ''
-      assert.match(body, LOGIN_PREAMBLE_RE, `${file} ${method} 必须以鉴权开头`)
-      const branch = body.search(
-        /\n\s*if \(body\.action === 'execute'\) \{\n\s*const denied = await forbidUnlessAdmin\(user\.id\);?\n\s*if \(denied\) return denied;?\n/,
-      )
-      assert.ok(branch > 0, `${file} ${method} 的 execute 分支必须先做管理员判定`)
-      assert.equal(body.match(/executeAgent\(/g)?.length, 1, `${file} ${method} 只能有一处 executeAgent`)
-      assert.ok(body.indexOf('executeAgent(') > branch, `${file} ${method} 的 executeAgent 必须在管理员判定之后`)
-      assert.doesNotMatch(body, /status: 403/, `${file} ${method} 的 403 只能来自 forbidUnlessAdmin`)
-      checked++
-    }
-  }
-  assert.equal(checked, 1)
+// PATCH /api/tasks/:id 的手动更新只能写 pickTaskManualUpdate 挑出的字段，校验不过 400；
+// execute 失败时回写的 { status: 'failed' } 是唯一另一处写库。白名单本身的行为在
+// src/lib/tasks/manual-update.test.ts 里测。
+test('任务手动更新：只把白名单挑出的字段写库', () => {
+  const src = read('tasks/[id]/route.ts')
+  assert.match(src, /^import \{ pickTaskManualUpdate \} from '@\/lib\/tasks\/manual-update'$/m)
+  const body = handlers(src).get('PATCH') ?? ''
+  const gate = body.search(
+    /\n\s*const picked = pickTaskManualUpdate\(body\)\n\s*if \(!picked\.ok\) return NextResponse\.json\(\{ data: null, error: picked\.error \}, \{ status: 400 \}\)\n/,
+  )
+  assert.ok(gate > 0, '手动更新要先过 pickTaskManualUpdate，校验不过 400')
+  const writes = Array.from(body.matchAll(/\.update\(([^)]*)\)/g), (m) => m[1]).sort()
+  assert.deepEqual(writes, ['picked.patch', "{ status: 'failed' }"])
+  assert.ok(body.indexOf('.update(picked.patch)') > gate, '写库必须在白名单校验之后')
+  assert.doesNotMatch(body, /\.(?:insert|upsert)\(/)
 })
 
-// 以后再加调用 executeAgent 的接口，必须先进权限表，并且整个方法或执行分支要求管理员。
+// 以后再加调用 executeAgent 的接口，必须先进权限表，并且整个方法要求管理员。
 test('所有调用 executeAgent 的接口都在权限表里且要求管理员', () => {
   const callers = (readdirSync(API, { recursive: true }) as string[])
     .filter((f) => f.endsWith('route.ts') && /\bexecuteAgent\(/.test(read(f)))
@@ -101,7 +96,7 @@ test('所有调用 executeAgent 的接口都在权限表里且要求管理员', 
   for (const file of callers) {
     for (const [method, body] of Array.from(handlers(read(file)))) {
       if (!/\bexecuteAgent\(/.test(body)) continue
-      assert.ok(['admin', 'execute-admin'].includes(POLICY[file]?.[method]), `${file} ${method} 调用了 executeAgent 却没要求管理员`)
+      assert.equal(POLICY[file]?.[method], 'admin', `${file} ${method} 调用了 executeAgent 却没要求管理员`)
     }
   }
 })
