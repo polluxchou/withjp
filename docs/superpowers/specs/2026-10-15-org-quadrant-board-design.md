@@ -186,7 +186,7 @@ export function validateItemPatch(patch: unknown): { ok: true; value: ItemPatch 
 
 ### 6.1 视图切换
 
-`/team/org` 顶部加 `SegmentedControl`：「四象限 | 结构」，默认四象限。视图写进 URL 查询参数 `view=structure`（缺省即四象限）。「结构」= 现有 `OrgView` 原样，岗位配人区块也只在结构视图里显示。
+`/team/org` 顶部加 `SegmentedControl`：「四象限 | 结构」，默认四象限（10-15 按 pollux 意见改名为「先做什么 | 谁做什么」，见 `team.org.viewQuadrant` / `viewStructure`；本文其余处仍沿用原名指代这两个视图）。视图写进 URL 查询参数 `view=structure`（缺省即四象限）。「结构」= 现有 `OrgView` 原样，岗位配人区块也只在结构视图里显示。
 
 组件拆分：
 
@@ -217,7 +217,7 @@ export function validateItemPatch(patch: unknown): { ok: true; value: ItemPatch 
 两层，用 URL 查询参数 `q` 区分（`q1`…`q4` / `unrated` / `done`；缺省为首层），系统返回手势能回到首层。切换时用 `window.history.pushState`（Next 14.2 会同步到 `useSearchParams`，不触发服务端重取）。
 
 - **首层**：标题 + 一行摘要（「未完成 N 项 · 逾期 n · 卡住 n」）+ 负责人筛选（横向滚动）+ 2×2 方块。每块：名称、副标、大号计数、「逾期 n · 卡住 n」或「无逾期」。① 用最重的底色。下面两个入口：「待评估 N」「已完成 N」。
-- **列表层**：返回按钮「四象限」+ 当前格名称与计数 + 负责人筛选（数字为该格内各人条数）+ 事项卡片列表，排序同 2.4。点卡片打开底部面板。
+- **列表层**：返回按钮「四象限」（现文案「先做什么」）+ 当前格名称与计数 + 负责人筛选（数字为该格内各人条数）+ 事项卡片列表，排序同 2.4。点卡片打开底部面板。
 
 所有可点区域高度 ≥ 44px。
 
