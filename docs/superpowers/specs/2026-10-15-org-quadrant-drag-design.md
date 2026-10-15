@@ -129,7 +129,7 @@ export function nextZone(zones: ZoneRect[], from: { x: number; y: number }, dir:
 1. 记下该事项这几个字段的旧值（`pickItemFields`，见下）。
 2. 立即用 `applyUpdateItemFields` 更新本地快照。
 3. 发 PATCH；成功则结束。
-4. 失败：弹出原因（沿用现有 `api()` 的 alert），并把这几个字段恢复成旧值——**仅当这期间同一事项没有更新的写入发起过**（每个事项一个递增序号，失败的写入序号不是最新就不回滚，避免覆盖后来的修改）。
+4. 失败：弹出原因（沿用现有 `api()` 的 alert），并按字段回滚——只回滚「最近一次发起的写入就是这次」的字段，值回到该字段最近一次写入成功（已落库）的值；这期间有更新的写入发起的字段，交给那次写入的结果决定。判定逻辑在 `src/lib/org/writeLedger.ts`（纯函数，node --test 覆盖）。
 
 ```ts
 // src/lib/org/tree.ts
@@ -154,7 +154,8 @@ export function pickItemFields(snapshot: OrgSnapshot, itemId: string, keys: (key
 | `src/lib/org/quadrant.ts` | 新增 `addDays`、`planDrop`、`confirmAskedDate` 与类型 |
 | `src/lib/org/dragZones.ts` | 新文件：`nextZone` |
 | `src/lib/org/tree.ts` | 新增 `pickItemFields` |
-| `src/components/org/useOrgSnapshot.ts` | `updateItemFields` 改乐观更新 + 序号回滚；返回旧值供撤销 |
+| `src/lib/org/writeLedger.ts` | 新文件：乐观更新的写入账本（`createWriteLedger` / `beginWrite` / `settleWrite`） |
+| `src/components/org/useOrgSnapshot.ts` | `updateItemFields` 改乐观更新 + 写入账本回滚；返回旧值供撤销 |
 | `src/components/org/QuadrantView.tsx` | 包一层 `DndContext`；事项改为可拖、区域改为可放；接入询问框、提示条 |
 | `src/components/org/QuadrantDnd.tsx` | 新文件：拖拽相关的小组件——`DraggableItem`、`DropZone`、`DragPreview`、手机 `DropDock`、键盘 `coordinateGetter` 的接线 |
 | `src/components/org/DueDatePrompt.tsx` | 新文件：2.3 的询问框 |
@@ -173,6 +174,7 @@ export function pickItemFields(snapshot: OrgSnapshot, itemId: string, keys: (key
   - `confirmAskedDate`：早于下限、等于下限、非法字符串、年份越界。
 - **`dragZones.test.ts`**（新文件）：四个方向各一例；同方向多个候选取最近；偏离主轴的候选被惩罚；该方向没有区域返回 null。
 - **`tree.test.ts`**：`pickItemFields` 取值正确；事项不存在返回 null；只取指定字段。
+- **`writeLedger.test.ts`**（新文件）：单次写入成功不回滚、之后失败回到已落库值；单次写入失败回到写入前的值；case A（不同字段，前者失败只回滚自己）；case B（同字段两笔都失败，回到库里原值而非前一笔乐观值）；先成功后失败；乱序成功不被迟到的旧响应覆盖；不同事项互不影响。
 - 审查时对上述测试跑突变探针（已提交基线上），交击杀表。
 - **视觉与交互**（生产构建 + `/login` 下的临时夹具页，不提交）：
   - 桌面 1440：用真实鼠标拖动（浏览器工具的按下-移动-松开）把待评估事项拖进 ①，确认日期自动设为 today+7、提示条出现、撤销后恢复；① → ② 弹询问框，取消不变、确定后落格；拖进已完成再拖回；原地点击仍打开详情。
@@ -187,5 +189,5 @@ export function pickItemFields(snapshot: OrgSnapshot, itemId: string, keys: (key
 ## 8. 风险与取舍
 
 - **自动设日期会覆盖原来的截止日**（例如原来 30 天后，拖进紧急列变成 7 天后）。这是「横向 = 改日期」的直接结果；用提示条明示新日期并提供撤销来兜底。
-- **乐观更新的回滚只看同一事项的最新写入**：极端情况下（先拖 A 成功、再拖 A 失败），回滚只回到失败那次之前的值，不会再往前。
+- **回滚按「事项 × 字段」跟踪并回到已落库的值**：仍假设服务端按请求顺序落库；同一事项的两次写入若在服务端乱序完成，界面可能与库暂时不一致，刷新即恢复。
 - **新依赖**：`@dnd-kit/core` 约 12KB（gzip 后），只在 `/team/org` 的客户端包里。
