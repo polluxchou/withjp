@@ -4,7 +4,7 @@
 
 **Goal:** 让管理员在四象限视图里直接拖动事项完成分级、改重要/紧急、结项与重开（桌面拖、手机长按拖到底部放置区、键盘操作），拖完立即生效并可撤销。
 
-**Architecture:** 拖放规则（`planDrop`）与键盘跳区（`nextZone`）是 `src/lib` 里的纯函数，用 `node --test` 覆盖；拖拽接线用 `@dnd-kit/core`，拆在 `QuadrantDnd.tsx`，`QuadrantView` 只负责编排；写入沿用 `PATCH /api/org/items/[id]`，`useOrgSnapshot.updateItemFields` 改成乐观更新 + 按事项序号回滚。
+**Architecture:** 拖放规则（`planDrop`）与键盘跳区（`nextZone`）是 `src/lib` 里的纯函数，用 `node --test` 覆盖；拖拽接线用 `@dnd-kit/core`，拆在 `QuadrantDnd.tsx`，`QuadrantView` 只负责编排；写入沿用 `PATCH /api/org/items/[id]`，`useOrgSnapshot.updateItemFields` 改成乐观更新 + 按字段的写入账本回滚。
 
 **Tech Stack:** Next.js 14.2（App Router）、React 18、next-intl、Tailwind 设计 token、`@dnd-kit/core@6.3.1`、`node --test --experimental-strip-types`。
 

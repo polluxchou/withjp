@@ -98,13 +98,14 @@ export function confirmAskedDate(plan: { base: ItemPatch; minDate: string }, val
 - 只在**列表层**（`?q=`）生效：长按卡片 250ms 起拖（`TouchSensor` 的 `delay: 250, tolerance: 5`），长按前的滑动仍是页面滚动。
 - 起拖后底部滑出**放置区**（固定在视口底部，覆盖页面下半部）：上面 2×2 四个象限小方块（带名称与色调），下面两个横条「待评估」「已完成」。当前所在的目标置灰不可放。
 - 拖到目标上放下 → 按 2.1 执行；在放置区以外松手 → 取消。放下或取消后放置区收起。
+- **原地松手 = 取消**：长按 250ms 后放置区才弹出，可能恰好盖在还没动的手指下方，此时松手不能算放下。触控拖拽的位移小于 10px 就松手，按取消处理（`dragZones.ts` 的 `isStationaryTouchDrop`，经 `DndContext` 的 `cancelDrop` 接入；取消走 `onDragCancel`，不写入）。鼠标与键盘不受此限。
 - 所有目标高度 ≥ 44px。
 - 卡片需设 `touch-action: manipulation`（dnd-kit 对按住延迟起拖的要求）。
 
 ### 3.4 键盘
 
 - 焦点在事项上：**Enter** 打开详情（现有行为不变）；**Space** 拿起。`KeyboardSensor` 的 `keyboardCodes.start` 只设 `Space`——默认还含 `Enter`，会吞掉打开详情。
-- 拿起后：**方向键**在可放区之间跳转（按方向找最近的可放区，见 3.5），**Space** 放下，**Esc** 取消。
+- 拿起后：**方向键**在可放区之间跳转（按方向找最近的可放区，见 3.5），**Space 或 Enter** 放下（`end: ['Space', 'Enter']`，拖到一半按 Enter 不应既不放下又去打开详情），**Esc** 取消。
 - 屏幕阅读器播报拿起、经过、放下、取消（dnd-kit 的 `announcements`，文案走 i18n）。
 
 ### 3.5 键盘跳转的纯函数
@@ -142,25 +143,28 @@ export function pickItemFields(snapshot: OrgSnapshot, itemId: string, keys: (key
 - 每次拖放写入后，视图底部居中出现提示条（`role="status"`，5 秒后自动消失）：
   - 一般：「已移到「立即做」」
   - 自动设日期：「已移到「立即做」，截止日设为 10-22」
-  - 结项 / 重开：「已标为完成」/「已重新打开」
+  - 结项 / 重开：「已标为完成」/「已重新打开，移到「立即做」」
+  - 重开且自动设日期：「已重新打开，移到「立即做」，截止日设为 10-22」（`dropReopenedDue`；2.2 要求只要自动设了日期，提示条就写明）
+  - 选哪一条文案由 `quadrant.ts` 的纯函数 `dropNoticeKind(target, wasDone, autoDue)` 决定：拖进已完成 → `dropDone`；否则从已完成拖出 → `dropReopened` / `dropReopenedDue`；其余 → `dropMoved` / `dropMovedDue`（带 `MM-DD` 的两条以 `autoDue` 非空为准）。
 - 提示条带「撤销」按钮：用 4.1 记下的旧值再发一次写入（同样乐观更新）。
 - 新的拖放会替换上一条提示；撤销后提示条消失。
+- 写入失败（界面已按 4.1 回滚、已弹出原因）时，这条「已移到…」已不成立，随即收起，避免「撤销」再发一次注定失败的请求；只收起它自己，期间若已有新的拖放则不动新提示。
 - 只有拖放有撤销；详情面板里的修改不加。
 
 ## 5. 组件
 
 | 文件 | 改动 |
 | --- | --- |
-| `src/lib/org/quadrant.ts` | 新增 `addDays`、`planDrop`、`confirmAskedDate` 与类型 |
-| `src/lib/org/dragZones.ts` | 新文件：`nextZone` |
+| `src/lib/org/quadrant.ts` | 新增 `addDays`、`planDrop`、`confirmAskedDate`、`dropNoticeKind` 与类型 |
+| `src/lib/org/dragZones.ts` | 新文件：`nextZone`、`isStationaryTouchDrop`（触控原地松手 = 取消，见 3.3） |
 | `src/lib/org/tree.ts` | 新增 `pickItemFields` |
 | `src/lib/org/writeLedger.ts` | 新文件：乐观更新的写入账本（`createWriteLedger` / `beginWrite` / `settleWrite`） |
-| `src/components/org/useOrgSnapshot.ts` | `updateItemFields` 改乐观更新 + 写入账本回滚；返回旧值供撤销 |
+| `src/components/org/useOrgSnapshot.ts` | `updateItemFields` 改乐观更新，按字段由写入账本回滚，并 resolve 这次写入是否成功（提示条据此收起）；撤销用的旧值不在这里取，由 `QuadrantView` 在写入前用 `pickItemFields` 取 |
 | `src/components/org/QuadrantView.tsx` | 包一层 `DndContext`；事项改为可拖、区域改为可放；接入询问框、提示条 |
 | `src/components/org/QuadrantDnd.tsx` | 新文件：拖拽相关的小组件——`DraggableItem`、`DropZone`、`DragPreview`、手机 `DropDock`、键盘 `coordinateGetter` 的接线 |
 | `src/components/org/DueDatePrompt.tsx` | 新文件：2.3 的询问框 |
 | `src/components/org/DropNotice.tsx` | 新文件：4.2 的提示条 |
-| `messages/{zh,en,ja}.json` | `team.org.*` 新文案（询问框、提示条、撤销、读屏播报、放置区标题），三语同步 |
+| `messages/{zh,en,ja}.json` | `team.org.*` 新文案（询问框、提示条含 `dropReopenedDue`、撤销、读屏播报、放置区标题），三语同步 |
 | `src/lib/changelog/entries.ts` | 更新日志 |
 | `package.json` | 新依赖；登记 `dragZones.test.ts` |
 
@@ -171,8 +175,9 @@ export function pickItemFields(snapshot: OrgSnapshot, itemId: string, keys: (key
 - **`quadrant.test.ts`**：
   - `addDays`：跨月、跨年、闰日。
   - `planDrop` 每条规则：待评估 → 四格（含自动设日期与不设）；② 截止日 30 天后 → ①（日期被改成 today+7）；① 截止日 3 天后 → ②（askDate，min = today+8）；① 已逾期 → ④（askDate）；① → ③（只翻重要，日期不动）；已完成 → ①（status todo + 日期规则）；已完成 → 待评估（status todo + 重要清空）；任意 → 已完成；同格 → noop；「卡住」状态移动后保持。
-  - `confirmAskedDate`：早于下限、等于下限、非法字符串、年份越界。
-- **`dragZones.test.ts`**（新文件）：四个方向各一例；同方向多个候选取最近；偏离主轴的候选被惩罚；该方向没有区域返回 null。
+  - `confirmAskedDate`：早于下限、等于下限、非法字符串、年份越界、下限之后但不存在的日期（如 11-31）。
+  - `dropNoticeKind`：五种文案（`dropDone`、`dropReopened`、`dropReopenedDue`、`dropMoved`、`dropMovedDue`）各一例。
+- **`dragZones.test.ts`**（新文件）：四个方向各一例；同方向多个候选取最近；偏离主轴的候选被惩罚（含一例专门区分副轴 1 倍与 2 倍权重）；该方向没有区域返回 null；`isStationaryTouchDrop`：触控 + 零位移 / 小位移 → 取消，位移 = 10px 不取消，鼠标不取消。
 - **`tree.test.ts`**：`pickItemFields` 取值正确；事项不存在返回 null；只取指定字段。
 - **`writeLedger.test.ts`**（新文件）：单次写入成功不回滚、之后失败回到已落库值；单次写入失败回到写入前的值；case A（不同字段，前者失败只回滚自己）；case B（同字段两笔都失败，回到库里原值而非前一笔乐观值）；先成功后失败；乱序成功不被迟到的旧响应覆盖；不同事项互不影响。
 - 审查时对上述测试跑突变探针（已提交基线上），交击杀表。
