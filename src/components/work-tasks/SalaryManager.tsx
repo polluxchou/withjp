@@ -11,6 +11,7 @@ import Tag from '@/components/ui/Tag'
 import EmptyState from '@/components/ui/EmptyState'
 import LoadingState from '@/components/ui/LoadingState'
 import ErrorState from '@/components/ui/ErrorState'
+import { writeFailureMessage } from '@/lib/auth/admin-gate'
 import type { AgentRole } from '@/lib/types'
 
 interface SalaryRecord {
@@ -46,6 +47,7 @@ export default function SalaryManager() {
   const [editing,  setEditing]  = useState<SalaryRecord | null>(null)
   const [deleting, setDeleting] = useState<SalaryRecord | null>(null)
   const [delLoading, setDelLoading] = useState(false)
+  const [delError,   setDelError]   = useState<string | null>(null)
 
   const [form, setForm] = useState({
     user_id:        '',
@@ -136,10 +138,16 @@ export default function SalaryManager() {
       })
     }
 
-    const json = await res.json()
+    const json = await res.json().catch(() => null)
     setSaving(false)
 
-    if (json.error) { setFormError(json.error); return }
+    if (!res.ok || json?.error) {
+      setFormError(writeFailureMessage(res.status, json?.error, {
+        forbidden: tCommon('adminOnlyAction'),
+        fallback: tCommon('saveFailed'),
+      }))
+      return
+    }
 
     setCreating(false)
     setEditing(null)
@@ -149,8 +157,17 @@ export default function SalaryManager() {
   async function handleDelete() {
     if (!deleting) return
     setDelLoading(true)
-    await fetch(`/api/user-salary/${deleting.id}`, { method: 'DELETE' })
+    setDelError(null)
+    const res = await fetch(`/api/user-salary/${deleting.id}`, { method: 'DELETE' }).catch(() => null)
     setDelLoading(false)
+    if (!res?.ok) {
+      const json = await res?.json().catch(() => null)
+      setDelError(writeFailureMessage(res?.status ?? 0, json?.error, {
+        forbidden: tCommon('adminOnlyAction'),
+        fallback: tCommon('deleteFailed'),
+      }))
+      return
+    }
     setDeleting(null)
     load()
   }
@@ -307,7 +324,7 @@ export default function SalaryManager() {
       </Modal>
 
       {/* Delete Modal */}
-      <Modal open={!!deleting} onClose={() => setDeleting(null)} title={tCommon('confirmDelete')}>
+      <Modal open={!!deleting} onClose={() => { setDeleting(null); setDelError(null) }} title={tCommon('confirmDelete')}>
         {deleting && (
           <div className="space-y-4">
             <p className="text-sm text-ink-700">
@@ -317,8 +334,11 @@ export default function SalaryManager() {
                 strong: (chunks) => <span className="font-semibold">{chunks}</span>,
               })}
             </p>
+            {delError && (
+              <div className="text-sm text-danger-text bg-danger-soft border border-danger-border rounded-field px-3 py-2" role="alert">{delError}</div>
+            )}
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setDeleting(null)}>{tCommon('cancel')}</Button>
+              <Button variant="secondary" onClick={() => { setDeleting(null); setDelError(null) }}>{tCommon('cancel')}</Button>
               <Button variant="danger" loading={delLoading} onClick={handleDelete}>{tCommon('delete')}</Button>
             </div>
           </div>

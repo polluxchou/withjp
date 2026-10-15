@@ -25,6 +25,9 @@
     "errorTitle": "Something went wrong",
     "retry": "Retry",
     "loadFailed": "Failed to load. Please retry.",
+    "saveFailed": "Save failed. Please try again.",
+    "deleteFailed": "Delete failed. Please try again.",
+    "adminOnlyAction": "Only admins can do this",
     "prev": "Previous",
     "next": "Next",
     "uploadImage": "Upload Image",
@@ -199,7 +202,8 @@
     "testFail": "Failed",
     "save": "Save",
     "saving": "Saving…",
-    "saved": "Saved ✓"
+    "saved": "Saved ✓",
+    "readOnlyNotice": "Only admins can change the model"
   },
   "devices": {
     "chartTitle": "Cumulative device spend",
@@ -562,7 +566,8 @@
       "labourCost": "Labour cost",
       "taskCount": "Tasks",
       "taskCountValue": "{count, plural, =1 {1 task} other {# tasks}}",
-      "tasksItem": "{count, plural, =1 {1 item} other {# items}}"
+      "tasksItem": "{count, plural, =1 {1 item} other {# items}}",
+      "costAdminOnly": "Others' costs are visible to admins only"
     },
     "table": {
       "member": "Member",
@@ -1587,6 +1592,9 @@
     "addFacility": "Fixtures"
   },
   "config": {
+    "rules": {
+      "readOnlyNotice": "Only admins can edit these rules. You're viewing them read-only."
+    },
     "tabs": {
       "rules": "Rules",
       "changelog": "Changelog"

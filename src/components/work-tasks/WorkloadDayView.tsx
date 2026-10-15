@@ -16,12 +16,14 @@ import {
   buildUserWorkloads,
   aggregateWorkload,
   WORKING_HOURS_PER_DAY,
+  type CostVisibility,
 } from '@/lib/work-tasks/cost'
 import type { WorkTask, AgentRole } from '@/lib/types'
 
 interface Props {
   tasks:      WorkTask[]
   salaryMap:  Record<string, number>
+  costs:      CostVisibility
   userMeta:   Record<string, { name: string; user_code: string; role: AgentRole }>
   date:       string
   onRefresh:  () => void
@@ -40,7 +42,7 @@ function fmtRmb(v: number) {
   return '¥' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRefresh }: Props) {
+export default function WorkloadDayView({ tasks, salaryMap, costs, userMeta, date, onRefresh }: Props) {
   const t = useTranslations('workTasks')
   const tCommon = useTranslations('common')
   const [editing,   setEditing]   = useState<WorkTask | null>(null)
@@ -81,7 +83,11 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
         <StatBand>
           <Stat label={t('summary.totalHours')}   value={t('summary.hoursValue', { hours: summary.totalHours })} />
           <Stat label={t('summary.participants')} value={t('summary.participantsValue', { count: summary.totalPeople })} />
-          <Stat label={t('summary.labourCost')}   value={fmtRmb(summary.totalLabourCost)} />
+          <Stat
+            label={t('summary.labourCost')}
+            value={costs.totals ? fmtRmb(summary.totalLabourCost) : '—'}
+            note={costs.totals ? undefined : t('summary.costAdminOnly')}
+          />
           <Stat label={t('summary.taskCount')}    value={t('summary.taskCountValue', { count: tasks.filter((task) => task.status !== 'cancelled').length })} />
         </StatBand>
       </div>
@@ -96,8 +102,12 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
                 <span className="font-medium text-ink-700">{t(`department.${dept}`)}</span>
                 <span className="text-ink-400 mx-1">·</span>
                 <span className="text-ink-700 tabular-nums">{hours}h</span>
-                <span className="text-ink-400 mx-1">·</span>
-                <span className="text-ink-700 tabular-nums">{fmtRmb(cost)}</span>
+                {costs.totals && (
+                  <>
+                    <span className="text-ink-400 mx-1">·</span>
+                    <span className="text-ink-700 tabular-nums">{fmtRmb(cost)}</span>
+                  </>
+                )}
               </div>
             ))}
         </div>
@@ -137,7 +147,9 @@ export default function WorkloadDayView({ tasks, salaryMap, userMeta, date, onRe
                     ))}
                   </div>
                   <Tag variant="soft" size="sm" tone={utilisationTone(row.total_hours)} label={`${row.total_hours}h`} />
-                  <span className="text-xs text-ink-400 tabular-nums">{fmtRmb(row.daily_cost * (row.total_hours / WORKING_HOURS_PER_DAY))}</span>
+                  <span className="text-xs text-ink-400 tabular-nums">
+                    {costs.user(row.user_id) ? fmtRmb(row.daily_cost * (row.total_hours / WORKING_HOURS_PER_DAY)) : <span title={t('summary.costAdminOnly')}>—</span>}
+                  </span>
                 </div>
               </div>
 

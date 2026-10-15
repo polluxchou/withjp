@@ -15,12 +15,14 @@ import {
   toDateStr,
   WORKING_HOURS_PER_DAY,
   WORKING_DAYS_PER_MONTH,
+  type CostVisibility,
 } from '@/lib/work-tasks/cost'
 import type { WorkTask, AgentRole } from '@/lib/types'
 
 interface Props {
   tasks:     WorkTask[]
   salaryMap: Record<string, number>
+  costs:     CostVisibility
   userMeta:  Record<string, { name: string; user_code: string; role: AgentRole }>
   onRefresh: () => void
 }
@@ -29,7 +31,7 @@ function fmtRmb(v: number) {
   return '¥' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefresh }: Props) {
+export default function WorkloadMonthView({ tasks, salaryMap, costs, userMeta, onRefresh }: Props) {
   const t = useTranslations('workTasks')
   const tCommon = useTranslations('common')
   const now    = new Date()
@@ -147,8 +149,12 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
                 <span className="text-ink-700 tabular-nums">{t('summary.participantsValue', { count: people.size })}</span>
                 <span className="text-ink-400">·</span>
                 <span className="text-ink-700 tabular-nums">{hours}h</span>
-                <span className="text-ink-400">·</span>
-                <span className="text-ink-700 tabular-nums">{fmtRmb(cost)}</span>
+                {costs.totals && (
+                  <>
+                    <span className="text-ink-400">·</span>
+                    <span className="text-ink-700 tabular-nums">{fmtRmb(cost)}</span>
+                  </>
+                )}
               </div>
             ))}
         </div>
@@ -205,7 +211,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
                   <Td align="center">
                     <Tag variant="soft" size="sm" tone={utilisationTone(monthHours(u.id) / 22)} label={`${monthHours(u.id)}h`} />
                   </Td>
-                  <Td align="center" numeric>{fmtRmb(monthCost(u.id))}</Td>
+                  <Td align="center" numeric>{costs.user(u.id) ? fmtRmb(monthCost(u.id)) : <span title={t('summary.costAdminOnly')}>—</span>}</Td>
                 </Tr>
               ))
             )}
@@ -228,7 +234,7 @@ export default function WorkloadMonthView({ tasks, salaryMap, userMeta, onRefres
                   {sortedUsers.reduce((s, u) => s + monthHours(u.id), 0)}h
                 </td>
                 <td className="px-3 py-2 text-center text-ink-700 tabular-nums">
-                  {fmtRmb(sortedUsers.reduce((s, u) => s + monthCost(u.id), 0))}
+                  {costs.totals ? fmtRmb(sortedUsers.reduce((s, u) => s + monthCost(u.id), 0)) : <span title={t('summary.costAdminOnly')}>—</span>}
                 </td>
               </tr>
             </tfoot>
