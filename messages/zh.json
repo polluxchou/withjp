@@ -248,6 +248,7 @@
       "dropMovedDue": "已移到「{zone}」，截止日设为 {date}",
       "dropDone": "已标为完成",
       "dropReopened": "已重新打开，移到「{zone}」",
+      "dropReopenedDue": "已重新打开，移到「{zone}」，截止日设为 {date}",
       "undo": "撤销",
       "askDateTitle": "设置新的截止日",
       "askDateBody": "放进不紧急的一列，截止日需在 {date} 之后。",

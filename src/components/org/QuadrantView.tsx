@@ -16,8 +16,9 @@ import DueDatePrompt from './DueDatePrompt'
 import DropNotice from './DropNotice'
 import { DragPreview, DraggableButton, DropDock, DropZone, zoneKeyboardCoordinates } from './QuadrantDnd'
 import { writeSearchParams } from './searchParams'
+import { isStationaryTouchDrop } from '@/lib/org/dragZones'
 import {
-  QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, dueBadge, flattenItems, groupItems, ownerOptions,
+  QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, dropNoticeKind, dueBadge, flattenItems, groupItems, ownerOptions,
   parseLevel, parseOwnerFilter, planDrop, quadrantStats,
 } from '@/lib/org/quadrant'
 import { pickItemFields } from '@/lib/org/tree'
@@ -45,7 +46,8 @@ const collision: CollisionDetection = (args) =>
 interface Props {
   snapshot: OrgSnapshot
   today: string
-  onUpdateItem: (itemId: string, fields: ItemPatch) => void
+  /** resolve 写入是否成功；失败时界面已回滚。 */
+  onUpdateItem: (itemId: string, fields: ItemPatch) => Promise<boolean>
   onPickOwner: (itemId: string) => void
 }
 
@@ -79,10 +81,11 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
-    // Enter 留给「打开详情」，只用 Space 拿起 / 放下（spec 3.4）
+    // 没在拖时 Enter 留给「打开详情」，只用 Space 拿起（spec 3.4）；拖起后 Space / Enter 都算放下，
+    // 否则拖到一半按 Enter 会既不放下、又掉进按钮的点击去打开详情。
     useSensor(KeyboardSensor, {
       coordinateGetter: zoneKeyboardCoordinates,
-      keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space'] },
+      keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter'] },
     }),
   )
 
@@ -112,14 +115,23 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
   // 写入 + 提示条。撤销用的旧值在写入前从当前快照取。
   const commitDrop = (row: QuadrantRow, target: Bucket, patch: ItemPatch, autoDue: string | null) => {
     const undo = pickItemFields(snapshot, row.id, Object.keys(patch) as (keyof ItemPatch)[])
-    onUpdateItem(row.id, patch)
     const zone = title(target)
-    const message = target === 'done' ? t('org.dropDone')
-      : row.status === 'done' ? t('org.dropReopened', { zone })
-        : autoDue ? t('org.dropMovedDue', { zone, date: autoDue.slice(5) })
+    const kind = dropNoticeKind(target, row.status === 'done', autoDue)
+    const message = kind.key === 'dropDone' ? t('org.dropDone')
+      : 'date' in kind
+        ? (kind.key === 'dropReopenedDue'
+          ? t('org.dropReopenedDue', { zone, date: kind.date })
+          : t('org.dropMovedDue', { zone, date: kind.date }))
+        : kind.key === 'dropReopened' ? t('org.dropReopened', { zone })
           : t('org.dropMoved', { zone })
     noticeSeq.current += 1
-    setNotice({ key: noticeSeq.current, message, itemId: row.id, undo })
+    const key = noticeSeq.current
+    setNotice({ key, message, itemId: row.id, undo })
+    // 写入失败（界面已回滚）时收起这条「已移到…」：它已不成立，撤销也只会再发一次注定失败的请求。
+    // 只收起自己这一条：期间若又有新的拖放，key 已变，不动它。
+    onUpdateItem(row.id, patch).then((ok) => {
+      if (!ok) setNotice((n) => (n && n.key === key ? null : n))
+    })
   }
 
   const onDragStart = ({ active }: DragStartEvent) => {
@@ -399,6 +411,10 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragCancel={() => setDragging(null)}
+      // 触控长按拿起后手指几乎没动就松开 = 取消：放置区可能正好出现在手指下方，原地松手不能算放下。
+      // 取消的落放会走 onDragCancel（上面已清掉 dragging）。TouchEvent 在桌面 Safari 上不存在，先判类型。
+      cancelDrop={({ activatorEvent, delta }) =>
+        isStationaryTouchDrop(typeof TouchEvent !== 'undefined' && activatorEvent instanceof TouchEvent, delta)}
       accessibility={{ announcements, screenReaderInstructions: { draggable: t('org.dragInstructions') } }}
     >
       <div>

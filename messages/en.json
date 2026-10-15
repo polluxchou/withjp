@@ -248,6 +248,7 @@
       "dropMovedDue": "Moved to {zone}, due date set to {date}",
       "dropDone": "Marked as done",
       "dropReopened": "Reopened and moved to {zone}",
+      "dropReopenedDue": "Reopened and moved to {zone}, due date set to {date}",
       "undo": "Undo",
       "askDateTitle": "Set a new due date",
       "askDateBody": "To move it out of the urgent column, the due date must be after {date}.",

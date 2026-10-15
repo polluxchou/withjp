@@ -30,7 +30,8 @@ export interface OrgActions {
   editTaskPositions: (taskId: string, currentIds: string[]) => void
   addMember: (positionId: string, person: PersonOption) => Promise<void>
   removeMember: (positionId: string, memberId: string) => Promise<void>
-  updateItemFields: (itemId: string, fields: ItemPatch) => Promise<void>
+  /** 乐观更新后写库；resolve 写入是否成功（失败时界面已回滚）。 */
+  updateItemFields: (itemId: string, fields: ItemPatch) => Promise<boolean>
 }
 
 /** 业务分工页的共享快照与写入封装：「结构」「四象限」两个视图共用，任一视图改完另一个立即可见。 */
@@ -119,13 +120,15 @@ export function useOrgSnapshot(initial: OrgSnapshot): { snapshot: OrgSnapshot; a
     if (await api(`/positions/${positionId}/members/${memberId}`, 'DELETE')) setSnapshot((s) => applyRemoveMember(s, positionId, memberId))
   }
   // 先改界面再写库（spec 4.1）；回滚按「事项 × 字段」由写入账本决定，回到已落库的值。
-  const updateItemFields = async (itemId: string, fields: ItemPatch) => {
+  // 返回这次写入是否成功：调用方（拖放提示条）据此收起已不成立的「已移到…」。
+  const updateItemFields = async (itemId: string, fields: ItemPatch): Promise<boolean> => {
     const current = pickItemFields(snapshot, itemId, Object.keys(fields) as (keyof ItemPatch)[]) ?? {}
     const write = beginWrite(ledger.current, itemId, fields, current)
     setSnapshot((s) => applyUpdateItemFields(s, itemId, fields))
     const ok = await api(`/items/${itemId}`, 'PATCH', fields)
     const revert = settleWrite(ledger.current, write, fields, ok !== null)
     if (revert) setSnapshot((s) => applyUpdateItemFields(s, itemId, revert))
+    return ok !== null
   }
 
   return {
