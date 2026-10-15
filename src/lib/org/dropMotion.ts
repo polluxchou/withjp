@@ -55,7 +55,7 @@ export function withLeaving<T extends { id: string }>(
 ): { row: T; leaving: boolean }[] {
   const out = list.map((row) => ({ row, leaving: false }))
   if (!leaving || list.some((r) => r.id === leaving.row.id)) return out
-  const at = Math.max(0, Math.min(leaving.index, out.length))
-  out.splice(at, 0, { row: leaving.row, leaving: true })
+  // 找不到原位置（findIndex 得 -1）时放到最前：splice 的负下标会从末尾倒数。超过长度时 splice 自己会放到末尾。
+  out.splice(Math.max(0, leaving.index), 0, { row: leaving.row, leaving: true })
   return out
 }

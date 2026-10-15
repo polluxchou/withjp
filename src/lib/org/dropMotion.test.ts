@@ -57,6 +57,8 @@ test('withLeaving: 被拖走的卡片插回原位置并标 leaving，其余不�
 test('withLeaving: 越界下标夹到两端；列表里已有它（撤销后回来了）就不再插', () => {
   assert.equal(withLeaving([a, b], { row: gone, index: 9 })[2].row, gone)
   assert.equal(withLeaving([a, b], { row: gone, index: -3 })[0].row, gone)
+  // findIndex 没找到（-1）：放最前，而不是被 splice 当成「倒数第一个之前」
+  assert.equal(withLeaving([a, b, c], { row: gone, index: -1 })[0].row, gone)
   assert.deepEqual(withLeaving([], { row: gone, index: 0 }), [{ row: gone, leaving: true }])
   const back = withLeaving([a, gone, b], { row: gone, index: 0 })
   assert.equal(back.length, 3)
