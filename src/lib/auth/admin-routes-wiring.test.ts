@@ -59,7 +59,10 @@ test('管理员专属的方法：先鉴权，紧接 forbidUnlessAdmin，之后�
     const hs = handlers(read(file))
     for (const [method, access] of Object.entries(policy)) {
       if (access !== 'admin') continue
-      assert.match(hs.get(method) ?? '', ADMIN_PREAMBLE_RE, `${file} ${method} 必须以鉴权 + 管理员判定开头`)
+      const body = hs.get(method) ?? ''
+      assert.match(body, ADMIN_PREAMBLE_RE, `${file} ${method} 必须以鉴权 + 管理员判定开头`)
+      // 前端把 403 一律显示成「仅管理员可以执行此操作」，别的拒绝理由不能再用 403。
+      assert.doesNotMatch(body, /status: 403/, `${file} ${method} 的 403 只能来自 forbidUnlessAdmin`)
       checked++
     }
   }
@@ -82,6 +85,7 @@ test('执行 Agent 的分支：鉴权之后、调 executeAgent 之前先过 forb
       assert.ok(branch > 0, `${file} ${method} 的 execute 分支必须先做管理员判定`)
       assert.equal(body.match(/executeAgent\(/g)?.length, 1, `${file} ${method} 只能有一处 executeAgent`)
       assert.ok(body.indexOf('executeAgent(') > branch, `${file} ${method} 的 executeAgent 必须在管理员判定之后`)
+      assert.doesNotMatch(body, /status: 403/, `${file} ${method} 的 403 只能来自 forbidUnlessAdmin`)
       checked++
     }
   }
