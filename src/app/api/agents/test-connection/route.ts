@@ -2,14 +2,18 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
+import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
 import type { ModelProvider } from '@/lib/types'
 
 // POST /api/agents/test-connection
 // Body: { provider: ModelProvider, model_name: string }
 // Makes a minimal single-token call to verify credentials and connectivity.
+// 仅管理员：用服务端的供应商 key 真实发请求（同 PATCH /api/agents/:id 的模型配置）。
 export async function POST(req: NextRequest) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
+  const denied = await forbidUnlessAdmin(user.id);
+  if (denied) return denied;
   const body = await req.json()
   const { provider, model_name } = body as { provider: ModelProvider; model_name: string }
 

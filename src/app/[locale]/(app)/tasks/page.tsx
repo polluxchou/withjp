@@ -25,7 +25,7 @@ import { hrefWithQuery, resolveNavQuery } from '@/lib/nav/nav'
 import { costVisibility, toDateStr } from '@/lib/work-tasks/cost'
 import { toneOf } from '@/lib/ui/status-tone'
 import { useCurrentUser } from '@/lib/auth/useCurrentUser'
-import { isAdmin } from '@/lib/auth/admin-gate'
+import { isAdmin, writeFailureMessage } from '@/lib/auth/admin-gate'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import type { Task, TaskStatus, WorkTask, AgentRole } from '@/lib/types'
 
@@ -39,6 +39,9 @@ export default function TasksPage() {
   const [aiError,    setAiError]    = useState<string | null>(null)
   const [filter,     setFilter]     = useState<TaskStatus | 'all'>('all')
   const [executing,  setExecuting]  = useState<string | null>(null)
+  const [execError,  setExecError]  = useState<{ taskId: string; message: string } | null>(null)
+  // 执行 Agent 仅管理员（接口 403）：其他人不渲染「运行」按钮。
+  const canExecute = isAdmin(useCurrentUser())
   const t = useTranslations('tasks')
   const tCommon = useTranslations('common')
 
@@ -167,11 +170,19 @@ export default function TasksPage() {
 
   async function executeTask(taskId: string) {
     setExecuting(taskId)
-    await fetch(`/api/tasks/${taskId}`, {
+    setExecError(null)
+    const res = await fetch(`/api/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'execute' }),
-    })
+    }).catch(() => null)
+    if (!res?.ok) {
+      const json = await res?.json().catch(() => null)
+      setExecError({ taskId, message: writeFailureMessage(res?.status ?? 0, json?.error, {
+        forbidden: tCommon('adminOnlyAction'),
+        fallback: tCommon('runFailed'),
+      }) })
+    }
     await loadAI()
     setExecuting(null)
   }
@@ -254,7 +265,7 @@ export default function TasksPage() {
               {tasks.map((task) => (
                 <div key={task.id}>
                   <TaskCard task={task} />
-                  {task.status === 'pending' && (
+                  {canExecute && task.status === 'pending' && (
                     <div className="pl-7 pt-1.5">
                       <Button
                         size="sm"
@@ -265,6 +276,9 @@ export default function TasksPage() {
                         {tCommon('run')} {task.agent?.name ?? t('agent')}
                       </Button>
                     </div>
+                  )}
+                  {execError?.taskId === task.id && (
+                    <p className="pl-7 pt-1 text-xs text-danger-text">{execError.message}</p>
                   )}
                   {task.status === 'done' && task.output && (
                     <details className="pl-7 pt-1">
