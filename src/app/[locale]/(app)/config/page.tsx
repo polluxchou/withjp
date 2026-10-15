@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
 import SectionCard from '@/components/ui/SectionCard'
 import LoadingState from '@/components/ui/LoadingState'
 import { Textarea } from '@/components/ui/Field'
 import { Save, Settings } from 'lucide-react'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
+import { isAdmin, writeFailureMessage } from '@/lib/auth/admin-gate'
 import type { Config } from '@/lib/types'
 
 export default function ConfigPage() {
@@ -15,6 +18,12 @@ export default function ConfigPage() {
   const [saving,   setSaving]   = useState<string | null>(null)
   const [edits,    setEdits]    = useState<Record<string, string>>({})
   const [saved,    setSaved]    = useState<Record<string, boolean>>({})
+  const [errors,   setErrors]   = useState<Record<string, string | null>>({})
+  const t = useTranslations('config.rules')
+  const tCommon = useTranslations('common')
+  // PATCH /api/config 仅管理员；身份没确认前也按只读渲染，不先露出保存按钮。
+  const me = useCurrentUser()
+  const canWrite = isAdmin(me)
 
   useEffect(() => {
     fetch('/api/config')
@@ -41,12 +50,28 @@ export default function ConfigPage() {
       setSaving(null)
       return
     }
-    await fetch('/api/config', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: config.key, value, description: config.description }),
-    })
-    setSaving(null)
+    setErrors((e) => ({ ...e, [config.key]: null }))
+    try {
+      const res = await fetch('/api/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: config.key, value, description: config.description }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        const message = writeFailureMessage(res.status, json?.error, {
+          forbidden: tCommon('adminOnlyAction'),
+          fallback: tCommon('saveFailed'),
+        })
+        setErrors((e) => ({ ...e, [config.key]: message }))
+        return
+      }
+    } catch {
+      setErrors((e) => ({ ...e, [config.key]: tCommon('saveFailed') }))
+      return
+    } finally {
+      setSaving(null)
+    }
     setSaved((s) => ({ ...s, [config.key]: true }))
     setTimeout(() => setSaved((s) => ({ ...s, [config.key]: false })), 2000)
   }
@@ -81,6 +106,10 @@ export default function ConfigPage() {
         subtitle="Rule engine — controls revenue splits, ROI thresholds, agent behavior, and automation triggers"
       />
 
+      {me && !canWrite && (
+        <p className="mb-4 text-xs text-ink-500">{t('readOnlyNotice')}</p>
+      )}
+
       {loading ? (
         <LoadingState variant="plain" />
       ) : (
@@ -92,7 +121,7 @@ export default function ConfigPage() {
                 key={config.id}
                 icon={<Settings />}
                 title={meta?.label ?? config.key}
-                actions={
+                actions={canWrite && (
                   <Button
                     size="sm"
                     variant={saved[config.key] ? 'secondary' : 'primary'}
@@ -105,7 +134,7 @@ export default function ConfigPage() {
                       <><Save className="w-3 h-3" /> Save</>
                     )}
                   </Button>
-                }
+                )}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <code className="text-xs bg-muted-soft text-ink-500 px-1.5 py-0.5 rounded">{config.key}</code>
@@ -130,7 +159,11 @@ export default function ConfigPage() {
                   rows={Math.max(4, (edits[config.key] ?? '').split('\n').length)}
                   aria-label={meta?.label ?? config.key}
                   className="font-mono"
+                  readOnly={!canWrite}
                 />
+                {errors[config.key] && (
+                  <p className="text-xs text-danger-text mt-1.5" role="alert">{errors[config.key]}</p>
+                )}
               </SectionCard>
             )
           })}
