@@ -10,12 +10,14 @@
 // 不暴露明细），以及物品/场地页按 expense_id 展示的关联金额——非管理员在那
 // 两页拿不到支出列表，关联金额就不显示。
 
-export interface ExpenseAccessActor {
-  is_admin: boolean
-}
+import { isAdmin, type AdminActor } from '../auth/admin-gate.ts'
+
+// 管理员判据与薪资/配置/Agent 那一组共用 admin-gate.ts 的 isAdmin()，
+// 不在这里另写一份 is_admin 比较。
+export type ExpenseAccessActor = AdminActor
 
 export function canAccessExpenses(actor: ExpenseAccessActor | null | undefined): boolean {
-  return actor?.is_admin === true
+  return isAdmin(actor)
 }
 
 export const EXPENSES_ADMIN_ONLY_MESSAGE = '支出管理仅限管理员访问'
