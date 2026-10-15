@@ -90,7 +90,7 @@ export function confirmAskedDate(plan: { base: ItemPatch; minDate: string }, val
 - **可拖**：四格里的事项行、「待评估」区的事项、「已完成」区展开后的事项行。
 - **可放**：四个格子（整块 section）、「待评估」区、「已完成」区（收起时整个标题栏也能放）。
 - **起拖**：鼠标按下后移动 ≥ 6px 才开始拖（`MouseSensor` 的 `distance: 6`）；原地点击仍是打开详情。
-- **拖动中**：原事项半透明；跟手的是一个精简卡片（`DragOverlay`：事项名 + 负责人）；悬停的可放区高亮（primary 色描边 + 浅底）；当前所在区不高亮。
+- **拖动中**：原事项半透明；跟手的是一个精简卡片（`DragOverlay`：事项名 + 负责人），卡片中心对准指针（`QuadrantDnd.tsx` 的 `centerOverlayOnPointer`，几何在 `dragZones.ts` 的 `centerOnPointer`；键盘拖不适用）；悬停的可放区高亮（primary 色描边 + 浅底，浅底画在可放区的 `::before` 上，不与它自带的 `bg-*` 叠在同一元素）；当前所在区不高亮。
 - **放下**：按 2.1 执行；放在可放区以外 → 取消，不写入。
 
 ### 3.3 手机（<768px）
@@ -106,7 +106,8 @@ export function confirmAskedDate(plan: { base: ItemPatch; minDate: string }, val
 
 - 焦点在事项上：**Enter** 打开详情（现有行为不变）；**Space** 拿起。`KeyboardSensor` 的 `keyboardCodes.start` 只设 `Space`——默认还含 `Enter`，会吞掉打开详情。
 - 拿起后：**方向键**在可放区之间跳转（按方向找最近的可放区，见 3.5），**Space 或 Enter** 放下（`end: ['Space', 'Enter']`，拖到一半按 Enter 不应既不放下又去打开详情），**Esc** 取消。
-- 屏幕阅读器播报拿起、经过、放下、取消（dnd-kit 的 `announcements`，文案走 i18n）。
+- 屏幕阅读器播报拿起、经过、取消（dnd-kit 的 `announcements`，文案走 i18n）。放进某区后不由 dnd-kit 播报：结果由提示条的 live region 播一次（含自动设的日期），需要问日期时由对话框自己被读出（4.2）。
+- 事项的 `aria-roledescription` 用 `team.org.dragRoleDescription`（dnd-kit 默认是英文 draggable）。
 
 ### 3.5 键盘跳转的纯函数
 
@@ -120,6 +121,8 @@ export function nextZone(zones: ZoneRect[], from: { x: number; y: number }, dir:
 ```
 
 规则：只考虑中心点严格位于该方向的半平面内的区域；距离 = 主轴距离 + 2 × 副轴距离（偏向正方向的邻居）；取最小者。
+
+dnd-kit 的 `KeyboardSensor` 移动前会先滚「可滚动祖先」，起拖时祖先里有来源格自己的清单（`overflow-y-auto`），同一列上下跳会先把清单滚到头、覆盖层不动。所以键盘传感器换成 `ZoneKeyboardSensor`：只把可放区（`data-drop-zone`）外面的滚动容器交给它，目标区在视口外时照样滚页面，格内清单不参与。
 
 ## 4. 写入、乐观更新与撤销
 
@@ -140,14 +143,16 @@ export function pickItemFields(snapshot: OrgSnapshot, itemId: string, keys: (key
 
 ### 4.2 撤销
 
-- 每次拖放写入后，视图底部居中出现提示条（`role="status"`，5 秒后自动消失）：
+- 每次拖放写入后，视图底部居中出现提示条（5 秒后自动消失；鼠标悬停或焦点在条内时暂停，离开后按剩余时间继续，至少再显示 1.5 秒；计时纯函数在 `src/lib/org/dropNotice.ts`）：
   - 一般：「已移到「立即做」」
   - 自动设日期：「已移到「立即做」，截止日设为 10-22」
   - 结项 / 重开：「已标为完成」/「已重新打开，移到「立即做」」
   - 重开且自动设日期：「已重新打开，移到「立即做」，截止日设为 10-22」（`dropReopenedDue`；2.2 要求只要自动设了日期，提示条就写明）
   - 选哪一条文案由 `quadrant.ts` 的纯函数 `dropNoticeKind(target, wasDone, autoDue)` 决定：拖进已完成 → `dropDone`；否则从已完成拖出 → `dropReopened` / `dropReopenedDue`；其余 → `dropMoved` / `dropMovedDue`（带 `MM-DD` 的两条以 `autoDue` 非空为准）。
-- 提示条带「撤销」按钮：用 4.1 记下的旧值再发一次写入（同样乐观更新）。
+- 提示条带「撤销」按钮：用 4.1 记下的旧值再发一次写入（同样乐观更新）。提示条在 DOM 末尾，键盘用户 5 秒内 Tab 不到，所以显示期间 Ctrl+Z / ⌘Z 也能撤销（焦点在输入控件里、或详情面板 / 询问框开着时不接管）。
+- 读屏播报：常驻的 `role="status"` live region（视觉隐藏）在每条新提示时插入一个带 key 的节点，同样文案的两次拖放也各播一次；可见的提示条本身不再带 `role`。
 - 新的拖放会替换上一条提示；撤销后提示条消失。
+- 又开始拖动时提示条隐藏并冻结计时（它会挡住手机的放置区）：拖完放下由新提示替换；取消拖动则按剩余时间继续显示，撤销仍有效。
 - 写入失败（界面已按 4.1 回滚、已弹出原因）时，这条「已移到…」已不成立，随即收起，避免「撤销」再发一次注定失败的请求；只收起它自己，期间若已有新的拖放则不动新提示。
 - 只有拖放有撤销；详情面板里的修改不加。
 
