@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
 import {
   updateExpense,
@@ -13,7 +13,7 @@ type Params = { params: { id: string } }
 
 // PATCH /api/expenses/:id
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const actor = await getActorProfile(user.id)
@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 // DELETE /api/expenses/:id
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const actor  = await getActorProfile(user.id)

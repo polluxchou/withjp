@@ -3,11 +3,11 @@ import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
 import { getActorProfile } from '@/lib/auth/actor'
 import { FORBIDDEN_BODY, salaryReadScope } from '@/lib/auth/admin-gate'
 import { createServerClient } from '@/lib/supabase/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 
 // GET /api/user-salary  — list all salary records (joined with user)
 export async function GET(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
   // 管理员看全部（可按 user_id 筛）；其他人只读自己的记录，指名要别人的 403。
   const scope = salaryReadScope(await getActorProfile(user.id), user.id, req.nextUrl.searchParams.get('user_id'))
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/user-salary  — create a salary record
 export async function POST(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
   const denied = await forbidUnlessAdmin(user.id)
   if (denied) return denied

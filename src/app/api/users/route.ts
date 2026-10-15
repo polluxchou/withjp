@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 import { formatSupabaseError } from '@/lib/supabase/errors'
 
 // GET /api/users — list WithJP user profiles for operator assignment
 export async function GET() {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const db = createServerClient()

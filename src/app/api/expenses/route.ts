@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 import {
   listExpenses,
   createExpense,
@@ -11,7 +11,7 @@ import { canAccessExpenses, EXPENSES_ADMIN_ONLY_MESSAGE } from '@/lib/expenses/a
 
 // GET /api/expenses
 export async function GET(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   if (!canAccessExpenses(await getActorProfile(user.id))) {
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/expenses
 export async function POST(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   if (!canAccessExpenses(await getActorProfile(user.id))) {

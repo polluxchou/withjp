@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 
 // GET /api/finance — list records, optionally filtered by creator
 export async function GET(req: NextRequest) {
-  const user = await authGuard();
+  const user = await authGuardStrict();
   if (user instanceof NextResponse) return user;
   const db = createServerClient()
   const creatorId = req.nextUrl.searchParams.get('creator_id')
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/finance — record revenue/cost for a creator
 export async function POST(req: NextRequest) {
-  const user = await authGuard();
+  const user = await authGuardStrict();
   if (user instanceof NextResponse) return user;
   const db = createServerClient()
   const body = await req.json()

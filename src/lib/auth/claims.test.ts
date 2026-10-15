@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { authedUserFromClaims } from './claims.ts'
+import { authedUserFromClaims, authedUserFromUser } from './claims.ts'
 
 const CLAIMS = {
   iss: 'https://example.supabase.co/auth/v1',
@@ -44,11 +44,49 @@ test('claims without a subject are unauthenticated', () => {
 // 性能收益只来自「热路径不再调 getUser()」，单测测不到延迟，用接线断言兜住回退。
 const read = (p: string) => readFileSync(new URL(p, import.meta.url), 'utf8')
 
-test('authGuard verifies via getClaims(), not a per-request getUser() round-trip', () => {
+// guard.ts 里两个守卫各自的函数体（authGuard 在前，authGuardStrict 在后）。
+const guardBodies = () => {
   const src = read('./guard.ts')
-  assert.match(src, /auth\.getClaims\(\)/)
-  assert.doesNotMatch(src, /auth\.getUser\(/)
-  assert.match(src, /authedUserFromClaims\(/)
+  const fastAt = src.indexOf('export async function authGuard(')
+  const strictAt = src.indexOf('export async function authGuardStrict(')
+  assert.ok(fastAt >= 0 && strictAt > fastAt, 'guard.ts 应先定义 authGuard 再定义 authGuardStrict')
+  return { fast: src.slice(fastAt, strictAt), strict: src.slice(strictAt) }
+}
+
+test('authGuard verifies via getClaims(), not a per-request getUser() round-trip', () => {
+  const { fast } = guardBodies()
+  assert.match(fast, /auth\.getClaims\(\)/)
+  assert.doesNotMatch(fast, /auth\.getUser\(/)
+  assert.match(fast, /authedUserFromClaims\(/)
+})
+
+test('authGuardStrict keeps the per-request getUser() revocation check', () => {
+  const { strict } = guardBodies()
+  assert.match(strict, /auth\.getUser\(\)/)
+  assert.doesNotMatch(strict, /auth\.getClaims\(/)
+  assert.match(strict, /authedUserFromUser\(/)
+})
+
+test('authedUserFromUser maps a getUser() user to the same narrowed shape', () => {
+  const user = {
+    id: CLAIMS.sub,
+    email: 'member@example.com',
+    user_metadata: { name: 'Member' },
+    app_metadata: { provider: 'email' },
+    aud: 'authenticated',
+    created_at: '2026-01-01T00:00:00Z',
+  }
+  assert.deepEqual(authedUserFromUser(user), {
+    id: CLAIMS.sub,
+    email: 'member@example.com',
+    user_metadata: { name: 'Member' },
+  })
+})
+
+test('authedUserFromUser treats a missing user as unauthenticated', () => {
+  assert.equal(authedUserFromUser(null), null)
+  assert.equal(authedUserFromUser(undefined), null)
+  assert.equal(authedUserFromUser({ id: '', user_metadata: {} }), null)
 })
 
 test('middleware session check verifies via getClaims(), not getUser()', () => {
