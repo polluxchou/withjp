@@ -36,3 +36,10 @@ export function nextZone(zones: ZoneRect[], from: { x: number; y: number }, dir:
   }
   return best
 }
+
+/** 触控长按后手指几乎没动就松开：视为取消（放置区可能恰好出现在手指下方，原地松手不能算放下）。 */
+export const STATIONARY_TOUCH_PX = 10
+
+export function isStationaryTouchDrop(isTouch: boolean, delta: { x: number; y: number }): boolean {
+  return isTouch && Math.hypot(delta.x, delta.y) < STATIONARY_TOUCH_PX
+}

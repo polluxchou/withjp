@@ -4,7 +4,7 @@ import test from 'node:test'
 import {
   QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, daysUntil, dueBadge, flattenItems, groupItems,
   ownerKeyOf, ownerOptions, ownerToCarry, pageStop, parseLevel, parseOwnerFilter, quadrantStats, tokyoToday,
-  dueInputToPatch, isCalendarDate, validateItemPatch, addDays, confirmAskedDate, planDrop,
+  dueInputToPatch, isCalendarDate, validateItemPatch, addDays, confirmAskedDate, dropNoticeKind, planDrop,
 } from './quadrant.ts'
 import type { QuadrantItemInput, QuadrantRow } from './quadrant.ts'
 import type { OrgSnapshot, TaskItem } from '../types/index.ts'
@@ -407,7 +407,21 @@ test('confirmAskedDate: 早于下限、非法、越界返回 null；等于下限
   assert.equal(confirmAskedDate(plan, '2026-10-22'), null)
   assert.equal(confirmAskedDate(plan, ''), null)
   assert.equal(confirmAskedDate(plan, '2026-02-30'), null)
+  // 下限之后、但并不存在的日期（11 月只有 30 天）
+  assert.equal(confirmAskedDate(plan, '2026-11-31'), null)
   assert.equal(confirmAskedDate(plan, '2100-01-01'), null)
   assert.deepEqual(confirmAskedDate(plan, '2026-10-23'), { is_important: true, due_date: '2026-10-23' })
   assert.deepEqual(confirmAskedDate(plan, '2026-12-01'), { is_important: true, due_date: '2026-12-01' })
+})
+
+test('dropNoticeKind: 完成 → dropDone；从已完成拖出、自动设日期、普通移动共五种文案', () => {
+  // 拖进已完成：一律只报「已标为完成」，与原先状态、有无自动日期无关
+  assert.deepEqual(dropNoticeKind('done', false, null), { key: 'dropDone' })
+  assert.deepEqual(dropNoticeKind('done', true, '2026-10-22'), { key: 'dropDone' })
+  // 从已完成拖出：有自动截止日要报日期（spec 2.2），没有则只报重开
+  assert.deepEqual(dropNoticeKind('q1', true, '2026-10-22'), { key: 'dropReopenedDue', date: '10-22' })
+  assert.deepEqual(dropNoticeKind('q2', true, null), { key: 'dropReopened' })
+  // 未完成事项：自动设了截止日 → dropMovedDue；否则 dropMoved
+  assert.deepEqual(dropNoticeKind('q3', false, '2026-12-01'), { key: 'dropMovedDue', date: '12-01' })
+  assert.deepEqual(dropNoticeKind('unrated', false, null), { key: 'dropMoved' })
 })

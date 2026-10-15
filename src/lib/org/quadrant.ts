@@ -332,3 +332,15 @@ export function confirmAskedDate(plan: { base: ItemPatch; minDate: string }, val
   if (!isCalendarDate(value) || value < plan.minDate) return null
   return { ...plan.base, due_date: value }
 }
+
+export type DropNoticeKind =
+  | { key: 'dropDone' }
+  | { key: 'dropReopened' | 'dropMoved' }
+  | { key: 'dropReopenedDue' | 'dropMovedDue'; date: string }
+
+/** 拖放后提示条用哪条文案（spec 2.2 / 4.2）。date 为 'MM-DD'。 */
+export function dropNoticeKind(target: DropTarget, wasDone: boolean, autoDue: string | null): DropNoticeKind {
+  if (target === 'done') return { key: 'dropDone' }
+  if (wasDone) return autoDue ? { key: 'dropReopenedDue', date: autoDue.slice(5) } : { key: 'dropReopened' }
+  return autoDue ? { key: 'dropMovedDue', date: autoDue.slice(5) } : { key: 'dropMoved' }
+}
