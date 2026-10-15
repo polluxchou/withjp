@@ -6,11 +6,17 @@ import {
   httpStatusForError,
   type CreateExpenseInput,
 } from '@/lib/expenses/service'
+import { getActorProfile } from '@/lib/auth/actor'
+import { canAccessExpenses, EXPENSES_ADMIN_ONLY_MESSAGE } from '@/lib/expenses/access'
 
 // GET /api/expenses
 export async function GET(req: NextRequest) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+
+  if (!canAccessExpenses(await getActorProfile(user.id))) {
+    return NextResponse.json({ data: null, error: EXPENSES_ADMIN_ONLY_MESSAGE }, { status: 403 })
+  }
 
   const params = req.nextUrl.searchParams
   const result = await listExpenses({
@@ -38,6 +44,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+
+  if (!canAccessExpenses(await getActorProfile(user.id))) {
+    return NextResponse.json({ data: null, error: EXPENSES_ADMIN_ONLY_MESSAGE }, { status: 403 })
+  }
 
   let body: CreateExpenseInput
   try {

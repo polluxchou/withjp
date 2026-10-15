@@ -7,6 +7,7 @@ import {
 } from '@/lib/expenses/service'
 import { createWorkTaskFromIntent } from '@/lib/work-tasks/service'
 import { canModify, getActorProfile, type ActorProfile } from '@/lib/auth/actor'
+import { canAccessExpenses, EXPENSES_ADMIN_ONLY_MESSAGE } from '@/lib/expenses/access'
 import type { Expense } from '@/lib/types'
 import {
   ExpenseIntentSchema,
@@ -92,6 +93,7 @@ export type ExecuteErrorCode =
   | 'parser_failed'      // no model on the ladder produced a valid intent
   | 'executor_failed'    // staging or applying the intent failed
   | 'bad_request'        // empty body / invalid JSON
+  | 'forbidden'          // 支出管理仅管理员可用（src/lib/expenses/access.ts）
   | 'unknown'
 
 export interface ExecuteContext {
@@ -111,6 +113,12 @@ export async function executeIntent(
   intent:  ExpenseIntent,
   ctx:     ExecuteContext,
 ): Promise<ExecuteResult> {
+  // 支出管理仅管理员可用：查询和写入一起挡。放在 schema 复核之前——非管理员
+  // 的支出意图不论长什么样都不往下走，也就不会进 pending_actions。
+  if (!canAccessExpenses(await getActorProfile(ctx.userId))) {
+    return { kind: 'error', code: 'forbidden', message: EXPENSES_ADMIN_ONLY_MESSAGE }
+  }
+
   // P1-G — Defense in depth: re-parse the intent with the same schema before
   // executing. Catches any caller that bypassed the parser or mutated the
   // object between parse and execute.
@@ -204,8 +212,11 @@ export async function applyPendingAction(
     const intent = row.intent_json as WorkTaskCreateIntent
     const r = await createWorkTaskFromIntent(intent.payload, actor.id)
     if (r.error) err = r.error as unknown as ServiceError; else appliedId = r.data.id
+  } else if (!canAccessExpenses(actor)) {
+    // Default: expense — 仅管理员。暂存时挡过一次，这里再挡一次：管理员身份
+    // 可能在暂存与确认之间被撤销，pending_actions 里也可能有收紧前的旧行。
+    err = { code: 'forbidden', message: EXPENSES_ADMIN_ONLY_MESSAGE }
   } else {
-    // Default: expense
     const intent = row.intent_json as ExpenseWriteIntent
     if (intent.op === 'create') {
       const r = await createExpense({

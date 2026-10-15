@@ -309,6 +309,13 @@
           "如有需要，换一句更具体的描述重试"
         ]
       },
+      "forbidden": {
+        "title": "支出管理仅限管理员使用",
+        "body": "支出的查询、新增、修改和删除目前只对管理员开放。",
+        "suggestions": [
+          "如确实需要，请联系管理员开通权限"
+        ]
+      },
       "badRequest": {
         "title": "请求格式有问题",
         "body": "请输入一段非空文字再试。",
@@ -907,6 +914,8 @@
   "expenses": {
     "title": "支出管理",
     "subtitle": "共 {count} 条记录",
+    "adminOnlyTitle": "支出管理仅限管理员访问",
+    "adminOnlyHint": "如需查看或录入支出，请联系管理员。",
     "addExpense": "添加支出",
     "editExpense": "编辑支出",
     "duplicateExpense": "复制支出",

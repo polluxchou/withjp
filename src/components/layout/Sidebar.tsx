@@ -5,7 +5,7 @@ import { Link, usePathname } from '@/i18n/navigation'
 // 才对得上）；useSearchParams next-intl 没导出，走 next/navigation。
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   LayoutDashboard,
   Users,
@@ -37,7 +37,7 @@ import {
   X,
 } from 'lucide-react'
 import type { NavGroup, NavItem, NavLeaf } from '@/lib/nav/nav'
-import { hrefWithQuery, isGroup, isNavActive } from '@/lib/nav/nav'
+import { hrefWithQuery, isGroup, isNavActive, visibleNavItems } from '@/lib/nav/nav'
 import LanguageSwitcher from './LanguageSwitcher'
 import ProfileEditor from '@/components/profile/ProfileEditor'
 import NotificationBell from '@/components/notifications/NotificationBell'
@@ -93,7 +93,7 @@ const NAV = [
     key: 'costManagement',
     icon: Wallet,
     children: [
-      { href: '/expenses',         key: 'expenses',        icon: Receipt },
+      { href: '/expenses',         key: 'expenses',        icon: Receipt, adminOnly: true },
       { href: '/items',            key: 'items',           icon: Package },
       { href: '/guild-venue',      key: 'venue',           icon: MapIcon },
       { href: '/finance-forecast', key: 'financeForecast', icon: TrendingUp },
@@ -314,6 +314,8 @@ export default function Sidebar() {
 
   useEffect(() => { loadProfile() }, [])
 
+  const navItems = useMemo(() => visibleNavItems(NAV_ITEMS, profile?.is_admin === true), [profile])
+
   // Restore persisted state on mount
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(LS_KEY) : null
@@ -522,7 +524,7 @@ export default function Sidebar() {
           size so the bottom items (profile / logout) are always anchored at
           the visible bottom instead of being pushed off-screen. */}
       <nav className={`flex-1 min-h-0 py-4 space-y-0.5 overflow-y-auto scrollbar-thin ${effectiveCollapsed ? 'px-2' : 'px-3'}`}>
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           if (!isGroup(item)) return renderLeaf(item)
 
           // Icon-only sidebar: render the group as one icon with a hover flyout.
