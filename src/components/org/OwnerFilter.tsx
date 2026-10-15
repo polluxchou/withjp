@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 import type { OwnerFilter as OwnerFilterValue, OwnerOption } from '@/lib/org/quadrant'
 
-/** 负责人筛选条。scroll=true（手机）时单行横滑、按钮高 44px；否则换行排列。 */
+/** 负责人筛选条。scroll=true（手机）时单行横滑、不画滚动条（右缘被裁的半截按钮就是可滑提示）、按钮高 44px；否则换行排列。 */
 export default function OwnerFilter({ options, value, onChange, scroll = false }: {
   options: OwnerOption[]
   value: OwnerFilterValue
@@ -19,7 +19,7 @@ export default function OwnerFilter({ options, value, onChange, scroll = false }
     <div
       role="group"
       aria-label={t('org.owner')}
-      className={scroll ? '-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1' : 'flex flex-wrap items-center gap-1.5'}
+      className={scroll ? 'scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1' : 'flex flex-wrap items-center gap-1.5'}
     >
       {options.map((o) => {
         const on = o.key === value

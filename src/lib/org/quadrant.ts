@@ -211,6 +211,30 @@ export function parseLevel(raw: string | null): Bucket | null {
   return BUCKETS.includes(raw as Bucket) ? (raw as Bucket) : null
 }
 
+/** 页面停在哪一层（视图 + 手机层级），以及当时 URL 上的负责人筛选（缺省与 'all' 都记成 null）。 */
+export interface PageStop {
+  layer: string
+  owner: string | null
+}
+
+export function pageStop(params: { get(name: string): string | null }): PageStop {
+  // 与 OrgPageView 同一口径：只有 'structure' 是结构视图；结构视图不看 q
+  const view = params.get('view') === 'structure' ? 'structure' : 'quadrant'
+  const level = view === 'quadrant' ? parseLevel(params.get('q')) : null
+  const owner = params.get('owner')
+  return { layer: level ? `${view}:${level}` : view, owner: owner && owner !== 'all' ? owner : null }
+}
+
+/**
+ * 换层后要不要把负责人筛选带过去（spec 6.3）。改筛选用 replaceState，只改当前这条历史；
+ * 返回 / 前进手势落到的那条历史还记着旧筛选。筛选是整页共用的，换层时应沿用换层前生效的值。
+ * 返回要回写到 URL 的 owner（null = 清掉，即「全部」）；层没变或筛选本来一致 → undefined（不写）。
+ */
+export function ownerToCarry(prev: PageStop, next: PageStop): string | null | undefined {
+  if (prev.layer === next.layer || prev.owner === next.owner) return undefined
+  return prev.owner
+}
+
 // ── 写入校验 ──────────────────────────────────────────────
 
 export const ITEM_STATUSES: TaskItemStatus[] = ['todo', 'doing', 'blocked', 'done']

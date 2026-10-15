@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import {
   QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, daysUntil, dueBadge, flattenItems, groupItems,
-  ownerKeyOf, ownerOptions, parseLevel, parseOwnerFilter, quadrantStats, tokyoToday,
+  ownerKeyOf, ownerOptions, ownerToCarry, pageStop, parseLevel, parseOwnerFilter, quadrantStats, tokyoToday,
   dueInputToPatch, isCalendarDate, validateItemPatch,
 } from './quadrant.ts'
 import type { QuadrantItemInput, QuadrantRow } from './quadrant.ts'
@@ -247,6 +247,49 @@ test('isCalendarDate: 年份边界 2000–2099 两端都在内，外侧一格就
   // 0202-10-30 是真实存在的日历日（往返校验过得去），只有年份范围能挡住它
   assert.equal(isCalendarDate('0202-10-30'), false)
   assert.equal(dueInputToPatch('0202-10-30'), null)
+})
+
+test('pageStop: 层 = 视图 + 手机层级；非法 q 当首层，结构视图不看 q', () => {
+  const at = (qs: string) => pageStop(new URLSearchParams(qs))
+  assert.deepEqual(at(''), { layer: 'quadrant', owner: null })
+  assert.deepEqual(at('q=q1&owner=user:1'), { layer: 'quadrant:q1', owner: 'user:1' })
+  assert.deepEqual(at('q=unrated'), { layer: 'quadrant:unrated', owner: null })
+  assert.equal(at('q=bogus').layer, 'quadrant')
+  assert.equal(at('view=structure&q=q1').layer, 'structure')
+  assert.equal(at('view=other').layer, 'quadrant')
+})
+
+test('pageStop: owner 缺省与 all 都记成 null（同一个「全部」）', () => {
+  assert.equal(pageStop(new URLSearchParams('owner=all')).owner, null)
+  assert.equal(pageStop(new URLSearchParams('owner=')).owner, null)
+  assert.equal(pageStop(new URLSearchParams('owner=none')).owner, 'none')
+})
+
+test('ownerToCarry: 列表层改了筛选再返回首层 → 把列表层的筛选带回首层', () => {
+  // 首层 owner=X → 进 q1（push 复制 X）→ 列表层改成 Y（replace）→ 返回落到首层那条还是 X 的历史
+  assert.equal(ownerToCarry({ layer: 'quadrant:q1', owner: 'user:2' }, { layer: 'quadrant', owner: 'user:1' }), 'user:2')
+  // 首层原本没筛选，列表层选了人
+  assert.equal(ownerToCarry({ layer: 'quadrant:q1', owner: 'user:2' }, { layer: 'quadrant', owner: null }), 'user:2')
+})
+
+test('ownerToCarry: 列表层改回「全部」再返回 → 回写 null（清掉首层旧筛选）', () => {
+  assert.equal(ownerToCarry({ layer: 'quadrant:q1', owner: null }, { layer: 'quadrant', owner: 'user:1' }), null)
+})
+
+test('ownerToCarry: 前进手势回到列表层同样带上当前筛选', () => {
+  assert.equal(ownerToCarry({ layer: 'quadrant', owner: 'user:3' }, { layer: 'quadrant:q1', owner: 'user:2' }), 'user:3')
+})
+
+test('ownerToCarry: 从结构视图返回四象限也带上筛选（切视图不卸载页面根）', () => {
+  assert.equal(ownerToCarry({ layer: 'structure', owner: 'user:2' }, { layer: 'quadrant', owner: 'user:1' }), 'user:2')
+})
+
+test('ownerToCarry: 不换层或筛选一致 → 不回写', () => {
+  // 同层改筛选：就是用户本人刚点的，不能被改回去
+  assert.equal(ownerToCarry({ layer: 'quadrant:q1', owner: 'user:1' }, { layer: 'quadrant:q1', owner: 'user:2' }), undefined)
+  // push 进层：URL 复制了当前筛选
+  assert.equal(ownerToCarry({ layer: 'quadrant', owner: 'user:1' }, { layer: 'quadrant:q1', owner: 'user:1' }), undefined)
+  assert.equal(ownerToCarry({ layer: 'quadrant:q1', owner: null }, { layer: 'quadrant', owner: null }), undefined)
 })
 
 test('validateItemPatch: 合法输入原样带出，其余键忽略', () => {
