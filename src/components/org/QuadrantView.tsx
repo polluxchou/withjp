@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
-  DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, MouseSensor, TouchSensor,
+  DndContext, DragOverlay, MeasuringStrategy, MouseSensor, TouchSensor,
   pointerWithin, rectIntersection, useSensor, useSensors,
 } from '@dnd-kit/core'
 import type { Announcements, CollisionDetection, DragEndEvent, DragStartEvent, Over } from '@dnd-kit/core'
@@ -14,9 +14,11 @@ import ItemDetailPanel from './ItemDetailPanel'
 import OwnerFilter from './OwnerFilter'
 import DueDatePrompt from './DueDatePrompt'
 import DropNotice from './DropNotice'
-import { DragPreview, DraggableButton, DropDock, DropZone, zoneKeyboardCoordinates } from './QuadrantDnd'
+import {
+  DragPreview, DraggableButton, DropDock, DropZone, ZoneKeyboardSensor, centerOverlayOnPointer, zoneKeyboardCoordinates,
+} from './QuadrantDnd'
 import { writeSearchParams } from './searchParams'
-import { isStationaryTouchDrop } from '@/lib/org/dragZones'
+import { isStationaryTouchDrop, pointerOf } from '@/lib/org/dragZones'
 import {
   QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, dropNoticeKind, dueBadge, flattenItems, groupItems, ownerOptions,
   parseLevel, parseOwnerFilter, planDrop, quadrantStats,
@@ -72,7 +74,8 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
   const selected = selectedId ? rows.find((r) => r.id === selectedId) ?? null : null
   const positionName = (id: string) => snapshot.positions.find((p) => p.id === id)?.name ?? id
   const canEdit = snapshot.canEdit
-  const [dragging, setDragging] = useState<{ row: QuadrantRow; from: Bucket } | null>(null)
+  // byPointer：鼠标 / 触控拖（跟手卡片对准指针）还是键盘拖（卡片随方向键跳区）。
+  const [dragging, setDragging] = useState<{ row: QuadrantRow; from: Bucket; byPointer: boolean } | null>(null)
   const [ask, setAsk] = useState<{ row: QuadrantRow; target: Bucket; base: ItemPatch; minDate: string } | null>(null)
   const [notice, setNotice] = useState<{ key: number; message: string; itemId: string; undo: ItemPatch | null } | null>(null)
   // 单调递增的序号当 key：同一毫秒内连续两次拖放也要重挂提示条，5 秒计时才会重新开始。
@@ -83,7 +86,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
     // 没在拖时 Enter 留给「打开详情」，只用 Space 拿起（spec 3.4）；拖起后 Space / Enter 都算放下，
     // 否则拖到一半按 Enter 会既不放下、又掉进按钮的点击去打开详情。
-    useSensor(KeyboardSensor, {
+    useSensor(ZoneKeyboardSensor, {
       coordinateGetter: zoneKeyboardCoordinates,
       keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter'] },
     }),
@@ -134,9 +137,9 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
     })
   }
 
-  const onDragStart = ({ active }: DragStartEvent) => {
+  const onDragStart = ({ active, activatorEvent }: DragStartEvent) => {
     const row = rowOf(active.data.current?.itemId)
-    setDragging(row ? { row, from: bucketOf(row, today) } : null)
+    setDragging(row ? { row, from: bucketOf(row, today), byPointer: pointerOf(activatorEvent) !== null } : null)
   }
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setDragging(null)
@@ -162,10 +165,9 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
       const target = targetOf(over)
       return target ? t('org.dragAnnounceOver', { zone: title(target) }) : undefined
     },
-    onDragEnd: ({ over }) => {
-      const target = targetOf(over)
-      return target ? t('org.dragAnnounceDrop', { zone: title(target) }) : t('org.dragAnnounceCancel')
-    },
+    // 放进某区后要么出提示条（下面常驻的 live region 播报「已移到…」，含自动设的日期），要么弹询问框
+    // （对话框自己会被读出），这里不再播「已放进…」，免得读屏连听两遍；只有没放进任何区时播「已取消」。
+    onDragEnd: ({ over }) => (targetOf(over) ? undefined : t('org.dragAnnounceCancel')),
     onDragCancel: () => t('org.dragAnnounceCancel'),
   }
 
@@ -422,8 +424,8 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
         <div className="md:hidden">{level ? mobileList : mobileHome}</div>
       </div>
       {dragging && <DropDock current={dragging.from} titleOf={title} tone={TONE} />}
-      <DragOverlay>
-        {dragging ? <DragPreview row={dragging.row} ownerLabel={ownerLabel(dragging.row)} /> : null}
+      <DragOverlay modifiers={[centerOverlayOnPointer]}>
+        {dragging ? <DragPreview row={dragging.row} ownerLabel={ownerLabel(dragging.row)} centered={dragging.byPointer} /> : null}
       </DragOverlay>
       {selected && (
         <ItemDetailPanel
@@ -446,11 +448,19 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
           }}
         />
       )}
-      {notice && !dragging && (
+      {/* 拖放结果的唯一播报：常驻的 live region（先在页面上、再放内容，读屏才稳定播报）。每条提示换一个带 key 的
+          节点插入，同样文案的两次拖放也各播一次；拖动期间提示条被冻结时内容不变，取消拖动后不会重播旧消息。 */}
+      <div role="status" className="sr-only">
+        {notice && <span key={notice.key}>{notice.message}</span>}
+      </div>
+      {/* 拖动中提示条隐藏并冻结计时（它会挡住手机的放置区），取消后按剩余时间继续；放下则被新提示替换。 */}
+      {notice && (
         <DropNotice
           key={notice.key}
           message={notice.message}
           canUndo={notice.undo !== null}
+          suspended={dragging !== null}
+          shortcut={ask === null && selected === null}
           onUndo={onUndo}
           onDismiss={dismissNotice}
         />
