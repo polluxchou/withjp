@@ -4,14 +4,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, MouseSensor, TouchSensor,
+  pointerWithin, rectIntersection, useSensor, useSensors,
+} from '@dnd-kit/core'
+import type { Announcements, CollisionDetection, DragEndEvent, DragStartEvent, Over } from '@dnd-kit/core'
 import { Stat, StatBand } from '@/components/ui/Stat'
 import ItemDetailPanel from './ItemDetailPanel'
 import OwnerFilter from './OwnerFilter'
+import DueDatePrompt from './DueDatePrompt'
+import DropNotice from './DropNotice'
+import { DragPreview, DraggableButton, DropDock, DropZone, zoneKeyboardCoordinates } from './QuadrantDnd'
 import { writeSearchParams } from './searchParams'
 import {
-  QUADRANTS, URGENT_WITHIN_DAYS, dueBadge, flattenItems, groupItems, ownerOptions,
-  parseLevel, parseOwnerFilter, quadrantStats,
+  QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, dueBadge, flattenItems, groupItems, ownerOptions,
+  parseLevel, parseOwnerFilter, planDrop, quadrantStats,
 } from '@/lib/org/quadrant'
+import { pickItemFields } from '@/lib/org/tree'
 import type { Bucket, DueBadge, ItemPatch, OwnerFilter as OwnerFilterValue, Quadrant, QuadrantRow } from '@/lib/org/quadrant'
 import type { OrgSnapshot } from '@/lib/types'
 
@@ -28,6 +37,12 @@ const BADGE_TONE: Record<DueBadge['tone'], string> = {
   muted: 'bg-muted-soft text-muted-text',
 }
 const FOCUS = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring'
+
+// 鼠标 / 触控：指针落在哪个区就算哪个；键盘没有指针，退回矩形相交（覆盖层被方向键移到区中心）。
+const collision: CollisionDetection = (args) => {
+  const hits = pointerWithin(args)
+  return hits.length > 0 ? hits : rectIntersection(args)
+}
 
 interface Props {
   snapshot: OrgSnapshot
@@ -56,6 +71,22 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
   // 按 id 找、不按格内位置找：改完重要/截止日后事项会换格，面板跟着这个事项走。
   const selected = selectedId ? rows.find((r) => r.id === selectedId) ?? null : null
   const positionName = (id: string) => snapshot.positions.find((p) => p.id === id)?.name ?? id
+  const canEdit = snapshot.canEdit
+  const [dragging, setDragging] = useState<{ row: QuadrantRow; from: Bucket } | null>(null)
+  const [ask, setAsk] = useState<{ row: QuadrantRow; target: Bucket; base: ItemPatch; minDate: string } | null>(null)
+  const [notice, setNotice] = useState<{ key: number; message: string; itemId: string; undo: ItemPatch | null } | null>(null)
+  // 单调递增的序号当 key：同一毫秒内连续两次拖放也要重挂提示条，5 秒计时才会重新开始。
+  const noticeSeq = useRef(0)
+  const dismissNotice = useCallback(() => setNotice(null), [])
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    // Enter 留给「打开详情」，只用 Space 拿起 / 放下（spec 3.4）
+    useSensor(KeyboardSensor, {
+      coordinateGetter: zoneKeyboardCoordinates,
+      keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space'] },
+    }),
+  )
 
   const setOwner = (v: OwnerFilterValue) => writeSearchParams({ owner: v === 'all' ? null : v }, 'replace')
   const openLevel = (b: Bucket) => { pushedLevel.current = true; writeSearchParams({ q: b }, 'push') }
@@ -76,6 +107,58 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
           : b.date
   const ownerLabel = (row: QuadrantRow) => row.ownerName ?? t('org.statUnassigned')
 
+  const rowOf = (itemId: unknown) => rows.find((r) => r.id === itemId) ?? null
+  const targetOf = (over: Over | null): Bucket | null =>
+    (over?.data.current as { target?: Bucket } | undefined)?.target ?? null
+
+  // 写入 + 提示条。撤销用的旧值在写入前从当前快照取。
+  const commitDrop = (row: QuadrantRow, target: Bucket, patch: ItemPatch, autoDue: string | null) => {
+    const undo = pickItemFields(snapshot, row.id, Object.keys(patch) as (keyof ItemPatch)[])
+    onUpdateItem(row.id, patch)
+    const zone = title(target)
+    const message = target === 'done' ? t('org.dropDone')
+      : row.status === 'done' ? t('org.dropReopened', { zone })
+        : autoDue ? t('org.dropMovedDue', { zone, date: autoDue.slice(5) })
+          : t('org.dropMoved', { zone })
+    noticeSeq.current += 1
+    setNotice({ key: noticeSeq.current, message, itemId: row.id, undo })
+  }
+
+  const onDragStart = ({ active }: DragStartEvent) => {
+    const row = rowOf(active.data.current?.itemId)
+    setDragging(row ? { row, from: bucketOf(row, today) } : null)
+  }
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    setDragging(null)
+    const row = rowOf(active.data.current?.itemId)
+    const target = targetOf(over)
+    if (!row || !target) return
+    const plan = planDrop(row, target, today)
+    if (plan.kind === 'noop') return
+    if (plan.kind === 'askDate') {
+      setAsk({ row, target, base: plan.base, minDate: plan.minDate })
+      return
+    }
+    commitDrop(row, target, plan.patch, plan.autoDue)
+  }
+  const onUndo = () => {
+    if (notice?.undo) onUpdateItem(notice.itemId, notice.undo)
+    setNotice(null)
+  }
+
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => t('org.dragAnnouncePick', { name: rowOf(active.data.current?.itemId)?.name ?? '' }),
+    onDragOver: ({ over }) => {
+      const target = targetOf(over)
+      return target ? t('org.dragAnnounceOver', { zone: title(target) }) : undefined
+    },
+    onDragEnd: ({ over }) => {
+      const target = targetOf(over)
+      return target ? t('org.dragAnnounceDrop', { zone: title(target) }) : t('org.dragAnnounceCancel')
+    },
+    onDragCancel: () => t('org.dragAnnounceCancel'),
+  }
+
   const badges = (row: QuadrantRow) => {
     const due = dueBadge(row, today)
     return (
@@ -93,8 +176,10 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
   // ── 桌面 ────────────────────────────────────────────────
   const desktopRow = (row: QuadrantRow) => (
     <li key={row.id}>
-      <button
-        type="button"
+      <DraggableButton
+        dragId={`d:${row.id}`}
+        itemId={row.id}
+        disabled={!canEdit}
         onClick={() => setSelectedId(row.id)}
         title={`${row.businessName} › ${row.taskName}`}
         className={`flex w-full items-center gap-2.5 rounded-field px-2 py-2 text-left text-sm hover:bg-row-hover ${FOCUS}`}
@@ -102,12 +187,19 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
         <span className={`min-w-0 flex-1 truncate ${row.status === 'done' ? 'text-ink-500 line-through' : 'text-ink-900'}`}>{row.name}</span>
         <span className={`max-w-[7rem] flex-none truncate text-xs ${row.ownerKey === 'none' ? 'font-semibold text-warning-text' : 'text-ink-500'}`}>{ownerLabel(row)}</span>
         {badges(row)}
-      </button>
+      </DraggableButton>
     </li>
   )
 
   const quadrantCard = (q: Quadrant) => (
-    <section key={q} aria-label={title(q)} className="flex h-[420px] min-h-0 flex-col rounded-card border border-line bg-surface shadow-card">
+    <DropZone
+      key={q}
+      id={`zone:${q}`}
+      target={q}
+      current={dragging?.from ?? null}
+      label={title(q)}
+      className="flex h-[420px] min-h-0 flex-col rounded-card border border-line bg-surface shadow-card"
+    >
       <header className="flex items-center gap-2 border-b border-line-soft px-4 py-3">
         <span aria-hidden className={`h-2 w-2 rounded-full ${TONE[q].dot}`} />
         <h3 className={`text-md font-semibold ${TONE[q].text}`}>{title(q)}</h3>
@@ -117,7 +209,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
       {groups[q].length === 0
         ? <p className="m-auto text-xs text-ink-400">{t('org.emptyQuadrant')}</p>
         : <ul className="min-h-0 flex-1 overflow-y-auto p-2">{groups[q].map(desktopRow)}</ul>}
-    </section>
+    </DropZone>
   )
 
   const desktop = (
@@ -148,7 +240,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
         {quadrantCard('q4')}
       </div>
 
-      <section aria-label={t('org.unratedTitle')} className="rounded-card border border-dashed border-line-strong bg-surface p-4">
+      <DropZone id="zone:unrated" target="unrated" current={dragging?.from ?? null} label={t('org.unratedTitle')} className="rounded-card border border-dashed border-line-strong bg-surface p-4">
         <div className="flex flex-wrap items-baseline gap-2">
           <h3 className="text-sm font-semibold text-ink-900">{t('org.unratedTitle')} <span className="tabular-nums">{groups.unrated.length}</span></h3>
           <span className="text-xs text-ink-500">{t('org.unratedHint')}</span>
@@ -157,21 +249,23 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
           <ul className="mt-3 flex flex-wrap gap-2">
             {groups.unrated.map((row) => (
               <li key={row.id}>
-                <button
-                  type="button"
+                <DraggableButton
+                  dragId={`d:${row.id}`}
+                  itemId={row.id}
+                  disabled={!canEdit}
                   onClick={() => setSelectedId(row.id)}
                   className={`inline-flex h-8 items-center gap-1.5 rounded-btn bg-line-soft px-3 text-xs text-ink-900 hover:bg-row-hover ${FOCUS}`}
                 >
                   <span className="max-w-[16rem] truncate">{row.name}</span>
                   <span className={row.ownerKey === 'none' ? 'font-semibold text-warning-text' : 'text-ink-500'}>{ownerLabel(row)}</span>
-                </button>
+                </DraggableButton>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </DropZone>
 
-      <section aria-label={t('org.doneTitle')} className="rounded-card border border-line bg-surface">
+      <DropZone id="zone:done" target="done" current={dragging?.from ?? null} label={t('org.doneTitle')} className="rounded-card border border-line bg-surface">
         <button
           type="button"
           aria-expanded={doneOpen}
@@ -184,7 +278,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
           <span className="ml-auto text-xs text-primary">{doneOpen ? t('org.hide') : t('org.show')}</span>
         </button>
         {doneOpen && groups.done.length > 0 && <ul className="px-2 pb-2">{groups.done.map(desktopRow)}</ul>}
-      </section>
+      </DropZone>
     </div>
   )
 
@@ -219,8 +313,10 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
 
   const mobileCard = (row: QuadrantRow) => (
     <li key={row.id}>
-      <button
-        type="button"
+      <DraggableButton
+        dragId={`m:${row.id}`}
+        itemId={row.id}
+        disabled={!canEdit}
         onClick={() => setSelectedId(row.id)}
         className={`flex w-full flex-col gap-2 rounded-card border border-line bg-surface p-3.5 text-left shadow-card ${FOCUS}`}
       >
@@ -230,7 +326,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
           <span className={`truncate text-xs ${row.ownerKey === 'none' ? 'font-semibold text-warning-text' : 'text-ink-700'}`}>{ownerLabel(row)}</span>
           {badges(row)}
         </span>
-      </button>
+      </DraggableButton>
     </li>
   )
 
@@ -297,9 +393,24 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
   )
 
   return (
-    <div>
-      {desktop}
-      <div className="md:hidden">{level ? mobileList : mobileHome}</div>
+    <DndContext
+      id="org-quadrant-dnd"
+      sensors={sensors}
+      collisionDetection={collision}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setDragging(null)}
+      accessibility={{ announcements, screenReaderInstructions: { draggable: t('org.dragInstructions') } }}
+    >
+      <div>
+        {desktop}
+        <div className="md:hidden">{level ? mobileList : mobileHome}</div>
+      </div>
+      {dragging && <DropDock current={dragging.from} titleOf={title} tone={TONE} />}
+      <DragOverlay>
+        {dragging ? <DragPreview row={dragging.row} ownerLabel={ownerLabel(dragging.row)} /> : null}
+      </DragOverlay>
       {selected && (
         <ItemDetailPanel
           row={selected}
@@ -311,6 +422,25 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
           onPickOwner={() => onPickOwner(selected.id)}
         />
       )}
-    </div>
+      {ask && (
+        <DueDatePrompt
+          plan={ask}
+          onCancel={() => setAsk(null)}
+          onConfirm={(patch) => {
+            commitDrop(ask.row, ask.target, patch, null)
+            setAsk(null)
+          }}
+        />
+      )}
+      {notice && !dragging && (
+        <DropNotice
+          key={notice.key}
+          message={notice.message}
+          canUndo={notice.undo !== null}
+          onUndo={onUndo}
+          onDismiss={dismissNotice}
+        />
+      )}
+    </DndContext>
   )
 }
