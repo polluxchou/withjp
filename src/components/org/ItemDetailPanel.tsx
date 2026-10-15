@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Tag from '@/components/ui/Tag'
+import OwnerAvatar from './OwnerAvatar'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
 import { URGENT_WITHIN_DAYS, daysUntil, dueInputToPatch, isUrgent } from '@/lib/org/quadrant'
 import type { ItemPatch, QuadrantRow } from '@/lib/org/quadrant'
@@ -153,6 +154,7 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
 
           <dt className="text-ink-500">{t('org.owner')}</dt>
           <dd className="flex items-center gap-2 min-w-0">
+            <OwnerAvatar ownerKey={row.ownerKey} name={row.ownerName} />
             <span className={`truncate ${row.ownerKey === 'none' ? 'font-semibold text-warning-text' : 'text-ink-900'}`}>
               {row.ownerName ?? t('org.statUnassigned')}
             </span>
