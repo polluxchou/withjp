@@ -290,3 +290,57 @@ export function validateItemPatch(input: unknown): { ok: true; value: ItemPatch 
 export function dueInputToPatch(value: string): ItemPatch | null {
   return isCalendarDate(value) ? { due_date: value } : null
 }
+
+// ── 拖放（spec: 2026-10-15-org-quadrant-drag-design.md 第 2 节）────────────
+
+/** 'YYYY-MM-DD' + n 天，UTC 零点计算，不经过本地时区。 */
+export function addDays(ymd: string, n: number): string {
+  return new Date(utcMidnight(ymd) + n * 86_400_000).toISOString().slice(0, 10)
+}
+
+export type DropTarget = Bucket
+
+export type DropPlan =
+  | { kind: 'noop' }
+  | { kind: 'patch'; patch: ItemPatch; autoDue: string | null }
+  | { kind: 'askDate'; base: ItemPatch; minDate: string }
+
+/**
+ * 把事项放进某个区要写什么。横向（紧急 ↔ 不紧急）等于改截止日：
+ * 拖进紧急列且当前不紧急 → 截止日自动设为 today+7（紧急窗口最后一天）；
+ * 拖进不紧急列且当前紧急 → 先问日期（下限 today+8）。从已完成拖出来一律重开为 todo。
+ */
+export function planDrop(row: QuadrantRow, target: DropTarget, today: string): DropPlan {
+  if (target === bucketOf(row, today)) return { kind: 'noop' }
+  if (target === 'done') return { kind: 'patch', patch: { status: 'done' }, autoDue: null }
+  const reopen: ItemPatch = row.status === 'done' ? { status: 'todo' } : {}
+  if (target === 'unrated') return { kind: 'patch', patch: { ...reopen, is_important: null }, autoDue: null }
+  const base: ItemPatch = { ...reopen, is_important: target === 'q1' || target === 'q2' }
+  const wantUrgent = target === 'q1' || target === 'q3'
+  const urgentNow = isUrgent(row, today)
+  if (wantUrgent) {
+    if (urgentNow) return { kind: 'patch', patch: base, autoDue: null }
+    const due = addDays(today, URGENT_WITHIN_DAYS)
+    return { kind: 'patch', patch: { ...base, due_date: due }, autoDue: due }
+  }
+  if (urgentNow) return { kind: 'askDate', base, minDate: addDays(today, URGENT_WITHIN_DAYS + 1) }
+  return { kind: 'patch', patch: base, autoDue: null }
+}
+
+/** 询问框里填的日期 → 最终补丁；非法日期或早于下限返回 null。 */
+export function confirmAskedDate(plan: { base: ItemPatch; minDate: string }, value: string): ItemPatch | null {
+  if (!isCalendarDate(value) || value < plan.minDate) return null
+  return { ...plan.base, due_date: value }
+}
+
+export type DropNoticeKind =
+  | { key: 'dropDone' }
+  | { key: 'dropReopened' | 'dropMoved' }
+  | { key: 'dropReopenedDue' | 'dropMovedDue'; date: string }
+
+/** 拖放后提示条用哪条文案（spec 2.2 / 4.2）。date 为 'MM-DD'。 */
+export function dropNoticeKind(target: DropTarget, wasDone: boolean, autoDue: string | null): DropNoticeKind {
+  if (target === 'done') return { key: 'dropDone' }
+  if (wasDone) return autoDue ? { key: 'dropReopenedDue', date: autoDue.slice(5) } : { key: 'dropReopened' }
+  return autoDue ? { key: 'dropMovedDue', date: autoDue.slice(5) } : { key: 'dropMoved' }
+}

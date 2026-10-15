@@ -238,7 +238,23 @@
       "statusDoing": "進行中",
       "statusBlocked": "停滞",
       "statusDone": "完了",
-      "change": "変更"
+      "change": "変更",
+      "dragInstructions": "スペースで持ち上げ、矢印キーで別のエリアへ移動、もう一度スペースで置きます。Esc で取り消し。",
+      "dragAnnouncePick": "「{name}」を持ち上げました",
+      "dragAnnounceOver": "「{zone}」の上",
+      "dragAnnounceDrop": "「{zone}」に置きました",
+      "dragAnnounceCancel": "ドラッグを取り消しました",
+      "dropMoved": "「{zone}」に移動しました",
+      "dropMovedDue": "「{zone}」に移動し、期限を {date} にしました",
+      "dropDone": "完了にしました",
+      "dropReopened": "再開して「{zone}」に移動しました",
+      "dropReopenedDue": "再開して「{zone}」に移動し、期限を {date} にしました",
+      "undo": "元に戻す",
+      "askDateTitle": "新しい期限を設定",
+      "askDateBody": "緊急でない列に移すには、期限を {date} より後にしてください。",
+      "askDateInvalid": "{date} より後の日付を選んでください",
+      "confirm": "OK",
+      "dockTitle": "ここにドロップ"
     }
   },
   "agents": {

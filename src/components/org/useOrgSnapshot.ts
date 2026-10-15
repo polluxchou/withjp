@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
   applySetBusinessOwner, applySetItemOwner,
-  applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields,
+  applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields, pickItemFields,
 } from '@/lib/org/tree'
+import { createWriteLedger, beginWrite, settleWrite } from '@/lib/org/writeLedger'
 import type { ItemPatch } from '@/lib/org/quadrant'
 import type { OrgSnapshot, PersonOption } from '@/lib/types'
 
@@ -29,13 +30,16 @@ export interface OrgActions {
   editTaskPositions: (taskId: string, currentIds: string[]) => void
   addMember: (positionId: string, person: PersonOption) => Promise<void>
   removeMember: (positionId: string, memberId: string) => Promise<void>
-  updateItemFields: (itemId: string, fields: ItemPatch) => Promise<void>
+  /** 乐观更新后写库；resolve 写入是否成功（失败时界面已回滚）。 */
+  updateItemFields: (itemId: string, fields: ItemPatch) => Promise<boolean>
 }
 
 /** 业务分工页的共享快照与写入封装：「结构」「四象限」两个视图共用，任一视图改完另一个立即可见。 */
 export function useOrgSnapshot(initial: OrgSnapshot): { snapshot: OrgSnapshot; actions: OrgActions } {
   const t = useTranslations('team')
   const [snapshot, setSnapshot] = useState<OrgSnapshot>(initial)
+  // 写入账本：按「事项 × 字段」记录最近一次写入的序号与已落库的值，回滚依此决定（spec 4.1）。
+  const ledger = useRef(createWriteLedger())
 
   // 写 /api/org/*：成功返回受影响行 { id }；失败（网络异常 / 非 2xx）弹出服务端
   // 原因并返回 null —— 拒绝的写入不会被静默吞掉。调用方拿返回的 id 直接就地更新
@@ -115,8 +119,16 @@ export function useOrgSnapshot(initial: OrgSnapshot): { snapshot: OrgSnapshot; a
     if (!window.confirm(t('org.confirmDelete'))) return
     if (await api(`/positions/${positionId}/members/${memberId}`, 'DELETE')) setSnapshot((s) => applyRemoveMember(s, positionId, memberId))
   }
-  const updateItemFields = async (itemId: string, fields: ItemPatch) => {
-    if (await api(`/items/${itemId}`, 'PATCH', fields)) setSnapshot((s) => applyUpdateItemFields(s, itemId, fields))
+  // 先改界面再写库（spec 4.1）；回滚按「事项 × 字段」由写入账本决定，回到已落库的值。
+  // 返回这次写入是否成功：调用方（拖放提示条）据此收起已不成立的「已移到…」。
+  const updateItemFields = async (itemId: string, fields: ItemPatch): Promise<boolean> => {
+    const current = pickItemFields(snapshot, itemId, Object.keys(fields) as (keyof ItemPatch)[]) ?? {}
+    const write = beginWrite(ledger.current, itemId, fields, current)
+    setSnapshot((s) => applyUpdateItemFields(s, itemId, fields))
+    const ok = await api(`/items/${itemId}`, 'PATCH', fields)
+    const revert = settleWrite(ledger.current, write, fields, ok !== null)
+    if (revert) setSnapshot((s) => applyUpdateItemFields(s, itemId, revert))
+    return ok !== null
   }
 
   return {

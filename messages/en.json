@@ -238,7 +238,23 @@
       "statusDoing": "In progress",
       "statusBlocked": "Blocked",
       "statusDone": "Done",
-      "change": "Change"
+      "change": "Change",
+      "dragInstructions": "Press Space to pick up an item, use the arrow keys to move to another area, press Space to drop, or Esc to cancel.",
+      "dragAnnouncePick": "Picked up {name}",
+      "dragAnnounceOver": "Over {zone}",
+      "dragAnnounceDrop": "Dropped into {zone}",
+      "dragAnnounceCancel": "Drag cancelled",
+      "dropMoved": "Moved to {zone}",
+      "dropMovedDue": "Moved to {zone}, due date set to {date}",
+      "dropDone": "Marked as done",
+      "dropReopened": "Reopened and moved to {zone}",
+      "dropReopenedDue": "Reopened and moved to {zone}, due date set to {date}",
+      "undo": "Undo",
+      "askDateTitle": "Set a new due date",
+      "askDateBody": "To move it out of the urgent column, the due date must be after {date}.",
+      "askDateInvalid": "Choose a date after {date}",
+      "confirm": "OK",
+      "dockTitle": "Drop here"
     }
   },
   "agents": {
