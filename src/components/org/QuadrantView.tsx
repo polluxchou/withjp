@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -50,6 +50,9 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
   const pushedLevel = useRef(false)
   // 稳定引用：面板的 Escape 监听以它为依赖，每次渲染换新函数会反复重绑监听。
   const closePanel = useCallback(() => setSelectedId(null), [])
+  // 换层（含系统返回手势）就关掉详情面板：它是挂在 body 上的 portal，不随列表层卸载，
+  // 不关会连同滚动锁一起盖在首层上。
+  useEffect(() => { setSelectedId(null) }, [level])
   // 按 id 找、不按格内位置找：改完重要/截止日后事项会换格，面板跟着这个事项走。
   const selected = selectedId ? rows.find((r) => r.id === selectedId) ?? null : null
   const positionName = (id: string) => snapshot.positions.find((p) => p.id === id)?.name ?? id

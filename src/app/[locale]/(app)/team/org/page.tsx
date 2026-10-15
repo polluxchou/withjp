@@ -25,7 +25,7 @@ export default async function OrgPage() {
       {!snapshot ? (
         <EmptyState title={t('org.empty')} />
       ) : (
-        <OrgPageView initial={snapshot} today={tokyoToday()} />
+        <OrgPageView initial={snapshot} initialToday={tokyoToday()} />
       )}
     </div>
   )
