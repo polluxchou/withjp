@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { ownerNameOf, sortByOrder, validatePersonRef } from './tree'
+import { validateItemPatch } from './quadrant'
 import type {
   Business, BusinessTask, MemberType, OrgSnapshot, PersonOption,
   Position, PositionMember, TaskItem,
@@ -156,7 +157,12 @@ export async function createItem(userId: string, taskId: string, name: string): 
 
 export async function updateItem(
   userId: string, itemId: string,
-  patch: { name?: string; owner?: { member_type: MemberType; user_id: string | null; creator_id: string | null } | null },
+  patch: {
+    name?: string
+    owner?: { member_type: MemberType; user_id: string | null; creator_id: string | null } | null
+    /** 原始请求体：只取其中 is_important / due_date / status 三个键（见 validateItemPatch）。 */
+    quadrant?: unknown
+  },
 ): Promise<ServiceResult<{ id: string }>> {
   const forbidden = await requireAdmin(userId); if (forbidden) return { data: null, error: forbidden }
   const db = createServerClient()
@@ -170,6 +176,11 @@ export async function updateItem(
     update.owner_member_type = patch.owner?.member_type ?? null
     update.owner_user_id     = patch.owner?.user_id ?? null
     update.owner_creator_id  = patch.owner?.creator_id ?? null
+  }
+  if (patch.quadrant !== undefined) {
+    const checked = validateItemPatch(patch.quadrant)
+    if (!checked.ok) return err('invalid_input', checked.message)
+    Object.assign(update, checked.value)
   }
   const { error } = await db.from('task_items').update(update).eq('id', itemId)
   return error ? err('db_error', error.message) : ok({ id: itemId })

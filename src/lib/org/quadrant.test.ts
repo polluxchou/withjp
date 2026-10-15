@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   URGENT_WITHIN_DAYS, bucketOf, daysUntil, dueBadge, flattenItems, groupItems,
   ownerKeyOf, ownerOptions, parseLevel, parseOwnerFilter, quadrantStats, tokyoToday,
+  dueInputToPatch, isCalendarDate, validateItemPatch,
 } from './quadrant.ts'
 import type { QuadrantItemInput, QuadrantRow } from './quadrant.ts'
 import type { OrgSnapshot, TaskItem } from '../types/index.ts'
@@ -176,4 +177,40 @@ test('parseLevel: 只认六个桶，其余回首层', () => {
   assert.equal(parseLevel(null), null)
   assert.equal(parseLevel(''), null)
   assert.equal(parseLevel('q9'), null)
+})
+
+test('isCalendarDate: 只认真实存在的 2000–2099 年日历日', () => {
+  assert.equal(isCalendarDate('2026-10-20'), true)
+  assert.equal(isCalendarDate('2028-02-29'), true)
+  assert.equal(isCalendarDate('2026-02-29'), false)
+  assert.equal(isCalendarDate('2026-02-30'), false)
+  assert.equal(isCalendarDate('0002-10-20'), false)
+  assert.equal(isCalendarDate('2026-1-5'), false)
+  assert.equal(isCalendarDate(''), false)
+})
+
+test('validateItemPatch: 合法输入原样带出，其余键忽略', () => {
+  assert.deepEqual(
+    validateItemPatch({ is_important: false, due_date: '2026-10-20', status: 'blocked', name: 'x', owner: null }),
+    { ok: true, value: { is_important: false, due_date: '2026-10-20', status: 'blocked' } },
+  )
+  assert.deepEqual(validateItemPatch({ is_important: null, due_date: null }), { ok: true, value: { is_important: null, due_date: null } })
+  assert.deepEqual(validateItemPatch({ name: 'only name' }), { ok: true, value: {} })
+})
+
+test('validateItemPatch: 拒绝非法值', () => {
+  const bad: unknown[] = [
+    { is_important: 'yes' }, { is_important: 1 },
+    { due_date: '2026-02-30' }, { due_date: '2026/10/20' }, { due_date: '2026-10-20T00:00:00Z' }, { due_date: 20261020 },
+    { status: null }, { status: 'cancelled' },
+    null, 'x', 42,
+  ]
+  for (const input of bad) assert.equal(validateItemPatch(input).ok, false, JSON.stringify(input))
+})
+
+test('dueInputToPatch: 空串、半截值、荒谬年份都不提交', () => {
+  assert.equal(dueInputToPatch(''), null)
+  assert.equal(dueInputToPatch('2026-10'), null)
+  assert.equal(dueInputToPatch('0002-10-20'), null)
+  assert.deepEqual(dueInputToPatch('2026-10-20'), { due_date: '2026-10-20' })
 })

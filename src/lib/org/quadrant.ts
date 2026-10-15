@@ -208,3 +208,59 @@ const BUCKETS: Bucket[] = ['q1', 'q2', 'q3', 'q4', 'unrated', 'done']
 export function parseLevel(raw: string | null): Bucket | null {
   return BUCKETS.includes(raw as Bucket) ? (raw as Bucket) : null
 }
+
+// ── 写入校验 ──────────────────────────────────────────────
+
+export const ITEM_STATUSES: TaskItemStatus[] = ['todo', 'doing', 'blocked', 'done']
+
+export interface ItemPatch {
+  is_important?: boolean | null
+  due_date?: string | null
+  status?: TaskItemStatus
+}
+
+/**
+ * 'YYYY-MM-DD'，是真实存在的日历日（拒绝 2026-02-30），且年份在 2000–2099。
+ * 年份限制挡的是日期框改年份时逐键产生的 0002-10-20 这类合法但荒谬的值。
+ */
+export function isCalendarDate(s: string): boolean {
+  if (!/^20\d{2}-\d{2}-\d{2}$/.test(s)) return false
+  return new Date(utcMidnight(s)).toISOString().slice(0, 10) === s
+}
+
+/**
+ * PATCH 入参里四象限相关的三个字段。只看这三个键，其余键（name/owner 由 updateItem 另行处理）忽略。
+ * 出现即覆盖；null 表示清空（status 不可为 null）。
+ */
+export function validateItemPatch(input: unknown): { ok: true; value: ItemPatch } | { ok: false; message: string } {
+  if (typeof input !== 'object' || input === null) return { ok: false, message: 'body must be an object' }
+  const src = input as Record<string, unknown>
+  const value: ItemPatch = {}
+  if ('is_important' in src) {
+    if (src.is_important !== null && typeof src.is_important !== 'boolean') {
+      return { ok: false, message: 'is_important must be boolean or null' }
+    }
+    value.is_important = src.is_important as boolean | null
+  }
+  if ('due_date' in src) {
+    if (src.due_date !== null && (typeof src.due_date !== 'string' || !isCalendarDate(src.due_date))) {
+      return { ok: false, message: 'due_date must be YYYY-MM-DD or null' }
+    }
+    value.due_date = src.due_date as string | null
+  }
+  if ('status' in src) {
+    if (!ITEM_STATUSES.includes(src.status as TaskItemStatus)) {
+      return { ok: false, message: 'status must be one of todo/doing/blocked/done' }
+    }
+    value.status = src.status as TaskItemStatus
+  }
+  return { ok: true, value }
+}
+
+/**
+ * 日期输入框的值 → 要提交的补丁。没填完（空串）或荒谬年份一律不提交；
+ * 清空只走「清除」按钮，避免把已有截止日误清掉。
+ */
+export function dueInputToPatch(value: string): ItemPatch | null {
+  return isCalendarDate(value) ? { due_date: value } : null
+}

@@ -5,7 +5,7 @@ import {
   validatePersonRef, ownerNameOf, sortByOrder,
   applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
   applySetBusinessOwner, applySetItemOwner,
-  applyAddMember, applyRemoveMember, applySetTaskPositions,
+  applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields,
 } from './tree.ts'
 import type { OrgSnapshot, PersonOption } from '../types/index.ts'
 
@@ -137,4 +137,18 @@ test('applyRemoveMember: 从岗位移除指定成员', () => {
 test('applySetTaskPositions: 更新任务关联岗位并去重', () => {
   const next = applySetTaskPositions(baseSnapshot(), 't1', ['p1', 'p1', 'p2'])
   assert.deepEqual(next.businesses[0].tasks[0].position_ids, ['p1', 'p2'])
+})
+
+test('applyUpdateItemFields: 只改指定事项的指定字段，不可变', () => {
+  const s = baseSnapshot()
+  const next = applyUpdateItemFields(s, 'i1', { is_important: true, due_date: '2026-10-20' })
+  const it = next.businesses[0].tasks[0].items[0]
+  assert.deepEqual([it.is_important, it.due_date, it.status, it.name], [true, '2026-10-20', 'todo', '事项1'])
+  assert.equal(s.businesses[0].tasks[0].items[0].is_important, null)
+
+  const cleared = applyUpdateItemFields(next, 'i1', { due_date: null, status: 'done' })
+  const c = cleared.businesses[0].tasks[0].items[0]
+  assert.deepEqual([c.is_important, c.due_date, c.status], [true, null, 'done'])
+
+  assert.equal(applyUpdateItemFields(s, 'nope', { status: 'done' }).businesses[0].tasks[0].items[0].status, 'todo')
 })

@@ -1,4 +1,5 @@
 import type { BusinessTask, MemberType, OrgSnapshot, PersonOption, PositionMember, TaskItem } from '../types/index.ts'
+import type { ItemPatch } from './quadrant.ts'
 
 interface RefLike {
   member_type: MemberType | null
@@ -136,4 +137,12 @@ export function applyRemoveMember(snapshot: OrgSnapshot, positionId: string, mem
 export function applySetTaskPositions(snapshot: OrgSnapshot, taskId: string, positionIds: string[]): OrgSnapshot {
   const unique = Array.from(new Set(positionIds))
   return mapAllTasks(snapshot, (t) => (t.id === taskId ? { ...t, position_ids: unique } : t))
+}
+
+// 按事项 id 只改指定的四象限字段（is_important / due_date / status），其余字段与其它事项保持原引用。
+export function applyUpdateItemFields(snapshot: OrgSnapshot, itemId: string, fields: ItemPatch): OrgSnapshot {
+  return mapAllTasks(snapshot, (t) => ({
+    ...t,
+    items: t.items.map((it) => (it.id === itemId ? { ...it, ...fields } : it)),
+  }))
 }
