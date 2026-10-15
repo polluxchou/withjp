@@ -16,6 +16,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await createNewsCreateHandler(newsRouteDeps())(req)
+  const result = await createNewsCreateHandler(newsRouteDeps({ strict: true }))(req)
   return NextResponse.json(result.body, { status: result.status })
 }

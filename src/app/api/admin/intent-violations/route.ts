@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuardStrict } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
 import { createServerClient } from '@/lib/supabase/server'
 
@@ -11,7 +11,7 @@ import { createServerClient } from '@/lib/supabase/server'
 // Supabase; this endpoint exists so the audit signal is reachable without
 // shell/SQL access during an incident.
 export async function GET(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
 
   const actor = await getActorProfile(user.id)

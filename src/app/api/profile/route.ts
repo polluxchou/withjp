@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { authGuard } from '@/lib/auth/guard'
+import { authGuard, authGuardStrict } from '@/lib/auth/guard'
 import type { AgentRole } from '@/lib/types'
 
 // GET /api/profile - Get current user profile
@@ -43,8 +43,10 @@ export async function GET() {
 }
 
 // PATCH /api/profile - Update current user profile
+// Strict: this can change the caller's own role, so a revoked session must not
+// get through on a still-unexpired access token.
 export async function PATCH(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
   const db = createServerClient()
 

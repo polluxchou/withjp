@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl'
 import Button from '@/components/ui/Button'
 import { Field, Select } from '@/components/ui/Field'
 import Tag from '@/components/ui/Tag'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
+import { isAdmin, writeFailureMessage } from '@/lib/auth/admin-gate'
 import type { ModelProvider } from '@/lib/types'
 
 const PROVIDERS: { value: ModelProvider; label: string }[] = [
@@ -29,6 +31,9 @@ interface Props {
 
 export default function AgentModelEditor({ agentId, initialProvider, initialModel }: Props) {
   const t = useTranslations('agents')
+  const tCommon = useTranslations('common')
+  // PATCH /api/agents/:id 仅管理员：其他人只看当前模型，不渲染下拉与保存。
+  const me = useCurrentUser()
   const [provider, setProvider]     = useState<ModelProvider>(initialProvider ?? 'anthropic')
   const [modelName, setModelName]   = useState<string>(initialModel ?? 'claude-sonnet-4-6')
   const [saving, setSaving]         = useState(false)
@@ -70,7 +75,10 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
       })
       const json = await res.json()
       if (!res.ok || json.error) {
-        setError(json.error ?? 'Save failed')
+        setError(writeFailureMessage(res.status, json.error, {
+          forbidden: tCommon('adminOnlyAction'),
+          fallback: tCommon('saveFailed'),
+        }))
       } else {
         setSaved(true)
         setTimeout(() => setSaved(false), 2500)
@@ -106,6 +114,19 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
   }
 
   const modelOptions = PROVIDER_MODELS[provider] ?? []
+
+  if (!isAdmin(me)) {
+    const providerLabel = PROVIDERS.find((p) => p.value === provider)?.label ?? provider
+    return (
+      <div className="mt-3 pt-3 border-t border-line-soft">
+        <p className="text-xs font-medium text-ink-500 mb-2">{t('modelConfig')}</p>
+        <p className="text-xs text-ink-700">
+          {providerLabel} · <code className="font-mono">{resolvedModel}</code>
+        </p>
+        {me && <p className="text-xs text-ink-400 mt-1.5">{t('readOnlyNotice')}</p>}
+      </div>
+    )
+  }
 
   return (
     <div className="mt-3 pt-3 border-t border-line-soft">

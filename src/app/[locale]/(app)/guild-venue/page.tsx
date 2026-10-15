@@ -367,6 +367,9 @@ export default function GuildVenuePage() {
   const router = useRouter()
   const [items, setItems] = useState<Item[]>([])
   const [expenseById, setExpenseById] = useState<Record<string, Expense>>({})
+  // 支出管理仅管理员可访问：非管理员拿不到支出列表（/api/expenses 回 403），
+  // 这时金额一律不显示，而不是把每件物品都显示成 ¥0。
+  const [costsVisible, setCostsVisible] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -379,6 +382,7 @@ export default function GuildVenuePage() {
           const map: Record<string, Expense> = {}
           for (const e of exJson.data as Expense[]) map[e.id] = e
           setExpenseById(map)
+          setCostsVisible(true)
         }
       } catch { /* 联动展示是增强项，失败不阻断画布 */ }
     })()
@@ -1041,7 +1045,7 @@ export default function GuildVenuePage() {
               canManage={canManage}
               onManageCollaborators={() => setCollabOpen(true)}
               floorItems={floorItems}
-              floorItemsTotalCost={floorItemsTotalCost}
+              floorItemsTotalCost={costsVisible ? floorItemsTotalCost : null}
               items={activeFloor.items}
               selectedItemIds={selectedItemIds}
               onSelect={(itemId) => setSelectedItemIds([itemId])}
@@ -1085,7 +1089,7 @@ export default function GuildVenuePage() {
             collapsed={inspectorCollapsed}
             storeyHeightCm={activeFloor.floorHeight}
             placedItems={placedItems}
-            placedItemsTotalCost={placedItemsTotalCost}
+            placedItemsTotalCost={costsVisible ? placedItemsTotalCost : null}
             onOpenItems={() => router.push('/items')}
             emptyStateActions={
               <div className="space-y-4">
@@ -1233,7 +1237,8 @@ function FloatingPanel({
   canManage: boolean
   onManageCollaborators: () => void
   floorItems: Array<{ id: string; item_code: string; name: string; quantity: number; cost: number; zoneName: string | null }>
-  floorItemsTotalCost: number
+  /** null = 看不到成本（非管理员），合计行不显示。 */
+  floorItemsTotalCost: number | null
   items: VenueItem[]
   selectedItemIds: string[]
   visibleTypes: VenueItemType[]
@@ -1497,7 +1502,7 @@ function FloatingPanel({
                 )}
               </a>
             ))}
-            {floorItems.length > 0 && (
+            {floorItems.length > 0 && floorItemsTotalCost !== null && (
               <div className="mt-2 flex items-center justify-between border-t border-line-soft px-3 py-2 text-xs">
                 <span className="text-ink-500">{t('floorItemsTotal')}</span>
                 <span className="font-semibold text-ink-700 font-mono tabular-nums">

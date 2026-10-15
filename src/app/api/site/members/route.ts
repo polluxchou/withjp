@@ -15,6 +15,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await createMemberCreateHandler(memberRouteDeps())(req)
+  const result = await createMemberCreateHandler(memberRouteDeps({ strict: true }))(req)
   return NextResponse.json(result.body, { status: result.status })
 }
