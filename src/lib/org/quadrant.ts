@@ -3,7 +3,7 @@
 // 口径见 docs/superpowers/specs/2026-10-15-org-quadrant-board-design.md 第 2 节。
 // 本仓没有 DOM 测试环境，凡是能算的都放在这里，组件只负责渲染。
 // 相对路径 + .ts 后缀：node --test 不认 tsconfig 的 @/ 别名。
-import type { TaskItemStatus } from '../types/index.ts'
+import type { OrgSnapshot, TaskItemStatus } from '../types/index.ts'
 
 /** 截止日距今天 ≤ 这么多天（含当天、含已逾期）即算紧急。 */
 export const URGENT_WITHIN_DAYS = 7
@@ -66,4 +66,145 @@ export function dueBadge(item: QuadrantItemInput, today: string): DueBadge | nul
   if (d === 0) return { kind: 'today', tone: 'warning' }
   if (d <= 3) return { kind: 'soon', days: d, date, tone: 'warning' }
   return { kind: 'date', date, tone: 'muted' }
+}
+
+// ── 拍平、分组、统计、筛选 ────────────────────────────────
+
+/** 负责人标识：带类型前缀，员工与主播的 id 各自成域，不会撞。 */
+export type OwnerKey = `user:${string}` | `creator:${string}` | 'none'
+export type OwnerFilter = OwnerKey | 'all'
+
+export function ownerKeyOf(item: {
+  owner_member_type: 'user' | 'creator' | null
+  owner_user_id: string | null
+  owner_creator_id: string | null
+}): OwnerKey {
+  if (item.owner_member_type === 'user' && item.owner_user_id) return `user:${item.owner_user_id}`
+  if (item.owner_member_type === 'creator' && item.owner_creator_id) return `creator:${item.owner_creator_id}`
+  return 'none'
+}
+
+/** 拍平后的一行事项：判定字段 + 展示所需的业务/任务信息 + 稳定排序键。 */
+export interface QuadrantRow {
+  id: string
+  name: string
+  status: TaskItemStatus
+  is_important: boolean | null
+  due_date: string | null
+  ownerKey: OwnerKey
+  ownerName: string | null
+  businessName: string
+  taskName: string
+  positionIds: string[]
+  /** [业务 sort_order, 任务 sort_order, 事项 sort_order] */
+  order: [number, number, number]
+}
+
+export function flattenItems(snapshot: OrgSnapshot): QuadrantRow[] {
+  const rows: QuadrantRow[] = []
+  for (const b of snapshot.businesses) {
+    for (const t of b.tasks) {
+      for (const it of t.items) {
+        rows.push({
+          id: it.id,
+          name: it.name,
+          // 迁移未跑时新列缺失：按「未开始 / 待评估 / 无截止日」兜底
+          status: it.status ?? 'todo',
+          is_important: it.is_important ?? null,
+          due_date: it.due_date ?? null,
+          ownerKey: ownerKeyOf(it),
+          ownerName: it.owner_name ?? null,
+          businessName: b.name,
+          taskName: t.name,
+          positionIds: t.position_ids,
+          order: [b.sort_order, t.sort_order, it.sort_order],
+        })
+      }
+    }
+  }
+  return rows
+}
+
+function compareRows(a: QuadrantRow, b: QuadrantRow): number {
+  if (a.due_date !== b.due_date) {
+    if (!a.due_date) return 1
+    if (!b.due_date) return -1
+    return a.due_date < b.due_date ? -1 : 1
+  }
+  return a.order[0] - b.order[0] || a.order[1] - b.order[1] || a.order[2] - b.order[2]
+}
+
+function matchesOwner(row: QuadrantRow, owner: OwnerFilter): boolean {
+  return owner === 'all' || row.ownerKey === owner
+}
+
+export type QuadrantGroups = Record<Bucket, QuadrantRow[]>
+
+/** 按负责人筛选后分桶，每桶按 spec 2.4 排序。 */
+export function groupItems(rows: QuadrantRow[], today: string, owner: OwnerFilter): QuadrantGroups {
+  const groups: QuadrantGroups = { q1: [], q2: [], q3: [], q4: [], unrated: [], done: [] }
+  for (const row of rows) {
+    if (matchesOwner(row, owner)) groups[bucketOf(row, today)].push(row)
+  }
+  for (const key of Object.keys(groups) as Bucket[]) groups[key].sort(compareRows)
+  return groups
+}
+
+export interface QuadrantStats {
+  open: number
+  overdue: number
+  blocked: number
+  unrated: number
+  unassigned: number
+}
+
+/** spec 2.5 的统计；groups 已是筛选后的结果。 */
+export function quadrantStats(groups: QuadrantGroups, today: string): QuadrantStats {
+  const open = [...QUADRANTS.flatMap((q) => groups[q]), ...groups.unrated]
+  return {
+    open: open.length,
+    overdue: open.filter((r) => !!r.due_date && daysUntil(r.due_date, today) < 0).length,
+    blocked: open.filter((r) => r.status === 'blocked').length,
+    unrated: groups.unrated.length,
+    unassigned: open.filter((r) => r.ownerKey === 'none').length,
+  }
+}
+
+export interface OwnerOption {
+  key: OwnerFilter
+  name: string | null
+  count: number
+}
+
+/**
+ * 负责人筛选项（spec 2.6）：「全部」+ 至少负责一个事项的人（按姓名）+「未指派」（有才出现）。
+ * scope = 'open' 时计数为未完成事项数；scope 为某个桶时只数这个桶里的。
+ */
+export function ownerOptions(rows: QuadrantRow[], today: string, scope: Bucket | 'open'): OwnerOption[] {
+  const inScope = (r: QuadrantRow) => (scope === 'open' ? r.status !== 'done' : bucketOf(r, today) === scope)
+  const people = new Map<OwnerKey, string>()
+  let hasUnassigned = false
+  for (const r of rows) {
+    if (r.ownerKey === 'none') hasUnassigned = true
+    else if (!people.has(r.ownerKey)) people.set(r.ownerKey, r.ownerName ?? '')
+  }
+  const count = (key: OwnerFilter) => rows.filter((r) => inScope(r) && matchesOwner(r, key)).length
+  const options: OwnerOption[] = [{ key: 'all', name: null, count: count('all') }]
+  const sorted = Array.from(people.entries()).sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]))
+  for (const [key, name] of sorted) options.push({ key, name, count: count(key) })
+  if (hasUnassigned) options.push({ key: 'none', name: null, count: count('none') })
+  return options
+}
+
+/** URL 的 owner 参数 → 筛选值。格式不对、或这个人已不在任何事项上 → 'all'。 */
+export function parseOwnerFilter(raw: string | null, rows: QuadrantRow[]): OwnerFilter {
+  if (!raw || raw === 'all') return 'all'
+  return rows.some((r) => r.ownerKey === raw) ? (raw as OwnerKey) : 'all'
+}
+
+const BUCKETS: Bucket[] = ['q1', 'q2', 'q3', 'q4', 'unrated', 'done']
+
+/** URL 的 q 参数（手机列表层）→ 桶；缺省或非法 → null（首层）。 */
+export function parseLevel(raw: string | null): Bucket | null {
+  return BUCKETS.includes(raw as Bucket) ? (raw as Bucket) : null
 }
