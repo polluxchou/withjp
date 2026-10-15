@@ -39,11 +39,12 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       // 选人弹窗（aria-modal，z-60）开着时 Esc 只归它：同一次 keydown 里它的 DOM 还在，面板据此放行，避免两层一起被关。
+      // 本监听挂在捕获阶段，先于 Modal 的冒泡监听触发（与注册先后无关），所以此处检查仍能看到未关闭的选人弹窗。
       if (document.querySelector('[aria-modal="true"]')) return
       onClose()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [onClose])
 
   const statusLabel = (s: TaskItemStatus) =>

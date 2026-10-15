@@ -7,6 +7,7 @@ import { getOrgSnapshot } from '@/lib/org/service'
 import Header from '@/components/layout/Header'
 import EmptyState from '@/components/ui/EmptyState'
 import OrgPageView from '@/components/org/OrgPageView'
+import { tokyoToday } from '@/lib/org/quadrant'
 
 export default async function OrgPage() {
   const user = await authGuard()
@@ -24,7 +25,7 @@ export default async function OrgPage() {
       {!snapshot ? (
         <EmptyState title={t('org.empty')} />
       ) : (
-        <OrgPageView initial={snapshot} />
+        <OrgPageView initial={snapshot} today={tokyoToday()} />
       )}
     </div>
   )
