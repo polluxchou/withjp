@@ -190,7 +190,9 @@ export function ownerOptions(rows: QuadrantRow[], today: string, scope: Bucket |
   }
   const count = (key: OwnerFilter) => rows.filter((r) => inScope(r) && matchesOwner(r, key)).length
   const options: OwnerOption[] = [{ key: 'all', name: null, count: count('all') }]
-  const sorted = Array.from(people.entries()).sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]))
+  // 按 UTF-16 码元比较而不用 localeCompare：后者依赖运行环境的 ICU 默认语言，SSR 与浏览器顺序不一致会触发水合错位。
+  const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
+  const sorted = Array.from(people.entries()).sort((a, b) => cmp(a[1], b[1]) || cmp(a[0], b[0]))
   for (const [key, name] of sorted) options.push({ key, name, count: count(key) })
   if (hasUnassigned) options.push({ key: 'none', name: null, count: count('none') })
   return options

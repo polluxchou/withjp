@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  URGENT_WITHIN_DAYS, bucketOf, daysUntil, dueBadge, flattenItems, groupItems,
+  QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, daysUntil, dueBadge, flattenItems, groupItems,
   ownerKeyOf, ownerOptions, parseLevel, parseOwnerFilter, quadrantStats, tokyoToday,
   dueInputToPatch, isCalendarDate, validateItemPatch,
 } from './quadrant.ts'
@@ -74,6 +74,10 @@ test('dueBadge: spec 2.3 每一行', () => {
   assert.equal(dueBadge(item({ due_date: '2026-10-01', status: 'done' }), TODAY), null)
 })
 
+test('QUADRANTS: 顺序固定 q1→q4，手机端 2×2 方块按它铺在「紧急 | 不紧急」表头下', () => {
+  assert.deepEqual(QUADRANTS, ['q1', 'q2', 'q3', 'q4'])
+})
+
 const row = (over: Partial<QuadrantRow> = {}): QuadrantRow => ({
   id: 'r', name: 'r', status: 'todo', is_important: true, due_date: null,
   ownerKey: 'none', ownerName: null, businessName: 'B', taskName: 'T', positionIds: [], order: [1, 1, 1],
@@ -136,6 +140,47 @@ test('quadrantStats: 未完成/逾期/卡住/待评估/未指派；已完成不�
   assert.deepEqual(quadrantStats(groupItems(rows, TODAY, 'user:1'), TODAY), { open: 2, overdue: 1, blocked: 1, unrated: 0, unassigned: 0 })
 })
 
+test('quadrantStats: 当天到期不算逾期，前一天才算', () => {
+  const rows = [
+    row({ id: 'today', due_date: TODAY }),
+    row({ id: 'yesterday', due_date: '2026-10-14' }),
+  ]
+  assert.equal(quadrantStats(groupItems(rows, TODAY, 'all'), TODAY).overdue, 1)
+  assert.equal(quadrantStats(groupItems(rows.slice(0, 1), TODAY, 'all'), TODAY).overdue, 0)
+})
+
+test('quadrantStats: 已评估（重要/不重要）的未完成事项也计入「未指派」，已完成的不计', () => {
+  const rows = [
+    row({ id: 'imp', is_important: true, ownerKey: 'none' }),
+    row({ id: 'notimp', is_important: false, ownerKey: 'none' }),
+    row({ id: 'unrated', is_important: null, ownerKey: 'none' }),
+    row({ id: 'done', status: 'done', ownerKey: 'none' }),
+    row({ id: 'owned', ownerKey: 'user:1' }),
+  ]
+  assert.equal(quadrantStats(groupItems(rows, TODAY, 'all'), TODAY).unassigned, 3)
+})
+
+test('ownerOptions: 负责人排序按 UTF-16 码元，不随运行环境的语言变化（SSR 与浏览器须一致）', () => {
+  const rows = [
+    row({ id: '1', ownerKey: 'user:1', ownerName: '王五' }),
+    row({ id: '2', ownerKey: 'user:2', ownerName: 'Lee' }),
+    row({ id: '3', ownerKey: 'user:3', ownerName: '佐藤' }),
+    row({ id: '4', ownerKey: 'user:4', ownerName: 'Ann' }),
+    row({ id: '5', ownerKey: 'user:5', ownerName: 'bob' }),
+    row({ id: '6', ownerKey: 'user:6', ownerName: 'Zed' }),
+  ]
+  // 大写 Z(0x5A) 先于小写 b(0x62)；CJK 按码点：佐(U+4F50) 先于 王(U+738B)。localeCompare 在常见语言下都不是这个顺序。
+  assert.deepEqual(ownerOptions(rows, TODAY, 'open'), [
+    { key: 'all', name: null, count: 6 },
+    { key: 'user:4', name: 'Ann', count: 1 },
+    { key: 'user:2', name: 'Lee', count: 1 },
+    { key: 'user:6', name: 'Zed', count: 1 },
+    { key: 'user:5', name: 'bob', count: 1 },
+    { key: 'user:3', name: '佐藤', count: 1 },
+    { key: 'user:1', name: '王五', count: 1 },
+  ])
+})
+
 test('ownerOptions: 全部在前，人按姓名，未指派在后；同名或同 id 的员工/主播是两个选项', () => {
   const rows = [
     row({ id: '1', ownerKey: 'user:x', ownerName: 'Lee' }),
@@ -170,6 +215,11 @@ test('parseOwnerFilter: 失效或乱填的值回落到「全部」', () => {
   assert.equal(parseOwnerFilter('<script>', rows), 'all')
 })
 
+test('parseOwnerFilter: 有未指派事项时 none 有效', () => {
+  const rows = [row({ ownerKey: 'user:1' }), row({ ownerKey: 'none' })]
+  assert.equal(parseOwnerFilter('none', rows), 'none')
+})
+
 test('parseLevel: 只认六个桶，其余回首层', () => {
   assert.equal(parseLevel('q3'), 'q3')
   assert.equal(parseLevel('unrated'), 'unrated')
@@ -187,6 +237,16 @@ test('isCalendarDate: 只认真实存在的 2000–2099 年日历日', () => {
   assert.equal(isCalendarDate('0002-10-20'), false)
   assert.equal(isCalendarDate('2026-1-5'), false)
   assert.equal(isCalendarDate(''), false)
+})
+
+test('isCalendarDate: 年份边界 2000–2099 两端都在内，外侧一格就拒；能通过往返校验的荒谬年份也拒', () => {
+  assert.equal(isCalendarDate('1999-12-31'), false)
+  assert.equal(isCalendarDate('2000-01-01'), true)
+  assert.equal(isCalendarDate('2099-12-31'), true)
+  assert.equal(isCalendarDate('2100-01-01'), false)
+  // 0202-10-30 是真实存在的日历日（往返校验过得去），只有年份范围能挡住它
+  assert.equal(isCalendarDate('0202-10-30'), false)
+  assert.equal(dueInputToPatch('0202-10-30'), null)
 })
 
 test('validateItemPatch: 合法输入原样带出，其余键忽略', () => {

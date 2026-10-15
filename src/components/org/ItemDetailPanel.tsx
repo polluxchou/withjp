@@ -116,6 +116,7 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
                   defaultValue={row.due_date ?? ''}
                   onBlur={(e) => {
                     const patch = dueInputToPatch(e.target.value)
+                    if (!patch) e.target.value = row.due_date ?? ''
                     if (patch && patch.due_date !== row.due_date) onUpdate(patch)
                   }}
                   className="h-11 md:h-9 px-2.5 rounded-field border border-line bg-surface text-sm text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
