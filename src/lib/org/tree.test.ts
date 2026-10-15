@@ -5,7 +5,7 @@ import {
   validatePersonRef, ownerNameOf, sortByOrder,
   applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
   applySetBusinessOwner, applySetItemOwner,
-  applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields,
+  applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields, pickItemFields,
 } from './tree.ts'
 import type { OrgSnapshot, PersonOption } from '../types/index.ts'
 
@@ -151,4 +151,25 @@ test('applyUpdateItemFields: 只改指定事项的指定字段，不可变', () 
   assert.deepEqual([c.is_important, c.due_date, c.status], [true, null, 'done'])
 
   assert.equal(applyUpdateItemFields(s, 'nope', { status: 'done' }).businesses[0].tasks[0].items[0].status, 'todo')
+})
+
+test('pickItemFields: 只取指定字段，空值原样取出（撤销要能恢复成空）', () => {
+  const s = baseSnapshot()
+  assert.deepEqual(pickItemFields(s, 'i1', ['is_important', 'due_date']), { is_important: null, due_date: null })
+  const set = applyUpdateItemFields(s, 'i1', { is_important: true, due_date: '2026-10-22', status: 'doing' })
+  assert.deepEqual(pickItemFields(set, 'i1', ['due_date']), { due_date: '2026-10-22' })
+  assert.deepEqual(pickItemFields(set, 'i1', ['status', 'is_important']), { status: 'doing', is_important: true })
+})
+
+test('pickItemFields: 事项不存在返回 null', () => {
+  assert.equal(pickItemFields(baseSnapshot(), 'nope', ['status']), null)
+})
+
+test('pickItemFields + applyUpdateItemFields: 用取出的旧值写回即完整还原', () => {
+  const s = baseSnapshot()
+  const patch = { is_important: true, due_date: '2026-10-22' }
+  const prev = pickItemFields(s, 'i1', ['is_important', 'due_date'])!
+  const restored = applyUpdateItemFields(applyUpdateItemFields(s, 'i1', patch), 'i1', prev)
+  const it = restored.businesses[0].tasks[0].items[0]
+  assert.deepEqual([it.is_important, it.due_date, it.status], [null, null, 'todo'])
 })

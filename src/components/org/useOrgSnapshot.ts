@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import {
   applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
   applySetBusinessOwner, applySetItemOwner,
-  applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields,
+  applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields, pickItemFields,
 } from '@/lib/org/tree'
 import type { ItemPatch } from '@/lib/org/quadrant'
 import type { OrgSnapshot, PersonOption } from '@/lib/types'
@@ -36,6 +36,8 @@ export interface OrgActions {
 export function useOrgSnapshot(initial: OrgSnapshot): { snapshot: OrgSnapshot; actions: OrgActions } {
   const t = useTranslations('team')
   const [snapshot, setSnapshot] = useState<OrgSnapshot>(initial)
+  // 每个事项一个递增写入序号：写入失败时只有「这是该事项最新的一次写入」才回滚（spec 4.1）。
+  const writeSeq = useRef(new Map<string, number>())
 
   // 写 /api/org/*：成功返回受影响行 { id }；失败（网络异常 / 非 2xx）弹出服务端
   // 原因并返回 null —— 拒绝的写入不会被静默吞掉。调用方拿返回的 id 直接就地更新
@@ -115,8 +117,18 @@ export function useOrgSnapshot(initial: OrgSnapshot): { snapshot: OrgSnapshot; a
     if (!window.confirm(t('org.confirmDelete'))) return
     if (await api(`/positions/${positionId}/members/${memberId}`, 'DELETE')) setSnapshot((s) => applyRemoveMember(s, positionId, memberId))
   }
+  // 先改界面再写库（spec 4.1）。旧值取自本次渲染的快照：每次拖放 / 点击都是独立事件，
+  // 事件结束 React 会先重渲染，所以这里的 snapshot 已含上一次的乐观更新。
   const updateItemFields = async (itemId: string, fields: ItemPatch) => {
-    if (await api(`/items/${itemId}`, 'PATCH', fields)) setSnapshot((s) => applyUpdateItemFields(s, itemId, fields))
+    const prev = pickItemFields(snapshot, itemId, Object.keys(fields) as (keyof ItemPatch)[])
+    const seq = (writeSeq.current.get(itemId) ?? 0) + 1
+    writeSeq.current.set(itemId, seq)
+    setSnapshot((s) => applyUpdateItemFields(s, itemId, fields))
+    const ok = await api(`/items/${itemId}`, 'PATCH', fields)
+    // 失败（api() 已弹出原因）：只有这期间没有更新的写入发起过才回滚，免得盖掉之后的修改
+    if (!ok && prev && writeSeq.current.get(itemId) === seq) {
+      setSnapshot((s) => applyUpdateItemFields(s, itemId, prev))
+    }
   }
 
   return {

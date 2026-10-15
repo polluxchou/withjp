@@ -146,3 +146,23 @@ export function applyUpdateItemFields(snapshot: OrgSnapshot, itemId: string, fie
     items: t.items.map((it) => (it.id === itemId ? { ...it, ...fields } : it)),
   }))
 }
+
+// 读出某事项指定四象限字段的当前值，作为乐观更新回滚与拖放撤销的补丁。
+// 迁移前的旧数据可能缺列：按 待评估 / 无截止日 / 未开始 兜底。事项不存在返回 null。
+export function pickItemFields(snapshot: OrgSnapshot, itemId: string, keys: (keyof ItemPatch)[]): ItemPatch | null {
+  for (const b of snapshot.businesses) {
+    for (const t of b.tasks) {
+      for (const it of t.items) {
+        if (it.id !== itemId) continue
+        const out: ItemPatch = {}
+        for (const k of keys) {
+          if (k === 'is_important') out.is_important = it.is_important ?? null
+          else if (k === 'due_date') out.due_date = it.due_date ?? null
+          else out.status = it.status ?? 'todo'
+        }
+        return out
+      }
+    }
+  }
+  return null
+}
