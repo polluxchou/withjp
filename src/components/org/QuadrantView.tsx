@@ -12,6 +12,7 @@ import type { Announcements, CollisionDetection, DragEndEvent, DragStartEvent, O
 import { Stat, StatBand } from '@/components/ui/Stat'
 import ItemDetailPanel from './ItemDetailPanel'
 import OwnerFilter from './OwnerFilter'
+import OwnerAvatar from './OwnerAvatar'
 import DueDatePrompt from './DueDatePrompt'
 import DropNotice from './DropNotice'
 import {
@@ -355,7 +356,10 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
       <span className="w-full truncate text-xs text-ink-500">{row.businessName} › {row.taskName}</span>
       <span className={`text-md font-medium leading-snug ${row.status === 'done' ? 'text-ink-500 line-through' : 'text-ink-900'}`}>{row.name}</span>
       <span className="flex w-full items-center justify-between gap-2">
-        <span className={`truncate text-xs ${row.ownerKey === 'none' ? 'font-semibold text-warning-text' : 'text-ink-700'}`}>{ownerLabel(row)}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <OwnerAvatar ownerKey={row.ownerKey} name={row.ownerName} size="sm" />
+          <span className={`truncate text-xs ${row.ownerKey === 'none' ? 'font-semibold text-warning-text' : 'text-ink-700'}`}>{ownerLabel(row)}</span>
+        </span>
         {badges(row)}
       </span>
     </>
