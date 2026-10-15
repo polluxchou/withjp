@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
+import { getActorProfile } from '@/lib/auth/actor'
+import { canAccessExpenses, EXPENSES_ADMIN_ONLY_MESSAGE } from '@/lib/expenses/access'
 
 type Params = { params: { id: string } }
 
@@ -8,6 +10,9 @@ type Params = { params: { id: string } }
 export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  if (!canAccessExpenses(await getActorProfile(user.id))) {
+    return NextResponse.json({ data: null, error: EXPENSES_ADMIN_ONLY_MESSAGE }, { status: 403 })
+  }
   const db = createServerClient()
   const body = await req.json()
   const { name, filters } = body as { name?: string; filters?: Record<string, string> }
@@ -42,6 +47,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  if (!canAccessExpenses(await getActorProfile(user.id))) {
+    return NextResponse.json({ data: null, error: EXPENSES_ADMIN_ONLY_MESSAGE }, { status: 403 })
+  }
   const db = createServerClient()
 
   const { error } = await db

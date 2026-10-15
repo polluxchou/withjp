@@ -19,12 +19,28 @@ export type NavLeaf = {
   exact?: boolean
   /** 带上它，这一项只在 URL query 也对得上时才算激活。 */
   query?: NavQuery
+  /** 只对管理员显示。这里只管入口显隐，真正的拦截在页面与 API 那层。 */
+  adminOnly?: boolean
 }
 
 export type NavGroup = { key: string; icon: LucideIcon; children: readonly NavLeaf[] }
 export type NavItem  = NavLeaf | NavGroup
 
 export const isGroup = (item: NavItem): item is NavGroup => 'children' in item
+
+/**
+ * 按身份过滤导航：非管理员去掉 adminOnly 的叶子，被删空的分组整组不显示。
+ * 资料还没取回时调用方传 false——宁可管理员晚一拍看到入口，也不让非管理员
+ * 先看到、再看它消失。
+ */
+export function visibleNavItems(items: readonly NavItem[], isAdmin: boolean): NavItem[] {
+  if (isAdmin) return [...items]
+  return items.flatMap((item): NavItem[] => {
+    if (!isGroup(item)) return item.adminOnly ? [] : [item]
+    const children = item.children.filter((c) => !c.adminOnly)
+    return children.length > 0 ? [{ ...item, children }] : []
+  })
+}
 
 /**
  * 带默认值的 query 参数登记表。

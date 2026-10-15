@@ -25,6 +25,9 @@
     "errorTitle": "エラーが発生しました",
     "retry": "再試行",
     "loadFailed": "読み込みに失敗しました。再試行してください",
+    "saveFailed": "保存に失敗しました。しばらくしてから再度お試しください",
+    "deleteFailed": "削除に失敗しました。しばらくしてから再度お試しください",
+    "adminOnlyAction": "この操作は管理者のみ実行できます",
     "prev": "前へ",
     "next": "次へ",
     "uploadImage": "画像をアップロード",
@@ -199,7 +202,8 @@
     "testFail": "失敗",
     "save": "保存",
     "saving": "保存中…",
-    "saved": "保存済み ✓"
+    "saved": "保存済み ✓",
+    "readOnlyNotice": "モデル設定は管理者のみ変更できます"
   },
   "devices": {
     "chartTitle": "機材の累計支出",
@@ -303,6 +307,13 @@
           "「会社共通口座」を選択したが、担当者がwith-new / JP-代理陳昊 / JP-代理小獣のいずれでもない場合を確認してください",
           "支払いステータスとカテゴリが許可された値の範囲内か確認してください",
           "必要に応じて、より具体的な説明で再試行してください"
+        ]
+      },
+      "forbidden": {
+        "title": "支出管理は管理者専用です",
+        "body": "支出の検索・追加・編集・削除は現在、管理者のみ利用できます。",
+        "suggestions": [
+          "必要な場合は管理者に権限を依頼してください"
         ]
       },
       "badRequest": {
@@ -562,7 +573,8 @@
       "labourCost": "人件費",
       "taskCount": "タスク数",
       "taskCountValue": "{count}件",
-      "tasksItem": "{count}件"
+      "tasksItem": "{count}件",
+      "costAdminOnly": "他のメンバーの人件費は管理者のみ表示されます"
     },
     "table": {
       "member": "メンバー",
@@ -902,6 +914,8 @@
   "expenses": {
     "title": "支出管理",
     "subtitle": "合計 {count} 件のレコード",
+    "adminOnlyTitle": "支出管理は管理者のみ利用できます",
+    "adminOnlyHint": "支出の閲覧や登録が必要な場合は、管理者にお問い合わせください。",
     "addExpense": "支出を追加",
     "editExpense": "支出を編集",
     "duplicateExpense": "支出をコピー",
@@ -1346,6 +1360,9 @@
     "venueEntryBody": "配信ルームの内装、機材の配置、通路や非常口を、コスト計画の空間ビューとして管理します。"
   },
   "config": {
+    "rules": {
+      "readOnlyNotice": "ルール設定は管理者のみ編集できます。現在は閲覧のみです。"
+    },
     "tabs": {
       "rules": "ルール設定",
       "changelog": "更新履歴"

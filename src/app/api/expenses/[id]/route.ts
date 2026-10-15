@@ -7,6 +7,7 @@ import {
   httpStatusForError,
   type UpdateExpenseInput,
 } from '@/lib/expenses/service'
+import { canAccessExpenses, EXPENSES_ADMIN_ONLY_MESSAGE } from '@/lib/expenses/access'
 
 type Params = { params: { id: string } }
 
@@ -16,6 +17,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (user instanceof NextResponse) return user
 
   const actor = await getActorProfile(user.id)
+  if (!canAccessExpenses(actor)) {
+    return NextResponse.json({ data: null, error: EXPENSES_ADMIN_ONLY_MESSAGE }, { status: 403 })
+  }
   let body: UpdateExpenseInput
   try {
     body = (await req.json()) as UpdateExpenseInput
@@ -39,6 +43,9 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (user instanceof NextResponse) return user
 
   const actor  = await getActorProfile(user.id)
+  if (!canAccessExpenses(actor)) {
+    return NextResponse.json({ data: null, error: EXPENSES_ADMIN_ONLY_MESSAGE }, { status: 403 })
+  }
   const result = await deleteExpense(params.id, actor)
   if (result.error) {
     return NextResponse.json(

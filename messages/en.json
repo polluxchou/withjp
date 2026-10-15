@@ -25,6 +25,9 @@
     "errorTitle": "Something went wrong",
     "retry": "Retry",
     "loadFailed": "Failed to load. Please retry.",
+    "saveFailed": "Save failed. Please try again.",
+    "deleteFailed": "Delete failed. Please try again.",
+    "adminOnlyAction": "Only admins can do this",
     "prev": "Previous",
     "next": "Next",
     "uploadImage": "Upload Image",
@@ -199,7 +202,8 @@
     "testFail": "Failed",
     "save": "Save",
     "saving": "Saving…",
-    "saved": "Saved ✓"
+    "saved": "Saved ✓",
+    "readOnlyNotice": "Only admins can change the model"
   },
   "devices": {
     "chartTitle": "Cumulative device spend",
@@ -303,6 +307,13 @@
           "If you chose \"Company shared account,\" the buyer must be one of: with-new / JP-代理陈昊 / JP-代理小兽",
           "Check that payment status and category are within allowed values",
           "If needed, retry with a more specific phrasing"
+        ]
+      },
+      "forbidden": {
+        "title": "Expenses are admin-only",
+        "body": "Querying, adding, editing and deleting expenses is currently limited to admins.",
+        "suggestions": [
+          "If you need access, ask an admin"
         ]
       },
       "badRequest": {
@@ -562,7 +573,8 @@
       "labourCost": "Labour cost",
       "taskCount": "Tasks",
       "taskCountValue": "{count, plural, =1 {1 task} other {# tasks}}",
-      "tasksItem": "{count, plural, =1 {1 item} other {# items}}"
+      "tasksItem": "{count, plural, =1 {1 item} other {# items}}",
+      "costAdminOnly": "Others' costs are visible to admins only"
     },
     "table": {
       "member": "Member",
@@ -902,6 +914,8 @@
   "expenses": {
     "title": "Expense Management",
     "subtitle": "{count} records",
+    "adminOnlyTitle": "Expense Management is admin-only",
+    "adminOnlyHint": "To view or record expenses, please contact an admin.",
     "addExpense": "Add expense",
     "editExpense": "Edit expense",
     "duplicateExpense": "Duplicate expense",
@@ -1587,6 +1601,9 @@
     "addFacility": "Fixtures"
   },
   "config": {
+    "rules": {
+      "readOnlyNotice": "Only admins can edit these rules. You're viewing them read-only."
+    },
     "tabs": {
       "rules": "Rules",
       "changelog": "Changelog"

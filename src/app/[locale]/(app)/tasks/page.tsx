@@ -22,8 +22,10 @@ import { useSearchParams } from 'next/navigation'
 import { useRouter } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { hrefWithQuery, resolveNavQuery } from '@/lib/nav/nav'
-import { toDateStr } from '@/lib/work-tasks/cost'
+import { costVisibility, toDateStr } from '@/lib/work-tasks/cost'
 import { toneOf } from '@/lib/ui/status-tone'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
+import { isAdmin } from '@/lib/auth/admin-gate'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 import type { Task, TaskStatus, WorkTask, AgentRole } from '@/lib/types'
 
@@ -49,6 +51,10 @@ export default function TasksPage() {
   const [period,     setPeriod]     = useState<WorkloadPeriod>('day')
   const [dayDate,    setDayDate]    = useState(toDateStr(new Date()))
   const [showSalary, setShowSalary] = useState(false)
+  // 薪资：增删改仅管理员（写接口 403），入口按钮也只给管理员；读取时非管理员
+  // 只拿到自己那条，别人的成本与合计显示「—」（见 costVisibility）。
+  const canManageSalary = isAdmin(useCurrentUser())
+  const costs = costVisibility(salaryMap, canManageSalary)
 
   // ── Main tab ───────────────────────────────────────────────────
   // tab 状态挂在 URL 上：侧栏的「人员任务与工时」和「AI 任务」是这一页的两个
@@ -209,7 +215,7 @@ export default function TasksPage() {
         }
         actions={
           <div className="flex items-center gap-2">
-            {mainTab === 'workload' && (
+            {mainTab === 'workload' && canManageSalary && (
               <Button variant="secondary" size="sm" onClick={() => setShowSalary(true)}>
                 <Settings className="w-3.5 h-3.5" /> {t('salarySettings')}
               </Button>
@@ -309,6 +315,7 @@ export default function TasksPage() {
                 <WorkloadDayView
                   tasks={workTasks}
                   salaryMap={salaryMap}
+                  costs={costs}
                   userMeta={userMeta}
                   date={dayDate}
                   onRefresh={loadWorkloads}
@@ -318,6 +325,7 @@ export default function TasksPage() {
                 <WorkloadWeekView
                   tasks={workTasks}
                   salaryMap={salaryMap}
+                  costs={costs}
                   userMeta={userMeta}
                   onRefresh={loadWorkloads}
                 />
@@ -326,6 +334,7 @@ export default function TasksPage() {
                 <WorkloadMonthView
                   tasks={workTasks}
                   salaryMap={salaryMap}
+                  costs={costs}
                   userMeta={userMeta}
                   onRefresh={loadWorkloads}
                 />
@@ -351,7 +360,7 @@ export default function TasksPage() {
               provides, so claiming aria-modal would be inaccurate —
               role="dialog" + aria-label + Escape (handled above) is the
               honest subset. */}
-          {showSalary && (
+          {showSalary && canManageSalary && (
             <div className="fixed inset-0 z-50">
               <div
                 className="absolute inset-0 bg-black/40"

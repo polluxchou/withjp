@@ -37,6 +37,28 @@ export function taskLabourCost(
   return hourlyRate(monthlySalary) * effortHours * peopleCount
 }
 
+// ── Cost visibility ───────────────────────────────────────────
+// GET /api/user-salary 只给管理员全员薪资，其他人只拿到自己那条。非管理员
+// 手上的 salaryMap 缺别人的薪资（按 0 算），别人的成本和部门/合计成本都不准，
+// 页面显示「—」，不把 ¥0 当真。管理员照旧全部显示。
+
+export interface CostVisibility {
+  /** 部门、合计这类混了多人薪资的数字 */
+  totals: boolean
+  /** 某个人自己的成本 */
+  user: (userId: string) => boolean
+}
+
+export function costVisibility(
+  salaryMap: Record<string, number>,
+  seesAllSalaries: boolean,
+): CostVisibility {
+  return {
+    totals: seesAllSalaries,
+    user: (userId) => seesAllSalaries || Object.prototype.hasOwnProperty.call(salaryMap, userId),
+  }
+}
+
 // ── Date utilities ────────────────────────────────────────────
 
 export function toDateStr(d: Date): string {

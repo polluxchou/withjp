@@ -226,12 +226,13 @@ function ErrorView({
   const askCode = code === 'not_configured' || code === 'upstream' || code === 'board' ? code : null
 
   // Map error code → which sub-key under intent.error.* to read. 'bad_request'
-  // is the only one that hides the raw report (it's a user input problem, not
-  // a backend failure).
+  // and 'forbidden' hide the raw report (a user input problem / a permission
+  // boundary, not a backend failure).
   const subKey =
     code === 'parser_failed'   ? 'parserFailed'   :
     code === 'executor_failed' ? 'executorFailed' :
     code === 'bad_request'     ? 'badRequest'     :
+    code === 'forbidden'       ? 'forbidden'      :
                                  'unknown'
   const friendly = askCode
     ? {
@@ -249,7 +250,7 @@ function ErrorView({
         title:       t(`${subKey}.title`),
         body:        t(`${subKey}.body`),
         suggestions: t.raw(`${subKey}.suggestions`) as string[],
-        showRaw:     subKey !== 'badRequest',
+        showRaw:     subKey !== 'badRequest' && subKey !== 'forbidden',
       }
   const [copied, setCopied] = useState(false)
 
