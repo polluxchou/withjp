@@ -6,6 +6,7 @@ import {
   applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
   applySetBusinessOwner, applySetItemOwner,
   applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields, pickItemFields,
+  nameToSave, findItemName, findTaskName, applyRenameItem, applyRenameTask,
 } from './tree.ts'
 import type { OrgSnapshot, PersonOption } from '../types/index.ts'
 
@@ -172,4 +173,46 @@ test('pickItemFields + applyUpdateItemFields: 用取出的旧值写回即完整�
   const restored = applyUpdateItemFields(applyUpdateItemFields(s, 'i1', patch), 'i1', prev)
   const it = restored.businesses[0].tasks[0].items[0]
   assert.deepEqual([it.is_important, it.due_date, it.status], [null, null, 'todo'])
+})
+
+test('nameToSave: 去首尾空白；为空或与原名相同不写入', () => {
+  assert.equal(nameToSave('  新名字  ', '旧名字'), '新名字')
+  assert.equal(nameToSave('旧名字', '旧名字'), null)
+  assert.equal(nameToSave(' 旧名字 ', '旧名字'), null)
+  assert.equal(nameToSave('', '旧名字'), null)
+  assert.equal(nameToSave('   ', '旧名字'), null)
+})
+
+test('findItemName / findTaskName: 按 id 找当前名称，找不到返回 null', () => {
+  const s = baseSnapshot()
+  assert.equal(findItemName(s, 'i1'), '事项1')
+  assert.equal(findTaskName(s, 't1'), '任务1')
+  assert.equal(findItemName(s, 'nope'), null)
+  assert.equal(findTaskName(s, 'nope'), null)
+})
+
+test('applyRenameItem: 只改指定事项名称，不可变', () => {
+  const s = baseSnapshot()
+  const next = applyRenameItem(s, 'i1', '事项一')
+  assert.equal(next.businesses[0].tasks[0].items[0].name, '事项一')
+  assert.equal(next.businesses[0].tasks[0].items[0].status, 'todo')
+  assert.equal(s.businesses[0].tasks[0].items[0].name, '事项1')
+  assert.equal(applyRenameItem(s, 'nope', 'x').businesses[0].tasks[0].items[0].name, '事项1')
+})
+
+test('applyRenameItem: 带 onlyIfCurrent 时，只有当前名称仍是它才改（回滚不盖掉之后的改名）', () => {
+  const s = applyRenameItem(baseSnapshot(), 'i1', 'B')
+  assert.equal(applyRenameItem(s, 'i1', '事项1', 'B').businesses[0].tasks[0].items[0].name, '事项1')
+  const later = applyRenameItem(s, 'i1', 'C')
+  assert.equal(applyRenameItem(later, 'i1', '事项1', 'B').businesses[0].tasks[0].items[0].name, 'C')
+})
+
+test('applyRenameTask: 只改指定任务名称（含 onlyIfCurrent），事项不受影响', () => {
+  const s = baseSnapshot()
+  const next = applyRenameTask(s, 't1', '任务一')
+  assert.equal(next.businesses[0].tasks[0].name, '任务一')
+  assert.equal(next.businesses[0].tasks[0].items[0].name, '事项1')
+  assert.equal(s.businesses[0].tasks[0].name, '任务1')
+  assert.equal(applyRenameTask(next, 't1', '任务1', '别的').businesses[0].tasks[0].name, '任务一')
+  assert.equal(applyRenameTask(next, 't1', '任务1', '任务一').businesses[0].tasks[0].name, '任务1')
 })

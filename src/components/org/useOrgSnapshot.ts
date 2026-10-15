@@ -6,6 +6,7 @@ import {
   applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
   applySetBusinessOwner, applySetItemOwner,
   applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields, pickItemFields,
+  nameToSave, findItemName, findTaskName, applyRenameItem, applyRenameTask,
 } from '@/lib/org/tree'
 import { createWriteLedger, beginWrite, settleWrite } from '@/lib/org/writeLedger'
 import type { ItemPatch } from '@/lib/org/quadrant'
@@ -32,6 +33,9 @@ export interface OrgActions {
   removeMember: (positionId: string, memberId: string) => Promise<void>
   /** 乐观更新后写库；resolve 写入是否成功（失败时界面已回滚）。 */
   updateItemFields: (itemId: string, fields: ItemPatch) => Promise<boolean>
+  /** 就地改名：去首尾空白，空或未改动不写入；先改界面再写库，失败改回原名。 */
+  renameItem: (itemId: string, input: string) => Promise<void>
+  renameTask: (taskId: string, input: string) => Promise<void>
 }
 
 /** 业务分工页的共享快照与写入封装：「结构」「四象限」两个视图共用，任一视图改完另一个立即可见。 */
@@ -131,11 +135,28 @@ export function useOrgSnapshot(initial: OrgSnapshot): { snapshot: OrgSnapshot; a
     return ok !== null
   }
 
+  // 改名：先改界面再写库；失败（api() 已弹出原因）时改回原名——只在当前名称仍是这次写的名称时，
+  // 免得失败的旧请求盖掉之后的改名。
+  const renameItem = async (itemId: string, input: string) => {
+    const prev = findItemName(snapshot, itemId)
+    const name = prev === null ? null : nameToSave(input, prev)
+    if (prev === null || name === null) return
+    setSnapshot((s) => applyRenameItem(s, itemId, name))
+    if (!(await api(`/items/${itemId}`, 'PATCH', { name }))) setSnapshot((s) => applyRenameItem(s, itemId, prev, name))
+  }
+  const renameTask = async (taskId: string, input: string) => {
+    const prev = findTaskName(snapshot, taskId)
+    const name = prev === null ? null : nameToSave(input, prev)
+    if (prev === null || name === null) return
+    setSnapshot((s) => applyRenameTask(s, taskId, name))
+    if (!(await api(`/tasks/${taskId}`, 'PATCH', { name }))) setSnapshot((s) => applyRenameTask(s, taskId, prev, name))
+  }
+
   return {
     snapshot,
     actions: {
       addTask, deleteTask, addItem, deleteItem, setBusinessOwner, setItemOwner,
-      editTaskPositions, addMember, removeMember, updateItemFields,
+      editTaskPositions, addMember, removeMember, updateItemFields, renameItem, renameTask,
     },
   }
 }

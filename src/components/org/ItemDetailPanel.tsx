@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslations } from 'next-intl'
-import { X } from 'lucide-react'
+import { Pencil, X } from 'lucide-react'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import Tag from '@/components/ui/Tag'
+import InlineNameInput from './InlineNameInput'
 import OwnerAvatar from './OwnerAvatar'
 import { lockViewportScroll } from '@/lib/ui/scrollLock'
 import { URGENT_WITHIN_DAYS, daysUntil, dueInputToPatch, isUrgent } from '@/lib/org/quadrant'
@@ -25,15 +26,20 @@ interface Props {
   onClose: () => void
   onUpdate: (fields: ItemPatch) => void
   onPickOwner: () => void
+  /** 就地改事项名称（是否真的写入由调用方判断：空白或未改动不写）。 */
+  onRename: (name: string) => void
 }
 
 // 侧向上下文面板：≥768px 贴右的抽屉，<768px 贴底的面板。层级 z-50 与
 // DiscussionPanel / SalaryManager 抽屉同类（选人弹窗 Modal 是 z-60，会盖在上面）。
 // 无 aria-modal：没有 Modal.tsx 那套焦点圈定，role="dialog" + aria-label + Escape
 // 是不夸大能力的诚实子集（同 DiscussionPanel 的说明）。
-export default function ItemDetailPanel({ row, today, canEdit, positionName, onClose, onUpdate, onPickOwner }: Props) {
+export default function ItemDetailPanel({ row, today, canEdit, positionName, onClose, onUpdate, onPickOwner, onRename }: Props) {
   const t = useTranslations('team')
   const tCommon = useTranslations('common')
+  const [renaming, setRenaming] = useState(false)
+  // 面板换成另一个事项时退出改名
+  useEffect(() => { setRenaming(false) }, [row.id])
 
   useEffect(() => lockViewportScroll(), [])
   useEffect(() => {
@@ -42,6 +48,8 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
       // 选人弹窗（aria-modal，z-60）开着时 Esc 只归它：同一次 keydown 里它的 DOM 还在，面板据此放行，避免两层一起被关。
       // 本监听挂在捕获阶段，先于 Modal 的冒泡监听触发（与注册先后无关），所以此处检查仍能看到未关闭的选人弹窗。
       if (document.querySelector('[aria-modal="true"]')) return
+      // 正在就地改名：Esc 只取消改名（输入框自己处理），不关面板
+      if ((e.target as HTMLElement | null)?.closest?.('[data-inline-name]')) return
       onClose()
     }
     window.addEventListener('keydown', onKey, true)
@@ -85,7 +93,30 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
             <X className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
-        <h2 className="mt-1 text-lg font-semibold leading-snug text-ink-900">{row.name}</h2>
+        {renaming ? (
+          <div className="mt-1 flex">
+            <InlineNameInput
+              initial={row.name}
+              onSave={(value) => { setRenaming(false); onRename(value) }}
+              onCancel={() => setRenaming(false)}
+              className="min-w-0 flex-1 h-11 rounded-field border border-primary-border bg-surface px-2.5 text-lg font-semibold text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring md:h-9"
+            />
+          </div>
+        ) : canEdit ? (
+          <h2 className="mt-1 text-lg font-semibold leading-snug text-ink-900">
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              title={t('org.rename')}
+              className="group inline-flex min-h-11 items-start gap-1.5 rounded-field text-left hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring md:min-h-0"
+            >
+              <span>{row.name}</span>
+              <Pencil aria-hidden className="mt-1.5 h-3.5 w-3.5 flex-none text-ink-400 group-hover:text-primary-hover" strokeWidth={1.5} />
+            </button>
+          </h2>
+        ) : (
+          <h2 className="mt-1 text-lg font-semibold leading-snug text-ink-900">{row.name}</h2>
+        )}
         {!canEdit && <p className="mt-1 text-xs text-ink-400">{t('org.readonlyHint')}</p>}
 
         <dl className="mt-5 grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-3 gap-y-4 text-sm">

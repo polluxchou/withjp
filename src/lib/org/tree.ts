@@ -166,3 +166,34 @@ export function pickItemFields(snapshot: OrgSnapshot, itemId: string, keys: (key
   }
   return null
 }
+
+// ── 改名（事项 / 任务）────────────────────────────────────
+
+/** 改名输入 → 要写入的新名称；去掉首尾空白后为空、或与原名相同 → null（不写入）。 */
+export function nameToSave(input: string, current: string): string | null {
+  const name = input.trim()
+  return name === '' || name === current ? null : name
+}
+
+export function findItemName(snapshot: OrgSnapshot, itemId: string): string | null {
+  for (const b of snapshot.businesses) for (const t of b.tasks) for (const it of t.items) if (it.id === itemId) return it.name
+  return null
+}
+
+export function findTaskName(snapshot: OrgSnapshot, taskId: string): string | null {
+  for (const b of snapshot.businesses) for (const t of b.tasks) if (t.id === taskId) return t.name
+  return null
+}
+
+// onlyIfCurrent：回滚时传入这次尝试写的名称，只有当前名称仍是它才改回去——期间又改过名就不动，
+// 免得失败的旧请求把之后的改名盖掉。
+export function applyRenameItem(snapshot: OrgSnapshot, itemId: string, name: string, onlyIfCurrent?: string): OrgSnapshot {
+  return mapAllTasks(snapshot, (t) => ({
+    ...t,
+    items: t.items.map((it) => (it.id === itemId && (onlyIfCurrent === undefined || it.name === onlyIfCurrent) ? { ...it, name } : it)),
+  }))
+}
+
+export function applyRenameTask(snapshot: OrgSnapshot, taskId: string, name: string, onlyIfCurrent?: string): OrgSnapshot {
+  return mapAllTasks(snapshot, (t) => (t.id === taskId && (onlyIfCurrent === undefined || t.name === onlyIfCurrent) ? { ...t, name } : t))
+}

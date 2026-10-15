@@ -56,9 +56,10 @@ interface Props {
   /** resolve 写入是否成功；失败时界面已回滚。 */
   onUpdateItem: (itemId: string, fields: ItemPatch) => Promise<boolean>
   onPickOwner: (itemId: string) => void
+  onRenameItem: (itemId: string, name: string) => void
 }
 
-export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwner }: Props) {
+export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwner, onRenameItem }: Props) {
   const t = useTranslations('team')
   const params = useSearchParams()
   const rows = useMemo(() => flattenItems(snapshot), [snapshot])
@@ -487,6 +488,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
           onClose={closePanel}
           onUpdate={(fields) => onUpdateItem(selected.id, fields)}
           onPickOwner={() => onPickOwner(selected.id)}
+          onRename={(name) => onRenameItem(selected.id, name)}
         />
       )}
       {ask && (
