@@ -305,6 +305,13 @@
           "If needed, retry with a more specific phrasing"
         ]
       },
+      "forbidden": {
+        "title": "Expenses are admin-only",
+        "body": "Querying, adding, editing and deleting expenses is currently limited to admins.",
+        "suggestions": [
+          "If you need access, ask an admin"
+        ]
+      },
       "badRequest": {
         "title": "Bad request format",
         "body": "Please enter some non-empty text and try again.",
@@ -902,6 +909,8 @@
   "expenses": {
     "title": "Expense Management",
     "subtitle": "{count} records",
+    "adminOnlyTitle": "Expense Management is admin-only",
+    "adminOnlyHint": "To view or record expenses, please contact an admin.",
     "addExpense": "Add expense",
     "editExpense": "Edit expense",
     "duplicateExpense": "Duplicate expense",

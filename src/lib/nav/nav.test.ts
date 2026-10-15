@@ -1,7 +1,7 @@
 // src/lib/nav/nav.test.ts
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { hrefWithQuery, isNavActive, resolveNavQuery } from './nav.ts'
+import { hrefWithQuery, isNavActive, resolveNavQuery, visibleNavItems, type NavItem, type NavLeaf } from './nav.ts'
 
 // 无 query 的 leaf —— 现有行为一条都不能变
 test('leaf without query: exact 精确匹配，非 exact 匹配自身与子路径', () => {
@@ -81,4 +81,39 @@ test('hrefWithQuery 无 query 时原样返回，有 query 时拼上问号', () =
   assert.equal(hrefWithQuery({ href: '/expenses' }), '/expenses')
   assert.equal(hrefWithQuery({ href: '/tasks', query: { view: 'ai' } }), '/tasks?view=ai')
   assert.equal(hrefWithQuery({ href: '/tasks', query: {} }), '/tasks')
+})
+
+// visibleNavItems —— 按身份过滤入口（adminOnly）
+const icon = (() => null) as unknown as NavLeaf['icon']
+const SAMPLE: readonly NavItem[] = [
+  { href: '/', key: 'workbench', icon },
+  {
+    key: 'costManagement',
+    icon,
+    children: [
+      { href: '/expenses', key: 'expenses', icon, adminOnly: true },
+      { href: '/items',    key: 'items',    icon },
+    ],
+  },
+  { key: 'secret', icon, children: [{ href: '/secret', key: 'secretLeaf', icon, adminOnly: true }] },
+  { href: '/config', key: 'settings', icon, adminOnly: true },
+]
+const keysOf = (items: readonly NavItem[]) =>
+  items.map((it) => ('children' in it ? `${it.key}[${it.children.map((c) => c.key).join(',')}]` : it.key))
+
+test('visibleNavItems 管理员看到全部入口', () => {
+  assert.deepEqual(keysOf(visibleNavItems(SAMPLE, true)), [
+    'workbench', 'costManagement[expenses,items]', 'secret[secretLeaf]', 'settings',
+  ])
+})
+
+test('visibleNavItems 非管理员去掉 adminOnly 叶子，删空的分组整组不显示', () => {
+  assert.deepEqual(keysOf(visibleNavItems(SAMPLE, false)), ['workbench', 'costManagement[items]'])
+})
+
+test('visibleNavItems 不改动传入的导航数据', () => {
+  visibleNavItems(SAMPLE, false)
+  const cost = SAMPLE[1]
+  assert.ok('children' in cost)
+  assert.equal(cost.children.length, 2)
 })

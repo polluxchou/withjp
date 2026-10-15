@@ -39,7 +39,9 @@ type Props = {
   // Items placed in the selected zone + their summed cost. Optional so existing
   // callers (and the 3D code path) keep working without supplying them.
   placedItems?: PlacedItemSummary[]
-  placedItemsTotalCost?: number
+  // null = 看不到成本（支出管理仅管理员，非管理员拿不到支出列表）：金额列和
+  // 合计行都不显示，免得每件物品都显示成 ¥0。
+  placedItemsTotalCost?: number | null
   onOpenItems?: () => void
   // Net storey height of the active floor, in cm. Surfaced as an info line
   // under the 3D fields so the user has a reference when picking a height3d.
@@ -319,14 +321,18 @@ export default function VenueInspector({ item, layerIndex, layerCount, collapsed
                   {placedItems.map((p) => (
                     <li key={p.id} className="flex items-center justify-between text-xs text-ink-700">
                       <span className="truncate">{p.name} <span className="text-ink-400 tabular-nums">×{p.quantity}</span></span>
-                      <span className="shrink-0 font-mono tabular-nums">¥{p.cost.toLocaleString('zh-CN')}</span>
+                      {placedItemsTotalCost !== null && (
+                        <span className="shrink-0 font-mono tabular-nums">¥{p.cost.toLocaleString('zh-CN')}</span>
+                      )}
                     </li>
                   ))}
                 </ul>
-                <div className="mt-2 flex items-center justify-between border-t border-dashed border-line-strong pt-2 text-xs font-semibold text-ink-900">
-                  <span>{t('placedItemsTotal')}</span>
-                  <span className="font-mono tabular-nums">¥{placedItemsTotalCost.toLocaleString('zh-CN')}</span>
-                </div>
+                {placedItemsTotalCost !== null && (
+                  <div className="mt-2 flex items-center justify-between border-t border-dashed border-line-strong pt-2 text-xs font-semibold text-ink-900">
+                    <span>{t('placedItemsTotal')}</span>
+                    <span className="font-mono tabular-nums">¥{placedItemsTotalCost.toLocaleString('zh-CN')}</span>
+                  </div>
+                )}
               </>
             )}
           </div>

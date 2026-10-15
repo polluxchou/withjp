@@ -152,6 +152,8 @@ export default function FinanceForecastDashboard({
 
   const activeView = views.find((v) => v.id === activeViewId) ?? null
   const canEditActive = activeView ? (isAdmin || activeView.owner_id === currentUserId) : false
+  // 支出管理仅管理员可访问：非管理员的预算卡片不挂「去支出管理」链接，免得点进去是一张无权限说明。
+  const expensesHref = isAdmin ? '/expenses' : undefined
 
   const didLoadDraft = useRef(false)
   const mountedRef   = useRef(false)
@@ -695,6 +697,7 @@ export default function FinanceForecastDashboard({
           chartData={multiYearChartData}
           onDrillDown={drillIntoYear}
           monthLabels={monthLabels}
+          expensesHref={expensesHref}
         />
       ) : (
         <>
@@ -712,7 +715,7 @@ export default function FinanceForecastDashboard({
                   label={t('kpiYearBudget', { year: selectedYear })}
                   value={fmtForecast(summary.yearly_budget_usd)}
                   sub={t('kpiYearBudgetSub')}
-                  linkTo="/expenses"
+                  linkTo={expensesHref}
                   linkLabel={t('goToExpenses')}
                 />
                 <KpiCard
@@ -753,7 +756,7 @@ export default function FinanceForecastDashboard({
                   label={t('kpiMonthBudget')}
                   value={selected ? fmtForecast(selected.budget_cost_usd) : '—'}
                   sub={t('kpiYearBudgetSub')}
-                  linkTo="/expenses"
+                  linkTo={expensesHref}
                   linkLabel={t('goToExpenses')}
                 />
                 <KpiCard
@@ -1560,6 +1563,7 @@ function AnnualOverview({
   chartData,
   onDrillDown,
   monthLabels,
+  expensesHref,
 }: {
   years:         number[]
   anchorYear:    number
@@ -1569,6 +1573,7 @@ function AnnualOverview({
   chartData:     { year: string; forecast: number; actual: number; budget: number; profit: number }[]
   onDrillDown:   (year: number) => void
   monthLabels:   string[]
+  expensesHref:  string | undefined
 }) {
   const t = useTranslations('financeForecast')
   const { fmt: fmtCurrency } = useCurrency()
@@ -1590,7 +1595,7 @@ function AnnualOverview({
           label={t('annualBudgetTotal')}
           value={fmtForecast(aggregate.budget)}
           sub={t('annualBudgetSub')}
-          linkTo="/expenses"
+          linkTo={expensesHref}
           linkLabel={t('goToExpenses')}
         />
         <KpiCard
