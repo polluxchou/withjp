@@ -4,7 +4,7 @@ import test from 'node:test'
 import {
   QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, daysUntil, dueBadge, flattenItems, groupItems,
   ownerKeyOf, ownerOptions, ownerToCarry, pageStop, parseLevel, parseOwnerFilter, quadrantStats, tokyoToday,
-  dueInputToPatch, isCalendarDate, validateItemPatch,
+  dueInputToPatch, isCalendarDate, validateItemPatch, addDays, confirmAskedDate, planDrop,
 } from './quadrant.ts'
 import type { QuadrantItemInput, QuadrantRow } from './quadrant.ts'
 import type { OrgSnapshot, TaskItem } from '../types/index.ts'
@@ -316,4 +316,98 @@ test('dueInputToPatch: 空串、半截值、荒谬年份都不提交', () => {
   assert.equal(dueInputToPatch('2026-10'), null)
   assert.equal(dueInputToPatch('0002-10-20'), null)
   assert.deepEqual(dueInputToPatch('2026-10-20'), { due_date: '2026-10-20' })
+})
+
+test('addDays: 跨月、跨年、闰日、负数', () => {
+  assert.equal(addDays('2026-10-15', 7), '2026-10-22')
+  assert.equal(addDays('2026-10-28', 7), '2026-11-04')
+  assert.equal(addDays('2026-12-28', 7), '2027-01-04')
+  assert.equal(addDays('2028-02-27', 2), '2028-02-29')
+  assert.equal(addDays('2026-10-23', -1), '2026-10-22')
+})
+
+test('planDrop: 同格不写入', () => {
+  assert.deepEqual(planDrop(row({ is_important: null }), 'unrated', TODAY), { kind: 'noop' })
+  assert.deepEqual(planDrop(row({ due_date: '2026-10-18' }), 'q1', TODAY), { kind: 'noop' })
+  assert.deepEqual(planDrop(row({ status: 'done' }), 'done', TODAY), { kind: 'noop' })
+})
+
+test('planDrop: 待评估 → 紧急列，无截止日时自动设 today+7', () => {
+  assert.deepEqual(planDrop(row({ is_important: null }), 'q1', TODAY),
+    { kind: 'patch', patch: { is_important: true, due_date: '2026-10-22' }, autoDue: '2026-10-22' })
+  assert.deepEqual(planDrop(row({ is_important: null }), 'q3', TODAY),
+    { kind: 'patch', patch: { is_important: false, due_date: '2026-10-22' }, autoDue: '2026-10-22' })
+})
+
+test('planDrop: 待评估 → 紧急列，已在 7 天内时不改日期', () => {
+  assert.deepEqual(planDrop(row({ is_important: null, due_date: '2026-10-18' }), 'q1', TODAY),
+    { kind: 'patch', patch: { is_important: true }, autoDue: null })
+})
+
+test('planDrop: 待评估 → 不紧急列，不紧急时只设重要', () => {
+  assert.deepEqual(planDrop(row({ is_important: null }), 'q2', TODAY),
+    { kind: 'patch', patch: { is_important: true }, autoDue: null })
+  assert.deepEqual(planDrop(row({ is_important: null, due_date: '2026-11-30' }), 'q4', TODAY),
+    { kind: 'patch', patch: { is_important: false }, autoDue: null })
+})
+
+test('planDrop: ② 截止日 30 天后 → ①，日期被改成 today+7', () => {
+  assert.deepEqual(planDrop(row({ due_date: '2026-11-14' }), 'q1', TODAY),
+    { kind: 'patch', patch: { is_important: true, due_date: '2026-10-22' }, autoDue: '2026-10-22' })
+})
+
+test('planDrop: 差 8 天算不紧急 → 拖进紧急列要改日期；差 7 天算紧急 → 不改', () => {
+  assert.equal((planDrop(row({ due_date: '2026-10-23' }), 'q1', TODAY) as { autoDue: string | null }).autoDue, '2026-10-22')
+  assert.deepEqual(planDrop(row({ is_important: false, due_date: '2026-10-22' }), 'q1', TODAY),
+    { kind: 'patch', patch: { is_important: true }, autoDue: null })
+})
+
+test('planDrop: 紧急 → 不紧急列先问日期，下限 today+8', () => {
+  assert.deepEqual(planDrop(row({ due_date: '2026-10-18' }), 'q2', TODAY),
+    { kind: 'askDate', base: { is_important: true }, minDate: '2026-10-23' })
+  assert.deepEqual(planDrop(row({ due_date: '2026-10-01' }), 'q4', TODAY),
+    { kind: 'askDate', base: { is_important: false }, minDate: '2026-10-23' })
+})
+
+test('planDrop: ① → ③ 只翻重要，日期不动', () => {
+  assert.deepEqual(planDrop(row({ due_date: '2026-10-18' }), 'q3', TODAY),
+    { kind: 'patch', patch: { is_important: false }, autoDue: null })
+})
+
+test('planDrop: 任意 → 已完成', () => {
+  assert.deepEqual(planDrop(row({ due_date: '2026-10-18', status: 'blocked' }), 'done', TODAY),
+    { kind: 'patch', patch: { status: 'done' }, autoDue: null })
+  assert.deepEqual(planDrop(row({ is_important: null }), 'done', TODAY),
+    { kind: 'patch', patch: { status: 'done' }, autoDue: null })
+})
+
+test('planDrop: 已完成 → 格子或待评估都会重开为 todo', () => {
+  assert.deepEqual(planDrop(row({ status: 'done', is_important: null }), 'q1', TODAY),
+    { kind: 'patch', patch: { status: 'todo', is_important: true, due_date: '2026-10-22' }, autoDue: '2026-10-22' })
+  assert.deepEqual(planDrop(row({ status: 'done' }), 'unrated', TODAY),
+    { kind: 'patch', patch: { status: 'todo', is_important: null }, autoDue: null })
+  assert.deepEqual(planDrop(row({ status: 'done', due_date: '2026-10-16' }), 'q2', TODAY),
+    { kind: 'askDate', base: { status: 'todo', is_important: true }, minDate: '2026-10-23' })
+})
+
+test('planDrop: 卡住、进行中跨象限保持原状态（补丁里不含 status）', () => {
+  const p = planDrop(row({ status: 'blocked', is_important: false }), 'q2', TODAY)
+  assert.deepEqual(p, { kind: 'patch', patch: { is_important: true }, autoDue: null })
+  const d = planDrop(row({ status: 'doing', is_important: null }), 'q3', TODAY)
+  assert.equal('status' in (d as { patch: object }).patch, false)
+})
+
+test('planDrop: 待评估区只清空重要，日期不动', () => {
+  assert.deepEqual(planDrop(row({ due_date: '2026-10-18' }), 'unrated', TODAY),
+    { kind: 'patch', patch: { is_important: null }, autoDue: null })
+})
+
+test('confirmAskedDate: 早于下限、非法、越界返回 null；等于下限合并进补丁', () => {
+  const plan = { base: { is_important: true }, minDate: '2026-10-23' }
+  assert.equal(confirmAskedDate(plan, '2026-10-22'), null)
+  assert.equal(confirmAskedDate(plan, ''), null)
+  assert.equal(confirmAskedDate(plan, '2026-02-30'), null)
+  assert.equal(confirmAskedDate(plan, '2100-01-01'), null)
+  assert.deepEqual(confirmAskedDate(plan, '2026-10-23'), { is_important: true, due_date: '2026-10-23' })
+  assert.deepEqual(confirmAskedDate(plan, '2026-12-01'), { is_important: true, due_date: '2026-12-01' })
 })
