@@ -36,7 +36,12 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
 
   useEffect(() => lockViewportScroll(), [])
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // 选人弹窗（aria-modal，z-60）开着时 Esc 只归它：同一次 keydown 里它的 DOM 还在，面板据此放行，避免两层一起被关。
+      if (document.querySelector('[aria-modal="true"]')) return
+      onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -87,6 +92,7 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
             {canEdit ? (
               <SegmentedControl
                 label={t('org.important')}
+                touch
                 value={toImportance(row.is_important)}
                 onChange={(v) => onUpdate({ is_important: fromImportance(v) })}
                 items={(['yes', 'no', 'unrated'] as Importance[]).map((v) => ({ value: v, label: importanceLabel(v) }))}
@@ -111,10 +117,10 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
                     const patch = dueInputToPatch(e.target.value)
                     if (patch && patch.due_date !== row.due_date) onUpdate(patch)
                   }}
-                  className="h-9 px-2.5 rounded-field border border-line bg-surface text-sm text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
+                  className="h-11 md:h-9 px-2.5 rounded-field border border-line bg-surface text-sm text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring"
                 />
                 {row.due_date && (
-                  <button type="button" onClick={() => onUpdate({ due_date: null })} className="text-xs text-primary hover:text-primary-hover">
+                  <button type="button" onClick={() => onUpdate({ due_date: null })} className="inline-flex items-center min-h-11 px-2 md:min-h-0 text-xs text-primary hover:text-primary-hover">
                     {t('org.clear')}
                   </button>
                 )}
@@ -133,6 +139,7 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
             {canEdit ? (
               <SegmentedControl
                 label={t('org.status')}
+                touch
                 value={row.status}
                 onChange={(v) => onUpdate({ status: v as TaskItemStatus })}
                 items={STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))}
@@ -148,7 +155,7 @@ export default function ItemDetailPanel({ row, today, canEdit, positionName, onC
               {row.ownerName ?? t('org.statUnassigned')}
             </span>
             {canEdit && (
-              <button type="button" onClick={onPickOwner} className="ml-auto flex-none text-xs text-primary hover:text-primary-hover">
+              <button type="button" onClick={onPickOwner} className="ml-auto flex-none inline-flex items-center min-h-11 px-2 md:min-h-0 text-xs text-primary hover:text-primary-hover">
                 {t('org.change')}
               </button>
             )}
