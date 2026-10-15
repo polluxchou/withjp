@@ -92,6 +92,7 @@ export function confirmAskedDate(plan: { base: ItemPatch; minDate: string }, val
 - **起拖**：鼠标按下后移动 ≥ 6px 才开始拖（`MouseSensor` 的 `distance: 6`）；原地点击仍是打开详情。
 - **拖动中**：原事项半透明；跟手的是一个精简卡片（`DragOverlay`：事项名 + 负责人），卡片中心对准指针（`QuadrantDnd.tsx` 的 `centerOverlayOnPointer`，几何在 `dragZones.ts` 的 `centerOnPointer`；键盘拖不适用）；悬停的可放区高亮（primary 色描边 + 浅底，浅底画在可放区的 `::before` 上，不与它自带的 `bg-*` 叠在同一元素）；当前所在区不高亮。
 - **放下**：按 2.1 执行；放在可放区以外 → 取消，不写入。
+- **落地动效**（判定在 `src/lib/org/dropMotion.ts`）：写入了（2.1 的 patch）→ 跟手卡片在放下的位置原地淡出（160ms，不飞回原处），新格里的事项高亮 0.9s（`primary-soft` 底色 + 内描边淡出），落在格内清单可视范围外时滚进来（`block: 'nearest'`）；没写入（取消 / 原地 / 要问日期）→ 跟手卡片飞回原位（dnd-kit 默认）。撤销后回到原处的事项同样高亮。手机列表层被拖走的卡片在原位置留一张不可交互的副本，收起高度并淡出（220ms）后移除。系统开了「减少动态效果」时：跟手卡片直接消失、不留收起副本，高亮照常（只变颜色、不位移）。
 
 ### 3.3 手机（<768px）
 

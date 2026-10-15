@@ -202,8 +202,6 @@
       "q4Sub": "不重要 · 不紧急",
       "axisUrgent": "紧急",
       "axisNotUrgent": "不紧急",
-      "axisImportant": "重要",
-      "axisNotImportant": "不重要",
       "unratedTitle": "待评估",
       "unratedHint": "还没标重要与否，标了才进象限",
       "doneTitle": "已完成",

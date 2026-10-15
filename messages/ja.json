@@ -202,8 +202,6 @@
       "q4Sub": "重要でない・緊急でない",
       "axisUrgent": "緊急",
       "axisNotUrgent": "緊急でない",
-      "axisImportant": "重要",
-      "axisNotImportant": "重要でない",
       "unratedTitle": "未評価",
       "unratedHint": "重要かどうか未設定。設定すると象限に入ります",
       "doneTitle": "完了",

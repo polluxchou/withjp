@@ -202,8 +202,6 @@
       "q4Sub": "Not important · Not urgent",
       "axisUrgent": "Urgent",
       "axisNotUrgent": "Not urgent",
-      "axisImportant": "Important",
-      "axisNotImportant": "Not important",
       "unratedTitle": "To assess",
       "unratedHint": "Not marked yet — mark importance to place it",
       "doneTitle": "Done",

@@ -226,3 +226,17 @@
     animation: none !important;
   }
 }
+
+/* ══ 业务分工四象限：拖放落地 / 手机列表离开（时长与 src/lib/org/dropMotion.ts 对齐） ══ */
+/* 落地高亮：底色从 primary-soft 退回原样、内描边淡出。只变颜色不位移，减少动效偏好下照常保留。
+   描边画在内侧（offset -2px）：格子里的清单是 overflow-y-auto，外描边会被裁掉。 */
+@keyframes org-landed {
+  0%, 35% { background-color: var(--primary-soft); outline: 2px solid rgb(var(--primary)); outline-offset: -2px; }
+  100%    { outline: 2px solid transparent; outline-offset: -2px; }
+}
+/* 手机列表层被拖走的卡片：高度收起（grid 1fr → 0fr）并淡出；负的下外边距抵掉列表 gap-2.5，移除时不跳。
+   减少动效偏好下不渲染这张离开中的卡片（见 QuadrantView）。 */
+@keyframes org-leave {
+  from { grid-template-rows: 1fr; opacity: 1; }
+  to   { grid-template-rows: 0fr; opacity: 0; margin-bottom: -0.625rem; }
+}

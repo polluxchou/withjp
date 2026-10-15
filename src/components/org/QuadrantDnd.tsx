@@ -1,26 +1,43 @@
 'use client'
 
+import { useCallback, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { KeyboardSensor, useDraggable, useDroppable } from '@dnd-kit/core'
-import type { ClientRect, KeyboardCoordinateGetter, KeyboardSensorProps, Modifier } from '@dnd-kit/core'
+import type { ClientRect, DropAnimation, KeyboardCoordinateGetter, KeyboardSensorProps, Modifier } from '@dnd-kit/core'
 import { centerOnPointer, nextZone, pointerOf } from '@/lib/org/dragZones'
+import { SETTLE_MS, settleKeyframes } from '@/lib/org/dropMotion'
+import type { DropAnimationKind } from '@/lib/org/dropMotion'
 import type { Direction, ZoneRect } from '@/lib/org/dragZones'
 import type { Bucket, Quadrant, QuadrantRow } from '@/lib/org/quadrant'
 
 // 拖拽数据约定：可拖元素 data = { itemId }，可放区 data = { target }。
 // 同一事项在桌面树（d:）与手机树（m:）各渲染一次，dnd-kit 的 id 必须唯一，所以加前缀。
 
-/** 可拖的事项按钮。不可编辑时退化为普通按钮（不挂拖拽属性，读屏不会读成「可拖动」）。 */
-export function DraggableButton({ dragId, itemId, disabled, className, onClick, title, children }: {
+/** 用户系统设置了「减少动态效果」。 */
+export function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
+ * 可拖的事项按钮。不可编辑时退化为普通按钮（不挂拖拽属性，读屏不会读成「可拖动」）。
+ * landed：刚拖放 / 撤销落到这里——高亮一下，落在格内清单可视范围外时滚进来。
+ */
+export function DraggableButton({ dragId, itemId, disabled, landed, className, onClick, title, children }: {
   dragId: string
   itemId: string
   disabled: boolean
+  landed: boolean
   className: string
   onClick: () => void
   title?: string
   children: ReactNode
 }) {
+  const own = useRef<HTMLButtonElement | null>(null)
+  // 桌面树与手机树各有一份，被 CSS 隐藏的那份没有布局盒，scrollIntoView 对它不起作用。
+  useEffect(() => {
+    if (landed) own.current?.scrollIntoView({ block: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
+  }, [landed])
   const t = useTranslations('team')
   // dnd-kit 默认把 aria-roledescription 写成英文 draggable，读屏会照读；换成当前语言。
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -29,15 +46,17 @@ export function DraggableButton({ dragId, itemId, disabled, className, onClick, 
     disabled,
     attributes: { roleDescription: t('org.dragRoleDescription') },
   })
+  // 稳定引用：内联回调每次渲染都会先以 null 再以元素调用，dnd-kit 会当成节点换了。
+  const ref = useCallback((el: HTMLButtonElement | null) => { setNodeRef(el); own.current = el }, [setNodeRef])
   return (
     <button
-      ref={setNodeRef}
+      ref={ref}
       type="button"
       {...(disabled ? {} : attributes)}
       {...(disabled ? {} : listeners)}
       onClick={onClick}
       title={title}
-      className={`touch-manipulation ${isDragging ? 'opacity-40' : ''} ${className}`}
+      className={`touch-manipulation ${isDragging ? 'opacity-40' : ''} ${landed ? 'animate-org-landed' : ''} ${className}`}
     >
       {children}
     </button>
@@ -91,6 +110,19 @@ export function DragPreview({ row, ownerLabel, centered }: { row: QuadrantRow; o
 // 每次拖动锁定起拖时来源行的矩形（覆盖层就摆在那里）。不用 draggingNodeRect：它是覆盖层挂载时量的，
 // 已经带上了本 modifier 第一帧加的偏移，拿它再算一遍会把偏移抵消掉。以起拖事件为键，拖完自动回收。
 const startRects = new WeakMap<Event, ClientRect>()
+
+// 写入成功时的放下动画：原地淡出。sideEffects 置空——默认会在动画期间把落点的事项藏起来，这里要它立刻带着高亮出现。
+const SETTLE_DROP: DropAnimation = {
+  duration: SETTLE_MS,
+  easing: 'ease-out',
+  keyframes: ({ transform }) => settleKeyframes(transform.initial),
+  sideEffects: null,
+}
+
+/** DragOverlay 的 dropAnimation：settle 原地淡出；back 用 dnd-kit 默认（飞回原位）；none 不播。 */
+export function dropAnimationFor(kind: DropAnimationKind): DropAnimation | null | undefined {
+  return kind === 'settle' ? SETTLE_DROP : kind === 'none' ? null : undefined
+}
 
 /** DragOverlay 的 modifier：指针拖时把覆盖层中心对齐到指针（spec 3.2 跟手）。键盘拖没有指针，原样不动。 */
 export const centerOverlayOnPointer: Modifier = ({ activatorEvent, activeNodeRect, transform }) => {
