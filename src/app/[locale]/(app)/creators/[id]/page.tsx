@@ -25,6 +25,8 @@ import {
   Clock, Edit, Info, GitBranch,
 } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
+import { isAdmin, writeFailureMessage } from '@/lib/auth/admin-gate'
 import type { Creator, Task, Finance, LifecycleTransition, CreatorActivityLog, ActivityType } from '@/lib/types'
 import {
   nextStatus, ALL_STATUSES,
@@ -83,6 +85,9 @@ export default function CreatorDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [transitioning, setTransitioning] = useState(false)
   const [executing, setExecuting]         = useState<string | null>(null)
+  const [execError, setExecError]         = useState<{ taskId: string; message: string } | null>(null)
+  // 执行 Agent 仅管理员（接口 403）：其他人不渲染「运行」按钮。
+  const canExecute = isAdmin(useCurrentUser())
   const [showFinance, setShowFinance]     = useState(false)
   const [showEdit, setShowEdit]           = useState(false)
   const [financeForm, setFinanceForm]     = useState({ revenue: '', cost: '', period: '', notes: '' })
@@ -141,11 +146,19 @@ export default function CreatorDetailPage() {
 
   async function executeTask(taskId: string) {
     setExecuting(taskId)
-    await fetch(`/api/tasks/${taskId}`, {
+    setExecError(null)
+    const res = await fetch(`/api/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'execute' }),
-    })
+    }).catch(() => null)
+    if (!res?.ok) {
+      const json = await res?.json().catch(() => null)
+      setExecError({ taskId, message: writeFailureMessage(res?.status ?? 0, json?.error, {
+        forbidden: tCommon('adminOnlyAction'),
+        fallback: tCommon('runFailed'),
+      }) })
+    }
     await load()
     setExecuting(null)
   }
@@ -380,7 +393,7 @@ export default function CreatorDetailPage() {
             data.tasks.map((task) => (
               <div key={task.id} className="space-y-2">
                 <TaskCard task={task} />
-                {task.status === 'pending' && (
+                {canExecute && task.status === 'pending' && (
                   <div className="pl-7">
                     <Button
                       size="sm"
@@ -391,6 +404,9 @@ export default function CreatorDetailPage() {
                       {tCommon('run')} {task.agent?.name ?? tTasks('agent')}
                     </Button>
                   </div>
+                )}
+                {execError?.taskId === task.id && (
+                  <p className="pl-7 text-xs text-danger-text">{execError.message}</p>
                 )}
                 {task.status === 'done' && task.output && (
                   <details className="pl-7">

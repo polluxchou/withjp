@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-// 薪资、全局规则配置、Agent 定义这几组接口的权限表。判定本身的行为在
+// 薪资、全局规则配置、Agent 定义与执行这几组接口的权限表。判定本身的行为在
 // admin-gate.test.ts 里测；这里钉住 route.ts 确实接上了它，且顺序是
 // 「鉴权（未登录 401 早退）→ 管理员判定（403 早退）→ 才碰数据库」。
 // route.ts 引用 next/server 与 @/ 别名，node --test 加载不了，只能读源码。
@@ -31,7 +31,9 @@ const LOGIN_PREAMBLE_RE =
   /^export async function \w+\([^)]*\) \{\n\s*const user = await authGuard(?:Strict)?\(\);?\n\s*if \(user instanceof NextResponse\) return user;?\n/
 
 // self = 管理员看全部，其他人只读自己的（目前只有薪资 GET）。
-type Access = 'admin' | 'self' | 'login'
+// execute-admin = 登录即可，但 body.action === 'execute' 那一支仅管理员
+// （PATCH /api/tasks/:id：手动改字段与触发执行共用一个方法）。
+type Access = 'admin' | 'self' | 'login' | 'execute-admin'
 
 // 这些文件里每个导出的方法都必须出现在表里——以后新增方法要先在这里定口径。
 const POLICY: Record<string, Record<string, Access>> = {
@@ -40,6 +42,9 @@ const POLICY: Record<string, Record<string, Access>> = {
   'config/route.ts': { GET: 'login', PATCH: 'admin' },
   'agents/route.ts': { GET: 'login', POST: 'admin' },
   'agents/[id]/route.ts': { PATCH: 'admin' },
+  'agents/[id]/execute/route.ts': { POST: 'admin' },
+  'agents/test-connection/route.ts': { POST: 'admin' },
+  'tasks/[id]/route.ts': { GET: 'login', PATCH: 'execute-admin', DELETE: 'login' },
 }
 
 test('每个导出的方法都在权限表里，表里的方法也都还在', () => {
@@ -54,12 +59,51 @@ test('管理员专属的方法：先鉴权，紧接 forbidUnlessAdmin，之后�
     const hs = handlers(read(file))
     for (const [method, access] of Object.entries(policy)) {
       if (access !== 'admin') continue
-      assert.match(hs.get(method) ?? '', ADMIN_PREAMBLE_RE, `${file} ${method} 必须以鉴权 + 管理员判定开头`)
+      const body = hs.get(method) ?? ''
+      assert.match(body, ADMIN_PREAMBLE_RE, `${file} ${method} 必须以鉴权 + 管理员判定开头`)
+      // 前端把 403 一律显示成「仅管理员可以执行此操作」，别的拒绝理由不能再用 403。
+      assert.doesNotMatch(body, /status: 403/, `${file} ${method} 的 403 只能来自 forbidUnlessAdmin`)
       checked++
     }
   }
-  // 当前盘点：薪资写 3 + config PATCH 1 + agents 写 2。少了说明表或切分出了问题。
-  assert.equal(checked, 6)
+  // 当前盘点：薪资写 3 + config PATCH 1 + agents 写 2 + 执行 1 + 测试连接 1。
+  // 少了说明表或切分出了问题。
+  assert.equal(checked, 8)
+})
+
+test('执行 Agent 的分支：鉴权之后、调 executeAgent 之前先过 forbidUnlessAdmin', () => {
+  let checked = 0
+  for (const [file, policy] of Object.entries(POLICY)) {
+    const hs = handlers(read(file))
+    for (const [method, access] of Object.entries(policy)) {
+      if (access !== 'execute-admin') continue
+      const body = hs.get(method) ?? ''
+      assert.match(body, LOGIN_PREAMBLE_RE, `${file} ${method} 必须以鉴权开头`)
+      const branch = body.search(
+        /\n\s*if \(body\.action === 'execute'\) \{\n\s*const denied = await forbidUnlessAdmin\(user\.id\);?\n\s*if \(denied\) return denied;?\n/,
+      )
+      assert.ok(branch > 0, `${file} ${method} 的 execute 分支必须先做管理员判定`)
+      assert.equal(body.match(/executeAgent\(/g)?.length, 1, `${file} ${method} 只能有一处 executeAgent`)
+      assert.ok(body.indexOf('executeAgent(') > branch, `${file} ${method} 的 executeAgent 必须在管理员判定之后`)
+      assert.doesNotMatch(body, /status: 403/, `${file} ${method} 的 403 只能来自 forbidUnlessAdmin`)
+      checked++
+    }
+  }
+  assert.equal(checked, 1)
+})
+
+// 以后再加调用 executeAgent 的接口，必须先进权限表，并且整个方法或执行分支要求管理员。
+test('所有调用 executeAgent 的接口都在权限表里且要求管理员', () => {
+  const callers = (readdirSync(API, { recursive: true }) as string[])
+    .filter((f) => f.endsWith('route.ts') && /\bexecuteAgent\(/.test(read(f)))
+    .sort()
+  assert.deepEqual(callers, ['agents/[id]/execute/route.ts', 'tasks/[id]/route.ts'])
+  for (const file of callers) {
+    for (const [method, body] of Array.from(handlers(read(file)))) {
+      if (!/\bexecuteAgent\(/.test(body)) continue
+      assert.ok(['admin', 'execute-admin'].includes(POLICY[file]?.[method]), `${file} ${method} 调用了 executeAgent 却没要求管理员`)
+    }
+  }
 })
 
 test('只需登录的方法：有鉴权，不做管理员判定', () => {

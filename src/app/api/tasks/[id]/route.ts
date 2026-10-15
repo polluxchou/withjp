@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
 import { createServerClient } from '@/lib/supabase/server'
 import { executeAgent } from '@/lib/agents/executor'
 import { authGuard } from '@/lib/auth/guard'
@@ -27,8 +28,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (user instanceof NextResponse) return user;
   const body = await req.json()
 
-  // Run AI agent execution
+  // Run AI agent execution — 仅管理员（同 POST /api/agents/:id/execute）
   if (body.action === 'execute') {
+    const denied = await forbidUnlessAdmin(user.id);
+    if (denied) return denied;
     try {
       const result = await executeAgent(params.id)
       return NextResponse.json({ data: result, error: null })

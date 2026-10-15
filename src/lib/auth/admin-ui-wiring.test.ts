@@ -71,3 +71,34 @@ test('Agent 模型配置：非管理员在渲染下拉与保存之前就返回�
   assert.ok(gate < s.indexOf('onClick={handleSave}'), '只读分支必须在保存按钮之前 return')
   assert.match(s, FORBIDDEN_MSG_RE)
 })
+
+// 执行 Agent 的两个接口都只给管理员（见 admin-routes-wiring.test.ts）：三个页面的
+// 「执行 / 运行」按钮按 isAdmin 收起，失败（含 403）要把提示挂到那条 task 上。
+const EXECUTE_PAGES = [
+  { file: 'app/[locale]/(app)/timeline/[id]/page.tsx', handler: 'const handleExecuteTask = async (', end: 'if (loading) return' },
+  { file: 'app/[locale]/(app)/tasks/page.tsx', handler: 'async function executeTask(', end: 'const counts = {' },
+  { file: 'app/[locale]/(app)/creators/[id]/page.tsx', handler: 'async function executeTask(', end: 'async function submitFinance(' },
+]
+
+test('执行 Agent：三个页面的按钮只给管理员，失败给提示', () => {
+  for (const { file, handler, end } of EXECUTE_PAGES) {
+    const s = read(file)
+    assert.match(s, /const canExecute = isAdmin\(useCurrentUser\(\)\)/, file)
+    assert.match(s, /\{canExecute && task\.status === 'pending' && /, `${file} 的按钮要挂在 canExecute 后面`)
+    assert.equal(s.match(/\{(?:canExecute && )?task\.status === 'pending' && /g)?.length, 1, `${file} 只能有一处待执行按钮`)
+    const at = s.indexOf(handler)
+    assert.ok(at > 0, `${file} 应有执行函数`)
+    const fn = s.slice(at, s.indexOf(end, at))
+    assert.match(fn, /if \(!res\??\.ok\) \{/, `${file} 要检查响应`)
+    assert.match(fn, FORBIDDEN_MSG_RE, `${file} 403 要用管理员文案`)
+    assert.match(fn, /fallback: tCommon\('runFailed'\)/, file)
+    assert.match(s, /\{execError\?\.taskId === task\.id && \(/, `${file} 要把错误显示在那条 task 上`)
+  }
+})
+
+test('Agent 模型配置：测试连接失败也走 writeFailureMessage', () => {
+  const s = read('components/agents/AgentModelEditor.tsx')
+  const fn = s.slice(s.indexOf('const handleTest = async ('), s.indexOf('const modelOptions ='))
+  assert.match(fn, /fetch\('\/api\/agents\/test-connection'/)
+  assert.match(fn, FORBIDDEN_MSG_RE)
+})

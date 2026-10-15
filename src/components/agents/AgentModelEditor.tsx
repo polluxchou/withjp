@@ -99,10 +99,13 @@ export default function AgentModelEditor({ agentId, initialProvider, initialMode
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ provider, model_name: resolvedModel }),
       })
-      const json = await res.json()
-      if (!res.ok || json.error) {
+      const json = await res.json().catch(() => null)
+      if (!res.ok || json?.error) {
         setTestStatus('fail')
-        setTestError(json.error ?? 'Test failed')
+        setTestError(writeFailureMessage(res.status, json?.error, {
+          forbidden: tCommon('adminOnlyAction'),
+          fallback: 'Test failed',
+        }))
       } else {
         setTestStatus('ok')
         setTimeout(() => setTestStatus('idle'), 4000)

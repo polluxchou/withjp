@@ -26,6 +26,8 @@ import {
 } from '@/components/milestones/MilestoneStatusBadge'
 import { ArrowLeft, CheckSquare, Users, Bot, Target, ChevronRight } from 'lucide-react'
 import { completionDeltaDays } from '@/lib/milestones/completion'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
+import { isAdmin, writeFailureMessage } from '@/lib/auth/admin-gate'
 import type { MilestoneStatus, MilestoneLevel, MilestoneDetail, Milestone } from '@/lib/types'
 
 // ── Page ──────────────────────────────────────────────────────
@@ -44,6 +46,9 @@ export default function MilestoneDetailPage() {
   const [showEdit,   setShowEdit]   = useState(false)
   const [statusBusy, setStatusBusy] = useState(false)
   const [executing,  setExecuting]  = useState<string | null>(null)
+  const [execError,  setExecError]  = useState<{ taskId: string; message: string } | null>(null)
+  // 执行 Agent 仅管理员（接口 403）：其他人不渲染「执行」按钮。
+  const canExecute = isAdmin(useCurrentUser())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -106,15 +111,24 @@ export default function MilestoneDetailPage() {
 
   const handleExecuteTask = async (taskId: string, agentId: string) => {
     setExecuting(taskId)
+    setExecError(null)
     try {
-      await fetch(`/api/agents/${agentId}/execute`, {
+      const res = await fetch(`/api/agents/${agentId}/execute`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ task_id: taskId }),
       })
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        setExecError({ taskId, message: writeFailureMessage(res.status, json?.error, {
+          forbidden: tCommon('adminOnlyAction'),
+          fallback: tCommon('runFailed'),
+        }) })
+      }
       load()
     } catch (err) {
       console.error('Failed to execute task:', err)
+      setExecError({ taskId, message: tCommon('runFailed') })
     } finally {
       setExecuting(null)
     }
@@ -348,10 +362,13 @@ export default function MilestoneDetailPage() {
                         <> · {(task.agent as { name?: string }).name}</>
                       )}
                     </p>
+                    {execError?.taskId === task.id && (
+                      <p className="text-xs text-danger-text mt-0.5">{execError.message}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 ml-4 flex-shrink-0">
                     <Tag size="sm" tone={toneOf('task', task.status)} label={tTasks(task.status)} />
-                    {task.status === 'pending' && (task.agent as { id?: string } | null)?.id && (
+                    {canExecute && task.status === 'pending' && (task.agent as { id?: string } | null)?.id && (
                       <Button
                         size="sm"
                         loading={executing === task.id}

@@ -28,6 +28,7 @@
     "saveFailed": "Save failed. Please try again.",
     "deleteFailed": "Delete failed. Please try again.",
     "adminOnlyAction": "Only admins can do this",
+    "runFailed": "Run failed. Please try again.",
     "prev": "Previous",
     "next": "Next",
     "uploadImage": "Upload Image",
