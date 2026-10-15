@@ -81,7 +81,11 @@ export function applyAddItem(snapshot: OrgSnapshot, taskId: string, itemId: stri
   return mapAllTasks(snapshot, (t) => {
     if (t.id !== taskId) return t
     const nextOrder = t.items.reduce((max, it) => Math.max(max, it.sort_order), 0) + 1
-    const item: TaskItem = { id: itemId, task_id: taskId, name, sort_order: nextOrder, owner_member_type: null, owner_user_id: null, owner_creator_id: null, owner_name: null }
+    const item: TaskItem = {
+      id: itemId, task_id: taskId, name, sort_order: nextOrder,
+      owner_member_type: null, owner_user_id: null, owner_creator_id: null, owner_name: null,
+      is_important: null, due_date: null, status: 'todo',
+    }
     return { ...t, items: [...t.items, item] }
   })
 }

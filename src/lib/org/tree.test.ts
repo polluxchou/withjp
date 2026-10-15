@@ -28,7 +28,7 @@ const baseSnapshot = (): OrgSnapshot => ({
         {
           id: 't1', business_id: 'b1', name: '任务1', sort_order: 1, position_ids: [],
           items: [
-            { id: 'i1', task_id: 't1', name: '事项1', sort_order: 1, owner_member_type: null, owner_user_id: null, owner_creator_id: null, owner_name: null },
+            { id: 'i1', task_id: 't1', name: '事项1', sort_order: 1, owner_member_type: null, owner_user_id: null, owner_creator_id: null, owner_name: null, is_important: null, due_date: null, status: 'todo' },
           ],
         },
       ],
@@ -85,6 +85,7 @@ test('applyAddItem: 在对应任务末尾追加事项（无负责人）', () => 
   assert.equal(items[1].id, 'i2')
   assert.equal(items[1].name, '事项2')
   assert.equal(items[1].owner_name ?? null, null)
+  assert.deepEqual([items[1].is_important, items[1].due_date, items[1].status], [null, null, 'todo'])
 })
 
 test('applyDeleteItem: 移除指定事项', () => {

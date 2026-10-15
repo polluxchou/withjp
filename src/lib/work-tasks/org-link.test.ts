@@ -22,7 +22,8 @@ test('departmentForPositions: 多部门或空 → null', () => {
 
 const baseItem = (over: Partial<TaskItem> = {}): TaskItem => ({
   id: 'it1', task_id: 't1', name: '对账', sort_order: 1,
-  owner_member_type: null, owner_user_id: null, owner_creator_id: null, ...over,
+  owner_member_type: null, owner_user_id: null, owner_creator_id: null,
+  is_important: null, due_date: null, status: 'todo', ...over,
 })
 
 test('prefillFromItem: user 负责人 → 预填 owner_user_id,ownerIsCreator=false', () => {

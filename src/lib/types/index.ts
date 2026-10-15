@@ -520,6 +520,8 @@ export interface PositionMember extends PersonRef {
   display_name?: string
 }
 
+export type TaskItemStatus = 'todo' | 'doing' | 'blocked' | 'done'
+
 export interface TaskItem {
   id: string
   task_id: string
@@ -529,6 +531,9 @@ export interface TaskItem {
   owner_user_id: string | null
   owner_creator_id: string | null
   owner_name?: string | null   // joined
+  is_important: boolean | null // 重要；null = 待评估
+  due_date: string | null      // 截止日 'YYYY-MM-DD'（date 列）
+  status: TaskItemStatus
 }
 
 export interface BusinessTask {
