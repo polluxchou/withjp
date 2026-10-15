@@ -5,7 +5,7 @@ import {
   validatePersonRef, ownerNameOf, sortByOrder,
   applyAddTask, applyDeleteTask, applyAddItem, applyDeleteItem,
   applySetBusinessOwner, applySetItemOwner,
-  applyAddMember, applyRemoveMember, applySetTaskPositions,
+  applyAddMember, applyRemoveMember, applySetTaskPositions, applyUpdateItemFields,
 } from './tree.ts'
 import type { OrgSnapshot, PersonOption } from '../types/index.ts'
 
@@ -28,7 +28,7 @@ const baseSnapshot = (): OrgSnapshot => ({
         {
           id: 't1', business_id: 'b1', name: '任务1', sort_order: 1, position_ids: [],
           items: [
-            { id: 'i1', task_id: 't1', name: '事项1', sort_order: 1, owner_member_type: null, owner_user_id: null, owner_creator_id: null, owner_name: null },
+            { id: 'i1', task_id: 't1', name: '事项1', sort_order: 1, owner_member_type: null, owner_user_id: null, owner_creator_id: null, owner_name: null, is_important: null, due_date: null, status: 'todo' },
           ],
         },
       ],
@@ -85,6 +85,7 @@ test('applyAddItem: 在对应任务末尾追加事项（无负责人）', () => 
   assert.equal(items[1].id, 'i2')
   assert.equal(items[1].name, '事项2')
   assert.equal(items[1].owner_name ?? null, null)
+  assert.deepEqual([items[1].is_important, items[1].due_date, items[1].status], [null, null, 'todo'])
 })
 
 test('applyDeleteItem: 移除指定事项', () => {
@@ -136,4 +137,18 @@ test('applyRemoveMember: 从岗位移除指定成员', () => {
 test('applySetTaskPositions: 更新任务关联岗位并去重', () => {
   const next = applySetTaskPositions(baseSnapshot(), 't1', ['p1', 'p1', 'p2'])
   assert.deepEqual(next.businesses[0].tasks[0].position_ids, ['p1', 'p2'])
+})
+
+test('applyUpdateItemFields: 只改指定事项的指定字段，不可变', () => {
+  const s = baseSnapshot()
+  const next = applyUpdateItemFields(s, 'i1', { is_important: true, due_date: '2026-10-20' })
+  const it = next.businesses[0].tasks[0].items[0]
+  assert.deepEqual([it.is_important, it.due_date, it.status, it.name], [true, '2026-10-20', 'todo', '事项1'])
+  assert.equal(s.businesses[0].tasks[0].items[0].is_important, null)
+
+  const cleared = applyUpdateItemFields(next, 'i1', { due_date: null, status: 'done' })
+  const c = cleared.businesses[0].tasks[0].items[0]
+  assert.deepEqual([c.is_important, c.due_date, c.status], [true, null, 'done'])
+
+  assert.equal(applyUpdateItemFields(s, 'nope', { status: 'done' }).businesses[0].tasks[0].items[0].status, 'todo')
 })

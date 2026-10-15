@@ -12,9 +12,11 @@ interface SegmentedControlProps {
   value: string
   onChange: (v: string) => void
   label?: string
+  /** 手机点击区：true 时每个分段在 <768px 至少 44px 高（面板类触控场景用），默认 false 保持原尺寸。 */
+  touch?: boolean
 }
 
-export default function SegmentedControl({ items, value, onChange, label }: SegmentedControlProps) {
+export default function SegmentedControl({ items, value, onChange, label, touch = false }: SegmentedControlProps) {
   return (
     <div role="group" aria-label={label} className="inline-flex gap-0.5 p-0.5 rounded-field bg-line-soft">
       {items.map((it) => (
@@ -28,7 +30,7 @@ export default function SegmentedControl({ items, value, onChange, label }: Segm
           // rounded-[8px] = 内嵌几何圆角（外层 rounded-field 10px − 容器 p-0.5 内边距 2px）
           className={`px-2.5 py-1.5 text-xs rounded-[8px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
             it.value === value ? 'bg-surface text-ink-900 font-semibold shadow-card' : 'text-ink-500 hover:text-ink-700'
-          }`}
+          }${touch ? ' min-h-11 md:min-h-0' : ''}`}
         >
           {it.label}
         </button>

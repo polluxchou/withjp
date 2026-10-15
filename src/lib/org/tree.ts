@@ -1,4 +1,5 @@
 import type { BusinessTask, MemberType, OrgSnapshot, PersonOption, PositionMember, TaskItem } from '../types/index.ts'
+import type { ItemPatch } from './quadrant.ts'
 
 interface RefLike {
   member_type: MemberType | null
@@ -81,7 +82,11 @@ export function applyAddItem(snapshot: OrgSnapshot, taskId: string, itemId: stri
   return mapAllTasks(snapshot, (t) => {
     if (t.id !== taskId) return t
     const nextOrder = t.items.reduce((max, it) => Math.max(max, it.sort_order), 0) + 1
-    const item: TaskItem = { id: itemId, task_id: taskId, name, sort_order: nextOrder, owner_member_type: null, owner_user_id: null, owner_creator_id: null, owner_name: null }
+    const item: TaskItem = {
+      id: itemId, task_id: taskId, name, sort_order: nextOrder,
+      owner_member_type: null, owner_user_id: null, owner_creator_id: null, owner_name: null,
+      is_important: null, due_date: null, status: 'todo',
+    }
     return { ...t, items: [...t.items, item] }
   })
 }
@@ -132,4 +137,12 @@ export function applyRemoveMember(snapshot: OrgSnapshot, positionId: string, mem
 export function applySetTaskPositions(snapshot: OrgSnapshot, taskId: string, positionIds: string[]): OrgSnapshot {
   const unique = Array.from(new Set(positionIds))
   return mapAllTasks(snapshot, (t) => (t.id === taskId ? { ...t, position_ids: unique } : t))
+}
+
+// 按事项 id 只改指定的四象限字段（is_important / due_date / status），其余字段与其它事项保持原引用。
+export function applyUpdateItemFields(snapshot: OrgSnapshot, itemId: string, fields: ItemPatch): OrgSnapshot {
+  return mapAllTasks(snapshot, (t) => ({
+    ...t,
+    items: t.items.map((it) => (it.id === itemId ? { ...it, ...fields } : it)),
+  }))
 }
