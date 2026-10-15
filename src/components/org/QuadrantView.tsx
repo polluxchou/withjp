@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
-  DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, MouseSensor, TouchSensor,
+  DndContext, DragOverlay, MeasuringStrategy, MouseSensor, TouchSensor,
   pointerWithin, rectIntersection, useSensor, useSensors,
 } from '@dnd-kit/core'
 import type { Announcements, CollisionDetection, DragEndEvent, DragStartEvent, Over } from '@dnd-kit/core'
@@ -14,9 +14,14 @@ import ItemDetailPanel from './ItemDetailPanel'
 import OwnerFilter from './OwnerFilter'
 import DueDatePrompt from './DueDatePrompt'
 import DropNotice from './DropNotice'
-import { DragPreview, DraggableButton, DropDock, DropZone, zoneKeyboardCoordinates } from './QuadrantDnd'
+import {
+  DragPreview, DraggableButton, DropDock, DropZone, ZoneKeyboardSensor, centerOverlayOnPointer, dropAnimationFor,
+  prefersReducedMotion, zoneKeyboardCoordinates,
+} from './QuadrantDnd'
 import { writeSearchParams } from './searchParams'
-import { isStationaryTouchDrop } from '@/lib/org/dragZones'
+import { isStationaryTouchDrop, pointerOf } from '@/lib/org/dragZones'
+import { LANDED_MS, LEAVE_MS, dropAnimationKind, dropOutcomeOf, withLeaving } from '@/lib/org/dropMotion'
+import type { DropAnimationKind } from '@/lib/org/dropMotion'
 import {
   QUADRANTS, URGENT_WITHIN_DAYS, bucketOf, dropNoticeKind, dueBadge, flattenItems, groupItems, ownerOptions,
   parseLevel, parseOwnerFilter, planDrop, quadrantStats,
@@ -38,6 +43,7 @@ const BADGE_TONE: Record<DueBadge['tone'], string> = {
   muted: 'bg-muted-soft text-muted-text',
 }
 const FOCUS = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring'
+const MOBILE_CARD = 'flex w-full flex-col gap-2 rounded-card border border-line bg-surface p-3.5 text-left shadow-card'
 
 // 鼠标 / 触控：只看指针落在哪个区（落在区外 = 不放）；键盘没有指针坐标，退回矩形相交（覆盖层被方向键移到区中心）。
 const collision: CollisionDetection = (args) =>
@@ -72,18 +78,39 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
   const selected = selectedId ? rows.find((r) => r.id === selectedId) ?? null : null
   const positionName = (id: string) => snapshot.positions.find((p) => p.id === id)?.name ?? id
   const canEdit = snapshot.canEdit
-  const [dragging, setDragging] = useState<{ row: QuadrantRow; from: Bucket } | null>(null)
+  // byPointer：鼠标 / 触控拖（跟手卡片对准指针）还是键盘拖（卡片随方向键跳区）。
+  const [dragging, setDragging] = useState<{ row: QuadrantRow; from: Bucket; byPointer: boolean } | null>(null)
   const [ask, setAsk] = useState<{ row: QuadrantRow; target: Bucket; base: ItemPatch; minDate: string } | null>(null)
   const [notice, setNotice] = useState<{ key: number; message: string; itemId: string; undo: ItemPatch | null } | null>(null)
   // 单调递增的序号当 key：同一毫秒内连续两次拖放也要重挂提示条，5 秒计时才会重新开始。
   const noticeSeq = useRef(0)
   const dismissNotice = useCallback(() => setNotice(null), [])
+  // 落地动效：放下时跟手卡片怎么收场；哪张卡片刚落地要高亮；手机列表层哪张卡片正被拖走（播收起动画）。
+  const [dropKind, setDropKind] = useState<DropAnimationKind>('back')
+  const [landed, setLanded] = useState<{ id: string; key: number } | null>(null)
+  const [leaving, setLeaving] = useState<{ row: QuadrantRow; from: Bucket; index: number } | null>(null)
+  const landedSeq = useRef(0)
+  // 高亮播完就摘掉类名：同一事项紧接着再落地时类名重新加上，动画才会重播。
+  useEffect(() => {
+    if (!landed) return
+    const timer = window.setTimeout(() => setLanded(null), LANDED_MS)
+    return () => window.clearTimeout(timer)
+  }, [landed])
+  useEffect(() => {
+    if (!leaving) return
+    const timer = window.setTimeout(() => setLeaving(null), LEAVE_MS)
+    return () => window.clearTimeout(timer)
+  }, [leaving])
+  const markLanded = (itemId: string) => {
+    landedSeq.current += 1
+    setLanded({ id: itemId, key: landedSeq.current })
+  }
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
     // 没在拖时 Enter 留给「打开详情」，只用 Space 拿起（spec 3.4）；拖起后 Space / Enter 都算放下，
     // 否则拖到一半按 Enter 会既不放下、又掉进按钮的点击去打开详情。
-    useSensor(KeyboardSensor, {
+    useSensor(ZoneKeyboardSensor, {
       coordinateGetter: zoneKeyboardCoordinates,
       keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter'] },
     }),
@@ -127,6 +154,10 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
     noticeSeq.current += 1
     const key = noticeSeq.current
     setNotice({ key, message, itemId: row.id, undo })
+    markLanded(row.id)
+    // 手机列表层：卡片离开当前列表时收起而不是瞬间消失。减少动效偏好下直接移除。
+    const from = bucketOf(row, today)
+    if (!prefersReducedMotion()) setLeaving({ row, from, index: groups[from].findIndex((r) => r.id === row.id) })
     // 写入失败（界面已回滚）时收起这条「已移到…」：它已不成立，撤销也只会再发一次注定失败的请求。
     // 只收起自己这一条：期间若又有新的拖放，key 已变，不动它。
     onUpdateItem(row.id, patch).then((ok) => {
@@ -134,17 +165,18 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
     })
   }
 
-  const onDragStart = ({ active }: DragStartEvent) => {
+  const onDragStart = ({ active, activatorEvent }: DragStartEvent) => {
     const row = rowOf(active.data.current?.itemId)
-    setDragging(row ? { row, from: bucketOf(row, today) } : null)
+    setDragging(row ? { row, from: bucketOf(row, today), byPointer: pointerOf(activatorEvent) !== null } : null)
   }
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     setDragging(null)
     const row = rowOf(active.data.current?.itemId)
     const target = targetOf(over)
-    if (!row || !target) return
-    const plan = planDrop(row, target, today)
-    if (plan.kind === 'noop') return
+    const plan = row && target ? planDrop(row, target, today) : null
+    // 写入了就让跟手卡片原地淡出（事项已在新格），没写入才飞回原位；与 dnd-kit 的结束状态同批生效。
+    setDropKind(dropAnimationKind(dropOutcomeOf(plan?.kind ?? null), prefersReducedMotion()))
+    if (!row || !target || !plan || plan.kind === 'noop') return
     if (plan.kind === 'askDate') {
       setAsk({ row, target, base: plan.base, minDate: plan.minDate })
       return
@@ -152,7 +184,10 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
     commitDrop(row, target, plan.patch, plan.autoDue)
   }
   const onUndo = () => {
-    if (notice?.undo) onUpdateItem(notice.itemId, notice.undo)
+    if (notice?.undo) {
+      onUpdateItem(notice.itemId, notice.undo)
+      markLanded(notice.itemId)
+    }
     setNotice(null)
   }
 
@@ -162,10 +197,9 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
       const target = targetOf(over)
       return target ? t('org.dragAnnounceOver', { zone: title(target) }) : undefined
     },
-    onDragEnd: ({ over }) => {
-      const target = targetOf(over)
-      return target ? t('org.dragAnnounceDrop', { zone: title(target) }) : t('org.dragAnnounceCancel')
-    },
+    // 放进某区后要么出提示条（下面常驻的 live region 播报「已移到…」，含自动设的日期），要么弹询问框
+    // （对话框自己会被读出），这里不再播「已放进…」，免得读屏连听两遍；只有没放进任何区时播「已取消」。
+    onDragEnd: ({ over }) => (targetOf(over) ? undefined : t('org.dragAnnounceCancel')),
     onDragCancel: () => t('org.dragAnnounceCancel'),
   }
 
@@ -190,6 +224,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
         dragId={`d:${row.id}`}
         itemId={row.id}
         disabled={!canEdit}
+        landed={landed?.id === row.id}
         onClick={() => setSelectedId(row.id)}
         title={`${row.businessName} › ${row.taskName}`}
         className={`flex w-full items-center gap-2.5 rounded-field px-2 py-2 text-left text-sm hover:bg-row-hover ${FOCUS}`}
@@ -238,16 +273,9 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
         <span className="ml-auto text-xs text-ink-400">{t('org.filterCountHint')}</span>
       </div>
 
-      <div className="grid grid-cols-[1.5rem_minmax(0,1fr)_minmax(0,1fr)] gap-3">
-        <span />
-        <span className="text-center text-xs font-semibold text-ink-700">{t('org.axisUrgent')}</span>
-        <span className="text-center text-xs font-semibold text-ink-500">{t('org.axisNotUrgent')}</span>
-        <span className="self-center justify-self-center text-xs font-semibold tracking-widest text-ink-700 [writing-mode:vertical-rl]">{t('org.axisImportant')}</span>
-        {quadrantCard('q1')}
-        {quadrantCard('q2')}
-        <span className="self-center justify-self-center text-xs font-semibold tracking-widest text-ink-500 [writing-mode:vertical-rl]">{t('org.axisNotImportant')}</span>
-        {quadrantCard('q3')}
-        {quadrantCard('q4')}
+      {/* 不画坐标轴文字：每格标题旁的「重要 · 紧急」已经说明了（pollux 定）。 */}
+      <div className="grid grid-cols-2 gap-3">
+        {QUADRANTS.map(quadrantCard)}
       </div>
 
       <DropZone id="zone:unrated" target="unrated" current={dragging?.from ?? null} label={t('org.unratedTitle')} className="rounded-card border border-dashed border-line-strong bg-surface p-4">
@@ -263,6 +291,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
                   dragId={`d:${row.id}`}
                   itemId={row.id}
                   disabled={!canEdit}
+                  landed={landed?.id === row.id}
                   onClick={() => setSelectedId(row.id)}
                   className={`inline-flex h-8 items-center gap-1.5 rounded-btn bg-line-soft px-3 text-xs text-ink-900 hover:bg-row-hover ${FOCUS}`}
                 >
@@ -321,22 +350,38 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
     )
   }
 
+  const mobileCardBody = (row: QuadrantRow) => (
+    <>
+      <span className="w-full truncate text-xs text-ink-500">{row.businessName} › {row.taskName}</span>
+      <span className={`text-md font-medium leading-snug ${row.status === 'done' ? 'text-ink-500 line-through' : 'text-ink-900'}`}>{row.name}</span>
+      <span className="flex w-full items-center justify-between gap-2">
+        <span className={`truncate text-xs ${row.ownerKey === 'none' ? 'font-semibold text-warning-text' : 'text-ink-700'}`}>{ownerLabel(row)}</span>
+        {badges(row)}
+      </span>
+    </>
+  )
+
   const mobileCard = (row: QuadrantRow) => (
     <li key={row.id}>
       <DraggableButton
         dragId={`m:${row.id}`}
         itemId={row.id}
         disabled={!canEdit}
+        landed={landed?.id === row.id}
         onClick={() => setSelectedId(row.id)}
-        className={`flex w-full flex-col gap-2 rounded-card border border-line bg-surface p-3.5 text-left shadow-card ${FOCUS}`}
+        className={`${MOBILE_CARD} ${FOCUS}`}
       >
-        <span className="w-full truncate text-xs text-ink-500">{row.businessName} › {row.taskName}</span>
-        <span className={`text-md font-medium leading-snug ${row.status === 'done' ? 'text-ink-500 line-through' : 'text-ink-900'}`}>{row.name}</span>
-        <span className="flex w-full items-center justify-between gap-2">
-          <span className={`truncate text-xs ${row.ownerKey === 'none' ? 'font-semibold text-warning-text' : 'text-ink-700'}`}>{ownerLabel(row)}</span>
-          {badges(row)}
-        </span>
+        {mobileCardBody(row)}
       </DraggableButton>
+    </li>
+  )
+
+  // 刚被拖走的卡片：原位置留一张不可交互的副本，收起高度并淡出后移除（不是可拖元素，dnd-kit 的 id 不重复）。
+  const leavingCard = (row: QuadrantRow) => (
+    <li key={`leaving:${row.id}`} aria-hidden className="pointer-events-none grid animate-org-leave">
+      <div className="min-h-0 overflow-hidden">
+        <div className={MOBILE_CARD}>{mobileCardBody(row)}</div>
+      </div>
     </li>
   )
 
@@ -376,6 +421,7 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
     </div>
   )
 
+  const listed = level ? withLeaving(groups[level], leaving && leaving.from === level ? leaving : null) : []
   const mobileList = level && (
     <div className="flex flex-col gap-3">
       <button
@@ -396,9 +442,9 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
         </span>
       </div>
       <OwnerFilter options={ownerOptions(rows, today, level)} value={owner} onChange={setOwner} scroll />
-      {groups[level].length === 0
+      {listed.length === 0
         ? <p className="py-10 text-center text-sm text-ink-500">{t('org.emptyQuadrant')}</p>
-        : <ul className="flex flex-col gap-2.5">{groups[level].map(mobileCard)}</ul>}
+        : <ul className="flex flex-col gap-2.5">{listed.map(({ row, leaving: out }) => (out ? leavingCard(row) : mobileCard(row)))}</ul>}
     </div>
   )
 
@@ -410,7 +456,10 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
       measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onDragCancel={() => setDragging(null)}
+      onDragCancel={() => {
+        setDragging(null)
+        setDropKind(dropAnimationKind('cancel', prefersReducedMotion()))
+      }}
       // 触控长按拿起后手指几乎没动就松开 = 取消：放置区可能正好出现在手指下方，原地松手不能算放下。
       // 取消的落放会走 onDragCancel（上面已清掉 dragging）。TouchEvent 在桌面 Safari 上不存在，先判类型。
       cancelDrop={({ activatorEvent, delta }) =>
@@ -422,8 +471,8 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
         <div className="md:hidden">{level ? mobileList : mobileHome}</div>
       </div>
       {dragging && <DropDock current={dragging.from} titleOf={title} tone={TONE} />}
-      <DragOverlay>
-        {dragging ? <DragPreview row={dragging.row} ownerLabel={ownerLabel(dragging.row)} /> : null}
+      <DragOverlay modifiers={[centerOverlayOnPointer]} dropAnimation={dropAnimationFor(dropKind)}>
+        {dragging ? <DragPreview row={dragging.row} ownerLabel={ownerLabel(dragging.row)} centered={dragging.byPointer} /> : null}
       </DragOverlay>
       {selected && (
         <ItemDetailPanel
@@ -446,11 +495,19 @@ export default function QuadrantView({ snapshot, today, onUpdateItem, onPickOwne
           }}
         />
       )}
-      {notice && !dragging && (
+      {/* 拖放结果的唯一播报：常驻的 live region（先在页面上、再放内容，读屏才稳定播报）。每条提示换一个带 key 的
+          节点插入，同样文案的两次拖放也各播一次；拖动期间提示条被冻结时内容不变，取消拖动后不会重播旧消息。 */}
+      <div role="status" className="sr-only">
+        {notice && <span key={notice.key}>{notice.message}</span>}
+      </div>
+      {/* 拖动中提示条隐藏并冻结计时（它会挡住手机的放置区），取消后按剩余时间继续；放下则被新提示替换。 */}
+      {notice && (
         <DropNotice
           key={notice.key}
           message={notice.message}
           canUndo={notice.undo !== null}
+          suspended={dragging !== null}
+          shortcut={ask === null && selected === null}
           onUndo={onUndo}
           onDismiss={dismissNotice}
         />

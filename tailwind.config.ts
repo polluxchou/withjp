@@ -113,6 +113,9 @@ const config: Config = {
         'site-pulse': 'site-pulse 2s infinite',
         'site-veil': 'site-veil .42s cubic-bezier(.2,.8,.2,1) both',
         'site-veil-in': 'site-veil-in .5s .1s both',
+        // 业务分工四象限的拖放落地动效，keyframes 同在 globals.css；时长与 src/lib/org/dropMotion.ts 对齐。
+        'org-landed': 'org-landed .9s ease-out',
+        'org-leave': 'org-leave .22s ease-in forwards',
       },
       fontSize: {
         micro: ['11px', '14px'], xs: ['12px', '16px'], sm: ['13px', '18px'],

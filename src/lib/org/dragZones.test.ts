@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { STATIONARY_TOUCH_PX, isStationaryTouchDrop, nextZone } from './dragZones.ts'
+import { STATIONARY_TOUCH_PX, centerOnPointer, isStationaryTouchDrop, nextZone, pointerOf } from './dragZones.ts'
 import type { ZoneRect } from './dragZones.ts'
 
 // 2×2 网格，每格 100×100，间距 100：A 左上、B 右上、C 左下、D 右下
@@ -57,4 +57,32 @@ test('isStationaryTouchDrop: 触控长按后手指几乎没动 → 取消；动�
   // (8,6) = 10，不小于阈值
   assert.equal(isStationaryTouchDrop(true, { x: 8, y: 6 }), false)
   assert.equal(isStationaryTouchDrop(false, { x: 0, y: 0 }), false)
+})
+
+test('pointerOf: 鼠标取 clientX/Y，触控取第一根手指，键盘没有坐标', () => {
+  assert.deepEqual(pointerOf({ clientX: 120, clientY: 45 }), { x: 120, y: 45 })
+  assert.deepEqual(pointerOf({ touches: [{ clientX: 30, clientY: 600 }, { clientX: 1, clientY: 1 }] }), { x: 30, y: 600 })
+  // touchend 时 touches 已空，退回 changedTouches
+  assert.deepEqual(pointerOf({ touches: [], changedTouches: [{ clientX: 31, clientY: 601 }] }), { x: 31, y: 601 })
+  // KeyboardEvent 只有 key/code，没有坐标
+  assert.equal(pointerOf({ key: ' ', code: 'Space' }), null)
+  assert.equal(pointerOf(null), null)
+})
+
+test('centerOnPointer: 抓宽行右侧时，覆盖层中心被拉到指针上', () => {
+  // 来源行 left 100、宽 600、top 200、高 40：中心 (400, 220)。在 (650, 210) 处按下
+  const rect = { left: 100, top: 200, width: 600, height: 40 }
+  const pointer = { x: 650, y: 210 }
+  // 起拖瞬间 transform 为 0：覆盖层需右移 250、上移 10，中心才落在指针上
+  assert.deepEqual(centerOnPointer({ x: 0, y: 0 }, pointer, rect), { x: 250, y: -10 })
+  // 之后指针移动了 (-80, 300)：覆盖层中心 = rect 中心 + 结果 = 指针当前位置 (570, 510)
+  const moved = centerOnPointer({ x: -80, y: 300 }, pointer, rect)
+  assert.deepEqual({ x: 400 + moved.x, y: 220 + moved.y }, { x: 570, y: 510 })
+})
+
+test('centerOnPointer: 没有指针（键盘拖）或还没量到矩形时原样返回，且保留 transform 的其他字段', () => {
+  const t = { x: 7, y: 9, scaleX: 1, scaleY: 1 }
+  assert.equal(centerOnPointer(t, null, { left: 0, top: 0, width: 10, height: 10 }), t)
+  assert.equal(centerOnPointer(t, { x: 1, y: 1 }, null), t)
+  assert.deepEqual(centerOnPointer(t, { x: 5, y: 5 }, { left: 0, top: 0, width: 10, height: 10 }), { x: 7, y: 9, scaleX: 1, scaleY: 1 })
 })
