@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
 
@@ -8,6 +9,8 @@ type Params = { params: { id: string } }
 export async function PATCH(req: NextRequest, { params }: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const denied = await forbidUnlessAdmin(user.id)
+  if (denied) return denied
 
   const db   = createServerClient()
   const body = await req.json()
@@ -32,6 +35,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const denied = await forbidUnlessAdmin(user.id)
+  if (denied) return denied
 
   const db = createServerClient()
   const { error } = await db.from('user_salary').delete().eq('id', params.id)

@@ -17,12 +17,14 @@ import {
   getWeekDates,
   getWeekLabel,
   WORKING_HOURS_PER_DAY,
+  type CostVisibility,
 } from '@/lib/work-tasks/cost'
 import type { WorkTask, AgentRole } from '@/lib/types'
 
 interface Props {
   tasks:     WorkTask[]
   salaryMap: Record<string, number>
+  costs:     CostVisibility
   userMeta:  Record<string, { name: string; user_code: string; role: AgentRole }>
   onRefresh: () => void
 }
@@ -31,7 +33,7 @@ function fmtRmb(v: number) {
   return '¥' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh }: Props) {
+export default function WorkloadWeekView({ tasks, salaryMap, costs, userMeta, onRefresh }: Props) {
   const t = useTranslations('workTasks')
   const tCommon = useTranslations('common')
   const DAY_LABELS = t.raw('weekdays') as string[]
@@ -189,7 +191,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                   </Td>
 
                   {/* Weekly cost */}
-                  <Td align="center" numeric>{fmtRmb(weekCost(u.id))}</Td>
+                  <Td align="center" numeric>{costs.user(u.id) ? fmtRmb(weekCost(u.id)) : <span title={t('summary.costAdminOnly')}>—</span>}</Td>
                 </Tr>
               ))
             )}
@@ -210,7 +212,7 @@ export default function WorkloadWeekView({ tasks, salaryMap, userMeta, onRefresh
                   {sortedUsers.reduce((s, u) => s + weekHours(u.id), 0)}h
                 </td>
                 <td className="px-2 py-2 text-center text-xs font-semibold text-ink-700 tabular-nums">
-                  {fmtRmb(sortedUsers.reduce((s, u) => s + weekCost(u.id), 0))}
+                  {costs.totals ? fmtRmb(sortedUsers.reduce((s, u) => s + weekCost(u.id), 0)) : <span title={t('summary.costAdminOnly')}>—</span>}
                 </td>
               </tr>
             </tfoot>

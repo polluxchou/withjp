@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
 
@@ -16,6 +17,8 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
+  const denied = await forbidUnlessAdmin(user.id);
+  if (denied) return denied;
   const db = createServerClient()
   const body = await req.json()
   const { key, value, description } = body
