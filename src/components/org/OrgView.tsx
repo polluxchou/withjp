@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Briefcase, Plus, Users, X } from 'lucide-react'
+import { Briefcase, Pencil, Plus, Users, X } from 'lucide-react'
 import SectionCard from '@/components/ui/SectionCard'
 import Tag from '@/components/ui/Tag'
 import type { OrgSnapshot } from '@/lib/types'
@@ -16,6 +16,10 @@ import type { OrgActions } from './useOrgSnapshot'
 const ADD_LINK_CLASS = 'mt-2 inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover'
 // 就地改名输入框：占满名称原来的位置，字号与名称一致。
 const NAME_INPUT_CLASS = 'min-w-0 flex-1 h-8 rounded-field border border-primary-border bg-surface px-2 text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring'
+// 名称本身就是改名入口（管理员）：鼠标或触屏点一下即进入编辑。不另放「重命名」按钮；
+// 桌面悬停 / 键盘聚焦时名称变色并露出铅笔，提示可改。
+const NAME_BUTTON_CLASS = 'group min-w-0 inline-flex items-center gap-1 -my-1 py-1 rounded-field text-left hover:text-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring'
+const NAME_PENCIL_CLASS = 'h-3 w-3 flex-none text-primary-hover opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'
 
 export default function OrgView({ snapshot, actions, onPick }: {
   snapshot: OrgSnapshot
@@ -64,12 +68,16 @@ export default function OrgView({ snapshot, actions, onPick }: {
                         onCancel={() => setEditing(null)}
                         className={`${NAME_INPUT_CLASS} font-medium text-sm`}
                       />
+                    ) : canEdit ? (
+                      <button type="button" onClick={() => setEditing({ kind: 'task', id: task.id })} className={`${NAME_BUTTON_CLASS} font-medium text-sm text-ink-900`}>
+                        <span className="truncate">{task.name}</span>
+                        <Pencil aria-hidden className={NAME_PENCIL_CLASS} strokeWidth={1.5} />
+                      </button>
                     ) : (
                       <div className="font-medium text-sm text-ink-900 min-w-0 truncate">{task.name}</div>
                     )}
                     {canEdit && (
                       <div className="flex gap-3 text-xs flex-none">
-                        <button type="button" className="text-primary hover:text-primary-hover" onClick={() => setEditing({ kind: 'task', id: task.id })}>{t('org.rename')}</button>
                         <button type="button" className="text-primary hover:text-primary-hover" onClick={() => actions.editTaskPositions(task.id, task.position_ids)}>{t('org.editPositions')}</button>
                         <button type="button" className="text-ink-400 hover:text-danger-text" onClick={() => actions.deleteTask(task.id)}>{t('org.delete')}</button>
                       </div>
@@ -90,6 +98,11 @@ export default function OrgView({ snapshot, actions, onPick }: {
                             onCancel={() => setEditing(null)}
                             className={`${NAME_INPUT_CLASS} text-sm`}
                           />
+                        ) : canEdit ? (
+                          <button type="button" onClick={() => setEditing({ kind: 'item', id: it.id })} className={`${NAME_BUTTON_CLASS} text-ink-700`}>
+                            <span className="truncate">{it.name}</span>
+                            <Pencil aria-hidden className={NAME_PENCIL_CLASS} strokeWidth={1.5} />
+                          </button>
                         ) : (
                           <span className="min-w-0 truncate text-ink-700">{it.name}</span>
                         )}
@@ -102,7 +115,6 @@ export default function OrgView({ snapshot, actions, onPick }: {
                           >
                             {it.owner_name ?? t('org.noOwner')}
                           </button>
-                          {canEdit && <button type="button" className="text-xs text-ink-400 hover:text-primary" onClick={() => setEditing({ kind: 'item', id: it.id })}>{t('org.rename')}</button>}
                           {canEdit && <button type="button" className="text-xs text-ink-400 hover:text-danger-text" onClick={() => actions.deleteItem(it.id)}>{t('org.delete')}</button>}
                         </span>
                       </li>
