@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 
 // 薪资、规则配置、Agent 模型的写接口只给管理员（见 admin-routes-wiring.test.ts）。
 // 前端没有 DOM 测试环境，这里钉住页面确实按 isAdmin 收起写控件、写失败走
@@ -93,6 +93,22 @@ test('执行 Agent：三个页面的按钮只给管理员，失败给提示', ()
     assert.match(fn, FORBIDDEN_MSG_RE, `${file} 403 要用管理员文案`)
     assert.match(fn, /fallback: tCommon\('runFailed'\)/, file)
     assert.match(s, /\{execError\?\.taskId === task\.id && \(/, `${file} 要把错误显示在那条 task 上`)
+  }
+})
+
+// 任务的手动更新与删除也只给管理员，但前端目前没有调用者。以后谁新加调用，这里会
+// 失败：先像上面那样按 isAdmin 收起入口、失败走 writeFailureMessage，再改这张表。
+test('/api/tasks/:id 的前端调用只有那两处执行', () => {
+  const callers = (readdirSync(SRC, { recursive: true }) as string[])
+    .filter((f) => /\.tsx?$/.test(f) && !f.endsWith('.test.ts') && !f.startsWith('app/api/'))
+    .flatMap((f) => Array.from(read(f).matchAll(/\/api\/tasks\/(?:\$\{|['"`]\s*\+)/g), () => f))
+    .sort()
+  assert.deepEqual(callers, ['app/[locale]/(app)/creators/[id]/page.tsx', 'app/[locale]/(app)/tasks/page.tsx'])
+  for (const file of callers) {
+    const s = read(file)
+    const at = s.indexOf('/api/tasks/${')
+    const call = s.slice(at, s.indexOf('.catch(', at))
+    assert.match(call, /method: 'PATCH',[\s\S]*body: JSON\.stringify\(\{ action: 'execute' \}\)/, file)
   }
 })
 
