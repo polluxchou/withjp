@@ -7,7 +7,7 @@
 // 往 public/ 放新类型的文件要在这里加扩展名，middleware-assets.test.ts 会逐个核对。
 const STATIC_ASSET_EXT_RE = /\.(?:avif|gif|ico|jpe?g|mp4|png|svg|txt|webm|webp|xml)$/i
 
+// 扩展名里没有 /，锚在结尾就等于只看最后一段：/zh/a.png/team 不放行。
 export function shouldBypassMiddlewareAsset(pathname: string) {
-  const lastSegment = pathname.slice(pathname.lastIndexOf('/') + 1)
-  return STATIC_ASSET_EXT_RE.test(lastSegment)
+  return STATIC_ASSET_EXT_RE.test(pathname)
 }
