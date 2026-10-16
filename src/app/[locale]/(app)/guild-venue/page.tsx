@@ -1,150 +1,86 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
-import {
-  AppWindow,
-  ArrowLeftRight,
-  Bookmark,
-  Box,
-  Building2,
-  ChevronDown,
-  DoorClosed,
-  DoorOpen,
-  Download,
-  Edit2,
-  Flame,
-  GitCommitHorizontal,
-  Grid3X3,
-  Image as ImageIcon,
-  Magnet,
-  LampCeiling,
-  LampFloor,
-  Link2,
-  Unlink2,
-  Layers,
-  Octagon,
-  ListFilter,
-  Map as MapIcon,
-  MapPin,
-  Monitor,
-  Network,
-  Package,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plug,
-  Plus,
-  Redo2,
-  Ruler,
-  Undo2,
-  Users,
-  Wrench,
-  X,
-  ZoomIn,
-  ZoomOut,
-} from 'lucide-react'
 import Header from '@/components/layout/Header'
 import Button from '@/components/ui/Button'
-import SegmentedControl from '@/components/ui/SegmentedControl'
-import Tabs from '@/components/ui/Tabs'
 import Tag from '@/components/ui/Tag'
-import { Field, Input, SearchInput } from '@/components/ui/Field'
-import Modal from '@/components/ui/Modal'
 import VenueCanvas, { type VenueRulerOptions } from '@/venue/VenueCanvas'
 import { autoChainBandDepth } from '@/venue/dimension-chain'
 import Venue3DCanvas from '@/venue/Venue3DCanvas'
-import VenueInspector, { type PlacedItemSummary } from '@/venue/VenueInspector'
+import VenueInspector from '@/venue/VenueInspector'
 import { registerVenueIntent } from '@/components/intent/CommandPanel'
 import { useRouter } from '@/i18n/navigation'
-import type { Item } from '@/lib/items/types'
-import type { Expense } from '@/lib/types'
 import {
-  DEFAULT_VENUE_LAYOUT,
-  loadVenueLayout,
-  parseStoredVenueLayout,
   applyVenueAction,
   addVenueItem,
-  centimetersToMeters,
-  createHistory,
   deleteVenueItem,
-  formatVenueArea,
-  formatVenueMeasurement,
-  moveVenueItemLayer,
-  totalVenueAreaSquareMeters,
-  usableVenueAreaSquareMeters,
-  venueAreaSquareMeters,
-  isVenueMarkerType,
-  VENUE_ITEM_TYPE_OPTIONS,
-  VENUE_MARKER_TYPE_OPTIONS,
-  VENUE_SHAPE_TYPE_OPTIONS,
-  pushHistory,
-  redoHistory,
-  undoHistory,
-  updateVenueFloor,
-  updateVenueItem,
   mergeVenueAreas,
-  unmergeVenueAreas,
-  metersToCentimeters,
-  type VenueFloor,
-  type VenueLayerMove,
+  moveVenueItemLayer,
   moveVenueItems,
   resolveVenueItemName,
-  type VenueNameTranslations,
-  writeStoredVenueLayout,
-  VENUE_STORAGE_KEY,
-  MAX_VENUE_VIEW_BOOKMARKS,
+  unmergeVenueAreas,
+  updateVenueFloor,
+  updateVenueItem,
+  type VenueFloor,
   type VenueItem,
   type VenueItemType,
-  type VenueLayout,
-  type VenueViewBookmark,
+  type VenueLayerMove,
 } from '@/venue/layoutData'
-
-type SaveState = 'idle' | 'saved' | 'error'
-// canEdit: may modify the canvas; canManage: may manage collaborators (owner/admin).
-type VenueSummary = { id: string; name: string; canEdit: boolean; canManage: boolean }
-type UserOption = { id: string; name: string; email: string | null }
-// Remembers the last-opened venue per browser so reloads return to it.
-const ACTIVE_VENUE_KEY = 'guild-venue:active-venue'
-// 画布类型筛选(哪些组件类型显示)持久化,切换语言(整页导航)后不丢失。
-const VISIBLE_TYPES_KEY = 'guild-venue:visible-types'
-const DEFAULT_VENUE_ID = 'guild-main'
-
-const TOOL_ICON: Record<VenueItemType, typeof Box> = {
-  equipment:    Monitor,
-  renovation:   Wrench,
-  area:         Building2,
-  corridor:     MapIcon,
-  window:       AppWindow,
-  truss:        GitCommitHorizontal,
-  light_grille4:       Grid3X3,
-  light_grille4_stand: LampFloor,
-  light_grille8_stand: Octagon,
-  light_spot:          LampCeiling,
-  door_inward:  DoorOpen,
-  door_outward: DoorClosed,
-  door_sliding: ArrowLeftRight,
-  fire:         Flame,
-  power:        Plug,
-  network:      Network,
-}
+import {
+  applyFloorDefaults,
+  applyToAreaPairs,
+  areasFullyMerged,
+  cloneVenueItems,
+  selectedAreaItems,
+  zoomInStep,
+  zoomOutStep,
+} from '@/lib/venue/editor'
+import CanvasSettingsPanel from '@/venue/editor/CanvasSettingsPanel'
+import CollaboratorsModal from '@/venue/editor/CollaboratorsModal'
+import FloatingPanel from '@/venue/editor/FloatingPanel'
+import ToolRail from '@/venue/editor/ToolRail'
+import VenueToolbar, { type VenueViewMode } from '@/venue/editor/VenueToolbar'
+import { downloadFile, exportCanvasAsPng, exportSvgAsPng } from '@/venue/editor/exportImage'
+import type { SaveState } from '@/venue/editor/types'
+import { useVenueDocument } from '@/venue/editor/useVenueDocument'
+import { useVenueItemCosts } from '@/venue/editor/useVenueItemCosts'
+import { useVenueShortcuts } from '@/venue/editor/useVenueShortcuts'
+import { useViewBookmarks } from '@/venue/editor/useViewBookmarks'
+import { useVisibleTypesPreference } from '@/venue/editor/useVisibleTypesPreference'
 
 const INSPECTOR_WIDTH = 320
 const INSPECTOR_COLLAPSED_WIDTH = 44
-const ALL_VENUE_TYPES = VENUE_ITEM_TYPE_OPTIONS.map((option) => option.value)
-// 「+ 标识」下拉:门/消防/电源/网络口。「+ 设施」下拉:窗户/桁架/灯。
-const MARKER_MENU_TYPES: VenueItemType[] = VENUE_MARKER_TYPE_OPTIONS.map((option) => option.value)
-const FACILITY_MENU_TYPES: VenueItemType[] = ['window', 'truss', 'light_grille4', 'light_grille4_stand', 'light_grille8_stand', 'light_spot']
 
 export default function GuildVenuePage() {
   const t = useTranslations('venue')
   const locale = useLocale()
-  const [nameTranslations, setNameTranslations] = useState<VenueNameTranslations>({})
-  const [history, setHistory] = useState(() => createHistory(DEFAULT_VENUE_LAYOUT))
-  const [selectedFloorId, setSelectedFloorId] = useState(DEFAULT_VENUE_LAYOUT.floors[0].id)
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(() => {
-    const firstId = DEFAULT_VENUE_LAYOUT.floors[0].items[0]?.id
-    return firstId ? [firstId] : []
-  })
+  const [visibleTypes, setVisibleTypes] = useVisibleTypesPreference()
+  const {
+    history,
+    layout,
+    commit,
+    undo,
+    redo,
+    updateViewBookmarks,
+    selectedFloorId,
+    selectFloor,
+    selectedItemIds,
+    setSelectedItemIds,
+    venues,
+    activeVenueId,
+    canEdit,
+    canManage,
+    switchVenue,
+    renameActiveVenue,
+    createNewVenue,
+    loading,
+    saveState,
+    setSaveState,
+    localImportLayout,
+    importLocalLayout,
+    nameTranslations,
+  } = useVenueDocument()
   const [zoom, setZoom] = useState(1.2)
   const [showGrid, setShowGrid] = useState(true)
   const [rulerOptions, setRulerOptions] = useState<VenueRulerOptions>({
@@ -156,154 +92,15 @@ export default function GuildVenuePage() {
   const [snapEnabled, setSnapEnabled] = useState(true)
   // 2D is the canonical edit surface; 3D is a read-only preview for now (S3).
   // Selection state is shared so clicking a box in 3D updates the inspector.
-  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d')
+  const [viewMode, setViewMode] = useState<VenueViewMode>('2d')
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
-  const [visibleTypes, setVisibleTypes] = useState<VenueItemType[]>(ALL_VENUE_TYPES)
-  // 挂载时从 localStorage 恢复筛选(与当前有效类型取交集,过滤已废弃类型);
-  // 用 effect 恢复以避免 SSR/hydration 不一致。切换语言=整页导航后筛选得以保留。
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(VISIBLE_TYPES_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw)
-      if (!Array.isArray(parsed)) return
-      const valid = ALL_VENUE_TYPES.filter((t) => parsed.includes(t))
-      if (valid.length > 0) setVisibleTypes(valid)
-    } catch {
-      // localStorage 不可读/脏数据 → 用默认全部,静默跳过。
-    }
-  }, [])
-  // 筛选变更后写回。跳过挂载后的首次运行,避免用默认值覆盖刚恢复的筛选。
-  const skipFirstFilterSave = useRef(true)
-  useEffect(() => {
-    if (skipFirstFilterSave.current) {
-      skipFirstFilterSave.current = false
-      return
-    }
-    try {
-      window.localStorage.setItem(VISIBLE_TYPES_KEY, JSON.stringify(visibleTypes))
-    } catch {
-      // 忽略写入失败。
-    }
-  }, [visibleTypes])
   const [clipboard, setClipboard] = useState<VenueItem[]>([])
-  const [saveState, setSaveState] = useState<SaveState>('idle')
-  const [hydrated, setHydrated] = useState(false)
-  // false when stored data existed but couldn't be parsed: we then show the
-  // default WITHOUT auto-saving, so the bad-but-present data isn't clobbered.
-  // The first deliberate edit flips this back on.
-  const [persistable, setPersistable] = useState(true)
-  const [loading, setLoading] = useState(true)
-  // When set, a local (browser) layout exists that predates the cloud seed and
-  // can be imported once. Cleared after the user imports or the offer lapses.
-  const [localImportLayout, setLocalImportLayout] = useState<VenueLayout | null>(null)
-  const [venues, setVenues] = useState<VenueSummary[]>([])
-  const [activeVenueId, setActiveVenueId] = useState<string>(DEFAULT_VENUE_ID)
-  // Bumped on every recall so the apply-scroll effect runs even when zoom is unchanged.
-  const [recallTick, setRecallTick] = useState(0)
+  // Collaborator-management modal (owner / admin only).
+  const [collabOpen, setCollabOpen] = useState(false)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const canvasAreaRef = useRef<HTMLDivElement | null>(null)
-  const pendingScrollRef = useRef<{ left: number; top: number } | null>(null)
-  // Suppress the one debounced save that the effect would otherwise fire right
-  // after the initial load applies the freshly fetched (or fallback) layout.
-  const skipNextSave = useRef(true)
 
-  const refreshTranslations = useCallback(async (venueId: string) => {
-    try {
-      const res = await fetch('/api/venue/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venueId }),
-      })
-      if (!res.ok) return
-      const body = (await res.json()) as { data: VenueNameTranslations | null }
-      if (body.data) setNameTranslations(body.data)
-    } catch {
-      // 翻译是增强项,失败时画布静默显示中文。
-    }
-  }, [])
-
-  // Source of truth is the DB (GET /api/venue). localStorage is now only an
-  // offline fallback (on fetch failure) and a one-time import source.
-  useEffect(() => {
-    let cancelled = false
-
-    function applyLayout(layout: VenueLayout) {
-      // The next save effect run is the post-hydration echo of this loaded
-      // layout, not a user edit — skip it so we don't redundantly PUT.
-      skipNextSave.current = true
-      setHistory(createHistory(layout))
-      setSelectedFloorId(layout.floors[0]?.id ?? DEFAULT_VENUE_LAYOUT.floors[0].id)
-      setSelectedItemIds(layout.floors[0]?.items[0]?.id ? [layout.floors[0].items[0].id] : [])
-    }
-
-    async function load() {
-      try {
-        const listRes = await fetch('/api/venue')
-        if (!listRes.ok) throw new Error(`status ${listRes.status}`)
-        const listBody = (await listRes.json()) as { data: VenueSummary[] | null }
-        const list = listBody.data ?? []
-        if (cancelled) return
-        if (list.length === 0) throw new Error('no venues')
-        setVenues(list)
-
-        const stored = window.localStorage.getItem(ACTIVE_VENUE_KEY)
-        const activeId = stored && list.some((v) => v.id === stored)
-          ? stored
-          : list.some((v) => v.id === DEFAULT_VENUE_ID) ? DEFAULT_VENUE_ID : list[0].id
-        setActiveVenueId(activeId)
-
-        const [layoutRes, translations] = await Promise.all([
-          fetch(`/api/venue?id=${encodeURIComponent(activeId)}`),
-          refreshTranslations(activeId),
-        ])
-        if (!layoutRes.ok) throw new Error(`status ${layoutRes.status}`)
-        const layoutBody = (await layoutRes.json()) as { data: VenueLayout | null }
-        if (cancelled) return
-        const cloud = layoutBody.data ?? DEFAULT_VENUE_LAYOUT
-        applyLayout(cloud)
-        setPersistable(true)
-
-        // One-time import offer: only for the seeded shared venue, when the cloud
-        // is still the untouched seed but this browser holds a non-default layout.
-        if (activeId === DEFAULT_VENUE_ID) {
-          try {
-            const raw = window.localStorage.getItem(VENUE_STORAGE_KEY)
-            if (raw) {
-              const local = parseStoredVenueLayout(raw)
-              if (layoutsEqual(cloud, DEFAULT_VENUE_LAYOUT) && !layoutsEqual(local, cloud)) {
-                setLocalImportLayout(local)
-              }
-            }
-          } catch {
-            // localStorage unreadable — skip the import offer silently.
-          }
-        }
-      } catch {
-        if (cancelled) return
-        // Offline / API failure: fall back to whatever this browser cached.
-        const fallback = loadVenueLayout(window.localStorage)
-        applyLayout(fallback.layout)
-        // Offline copy is editable locally (writes just won't reach the DB).
-        setVenues([{ id: fallback.layout.venueId, name: fallback.layout.name, canEdit: true, canManage: false }])
-        setActiveVenueId(fallback.layout.venueId)
-        setPersistable(fallback.persistable)
-        setSaveState('error')
-      } finally {
-        if (cancelled) return
-        setLoading(false)
-        setHydrated(true)
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [refreshTranslations])
-
-  const layout = history.present
   const viewBookmarks = layout.viewBookmarks ?? []
   const activeFloor = useMemo(
     () => layout.floors.find((floor) => floor.id === selectedFloorId) ?? layout.floors[0],
@@ -323,16 +120,6 @@ export default function GuildVenuePage() {
   )
   const selectedItemId = selectedItemIds.at(-1) ?? null
   const selectedItem = activeFloor?.items.find((item) => item.id === selectedItemId) ?? null
-
-  // Permissions for the active venue (from the venue list). Default to editable
-  // before the list loads / for the offline fallback; the DB still enforces 403.
-  const activeVenue = venues.find((venue) => venue.id === activeVenueId)
-  const canEdit = activeVenue?.canEdit ?? true
-  const canManage = activeVenue?.canManage ?? false
-  const canEditRef = useRef(canEdit)
-  canEditRef.current = canEdit
-  // Collaborator-management modal (owner / admin only).
-  const [collabOpen, setCollabOpen] = useState(false)
 
   const selectedLayerIndex = activeFloor && selectedItemId
     ? activeFloor.items.findIndex((item) => item.id === selectedItemId)
@@ -362,185 +149,17 @@ export default function GuildVenuePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Cross-feature read: surface the items placed in the selected zone + their
-  // summed cost. Failure to load is non-fatal (the canvas still works).
   const router = useRouter()
-  const [items, setItems] = useState<Item[]>([])
-  const [expenseById, setExpenseById] = useState<Record<string, Expense>>({})
-  // 支出管理仅管理员可访问：非管理员拿不到支出列表（/api/expenses 回 403），
-  // 这时金额一律不显示，而不是把每件物品都显示成 ¥0。
-  const [costsVisible, setCostsVisible] = useState(false)
+  const { placedItems, placedItemsTotalCost, floorItems, floorItemsTotalCost, costsVisible } =
+    useVenueItemCosts(activeFloor, selectedItem)
 
-  useEffect(() => {
-    ;(async () => {
-      try {
-        const [itemsRes, exRes] = await Promise.all([fetch('/api/items'), fetch('/api/expenses')])
-        const itemsJson = await itemsRes.json()
-        const exJson = await exRes.json()
-        if (itemsJson?.data) setItems(itemsJson.data as Item[])
-        if (exJson?.data) {
-          const map: Record<string, Expense> = {}
-          for (const e of exJson.data as Expense[]) map[e.id] = e
-          setExpenseById(map)
-          setCostsVisible(true)
-        }
-      } catch { /* 联动展示是增强项，失败不阻断画布 */ }
-    })()
-  }, [])
-
-  const placedItems: PlacedItemSummary[] = useMemo(() => {
-    if (!selectedItem) return []
-    return items
-      .filter((it) => it.placement_venue_item_id === selectedItem.id)
-      .map((it) => {
-        const ex = it.expense_id ? expenseById[it.expense_id] : null
-        const cost = ex ? Number(ex.unit_price) * it.quantity : 0
-        return { id: it.id, item_code: it.item_code, name: it.name, quantity: it.quantity, cost }
-      })
-  }, [items, expenseById, selectedItem])
-  const placedItemsTotalCost = useMemo(
-    () => placedItems.reduce((sum, p) => sum + p.cost, 0),
-    [placedItems],
-  )
-
-  // Floor-level rollup: every item whose placement_venue_item_id lands on any
-  // venue item in the active floor. Used by the FloatingPanel "物品" tab so
-  // the operator can see everything the floor owns without selecting a zone.
-  // Carries the zone name so a row can say "直播间 A → 摄像机". `null` zone
-  // means the item belongs to no zone yet (sits at floor level).
-  const floorItems = useMemo(() => {
-    if (!activeFloor) return [] as Array<{ id: string; item_code: string; name: string; quantity: number; cost: number; zoneName: string | null }>
-    const venueItemById = new Map(activeFloor.items.map((it) => [it.id, it]))
-    return items
-      .filter((it) => it.placement_venue_item_id && venueItemById.has(it.placement_venue_item_id))
-      .map((it) => {
-        const zone = venueItemById.get(it.placement_venue_item_id!) ?? null
-        const ex = it.expense_id ? expenseById[it.expense_id] : null
-        const cost = ex ? Number(ex.unit_price) * it.quantity : 0
-        return {
-          id: it.id,
-          item_code: it.item_code,
-          name: it.name,
-          quantity: it.quantity,
-          cost,
-          zoneName: zone?.name ?? null,
-        }
-      })
-  }, [items, expenseById, activeFloor])
-  const floorItemsTotalCost = useMemo(
-    () => floorItems.reduce((sum, p) => sum + p.cost, 0),
-    [floorItems],
-  )
-
-  // Persist on change: cache to localStorage immediately (offline copy), then
-  // debounce a full PUT to the DB so rapid edits collapse into one request.
-  useEffect(() => {
-    if (!hydrated || !persistable) return
-    if (skipNextSave.current) { skipNextSave.current = false; return }
-
-    try {
-      writeStoredVenueLayout(window.localStorage, layout)
-    } catch {
-      // localStorage write failure shouldn't block the cloud save.
-    }
-
-    let cancelled = false
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const res = await fetch('/api/venue', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(layout),
-          })
-          if (cancelled) return
-          setSaveState(res.ok ? 'saved' : 'error')
-          if (res.ok) void refreshTranslations(layout.venueId)
-        } catch {
-          if (cancelled) return
-          setSaveState('error')
-        }
-      })()
-    }, 800)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
-  }, [hydrated, persistable, layout, refreshTranslations])
-
-  // After a bookmark recall sets the zoom (and the canvas resizes), restore the
-  // saved scroll offset on the next frame.
-  useEffect(() => {
-    if (!pendingScrollRef.current) return
-    const target = pendingScrollRef.current
-    pendingScrollRef.current = null
-    const id = requestAnimationFrame(() => {
-      const scroller = scrollerRef.current
-      if (scroller) {
-        scroller.scrollLeft = target.left
-        scroller.scrollTop = target.top
-      }
-    })
-    return () => cancelAnimationFrame(id)
-  }, [recallTick])
-
-  function currentViewSnapshot(): VenueViewBookmark | null {
-    const scroller = scrollerRef.current
-    if (!scroller) return null
-    return { zoom, left: scroller.scrollLeft, top: scroller.scrollTop }
-  }
-
-  // Bookmarks live on the layout so they persist to the DB, but they're view
-  // state, not document content — update history.present in place (no undo step)
-  // and let the debounced save push them.
-  function updateViewBookmarks(updater: (prev: VenueViewBookmark[]) => VenueViewBookmark[]) {
-    // Bookmarks persist via the layout PUT, so read-only viewers can't save them.
-    if (!canEditRef.current) return
-    setHistory((current) => {
-      const next = updater(current.present.viewBookmarks ?? [])
-      return {
-        ...current,
-        present: { ...current.present, viewBookmarks: next.length ? next : undefined },
-      }
-    })
-    setPersistable(true)
-  }
-
-  function addViewBookmark() {
-    const snapshot = currentViewSnapshot()
-    if (!snapshot) return
-    updateViewBookmarks((prev) => (prev.length >= MAX_VENUE_VIEW_BOOKMARKS ? prev : [...prev, snapshot]))
-  }
-
-  function overwriteViewBookmark(index: number) {
-    const snapshot = currentViewSnapshot()
-    if (!snapshot) return
-    updateViewBookmarks((prev) => prev.map((entry, i) => (i === index ? snapshot : entry)))
-  }
-
-  function removeViewBookmark(index: number) {
-    updateViewBookmarks((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  function recallViewBookmark(index: number) {
-    const bookmark = viewBookmarks[index]
-    if (!bookmark) return
-    pendingScrollRef.current = { left: bookmark.left, top: bookmark.top }
-    setZoom(bookmark.zoom)
-    setRecallTick((tick) => tick + 1)
-  }
-
-  function commit(nextLayout: typeof layout, nextSelectedItemIds = selectedItemIds) {
-    // Read-only viewers can't change the document (the DB would 403 the save).
-    if (!canEditRef.current) return
-    setHistory((current) => pushHistory(current, nextLayout))
-    setSelectedItemIds(nextSelectedItemIds)
-    setSaveState('idle')
-    // A deliberate edit means we now own the state — safe to persist again even
-    // if the load was degraded (the previous raw is snapshotted to the backup key).
-    setPersistable(true)
-  }
+  const bookmarks = useViewBookmarks({
+    bookmarks: viewBookmarks,
+    zoom,
+    setZoom,
+    scrollerRef,
+    updateBookmarks: updateViewBookmarks,
+  })
 
   function addItem(type: VenueItemType) {
     if (!activeFloor) return
@@ -560,38 +179,22 @@ export default function GuildVenuePage() {
     commit(moveVenueItems(layout, activeFloor.id, itemIds, delta), itemIds)
   }
 
-  // Whether ALL pairs among the selected area items are already merged.
-  const selectedAreaItems = useMemo(
-    () => selectedItemIds.length >= 2
-      ? selectedItemIds.map((id) => activeFloor?.items.find((it) => it.id === id)).filter((it) => it?.type === 'area')
-      : [],
+  // Selected 空间 items, and whether ALL pairs among them are already merged.
+  const selectedAreas = useMemo(
+    () => selectedAreaItems(activeFloor, selectedItemIds),
     [selectedItemIds, activeFloor],
   )
-  const canMergeAreas = selectedAreaItems.length >= 2
-  const areasAlreadyMerged = canMergeAreas && selectedAreaItems.every((a) =>
-    selectedAreaItems.every((b) => a === b || (a?.mergedWith ?? []).includes(b!.id))
-  )
+  const canMergeAreas = selectedAreas.length >= 2
+  const areasAlreadyMerged = areasFullyMerged(selectedAreas)
 
   function mergeSelectedAreas() {
-    if (!activeFloor || selectedAreaItems.length < 2) return
-    let next = layout
-    for (let i = 0; i < selectedAreaItems.length; i++) {
-      for (let j = i + 1; j < selectedAreaItems.length; j++) {
-        next = mergeVenueAreas(next, activeFloor.id, selectedAreaItems[i]!.id, selectedAreaItems[j]!.id)
-      }
-    }
-    commit(next)
+    if (!activeFloor || selectedAreas.length < 2) return
+    commit(applyToAreaPairs(layout, activeFloor.id, selectedAreas, mergeVenueAreas))
   }
 
   function unmergeSelectedAreas() {
-    if (!activeFloor || selectedAreaItems.length < 2) return
-    let next = layout
-    for (let i = 0; i < selectedAreaItems.length; i++) {
-      for (let j = i + 1; j < selectedAreaItems.length; j++) {
-        next = unmergeVenueAreas(next, activeFloor.id, selectedAreaItems[i]!.id, selectedAreaItems[j]!.id)
-      }
-    }
-    commit(next)
+    if (!activeFloor || selectedAreas.length < 2) return
+    commit(applyToAreaPairs(layout, activeFloor.id, selectedAreas, unmergeVenueAreas))
   }
 
   function removeSelectedItem() {
@@ -609,17 +212,11 @@ export default function GuildVenuePage() {
     commit(next, [])
   }
 
-  // Clone items with fresh ids, offset a little so the copies are visible, append
-  // them to the active floor, and select the new copies.
+  // Clone items with fresh ids, append them to the active floor, and select the
+  // new copies.
   function cloneItemsToFloor(source: VenueItem[]) {
     if (!activeFloor || source.length === 0) return
-    const stamp = Date.now()
-    const copies = source.map((item, index) => ({
-      ...item,
-      id: `${item.type}-${stamp}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-      x: item.x + 24,
-      y: item.y + 24,
-    }))
+    const copies = cloneVenueItems(source, Date.now())
     const next = updateVenueFloor(layout, activeFloor.id, {
       items: [...activeFloor.items, ...copies],
     })
@@ -652,255 +249,35 @@ export default function GuildVenuePage() {
     commit(updateVenueFloor(layout, activeFloor.id, { backgroundImage: backgroundImage.trim() || undefined }))
   }
 
-  // Load a different venue's layout. skipNextSave avoids re-PUTing the freshly
-  // loaded layout as if it were a user edit.
-  function applyLoadedLayout(next: VenueLayout) {
-    skipNextSave.current = true
-    setHistory(createHistory(next))
-    setSelectedFloorId(next.floors[0]?.id ?? '')
-    setSelectedItemIds(next.floors[0]?.items[0]?.id ? [next.floors[0].items[0].id] : [])
-    setPersistable(true)
-  }
-
-  function selectFloor(floorId: string) {
-    const floor = layout.floors.find((candidate) => candidate.id === floorId)
-    setSelectedFloorId(floorId)
-    setSelectedItemIds(floor?.items[0]?.id ? [floor.items[0].id] : [])
-  }
-
-  async function switchVenue(id: string) {
-    if (id === activeVenueId) return
-    try {
-      const res = await fetch(`/api/venue?id=${encodeURIComponent(id)}`)
-      const body = (await res.json()) as { data: VenueLayout | null }
-      if (!res.ok || !body.data) throw new Error('load failed')
-      setActiveVenueId(id)
-      window.localStorage.setItem(ACTIVE_VENUE_KEY, id)
-      applyLoadedLayout(body.data)
-      void refreshTranslations(id)
-    } catch {
-      setSaveState('error')
-    }
-  }
-
-  // Rename the currently-active venue. Pushes the new name into history so the
-  // existing autosave effect catches it; also patches the in-memory venues
-  // summary so the dropdown reflects the change without re-fetching.
-  function renameActiveVenue(name: string) {
-    const trimmed = name.trim()
-    if (!trimmed || trimmed === layout.name) return
-    commit({ ...layout, name: trimmed })
-    setVenues((prev) => prev.map((v) => (v.id === activeVenueId ? { ...v, name: trimmed } : v)))
-  }
-
-  async function createNewVenue() {
-    try {
-      const res = await fetch('/api/venue', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: t('newVenueName') }),
-      })
-      const body = (await res.json()) as { data: VenueLayout | null }
-      if (!res.ok || !body.data) throw new Error('create failed')
-      const created = body.data
-      // The creator owns the new venue → full edit + manage rights.
-      setVenues((prev) => [...prev, { id: created.venueId, name: created.name, canEdit: true, canManage: true }])
-      setActiveVenueId(created.venueId)
-      window.localStorage.setItem(ACTIVE_VENUE_KEY, created.venueId)
-      applyLoadedLayout(created)
-    } catch {
-      setSaveState('error')
-    }
-  }
-
   function updateFloorDefaults(patch: Pick<Partial<VenueFloor>, 'width' | 'height' | 'floorHeight'>) {
     if (!activeFloor) return
-    const next = updateVenueFloor(layout, activeFloor.id, patch)
-    const nextFloor = next.floors.find((floor) => floor.id === activeFloor.id) ?? activeFloor
-    commit({
-      ...next,
-      width: activeFloor.id === layout.floors[0]?.id ? nextFloor.width : next.width,
-      height: activeFloor.id === layout.floors[0]?.id ? nextFloor.height : next.height,
-    })
+    commit(applyFloorDefaults(layout, activeFloor, patch))
   }
 
-  function undo() {
-    setHistory((current) => {
-      const next = undoHistory(current)
-      const floor = next.present.floors.find((candidate) => candidate.id === selectedFloorId) ?? next.present.floors[0]
-      const existing = new Set(floor.items.map((item) => item.id))
-      const nextSelection = selectedItemIds.filter((itemId) => existing.has(itemId))
-      setSelectedFloorId(floor.id)
-      setSelectedItemIds(nextSelection.length > 0 ? nextSelection : (floor.items[0]?.id ? [floor.items[0].id] : []))
-      setSaveState('idle')
-      return next
-    })
-  }
-
-  function redo() {
-    setHistory((current) => {
-      const next = redoHistory(current)
-      const floor = next.present.floors.find((candidate) => candidate.id === selectedFloorId) ?? next.present.floors[0]
-      const existing = new Set(floor.items.map((item) => item.id))
-      const nextSelection = selectedItemIds.filter((itemId) => existing.has(itemId))
-      setSelectedFloorId(floor.id)
-      setSelectedItemIds(nextSelection.length > 0 ? nextSelection : (floor.items[0]?.id ? [floor.items[0].id] : []))
-      setSaveState('idle')
-      return next
-    })
-  }
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!isUndoTarget(event.target)) return
-
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        if (selectedItemIds.length === 0) return
-        event.preventDefault()
-        removeSelectedItems()
-        return
-      }
-
-      const meta = event.metaKey || event.ctrlKey
-      if (!meta) return
-
-      const key = event.key.toLowerCase()
-      if (key === 'c') {
-        if (selectedItemIds.length === 0) return
-        event.preventDefault()
-        copySelectedItems()
-        return
-      }
-      if (key === 'v') {
-        if (clipboard.length === 0) return
-        event.preventDefault()
-        pasteClipboard()
-        return
-      }
-      if (key === 'd') {
-        if (selectedItemIds.length === 0) return
-        event.preventDefault()
-        duplicateSelectedItems()
-        return
-      }
-      if (key === 'z' && event.shiftKey) {
-        event.preventDefault()
-        redo()
-        return
-      }
-      if (key === 'z') {
-        event.preventDefault()
-        undo()
-        return
-      }
-      if (key === 'y') {
-        event.preventDefault()
-        redo()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+  useVenueShortcuts({
+    hasSelection: selectedItemIds.length > 0,
+    hasClipboard: clipboard.length > 0,
+    handlers: {
+      delete: removeSelectedItems,
+      copy: copySelectedItems,
+      paste: pasteClipboard,
+      duplicate: duplicateSelectedItems,
+      undo,
+      redo,
+    },
   })
 
   function exportJson() {
     downloadFile(`${layout.venueId}.json`, JSON.stringify(layout, null, 2), 'application/json')
   }
 
-  // Rasterize the canvas SVG to a PNG at the floor's native resolution
-  // (2x for retina sharpness). The selection chrome is stripped from a clone
-  // first, and a white backdrop is painted so transparent regions don't turn
-  // black in the PNG.
   function exportPng() {
-    // In 3D, grab the WebGL canvas directly (preserveDrawingBuffer is enabled).
+    const fail = () => setSaveState('error')
     if (viewMode === '3d') {
-      const canvasEl = canvasAreaRef.current?.querySelector('canvas')
-      if (!canvasEl) {
-        setSaveState('error')
-        return
-      }
-      try {
-        canvasEl.toBlob((blob) => {
-          if (!blob) {
-            setSaveState('error')
-            return
-          }
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = `${layout.venueId}-${activeFloor.name}-3d.png`
-          document.body.appendChild(link)
-          link.click()
-          link.remove()
-          URL.revokeObjectURL(url)
-        }, 'image/png')
-      } catch {
-        setSaveState('error')
-      }
+      exportCanvasAsPng(canvasAreaRef.current?.querySelector('canvas'), `${layout.venueId}-${activeFloor.name}-3d.png`, fail)
       return
     }
-
-    const svg = svgRef.current
-    if (!svg) {
-      setSaveState('error')
-      return
-    }
-    try {
-      const width = activeFloor.width
-      const height = activeFloor.height
-      const scale = 2
-
-      const clone = svg.cloneNode(true) as SVGSVGElement
-      clone.querySelectorAll('[data-venue-selection]').forEach((node) => node.remove())
-      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-      clone.setAttribute('width', String(width))
-      clone.setAttribute('height', String(height))
-
-      const source = `<?xml version="1.0" encoding="UTF-8"?>\n${clone.outerHTML}`
-      const svgUrl = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml;charset=utf-8' }))
-
-      const image = new Image()
-      image.onload = () => {
-        try {
-          const canvas = document.createElement('canvas')
-          canvas.width = Math.round(width * scale)
-          canvas.height = Math.round(height * scale)
-          const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            setSaveState('error')
-            return
-          }
-          ctx.fillStyle = '#ffffff' // style-tokens-ignore：canvas 2D 导出底色，非 UI 样式
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-          ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
-          canvas.toBlob((blob) => {
-            if (!blob) {
-              setSaveState('error')
-              return
-            }
-            const pngUrl = URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = pngUrl
-            link.download = `${layout.venueId}-${activeFloor.name}.png`
-            document.body.appendChild(link)
-            link.click()
-            link.remove()
-            URL.revokeObjectURL(pngUrl)
-          }, 'image/png')
-        } catch {
-          setSaveState('error')
-        } finally {
-          URL.revokeObjectURL(svgUrl)
-        }
-      }
-      image.onerror = () => {
-        URL.revokeObjectURL(svgUrl)
-        setSaveState('error')
-      }
-      image.src = svgUrl
-    } catch {
-      setSaveState('error')
-    }
+    exportSvgAsPng(svgRef.current, activeFloor, `${layout.venueId}-${activeFloor.name}.png`, fail)
   }
 
   if (loading) {
@@ -912,14 +289,6 @@ export default function GuildVenuePage() {
   }
 
   if (!activeFloor) return null
-
-  function importLocalLayout() {
-    if (!localImportLayout) return
-    commit(localImportLayout)
-    setSelectedFloorId(localImportLayout.floors[0]?.id ?? selectedFloorId)
-    setSelectedItemIds(localImportLayout.floors[0]?.items[0]?.id ? [localImportLayout.floors[0].items[0].id] : [])
-    setLocalImportLayout(null)
-  }
 
   return (
     <div className="h-[calc(100dvh-4rem)] lg:h-[calc(100dvh-4rem)] min-h-[760px] flex flex-col">
@@ -950,77 +319,35 @@ export default function GuildVenuePage() {
       )}
 
       <div className="bg-surface border border-line rounded-card overflow-hidden flex-1 min-h-0 grid grid-rows-[auto_1fr]">
-        <div className="min-h-14 border-b border-line px-3 py-2 flex items-center gap-2 overflow-x-auto">
-          {canEdit && (
-            <>
-              {VENUE_SHAPE_TYPE_OPTIONS.map((option) => (
-                <ToolbarButton
-                  key={option.value}
-                  icon={TOOL_ICON[option.value]}
-                  label={t(`addTypes.${option.value}`)}
-                  onClick={() => addItem(option.value)}
-                />
-              ))}
-              {/* corridor(结构)是 shape，作为顶层添加按钮与设备/区域/空间并列 */}
-              <ToolbarButton
-                icon={TOOL_ICON.corridor}
-                label={t('addTypes.corridor')}
-                onClick={() => addItem('corridor')}
-              />
-              <AddMenu label={t('addMarker')} icon={MapPin} types={MARKER_MENU_TYPES} onAdd={addItem} />
-              <AddMenu label={t('addFacility')} icon={Package} types={FACILITY_MENU_TYPES} onAdd={addItem} />
-
-              <div className="w-px h-6 bg-line-strong mx-1" />
-
-              <ToolbarButton iconOnly icon={Undo2} label={t('undo')} onClick={undo} disabled={history.past.length === 0} />
-              <ToolbarButton iconOnly icon={Redo2} label={t('redo')} onClick={redo} disabled={history.future.length === 0} />
-              {canMergeAreas && (
-                areasAlreadyMerged
-                  ? <ToolbarButton iconOnly icon={Unlink2} label={t('unmergeAreas')} onClick={unmergeSelectedAreas} />
-                  : <ToolbarButton iconOnly icon={Link2} label={t('mergeAreas')} onClick={mergeSelectedAreas} />
-              )}
-            </>
-          )}
-          <ToolbarButton iconOnly icon={Grid3X3} label={t('grid')} onClick={() => setShowGrid((value) => !value)} active={showGrid} />
-          <RulerMenu options={rulerOptions} onChange={setRulerOptions} autoDepth={chainAutoDepth} />
-          {viewMode === '2d' && <ToolbarButton iconOnly icon={Magnet} label={t('snapEnabled')} onClick={() => setSnapEnabled((value) => !value)} active={snapEnabled} />}
-
-          <div className="w-px h-6 bg-line-strong mx-1" />
-
-          <ToolbarButton iconOnly icon={ZoomOut} label={t('zoomOut')} onClick={() => setZoom((value) => Math.max(0.5, Number((value - 0.1).toFixed(2))))} />
-          <span className="min-w-14 text-center text-xs font-semibold text-ink-500 tabular-nums">{Math.round(zoom * 100)}%</span>
-          <ToolbarButton iconOnly icon={ZoomIn} label={t('zoomIn')} onClick={() => setZoom((value) => Math.min(5.0, Number((value + 0.1).toFixed(2))))} />
-
-          {viewMode === '2d' && canEdit && (
-            <>
-              <div className="w-px h-6 bg-line-strong mx-1" />
-              <ViewBookmarks
-                bookmarks={viewBookmarks}
-                max={MAX_VENUE_VIEW_BOOKMARKS}
-                onAdd={addViewBookmark}
-                onRecall={recallViewBookmark}
-                onOverwrite={overwriteViewBookmark}
-                onRemove={removeViewBookmark}
-              />
-            </>
-          )}
-
-          <div className="w-px h-6 bg-line-strong mx-1" />
-          {/* 2D/3D 是典型的小范围互斥切换（design-system §6.1）→ SegmentedControl。 */}
-          <div className="shrink-0">
-            <SegmentedControl
-              label={t('viewModeLabel')}
-              value={viewMode}
-              onChange={(next) => setViewMode(next as '2d' | '3d')}
-              items={[
-                { value: '2d', label: t('mode2d') },
-                { value: '3d', label: t('mode3d') },
-              ]}
-            />
-          </div>
-
-          <div className="flex-1" />
-        </div>
+        <VenueToolbar
+          canEdit={canEdit}
+          onAddItem={addItem}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={history.past.length > 0}
+          canRedo={history.future.length > 0}
+          canMergeAreas={canMergeAreas}
+          areasAlreadyMerged={areasAlreadyMerged}
+          onMergeAreas={mergeSelectedAreas}
+          onUnmergeAreas={unmergeSelectedAreas}
+          showGrid={showGrid}
+          onToggleGrid={() => setShowGrid((value) => !value)}
+          rulerOptions={rulerOptions}
+          onRulerOptionsChange={setRulerOptions}
+          chainAutoDepth={chainAutoDepth}
+          snapEnabled={snapEnabled}
+          onToggleSnap={() => setSnapEnabled((value) => !value)}
+          zoom={zoom}
+          onZoomOut={() => setZoom(zoomOutStep)}
+          onZoomIn={() => setZoom(zoomInStep)}
+          bookmarks={viewBookmarks}
+          onAddBookmark={bookmarks.add}
+          onRecallBookmark={bookmarks.recall}
+          onOverwriteBookmark={bookmarks.overwrite}
+          onRemoveBookmark={bookmarks.remove}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
 
         <div
           className="min-h-0 grid"
@@ -1092,68 +419,16 @@ export default function GuildVenuePage() {
             placedItemsTotalCost={costsVisible ? placedItemsTotalCost : null}
             onOpenItems={() => router.push('/items')}
             emptyStateActions={
-              <div className="space-y-4">
-                {canEdit && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-ink-700">{t('canvasSettings')}</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Field label={t('canvasWidth')}>
-                      <Input
-                        type="number" min="1" step="0.1"
-                        value={centimetersToMeters(activeFloor.width)}
-                        onChange={(event) => {
-                          const value = Number(event.target.value)
-                          if (Number.isFinite(value) && value > 0) updateFloorDefaults({ width: metersToCentimeters(value) })
-                        }}
-                        className="tabular-nums"
-                      />
-                    </Field>
-                    <Field label={t('canvasHeight')}>
-                      <Input
-                        type="number" min="1" step="0.1"
-                        value={centimetersToMeters(activeFloor.height)}
-                        onChange={(event) => {
-                          const value = Number(event.target.value)
-                          if (Number.isFinite(value) && value > 0) updateFloorDefaults({ height: metersToCentimeters(value) })
-                        }}
-                        className="tabular-nums"
-                      />
-                    </Field>
-                    <div className="col-span-2">
-                      <Field label={t('floorStoreyHeight')}>
-                        <Input
-                          type="number" min="1" step="0.1"
-                          value={centimetersToMeters(activeFloor.floorHeight)}
-                          onChange={(event) => {
-                            const value = Number(event.target.value)
-                            if (Number.isFinite(value) && value > 0) updateFloorDefaults({ floorHeight: metersToCentimeters(value) })
-                          }}
-                          className="tabular-nums"
-                        />
-                      </Field>
-                    </div>
-                  </div>
-                  <Field label={t('backgroundImage')}>
-                    <Input
-                      value={activeFloor.backgroundImage ?? ''}
-                      onChange={(event) => updateBackgroundImage(event.target.value)}
-                      placeholder={t('backgroundPlaceholder')}
-                    />
-                  </Field>
-                </div>
-                )}
-                <div className="space-y-2">
-                  <TypeFilter visibleTypes={visibleTypes} onChange={setVisibleTypes} fullWidth />
-                  <Button variant="secondary" onClick={exportJson} className="w-full justify-center">
-                    <Download className="w-4 h-4" strokeWidth={1.5} />
-                    {t('exportJson')}
-                  </Button>
-                  <Button variant="secondary" onClick={exportPng} className="w-full justify-center">
-                    <ImageIcon className="w-4 h-4" strokeWidth={1.5} />
-                    {t('exportImage')}
-                  </Button>
-                </div>
-              </div>
+              <CanvasSettingsPanel
+                canEdit={canEdit}
+                floor={activeFloor}
+                onFloorDefaultsChange={updateFloorDefaults}
+                onBackgroundImageChange={updateBackgroundImage}
+                visibleTypes={visibleTypes}
+                onVisibleTypesChange={setVisibleTypes}
+                onExportJson={exportJson}
+                onExportPng={exportPng}
+              />
             }
             onToggleCollapsed={() => setInspectorCollapsed((value) => !value)}
             onChange={(patch) => selectedItem && updateItem(selectedItem.id, patch)}
@@ -1170,1056 +445,10 @@ export default function GuildVenuePage() {
   )
 }
 
-function ToolRail({ activeFloor }: { activeFloor: string }) {
-  const t = useTranslations('venue')
-  const tools = [
-    { key: 'venues', icon: Building2, label: t('railVenues') },
-    { key: 'areas', icon: MapIcon, label: t('railAreas') },
-    { key: 'library', icon: Box, label: t('railLibrary') },
-    { key: 'layers', icon: Layers, label: t('railLayers') },
-  ]
-
-  return (
-    <aside className="bg-surface border-r border-line py-3 flex flex-col items-center gap-2">
-      {tools.map(({ key, icon: Icon, label }, index) => (
-        <button
-          key={key}
-          type="button"
-          title={label}
-          aria-label={label}
-          className={`w-11 h-11 rounded-card inline-flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
-            index === 0 ? 'bg-primary-soft text-primary-hover' : 'text-ink-500 hover:bg-line-soft hover:text-ink-900'
-          }`}
-        >
-          <Icon className="w-5 h-5" strokeWidth={1.5} />
-        </button>
-      ))}
-      <div className="flex-1" />
-      <div className="w-10 min-h-10 rounded-field bg-line-soft text-micro font-semibold text-ink-500 flex items-center justify-center">
-        {activeFloor}
-      </div>
-    </aside>
-  )
-}
-
-function FloatingPanel({
-  layoutName,
-  floorName,
-  venues,
-  activeVenueId,
-  floors,
-  selectedFloorId,
-  onSwitchVenue,
-  onSelectFloor,
-  onCreateVenue,
-  onRenameActiveVenue,
-  canManage,
-  onManageCollaborators,
-  floorItems,
-  floorItemsTotalCost,
-  items,
-  selectedItemIds,
-  visibleTypes,
-  onSelect,
-  locale,
-  nameTranslations,
-}: {
-  layoutName: string
-  floorName: string
-  venues: VenueSummary[]
-  activeVenueId: string
-  floors: VenueFloor[]
-  selectedFloorId: string
-  onSwitchVenue: (id: string) => void
-  onSelectFloor: (id: string) => void
-  onCreateVenue: () => void
-  onRenameActiveVenue: (name: string) => void
-  canManage: boolean
-  onManageCollaborators: () => void
-  floorItems: Array<{ id: string; item_code: string; name: string; quantity: number; cost: number; zoneName: string | null }>
-  /** null = 看不到成本（非管理员），合计行不显示。 */
-  floorItemsTotalCost: number | null
-  items: VenueItem[]
-  selectedItemIds: string[]
-  visibleTypes: VenueItemType[]
-  onSelect: (id: string) => void
-  locale: string
-  nameTranslations: VenueNameTranslations
-}) {
-  const t = useTranslations('venue')
-  const [collapsed, setCollapsed] = useState(false)
-  const [venueMenuOpen, setVenueMenuOpen] = useState(false)
-  // When non-null, the active venue row in the dropdown is swapped for an
-  // inline input prefilled with this value — Enter saves, Escape / blur cancels.
-  const [renameDraft, setRenameDraft] = useState<string | null>(null)
-  const venueMenuRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (!venueMenuOpen) return
-    const handle = (event: MouseEvent) => {
-      if (venueMenuRef.current && !venueMenuRef.current.contains(event.target as Node)) setVenueMenuOpen(false)
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [venueMenuOpen])
-  const [listTab, setListTab] = useState<'shapes' | 'markers' | 'items'>('shapes')
-  const activeListItemRef = useRef<HTMLButtonElement | null>(null)
-  useEffect(() => {
-    activeListItemRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }, [selectedItemIds])
-  const totalAreaSqMeters = totalVenueAreaSquareMeters(items)
-  const usableAreaSqMeters = usableVenueAreaSquareMeters(items)
-  const visibleTypeSet = useMemo(() => new Set(visibleTypes), [visibleTypes])
-  // Rank the three largest 'area' spaces (by area share) — computed over all
-  // items so the badge stays stable regardless of the active type filter.
-  const areaRank = useMemo(() => {
-    const map = new Map<string, number>()
-    items
-      .filter((item) => item.type === 'area')
-      .sort((a, b) => venueAreaSquareMeters(b) - venueAreaSquareMeters(a))
-      .slice(0, 3)
-      .forEach((item, index) => map.set(item.id, index))
-    return map
-  }, [items])
-  // corridor renders as a shape but is grouped under the "标识" tab
-  const isInMarkersTab = (type: VenueItemType) => isVenueMarkerType(type) || type === 'corridor'
-  const markerCount = items.filter((item) => isInMarkersTab(item.type)).length
-  const shapeCount = items.length - markerCount
-  const listItems = items
-    .filter((item) => visibleTypeSet.has(item.type))
-    .filter((item) => (listTab === 'markers' ? isInMarkersTab(item.type) : !isInMarkersTab(item.type)))
-    .sort((a, b) => venueAreaSquareMeters(b) - venueAreaSquareMeters(a))
-
-  if (collapsed) {
-    return (
-      <div className="absolute left-4 bottom-4 z-20">
-        <button
-          type="button"
-          title={t('expandVenuePanel')}
-          aria-label={t('expandVenuePanel')}
-          onClick={() => setCollapsed(false)}
-          className="h-11 max-w-56 rounded-card border border-line bg-white/95 px-3 shadow-pop backdrop-blur inline-flex items-center gap-2 text-left text-ink-700 hover:border-primary-border hover:text-primary-hover hover:bg-white transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-        >
-          <PanelLeftOpen className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-          <span className="min-w-0">
-            <span className="block text-xs font-medium text-ink-500">{t('currentVenue')}</span>
-            <span className="block truncate text-sm font-semibold">{layoutName} · {floorName}</span>
-          </span>
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="absolute left-4 top-4 z-20 w-72 rounded-card border border-line bg-white/95 shadow-pop backdrop-blur">
-      <div className="p-4 border-b border-line-soft flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-ink-500">{t('currentVenue')}</p>
-          <div ref={venueMenuRef} className="relative mt-1">
-            <button
-              type="button"
-              onClick={() => setVenueMenuOpen((open) => !open)}
-              title={t('switchVenue')}
-              className="flex w-full items-center gap-1 rounded-field -mx-1 px-1 text-left hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-            >
-              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-900">{layoutName} · {floorName}</h2>
-              <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-ink-400 transition-transform ${venueMenuOpen ? 'rotate-180' : ''}`} strokeWidth={1.5} />
-            </button>
-            {venueMenuOpen && (
-              <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-card border border-line bg-surface py-1 shadow-pop">
-                {venues.map((venue) => {
-                  const isActiveVenue = venue.id === activeVenueId
-                  const isEditing = isActiveVenue && renameDraft !== null
-                  return (
-                    <div key={venue.id}>
-                      {isEditing ? (
-                        // Inline rename: Enter commits, Escape / blur cancels.
-                        // We keep the row in place (no layout shift) and swap
-                        // only the label for an input.
-                        <div className="flex items-center gap-2 px-3 py-1.5">
-                          <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-ink-400" strokeWidth={1.5} />
-                          <Input
-                            size="sm"
-                            autoFocus
-                            value={renameDraft ?? ''}
-                            onChange={(e) => setRenameDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                onRenameActiveVenue(renameDraft ?? '')
-                                setRenameDraft(null)
-                              } else if (e.key === 'Escape') {
-                                setRenameDraft(null)
-                              }
-                            }}
-                            onBlur={() => setRenameDraft(null)}
-                            aria-label={t('renameVenue')}
-                            className="flex-1 min-w-0"
-                          />
-                        </div>
-                      ) : (
-                        <div className="group flex items-center gap-1 pr-1">
-                          <button
-                            type="button"
-                            // Keep the dropdown open after a venue switch so the
-                            // user can drill down into the freshly-loaded floors
-                            // without re-opening the menu. The menu closes only
-                            // when a floor is picked.
-                            onClick={() => onSwitchVenue(venue.id)}
-                            className={`flex flex-1 min-w-0 items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
-                              isActiveVenue ? 'font-semibold text-ink-900' : 'text-ink-700 hover:bg-line-soft'
-                            }`}
-                          >
-                            <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-ink-400" strokeWidth={1.5} />
-                            <span className="truncate flex-1">{venue.name}</span>
-                            {/* Chevron telegraphs "click to drill down" — points
-                                down when this venue's floors are showing below,
-                                right when collapsed. */}
-                            <ChevronDown
-                              strokeWidth={1.5}
-                              className={`w-3 h-3 flex-shrink-0 text-ink-400 transition-transform ${
-                                isActiveVenue ? '' : '-rotate-90'
-                              }`}
-                            />
-                          </button>
-                          {isActiveVenue && (
-                            <button
-                              type="button"
-                              onClick={() => setRenameDraft(venue.name)}
-                              title={t('renameVenue')}
-                              aria-label={t('renameVenue')}
-                              // Hover-visible edit affordance: invisible until the
-                              // row (or the icon itself) is hovered, so the menu
-                              // looks calm by default.
-                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 w-6 h-6 inline-flex items-center justify-center rounded-field text-ink-400 hover:text-primary-hover hover:bg-line-soft transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
-                            >
-                              <Edit2 className="w-3 h-3" strokeWidth={1.5} />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {/* Floors of the active venue (the only one whose floors are loaded). */}
-                      {isActiveVenue && floors.map((floor) => (
-                        <button
-                          key={floor.id}
-                          type="button"
-                          onClick={() => { onSelectFloor(floor.id); setVenueMenuOpen(false) }}
-                          className={`flex w-full items-center gap-2 py-1.5 pl-9 pr-3 text-left text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
-                            floor.id === selectedFloorId ? 'bg-primary-soft font-medium text-primary-hover' : 'text-ink-700 hover:bg-line-soft'
-                          }`}
-                        >
-                          <span className="truncate">{floor.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )
-                })}
-                <div className="my-1 h-px bg-line-soft" />
-                <button
-                  type="button"
-                  onClick={() => { onCreateVenue(); setVenueMenuOpen(false) }}
-                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
-                >
-                  <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  {t('newVenue')}
-                </button>
-              </div>
-            )}
-          </div>
-          <p className="text-micro text-ink-400 mt-1 tabular-nums">
-            {t('totalSpaceArea')} {formatVenueArea(totalAreaSqMeters)}
-            {totalAreaSqMeters > 0 && (
-              <span className="ml-1 text-ink-500">· {t('usableSpaceArea')} {formatVenueArea(usableAreaSqMeters)}</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-1">
-          {canManage && (
-            <button
-              type="button"
-              title={t('collaboratorsTitle')}
-              aria-label={t('collaboratorsTitle')}
-              onClick={onManageCollaborators}
-              className="w-8 h-8 rounded-field inline-flex items-center justify-center text-ink-500 hover:bg-line-soft hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-            >
-              <Users className="w-4 h-4" strokeWidth={1.5} />
-            </button>
-          )}
-          <button
-            type="button"
-            title={t('collapseVenuePanel')}
-            aria-label={t('collapseVenuePanel')}
-            onClick={() => setCollapsed(true)}
-            className="w-8 h-8 rounded-field inline-flex items-center justify-center text-ink-500 hover:bg-line-soft hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-          >
-            <PanelLeftClose className="w-4 h-4" strokeWidth={1.5} />
-          </button>
-        </div>
-      </div>
-      {/* 列表范围切换（空间 / 标识 / 物品）走共享 Tabs（design-system §6.1）；
-          计数并入 label 文本，Tabs 契约里 label 是纯字符串。
-          保留 px-3：FloatingPanel 自身就是容器（头部 p-4、列表 p-2），tab 文字
-          顶到卡片边框比发丝线短一截更难看，内衬与上下两块对齐优先。 */}
-      <div className="px-3 pt-2">
-        <Tabs
-          label={t('listTabsLabel')}
-          value={listTab}
-          onChange={(next) => setListTab(next as 'shapes' | 'markers' | 'items')}
-          items={[
-            { value: 'shapes', label: `${t('tabShapes')} ${shapeCount}` },
-            { value: 'markers', label: `${t('tabMarkers')} ${markerCount}` },
-            { value: 'items', label: `${t('tabItems')} ${floorItems.length}` },
-          ]}
-        />
-      </div>
-      <div className="max-h-[calc(100dvh-24rem)] min-h-72 overflow-auto p-2">
-        {listTab === 'items' ? (
-          // Floor-level item rollup. Pulls from the items module rather than
-          // the canvas — clicking a row opens that item's edit page so the
-          // operator can update status / move it. Total cost lands at the
-          // bottom as a sticky-feeling summary row.
-          <>
-            {floorItems.length === 0 && (
-              <p className="px-3 py-6 text-center text-xs text-ink-400">{t('floorItemsEmpty')}</p>
-            )}
-            {floorItems.length > 0 && floorItems.map((it) => (
-              <a
-                key={it.id}
-                href={`/items/${it.id}`}
-                className="w-full flex items-start gap-2 rounded-field px-2.5 py-2 text-left transition-colors text-ink-700 hover:bg-line-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
-              >
-                <Package className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.5} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium truncate">{it.name}</span>
-                  <span className="block text-micro text-ink-400 truncate">
-                    {it.item_code}
-                    {it.quantity > 1 && ` · ×${it.quantity}`}
-                    {it.zoneName && ` · ${it.zoneName}`}
-                  </span>
-                </span>
-                {it.cost > 0 && (
-                  <span className="text-micro font-medium text-ink-500 font-mono tabular-nums whitespace-nowrap mt-0.5">
-                    ¥{Math.round(it.cost).toLocaleString('zh-CN')}
-                  </span>
-                )}
-              </a>
-            ))}
-            {floorItems.length > 0 && floorItemsTotalCost !== null && (
-              <div className="mt-2 flex items-center justify-between border-t border-line-soft px-3 py-2 text-xs">
-                <span className="text-ink-500">{t('floorItemsTotal')}</span>
-                <span className="font-semibold text-ink-700 font-mono tabular-nums">
-                  ¥{Math.round(floorItemsTotalCost).toLocaleString('zh-CN')}
-                </span>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            {listItems.length === 0 && (
-              <p className="px-3 py-6 text-center text-xs text-ink-400">{t('filterEmpty')}</p>
-            )}
-            {listItems.map((item) => {
-              const Icon = TOOL_ICON[item.type]
-              const active = selectedItemIds.includes(item.id)
-              const isMarker = isVenueMarkerType(item.type)
-              // Only 空间 participates in area accounting — 设备/区域/结构 show just
-              // their dimensions (no m² figure, no share).
-              const countsArea = item.type === 'area'
-              const areaSqMeters = venueAreaSquareMeters(item)
-              const share = item.type === 'area' && totalAreaSqMeters > 0
-                ? (areaSqMeters / totalAreaSqMeters) * 100
-                : null
-              // Top-3 spaces by area get an emphasized (bold + darker) metric line.
-              const isTopArea = areaRank.get(item.id) !== undefined
-              return (
-                <button
-                  key={item.id}
-                  ref={active ? activeListItemRef : null}
-                  type="button"
-                  onClick={() => onSelect(item.id)}
-                  className={`w-full flex items-center gap-2 rounded-field px-2.5 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset ${
-                    active ? 'bg-primary-soft text-primary-hover' : 'text-ink-700 hover:bg-line-soft'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium truncate">{resolveVenueItemName(item.name, item.id, locale, nameTranslations)}</span>
-                    <span className={`block text-micro truncate tabular-nums ${isTopArea ? 'font-semibold text-ink-700' : 'text-ink-400'}`}>
-                      {isMarker ? (
-                        t(`types.${item.type}`)
-                      ) : (
-                        <>
-                          {formatVenueMeasurement(item.width)}×{formatVenueMeasurement(item.height)}
-                          {countsArea && ` · ${formatVenueArea(areaSqMeters)}`}
-                          {share !== null && ` · ${share.toFixed(1)}%`}
-                        </>
-                      )}
-                    </span>
-                  </span>
-                </button>
-              )
-            })}
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Single-button view-bookmark control. Empty → an add button; with saved views
-// → a dropdown to switch / overwrite / remove, plus add until the cap is hit.
-function ViewBookmarks({
-  bookmarks,
-  max,
-  onAdd,
-  onRecall,
-  onOverwrite,
-  onRemove,
-}: {
-  bookmarks: VenueViewBookmark[]
-  max: number
-  onAdd: () => void
-  onRecall: (index: number) => void
-  onOverwrite: (index: number) => void
-  onRemove: (index: number) => void
-}) {
-  const t = useTranslations('venue')
-  const [open, setOpen] = useState(false)
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
-  const [active, setActive] = useState(0)
-  const ref = useRef<HTMLDivElement | null>(null)
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handle = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [open])
-
-  const count = bookmarks.length
-  const safeActive = active < count ? active : 0
-
-  const goTo = (index: number) => {
-    setActive(index)
-    onRecall(index)
-  }
-
-  // One-click cycle to the next saved view.
-  const cycle = () => goTo(count === 0 ? 0 : (safeActive + 1) % count)
-
-  const openMenu = () => {
-    const rect = buttonRef.current?.getBoundingClientRect()
-    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
-    setOpen((value) => !value)
-  }
-
-  // Empty: a single add button.
-  if (count === 0) {
-    return (
-      <div ref={ref} className="flex-shrink-0">
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={onAdd}
-          title={t('viewSaveCurrent')}
-          aria-label={t('viewSaveCurrent')}
-          className="h-8 shrink-0 inline-flex items-center gap-1 rounded-field border border-dashed border-line-strong bg-surface px-2.5 text-xs font-semibold text-ink-400 hover:border-primary-border hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-        >
-          <Bookmark className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-          <Plus className="w-3 h-3 flex-shrink-0" strokeWidth={1.5} />
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div ref={ref} className="flex-shrink-0 inline-flex rounded-field border border-primary-border overflow-hidden">
-      {/* Main: one-click switch to the next saved view. */}
-      <button
-        type="button"
-        onClick={cycle}
-        title={t('viewSwitchNext')}
-        aria-label={t('viewSwitchNext')}
-        className="h-8 inline-flex items-center gap-1.5 bg-primary-soft px-2.5 text-xs font-semibold text-primary-hover hover:bg-primary-soft-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
-      >
-        <Bookmark className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-        <span className="tabular-nums">{safeActive + 1}</span>
-      </button>
-      {/* Chevron: open the manage menu (switch to a specific view / overwrite / remove / add). */}
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={openMenu}
-        title={t('viewBookmarks')}
-        aria-label={t('viewBookmarks')}
-        className="h-8 inline-flex items-center justify-center border-l border-primary-border bg-primary-soft px-1.5 text-primary-hover hover:bg-primary-soft-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
-      >
-        <ChevronDown strokeWidth={1.5} className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && menuPos && count > 0 && (
-        <div
-          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-          className="z-40 min-w-44 rounded-card border border-line bg-surface py-1 shadow-pop"
-        >
-          {bookmarks.map((_, index) => (
-            <div key={index} className="flex items-center gap-1 px-2 py-1 rounded-field hover:bg-line-soft transition-colors">
-              <button
-                type="button"
-                onClick={() => {
-                  goTo(index)
-                  setOpen(false)
-                }}
-                className={`flex-1 text-left text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${index === safeActive ? 'text-primary-hover' : 'text-ink-700'}`}
-              >
-                {t('viewBookmarkN', { n: index + 1 })}
-              </button>
-              <button
-                type="button"
-                onClick={() => onOverwrite(index)}
-                title={t('viewOverwrite')}
-                className="px-1.5 py-0.5 text-micro font-medium text-ink-400 hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-              >
-                {t('viewOverwriteShort')}
-              </button>
-              <button
-                type="button"
-                onClick={() => onRemove(index)}
-                title={t('viewRemove')}
-                aria-label={t('viewRemove')}
-                className="text-ink-400 hover:text-danger-text transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-              >
-                <X className="w-3.5 h-3.5" strokeWidth={1.5} />
-              </button>
-            </div>
-          ))}
-          {count < max && (
-            <>
-              <div className="my-1 h-px bg-line-soft" />
-              <button
-                type="button"
-                onClick={() => onAdd()}
-                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-              >
-                <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
-                {t('viewSaveCurrent')}
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// 通用「添加」下拉菜单:传入按钮图标/文案 + 一组类型,点选即添加。
-// 复用给「+ 标识」(门/消防/电源/网络口)与「+ 设施」(窗户/桁架/灯)。
-function AddMenu({
-  label,
-  icon: TriggerIcon,
-  types,
-  onAdd,
-}: {
-  label: string
-  icon: typeof MapPin
-  types: VenueItemType[]
-  onAdd: (type: VenueItemType) => void
-}) {
-  const t = useTranslations('venue')
-  const [open, setOpen] = useState(false)
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
-  const ref = useRef<HTMLDivElement | null>(null)
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handle = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [open])
-
-  const toggleOpen = () => {
-    const rect = buttonRef.current?.getBoundingClientRect()
-    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
-    setOpen((value) => !value)
-  }
-
-  return (
-    <div ref={ref} className="flex-shrink-0">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={toggleOpen}
-        className="h-8 inline-flex items-center gap-1.5 rounded-field border border-line-strong bg-surface px-3 text-sm font-medium text-ink-700 hover:border-primary-border hover:text-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-      >
-        <TriggerIcon className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-        <span className="whitespace-nowrap">{label}</span>
-        <ChevronDown strokeWidth={1.5} className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && menuPos && (
-        <div
-          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-          className="z-40 min-w-40 rounded-card border border-line bg-surface py-1 shadow-pop"
-        >
-          {types.map((type) => {
-            const Icon = TOOL_ICON[type]
-            return (
-              <button
-                key={type}
-                type="button"
-                onClick={() => {
-                  onAdd(type)
-                  setOpen(false)
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-700 hover:bg-line-soft transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1"
-              >
-                <Icon className="w-3.5 h-3.5 text-ink-400" strokeWidth={1.5} />
-                <span>{t(`types.${type}`)}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function RulerMenu({
-  options,
-  onChange,
-  autoDepth,
-}: {
-  options: VenueRulerOptions
-  onChange: (next: VenueRulerOptions) => void
-  // 自动带深(cm),仅用于滑杆处于自动模式时的显示与滑块位置
-  autoDepth: number
-}) {
-  const t = useTranslations('venue')
-  const [open, setOpen] = useState(false)
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
-  const ref = useRef<HTMLDivElement | null>(null)
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handle = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [open])
-
-  const toggleOpen = () => {
-    const rect = buttonRef.current?.getBoundingClientRect()
-    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
-    setOpen((value) => !value)
-  }
-
-  const entries: { key: 'items' | 'totalBounds' | 'chain'; label: string }[] = [
-    { key: 'items', label: t('rulerMenu.items') },
-    { key: 'totalBounds', label: t('rulerMenu.totalBounds') },
-    { key: 'chain', label: t('rulerMenu.chain') },
-  ]
-  const anyOn = options.items || options.totalBounds || options.chain
-
-  return (
-    <div ref={ref} className="flex-shrink-0">
-      <button
-        ref={buttonRef}
-        type="button"
-        title={t('dimensionRulers')}
-        aria-label={t('dimensionRulers')}
-        aria-expanded={open}
-        onClick={toggleOpen}
-        className={`h-8 w-8 shrink-0 inline-flex items-center justify-center rounded-field border text-xs font-semibold leading-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
-          anyOn
-            ? 'border-primary-border bg-primary-soft text-primary-hover'
-            : 'border-line-strong bg-surface text-ink-700 hover:border-primary-border hover:text-primary-hover'
-        }`}
-      >
-        <Ruler className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-      </button>
-      {open && menuPos && (
-        <div
-          style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
-          className="z-40 min-w-48 rounded-card border border-line bg-surface py-1 shadow-pop"
-        >
-          {entries.map((entry) => (
-            <label
-              key={entry.key}
-              className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-ink-700 hover:bg-line-soft transition-colors"
-            >
-              <input
-                type="checkbox"
-                checked={options[entry.key]}
-                onChange={(event) => onChange({ ...options, [entry.key]: event.target.checked })}
-                className="h-3.5 w-3.5 accent-primary"
-              />
-              <span>{entry.label}</span>
-            </label>
-          ))}
-          {options.chain && (
-            <div className="mt-1 border-t border-line-soft px-3 pb-1.5 pt-2">
-              <div className="flex items-center justify-between gap-2 text-xs text-ink-700">
-                <span>{t('rulerMenu.bandDepth')}</span>
-                <span className="font-semibold tabular-nums text-ink-900">
-                  {options.chainBandDepth === null
-                    ? `${t('rulerMenu.bandAuto')} ${formatVenueMeasurement(autoDepth)}`
-                    : formatVenueMeasurement(options.chainBandDepth)}
-                </span>
-              </div>
-              <div className="mt-1.5 flex items-center gap-2">
-                <input
-                  id="venue-chain-band-depth"
-                  type="range"
-                  min={30}
-                  max={400}
-                  step={10}
-                  value={options.chainBandDepth ?? Math.round(autoDepth)}
-                  aria-label={t('rulerMenu.bandDepth')}
-                  // 拨滑杆就等于「我要自己定」,顺手退出自动模式。别做成必须先点
-                  // 「自动」才能拨——那样会让人以为滑杆是坏的。
-                  onChange={(event) => onChange({ ...options, chainBandDepth: Number(event.target.value) })}
-                  className="h-1 flex-1 accent-primary"
-                />
-                <button
-                  type="button"
-                  onClick={() => onChange({ ...options, chainBandDepth: null })}
-                  disabled={options.chainBandDepth === null}
-                  className="shrink-0 rounded-field border border-line-strong px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:border-primary-border hover:text-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {t('rulerMenu.bandAuto')}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function TypeFilter({
-  visibleTypes,
-  onChange,
-  fullWidth = false,
-}: {
-  visibleTypes: VenueItemType[]
-  onChange: (next: VenueItemType[]) => void
-  fullWidth?: boolean
-}) {
-  const t = useTranslations('venue')
-  const [open, setOpen] = useState(false)
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
-  const ref = useRef<HTMLDivElement | null>(null)
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handle = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handle)
-    return () => document.removeEventListener('mousedown', handle)
-  }, [open])
-
-  // The toolbar is horizontally scrollable, which clips an absolutely-positioned
-  // menu — anchor it with fixed coords from the trigger so it escapes the clip.
-  const toggleOpen = () => {
-    const rect = buttonRef.current?.getBoundingClientRect()
-    if (rect) setMenuPos({ top: rect.bottom + 4, left: rect.left })
-    setOpen((value) => !value)
-  }
-
-  const visibleSet = new Set(visibleTypes)
-  const allSelected = VENUE_ITEM_TYPE_OPTIONS.every((option) => visibleSet.has(option.value))
-  const summary = allSelected
-    ? t('filterAllComponents')
-    : t('filterCount', { count: visibleTypes.length })
-
-  const toggle = (value: VenueItemType) => {
-    if (visibleSet.has(value)) {
-      // Always keep at least one type visible.
-      if (visibleTypes.length <= 1) return
-      onChange(visibleTypes.filter((type) => type !== value))
-    } else {
-      onChange([...visibleTypes, value])
-    }
-  }
-
-  return (
-    <div ref={ref} className={fullWidth ? 'w-full' : 'flex-shrink-0'}>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={toggleOpen}
-        className={`h-8 inline-flex items-center gap-1.5 rounded-field border px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
-          fullWidth ? 'w-full justify-between' : ''
-        } ${
-          allSelected
-            ? 'border-line-strong bg-surface text-ink-700 hover:border-primary-border hover:text-primary-hover'
-            : 'border-primary-border bg-primary-soft text-primary-hover'
-        }`}
-      >
-        <span className="inline-flex items-center gap-1.5 min-w-0">
-          <ListFilter className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
-          <span className="whitespace-nowrap">{summary}</span>
-        </span>
-        <ChevronDown strokeWidth={1.5} className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && menuPos && (
-        <div
-          style={{
-            position: 'fixed',
-            top: menuPos.top,
-            left: menuPos.left,
-            // Cap height to the remaining viewport so the 10-type list never
-            // clips off-screen when the trigger sits low on the canvas.
-            maxHeight: `calc(100vh - ${menuPos.top + 16}px)`,
-            overflowY: 'auto',
-          }}
-          className="z-40 min-w-44 rounded-card border border-line bg-surface py-1 shadow-pop"
-        >
-          <button
-            type="button"
-            onClick={() => onChange(ALL_VENUE_TYPES)}
-            disabled={allSelected}
-            className="w-full px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-line-soft transition-colors disabled:text-ink-400 disabled:opacity-50 disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-inset"
-          >
-            {t('filterShowAll')}
-          </button>
-          <div className="my-1 h-px bg-line-soft" />
-          {VENUE_ITEM_TYPE_OPTIONS.map((option) => {
-            const Icon = TOOL_ICON[option.value]
-            const checked = visibleSet.has(option.value)
-            const lockedLast = checked && visibleTypes.length <= 1
-            return (
-              <label
-                key={option.value}
-                className={`flex items-center gap-2 px-3 py-1.5 text-xs text-ink-700 hover:bg-line-soft transition-colors ${lockedLast ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={lockedLast}
-                  onChange={() => toggle(option.value)}
-                  className="accent-primary"
-                />
-                <Icon className="w-3.5 h-3.5 text-ink-400" strokeWidth={1.5} />
-                <span>{t(`types.${option.value}`)}</span>
-              </label>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ToolbarButton({
-  icon: Icon,
-  label,
-  onClick,
-  disabled,
-  active,
-  primary,
-  iconOnly,
-}: {
-  icon: typeof Box
-  label: string
-  onClick: () => void
-  disabled?: boolean
-  active?: boolean
-  primary?: boolean
-  // Always render as an icon-only square (label lives in the tooltip), trimming
-  // the horizontal footprint for self-explanatory utility controls.
-  iconOnly?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-      disabled={disabled}
-      // h-8 = §3 控件高度默认档 32px。iconOnly 的方形也取 32×32（正好落在
-      // §4 点击目标下限），整条工具栏因此与 SegmentedControl 同高。
-      className={`h-8 shrink-0 inline-flex items-center justify-center rounded-field border text-xs font-semibold leading-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring focus-visible:ring-offset-1 ${
-        iconOnly ? 'w-8' : 'gap-1.5 px-3'
-      } ${
-        primary
-          ? 'border-ink-900 bg-ink-900 text-white hover:bg-ink-700'
-          : active
-            ? 'border-primary-border bg-primary-soft text-primary-hover'
-            : 'border-line-strong bg-surface text-ink-700 hover:border-primary-border hover:text-primary-hover'
-      }`}
-    >
-      <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-      {!iconOnly && <span className="hidden whitespace-nowrap xl:inline">{label}</span>}
-    </button>
-  )
-}
-
 function StatusPill({ state }: { state: SaveState }) {
   const t = useTranslations('venue')
   if (state === 'idle') return null
   return state === 'saved'
     ? <Tag label={t('autoSaved')} tone="success" />
     : <Tag label={t('saveFailed')} tone="danger" />
-}
-
-// Owner / admin tool: pick which system users may co-edit this venue. The list
-// is every WithJP profile (by name + email); current editors come pre-checked.
-function CollaboratorsModal({ venueId, onClose }: { venueId: string; onClose: () => void }) {
-  const t = useTranslations('venue')
-  const [users, setUsers] = useState<UserOption[]>([])
-  const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const [usersRes, editorsRes] = await Promise.all([
-          fetch('/api/users'),
-          fetch(`/api/venue/collaborators?id=${encodeURIComponent(venueId)}`),
-        ])
-        const usersJson = (await usersRes.json()) as { data: UserOption[] | null }
-        const editorsJson = (await editorsRes.json()) as { data: { userIds: string[] } | null }
-        if (cancelled) return
-        if (usersJson.data) setUsers(usersJson.data)
-        if (editorsJson.data?.userIds) setSelected(new Set(editorsJson.data.userIds))
-      } catch {
-        if (!cancelled) setError(true)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [venueId])
-
-  const q = query.trim().toLowerCase()
-  const filtered = q
-    ? users.filter((u) => u.name.toLowerCase().includes(q) || (u.email ?? '').toLowerCase().includes(q))
-    : users
-
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  async function save() {
-    setSaving(true)
-    setError(false)
-    try {
-      const res = await fetch('/api/venue/collaborators', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ venueId, userIds: Array.from(selected) }),
-      })
-      if (!res.ok) throw new Error(`status ${res.status}`)
-      onClose()
-    } catch {
-      setError(true)
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={t('collaboratorsTitle')}
-      width="max-w-md"
-      footer={
-        <>
-          {/* mr-auto 把计数/错误推到左端——Modal footer 本身是 justify-end。 */}
-          <span className="mr-auto text-xs text-ink-400">
-            {error ? (
-              <span className="text-danger-text">{t('collaboratorsError')}</span>
-            ) : (
-              t('collaboratorsCount', { count: selected.size })
-            )}
-          </span>
-          <Button variant="ghost" onClick={onClose}>
-            {t('collaboratorsCancel')}
-          </Button>
-          <Button onClick={save} disabled={saving || loading} loading={saving}>
-            {t('collaboratorsSave')}
-          </Button>
-        </>
-      }
-    >
-      <p className="text-xs text-ink-500">{t('collaboratorsDesc')}</p>
-
-      <div className="mt-3">
-        <SearchInput
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t('collaboratorsSearch')}
-          aria-label={t('collaboratorsSearch')}
-        />
-      </div>
-
-      <div className="min-h-40 mt-3">
-        {loading ? (
-          <p className="px-2 py-6 text-center text-sm text-ink-400">{t('collaboratorsLoading')}</p>
-        ) : filtered.length === 0 ? (
-          <p className="px-2 py-6 text-center text-sm text-ink-400">{t('collaboratorsEmpty')}</p>
-        ) : (
-          filtered.map((user) => (
-            <label
-              key={user.id}
-              className="flex cursor-pointer items-center gap-3 rounded-field px-2.5 py-2 hover:bg-line-soft transition-colors"
-            >
-              <input
-                type="checkbox"
-                checked={selected.has(user.id)}
-                onChange={() => toggle(user.id)}
-                className="accent-primary"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-ink-700">{user.name}</span>
-                {user.email && <span className="block truncate text-xs text-ink-400">{user.email}</span>}
-              </span>
-            </label>
-          ))
-        )}
-      </div>
-    </Modal>
-  )
-}
-
-function downloadFile(filename: string, content: string, type: string) {
-  const blob = new Blob([content], { type })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-// Structural equality for layouts. Sufficient here: layouts are plain JSON
-// (no functions/dates), so serialized comparison detects whether the cloud copy
-// is still the untouched seed and whether the local copy differs.
-function layoutsEqual(a: VenueLayout, b: VenueLayout): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
-}
-
-function isUndoTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return true
-  const tag = target.tagName.toLowerCase()
-  return !target.isContentEditable && tag !== 'input' && tag !== 'textarea' && tag !== 'select'
 }
