@@ -51,6 +51,8 @@ test('appendBlankRow: 末尾追加空白「新号」行,id 只为目标月生成
     live_days: 0, avg_daily_hours: 0, revenue_per_minute_usd: 0, share_ratio_pct: 0,
   }])
   assert.equal(next[1].rows.length, 2)
+  const onto = appendBlankRow(year(), 1, '新账号', () => 'new-id')
+  assert.deepEqual(onto[1].rows.map((r) => r.id), ['b', 'c', 'new-id'])
 })
 
 test('deleteRowAt: 删掉指定月份的第 n 行', () => {

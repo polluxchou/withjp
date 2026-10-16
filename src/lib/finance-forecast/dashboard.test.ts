@@ -127,6 +127,9 @@ test('buildChartData: 指数模式以各类型首个非零月为 100,没有基�
     ['03', 150, 200, 0],
   ])
   assert.equal('actual' in rows[0], false)
+  // 没有正数基数的类型(哪怕出现负值)一律记 0
+  const neg = buildChartData([month('2026-01', 0, 0, { by_account_type: byType({ mature: -5 }) })], 'indexed')
+  assert.equal(neg[0].mature, 0)
 })
 
 test('configuredMonthsSummary: 只列有账号的月份,带原下标与合计', () => {
