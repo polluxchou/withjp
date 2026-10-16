@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { requirePageUser } from '@/lib/auth/require-page-user'
 import Header from '@/components/layout/Header'
 import { Stat, StatBand } from '@/components/ui/Stat'
 import SectionCard from '@/components/ui/SectionCard'
@@ -71,7 +72,11 @@ async function getDashboardData() {
   }
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ params }: { params: { locale: string } }) {
+  // 下面用 service role 直接读库，layout 的登录检查在客户端跳转时会被跳过，
+  // 这里再查一次（见 src/lib/auth/page-session.ts）。
+  await requirePageUser(params.locale)
+
   const { stats, recentTasks, recentCreators } = await getDashboardData()
   const t = await getTranslations('dashboard')
   const tStatus = await getTranslations('status')
