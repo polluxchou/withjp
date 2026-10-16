@@ -6,6 +6,6 @@ import { buildRobots } from '@/lib/site/robots'
 // 同一份构建期结果（构建环境没有官网 host → 官网也会拿到 disallow）。
 export const dynamic = 'force-dynamic'
 
-export default function robots(): MetadataRoute.Robots {
-  return buildRobots(headers().get('host'))
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  return buildRobots((await headers()).get('host'))
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { CSSProperties, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CSSProperties, Suspense, useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { MOUSE, PerspectiveCamera, Vector3 } from 'three'
 import { Edges, Line, OrbitControls, TransformControls, useTexture } from '@react-three/drei'

@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import type { JSX } from 'react'
 import { getTranslations } from 'next-intl/server'
 import { createServerClient } from '@/lib/supabase/server'
 import Header from '@/components/layout/Header'
