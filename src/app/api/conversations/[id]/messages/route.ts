@@ -5,12 +5,13 @@ import { createServerClient } from '@/lib/supabase/server'
 import { executeChatMessage } from '@/lib/conversation/chat-executor'
 import { authGuard } from '@/lib/auth/guard'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // GET /api/conversations/:id/messages — load all messages for a conversation
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
+  const params = await props.params
   const db = createServerClient()
 
   const { data, error } = await db
@@ -25,9 +26,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 // POST /api/conversations/:id/messages — send a user message and receive agent reply
 // Body: { content: string }
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
+  const params = await props.params
   const body = await req.json()
   const { content } = body
 

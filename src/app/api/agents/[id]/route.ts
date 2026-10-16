@@ -3,14 +3,15 @@ import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // PATCH /api/agents/:id — update model_provider and/or model_name
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
   const denied = await forbidUnlessAdmin(user.id);
   if (denied) return denied;
+  const params = await props.params
   const db = createServerClient()
   const body = await req.json()
 

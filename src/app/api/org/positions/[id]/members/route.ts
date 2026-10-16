@@ -4,9 +4,10 @@ import { addPositionMember, httpStatusForError } from '@/lib/org/service'
 import type { MemberType } from '@/lib/types'
 
 // POST /api/org/positions/[id]/members — body { member_type, user_id?, creator_id? }
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   let body: { member_type?: MemberType; user_id?: string | null; creator_id?: string | null }
   try { body = await req.json() } catch { return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 }) }
   if (body.member_type !== 'user' && body.member_type !== 'creator') {

@@ -5,9 +5,10 @@ import { httpStatusForError, upsertLiveSessions } from '@/lib/competitors/servic
 
 // POST /api/competitors/[id]/live-sessions — body { sessions: [{ started_at, ended_at, title, likes }] }
 // 粘贴导入开播记录：按 (competitor_id, started_at) upsert，逐行校验在 service 里做。
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   let body: { sessions?: unknown }
   try {
     body = await req.json()

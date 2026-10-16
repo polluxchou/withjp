@@ -5,9 +5,10 @@ import { addShot, httpStatusForError } from '@/lib/competitors/service'
 import type { ShotInput } from '@/lib/competitors/service'
 
 // POST /api/competitors/[id]/shots — body { image_url, shot_on?, tag?, caption?, sort_order? }
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   let body: ShotInput
   try {
     body = await req.json()

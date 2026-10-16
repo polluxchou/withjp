@@ -4,9 +4,10 @@ import { updateCompetitor, deleteCompetitor, httpStatusForError } from '@/lib/co
 import type { CompetitorFields } from '@/lib/competitors/service'
 
 // PATCH /api/competitors/[id] — body: 团级字段
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   let body: CompetitorFields
   try {
     body = await req.json()
@@ -21,9 +22,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE /api/competitors/[id]
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   const result = await deleteCompetitor(user.id, params.id)
   if (result.error) {
     return NextResponse.json({ data: null, error: result.error.message }, { status: httpStatusForError(result.error.code) })

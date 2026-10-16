@@ -4,12 +4,13 @@ import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
 import { canAccessExpenses, EXPENSES_ADMIN_ONLY_MESSAGE } from '@/lib/expenses/access'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // PATCH /api/expense-saved-views/[id] — rename or overwrite filters
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   if (!canAccessExpenses(await getActorProfile(user.id))) {
     return NextResponse.json({ data: null, error: EXPENSES_ADMIN_ONLY_MESSAGE }, { status: 403 })
   }
@@ -44,9 +45,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/expense-saved-views/[id]
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   if (!canAccessExpenses(await getActorProfile(user.id))) {
     return NextResponse.json({ data: null, error: EXPENSES_ADMIN_ONLY_MESSAGE }, { status: 403 })
   }

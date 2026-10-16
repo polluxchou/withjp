@@ -9,12 +9,13 @@ import {
 } from '@/lib/expenses/service'
 import { canAccessExpenses, EXPENSES_ADMIN_ONLY_MESSAGE } from '@/lib/expenses/access'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // PATCH /api/expenses/:id
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
   const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const actor = await getActorProfile(user.id)
   if (!canAccessExpenses(actor)) {
@@ -38,9 +39,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/expenses/:id
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
   const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const actor  = await getActorProfile(user.id)
   if (!canAccessExpenses(actor)) {

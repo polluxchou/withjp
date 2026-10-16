@@ -5,12 +5,13 @@ import {
   markNotificationRead,
 } from '@/lib/notifications/service'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // PATCH /api/notifications/:id/read
-export async function PATCH(_req: NextRequest, { params }: Params) {
+export async function PATCH(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const result = await markNotificationRead(params.id, user.id)
   if (result.error) {

@@ -9,7 +9,8 @@ import ErrorState from '@/components/ui/ErrorState'
 import { authGuard } from '@/lib/auth/guard'
 import { getCompanyBoard } from '@/lib/competitors/service'
 
-export default async function CompetitorCompaniesPage({ params }: { params: { locale: string } }) {
+export default async function CompetitorCompaniesPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   setRequestLocale(params.locale)
 
   const user = await authGuard()

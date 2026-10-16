@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
 import { applyPendingAction, cancelPendingAction } from '@/lib/intent/executor'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // POST /api/intent/pending-actions/:id — confirm + apply
-export async function POST(_req: NextRequest, { params }: Params) {
+export async function POST(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const result = await applyPendingAction(params.id, user.id)
   if (result.kind === 'applied') {
@@ -23,9 +24,10 @@ export async function POST(_req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/intent/pending-actions/:id — cancel
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const result = await cancelPendingAction(params.id, user.id)
   if (result.kind === 'applied') {

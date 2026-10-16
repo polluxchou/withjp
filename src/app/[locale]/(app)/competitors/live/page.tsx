@@ -11,7 +11,8 @@ import { HOME_ZONE } from '@/lib/competitors/liveBoard'
 import { getCompanyOfCompetitor, getCompetitorBoard, getLiveSummaries } from '@/lib/competitors/service'
 import { zonedYmd } from '@/lib/time/zonedTime'
 
-export default async function CompetitorLivePage({ params }: { params: { locale: string } }) {
+export default async function CompetitorLivePage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   setRequestLocale(params.locale)
 
   const user = await authGuard()

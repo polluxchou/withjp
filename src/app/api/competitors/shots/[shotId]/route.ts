@@ -4,9 +4,10 @@ import { authGuard } from '@/lib/auth/guard'
 import { updateShot, deleteShot, httpStatusForError } from '@/lib/competitors/service'
 
 // PATCH /api/competitors/shots/[shotId] — body { shot_on?, tag?, caption?, sort_order? }
-export async function PATCH(req: NextRequest, { params }: { params: { shotId: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ shotId: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   let body: { shot_on?: string | null; tag?: string | null; caption?: string; sort_order?: number }
   try {
     body = await req.json()
@@ -21,9 +22,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { shotId: st
 }
 
 // DELETE /api/competitors/shots/[shotId]
-export async function DELETE(_req: NextRequest, { params }: { params: { shotId: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ shotId: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   const result = await deleteShot(params.shotId)
   if (result.error) {
     return NextResponse.json({ data: null, error: result.error.message }, { status: httpStatusForError(result.error.code) })

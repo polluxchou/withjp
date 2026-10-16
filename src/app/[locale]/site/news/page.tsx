@@ -45,16 +45,16 @@ async function fetchPublishedArticles(locale: Locale): Promise<SiteArticle[]> {
   return articles
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: string }
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>
 }): Promise<Metadata> {
+  const params = await props.params
   const t = await getTranslations({ locale: params.locale, namespace: 'site.news' })
   return { title: t('title'), alternates: siteAlternates(params.locale, '/news') }
 }
 
-export default async function SiteNewsPage({ params }: { params: { locale: string } }) {
+export default async function SiteNewsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   setRequestLocale(params.locale)
   const articles = await fetchPublishedArticles(params.locale as Locale)
 

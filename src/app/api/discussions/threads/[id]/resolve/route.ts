@@ -6,9 +6,10 @@ import {
   httpStatusForDiscussionError,
 } from '@/lib/discussions/service'
 
-export async function PATCH(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const actor = await getActorProfile(user.id)
   if (!actor) return NextResponse.json({ data: null, error: 'Unknown user' }, { status: 403 })

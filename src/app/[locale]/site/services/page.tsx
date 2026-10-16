@@ -1,3 +1,4 @@
+import { use } from 'react'
 import type { Metadata } from 'next'
 import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
@@ -9,16 +10,16 @@ import SectionHead from '@/components/site/SectionHead'
 import SiteImage from '@/components/site/SiteImage'
 import { createAutoLinker } from '@/lib/site/autoLink'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: string }
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>
 }): Promise<Metadata> {
+  const params = await props.params
   const t = await getTranslations({ locale: params.locale, namespace: 'site.services' })
   return { title: t('title'), alternates: siteAlternates(params.locale, '/services') }
 }
 
-export default function SiteServicesPage({ params }: { params: { locale: string } }) {
+export default function SiteServicesPage(props: { params: Promise<{ locale: string }> }) {
+  const params = use(props.params)
   setRequestLocale(params.locale)
   const t = useTranslations('site.services')
   const items = t.raw('items') as SiteServiceItem[]

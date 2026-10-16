@@ -14,7 +14,8 @@ function isoToday(): string {
   return `${y}-${m}-${day}`
 }
 
-export default async function ChangelogPage({ params }: { params: { locale: string } }) {
+export default async function ChangelogPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   const t = await getTranslations('config.changelog')
   const today = isoToday()
   const days: DailyChangelog[] = [...CHANGELOG].sort((a, b) => b.date.localeCompare(a.date))

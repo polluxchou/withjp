@@ -9,7 +9,8 @@ import { authGuard } from '@/lib/auth/guard'
 import { getCompetitorBoard } from '@/lib/competitors/service'
 import type { CompetitorBoard } from '@/lib/competitors/types'
 
-export default async function CompetitorsPage({ params }: { params: { locale: string } }) {
+export default async function CompetitorsPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   setRequestLocale(params.locale)
 
   const user = await authGuard()

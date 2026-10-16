@@ -5,13 +5,12 @@ import CommandPanel from '@/components/intent/CommandPanel'
 import { CurrencyProvider } from '@/lib/currency'
 import { requirePageUser } from '@/lib/auth/require-page-user'
 
-export default async function AppLayout({
-  children,
-  params,
-}: {
+export default async function AppLayout(props: {
   children: React.ReactNode
-  params: { locale: string }
+  params: Promise<{ locale: string }>
 }) {
+  const params = await props.params
+  const { children } = props
   // 服务端登录检查：middleware 之外的第二道门，见 src/lib/auth/page-session.ts。
   await requirePageUser(params.locale)
 

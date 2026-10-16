@@ -4,16 +4,17 @@ import { createServerClient } from '@/lib/supabase/server'
 import { executeAgent } from '@/lib/agents/executor'
 import { authGuard } from '@/lib/auth/guard'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // POST /api/agents/:id/execute
 // Body: { task_id } — executes the agent on the specified pending task
 // 仅管理员：会花 LLM 额度并改写 task 的状态与产出（同 PATCH /api/tasks/:id 的 execute）。
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
   const denied = await forbidUnlessAdmin(user.id);
   if (denied) return denied;
+  const params = await props.params
   const body = await req.json()
   const { task_id } = body
 

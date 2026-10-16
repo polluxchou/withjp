@@ -61,8 +61,10 @@ function defaultExportBody(src: string, file: string): string {
   return src.slice(open + ') {\n'.length)
 }
 
-// 检查之前只许出现：空行、注释、设语言、取文案——都不碰数据。
-const BEFORE_GUARD_LINE_RE = /^\s*(?:$|\/\/|setRequestLocale\(|const \w+ = await getTranslations\()/
+// 检查之前只许出现：空行、注释、取路由参数（Next 15 起 params 是 Promise）、
+// 解出 children、设语言、取文案——都不碰数据。
+const BEFORE_GUARD_LINE_RE =
+  /^\s*(?:$|\/\/|const params = await props\.params$|const \{ children \} = props$|setRequestLocale\(|const \w+ = await getTranslations\()/
 
 test('后台每个服务端 page/layout 都在检查表里，表里的文件也都还在', () => {
   assert.deepEqual(serverFiles().sort(), Object.keys(POLICY).sort())
@@ -89,7 +91,7 @@ test('本轮补上的页面都接收路由参数 locale，未登录跳回同语�
     if (guard !== 'requirePageUser') continue
     const src = read(file)
     assert.match(src, /import \{ requirePageUser \} from '@\/lib\/auth\/require-page-user'/, file)
-    assert.match(src, /params: \{ locale: string \}/, `${file} 要声明 params.locale`)
+    assert.match(src, /params: Promise<\{ locale: string \}>/, `${file} 要声明 params.locale`)
   }
 })
 

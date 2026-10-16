@@ -15,13 +15,12 @@ import { canAccessExpenses } from '@/lib/expenses/access'
  * 客户端组件，没法在服务端拦，所以拦截放在这一层 layout：非管理员拿到的是
  * 一张说明卡，page.tsx 根本不渲染，也就不会去打 /api/expenses。
  */
-export default async function ExpensesLayout({
-  children,
-  params,
-}: {
+export default async function ExpensesLayout(props: {
   children: ReactNode
-  params: { locale: string }
+  params: Promise<{ locale: string }>
 }) {
+  const params = await props.params
+  const { children } = props
   setRequestLocale(params.locale)
 
   const auth = await createAuthServerClient()

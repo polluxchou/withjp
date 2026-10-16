@@ -5,9 +5,10 @@ import { addDescription, httpStatusForError } from '@/lib/competitors/service'
 import type { DescriptionInput } from '@/lib/competitors/service'
 
 // POST /api/competitors/[id]/descriptions — body { body, generated_on }
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   let body: DescriptionInput
   try {
     body = await req.json()
