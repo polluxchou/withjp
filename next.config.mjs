@@ -1,8 +1,9 @@
 import createNextIntlPlugin from 'next-intl/plugin'
 
-// next lint 用 Node 原生 ESM loader 加载本文件（不是 Next 自己的打包器），认不出
-// 'next/constants' 这种没有文件扩展名的深子路径导出，import 会直接 ERR_MODULE_NOT_FOUND
-// 并把 test:copy 的 lint 门禁打挂——踩过一次才改成字面量。这个字符串是
+// Next 15 及以前的 next lint 用 Node 原生 ESM loader 加载本文件（不是 Next 自己的打包器），
+// 认不出 'next/constants' 这种没有文件扩展名的深子路径导出，import 会直接
+// ERR_MODULE_NOT_FOUND 并把 test:copy 的 lint 门禁打挂——踩过一次才改成字面量。
+// Next 16 移除了 next lint、改用 eslint CLI，不再加载本文件，字面量照旧保留。这个字符串是
 // next/dist/shared/lib/constants.js 里 PHASE_PRODUCTION_BUILD 的值，`next build`
 // 在加载本文件之前会把它写进 process.env.NEXT_PHASE，值本身早已是稳定的公开常量。
 const PHASE_PRODUCTION_BUILD = 'phase-production-build'
@@ -50,9 +51,9 @@ const SECURITY_HEADERS = [
 ]
 
 // 没有 NEXT_PUBLIC_SUPABASE_URL 时不注册远程图片源，而不是抛错终止配置加载：
-// next lint 也会加载本文件，而 CI 的 lint 步骤（copy.yml / check.yml）不设这个
-// 环境变量 —— 抛错会把两个现在通过的门禁改成必挂。缺变量时的行为与加这段配置
-// 之前一致（没有远程图片源），生产环境有变量所以正常工作。
+// 当初是因为 next lint 也会加载本文件，而 CI 的 lint 步骤不设这个环境变量；Next 16
+// 起 lint 改用 eslint CLI、不再加载本文件，这段容错留给没配 .env.local 的 next dev。
+// 缺变量时的行为与加这段配置之前一致（没有远程图片源），生产环境有变量所以正常工作。
 // 变量存在但不是合法 URL（`new URL()` 抛错）按同样的逻辑处理：不让配置加载
 // 失败，只是不注册远程图片源，并打一条 warn 方便定位——这种情况本身是配置
 // 错误，但让它表现为“图片走 next/image 优化失败”比“整个应用起不来”更安全。
@@ -81,8 +82,8 @@ if (supabaseUrl) {
 // Supabase-hosted image (news/member photos) throws at request time, and the
 // only signal today is the console.warn above, which nobody watches in CI.
 // `next build` sets NEXT_PHASE=phase-production-build before this file loads,
-// so this check only fires for real production builds — `next lint` and
-// `next dev` are unaffected, keeping the two CI lint gates green.
+// so this check only fires for real production builds — `next dev` is
+// unaffected (and since Next 16 the ESLint CLI no longer loads this file).
 if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD && remotePatterns.length === 0) {
   throw new Error(
     '[next.config] Production build with no Supabase remotePattern registered — set NEXT_PUBLIC_SUPABASE_URL to a valid URL before building.',

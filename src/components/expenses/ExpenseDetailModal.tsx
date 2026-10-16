@@ -37,6 +37,15 @@ function fmtDateTime(iso: string) {
   return `${y}-${m}-${day} ${hh}:${mm}`
 }
 
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-3 gap-4 py-2 border-b border-line-soft last:border-b-0">
+      <div className="text-xs text-ink-500 font-medium pt-0.5">{label}</div>
+      <div className="col-span-2 text-sm text-ink-900 break-words">{children}</div>
+    </div>
+  )
+}
+
 export default function ExpenseDetailModal({ expense, onClose }: Props) {
   const t = useTranslations('expenses')
   const tForm = useTranslations('expenses.form')
@@ -49,13 +58,6 @@ export default function ExpenseDetailModal({ expense, onClose }: Props) {
   const showQty      = categoryHasQuantity(cat)
   const showPeriod   = categoryHasPeriod(cat)
   const showLocation = categoryHasLocation(cat)
-
-  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="grid grid-cols-3 gap-4 py-2 border-b border-line-soft last:border-b-0">
-      <div className="text-xs text-ink-500 font-medium pt-0.5">{label}</div>
-      <div className="col-span-2 text-sm text-ink-900 break-words">{children}</div>
-    </div>
-  )
 
   return (
     <Modal

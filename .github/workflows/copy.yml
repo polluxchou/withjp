@@ -11,10 +11,12 @@ name: copy
 #     enforces this with zero tolerance — the migration baseline was retired
 #     on 2026-08-11, exceptions now live in the script's WHITELIST or in
 #     per-line `style-tokens-ignore` comments
-#   * react-hooks/exhaustive-deps is an error (not a warning) and `next lint`
-#     runs with --max-warnings=0, so stale-closure bugs like PR #166 fail the
-#     build instead of scrolling past as ignorable output; intentional
-#     narrow dep arrays need a per-line eslint-disable with a written reason
+#   * react-hooks/exhaustive-deps is an error (not a warning) and ESLint
+#     (`eslint src --max-warnings=0`; Next 16 removed `next lint`, config lives
+#     in eslint.config.mjs) runs with zero tolerance, so stale-closure bugs like
+#     PR #166 fail the build instead of scrolling past as ignorable output;
+#     intentional narrow dep arrays need a per-line eslint-disable with a
+#     written reason
 # Everything but the ESLint step is a pure Node script; all of them need no
 # extra install beyond the project's existing devDependencies.
 
@@ -33,7 +35,7 @@ on:
       # 正向校验从这里读已登记 token：只删/改注册项的 PR 也必须触发门禁
       - 'tailwind.config.ts'
       - 'docs/copy-glossary.md'
-      - '.eslintrc.json'
+      - 'eslint.config.mjs'
       - '.github/workflows/copy.yml'
   push:
     branches: [main]

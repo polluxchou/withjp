@@ -6,7 +6,6 @@
 
 export const MAX_INPUT_CHARS = 1000
 
-// eslint-disable-next-line no-control-regex
 export const CONTROL_CHARS = /[\x00-\x08\x0B-\x1F\x7F-\x9F]/g
 
 export type SanitizeResult =

@@ -63,7 +63,7 @@ test('扩展名大小写不敏感，但必须真的是最后一段的后缀', ()
 
 // middleware 链上不能再有别处按「路径里有 .」放行，否则上面的收窄白做。
 test('middleware 与 updateSession 不再按 includes(".") 放行', () => {
-  for (const rel of ['src/middleware.ts', 'src/lib/supabase/middleware.ts']) {
+  for (const rel of ['src/proxy.ts', 'src/lib/supabase/middleware.ts']) {
     const src = readFileSync(join(ROOT, rel), 'utf8')
     assert.doesNotMatch(src, /\.includes\(\s*['"]\.['"]\s*\)/, rel)
     assert.match(src, /shouldBypassMiddlewareAsset\(pathname\)/, rel)
