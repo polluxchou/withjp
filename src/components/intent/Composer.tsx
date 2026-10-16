@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2, Send } from 'lucide-react'
-import type { KeyboardEvent, RefObject } from 'react'
+import type { KeyboardEvent, Ref } from 'react'
 import { Textarea } from '@/components/ui/Field'
 import { FOCUS_RING } from '@/lib/ui/recipes'
 
@@ -12,7 +12,7 @@ interface ComposerProps {
   onSubmit:    () => void
   busy:        boolean
   placeholder: string
-  inputRef:    RefObject<HTMLTextAreaElement>
+  inputRef:    Ref<HTMLTextAreaElement>
 }
 
 export default function Composer({ value, onChange, onSubmit, busy, placeholder, inputRef }: ComposerProps) {

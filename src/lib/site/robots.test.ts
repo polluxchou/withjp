@@ -41,6 +41,6 @@ const ROBOTS_ROUTE = 'src/app/robots.ts'
 test('robots 路由每次请求按 Host 现算，不能被静态化', () => {
   const src = fs.readFileSync(ROBOTS_ROUTE, 'utf8')
   assert.match(src, /export const dynamic = 'force-dynamic'/, `${ROBOTS_ROUTE}: 必须 force-dynamic`)
-  assert.match(src, /buildRobots\(headers\(\)\.get\('host'\)\)/, `${ROBOTS_ROUTE}: 必须用请求的 Host 头判定`)
+  assert.match(src, /buildRobots\(\(await headers\(\)\)\.get\('host'\)\)/, `${ROBOTS_ROUTE}: 必须用请求的 Host 头判定`)
   assert.doesNotMatch(src, /force-static|export const revalidate/, `${ROBOTS_ROUTE}: 不能静态化或加 revalidate`)
 })
