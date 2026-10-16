@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // POST /api/work-tasks/:id/duplicate
 // Body: { target_date: string }  — copies the task to a new date
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const db   = createServerClient()
   const body = await req.json()

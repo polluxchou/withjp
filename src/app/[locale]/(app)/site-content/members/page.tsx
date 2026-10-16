@@ -12,11 +12,10 @@ import MembersAdminView from '@/components/site-content/MembersAdminView'
  * 与 API 侧 canEditSiteContent 用的是同一份 actor 数据，避免两处判据漂移。
  * 结构照抄 Task 9 的 site-content/news/page.tsx。
  */
-export default async function SiteContentMembersPage({
-  params,
-}: {
-  params: { locale: string }
+export default async function SiteContentMembersPage(props: {
+  params: Promise<{ locale: string }>
 }) {
+  const params = await props.params
   setRequestLocale(params.locale)
 
   const auth = await createAuthServerClient()

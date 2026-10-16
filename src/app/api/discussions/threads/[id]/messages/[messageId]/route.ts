@@ -7,12 +7,13 @@ import {
 } from '@/lib/discussions/service'
 
 interface Params {
-  params: { id: string; messageId: string }
+  params: Promise<{ id: string; messageId: string }>
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const actor = await getActorProfile(user.id)
   if (!actor) return NextResponse.json({ data: null, error: 'Unknown user' }, { status: 403 })

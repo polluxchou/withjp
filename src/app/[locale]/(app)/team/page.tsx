@@ -46,7 +46,8 @@ async function getAgentStats() {
 const SUMMARY_CLASS = `w-fit text-xs text-ink-400 cursor-pointer hover:text-ink-700 font-medium rounded-field ${FOCUS_RING}`
 const PRE_CLASS = 'mt-2 text-xs font-mono bg-canvas border border-line rounded-field p-2 overflow-auto max-h-20 text-ink-700'
 
-export default async function TeamPage({ params }: { params: { locale: string } }) {
+export default async function TeamPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   // 下面用 service role 直接读库，layout 的登录检查在客户端跳转时会被跳过，
   // 这里再查一次（见 src/lib/auth/page-session.ts）。
   await requirePageUser(params.locale)

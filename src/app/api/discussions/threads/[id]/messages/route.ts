@@ -8,9 +8,10 @@ import {
   type CreateMessageInput,
 } from '@/lib/discussions/service'
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const actor = await getActorProfile(user.id)
   if (!actor) return NextResponse.json({ data: null, error: 'Unknown user' }, { status: 403 })
@@ -25,9 +26,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ data: result.data, error: null })
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const actor = await getActorProfile(user.id)
   if (!actor) return NextResponse.json({ data: null, error: 'Unknown user' }, { status: 403 })

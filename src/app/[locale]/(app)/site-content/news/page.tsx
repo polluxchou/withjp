@@ -11,11 +11,10 @@ import NewsAdminView from '@/components/site-content/NewsAdminView'
  * 保证），这里只用 getActorProfile 拿 is_admin 来决定要不要渲染写操作控件——
  * 与 API 侧 canEditSiteContent 用的是同一份 actor 数据，避免两处判据漂移。
  */
-export default async function SiteContentNewsPage({
-  params,
-}: {
-  params: { locale: string }
+export default async function SiteContentNewsPage(props: {
+  params: Promise<{ locale: string }>
 }) {
+  const params = await props.params
   setRequestLocale(params.locale)
 
   const auth = await createAuthServerClient()

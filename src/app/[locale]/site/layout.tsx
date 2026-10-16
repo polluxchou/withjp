@@ -40,11 +40,10 @@ export const viewport: Viewport = {
   viewportFit: 'auto',
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: string }
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>
 }): Promise<Metadata> {
+  const params = await props.params
   const t = await getTranslations({ locale: params.locale, namespace: 'site.meta' })
   return {
     title: { default: t('titleDefault'), template: t('titleTemplate') },
@@ -52,13 +51,12 @@ export async function generateMetadata({
   }
 }
 
-export default function SiteLayout({
-  children,
-  params,
-}: {
+export default async function SiteLayout(props: {
   children: React.ReactNode
-  params: { locale: string }
+  params: Promise<{ locale: string }>
 }) {
+  const params = await props.params
+  const { children } = props
   if (!isLocale(params.locale)) notFound()
   setRequestLocale(params.locale)
 

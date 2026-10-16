@@ -26,7 +26,8 @@ export const revalidate = false
 
 // 首页的 title 由 site/layout.tsx 提供，这里只补 canonical/hreflang。别把 alternates
 // 挪进 layout 统一给——原因见 src/lib/site/seo.ts 顶部注释。
-export function generateMetadata({ params }: { params: { locale: string } }): Metadata {
+export async function generateMetadata(props: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const params = await props.params
   return { alternates: siteAlternates(params.locale, '/') }
 }
 
@@ -62,7 +63,8 @@ async function fetchLatestArticles(locale: Locale): Promise<SiteArticle[]> {
   return articles.slice(0, 3)
 }
 
-export default async function SiteTopPage({ params }: { params: { locale: string } }) {
+export default async function SiteTopPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   setRequestLocale(params.locale)
   const news = await fetchLatestArticles(params.locale as Locale)
 

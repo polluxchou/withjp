@@ -3,9 +3,10 @@ import { authGuard } from '@/lib/auth/guard'
 import { createItem, httpStatusForError } from '@/lib/org/service'
 
 // POST /api/org/tasks/[id]/items — body { name }
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
   let body: { name?: string }
   try { body = await req.json() } catch { return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 }) }
   if (!body.name) return NextResponse.json({ data: null, error: 'name required' }, { status: 400 })

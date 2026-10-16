@@ -1,3 +1,4 @@
+import { use } from 'react'
 import type { Metadata } from 'next'
 import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
@@ -11,16 +12,16 @@ import SiteImage from '@/components/site/SiteImage'
 import PulseDot from '@/components/site/PulseDot'
 import { createAutoLinker } from '@/lib/site/autoLink'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: string }
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>
 }): Promise<Metadata> {
+  const params = await props.params
   const t = await getTranslations({ locale: params.locale, namespace: 'site.live' })
   return { title: t('title'), alternates: siteAlternates(params.locale, '/live') }
 }
 
-export default function SiteLivePage({ params }: { params: { locale: string } }) {
+export default function SiteLivePage(props: { params: Promise<{ locale: string }> }) {
+  const params = use(props.params)
   setRequestLocale(params.locale)
   const t = useTranslations('site.live')
   const schedule = t.raw('schedule') as SiteScheduleRow[]

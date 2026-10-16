@@ -3,16 +3,17 @@ import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
 import type { DevicePaymentStatus } from '@/lib/types'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 const VALID_STATUSES: DevicePaymentStatus[] = [
   'budgeted', 'ordered_unpaid', 'paid', 'refunded', 'partially_refunded',
 ]
 
 // PATCH /api/devices/:id — update device fields
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const db   = createServerClient()
   const body = await req.json()
@@ -47,9 +48,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/devices/:id
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const db = createServerClient()
   const { error } = await db.from('devices').delete().eq('id', params.id)

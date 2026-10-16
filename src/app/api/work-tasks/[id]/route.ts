@@ -4,7 +4,7 @@ import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile, canModify } from '@/lib/auth/actor'
 import { fetchTaskItemName } from '@/lib/work-tasks/item-snapshot'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 const VALID_STATUSES  = ['planned', 'doing', 'done', 'cancelled']
 const VALID_EFFORTS   = [2, 4, 8]
@@ -12,9 +12,10 @@ const REVIEWER_JOIN   = 'reviewer:users!work_tasks_reviewer_user_id_fkey(id,name
 const FULL_SELECT     = `*, owner:users!work_tasks_owner_user_id_fkey(id,name,user_code,role), ${REVIEWER_JOIN}, milestone:milestones(id,title)`
 
 // PATCH /api/work-tasks/:id
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const db = createServerClient()
 
@@ -61,9 +62,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/work-tasks/:id
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const db = createServerClient()
 

@@ -20,11 +20,10 @@ import {
   forecastYearRange,
 } from '@/lib/finance-forecast/year'
 
-export default async function FinanceForecastPage({
-  params,
-}: {
-  params: { locale: string }
+export default async function FinanceForecastPage(props: {
+  params: Promise<{ locale: string }>
 }) {
+  const params = await props.params
   setRequestLocale(params.locale)
   const t = await getTranslations('financeForecast')
   const auth = await createAuthServerClient()

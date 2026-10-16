@@ -42,7 +42,8 @@ async function getData(): Promise<{ agents: Agent[]; tasks: TaskRow[] }> {
   }
 }
 
-export default async function TaskAssignmentPage({ params }: { params: { locale: string } }) {
+export default async function TaskAssignmentPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   // 下面用 service role 直接读库，layout 的登录检查在客户端跳转时会被跳过，
   // 这里再查一次（见 src/lib/auth/page-session.ts）。
   await requirePageUser(params.locale)

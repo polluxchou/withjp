@@ -55,16 +55,16 @@ async function fetchMembers(
   )
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: string }
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>
 }): Promise<Metadata> {
+  const params = await props.params
   const t = await getTranslations({ locale: params.locale, namespace: 'site.vision' })
   return { title: t('eyebrow'), alternates: siteAlternates(params.locale, '/vision') }
 }
 
-export default async function SiteVisionPage({ params }: { params: { locale: string } }) {
+export default async function SiteVisionPage(props: { params: Promise<{ locale: string }> }) {
+  const params = await props.params
   setRequestLocale(params.locale)
   const t = await getTranslations('site.vision')
   const tm = await getTranslations('site.members')

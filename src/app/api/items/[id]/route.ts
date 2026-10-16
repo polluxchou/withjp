@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
 import { getItem, updateItem, deleteItem, httpStatusForError, type UpdateItemInput } from '@/lib/items/service'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const result = await getItem(params.id)
   if (result.error) {
@@ -15,9 +16,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
   return NextResponse.json({ data: result.data, error: null })
 }
 
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   let body: UpdateItemInput
   try {
@@ -32,9 +34,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json({ data: result.data, error: null })
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
   const user = await authGuard()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const result = await deleteItem(params.id)
   if (result.error) {

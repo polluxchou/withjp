@@ -5,12 +5,13 @@ import { getActorProfile, canModify } from '@/lib/auth/actor'
 import { normalizeDayStamp, resolveCompletion } from '@/lib/milestones/completion'
 import type { MilestoneStatus } from '@/lib/types'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // GET /api/milestones/:id — full detail with linked entities
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
+  const params = await props.params
   const db = createServerClient()
 
   const { data: milestone, error } = await db
@@ -80,9 +81,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 // PATCH /api/milestones/:id
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(req: NextRequest, props: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
+  const params = await props.params
   const db = createServerClient()
 
   // 这一行同时供权限判定和完成状态推导使用 —— resolveCompletion 要知道改动前的
@@ -176,9 +178,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/milestones/:id
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
+  const params = await props.params
   const db = createServerClient()
 
   const actor = await getActorProfile(user.id)

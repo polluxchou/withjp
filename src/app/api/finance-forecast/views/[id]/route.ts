@@ -7,9 +7,10 @@ import {
   httpStatusForViewError,
 } from '@/lib/finance-forecast/views'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const actor = await getActorProfile(user.id)
   if (!actor) return NextResponse.json({ data: null, error: 'Unknown user' }, { status: 403 })
@@ -35,9 +36,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ data: result.data, error: null })
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const user = await authGuardStrict()
   if (user instanceof NextResponse) return user
+  const params = await props.params
 
   const actor = await getActorProfile(user.id)
   if (!actor) return NextResponse.json({ data: null, error: 'Unknown user' }, { status: 403 })

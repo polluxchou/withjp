@@ -8,13 +8,14 @@ import {
 import { authGuard } from '@/lib/auth/guard'
 import type { CreatorStatus } from '@/lib/types'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // POST /api/creators/:id/transition
 // Body: { to_status, triggered_by?, notes? }
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
+  const params = await props.params
   const db = createServerClient()
   const body = await req.json()
   const { to_status, triggered_by = 'user', notes } = body as {

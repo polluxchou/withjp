@@ -75,11 +75,10 @@ export async function generateStaticParams() {
   }
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: string; slug: string }
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string; slug: string }>
 }): Promise<Metadata> {
+  const params = await props.params
   if (!isNewsSlug(params.slug)) return {}
   const article = await fetchPublishedArticle(params.locale as Locale, params.slug)
   if (!article) return {}
@@ -90,7 +89,8 @@ export async function generateMetadata({
   }
 }
 
-export default async function SiteArticlePage({ params }: { params: { locale: string; slug: string } }) {
+export default async function SiteArticlePage(props: { params: Promise<{ locale: string; slug: string }> }) {
+  const params = await props.params
   setRequestLocale(params.locale)
 
   // 路由参数来自 URL，先过形状白名单再查库：形状不对的直接 404，不用拿它去查库

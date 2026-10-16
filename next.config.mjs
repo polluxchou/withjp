@@ -102,9 +102,12 @@ const nextConfig = {
   images: {
     remotePatterns,
   },
+  serverExternalPackages: ['@anthropic-ai/sdk', '@supabase/supabase-js', '@supabase/ssr', 'undici'],
   experimental: {
-    serverComponentsExternalPackages: ['@anthropic-ai/sdk', '@supabase/supabase-js', '@supabase/ssr', 'undici'],
-    instrumentationHook: true,
+    // Next 15 把动态页在客户端路由缓存里的保留时间从 30 秒改成 0：后台页全是
+    // force-dynamic，不设的话侧栏来回切页每次都重新请求服务端。升级时先维持
+    // Next 14 的行为，不顺带改交互手感；要改成每次都取最新，另行评估。
+    staleTimes: { dynamic: 30 },
   },
 }
 

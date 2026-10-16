@@ -1,3 +1,4 @@
+import { use } from 'react'
 import type { Metadata } from 'next'
 import { useTranslations } from 'next-intl'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
@@ -8,16 +9,16 @@ import BlueprintFrame from '@/components/site/BlueprintFrame'
 import ApplicationForm from '@/components/site/ApplicationForm'
 import { createAutoLinker } from '@/lib/site/autoLink'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: string }
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>
 }): Promise<Metadata> {
+  const params = await props.params
   const t = await getTranslations({ locale: params.locale, namespace: 'site.recruit' })
   return { title: t('eyebrow'), alternates: siteAlternates(params.locale, '/recruit') }
 }
 
-export default function SiteRecruitPage({ params }: { params: { locale: string } }) {
+export default function SiteRecruitPage(props: { params: Promise<{ locale: string }> }) {
+  const params = use(props.params)
   setRequestLocale(params.locale)
   const t = useTranslations('site.recruit')
   const rows = t.raw('rows') as SiteRecruitRow[]
