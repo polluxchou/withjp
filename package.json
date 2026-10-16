@@ -33,7 +33,7 @@
     "react-dom": "^18",
     "recharts": "^3.8.1",
     "three": "^0.169.0",
-    "undici": "^8.2.0",
+    "undici": "^8.12.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
