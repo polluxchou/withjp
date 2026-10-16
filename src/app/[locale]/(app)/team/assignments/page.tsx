@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { getTranslations } from 'next-intl/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { requirePageUser } from '@/lib/auth/require-page-user'
 import Header from '@/components/layout/Header'
 import SectionCard from '@/components/ui/SectionCard'
 import { Stat, StatBand } from '@/components/ui/Stat'
@@ -41,7 +42,11 @@ async function getData(): Promise<{ agents: Agent[]; tasks: TaskRow[] }> {
   }
 }
 
-export default async function TaskAssignmentPage() {
+export default async function TaskAssignmentPage({ params }: { params: { locale: string } }) {
+  // 下面用 service role 直接读库，layout 的登录检查在客户端跳转时会被跳过，
+  // 这里再查一次（见 src/lib/auth/page-session.ts）。
+  await requirePageUser(params.locale)
+
   const [{ agents, tasks }, t] = await Promise.all([
     getData(),
     getTranslations('team'),

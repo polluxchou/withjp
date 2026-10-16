@@ -1,7 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { defaultLocale, isLocale } from '@/i18n/routing'
+import { isLocale } from '@/i18n/routing'
 import { PUBLIC_PATHS } from '@/lib/middleware-matcher'
+import { shouldBypassMiddlewareAsset } from '@/lib/middleware-assets'
+import { loginPathForLocale } from '@/lib/auth/page-session'
 
 function stripLocale(pathname: string) {
   const segments = pathname.split('/')
@@ -9,8 +11,7 @@ function stripLocale(pathname: string) {
 }
 
 function localizedLoginPath(pathname: string) {
-  const locale = pathname.split('/')[1]
-  return `/${isLocale(locale) ? locale : defaultLocale}/login`
+  return loginPathForLocale(pathname.split('/')[1])
 }
 
 export async function updateSession(request: NextRequest, extraRequestHeaders?: Headers) {
@@ -30,7 +31,7 @@ export async function updateSession(request: NextRequest, extraRequestHeaders?: 
   }
 
   // Skip Supabase auth check for public paths to avoid network timeout blocking page load
-  if (PUBLIC_PATHS.some(p => pathnameWithoutLocale.startsWith(p)) || pathname.includes('.')) {
+  if (PUBLIC_PATHS.some(p => pathnameWithoutLocale.startsWith(p)) || shouldBypassMiddlewareAsset(pathname)) {
     return NextResponse.next(requestInit())
   }
 

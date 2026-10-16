@@ -72,7 +72,9 @@ export async function middleware(request: NextRequest) {
   const localeHeader = new Headers()
   localeHeader.set(NEXT_INTL_LOCALE_HEADER, firstSegment)
 
-  if (PUBLIC_PATHS.some((path) => pathnameWithoutLocale.startsWith(path)) || pathname.includes('.')) {
+  // 静态资源在上面 shouldBypassMiddlewareAsset 那里已经放行了，这里不能再按
+  // 「路径里有 .」放一次——那会让 /zh/creators/x.y 之类的页面请求跳过登录门。
+  if (PUBLIC_PATHS.some((path) => pathnameWithoutLocale.startsWith(path))) {
     const headers = new Headers(request.headers)
     headers.set(NEXT_INTL_LOCALE_HEADER, firstSegment)
     return NextResponse.next({ request: { headers } })

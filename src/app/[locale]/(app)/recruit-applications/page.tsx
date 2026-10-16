@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { getTranslations } from 'next-intl/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { requirePageUser } from '@/lib/auth/require-page-user'
 import Header from '@/components/layout/Header'
 import SectionCard from '@/components/ui/SectionCard'
 import { Stat, StatBand } from '@/components/ui/Stat'
@@ -74,10 +75,16 @@ function metaIconWithLabel(icon: JSX.Element, label: string): JSX.Element {
 }
 
 export default async function RecruitApplicationsPage({
+  params,
   searchParams,
 }: {
+  params: { locale: string }
   searchParams: { tab?: string }
 }) {
+  // 投递里有姓名、年龄、联系方式等个人信息，且下面用 service role 直接读库；
+  // layout 的登录检查在客户端跳转时会被跳过，这里再查一次（见 src/lib/auth/page-session.ts）。
+  await requirePageUser(params.locale)
+
   const tab: ApplicationTab = searchParams.tab === 'staff' ? 'staff' : 'creator'
 
   const [{ applications, error }, t, tCommon] = await Promise.all([
