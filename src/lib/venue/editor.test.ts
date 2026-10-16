@@ -66,6 +66,7 @@ test('firstItemSelection: 第一件组件;空楼层/无楼层为空', () => {
 test('reconcileSelection: 保留仍存在的选中,剔除已删除的', () => {
   const present = layout([floor('f1', [item('a'), item('b'), item('c')])])
   assert.deepEqual(reconcileSelection(present, 'f1', ['c', 'gone', 'a']), { floorId: 'f1', itemIds: ['c', 'a'] })
+  assert.deepEqual(reconcileSelection(present, 'f1', ['gone', 'b']), { floorId: 'f1', itemIds: ['b'] })
 })
 
 test('reconcileSelection: 选中全被剔空时退回该楼层第一件', () => {
@@ -131,6 +132,8 @@ test('parseVisibleTypes: 空/脏数据/非数组/交集为空 → null', () => {
   assert.equal(parseVisibleTypes('', ALL), null)
   assert.equal(parseVisibleTypes('{not json', ALL), null)
   assert.equal(parseVisibleTypes(JSON.stringify({ area: true }), ALL), null)
+  // 字符串也有 includes,不挡掉会被当成数组取交集
+  assert.equal(parseVisibleTypes(JSON.stringify('area'), ALL), null)
   assert.equal(parseVisibleTypes(JSON.stringify(['retired']), ALL), null)
 })
 
@@ -209,18 +212,23 @@ test('applyToAreaPairs: 对选中空间两两合并,再两两拆开', () => {
 test('applyFloorDefaults: 改第一层同步场馆宽高', () => {
   const f1 = floor('f1', [], { width: 1000, height: 800 })
   const start = layout([f1, floor('f2', [])], { width: 1000, height: 800 })
-  const next = applyFloorDefaults(start, f1, { width: 1500 })
-  assert.equal(next.floors[0].width, 1500)
-  assert.equal(next.width, 1500)
-  assert.equal(next.height, 800)
+  const wider = applyFloorDefaults(start, f1, { width: 1500 })
+  assert.equal(wider.floors[0].width, 1500)
+  assert.equal(wider.width, 1500)
+  assert.equal(wider.height, 800)
+  const taller = applyFloorDefaults(start, f1, { height: 900 })
+  assert.equal(taller.height, 900)
+  assert.equal(taller.width, 1000)
 })
 
 test('applyFloorDefaults: 改其它楼层不动场馆宽高;层高照常写入', () => {
-  const f2 = floor('f2', [], { width: 1000, height: 800 })
+  const f2 = floor('f2', [], { width: 600, height: 500 })
   const start = layout([floor('f1', []), f2], { width: 1000, height: 800 })
-  const next = applyFloorDefaults(start, f2, { height: 1200, floorHeight: 350 })
+  const next = applyFloorDefaults(start, f2, { width: 700, height: 1200, floorHeight: 350 })
+  assert.equal(next.floors[1].width, 700)
   assert.equal(next.floors[1].height, 1200)
   assert.equal(next.floors[1].floorHeight, 350)
+  assert.equal(next.width, 1000)
   assert.equal(next.height, 800)
 })
 

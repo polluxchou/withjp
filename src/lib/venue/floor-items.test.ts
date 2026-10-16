@@ -110,7 +110,9 @@ test('filterCollaborators: 姓名/邮箱忽略大小写匹配,空查询原样返
     { id: '1', name: 'Alice Wang', email: 'alice@example.com' },
     { id: '2', name: '小林', email: null },
     { id: '3', name: 'Bob', email: 'BOB@Example.com' },
+    { id: '4', name: 'Carol', email: null },
   ]
+  assert.deepEqual(filterCollaborators(users, 'carol').map((u) => u.id), ['4'])
   assert.deepEqual(filterCollaborators(users, '  ALICE ').map((u) => u.id), ['1'])
   assert.deepEqual(filterCollaborators(users, 'example').map((u) => u.id), ['1', '3'])
   assert.deepEqual(filterCollaborators(users, '小林').map((u) => u.id), ['2'])
