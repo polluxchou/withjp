@@ -88,7 +88,10 @@ export default function CreatorDetailPage() {
   const [execError, setExecError]         = useState<{ taskId: string; message: string } | null>(null)
   // 执行 Agent 仅管理员（接口 403）：其他人不渲染「运行」按钮。
   const canExecute = isAdmin(useCurrentUser())
+  // 记录营收/成本（POST /api/finance）同样只给管理员，判据与执行 Agent 相同
+  const canLogFinance = canExecute
   const [showFinance, setShowFinance]     = useState(false)
+  const [financeError, setFinanceError]   = useState<string | null>(null)
   const [showEdit, setShowEdit]           = useState(false)
   const [financeForm, setFinanceForm]     = useState({ revenue: '', cost: '', period: '', notes: '' })
   const [tab, setTab] = useState<'tasks' | 'finance' | 'timeline' | 'activity'>('tasks')
@@ -165,7 +168,8 @@ export default function CreatorDetailPage() {
 
   async function submitFinance(e: React.FormEvent) {
     e.preventDefault()
-    await fetch('/api/finance', {
+    setFinanceError(null)
+    const res = await fetch('/api/finance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -175,7 +179,15 @@ export default function CreatorDetailPage() {
         period:     financeForm.period,
         notes:      financeForm.notes || undefined,
       }),
-    })
+    }).catch(() => null)
+    if (!res?.ok) {
+      const json = await res?.json().catch(() => null)
+      setFinanceError(writeFailureMessage(res?.status ?? 0, json?.error, {
+        forbidden: tCommon('adminOnlyAction'),
+        fallback: tCommon('saveFailed'),
+      }))
+      return
+    }
     setShowFinance(false)
     setFinanceForm({ revenue: '', cost: '', period: '', notes: '' })
     await load()
@@ -244,9 +256,11 @@ export default function CreatorDetailPage() {
                 {t('moveTo', { status: tStatus(next) })}
               </Button>
             )}
-            <Button variant="secondary" size="sm" onClick={() => setShowFinance(true)}>
-              <DollarSign className="w-3.5 h-3.5" /> {tCreators('logRevenue')}
-            </Button>
+            {canLogFinance && (
+              <Button variant="secondary" size="sm" onClick={() => setShowFinance(true)}>
+                <DollarSign className="w-3.5 h-3.5" /> {tCreators('logRevenue')}
+              </Button>
+            )}
           </div>
         }
       />
@@ -428,11 +442,13 @@ export default function CreatorDetailPage() {
       {/* Finance tab */}
       {tab === 'finance' && (
         <div>
-          <div className="flex justify-end mb-3">
-            <Button size="sm" onClick={() => setShowFinance(true)}>
-              <DollarSign className="w-3.5 h-3.5" /> {tCreators('logRevenue')}
-            </Button>
-          </div>
+          {canLogFinance && (
+            <div className="flex justify-end mb-3">
+              <Button size="sm" onClick={() => setShowFinance(true)}>
+                <DollarSign className="w-3.5 h-3.5" /> {tCreators('logRevenue')}
+              </Button>
+            </div>
+          )}
           {data.finance.length === 0 ? (
             <EmptyState title={t('noFinanceYet')} />
           ) : (
@@ -551,7 +567,7 @@ export default function CreatorDetailPage() {
       )}
 
       {/* Log Revenue Modal */}
-      <Modal open={showFinance} onClose={() => setShowFinance(false)} title={t('logRevenueCost')}>
+      <Modal open={showFinance && canLogFinance} onClose={() => { setShowFinance(false); setFinanceError(null) }} title={t('logRevenueCost')}>
         <form onSubmit={submitFinance} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label={t('revenueField')} required>
@@ -583,8 +599,11 @@ export default function CreatorDetailPage() {
               placeholder={tCommon('none')}
             />
           </Field>
+          {financeError && (
+            <p className="text-xs text-danger-text">{financeError}</p>
+          )}
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" type="button" onClick={() => setShowFinance(false)}>{tCommon('cancel')}</Button>
+            <Button variant="secondary" type="button" onClick={() => { setShowFinance(false); setFinanceError(null) }}>{tCommon('cancel')}</Button>
             <Button type="submit">{t('saveRecord')}</Button>
           </div>
         </form>
