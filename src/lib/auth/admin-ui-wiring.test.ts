@@ -110,8 +110,11 @@ test('主播详情：记录营收/成本只给管理员，失败给提示', () =
   const fn = s.slice(s.indexOf('async function submitFinance('), s.indexOf('if (loading) return'))
   assert.match(fn, /if \(!res\?\.ok\) \{/)
   assert.match(fn, FORBIDDEN_MSG_RE)
-  assert.match(fn, /fallback: tCommon\('saveFailed'\)/)
-  assert.ok(fn.indexOf('return\n') < fn.indexOf('setShowFinance(false)'), '保存失败要在关窗之前 return')
+  assert.match(
+    fn,
+    /fallback: tCommon\('saveFailed'\),\n\s*\}\)\)\n\s*return\n\s*\}\n\s*setShowFinance\(false\)/,
+    '保存失败要在关窗之前 return',
+  )
   assert.match(s, /\{financeError && \(/, '失败提示要显示在弹窗里')
 })
 
