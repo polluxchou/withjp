@@ -18,6 +18,16 @@ function zoneLabel(layout: VenueLayout | null, zoneId: string | null): string | 
   return null
 }
 
+// 与 ExpenseDetailModal 同款只读记录行（design-system §6.3 详情页模式）。
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-3 gap-4 py-2 border-b border-line-soft last:border-b-0">
+      <div className="text-xs text-ink-500 font-medium pt-0.5">{label}</div>
+      <div className="col-span-2 text-sm text-ink-900 break-words">{children}</div>
+    </div>
+  )
+}
+
 // Read-only detail view for an item — opened by clicking its code/name in the list.
 export default function ItemDetail({
   open, item, statusLogs, expenses, layout, onClose, onEdit,
@@ -36,14 +46,6 @@ export default function ItemDetail({
 
   const ex = item.expense_id ? expenses.find((e) => e.id === item.expense_id) : null
   const place = zoneLabel(layout, item.placement_venue_item_id)
-
-  // 与 ExpenseDetailModal 同款只读记录行（design-system §6.3 详情页模式）。
-  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="grid grid-cols-3 gap-4 py-2 border-b border-line-soft last:border-b-0">
-      <div className="text-xs text-ink-500 font-medium pt-0.5">{label}</div>
-      <div className="col-span-2 text-sm text-ink-900 break-words">{children}</div>
-    </div>
-  )
 
   return (
     <Modal

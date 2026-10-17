@@ -37,7 +37,6 @@ import { describeFilters, previewCreate, previewDelete, previewQuery, previewUpd
 //      prompt injection has fewer surfaces.
 // Length caps mirror typical DB-side reasonableness; anything longer is
 // already pathological and almost certainly an attack payload.
-// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\x00-\x08\x0B-\x1F\x7F-\x9F]/g
 const TEXT_FIELD_MAX = 500
 
@@ -519,7 +518,6 @@ function aggregate(
 // because supabase-js's filter builder generics are awkward to thread
 // through a helper. All call sites pass `db.from('expenses').select(...)`.
 
-// eslint-disable-next-line
 function applyFilters(q: any, f: ExpenseFilters): any {
   let query = q
   if (f.expense_category?.length) query = query.in('expense_category', f.expense_category)
@@ -583,11 +581,9 @@ export async function executeWorkTaskIntent(
 
   return {
     kind:            'pending',
-    // eslint-disable-next-line
     pendingActionId: (inserted as any).id,
     op:              'create',
     preview:         previewText,
-    // eslint-disable-next-line
     expiresAt:       (inserted as any).expires_at,
   }
 }

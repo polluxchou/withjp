@@ -13,7 +13,7 @@ const PUBLIC_PATHS = [...SHARED_PUBLIC_PATHS, '/site']
 const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
 const intlMiddleware = createIntlMiddleware(routing)
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // eacn.agenova.chat 是官网专用域名。先把它与内部后台隔离，再进入原有的
@@ -86,7 +86,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Keep this as a literal string; Next's static analyzer does not resolve
-  // imported constants here and falls back to the default middleware matcher.
+  // imported constants here and falls back to the default proxy matcher.
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
