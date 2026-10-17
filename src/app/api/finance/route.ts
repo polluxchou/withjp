@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuardStrict } from '@/lib/auth/guard'
+import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
 
 // GET /api/finance — list records, optionally filtered by creator
 export async function GET(req: NextRequest) {
@@ -21,10 +22,14 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ data, error: null })
 }
 
-// POST /api/finance — record revenue/cost for a creator
+// POST /api/finance — record revenue/cost for a creator. Admin only: these
+// rows feed the dashboard's revenue/ROI totals, so any logged-in user being
+// able to write them meant anyone could skew the numbers leadership reads.
 export async function POST(req: NextRequest) {
   const user = await authGuardStrict();
   if (user instanceof NextResponse) return user;
+  const denied = await forbidUnlessAdmin(user.id)
+  if (denied) return denied
   const db = createServerClient()
   const body = await req.json()
   const { creator_id, revenue, cost, period, notes } = body

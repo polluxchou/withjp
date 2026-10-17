@@ -43,6 +43,7 @@ const POLICY: Record<string, Record<string, Access>> = {
   'agents/[id]/execute/route.ts': { POST: 'admin' },
   'agents/test-connection/route.ts': { POST: 'admin' },
   'tasks/[id]/route.ts': { GET: 'login', PATCH: 'admin', DELETE: 'admin' },
+  'finance/route.ts': { GET: 'login', POST: 'admin' },
 }
 
 test('每个导出的方法都在权限表里，表里的方法也都还在', () => {
@@ -65,9 +66,10 @@ test('管理员专属的方法：先鉴权，紧接 forbidUnlessAdmin，之后�
     }
   }
   // 当前盘点：薪资写 3 + config PATCH 1 + agents 写 2 + 执行 1 + 测试连接 1
-  // + 任务改删 2（PATCH 的手动更新与 execute 共用一个方法，整个方法仅管理员）。
+  // + 任务改删 2（PATCH 的手动更新与 execute 共用一个方法，整个方法仅管理员）
+  // + 主播营收/成本记录写 1。
   // 少了说明表或切分出了问题。
-  assert.equal(checked, 10)
+  assert.equal(checked, 11)
 })
 
 // PATCH /api/tasks/:id 的手动更新只能写 pickTaskManualUpdate 挑出的字段，校验不过 400；

@@ -96,6 +96,25 @@ test('执行 Agent：三个页面的按钮只给管理员，失败给提示', ()
   }
 })
 
+// 记录主播营收/成本（POST /api/finance）只给管理员：两处入口按钮与弹窗都挂在
+// canLogFinance 后面，保存失败（含 403）留在弹窗里提示，不再静默关窗。
+test('主播详情：记录营收/成本只给管理员，失败给提示', () => {
+  const s = read('app/[locale]/(app)/creators/[id]/page.tsx')
+  assert.match(s, /const canLogFinance = canExecute\n/)
+  const openers = Array.from(s.matchAll(/onClick=\{\(\) => setShowFinance\(true\)\}/g), (m) => m.index!)
+  assert.equal(openers.length, 2, '应有两处记录入口')
+  for (const at of openers) {
+    assert.match(s.slice(Math.max(0, at - 160), at), /\{canLogFinance && \(\n/, `第 ${s.slice(0, at).split('\n').length} 行的入口要挂在 canLogFinance 后面`)
+  }
+  assert.match(s, /<Modal open=\{showFinance && canLogFinance\}/)
+  const fn = s.slice(s.indexOf('async function submitFinance('), s.indexOf('if (loading) return'))
+  assert.match(fn, /if \(!res\?\.ok\) \{/)
+  assert.match(fn, FORBIDDEN_MSG_RE)
+  assert.match(fn, /fallback: tCommon\('saveFailed'\)/)
+  assert.ok(fn.indexOf('return\n') < fn.indexOf('setShowFinance(false)'), '保存失败要在关窗之前 return')
+  assert.match(s, /\{financeError && \(/, '失败提示要显示在弹窗里')
+})
+
 // 任务的手动更新与删除也只给管理员，但前端目前没有调用者。以后谁新加调用，这里会
 // 失败：先像上面那样按 isAdmin 收起入口、失败走 writeFailureMessage，再改这张表。
 test('/api/tasks/:id 的前端调用只有那两处执行', () => {
