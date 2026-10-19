@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuardStrict } from '@/lib/auth/guard'
 import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
+import { autoMonetizeOnRevenue } from '@/lib/state-machine/transition'
 
 // GET /api/finance — list records, optionally filtered by creator
 export async function GET(req: NextRequest) {
@@ -49,23 +50,13 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
 
-  // If the creator is 'live', auto-transition to 'monetized' on first revenue entry
-  const { data: creator } = await db
-    .from('creators')
-    .select('status')
-    .eq('id', creator_id)
-    .single()
-
-  if (creator?.status === 'live' && Number(revenue) > 0) {
-    await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL ? '' : 'http://localhost:3000'}/api/creators/${creator_id}/transition`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to_status: 'monetized', triggered_by: 'system', notes: 'Revenue recorded' }),
-      }
-    ).catch(() => null) // best-effort
-  }
+  // If the creator is 'live', auto-transition to 'monetized' on first revenue
+  // entry. Called directly rather than over HTTP: the old server-side fetch to
+  // the transition route used a relative URL (throws in Node) and carried no
+  // session cookie, so this never took effect. Best-effort — the revenue row
+  // is already written, so a failed transition is logged, not returned.
+  const auto = await autoMonetizeOnRevenue(db, creator_id, Number(revenue))
+  if (auto.error) console.error('Auto-transition to monetized failed:', auto.error)
 
   return NextResponse.json({ data, error: null }, { status: 201 })
 }
