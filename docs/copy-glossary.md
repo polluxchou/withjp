@@ -26,7 +26,7 @@
 | 团播账号 | Broadcast account | 直播账号实体；不要写成 "live account" / "streaming account" |
 | 负责人 | Operator | 团播账号或创作者的运营负责人；不要写成 "owner" / "manager" |
 | 部门代理 | Department agent | AI 代理；列表标题 Team (AI Agents) |
-| 公会 | Guild | 名词，特指 Creator Network |
+| 公会 | Agency | 名词，特指 Creator Network |
 | 客户 / 用户 | — | **禁用**，公会内只有"创作者"和"运营成员"两类主体 |
 
 ## 3. 业务流程 / 生命周期

@@ -8,7 +8,7 @@
 
 ## 1. Metrics Framework Overview
 
-The guild's business model converts live-streaming creator prospects into monetized revenue generators, capturing a share of creator revenue. Every metric in this dashboard maps to that core loop.
+The agency's business model converts live-streaming creator prospects into monetized revenue generators, capturing a share of creator revenue. Every metric in this dashboard maps to that core loop.
 
 ```
 [Prospect] → [Contacted] → [Engaged] → [Onboarded] → [Live Ready] → [Live] → [Monetized]
@@ -32,7 +32,7 @@ The guild's business model converts live-streaming creator prospects into moneti
 ### Monthly Creator Revenue (MCR)
 
 **Why this is the North Star:**  
-The guild earns revenue share from creator streaming income. Every upstream action — recruiting, onboarding, content strategy, ops — exists to move this number. It's customer-centric (creator success = guild success), comparative (MoM trending), and unambiguously behavior-changing: a drop triggers cross-functional investigation.
+The agency earns revenue share from creator streaming income. Every upstream action — recruiting, onboarding, content strategy, ops — exists to move this number. It's customer-centric (creator success = agency success), comparative (MoM trending), and unambiguously behavior-changing: a drop triggers cross-functional investigation.
 
 | Field | Value |
 |---|---|
@@ -187,7 +187,7 @@ These are guardrails. They shouldn't drive strategy, but a red health metric mea
 
 ## 5. Business Metrics
 
-### 5.1 Guild Gross Profit Margin
+### 5.1 Agency Gross Profit Margin
 
 | Field | Value |
 |---|---|
