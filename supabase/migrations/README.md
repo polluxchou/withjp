@@ -36,6 +36,31 @@ Supabase Dashboard 的 SQL Editor 里**手工执行**的。文件名是唯一的
    不要攒批——攒批就是漏应用的温床。
 5. 应用完按下节方法核对远端 schema 确实生效。
 
+## 新建表必须显式 grant（2026-10-30 起）
+
+Supabase 从 **2026-10-30** 起不再自动给 `public` 下的新表授予 Data API 权限。之前建的表
+保留原有授权，不受影响；之后新建的表如果没有显式 `grant`，supabase-js / PostgREST 会直接
+返回 `permission denied`——**包括 service_role**，也就是所有服务端路由
+（`src/lib/supabase/server.ts`）。我们的迁移是在 SQL Editor 手工执行的，CI 拦不住运行时
+报错，所以必须在建表的**同一个迁移文件**里写好 grant：
+
+```sql
+-- 必写：服务端（service role）要能读写
+grant select, insert, update, delete on public.<表名> to service_role;
+
+-- 按需：浏览器直连（createBrowserClient）要读写时才给，按最小权限
+grant select on public.<表名> to authenticated;
+-- anon 默认不给；官网等公开内容走服务端渲染，不需要 anon 直连
+```
+
+- 给 `authenticated` / `anon` 授权时同时要有对应的 RLS 策略，否则 grant 了也读不到。
+  需要收紧时沿用 `20260814112723_site_content.sql` 的写法：先 `revoke all ... from anon,
+  authenticated`，再 grant 回最小集（`TRUNCATE` 不受 RLS 约束，只 revoke CRUD 不够）。
+- CI（`npm run test:migrations`）对时间戳 ≥ `20261020000000` 的迁移检查：每张在 `public`
+  新建的表都必须有 `grant ... to service_role`。anon/authenticated 是逐表决定，CI 不强制。
+- 应用后核对：`select grantee, privilege_type from information_schema.role_table_grants
+  where table_schema = 'public' and table_name = '<表名>';`
+
 ## 手工应用 + 核对远端 schema
 
 应用顺序永远是**文件名升序**。怀疑"某个迁移到底应用没应用"时，不要靠记忆，直接核对远端：
