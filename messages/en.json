@@ -410,7 +410,7 @@
     "remember": "Remember email on this device",
     "loginFailed": "Login failed — check your email and password.",
     "brandTag": "Creator Network Control Tower",
-    "taglineLead": "Run the guild,",
+    "taglineLead": "Run the agency,",
     "taglineAccent": "not the chaos",
     "subtitle": "One operating system for streams, expenses, talent, and the producers in between.",
     "subtitleEn": "管运营 · 不管混乱",
@@ -439,7 +439,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "subtitle": "Everything happening at the guild today",
+    "subtitle": "Everything happening at the agency today",
     "viewAllCreators": "View all creators",
     "totalCreators": "Total creators",
     "acrossAllStages": "Across all stages",
@@ -459,7 +459,7 @@
   },
   "creators": {
     "title": "Creators",
-    "subtitle": "{count} creators in the guild",
+    "subtitle": "{count} creators in the agency",
     "addCreator": "Add creator",
     "searchCreators": "Search creators...",
     "noCreatorsFound": "No creators found. Adjust filters or add one.",

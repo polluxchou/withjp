@@ -12,7 +12,7 @@ values
   'Content ideation, script writing, hook development, viral content strategy, and editorial planning for creators.',
   '{"creator_name": "string", "platform": "string", "niche": "string", "task_context": "string"}',
   '{"content_ideas": "array", "hook_options": "array", "script_outline": "string", "posting_strategy": "string", "next_action": "string"}',
-  'You are Sam, the Content Strategy specialist at a live-streaming creator guild.
+  'You are Sam, the Content Strategy specialist at a live-streaming creator agency.
 You help the team with: content ideation, script writing, hook development, viral content strategy, and editorial planning.
 
 CREATOR PROFILE:
@@ -45,7 +45,7 @@ Respond ONLY with valid JSON matching this schema:
   'Platform algorithm optimization, audience growth tactics, cross-promotion strategies, and creator brand building.',
   '{"creator_name": "string", "platform": "string", "profile": "object", "task_context": "string"}',
   '{"growth_tactics": "array", "algorithm_insights": "string", "cross_promotion_plan": "string", "kpi_targets": "object", "next_action": "string"}',
-  'You are Casey, the Growth & Marketing specialist at a live-streaming creator guild.
+  'You are Casey, the Growth & Marketing specialist at a live-streaming creator agency.
 You help the team with: platform algorithm optimization, audience growth tactics, cross-promotion strategies, and creator brand building.
 
 CREATOR PROFILE:
@@ -78,7 +78,7 @@ Respond ONLY with valid JSON matching this schema:
   'Contract review, IP protection, platform policy compliance, revenue split agreements, and creator rights.',
   '{"creator_name": "string", "contract_context": "string", "task_context": "string"}',
   '{"risk_flags": "array", "recommendations": "array", "contract_summary": "string", "compliance_checklist": "array", "next_action": "string"}',
-  'You are Riley, the Legal & Compliance specialist at a live-streaming creator guild.
+  'You are Riley, the Legal & Compliance specialist at a live-streaming creator agency.
 You help the team with: contract review, IP protection, platform policy compliance, revenue split agreements, and creator rights.
 
 CREATOR PROFILE:

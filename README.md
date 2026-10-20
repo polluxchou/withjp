@@ -14,7 +14,7 @@ The internal workspace is not a public SaaS surface. It is an internal business 
 | Expenses | Cost and expense records, saved views, discussions | Implemented |
 | Finance Forecast | Forecast views, lifecycle inputs, currency-aware display | Implemented |
 | Items | Asset ledger, expense binding, placement, photos, status logs, item value | Implemented |
-| Guild Venue | Multi-venue/floor layout, 2D/3D canvas, view bookmarks, collaborators | Implemented |
+| Agency Venue | Multi-venue/floor layout, 2D/3D canvas, view bookmarks, collaborators | Implemented |
 | Discussions | Subject-based business discussions | Implemented |
 | Notifications | In-app notification bell, panel, read/read-all APIs, `createNotification()` | Implemented |
 | Knowledge | Team knowledge content | Implemented |
@@ -33,13 +33,13 @@ Venue and Items are formal core modules, not temporary feature experiments. They
 Cost Management
   - Expenses
   - Items
-  - Guild Venue
+  - Agency Venue
   - Finance Forecast
 ```
 
 - Expenses records cost facts and payment context.
 - Items records asset objects, status, ownership, photos, value, expense binding, and venue placement.
-- Guild Venue records properties, floors, spatial components, 2D/3D layouts, view bookmarks, and collaborators.
+- Agency Venue records properties, floors, spatial components, 2D/3D layouts, view bookmarks, and collaborators.
 - Finance Forecast records planning and forecasting views.
 
 ## Recent Product Direction
@@ -171,7 +171,7 @@ Navigate to `/team`. Each agent card has a model configuration section with prov
 - `docs/copy-glossary.md` for i18n copy conventions.
 - `docs/competitors.md` for the competitor monitoring module, and `extensions/live-shot/README.md` for the screenshot extension.
 - `docs/public-site.md` for the EchoAmp public website.
-- `docs/venue-3d-design.md` and `docs/venue-window.md` for Guild Venue internals.
+- `docs/venue-3d-design.md` and `docs/venue-window.md` for Agency Venue internals.
 - `docs/pmo-agent-design.md` for the PMO agent design.
 - `docs/superpowers/` for feature specs, implementation plans, and wrap-up records.
 

@@ -79,7 +79,7 @@ export default function ConfigPage() {
   const CONFIG_META: Record<string, { label: string; description: string }> = {
     revenue_split: {
       label: 'Revenue Split Rules',
-      description: 'How revenue is divided between creator and guild (%). Edit the JSON values.',
+      description: 'How revenue is divided between creator and agency (%). Edit the JSON values.',
     },
     roi_thresholds: {
       label: 'ROI Thresholds',
@@ -95,7 +95,7 @@ export default function ConfigPage() {
     },
     minimum_live_sessions: {
       label: 'Minimum Live Sessions',
-      description: 'Required live sessions per month for guild membership.',
+      description: 'Required live sessions per month for agency membership.',
     },
   }
 
