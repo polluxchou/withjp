@@ -96,7 +96,7 @@ violet / pink(`#db2777` on `rgba(236,72,153,.10)`) / blue(`#3b82f6` on 10%) / gr
 
 ## 2. 字体与排版
 
-- **字族**：sans = `"Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif`；mono = `"SF Mono", ui-monospace, Menlo, monospace`（编号、金额、代码）
+- **字族**：sans = `Open Sans`（`next/font/google` 自托管，变量 `--font-admin-sans` 在根 layout 注入，只取 400/500/600/700 四档）→ `"PingFang SC", "Hiragino Sans GB", "Hiragino Sans", -apple-system, BlinkMacSystemFont, sans-serif`。拉丁字母与数字走 Open Sans，中日文落到系统黑体；定义在 `tailwind.config.ts` 的 `fontFamily.sans`，页面不得另设字族；mono = `"SF Mono", ui-monospace, Menlo, monospace`（编号、金额、代码）
 - **字重四档**：400 正文 / 500 强调、行主标题 / 600 区块标题、按钮、数值 / 700 页面标题、KPI 数字。禁止使用其他字重值（PingFang 无变量轴，奇数字重会被合成渲染）。
 - **字号阶梯**（Tailwind fontSize 自定义）：
 

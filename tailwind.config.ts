@@ -61,6 +61,16 @@ const config: Config = {
         },
       },
       fontFamily: {
+        // 后台正文字族：拉丁走 Open Sans（变量在根 layout 注入），中日文走系统黑体。
+        sans: [
+          'var(--font-admin-sans)',
+          '"PingFang SC"',
+          '"Hiragino Sans GB"',
+          '"Hiragino Sans"',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'sans-serif',
+        ],
         // design-system §2：mono 仅用于编号/金额/代码。Tailwind 默认 mono 栈里是
         // "SFMono-Regular"（而非 "SF Mono"），与设计稿登记的字族名不一致，故显式覆盖。
         mono: ['"SF Mono"', 'ui-monospace', 'Menlo', 'monospace'],
