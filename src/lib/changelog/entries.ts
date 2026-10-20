@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-10-20',
+    items: [
+      {
+        kind: 'improve',
+        scope: '界面',
+        title: '后台英文和数字改用 Open Sans 字体，读起来更清晰统一',
+        details:
+          '后台所有页面（含登录页）的英文字母和数字统一改用 Open Sans，不再跟着各自电脑的系统字体走，金额、日期、英文菜单在 Mac 和 Windows 上看起来一致。中文和日文仍用系统黑体，对外官网不受影响。',
+      },
+    ],
+  },
+  {
     date: '2026-10-19',
     items: [
       {
