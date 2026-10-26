@@ -10,7 +10,7 @@ import { shotUptimeParts } from '@/lib/competitors/types'
 import { maxShotDate } from '@/lib/competitors/localDate'
 import { lightboxNeighbors, revealScrollDelta } from '@/lib/competitors/lightboxLayout'
 import { coverOf } from '@/lib/competitors/shotGrid'
-import { buildCoLiveView, type CoLiveReading } from '@/lib/competitors/coLive'
+import { buildCoLiveView, coLiveSeenAlone, type CoLiveReading } from '@/lib/competitors/coLive'
 import { captionOverflowsClamp, shotOverlaySections } from '@/lib/competitors/shotOverlay'
 import { dayZipName, shotFileName } from '@/lib/competitors/shotDownload'
 import { fetchBytes, saveBlob } from '@/lib/competitors/downloadFile'
@@ -133,9 +133,10 @@ export default function ShotLightbox({
   const coLiveRaw = selectedId ? coLiveCache.get(selectedId) : undefined
   const coLiveFailed = coLiveRaw === undefined && coLiveFailedId === selectedId
   const coLiveView = coLiveRaw && selected ? buildCoLiveView(coLiveRaw, selected.competitor_id) : null
+  const coLiveAlone = coLiveRaw && selected ? coLiveSeenAlone(coLiveRaw, selected.competitor_id) : false
   // 渐变层渲染哪几段。五段全空(只读 + 人工上传 + 当天仅此一张 + 无同期)时整层不画,
   // 画面上只剩左上角那两颗胶囊。
-  const ov = shotOverlaySections(selected, canEdit, shots.length, coLiveView != null || coLiveFailed)
+  const ov = shotOverlaySections(selected, canEdit, shots.length, coLiveView != null || coLiveAlone || coLiveFailed)
 
   useEffect(() => {
     setDateInput(selectedShotOn)
@@ -560,11 +561,20 @@ export default function ShotLightbox({
                   )}
 
                   {/* 同期在播：扩展上传时从 Following 侧栏抄下的同一秒别家人数。
-                      默认折叠成一行摘要；没有读数的截图(自动巡检的老图)整段不出现。
+                      默认折叠成一行摘要；没有读数的截图(自动巡检的老图)整段不出现；
+                      侧栏读到了但只有本号在播时说一句「同时段未见其他在播」。
                       判定全在 lib/competitors/coLive.ts，这里只画。 */}
                   {ov.coLive && (
                     <div className="text-white/90">
-                      {coLiveFailed || !coLiveView ? (
+                      {coLiveAlone && !coLiveFailed ? (
+                        <p className="inline-flex items-center gap-1 text-white/60">
+                          {t('coLiveAlone')}
+                          <span title={t('coLiveScopeHint')}>
+                            <Info className="h-3.5 w-3.5 text-white/50" aria-hidden="true" />
+                          </span>
+                          <span className="sr-only">{t('coLiveScopeHint')}</span>
+                        </p>
+                      ) : coLiveFailed || !coLiveView ? (
                         <p className="text-white/60">{t('coLiveLoadFailed')}</p>
                       ) : (
                         <>

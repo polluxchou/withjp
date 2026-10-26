@@ -1895,6 +1895,7 @@
     "coLiveSelfFromRoom": "本号按房间内读数",
     "coLiveFootnote": "{time} 同一秒读数",
     "coLiveLoadFailed": "同期数据读取失败",
+    "coLiveAlone": "同时段未见到其他在播直播间",
     "coLiveExpand": "展开名单",
     "coLiveCollapse": "收起名单",
     "prevShot": "上一张",

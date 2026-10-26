@@ -104,6 +104,7 @@ export function buildCoLiveView(readings: CoLiveReading[], selfCompetitorId: str
 3. 按 `viewerCount` 降序；null 排末尾、`rank` 为 null、`barRatio` 为 0。同值并列同名次。
 4. `barRatio` 以本批最大 `viewerCount` 为分母；最大值为 0 或不存在时全部为 0。
 5. `label` 取 `displayName`，空则 `handle`。
+6. `coLiveSeenAlone(readings, selfId)`（2026-10-26 补）：有 sidebar 行、且全部是本号时为 true——侧栏读到了，只是在库账号里只有本号在播。放大页据此显示一句「同时段未见到其他在播直播间」（带覆盖范围 ⓘ），不让人误以为没采到。完全没有 sidebar 行时为 false：分不清是侧栏没读到还是真没人播，照旧整段不画。
 
 测试（`coLive.test.ts`，node --test）：
 
@@ -136,6 +137,7 @@ export function buildCoLiveView(readings: CoLiveReading[], selfCompetitorId: str
 
 - 选中截图变化时，若缓存里没有该 `shot_id`，发请求；响应到达时若选中项已换，仍写入缓存但不触发显示。
 - 加载中：这一段不画（不占位、不闪骨架），数据到了再出现。单次请求几十毫秒，闪骨架比晚出现更扰。
+- 只有本号（`coLiveSeenAlone`）：摘要行位置显示一行「同时段未见到其他在播直播间」+ 覆盖范围 ⓘ，不可展开。
 - 请求失败：摘要行位置显示一行「同期数据读取失败」，不可展开，不影响看图与其它段；再次切回该张时重试。
 - 展开/收起状态随选中截图重置为展开。
 
@@ -149,6 +151,7 @@ export function buildCoLiveView(readings: CoLiveReading[], selfCompetitorId: str
 | `coLiveSelfFromRoom` | 本号按房间内读数 | This account uses the in-room count | 本アカウントは配信画面内の数値 |
 | `coLiveFootnote` | {time} 同一秒读数 | Same-second readings at {time} | {time} 時点の同時刻データ |
 | `coLiveLoadFailed` | 同期数据读取失败 | Couldn't load co-live data | 同時配信データを読み込めませんでした |
+| `coLiveAlone` | 同时段未见到其他在播直播间 | No other live rooms seen at the same time | 同時間帯に他の配信は見当たりませんでした |
 | `coLiveExpand` / `coLiveCollapse` | 展开名单 / 收起名单 | Show list / Hide list | 一覧を表示 / 一覧を閉じる |
 
 实现备注（2026-10-12 终审后）：摘要按钮不再挂 `aria-label`（它会盖掉可见的摘要文案，读屏只听到「展开名单」），由可见文字 + `aria-expanded` 描述控件，`coLiveExpand` / `coLiveCollapse` 两个 key 暂留未用；信息图标外层 `span` 带 `title`。名单里的子账号（`parent_id` 非空）在页面上没有卡片锚点，本期画成不可点的文本，跳到父账号卡片需要读数带上 `parent_id`，另起一期。

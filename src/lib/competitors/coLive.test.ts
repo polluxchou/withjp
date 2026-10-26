@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildCoLiveView, parseShotId, type CoLiveReading } from './coLive.ts'
+import { buildCoLiveView, coLiveSeenAlone, parseShotId, type CoLiveReading } from './coLive.ts'
 
 const SELF = 'self-id'
 
@@ -151,6 +151,24 @@ test('同人数按界面 label 定序：label 顺序与 competitorId 顺序相�
     ['a', 'Z 社', 1],
     [SELF, 'self-id', 3],
   ])
+})
+
+test('coLiveSeenAlone：侧栏读到了本号、没有别家 → true（含本号另有 current 行）', () => {
+  assert.equal(coLiveSeenAlone([r({ competitorId: SELF, viewerCount: 8 })], SELF), true)
+  assert.equal(
+    coLiveSeenAlone([r({ competitorId: SELF, source: 'current', viewerCount: 11 }), r({ competitorId: SELF, viewerCount: 8 })], SELF),
+    true,
+  )
+})
+
+test('coLiveSeenAlone：没有任何 sidebar 行 → false（分不清侧栏没读到还是真没人播）', () => {
+  assert.equal(coLiveSeenAlone([], SELF), false)
+  assert.equal(coLiveSeenAlone([r({ competitorId: SELF, source: 'current', viewerCount: 11 })], SELF), false)
+})
+
+test('coLiveSeenAlone：侧栏有别家 → false（名单照常画）', () => {
+  assert.equal(coLiveSeenAlone([r({ competitorId: SELF, viewerCount: 8 }), r({ competitorId: 'a', viewerCount: 5 })], SELF), false)
+  assert.equal(coLiveSeenAlone([r({ competitorId: 'a', viewerCount: 5 })], SELF), false)
 })
 
 test('parseShotId：合法 uuid 原样小写返回，其它一律 null', () => {
