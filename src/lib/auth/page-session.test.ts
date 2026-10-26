@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 
 import { createPageSessionGuard, loginPathForLocale } from './page-session.ts'
 
-type User = { id: string }
+type User = { id: string; access_scope?: string | null }
 
 // next/navigation 的 redirect() 会抛错中断渲染、永不返回。假依赖照样抛，
 // 同时记下跳转地址。
@@ -65,4 +65,25 @@ test('路由语言异常时跳默认语言的登录页', async () => {
   const { requirePageUser, redirects } = guardWith(async () => null)
   await assert.rejects(requirePageUser('xx'), Redirected)
   assert.deepEqual(redirects, ['/zh/login'])
+})
+
+test('受限帐号：默认跳到它能进的竞品首页（同语言）', async () => {
+  const { requirePageUser, redirects } = guardWith(async () => ({ id: 'u2', access_scope: 'competitors' }))
+  await assert.rejects(requirePageUser('ja'), (e) => e instanceof Redirected && e.path === '/ja/competitors')
+  await assert.rejects(requirePageUser('fr'), (e) => e instanceof Redirected && e.path === '/zh/competitors')
+  assert.deepEqual(redirects, ['/ja/competitors', '/zh/competitors'])
+})
+
+test('受限帐号：显式 allowScope 对上才放行；不认识的范围一律不放', async () => {
+  const ok = guardWith(async () => ({ id: 'u2', access_scope: 'competitors' }))
+  assert.deepEqual(await ok.requirePageUser('en', { allowScope: 'competitors' }), { id: 'u2', access_scope: 'competitors' })
+  const odd = guardWith(async () => ({ id: 'u3', access_scope: 'finance' }))
+  await assert.rejects(odd.requirePageUser('en', { allowScope: 'competitors' }), Redirected)
+})
+
+test('普通成员带不带 allowScope 都照常放行', async () => {
+  const { requirePageUser, redirects } = guardWith(async () => ({ id: 'u1', access_scope: null }))
+  await requirePageUser('en')
+  await requirePageUser('en', { allowScope: 'competitors' })
+  assert.deepEqual(redirects, [])
 })

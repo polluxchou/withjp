@@ -96,6 +96,6 @@ test('/expenses 页面由服务端 layout 拦截非管理员', () => {
 test('侧边栏：支出管理入口标了 adminOnly，渲染走 visibleNavItems 过滤', () => {
   const src = read('components/layout/Sidebar.tsx')
   assert.match(src, /\{ href: '\/expenses',[^}]*adminOnly: true \}/)
-  assert.match(src, /visibleNavItems\(NAV_ITEMS, profile\?\.is_admin === true\)/)
+  assert.match(src, /visibleNavItems\(NAV_ITEMS, profile\?\.is_admin === true, profile\?\.access_scope \?\? null\)/)
   assert.doesNotMatch(src, /NAV_ITEMS\.map\(/, '渲染不能绕过过滤直接遍历 NAV_ITEMS')
 })

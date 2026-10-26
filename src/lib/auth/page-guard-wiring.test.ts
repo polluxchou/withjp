@@ -46,10 +46,11 @@ const POLICY: Record<string, Guard> = {
 }
 
 const GUARD_RE: Record<Exclude<Guard, 'none'>, RegExp> = {
-  requirePageUser: /await requirePageUser\(params\.locale\)/,
-  authGuard: /const user = await authGuard\(\)\n\s*if \(user instanceof Response\) redirect\(/,
+  requirePageUser: /await requirePageUser\(params\.locale(?:, \{ allowScope: COMPETITORS_SCOPE \})?\)/,
+  authGuard: /const user = await authGuard\((?:\{ allowScope: COMPETITORS_SCOPE \})?\)\n\s*if \(user instanceof Response\) redirect\(/,
+  // getUser 不经 authGuard，受限帐号的拒绝得自己写在同一行（见 access-scope.ts）。
   getUser:
-    /const auth = await createAuthServerClient\(\)\n\s*const \{ data: \{ user \} \} = await auth\.auth\.getUser\(\)\n\s*if \(!user\) redirect\(/,
+    /const auth = await createAuthServerClient\(\)\n\s*const \{ data: \{ user \} \} = await auth\.auth\.getUser\(\)\n(?:\s*\/\/.*\n)?\s*if \(!user \|\| accessScopeOf\(user\.app_metadata\)\) redirect\(/,
 }
 
 // default export 的函数体（从参数表后的 `) {` 开始）。

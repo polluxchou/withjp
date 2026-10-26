@@ -18,6 +18,7 @@ import { normalizeDescriptionBody } from './descriptions.ts'
 import { validateLiveSessionRows } from './liveHistory.ts'
 import { sortSummaries, type LiveSummary } from './liveSummaries.ts'
 import { normalizeRegion, resolveNewRegion } from './regions.ts'
+import { scopedWriteAllowed } from '../auth/access-scope.ts'
 import { isValidShotDate } from './shotGrid.ts'
 import { buildShotIndex, loadedRangeOrFilter, parseShotRangeQuery, resolveLoadedFrom } from './shotWindow.ts'
 import type { ShotIndexRow } from './shotWindow.ts'
@@ -331,9 +332,34 @@ export async function getLiveSummaries(): Promise<ServiceResult<LiveSummary[]>> 
   return ok(sortSummaries((res.data ?? []) as LiveSummary[]))
 }
 
+// ---- 受限帐号的写入边界 ----
+//
+// 受限帐号（access_scope，见 auth/access-scope.ts）只能改自己建的记录、不能删。
+// 普通成员与管理员不经过这里的限制（不查库，直接放行）。owner 列是 created_by：
+// 截图早就有；帐号、描述、开播记录由 20261026120000 迁移补上，之前的历史行为空，
+// 受限帐号一律不能改。
+export type ScopedTable = 'competitors' | 'competitor_shots' | 'competitor_descriptions'
+export interface WriteActor { id: string; access_scope: string | null }
+
+export async function checkScopedWrite(
+  actor: WriteActor,
+  table: ScopedTable,
+  id: string,
+  op: 'update' | 'delete',
+): Promise<ServiceResult<null>> {
+  if (actor.access_scope === null) return ok(null)
+  if (op === 'delete') return err('forbidden', 'this account cannot delete')
+  const db = createServerClient()
+  const { data, error } = await db.from(table).select('created_by').eq('id', id).maybeSingle()
+  if (error) return err('db_error', error.message)
+  if (!data) return err('not_found', 'not found')
+  const owner = (data as { created_by: string | null }).created_by ?? null
+  return scopedWriteAllowed(actor, op, owner) ? ok(null) : err('forbidden', 'can only edit your own records')
+}
+
 /** 加入清单：入参 url 或 handle 二选一；已存在则返回其 id（确保存在，不覆盖）。 */
 export async function addCompetitor(
-  _userId: string,
+  userId: string,
   input: { url?: string; handle?: string; platform?: CompetitorPlatform } & CompetitorFields,
 ): Promise<ServiceResult<{ id: string }>> {
   const platform: CompetitorPlatform = input.platform ?? 'tiktok'
@@ -362,7 +388,7 @@ export async function addCompetitor(
   const { data, error } = await db
     .from('competitors')
     .insert({
-      platform, handle, profile_url, note: input.note ?? '',
+      platform, handle, profile_url, note: input.note ?? '', created_by: userId,
       ...pickFields({ ...input, note: undefined }),
       region: region.region,
     })
@@ -421,7 +447,11 @@ export interface ShotInput {
 
 const SHOT_ON_HINT = 'shot_on must be a real calendar date in YYYY-MM-DD (1900-2999), or null to clear'
 
-export async function addShot(competitorId: string, input: ShotInput): Promise<ServiceResult<CompetitorShot>> {
+export async function addShot(
+  competitorId: string,
+  input: ShotInput,
+  createdBy: string,
+): Promise<ServiceResult<CompetitorShot>> {
   if (!input?.image_url) return err('invalid_input', 'image_url required')
   if (!isValidShotDate(input.shot_on)) return err('invalid_input', SHOT_ON_HINT)
   const db = createServerClient()
@@ -434,6 +464,7 @@ export async function addShot(competitorId: string, input: ShotInput): Promise<S
       tag: input.tag ?? null,
       caption: input.caption ?? '',
       sort_order: input.sort_order ?? 0,
+      created_by: createdBy,
     })
     .select('*').single()
   if (error) return err('db_error', error.message)
@@ -481,6 +512,7 @@ export interface DescriptionInput {
 export async function addDescription(
   competitorId: string,
   input: DescriptionInput,
+  createdBy: string,
 ): Promise<ServiceResult<CompetitorDescription>> {
   const body = normalizeDescriptionBody(input?.body)
   if (!body) return err('invalid_input', BODY_HINT)
@@ -492,7 +524,7 @@ export async function addDescription(
   const db = createServerClient()
   const { data, error } = await db
     .from('competitor_descriptions')
-    .insert({ competitor_id: competitorId, body, generated_on: input.generated_on, source: 'manual' })
+    .insert({ competitor_id: competitorId, body, generated_on: input.generated_on, source: 'manual', created_by: createdBy })
     .select('*').single()
   if (error) return err('db_error', error.message)
   return ok(data as CompetitorDescription)
@@ -537,23 +569,49 @@ export async function deleteDescription(descriptionId: string): Promise<ServiceR
 /**
  * 批量 upsert 开播记录。去重键 (competitor_id, started_at)：同一场重复粘贴是覆盖
  * 标题、下播时刻、点赞，不是叠一行；created_at 不在写入列里，覆盖时保留首次导入的时刻。
+ *
+ * created_by 只在新行写入，覆盖已有行时不动（记的是第一个导入的人）。受限帐号
+ * 只能覆盖自己导入的场次：别人的（或历史无主的）同场次行直接跳过，计入 skipped。
  */
 export async function upsertLiveSessions(
   competitorId: string,
   rows: unknown,
-): Promise<ServiceResult<{ upserted: number }>> {
+  actor: WriteActor,
+): Promise<ServiceResult<{ upserted: number; skipped: number }>> {
   const checked = validateLiveSessionRows(rows)
   if (!checked.ok) return err('invalid_input', checked.message)
   const updatedAt = new Date().toISOString()
   const db = createServerClient()
-  const { error } = await db
-    .from('competitor_live_sessions')
-    .upsert(
-      checked.rows.map((r) => ({
-        competitor_id: competitorId, ...r, source: 'tiktok_history', updated_at: updatedAt,
-      })),
-      { onConflict: 'competitor_id,started_at' },
-    )
-  if (error) return err('db_error', error.message)
-  return ok({ upserted: checked.rows.length })
+  // 一批最多上千行，in 列表会把 URL 撑爆；改取这批起止时刻之间的已有场次（分页防截断）。
+  const starts = checked.rows.map((r) => r.started_at).sort()
+  const existing = await fetchAllRows((from, to) => db.from('competitor_live_sessions')
+    .select('id, started_at, created_by')
+    .eq('competitor_id', competitorId)
+    .gte('started_at', starts[0])
+    .lte('started_at', starts[starts.length - 1])
+    .order('id', { ascending: true }).range(from, to))
+  if (existing.error) return err('db_error', existing.error.message || 'load failed')
+  const ownerAt = new Map<number, string | null>()
+  for (const row of (existing.data ?? []) as { started_at: string; created_by: string | null }[]) {
+    ownerAt.set(Date.parse(row.started_at), row.created_by ?? null)
+  }
+
+  const fresh: Record<string, unknown>[] = []
+  const overwrite: Record<string, unknown>[] = []
+  let skipped = 0
+  for (const r of checked.rows) {
+    const base = { competitor_id: competitorId, ...r, source: 'tiktok_history', updated_at: updatedAt }
+    const at = Date.parse(r.started_at)
+    if (!ownerAt.has(at)) fresh.push({ ...base, created_by: actor.id })
+    else if (scopedWriteAllowed(actor, 'update', ownerAt.get(at) ?? null)) overwrite.push(base)
+    else skipped++
+  }
+  for (const batch of [fresh, overwrite]) {
+    if (batch.length === 0) continue
+    const { error } = await db
+      .from('competitor_live_sessions')
+      .upsert(batch, { onConflict: 'competitor_id,started_at' })
+    if (error) return err('db_error', error.message)
+  }
+  return ok({ upserted: fresh.length + overwrite.length, skipped })
 }

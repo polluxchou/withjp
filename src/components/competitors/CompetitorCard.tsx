@@ -4,6 +4,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
+import { useCanDelete } from '@/lib/auth/useCurrentUser'
 import { ChevronDown, ChevronRight, Trash2, BadgeCheck, ExternalLink, Pencil, Check, X } from 'lucide-react'
 import WeeklyFollowersCurve from './WeeklyFollowersCurve'
 import CompetitorDescriptions from './CompetitorDescriptions'
@@ -86,6 +87,7 @@ export default function CompetitorCard({
   today?: string | null
 }) {
   const t = useTranslations('competitors')
+  const canDelete = useCanDelete()
   const tCommon = useTranslations('common')
   // 开播档按账号所在地区的时区聚类：看的是对方当地的作息，且与界面语言无关（三地同事读到同一个数）；
   // "一天里的第几分钟"这个概念本身依赖时区。地区没填才回落到界面语言的时区。
@@ -373,7 +375,7 @@ export default function CompetitorCard({
           <button onClick={() => setOpen((v) => !v)} aria-label={t('expandProfile')} className={`rounded-field text-ink-400 hover:text-ink-700 ${FOCUS_RING}`}>
             {open ? <ChevronDown size={18} strokeWidth={1.5} /> : <ChevronRight size={18} strokeWidth={1.5} />}
           </button>
-          {canEdit && (
+          {canEdit && canDelete && (
             <button onClick={() => onDeleteId(c.id)} aria-label={t('delete')} className={`rounded-field text-ink-400 hover:text-danger-text ${FOCUS_RING}`}>
               <Trash2 size={16} strokeWidth={1.5} />
             </button>

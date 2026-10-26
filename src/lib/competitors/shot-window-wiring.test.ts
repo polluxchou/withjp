@@ -143,13 +143,13 @@ test('getShotsInRange：按 [from, before) 取整段，入参再校验一道', (
 test('GET /api/competitors：鉴权后解析 since 再取看板', () => {
   assert.match(BOARD_ROUTE, /parseSinceQuery\(req\.nextUrl\.searchParams\.get\('since'\)\)/)
   assert.match(BOARD_ROUTE, /getCompetitorBoard\(user\.id, \{ since: q\.since \}\)/)
-  assert.ok(BOARD_ROUTE.indexOf('authGuard()') < BOARD_ROUTE.indexOf('parseSinceQuery('), 'GET 必须先鉴权')
+  assert.ok(BOARD_ROUTE.indexOf('authGuard({ allowScope: COMPETITORS_SCOPE })') < BOARD_ROUTE.indexOf('parseSinceQuery('), 'GET 必须先鉴权')
 })
 
 test('GET /api/competitors/shots：鉴权后解析区间再取', () => {
   assert.match(SHOTS_ROUTE, /parseShotRangeQuery\(params\.get\('from'\), params\.get\('before'\)\)/)
   assert.match(SHOTS_ROUTE, /getShotsInRange\(q\.from, q\.before\)/)
-  assert.ok(SHOTS_ROUTE.indexOf('authGuard()') >= 0 && SHOTS_ROUTE.indexOf('authGuard()') < SHOTS_ROUTE.indexOf('parseShotRangeQuery('), '必须先鉴权')
+  assert.ok(SHOTS_ROUTE.indexOf('authGuard({ allowScope: COMPETITORS_SCOPE })') >= 0 && SHOTS_ROUTE.indexOf('authGuard({ allowScope: COMPETITORS_SCOPE })') < SHOTS_ROUTE.indexOf('parseShotRangeQuery('), '必须先鉴权')
 })
 
 // ---- 路由：鉴权早返回与 400 -------------------------------------------------
@@ -172,7 +172,7 @@ for (const [name, src] of ROUTES) {
   test(`${name}：鉴权失败直接返回，不往下走`, () => {
     assert.match(
       handlerOf(src),
-      /const user = await authGuard\(\)\s*\n\s*if \(user instanceof NextResponse\) return user/,
+      /const user = await authGuard\(\{ allowScope: COMPETITORS_SCOPE \}\)\s*\n\s*if \(user instanceof NextResponse\) return user/,
     )
   })
 

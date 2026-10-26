@@ -1,12 +1,13 @@
 // src/app/api/competitors/[id]/shots/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import { addShot, httpStatusForError } from '@/lib/competitors/service'
 import type { ShotInput } from '@/lib/competitors/service'
 
 // POST /api/competitors/[id]/shots — body { image_url, shot_on?, tag?, caption?, sort_order? }
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
   const params = await props.params
   let body: ShotInput
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   } catch {
     return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
   }
-  const result = await addShot(params.id, body)
+  const result = await addShot(params.id, body, user.id)
   if (result.error) {
     return NextResponse.json({ data: null, error: result.error.message }, { status: httpStatusForError(result.error.code) })
   }

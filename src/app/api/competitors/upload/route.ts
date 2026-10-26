@@ -1,12 +1,13 @@
 // src/app/api/competitors/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import { validateImage, uploadImage } from '@/lib/storage/upload-image.ts'
 
 const BUCKET = 'competitor-shots'
 
 export async function POST(req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
 
   let form: FormData

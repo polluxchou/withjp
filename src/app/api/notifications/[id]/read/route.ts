@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import {
   httpStatusForNotificationError,
   markNotificationRead,
@@ -9,7 +10,7 @@ type Params = { params: Promise<{ id: string }> }
 
 // PATCH /api/notifications/:id/read
 export async function PATCH(_req: NextRequest, props: Params) {
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
   const params = await props.params
 
