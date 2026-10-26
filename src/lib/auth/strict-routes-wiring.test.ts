@@ -25,8 +25,12 @@ function routeFiles(dir: string): string[] {
   })
 }
 
-const isStrict = (body: string) => /\bauthGuardStrict\(\)/.test(body) && !/\bauthGuard\(\)/.test(body)
-const isFast = (body: string) => /\bauthGuard\(\)/.test(body) && !/\bauthGuardStrict\(\)/.test(body)
+// 括号里可带 GuardOptions（受限帐号放行范围，见 access-scope.ts），不影响快慢判定。
+const ARGS = String.raw`\((?:\{[^)]*\})?\)`
+const STRICT_CALL = new RegExp(String.raw`\bauthGuardStrict` + ARGS)
+const FAST_CALL = new RegExp(String.raw`\bauthGuard` + ARGS)
+const isStrict = (body: string) => STRICT_CALL.test(body) && !FAST_CALL.test(body)
+const isFast = (body: string) => FAST_CALL.test(body) && !STRICT_CALL.test(body)
 
 // 整个目录都敏感：以后在这些目录下新增的接口也会被这条规则管到。
 const STRICT_DIRS = ['user-salary', 'finance', 'finance-forecast', 'expenses', 'users', 'admin']

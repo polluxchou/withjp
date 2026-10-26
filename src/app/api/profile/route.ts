@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { authGuard, authGuardStrict } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import type { AgentRole } from '@/lib/types'
 
 // GET /api/profile - Get current user profile
 export async function GET() {
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
   const db = createServerClient()
 
@@ -36,17 +37,18 @@ export async function GET() {
       return NextResponse.json({ data: null, error: createError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data: createdProfile, error: null })
+    return NextResponse.json({ data: { ...createdProfile, access_scope: user.access_scope }, error: null })
   }
 
-  return NextResponse.json({ data: profile, error: null })
+  // access_scope 不在 users 表里，来自 Auth 的 app_metadata（见 access-scope.ts），前端据此收起导航与删除入口。
+  return NextResponse.json({ data: { ...profile, access_scope: user.access_scope }, error: null })
 }
 
 // PATCH /api/profile - Update current user profile
 // Strict: this can change the caller's own role, so a revoked session must not
 // get through on a still-unexpired access token.
 export async function PATCH(req: NextRequest) {
-  const user = await authGuardStrict()
+  const user = await authGuardStrict({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
   const db = createServerClient()
 

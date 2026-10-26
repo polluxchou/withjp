@@ -7,6 +7,7 @@
 // lucide-react 和 react。本仓所有测试都只 import 纯 .ts 模块，不破这个例。
 // 下面对 LucideIcon 只有类型引用，strip-types 会整条擦掉，不产生运行时依赖。
 import type { LucideIcon } from 'lucide-react'
+import { pageAllowedForScope } from '../auth/access-scope.ts'
 
 /** 导航项挂的 URL query。同一个 href 靠它区分成多个入口。 */
 export type NavQuery = Readonly<Record<string, string>>
@@ -32,12 +33,19 @@ export const isGroup = (item: NavItem): item is NavGroup => 'children' in item
  * 按身份过滤导航：非管理员去掉 adminOnly 的叶子，被删空的分组整组不显示。
  * 资料还没取回时调用方传 false——宁可管理员晚一拍看到入口，也不让非管理员
  * 先看到、再看它消失。
+ * 受限帐号（accessScope 非空，见 auth/access-scope.ts）只留它能进的页面。
  */
-export function visibleNavItems(items: readonly NavItem[], isAdmin: boolean): NavItem[] {
-  if (isAdmin) return [...items]
+export function visibleNavItems(
+  items: readonly NavItem[],
+  isAdmin: boolean,
+  accessScope: string | null = null,
+): NavItem[] {
+  if (isAdmin && accessScope === null) return [...items]
+  const keep = (leaf: NavLeaf) =>
+    (isAdmin || !leaf.adminOnly) && pageAllowedForScope(accessScope, leaf.href)
   return items.flatMap((item): NavItem[] => {
-    if (!isGroup(item)) return item.adminOnly ? [] : [item]
-    const children = item.children.filter((c) => !c.adminOnly)
+    if (!isGroup(item)) return keep(item) ? [item] : []
+    const children = item.children.filter(keep)
     return children.length > 0 ? [{ ...item, children }] : []
   })
 }

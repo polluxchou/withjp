@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header'
 import CompetitorDossierView from '@/components/competitors/CompetitorDossierView'
 import CompetitorTabs from '@/components/competitors/CompetitorTabs'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import { getCompetitorBoard } from '@/lib/competitors/service'
 import type { CompetitorBoard } from '@/lib/competitors/types'
 
@@ -13,7 +14,7 @@ export default async function CompetitorsPage(props: { params: Promise<{ locale:
   const params = await props.params
   setRequestLocale(params.locale)
 
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof Response) redirect('/login')
 
   const [t, boardRes] = await Promise.all([

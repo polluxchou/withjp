@@ -24,12 +24,13 @@ test('maps sub/email/user_metadata to the fields authGuard callers read', () => 
     id: CLAIMS.sub,
     email: 'member@example.com',
     user_metadata: { name: 'Member' },
+    access_scope: null,
   })
 })
 
 test('a token without email/user_metadata still authenticates by sub alone', () => {
   const { email: _e, user_metadata: _m, ...bare } = CLAIMS
-  assert.deepEqual(authedUserFromClaims(bare), { id: CLAIMS.sub, email: undefined, user_metadata: undefined })
+  assert.deepEqual(authedUserFromClaims(bare), { id: CLAIMS.sub, email: undefined, user_metadata: undefined, access_scope: null })
 })
 
 test('no claims (no session / verification failed) is unauthenticated', () => {
@@ -80,7 +81,19 @@ test('authedUserFromUser maps a getUser() user to the same narrowed shape', () =
     id: CLAIMS.sub,
     email: 'member@example.com',
     user_metadata: { name: 'Member' },
+    access_scope: null,
   })
+})
+
+test('access_scope comes from app_metadata on both paths (user_metadata is user-writable, ignored)', () => {
+  const scoped = { ...CLAIMS, app_metadata: { provider: 'email', access_scope: 'competitors' } }
+  assert.equal(authedUserFromClaims(scoped)?.access_scope, 'competitors')
+  const forged = { ...CLAIMS, user_metadata: { access_scope: 'competitors' } }
+  assert.equal(authedUserFromClaims(forged)?.access_scope, null)
+  assert.equal(
+    authedUserFromUser({ id: CLAIMS.sub, user_metadata: {}, app_metadata: { access_scope: 'competitors' } })?.access_scope,
+    'competitors',
+  )
 })
 
 test('authedUserFromUser treats a missing user as unauthenticated', () => {

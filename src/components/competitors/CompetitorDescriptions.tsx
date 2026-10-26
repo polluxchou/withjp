@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useCanDelete } from '@/lib/auth/useCurrentUser'
 import { Check, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import { todayLocal } from '@/lib/competitors/localDate'
 import type { CompetitorDescription } from '@/lib/competitors/types'
@@ -39,6 +40,7 @@ export default function CompetitorDescriptions({
   onChanged: () => void
 }) {
   const t = useTranslations('competitors')
+  const canDelete = useCanDelete()
   const tCommon = useTranslations('common')
   const panelId = useId()
   const wrapRef = useRef<HTMLSpanElement>(null)
@@ -299,15 +301,17 @@ export default function CompetitorDescriptions({
                               >
                                 <Pencil size={12} strokeWidth={1.5} />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => remove(d.id)}
-                                disabled={pending}
-                                aria-label={t('descriptionDelete')}
-                                className={`rounded-field text-ink-400 hover:text-danger-text disabled:opacity-50 ${FOCUS_RING}`}
-                              >
-                                <Trash2 size={12} strokeWidth={1.5} />
-                              </button>
+                              {canDelete && (
+                                <button
+                                  type="button"
+                                  onClick={() => remove(d.id)}
+                                  disabled={pending}
+                                  aria-label={t('descriptionDelete')}
+                                  className={`rounded-field text-ink-400 hover:text-danger-text disabled:opacity-50 ${FOCUS_RING}`}
+                                >
+                                  <Trash2 size={12} strokeWidth={1.5} />
+                                </button>
+                              )}
                             </span>
                           )}
                         </div>

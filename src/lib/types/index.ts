@@ -428,6 +428,8 @@ export interface UserProfile {
   avatar_url?: string
   created_at: string
   updated_at: string
+  /** 来自 Auth app_metadata，不是 users 表的列；null = 普通成员。见 auth/access-scope.ts。 */
+  access_scope?: string | null
 }
 
 // ── User Salary ───────────────────────────────────────────

@@ -111,6 +111,19 @@ test('visibleNavItems 非管理员去掉 adminOnly 叶子，删空的分组整�
   assert.deepEqual(keysOf(visibleNavItems(SAMPLE, false)), ['workbench', 'costManagement[items]'])
 })
 
+test('visibleNavItems 受限帐号只留竞品入口，其余分组整组不显示', () => {
+  const withCompetitors: readonly NavItem[] = [
+    ...SAMPLE,
+    { key: 'creatorOps', icon, children: [
+      { href: '/creators', key: 'creatorsList', icon },
+      { href: '/competitors', key: 'competitors', icon },
+    ] },
+  ]
+  assert.deepEqual(keysOf(visibleNavItems(withCompetitors, false, 'competitors')), ['creatorOps[competitors]'])
+  // 不认识的范围：什么都不留（失败从严）
+  assert.deepEqual(keysOf(visibleNavItems(withCompetitors, false, 'finance')), [])
+})
+
 test('visibleNavItems 不改动传入的导航数据', () => {
   visibleNavItems(SAMPLE, false)
   const cost = SAMPLE[1]

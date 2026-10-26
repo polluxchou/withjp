@@ -4,6 +4,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import CommandPanel from '@/components/intent/CommandPanel'
 import { CurrencyProvider } from '@/lib/currency'
 import { requirePageUser } from '@/lib/auth/require-page-user'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 
 export default async function AppLayout(props: {
   children: React.ReactNode
@@ -12,7 +13,8 @@ export default async function AppLayout(props: {
   const params = await props.params
   const { children } = props
   // 服务端登录检查：middleware 之外的第二道门，见 src/lib/auth/page-session.ts。
-  await requirePageUser(params.locale)
+  // layout 是所有后台页共享的，受限帐号在这里放行，各页面（与 middleware）再各自拦。
+  await requirePageUser(params.locale, { allowScope: COMPETITORS_SCOPE })
 
   return (
     <CurrencyProvider>

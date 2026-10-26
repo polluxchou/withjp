@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useCanDelete } from '@/lib/auth/useCurrentUser'
 import { ChevronDown, ChevronLeft, ChevronRight, Download, Info, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
@@ -54,6 +55,7 @@ export default function ShotLightbox({
   onChanged: () => void | Promise<void>
 }) {
   const t = useTranslations('competitors')
+  const canDelete = useCanDelete()
   const tCommon = useTranslations('common')
   const tagLabel = useShotTagLabel()
   // 开播时刻按账号所在地区的时区换算（库里是 UTC），与卡片「常见开播」、开播记录弹窗同一口径；
@@ -734,15 +736,17 @@ export default function ShotLightbox({
                 </button>
                 {/* 破坏性操作:手机上给足 44px 触达区,靠 ml-auto 推到最右。
                     关闭键在右上角,跟它隔着整张图。 */}
-                <button
-                  type="button"
-                  onClick={removeSelected}
-                  disabled={busy}
-                  aria-label={t('delete')}
-                  className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/50 text-white transition-colors hover:bg-danger-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-8 sm:w-8"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={removeSelected}
+                    disabled={busy}
+                    aria-label={t('delete')}
+                    className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-icon bg-black/50 text-white transition-colors hover:bg-danger-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-ring disabled:opacity-50 sm:h-8 sm:w-8"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </div>
             )}
           </div>

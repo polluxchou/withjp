@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react'
 export interface CurrentUser {
   id: string
   is_admin: boolean
+  /** 受限帐号的范围（见 access-scope.ts）；null = 普通成员。 */
+  access_scope: string | null
 }
 
 let cache: CurrentUser | null = null
@@ -17,7 +19,11 @@ async function fetchCurrentUser(): Promise<CurrentUser | null> {
       .then((r) => r.json())
       .then((json) => {
         if (json.data) {
-          cache = { id: json.data.id, is_admin: json.data.is_admin ?? false }
+          cache = {
+            id: json.data.id,
+            is_admin: json.data.is_admin ?? false,
+            access_scope: json.data.access_scope ?? null,
+          }
         }
         return cache
       })
@@ -35,6 +41,12 @@ export function useCurrentUser() {
   }, [])
 
   return user
+}
+
+// 受限帐号（见 access-scope.ts）没有删除权，删除入口直接不显示；接口那边也会 403。
+// 资料没取回前按普通成员显示，与原先一致。
+export function useCanDelete(): boolean {
+  return !useCurrentUser()?.access_scope
 }
 
 export function canEdit(

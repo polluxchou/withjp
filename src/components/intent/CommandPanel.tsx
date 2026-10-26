@@ -10,6 +10,7 @@ import Composer from './Composer'
 import { notifyIntentApplied } from '@/lib/intent/events'
 import { askHistoryOf, markSettled, priorContextOf, type ServerResult, type Turn } from '@/lib/intent/conversation'
 import { FOCUS_RING } from '@/lib/ui/recipes'
+import { useCurrentUser } from '@/lib/auth/useCurrentUser'
 import type { VenueAction } from '@/venue/layoutData'
 
 // ── Venue scope registry ──────────────────────────────────────
@@ -38,7 +39,14 @@ export function openCommandBar(initialText?: string) {
 
 // ── Component ─────────────────────────────────────────────────
 
+// 指令面板能跨模块记支出、改任务，受限帐号（只开竞品）不给入口；/api/intent 也拒它。
 export default function CommandPanel() {
+  const user = useCurrentUser()
+  if (user?.access_scope) return null
+  return <CommandPanelInner />
+}
+
+function CommandPanelInner() {
   const t = useTranslations('intent')
   const locale = useLocale()
   const [mounted, setMounted] = useState(false)
