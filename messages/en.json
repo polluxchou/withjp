@@ -1895,6 +1895,7 @@
     "coLiveSelfFromRoom": "This account uses the in-room count",
     "coLiveFootnote": "Same-second readings at {time}",
     "coLiveLoadFailed": "Couldn't load co-live data",
+    "coLiveAlone": "No other live rooms seen at the same time",
     "coLiveExpand": "Show list",
     "coLiveCollapse": "Hide list",
     "prevShot": "Previous shot",

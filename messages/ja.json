@@ -1654,6 +1654,7 @@
     "coLiveSelfFromRoom": "本アカウントは配信画面内の数値",
     "coLiveFootnote": "{time} 時点の同時刻データ",
     "coLiveLoadFailed": "同時配信データを読み込めませんでした",
+    "coLiveAlone": "同時間帯に他の配信は見当たりませんでした",
     "coLiveExpand": "一覧を表示",
     "coLiveCollapse": "一覧を閉じる",
     "prevShot": "前の画像",
