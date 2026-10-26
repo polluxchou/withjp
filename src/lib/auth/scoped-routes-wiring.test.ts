@@ -121,3 +121,9 @@ test('后台页面里只有共享 layout 与竞品页放行受限帐号', () => 
     .map((f) => f.slice(APP.length)).sort()
   assert.deepEqual(optedIn, allowed.sort())
 })
+
+test('页面会话取用户时不能先被范围挡掉（否则受限帐号在竞品页也被当成没登录）', () => {
+  const src = readSrc('lib/auth/require-page-user.ts')
+  assert.match(src, /const user = await authGuard\(\{ allowScope: COMPETITORS_SCOPE \}\)/)
+  assert.doesNotMatch(src, /authGuard\(\)/)
+})
