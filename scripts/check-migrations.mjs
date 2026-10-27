@@ -4,6 +4,7 @@ import {
   GRANT_CHECK_FROM,
   missingTablePrivileges,
   sequencesMissingServiceRoleGrant,
+  unsupportedTableCreation,
 } from './migration-grants.mjs'
 
 // Guards the migration naming contract (see supabase/migrations/README.md):
@@ -47,6 +48,9 @@ for (const name of entries) {
     }
     for (const sequence of sequencesMissingServiceRoleGrant(sql)) {
       errors.push(`${name}: 序列 public.${sequence} 对 service_role 缺少 USAGE 或 UPDATE 权限`)
+    }
+    for (const issue of unsupportedTableCreation(sql)) {
+      errors.push(`${name}: ${issue}；请改用显式 CREATE TABLE + GRANT 或扩展检查器`)
     }
   }
 }

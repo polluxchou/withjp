@@ -63,6 +63,8 @@ grant select on public.<表名> to authenticated;
   新建的表最终必须给 `service_role` 留下 `SELECT/INSERT/UPDATE/DELETE`；若使用 `serial`
   或 `nextval()`，还须给相关序列 `USAGE` 或 `UPDATE`。检查器会按 SQL 顺序处理授权和撤销。
   `anon` / `authenticated` 是逐表决定，CI 不强制。
+- `SELECT INTO`、`ALTER TABLE ... SET SCHEMA public`、`DO` 中动态建表等未被当前静态解析器
+  完整理解的写法会让 CI 报错；请改成显式 `CREATE TABLE` 加授权，或先扩展检查器与测试。
 - 此门槛按**文件名**而非远端执行时间判断。若旧建表文件至今仍未在某个远端项目执行，
   在默认权限变更后补跑也需要显式授权；上线前必须按下节方法核对各项目实际 schema。
 - 应用后在 SQL Editor 核对有效权限（把占位符替换为实际对象名）：

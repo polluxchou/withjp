@@ -15,7 +15,7 @@ test('finds unqualified, public-qualified and quoted tables; skips other schemas
     create table "public"."Baz" (id int);
     create table private.secret (id int);
   `
-  assert.deepEqual(createdPublicTables(sql), ['foo', 'bar', 'baz'])
+  assert.deepEqual(createdPublicTables(sql), ['foo', 'bar', 'Baz'])
 })
 
 test('ignores create table inside comments', () => {
@@ -143,6 +143,110 @@ test('identity columns do not require a separate sequence grant for insert', () 
   assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), [])
 })
 
+test('a GRANT mentioned inside a dollar-quoted body is not executed', () => {
+  const sql = `
+    create table public.foo (id int);
+    do $$ begin raise notice 'grant all on public.foo to service_role;'; end $$;
+  `
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('non-BMP text in comments does not shift SQL token positions', () => {
+  const sql = 'create table public.foo (id int); /*🔒*/grant all on public.foo to service_role;'
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), [])
+})
+
+test('recreating a table loses the old object grant', () => {
+  const sql = `
+    create table public.foo (id int);
+    grant all on public.foo to service_role;
+    drop table public.foo;
+    create table public.foo (id int);
+  `
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('REVOKE CASCADE still revokes the service role grant', () => {
+  const sql = `
+    create table public.foo (id int);
+    grant all on public.foo to service_role;
+    revoke insert on public.foo from service_role cascade;
+  `
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('nextval default added by ALTER TABLE needs sequence access', () => {
+  const sql = `
+    create sequence public.foo_id_seq;
+    create table public.foo (id bigint);
+    alter table public.foo alter column id set default nextval('public.foo_id_seq'::regclass);
+    grant all on public.foo to service_role;
+  `
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), ['foo_id_seq'])
+})
+
+test('quoted mixed-case table is distinct from unquoted lowercase table', () => {
+  const sql = `
+    create table public.foo (id int);
+    create table public."Foo" (id int);
+    grant all on public.foo to service_role;
+  `
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['Foo'])
+})
+
+test('unqualified GRANT follows the active search_path', () => {
+  const sql = `
+    create schema if not exists private;
+    create table private.foo (id int);
+    create table public.foo (id int);
+    set search_path = private, public;
+    grant all on foo to service_role;
+  `
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('unqualified CREATE TABLE follows the active search_path', () => {
+  const sql = 'set search_path = private, public; create table foo (id int);'
+  assert.deepEqual(createdPublicTables(sql), [])
+})
+
+test('GRANT text inside an E-string does not count', () => {
+  const sql = String.raw`create table public.foo (id int); select E'can\'t grant all on public.foo to service_role;';`
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('nested block comments cannot smuggle a GRANT', () => {
+  const sql = 'create table public.foo (id int); /* outer /* inner */ grant all on public.foo to service_role; */'
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('unqualified sequence GRANT follows the active search_path', () => {
+  const sql = `
+    create schema if not exists private;
+    create sequence private.foo_id_seq;
+    create table public.foo (id serial primary key);
+    set search_path = private, public;
+    grant usage on sequence foo_id_seq to service_role;
+  `
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), ['foo_id_seq'])
+})
+
+test('unsupported table-creating SQL is rejected for manual review', () => {
+  const cases = [
+    "do $$ begin execute 'create table public.foo (id int)'; end $$;",
+    'select 1 as id into public.foo;',
+    'alter table private.foo set schema public;',
+  ]
+  for (const sql of cases) {
+    assert.ok(grantChecks.unsupportedTableCreation?.(sql)?.length > 0, sql)
+  }
+})
+
+test('policy-only DO block does not trigger unsupported table creation', () => {
+  const sql = "do $$ begin execute 'create policy p on public.foo using (true)'; end $$;"
+  assert.deepEqual(grantChecks.unsupportedTableCreation?.(sql), [])
+})
+
 test('migration CLI rejects a serial table missing its sequence grant', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'migration-grants-'))
   try {
@@ -156,6 +260,22 @@ test('migration CLI rejects a serial table missing its sequence grant', () => {
     const result = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' })
     assert.equal(result.status, 1)
     assert.match(result.stderr, /foo_id_seq/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('migration CLI rejects unsupported SELECT INTO table creation', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'migration-grants-'))
+  try {
+    const migrations = path.join(root, 'supabase', 'migrations')
+    mkdirSync(migrations, { recursive: true })
+    writeFileSync(path.join(migrations, '20261027000000_select_into.sql'),
+      'select 1 as id into public.foo;')
+    const checker = fileURLToPath(new URL('./check-migrations.mjs', import.meta.url))
+    const result = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /SELECT INTO/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
