@@ -1884,6 +1884,7 @@
     "addShotOnDate": "Add a shot for {date}",
     "moreShots": "+{count}",
     "shotIndexOf": "{index} / {total}",
+    "shotUploader": "Uploaded by {name}",
     "shotViewers": "{count} watching",
     "shotStartedAt": "Started {time} PT",
     "shotStartedAtZone": "Started {time} ({zone})",

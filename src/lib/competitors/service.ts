@@ -152,7 +152,7 @@ export async function getCompetitorBoard(
 
   const index = buildShotIndex((indexRes.data ?? []) as ShotIndexRow[])
   const loadedFrom = resolveLoadedFrom(index.shotAxis, since)
-  const shotRes = await fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+  const shotRes = await fetchAllRows((from, to) => db.from('competitor_shots').select(BOARD_SHOT_COLUMNS)
     .or(loadedRangeOrFilter(loadedFrom))
     .order('id', { ascending: true }).range(from, to))
   if (shotRes.error) return err('db_error', shotRes.error.message)
@@ -179,7 +179,7 @@ export async function getShotsInRange(
   const q = parseShotRangeQuery(rangeFrom, rangeBefore)
   if (!q.ok) return err('invalid_input', 'from/before must be real dates in YYYY-MM-DD with from < before')
   const db = createServerClient()
-  const res = await fetchAllRows((from, to) => db.from('competitor_shots').select('*')
+  const res = await fetchAllRows((from, to) => db.from('competitor_shots').select(BOARD_SHOT_COLUMNS)
     .gte('shot_on', q.from).lt('shot_on', q.before)
     .order('id', { ascending: true }).range(from, to))
   if (res.error) return err('db_error', res.error.message)
@@ -231,6 +231,9 @@ export async function getShotReadings(
  * 竞品问答要的截图列。ask-context.ts 新读一个截图字段时，同时加到这里和 types.ts 的 AskShot，
  * 否则那一列在问答里恒为 undefined——shot-window-wiring.test.ts 钉着这份清单。
  */
+// 看板与补取共用：截图本体 + 上传者简称（users.name）。只取 name，邮箱不下发。
+export const BOARD_SHOT_COLUMNS = '*, uploader:users!competitor_shots_created_by_fkey(name)'
+
 export const ASK_SHOT_COLUMNS = 'competitor_id, shot_on, sort_order, stream_started_at, viewer_count, captured_at'
 
 /**

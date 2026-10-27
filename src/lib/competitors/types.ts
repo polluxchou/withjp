@@ -67,6 +67,8 @@ export interface CompetitorShot {
   captured_at: string | null
   /** 上传者；自动巡检写的为 null。受限帐号只能删自己上传的（见 access-scope.ts）。 */
   created_by?: string | null
+  /** 上传者的后台帐号简称（users.name，经 BOARD_SHOT_COLUMNS 关联取来）；自动巡检的为 null。 */
+  uploader?: { name: string } | null
 }
 
 /**

@@ -527,6 +527,12 @@ export default function ShotLightbox({
                     {t('shotIndexOf', { index: index + 1, total: shots.length })}
                   </span>
                 )}
+                {/* 上传者只显示后台帐号简称，不露邮箱；自动巡检写的没有上传者，不画。 */}
+                {selected.uploader?.name && (
+                  <span className="rounded-btn bg-black/60 px-2 py-1 text-xs text-white backdrop-blur">
+                    {t('shotUploader', { name: selected.uploader.name })}
+                  </span>
+                )}
               </div>
               )}
 
