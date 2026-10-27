@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { scopedWriteAllowed } from './access-scope'
 
 export interface CurrentUser {
   id: string
@@ -47,6 +48,13 @@ export function useCurrentUser() {
 // 资料没取回前按普通成员显示，与原先一致。
 export function useCanDelete(): boolean {
   return !useCurrentUser()?.access_scope
+}
+
+// 带 owner 的版本：受限帐号在 SCOPED_SELF_DELETE_TABLES 里能删自己的记录（目前只有截图）。
+export function useCanDeleteOwned(table: string, ownerId: string | null): boolean {
+  const user = useCurrentUser()
+  if (!user) return true
+  return scopedWriteAllowed(user, 'delete', ownerId, table)
 }
 
 export function canEdit(

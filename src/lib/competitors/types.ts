@@ -65,6 +65,8 @@ export interface CompetitorShot {
   stream_started_at: string | null
   /** 截图捕获时刻（ISO）。用它而非 created_at 算时长，避免入库延迟误差。 */
   captured_at: string | null
+  /** 上传者；自动巡检写的为 null。受限帐号只能删自己上传的（见 access-scope.ts）。 */
+  created_by?: string | null
 }
 
 /**
