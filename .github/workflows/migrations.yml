@@ -3,6 +3,7 @@ name: migrations
 # Guards the migration naming contract (supabase/migrations/README.md):
 #   * every file is <YYYYMMDDHHMMSS>_<snake_case>.sql
 #   * no duplicate timestamp prefixes
+#   * new public tables are granted to service_role (Supabase 2026-10-30 change)
 # Pure Node script, no install needed.
 
 on:
@@ -10,6 +11,8 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'scripts/check-migrations.mjs'
+      - 'scripts/migration-grants.mjs'
+      - 'scripts/migration-grants.test.mjs'
       - '.github/workflows/migrations.yml'
   push:
     branches: [main]
@@ -26,3 +29,6 @@ jobs:
 
       - name: Migration file naming
         run: node scripts/check-migrations.mjs
+
+      - name: Grant checker unit tests
+        run: node --test scripts/migration-grants.test.mjs
