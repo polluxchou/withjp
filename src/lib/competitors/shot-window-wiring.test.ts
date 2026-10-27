@@ -119,7 +119,7 @@ test('getCompetitorBoard：先瘦查询建全量索引，截图本体按已加�
   assert.match(body, /db\.from\('competitor_shots'\)\.select\('competitor_id, shot_on, stream_started_at, captured_at'\)/)
   assert.match(body, /buildShotIndex\(/)
   assert.match(body, /resolveLoadedFrom\(index\.shotAxis, since\)/)
-  assert.match(body, /db\.from\('competitor_shots'\)\.select\('\*'\)\s*\.or\(loadedRangeOrFilter\(loadedFrom\)\)/)
+  assert.match(body, /db\.from\('competitor_shots'\)\.select\(BOARD_SHOT_COLUMNS\)\s*\.or\(loadedRangeOrFilter\(loadedFrom\)\)/)
   // 全量索引与已加载起点必须一起交给 assembleBoard，否则前端拿不到完整日期轴
   assert.match(body, /shotsLoadedFrom: loadedFrom/)
 })
@@ -133,11 +133,18 @@ test('getCompetitorBoard：since 进查询前自己再校验一道', () => {
 test('getShotsInRange：按 [from, before) 取整段，入参再校验一道', () => {
   const body = bodyOf(SERVICE, 'getShotsInRange')
   assert.match(body, /parseShotRangeQuery\(rangeFrom, rangeBefore\)/)
-  // select('*')：补取回来的是截图本体，列不能少；过滤紧跟其后。
+  // 与看板同一组列（BOARD_SHOT_COLUMNS）：补取回来的是截图本体，列不能少；过滤紧跟其后。
   assert.match(
     body,
-    /db\.from\('competitor_shots'\)\.select\('\*'\)\s*\.gte\('shot_on', q\.from\)\.lt\('shot_on', q\.before\)/,
+    /db\.from\('competitor_shots'\)\.select\(BOARD_SHOT_COLUMNS\)\s*\.gte\('shot_on', q\.from\)\.lt\('shot_on', q\.before\)/,
   )
+})
+
+test('BOARD_SHOT_COLUMNS：截图全列 + 上传者只取简称，不带邮箱', () => {
+  const m = SERVICE.match(/export const BOARD_SHOT_COLUMNS = '([^']+)'/)
+  assert.ok(m, '应导出 BOARD_SHOT_COLUMNS')
+  assert.equal(m![1], '*, uploader:users!competitor_shots_created_by_fkey(name)')
+  assert.doesNotMatch(m![1], /email/)
 })
 
 test('GET /api/competitors：鉴权后解析 since 再取看板', () => {
