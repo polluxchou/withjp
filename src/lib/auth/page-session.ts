@@ -13,6 +13,7 @@
 // 本文件不 import next/*，node --test 直接跑；绑定真实依赖只在 require-page-user.ts。
 
 import { defaultLocale, isLocale } from '../../i18n/routing.ts'
+import { scopeAllows, scopedHomePath, type AccessArea } from './access-scope.ts'
 
 // 未登录跳到同语言的登录页。locale 来自路由参数，不认识的一律回默认语言，
 // 不把原样字符串拼进跳转地址。
@@ -25,8 +26,13 @@ export interface PageSessionDeps<U> {
   redirect: (path: string) => never
 }
 
-export function createPageSessionGuard<U>(deps: PageSessionDeps<U>) {
-  return async function requirePageUser(locale: string | undefined): Promise<U> {
+// 受限帐号（access_scope 非空，见 access-scope.ts）默认跳回它能进的首页；
+// 只有写了 { allowScope } 的调用（共享的 layout）放行。
+export function createPageSessionGuard<U extends { access_scope?: string | null }>(deps: PageSessionDeps<U>) {
+  return async function requirePageUser(
+    locale: string | undefined,
+    opts?: { allowScope?: AccessArea },
+  ): Promise<U> {
     let user: U | null = null
     try {
       user = await deps.getUser()
@@ -35,6 +41,9 @@ export function createPageSessionGuard<U>(deps: PageSessionDeps<U>) {
       // 跳登录页的口径一致：宁可多跳一次登录，不放行。
     }
     if (!user) return deps.redirect(loginPathForLocale(locale))
+    if (!scopeAllows(user.access_scope ?? null, opts?.allowScope)) {
+      return deps.redirect(scopedHomePath(isLocale(locale) ? locale : defaultLocale))
+    }
     return user
   }
 }

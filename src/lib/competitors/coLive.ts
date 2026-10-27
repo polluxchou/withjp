@@ -7,7 +7,10 @@
 //   别家的 current 行一律不看——那是别人截别的房间时的口径。
 // - 竞赛名次：并列同名次，下一名次跳过。解析失败（viewerCount 为 null）排末尾、不计名次。
 // - 同人数（或同为解析失败）的行按界面显示的 label（displayName，空则 handle）localeCompare 定序，名次不受影响。
-// - 名单为空或只有本号一行返回 null：没有可比对象，放大页整段不画。
+// - 名单为空或只有本号一行返回 null：没有可比对象，不画名单。
+// - 但侧栏确实读到了、只是在库账号里只有本号在播（coLiveSeenAlone），放大页要说一句
+//   「同时段未见其他在播直播间」，免得被当成没采到。没有任何 sidebar 行时分不清是侧栏没读到
+//   还是真没人播（老图、自动巡检、侧栏只剩推荐区都长这样），照旧整段不画。
 
 export interface CoLiveReading {
   competitorId: string
@@ -91,6 +94,12 @@ export function buildCoLiveView(readings: CoLiveReading[], selfCompetitorId: str
   })
   const self = rows.find((x) => x.isSelf)
   return { rows, total: rows.length, selfRank: self?.rank ?? null, selfFromCurrent }
+}
+
+/** 侧栏读到了本号、却没有任何别家在播：同期名单为空不是因为没采到。 */
+export function coLiveSeenAlone(readings: CoLiveReading[], selfCompetitorId: string): boolean {
+  const sidebar = readings.filter((x) => x.source === 'sidebar')
+  return sidebar.length > 0 && sidebar.every((x) => x.competitorId === selfCompetitorId)
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/

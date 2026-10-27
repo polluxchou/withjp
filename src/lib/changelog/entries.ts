@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-10-26',
+    items: [
+      {
+        kind: 'improve',
+        scope: '竞品监测',
+        title: '截图放大页：同一时刻没有其他竞品在播时，会提示「同时段未见到其他在播直播间」',
+        details:
+          '以前插件上传截图时侧栏只看到本号自己在播，放大页的「同期在播」整段不显示，容易被当成没采到人数。现在会明确说一句同时段没见到别家在播；鼠标停在旁边的小图标上可看覆盖范围（只算截图人关注、侧栏看得到的在库账号）。',
+      },
+    ],
+  },
+  {
     date: '2026-10-20',
     items: [
       {

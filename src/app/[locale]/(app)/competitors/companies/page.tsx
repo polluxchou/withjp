@@ -7,13 +7,14 @@ import CompetitorTabs from '@/components/competitors/CompetitorTabs'
 import CompetitorCompaniesView from '@/components/competitors/CompetitorCompaniesView'
 import ErrorState from '@/components/ui/ErrorState'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import { getCompanyBoard } from '@/lib/competitors/service'
 
 export default async function CompetitorCompaniesPage(props: { params: Promise<{ locale: string }> }) {
   const params = await props.params
   setRequestLocale(params.locale)
 
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof Response) redirect('/login')
 
   const [t, boardRes] = await Promise.all([

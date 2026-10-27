@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import type { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
+import { accessScopeOf } from '@/lib/auth/access-scope'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Lock } from 'lucide-react'
 import Header from '@/components/layout/Header'
@@ -25,7 +26,8 @@ export default async function ExpensesLayout(props: {
 
   const auth = await createAuthServerClient()
   const { data: { user } } = await auth.auth.getUser()
-  if (!user) redirect('/login')
+  // 受限帐号（只开竞品）进不来，见 access-scope.ts；middleware 已先拦一道。
+  if (!user || accessScopeOf(user.app_metadata)) redirect('/login')
 
   if (!canAccessExpenses(await getActorProfile(user.id))) {
     const t = await getTranslations('expenses')

@@ -314,7 +314,7 @@ export default function Sidebar() {
 
   useEffect(() => { loadProfile() }, [])
 
-  const navItems = useMemo(() => visibleNavItems(NAV_ITEMS, profile?.is_admin === true), [profile])
+  const navItems = useMemo(() => visibleNavItems(NAV_ITEMS, profile?.is_admin === true, profile?.access_scope ?? null), [profile])
 
   // Restore persisted state on mount
   useEffect(() => {

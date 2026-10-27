@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
+import { accessScopeOf } from '@/lib/auth/access-scope'
 import { setRequestLocale } from 'next-intl/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-server'
 import { getActorProfile } from '@/lib/auth/actor'
@@ -20,7 +21,8 @@ export default async function SiteContentMembersPage(props: {
 
   const auth = await createAuthServerClient()
   const { data: { user } } = await auth.auth.getUser()
-  if (!user) redirect('/login')
+  // 受限帐号（只开竞品）进不来，见 access-scope.ts；middleware 已先拦一道。
+  if (!user || accessScopeOf(user.app_metadata)) redirect('/login')
 
   const actor = await getActorProfile(user.id)
   if (!actor) redirect('/login')

@@ -1,12 +1,13 @@
 // src/app/api/competitors/shots/[shotId]/readings/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import { parseShotId } from '@/lib/competitors/coLive'
 import { getShotReadings, httpStatusForError } from '@/lib/competitors/service'
 
 // GET /api/competitors/shots/[shotId]/readings — 放大页按需取这张截图的同期人数读数
 export async function GET(_req: NextRequest, props: { params: Promise<{ shotId: string }> }) {
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
   const params = await props.params
   const shotId = parseShotId(params.shotId)

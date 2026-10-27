@@ -7,6 +7,7 @@ import CompetitorTabs from '@/components/competitors/CompetitorTabs'
 import CompetitorLiveView from '@/components/competitors/live/CompetitorLiveView'
 import ErrorState from '@/components/ui/ErrorState'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import { HOME_ZONE } from '@/lib/competitors/liveBoard'
 import { getCompanyOfCompetitor, getCompetitorBoard, getLiveSummaries } from '@/lib/competitors/service'
 import { zonedYmd } from '@/lib/time/zonedTime'
@@ -15,7 +16,7 @@ export default async function CompetitorLivePage(props: { params: Promise<{ loca
   const params = await props.params
   setRequestLocale(params.locale)
 
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof Response) redirect('/login')
 
   const [t, boardRes, companyRes, summariesRes] = await Promise.all([

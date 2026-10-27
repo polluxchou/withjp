@@ -1,12 +1,13 @@
 // src/app/api/competitors/[id]/descriptions/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import { addDescription, httpStatusForError } from '@/lib/competitors/service'
 import type { DescriptionInput } from '@/lib/competitors/service'
 
 // POST /api/competitors/[id]/descriptions — body { body, generated_on }
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
   const params = await props.params
   let body: DescriptionInput
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   } catch {
     return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
   }
-  const result = await addDescription(params.id, body)
+  const result = await addDescription(params.id, body, user.id)
   if (result.error) {
     return NextResponse.json({ data: null, error: result.error.message }, { status: httpStatusForError(result.error.code) })
   }

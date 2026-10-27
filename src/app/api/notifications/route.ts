@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import {
   httpStatusForNotificationError,
   listNotificationsForUser,
@@ -7,7 +8,7 @@ import {
 
 // GET /api/notifications
 export async function GET() {
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
 
   const result = await listNotificationsForUser(user.id)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authGuard } from '@/lib/auth/guard'
+import { COMPETITORS_SCOPE } from '@/lib/auth/access-scope'
 import {
   httpStatusForNotificationError,
   markAllNotificationsRead,
@@ -7,7 +8,7 @@ import {
 
 // PATCH /api/notifications/read-all
 export async function PATCH(_req: NextRequest) {
-  const user = await authGuard()
+  const user = await authGuard({ allowScope: COMPETITORS_SCOPE })
   if (user instanceof NextResponse) return user
 
   const result = await markAllNotificationsRead(user.id)
