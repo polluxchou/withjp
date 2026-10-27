@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { useCanDeleteOwned } from '@/lib/auth/useCurrentUser'
-import { ChevronDown, ChevronLeft, ChevronRight, Download, Info, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
+import { Camera, ChevronDown, ChevronLeft, ChevronRight, Download, Info, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
 import { maxShotDate } from '@/lib/competitors/localDate'
@@ -512,25 +512,33 @@ export default function ShotLightbox({
               </button>
 
               {/* 日期与序号并排贴左上。序号不能放右上 —— 手机上主图占满时会和
-                  关闭键叠在一起(静态稿实测撞上了)。 */}
+                  关闭键叠在一起(静态稿实测撞上了)。每枚标签自身不折行；放不下时
+                  整枚换到下一行(flex-wrap)，不然会被挤成「202…」和竖排的「4 / 4」。 */}
               {!cleanView && (
-              <div className="absolute left-2.5 top-2.5 flex max-w-[calc(100%-12rem)] items-center gap-1.5">
+              <div className="absolute left-2.5 top-2.5 flex max-w-[calc(100%-12rem)] flex-wrap items-center gap-1.5">
                 <span
-                  className={`truncate rounded-btn px-2.5 py-1 text-xs font-semibold tabular-nums backdrop-blur ${
+                  className={`whitespace-nowrap rounded-btn px-2.5 py-1 text-xs font-semibold tabular-nums backdrop-blur ${
                     selected.shot_on ? 'bg-black/60 text-white' : 'bg-warning-dot text-ink-900'
                   }`}
                 >
                   {selected.shot_on ?? t('undated')}
                 </span>
                 {shots.length > 1 && (
-                  <span className="rounded-btn bg-black/60 px-2 py-1 text-xs tabular-nums text-white backdrop-blur">
+                  <span className="whitespace-nowrap rounded-btn bg-black/60 px-2 py-1 text-xs tabular-nums text-white backdrop-blur">
                     {t('shotIndexOf', { index: index + 1, total: shots.length })}
                   </span>
                 )}
-                {/* 上传者只显示后台帐号简称，不露邮箱；自动巡检写的没有上传者，不画。 */}
+                {/* 上传者只显示后台帐号简称，不露邮箱；自动巡检写的没有上传者，不画。
+                    用品牌色衬底，跟黑底的日期、序号分开一眼可辨。这一列右边要给右上四颗按钮
+                    让位，手机上只剩约 10rem：画面只放小相机图标 + 名字，「上传：」文案进 title 与读屏。 */}
                 {selected.uploader?.name && (
-                  <span className="rounded-btn bg-black/60 px-2 py-1 text-xs text-white backdrop-blur">
-                    {t('shotUploader', { name: selected.uploader.name })}
+                  <span
+                    title={t('shotUploader', { name: selected.uploader.name })}
+                    className="inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-btn bg-primary px-2 py-1 text-xs font-semibold text-white shadow-sm"
+                  >
+                    <Camera className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span className="sr-only">{t('shotUploader', { name: selected.uploader.name })}</span>
+                    <span className="truncate" aria-hidden="true">{selected.uploader.name}</span>
                   </span>
                 )}
               </div>
