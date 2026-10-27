@@ -45,9 +45,18 @@ test('scopedHomePath 带语言前缀', () => {
 test('scopedWriteAllowed：受限帐号不能删，只能改自己建的', () => {
   const me = { id: 'u1', access_scope: 'competitors' }
   assert.equal(scopedWriteAllowed(me, 'delete', 'u1'), false)
+  assert.equal(scopedWriteAllowed(me, 'delete', 'u1', 'competitors'), false)
+  assert.equal(scopedWriteAllowed(me, 'delete', 'u1', 'competitor_descriptions'), false)
   assert.equal(scopedWriteAllowed(me, 'update', 'u1'), true)
   assert.equal(scopedWriteAllowed(me, 'update', 'u2'), false)
   assert.equal(scopedWriteAllowed(me, 'update', null), false)
+})
+
+test('scopedWriteAllowed：受限帐号只能删自己上传的截图，别人的与自动巡检的不行', () => {
+  const me = { id: 'u1', access_scope: 'competitors' }
+  assert.equal(scopedWriteAllowed(me, 'delete', 'u1', 'competitor_shots'), true)
+  assert.equal(scopedWriteAllowed(me, 'delete', 'u2', 'competitor_shots'), false)
+  assert.equal(scopedWriteAllowed(me, 'delete', null, 'competitor_shots'), false)
 })
 
 test('scopedWriteAllowed：普通成员不受这层限制', () => {

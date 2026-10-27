@@ -18,7 +18,7 @@ import { normalizeDescriptionBody } from './descriptions.ts'
 import { validateLiveSessionRows } from './liveHistory.ts'
 import { sortSummaries, type LiveSummary } from './liveSummaries.ts'
 import { normalizeRegion, resolveNewRegion } from './regions.ts'
-import { scopedWriteAllowed } from '../auth/access-scope.ts'
+import { scopedWriteAllowed, SCOPED_SELF_DELETE_TABLES } from '../auth/access-scope.ts'
 import { isValidShotDate } from './shotGrid.ts'
 import { buildShotIndex, loadedRangeOrFilter, parseShotRangeQuery, resolveLoadedFrom } from './shotWindow.ts'
 import type { ShotIndexRow } from './shotWindow.ts'
@@ -334,7 +334,7 @@ export async function getLiveSummaries(): Promise<ServiceResult<LiveSummary[]>> 
 
 // ---- 受限帐号的写入边界 ----
 //
-// 受限帐号（access_scope，见 auth/access-scope.ts）只能改自己建的记录、不能删。
+// 受限帐号（access_scope，见 auth/access-scope.ts）只能改自己建的记录；只能删自己上传的截图。
 // 普通成员与管理员不经过这里的限制（不查库，直接放行）。owner 列是 created_by：
 // 截图早就有；帐号、描述、开播记录由 20261026120000 迁移补上，之前的历史行为空，
 // 受限帐号一律不能改。
@@ -348,13 +348,13 @@ export async function checkScopedWrite(
   op: 'update' | 'delete',
 ): Promise<ServiceResult<null>> {
   if (actor.access_scope === null) return ok(null)
-  if (op === 'delete') return err('forbidden', 'this account cannot delete')
+  if (op === 'delete' && !SCOPED_SELF_DELETE_TABLES.has(table)) return err('forbidden', 'this account cannot delete')
   const db = createServerClient()
   const { data, error } = await db.from(table).select('created_by').eq('id', id).maybeSingle()
   if (error) return err('db_error', error.message)
   if (!data) return err('not_found', 'not found')
   const owner = (data as { created_by: string | null }).created_by ?? null
-  return scopedWriteAllowed(actor, op, owner) ? ok(null) : err('forbidden', 'can only edit your own records')
+  return scopedWriteAllowed(actor, op, owner, table) ? ok(null) : err('forbidden', 'can only edit your own records')
 }
 
 /** 加入清单：入参 url 或 handle 二选一；已存在则返回其 id（确保存在，不覆盖）。 */

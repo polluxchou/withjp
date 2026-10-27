@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { useCanDelete } from '@/lib/auth/useCurrentUser'
+import { useCanDeleteOwned } from '@/lib/auth/useCurrentUser'
 import { ChevronDown, ChevronLeft, ChevronRight, Download, Info, Loader2, Maximize2, Minimize2, Package, Pencil, Trash2, X } from 'lucide-react'
 import type { CompetitorShot } from '@/lib/competitors/types'
 import { shotUptimeParts } from '@/lib/competitors/types'
@@ -55,7 +55,6 @@ export default function ShotLightbox({
   onChanged: () => void | Promise<void>
 }) {
   const t = useTranslations('competitors')
-  const canDelete = useCanDelete()
   const tCommon = useTranslations('common')
   const tagLabel = useShotTagLabel()
   // 开播时刻按账号所在地区的时区换算（库里是 UTC），与卡片「常见开播」、开播记录弹窗同一口径；
@@ -113,6 +112,7 @@ export default function ShotLightbox({
   // 兜底的落点与"打开时停在封面"一致:删掉选中的那张,不会突然跳到当天最早的一张。
   // 删除不可逆,作用对象必须永远在画面里。
   const selected = shots.find((s) => s.id === pickedId) ?? coverOf(shots)
+  const canDelete = useCanDeleteOwned('competitor_shots', selected?.created_by ?? null)
   const index = selected ? shots.findIndex((s) => s.id === selected.id) : -1
 
   const neighbors = lightboxNeighbors(viewport.w, viewport.h, shots.length, index)
