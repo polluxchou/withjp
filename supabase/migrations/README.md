@@ -48,6 +48,9 @@ Supabase 从 **2026-10-30** 起不再自动给 `public` 下的新表授予 Data 
 -- 必写：服务端（service role）要能读写
 grant select, insert, update, delete on public.<表名> to service_role;
 
+-- 若新表使用 serial / bigserial / smallserial 或 nextval() 默认值，还要给序列授权
+grant usage on sequence public.<序列名> to service_role;
+
 -- 按需：浏览器直连（createBrowserClient）要读写时才给，按最小权限
 grant select on public.<表名> to authenticated;
 -- anon 默认不给；官网等公开内容走服务端渲染，不需要 anon 直连
@@ -57,25 +60,30 @@ grant select on public.<表名> to authenticated;
   需要收紧时沿用 `20260814112723_site_content.sql` 的写法：先 `revoke all ... from anon,
   authenticated`，再 grant 回最小集（`TRUNCATE` 不受 RLS 约束，只 revoke CRUD 不够）。
 - CI（`npm run test:migrations`）对时间戳 ≥ `20261020000000` 的迁移检查：每张在 `public`
-  新建的表都必须有 `grant ... to service_role`。anon/authenticated 是逐表决定，CI 不强制。
-- 应用后核对：`select grantee, privilege_type from information_schema.role_table_grants
-  where table_schema = 'public' and table_name = '<表名>';`
+  新建的表最终必须给 `service_role` 留下 `SELECT/INSERT/UPDATE/DELETE`；若使用 `serial`
+  或 `nextval()`，还须给相关序列 `USAGE` 或 `UPDATE`。检查器会按 SQL 顺序处理授权和撤销。
+  `anon` / `authenticated` 是逐表决定，CI 不强制。
+- 此门槛按**文件名**而非远端执行时间判断。若旧建表文件至今仍未在某个远端项目执行，
+  在默认权限变更后补跑也需要显式授权；上线前必须按下节方法核对各项目实际 schema。
+- 应用后在 SQL Editor 核对有效权限（把占位符替换为实际对象名）：
+
+```sql
+select
+  has_table_privilege('service_role', 'public.<表名>', 'SELECT') as can_select,
+  has_table_privilege('service_role', 'public.<表名>', 'INSERT') as can_insert,
+  has_table_privilege('service_role', 'public.<表名>', 'UPDATE') as can_update,
+  has_table_privilege('service_role', 'public.<表名>', 'DELETE') as can_delete;
+
+-- 使用 serial / nextval() 时再核对
+select has_sequence_privilege('service_role', 'public.<序列名>', 'USAGE')
+    or has_sequence_privilege('service_role', 'public.<序列名>', 'UPDATE') as can_nextval;
+```
 
 ## 手工应用 + 核对远端 schema
 
 应用顺序永远是**文件名升序**。怀疑"某个迁移到底应用没应用"时，不要靠记忆，直接核对远端：
 
-**方法一：PostgREST OpenAPI（快，不用进 Dashboard）**
-
-```bash
-curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/" \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" | jq '.definitions | keys'
-```
-
-能看到全部暴露的表；查某表的列用 `.definitions.<table>.properties | keys`。
-迁移若新增了表/列，这里立刻能看到；看不到就是没应用。
-
-**方法二：SQL Editor 查 information_schema（细，能查约束/枚举/策略）**
+**方法一：SQL Editor 查 information_schema（能查表、列、约束、枚举、策略）**
 
 ```sql
 -- 表和列
@@ -92,8 +100,10 @@ where t.typname = '<枚举名>';
 select tablename, policyname from pg_policies where schemaname = 'public';
 ```
 
-**方法三：整体巡检** —— 逐个文件抽其"标志物"（建的表、加的列、建的 policy）按方法二查询，
+**方法二：整体巡检** —— 逐个文件抽其"标志物"（建的表、加的列、建的 policy）按方法一查询，
 任何缺失说明该文件漏应用，补跑即可（幂等 SQL 可安全重跑）。
+不要用 anon key 请求 `/rest/v1/` 根路径做 OpenAPI 核对；Supabase 已停止向 anon key
+提供 schema 规范，失败不能说明迁移未应用。
 
 ## 历史注意点
 

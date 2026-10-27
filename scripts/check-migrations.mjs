@@ -1,6 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { GRANT_CHECK_FROM, tablesMissingServiceRoleGrant } from './migration-grants.mjs'
+import {
+  GRANT_CHECK_FROM,
+  missingTablePrivileges,
+  sequencesMissingServiceRoleGrant,
+} from './migration-grants.mjs'
 
 // Guards the migration naming contract (see supabase/migrations/README.md):
 //   * Every .sql file must be named <YYYYMMDDHHMMSS>_<snake_case>.sql
@@ -36,10 +40,13 @@ for (const name of entries) {
   }
   if (prefix >= GRANT_CHECK_FROM) {
     const sql = fs.readFileSync(path.join(dir, name), 'utf8')
-    for (const table of tablesMissingServiceRoleGrant(sql)) {
+    for (const { table, missing } of missingTablePrivileges(sql)) {
       errors.push(
-        `${name}: 新表 public.${table} 缺少 grant ... to service_role（2026-10-30 起 Supabase 不再自动授权，见 README「新建表必须显式 grant」）`
+        `${name}: 新表 public.${table} 对 service_role 缺少 ${missing.join(', ').toUpperCase()} 权限（见 README「新建表必须显式 grant」）`
       )
+    }
+    for (const sequence of sequencesMissingServiceRoleGrant(sql)) {
+      errors.push(`${name}: 序列 public.${sequence} 对 service_role 缺少 USAGE 或 UPDATE 权限`)
     }
   }
 }

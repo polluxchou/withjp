@@ -1,6 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createdPublicTables, tablesMissingServiceRoleGrant } from './migration-grants.mjs'
+import * as grantChecks from './migration-grants.mjs'
 
 test('finds unqualified, public-qualified and quoted tables; skips other schemas', () => {
   const sql = `
@@ -56,4 +62,101 @@ test('a grant to service_role in a commented-out line does not count', () => {
     -- grant all on foo to service_role;
   `
   assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('a SELECT-only grant does not satisfy server write access', () => {
+  const sql = 'create table public.foo (id int); grant select on public.foo to service_role;'
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('a later revoke removes an earlier grant', () => {
+  const sql = `
+    create table public.foo (id int);
+    grant all on public.foo to service_role;
+    revoke insert on public.foo from service_role;
+  `
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('schema-wide grants before creation do not cover future tables', () => {
+  const sql = `
+    grant all on all tables in schema public to service_role;
+    create table public.foo (id int);
+  `
+  assert.deepEqual(tablesMissingServiceRoleGrant(sql), ['foo'])
+})
+
+test('serial-backed insert needs sequence USAGE or UPDATE', () => {
+  const sql = `
+    create table public.foo (id serial primary key);
+    grant select, insert, update, delete on public.foo to service_role;
+  `
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), ['foo_id_seq'])
+})
+
+test('a sequence USAGE grant after creation satisfies serial-backed insert', () => {
+  const sql = `
+    create table public.foo (id bigserial primary key);
+    grant usage on sequence public.foo_id_seq to service_role;
+    grant all on public.foo to service_role;
+  `
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), [])
+})
+
+test('sequence grant before creation does not cover later serial sequence', () => {
+  const sql = `
+    grant usage on all sequences in schema public to service_role;
+    create table public.foo (id smallserial primary key);
+    grant all on public.foo to service_role;
+  `
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), ['foo_id_seq'])
+})
+
+test('schema-wide sequence grant after creation covers a serial sequence', () => {
+  const sql = `
+    create table public.foo (id serial primary key);
+    grant usage on all sequences in schema public to service_role;
+  `
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), [])
+})
+
+test('an explicit nextval default needs access to its sequence', () => {
+  const sql = `
+    create sequence public.ticket_ids;
+    grant usage on sequence public.ticket_ids to service_role;
+    create table public.tickets (id bigint default nextval('public.ticket_ids'::regclass));
+  `
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), [])
+})
+
+test('a later sequence revoke removes its usage grant', () => {
+  const sql = `
+    create table public.foo (id serial primary key);
+    grant usage on sequence public.foo_id_seq to service_role;
+    revoke usage on sequence public.foo_id_seq from service_role;
+  `
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), ['foo_id_seq'])
+})
+
+test('identity columns do not require a separate sequence grant for insert', () => {
+  const sql = 'create table public.foo (id bigint generated always as identity primary key);'
+  assert.deepEqual(grantChecks.sequencesMissingServiceRoleGrant?.(sql), [])
+})
+
+test('migration CLI rejects a serial table missing its sequence grant', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'migration-grants-'))
+  try {
+    const migrations = path.join(root, 'supabase', 'migrations')
+    mkdirSync(migrations, { recursive: true })
+    writeFileSync(path.join(migrations, '20261027000000_serial_table.sql'), `
+      create table public.foo (id serial primary key);
+      grant select, insert, update, delete on public.foo to service_role;
+    `)
+    const checker = fileURLToPath(new URL('./check-migrations.mjs', import.meta.url))
+    const result = spawnSync(process.execPath, [checker], { cwd: root, encoding: 'utf8' })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /foo_id_seq/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
