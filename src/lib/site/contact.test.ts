@@ -19,20 +19,22 @@ const en = JSON.parse(
   readFileSync(new URL('../../../messages/en.json', import.meta.url), 'utf8'),
 ) as { site: { contact: { sections: SiteContactSectionCopy[] } } }
 
-test('Japanese contact copy preserves the three screenshot sections in order', () => {
+test('Japanese contact copy preserves the screenshot sections in order, plus the technology partner', () => {
   const sections = ja.site.contact.sections
-  assert.equal(sections.length, 3)
+  assert.equal(sections.length, 4)
   assert.deepEqual(
     sections.map(({ no, eyebrow }) => [no, eyebrow]),
     [
       ['01', 'FOR CREATOR'],
       ['02', 'FOR COMPANION'],
-      ['03', 'FOR CLIENT'],
+      ['03', 'FOR TECHNOLOGY'],
+      ['04', 'FOR CLIENT'],
     ],
   )
   assert.equal(sections[0].rows[0].value, 'カイロン株式会社（Chiron Co., Ltd.）')
   assert.equal(sections[1].rows[0].value, '吉光片羽株式会社')
-  assert.equal(sections[2].rows[1].value, 'business@echowith.jp')
+  assert.equal(sections[2].rows[0].value, 'With Cast Limited')
+  assert.equal(sections[3].rows[1].value, 'business@echowith.jp')
 })
 
 test('Contact lists no representative names in any locale', () => {
@@ -76,9 +78,10 @@ test('contact actions become locale-safe internal and external links', () => {
   const sections = buildContactSections(ja.site.contact.sections)
   assert.equal(sections[0].ctaHref, '/site/recruit')
   assert.equal(sections[1].ctaHref, '/site/recruit/staff')
-  assert.equal(sections[2].ctaHref, 'mailto:business@echowith.jp')
-  assert.equal(sections[2].rows[1].href, 'mailto:business@echowith.jp')
-  assert.deepEqual(sections.map(({ id }) => id), ['contact-01', 'contact-02', 'contact-03'])
+  assert.equal(sections[2].ctaHref, undefined)
+  assert.equal(sections[3].ctaHref, 'mailto:business@echowith.jp')
+  assert.equal(sections[3].rows[1].href, 'mailto:business@echowith.jp')
+  assert.deepEqual(sections.map(({ id }) => id), ['contact-01', 'contact-02', 'contact-03', 'contact-04'])
 })
 
 test('staff-recruit 映射到员工招募页', () => {
@@ -107,7 +110,7 @@ test('Contact sections 01 and 02 expose their company websites in every locale',
       { value: kikkouWebsite?.value, href: kikkouWebsite?.href, link: kikkouWebsite?.link },
       { value: 'https://kikkou.jp/', href: 'https://kikkou.jp/', link: 'external' },
     )
-    assert.equal(sections[2].rows[1].href, 'mailto:business@echowith.jp')
+    assert.equal(sections[3].rows[1].href, 'mailto:business@echowith.jp')
   }
 })
 
@@ -152,8 +155,26 @@ test('Contact localizes the operating entity but keeps production partner unchan
   }
 })
 
-test('Contact section 03 uses the approved client copy in every locale', () => {
-  const jaClient = ja.site.contact.sections[2]
+// 段 03：With Cast Limited（香港），カイロン株式会社委托的技术服务机构。
+// 地址只给英文官方写法，三语一致；不挂 CTA。
+test('Contact section 03 names With Cast Limited and its relationship to Chiron in every locale', () => {
+  for (const messages of [ja, zh, en]) {
+    const s = messages.site.contact.sections[2]
+    assert.equal(s.no, '03')
+    assert.equal(s.cta, undefined)
+    assert.equal(s.rows[0].value, 'With Cast Limited')
+    assert.match(s.body, /With Cast Limited/)
+    assert.match(s.body, /カイロン株式会社（Chiron Co\., Ltd\.）|カイロン株式会社 \(Chiron Co\., Ltd\.\)/)
+    assert.ok(
+      s.rows.some(({ value }) => value === 'A17, 2/F, HING YIP CENTRE, 31 HING YIP STREET, KWUN TONG, HONG KONG'),
+    )
+    const site = buildContactSections(messages.site.contact.sections)[2].rows.find(({ link }) => link === 'external')
+    assert.deepEqual({ href: site?.href, link: site?.link }, { href: 'https://withflows.ai/', link: 'external' })
+  }
+})
+
+test('Contact section 04 uses the approved client copy in every locale', () => {
+  const jaClient = ja.site.contact.sections[3]
   assert.deepEqual(
     {
       eyebrow: jaClient.eyebrow,
@@ -173,7 +194,7 @@ test('Contact section 03 uses the approved client copy in every locale', () => {
     },
   )
 
-  const zhClient = zh.site.contact.sections[2]
+  const zhClient = zh.site.contact.sections[3]
   assert.deepEqual(
     {
       eyebrow: zhClient.eyebrow,
@@ -193,7 +214,7 @@ test('Contact section 03 uses the approved client copy in every locale', () => {
     },
   )
 
-  const enClient = en.site.contact.sections[2]
+  const enClient = en.site.contact.sections[3]
   assert.deepEqual(
     {
       eyebrow: enClient.eyebrow,

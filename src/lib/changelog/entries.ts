@@ -27,6 +27,18 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-11-05',
+    items: [
+      {
+        kind: 'improve',
+        scope: '对外官网',
+        title: '联系页新增「03 网站运营及技术研发」：标明 With Cast Limited（香港）与官网及カイロン株式会社的关系',
+        details:
+          '写明 With Cast Limited 是合作伙伴之一，是カイロン株式会社在中国香港地区委托的技术服务机构、直播运营技术供应方，负责网站技术运营与直播技术支持；附成立时间、业务内容、香港地址与公司官网 withflows.ai。原「客户合作」顺延为 04，中日英三语同步。',
+      },
+    ],
+  },
+  {
     date: '2026-10-26',
     items: [
       {

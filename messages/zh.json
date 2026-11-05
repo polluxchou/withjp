@@ -2674,6 +2674,22 @@
         },
         {
           "no": "03",
+          "eyebrow": "FOR TECHNOLOGY",
+          "title": "网站运营及技术研发",
+          "body": "With Cast Limited 是合作伙伴之一，是カイロン株式会社（Chiron Co., Ltd.）在中国香港地区委托的技术服务机构，同时是直播运营技术的供应方，负责本网站的技术运营与直播技术支持。",
+          "partner": "合作伙伴",
+          "rows": [
+            { "label": "公司名称", "value": "With Cast Limited" },
+            { "label": "成立・所在地", "value": "2026年／香港观塘区" },
+            { "label": "业务内容", "value": "直播 Agent／虚拟人技术／数据分析" },
+            { "label": "合作关系", "value": "カイロン株式会社（Chiron Co., Ltd.）在中国香港地区委托的技术服务机构" },
+            { "label": "负责领域", "value": "网站技术运营／直播运营技术供应与支持" },
+            { "label": "所在地", "value": "A17, 2/F, HING YIP CENTRE, 31 HING YIP STREET, KWUN TONG, HONG KONG" },
+            { "label": "公司官网", "value": "https://withflows.ai/", "link": "external" }
+          ]
+        },
+        {
+          "no": "04",
           "eyebrow": "客户合作",
           "title": "企业及品牌合作",
           "body": "我们接受有关乐曲制作、皮套人技术、商业直播咨询、广告业务合作，以及不诚信行为与合规投诉的邮件联系。",
