@@ -41,7 +41,8 @@ export default function SiteFooter() {
         ))}
       </div>
       <div className="mx-auto max-w-[1360px] px-6 pb-10 font-condensed text-[12px] tracking-[0.18em] text-site-fg/40 md:px-8">
-        {t('copyright')}
+        <div>{t('copyright')}</div>
+        <div className="mt-2">{t('rights')}</div>
       </div>
     </footer>
   )
