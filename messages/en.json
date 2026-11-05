@@ -2674,6 +2674,22 @@
         },
         {
           "no": "03",
+          "eyebrow": "FOR TECHNOLOGY",
+          "title": "Website operations & technology R&D",
+          "body": "With Cast Limited is one of our partners: a technical service provider commissioned by カイロン株式会社 (Chiron Co., Ltd.) in Hong Kong, China, and a supplier of livestream operations technology. It handles the technical operation of this website and technical support for livestreaming.",
+          "partner": "PARTNER",
+          "rows": [
+            { "label": "Company", "value": "With Cast Limited" },
+            { "label": "Founded / location", "value": "2026 / Kwun Tong, Hong Kong" },
+            { "label": "Business", "value": "Livestream agents / Virtual human technology / Data analytics" },
+            { "label": "Relationship", "value": "Technical service provider commissioned by カイロン株式会社 (Chiron Co., Ltd.) in Hong Kong, China" },
+            { "label": "Coverage", "value": "Website technical operations / Livestream operations technology supply and support" },
+            { "label": "Address", "value": "A17, 2/F, HING YIP CENTRE, 31 HING YIP STREET, KWUN TONG, HONG KONG" },
+            { "label": "Website", "value": "https://withflows.ai/", "link": "external" }
+          ]
+        },
+        {
+          "no": "04",
           "eyebrow": "FOR CLIENT",
           "title": "For Businesses & Brands",
           "body": "For music production, mascot costume technology, commercial livestreaming, advertising partnerships, or reports of misconduct and compliance concerns, please contact us by email.",

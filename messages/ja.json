@@ -2674,6 +2674,22 @@
         },
         {
           "no": "03",
+          "eyebrow": "FOR TECHNOLOGY",
+          "title": "サイト運営・技術開発",
+          "body": "With Cast Limited はパートナーの一社で、カイロン株式会社（Chiron Co., Ltd.）が中国・香港地域で委託している技術サービス提供会社であり、ライブ配信運営テクノロジーの供給元です。本サイトの技術運営とライブ配信の技術サポートを担当しています。",
+          "partner": "PARTNER",
+          "rows": [
+            { "label": "会社名", "value": "With Cast Limited" },
+            { "label": "設立・所在地", "value": "2026年／香港・観塘区" },
+            { "label": "事業内容", "value": "ライブ配信エージェント／バーチャルヒューマン技術／データ分析" },
+            { "label": "関係", "value": "カイロン株式会社（Chiron Co., Ltd.）が中国・香港地域で委託する技術サービス提供会社" },
+            { "label": "担当領域", "value": "サイトの技術運営／配信運営テクノロジーの供給・サポート" },
+            { "label": "所在地", "value": "A17, 2/F, HING YIP CENTRE, 31 HING YIP STREET, KWUN TONG, HONG KONG" },
+            { "label": "会社サイト", "value": "https://withflows.ai/", "link": "external" }
+          ]
+        },
+        {
+          "no": "04",
           "eyebrow": "FOR CLIENT",
           "title": "法人・ブランド様へ",
           "body": "楽曲制作、着ぐるみ技術、商業ライブ配信のご相談、広告事業のご提携、不正行為・コンプライアンスに関する通報をメールで承ります。",
