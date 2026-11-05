@@ -1,13 +1,15 @@
 import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import { setRequestLocale, getTranslations } from 'next-intl/server'
-import { Barlow, Barlow_Condensed } from 'next/font/google'
+import localFont from 'next/font/local'
 import { isLocale } from '@/i18n/routing'
 import { THEME_INIT_SCRIPT } from '@/lib/site/theme'
 import SiteHeader from '@/components/site/SiteHeader'
 import SiteFooter from '@/components/site/SiteFooter'
 
 // 只自托管两个拉丁族（官网的英文标题与全部大写标签靠它们定调，共几个 woff2）。
+// 字体文件放在 src/fonts（next/font/local），不走 next/font/google：构建期联网抓取
+// 在 CI 上偶发失败，会让 next build 整体报错。
 //
 // 和文的明朝/黑体**不走 next/font**：Noto Serif JP / Noto Sans JP 在 Google
 // Fonts 上被切成上百个 unicode-range 分片，构建时要逐个抓取——网络受限的环境
@@ -15,15 +17,22 @@ import SiteFooter from '@/components/site/SiteFooter'
 // tailwind.config.ts 的 serif-jp / site 字族）：日本用户的 Mac/iOS 上是
 // Hiragino Mincho、Windows 上是 Yu Mincho，本机装了 Noto 则优先用 Noto，
 // 观感与设计稿一致且零下载。
-const barlow = Barlow({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
+const barlow = localFont({
+  src: [
+    { path: '../../../fonts/barlow-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: '../../../fonts/barlow-latin-500-normal.woff2', weight: '500', style: 'normal' },
+    { path: '../../../fonts/barlow-latin-600-normal.woff2', weight: '600', style: 'normal' },
+  ],
   variable: '--font-barlow',
   display: 'swap',
 })
-const barlowCondensed = Barlow_Condensed({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const barlowCondensed = localFont({
+  src: [
+    { path: '../../../fonts/barlow-condensed-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: '../../../fonts/barlow-condensed-latin-500-normal.woff2', weight: '500', style: 'normal' },
+    { path: '../../../fonts/barlow-condensed-latin-600-normal.woff2', weight: '600', style: 'normal' },
+    { path: '../../../fonts/barlow-condensed-latin-700-normal.woff2', weight: '700', style: 'normal' },
+  ],
   variable: '--font-barlow-condensed',
   display: 'swap',
 })

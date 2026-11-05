@@ -121,7 +121,7 @@ WithJP 至今只有登录后可见的内部经营后台。官网是仓库里**�
 
 ### 3.4 字体
 
-- 拉丁族 Barlow / Barlow Condensed 用 `next/font/google` 自托管（英文标题与全部大写标签靠它们定调）
+- 拉丁族 Barlow / Barlow Condensed 用 `next/font/local` 自托管（文件在 `src/fonts`，不联网抓取）（英文标题与全部大写标签靠它们定调）
 - **和文明朝/黑体走系统栈，不下载**：Noto Serif JP / Noto Sans JP 在 Google Fonts 上被切成上百个 unicode-range 分片，构建时逐个抓取会拖死构建，全量自托管也是数 MB 的首屏负担。改用 `"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif` —— 日本用户的 Mac/iOS 上是 Hiragino Mincho、Windows 上是 Yu Mincho，本机装了 Noto 则优先用 Noto
 
 ### 3.5 组件分层
