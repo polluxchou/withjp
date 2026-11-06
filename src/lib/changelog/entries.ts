@@ -30,6 +30,13 @@ export const CHANGELOG: DailyChangelog[] = [
     date: '2026-11-05',
     items: [
       {
+        kind: 'fix',
+        scope: '对外官网',
+        title: '联系页 01/02 段的公司信息行补齐中英文：业务内容、负责领域、成立年份原先在中文版和英文版里直接显示日文原文',
+        details:
+          '涉及 Chiron 与吉光片羽两张卡片的「业务内容」「负责领域」「成立・所在地」行。',
+      },
+      {
         kind: 'improve',
         scope: '对外官网',
         title: '联系页 03 段改写 With Cast Limited 的关系表述并去掉重复的「合作关系」行；官网页脚新增「版权所有 © With Cast Limited」',
