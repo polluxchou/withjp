@@ -59,6 +59,11 @@ grant select on public.<表名> to authenticated;
 - 给 `authenticated` / `anon` 授权时同时要有对应的 RLS 策略，否则 grant 了也读不到。
   需要收紧时沿用 `20260814112723_site_content.sql` 的写法：先 `revoke all ... from anon,
   authenticated`，再 grant 回最小集（`TRUNCATE` 不受 RLS 约束，只 revoke CRUD 不够）。
+- **浏览器端角色默认无权（2026-11-10 起）**：`20261110084614_revoke_client_table_grants.sql`
+  收回了 `anon` / `authenticated` 对业务表的全部表级权限，并把 `postgres` 在 `public` 下的
+  默认授权也改成不再发给这两个角色。所有读写走服务端的 `service_role`；要让浏览器直连某张
+  表，必须在迁移里显式 grant 最小集、配 RLS 策略，并登记进 `scripts/audit-rls.mjs` 的
+  `CLIENT_GRANT_ALLOWLIST`——`npm run audit:rls` 会对名单外的任何授权报错。
 - CI（`npm run test:migrations`）对时间戳 ≥ `20261020000000` 的迁移检查：每张在 `public`
   新建的表最终必须给 `service_role` 留下 `SELECT/INSERT/UPDATE/DELETE`；若使用 `serial`
   或 `nextval()`，还须给相关序列 `USAGE` 或 `UPDATE`。检查器会按 SQL 顺序处理授权和撤销。
