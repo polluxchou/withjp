@@ -4,7 +4,8 @@ import { defaultLocale, isLocale } from '@/i18n/routing'
 import { PUBLIC_PATHS } from '@/lib/middleware-matcher'
 import { shouldBypassMiddlewareAsset } from '@/lib/middleware-assets'
 import { loginPathForLocale } from '@/lib/auth/page-session'
-import { accessScopeOf, pageAllowedForScope, scopedHomePath } from '@/lib/auth/access-scope'
+import { pageAllowedForScope, scopedHomePath } from '@/lib/auth/access-scope'
+import { authedUserFromClaims } from '@/lib/auth/claims'
 
 function stripLocale(pathname: string) {
   const segments = pathname.split('/')
@@ -75,14 +76,16 @@ export async function updateSession(request: NextRequest, extraRequestHeaders?: 
       supabase.auth.getClaims(),
       timeout,
     ])
-    if (!data?.claims?.sub) {
+    // 与 authGuard 同一个判定：没有 sub、或是匿名登录的会话，都当没登录。
+    const user = authedUserFromClaims(data?.claims)
+    if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = localizedLoginPath(pathname)
       return NextResponse.redirect(url)
     }
     // 受限帐号（只开竞品，见 access-scope.ts）访问范围外的页面一律送回竞品首页。
     // 这是页面的第一道门；服务端 page 里的守卫是第二道，API 由 authGuard 默认 403。
-    if (!pageAllowedForScope(accessScopeOf(data.claims.app_metadata), pathnameWithoutLocale)) {
+    if (!pageAllowedForScope(user.access_scope, pathnameWithoutLocale)) {
       const url = request.nextUrl.clone()
       const locale = pathname.split('/')[1]
       url.pathname = scopedHomePath(isLocale(locale) ? locale : defaultLocale)
