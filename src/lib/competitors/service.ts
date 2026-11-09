@@ -580,7 +580,7 @@ export async function upsertLiveSessions(
   competitorId: string,
   rows: unknown,
   actor: WriteActor,
-): Promise<ServiceResult<{ upserted: number; skipped: number }>> {
+): Promise<ServiceResult<{ upserted: number; inserted: number; updated: number; skipped: number }>> {
   const checked = validateLiveSessionRows(rows)
   if (!checked.ok) return err('invalid_input', checked.message)
   const updatedAt = new Date().toISOString()
@@ -616,5 +616,5 @@ export async function upsertLiveSessions(
       .upsert(batch, { onConflict: 'competitor_id,started_at' })
     if (error) return err('db_error', error.message)
   }
-  return ok({ upserted: fresh.length + overwrite.length, skipped })
+  return ok({ upserted: fresh.length + overwrite.length, inserted: fresh.length, updated: overwrite.length, skipped })
 }

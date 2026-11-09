@@ -523,3 +523,21 @@ test('overview：后端 401 → 强制续期后重发，重发的请求也带着
   assert.equal(backend[1].url, `${CFG.apiBase}${BACKEND}?shots=a%401`)
   assert.equal(headersOf(backend[1]).Authorization, 'Bearer acc2')
 })
+
+test('importHistory：带令牌 POST JSON 到 quick-history；401 时续期重发一次', async () => {
+  const f = fakeFetch({
+    '/auth/v1/token': { status: 200, json: AUTH_OK },
+    '/api/competitors/quick-history': [{ status: 401, json: { error: 'unauthorized' } }, { status: 200, json: { data: { parsed: 3 }, error: null } }],
+  })
+  const storage = memoryStorage(VALID)
+  const api = createApi({ ...CFG, storage, fetchImpl: f.impl, now: () => NOW })
+  const r = await api.importHistory({ handle: 'sample.jp', text: 'History\nNov\n8', timeZone: 'Asia/Tokyo' })
+  assert.equal(r.status, 200)
+  const posts = f.calls.filter((c) => c.url === 'https://mcn.example/api/competitors/quick-history')
+  assert.equal(posts.length, 2)
+  const headers = posts[0].init.headers as Record<string, string>
+  assert.equal(headers.Authorization, 'Bearer acc')
+  assert.equal(headers['Content-Type'], 'application/json')
+  assert.deepEqual(JSON.parse(posts[0].init.body as string), { handle: 'sample.jp', text: 'History\nNov\n8', time_zone: 'Asia/Tokyo' })
+  assert.equal((posts[1].init.headers as Record<string, string>).Authorization, 'Bearer acc', '续期后用新令牌')
+})

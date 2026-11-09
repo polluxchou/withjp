@@ -6,6 +6,7 @@ import { needsRefresh, sessionFromAuth } from './session.js'
 
 const SESSION_KEY = 'session'
 const QUICK_SHOT_PATH = '/api/competitors/quick-shot'
+const QUICK_HISTORY_PATH = '/api/competitors/quick-history'
 
 const networkError = () => ({ status: 0, body: { data: null, error: 'network_error' } })
 
@@ -106,15 +107,13 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     await storage.remove(SESSION_KEY)
   }
 
-  async function send(method, body, accessToken, query) {
+  async function send(method, body, accessToken, query, path) {
     let res
     try {
-      // 不手写 Content-Type：FormData 要由 fetch 自己带上 multipart boundary
-      res = await fetchImpl(`${apiBase}${QUICK_SHOT_PATH}${query}`, {
-        method,
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body,
-      })
+      // FormData 不手写 Content-Type：要由 fetch 自己带上 multipart boundary；字符串 body 是 JSON
+      const headers = { Authorization: `Bearer ${accessToken}` }
+      if (typeof body === 'string') headers['Content-Type'] = 'application/json'
+      res = await fetchImpl(`${apiBase}${path}${query}`, { method, headers, body })
     } catch {
       return networkError()
     }
@@ -125,16 +124,16 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     return { status: res.status, body: bodyObj }
   }
 
-  async function call(method, body, query = '') {
+  async function call(method, body, query = '', path = QUICK_SHOT_PATH) {
     const r = await ensureSession()
     if (r.transient) return networkError()
     if (!r.session) return { status: 401, body: { data: null, error: 'unauthorized' } }
-    const first = await send(method, body, r.session.accessToken, query)
+    const first = await send(method, body, r.session.accessToken, query, path)
     if (first.status !== 401) return first
     // 令牌被后端拒了：本地时钟偏慢时，存的过期时刻看着还有效，这里强制续期并只重发一次
     // （FormData 可以重复发送）。续期被拒时会话已清掉，原样返回 401。
     const r2 = await ensureSession(true)
-    if (r2.session) return send(method, body, r2.session.accessToken, query)
+    if (r2.session) return send(method, body, r2.session.accessToken, query, path)
     if (r2.transient) return networkError()
     return first
   }
@@ -163,5 +162,11 @@ export function createApi({ apiBase, supabaseUrl, anonKey, storage, fetchImpl = 
     return call('POST', form)
   }
 
-  return { login, session, logout, todayUploads, overview, upload }
+  // 头像弹窗里的 History 原文交给后台解析入库（与后台「粘贴导入」同一套解析）。
+  // timeZone 是页面所在浏览器的时区：TikTok 按它渲染时刻，后台据此换算
+  function importHistory({ handle, text, timeZone }) {
+    return call('POST', JSON.stringify({ handle, text, time_zone: timeZone }), '', QUICK_HISTORY_PATH)
+  }
+
+  return { login, session, logout, todayUploads, overview, upload, importHistory }
 }
