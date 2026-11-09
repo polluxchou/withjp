@@ -5,6 +5,7 @@ import { PROBE_CONFIG, readLivePage } from './generated/page-reader.js'
 import { createApi } from './lib/api.js'
 import { cropRect } from './lib/crop.js'
 import { bumpShots, shotsToday } from './lib/day.js'
+import { historyOutcome, readErrorMessage, readHistoryModal } from './lib/history.js'
 import { handleFromLiveUrl } from './lib/liveUrl.js'
 import { evictionNotice, isStale, shotKey, stampTime, stripOrder, tileTime } from './lib/stash.js'
 import { insertStash, listStash, markPartial, removeStash } from './lib/stashDb.js'
@@ -513,6 +514,63 @@ $('detail-delete').addEventListener('click', async () => {
   backToMain()
 })
 
+// ---- 读开播记录 ----------------------------------------------------------------
+
+function renderHistoryLines(lines) {
+  $('history-lines').replaceChildren(...lines.map(({ text, tone }) => {
+    const p = document.createElement('p')
+    p.className = tone ? `line ${tone}` : 'line'
+    p.textContent = text
+    return p
+  }))
+}
+
+// 只在直播间页面出现。弹窗没开会替你点一下主播头像；读到的原文交后台解析入库
+async function setupHistory() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => [])
+  const handle = tab && tab.url ? handleFromLiveUrl(tab.url) : null
+  $('history').hidden = !handle
+  if (!handle) return
+  let busy = false
+  $('history-btn').onclick = async () => {
+    if (busy) return
+    busy = true
+    $('history-btn').disabled = true
+    renderHistoryLines([{ text: '读取中…', tone: '' }])
+    try {
+      let read = null
+      try {
+        const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: readHistoryModal })
+        read = res ? res.result : null
+      } catch {
+        read = null
+      }
+      if (!read || read.error) return renderHistoryLines([{ text: readErrorMessage(read && read.error), tone: 'warn' }])
+      // 读的时候页面可能刚切走（SPA 切房）：对不上就不传，免得记到别的号名下
+      const after = await chrome.tabs.get(tab.id).catch(() => null)
+      if (!after || handleFromLiveUrl(after.url) !== handle) {
+        return renderHistoryLines([{ text: '页面刚切换了直播间，请重试', tone: 'warn' }])
+      }
+      renderHistoryLines([{ text: '上传中…', tone: '' }])
+      let r
+      try {
+        r = await api.importHistory({ handle, text: read.text, timeZone: read.timeZone })
+      } catch {
+        r = { status: 0, body: { data: null, error: 'network_error' } }
+      }
+      const out = historyOutcome(r, handle)
+      if (out.kind === 'login') {
+        await api.logout().catch(() => {})
+        return showLogin('登录已过期，请重新登录')
+      }
+      renderHistoryLines(out.lines)
+    } finally {
+      busy = false
+      $('history-btn').disabled = false
+    }
+  }
+}
+
 // ---- 启动 --------------------------------------------------------------------
 
 async function start() {
@@ -520,6 +578,7 @@ async function start() {
   if (!session) return showLogin()
   show('main')
   renderCounts()
+  setupHistory()
   await refreshStash()
   // 今日数与暂存区核对同一个请求：带上此刻暂存区每张图的 key，后台回答哪些已经有了
   api
