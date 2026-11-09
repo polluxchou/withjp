@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header'
 import CurrencySwitcher from '@/components/layout/CurrencySwitcher'
 import FinanceForecastDashboard from '@/components/finance-forecast/FinanceForecastDashboard'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { createAuthServerClient } from '@/lib/supabase/auth-server'
 import { getActorProfile } from '@/lib/auth/actor'
 import {
@@ -87,13 +88,16 @@ async function loadDefaultViewMonths(viewId: string, years: number[]): Promise<R
   const startYear = years[0]
   const endYear   = years[years.length - 1]
 
-  const { data } = await db
+  // 预算汇总要全集，分页取全：单次响应最多 1000 行且静默截断，丢行会把预算算小。
+  const { data } = await fetchAllRows((from, to) => db
     .from('expenses')
     .select('expense_date,period,total_price,payment_status,buyer_name,expense_category')
     .or(
       `and(expense_date.gte.${startYear}-01-01,expense_date.lte.${endYear}-12-31),` +
       years.map((y) => `period.like.${y}-Q%`).join(','),
     )
+    .order('id', { ascending: true })
+    .range(from, to))
 
   const budgetByMonth = calculateMonthlyBudgetCosts((data ?? []) as ExpenseForBudget[])
   const baseMonthsByYear = buildForecastYearMonthsByYear(years, budgetByMonth)

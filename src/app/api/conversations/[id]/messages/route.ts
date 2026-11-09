@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { executeChatMessage } from '@/lib/conversation/chat-executor'
 import { authGuard } from '@/lib/auth/guard'
 
@@ -14,11 +15,14 @@ export async function GET(_req: NextRequest, props: Params) {
   const params = await props.params
   const db = createServerClient()
 
-  const { data, error } = await db
+  // 分页取全：单次响应最多 1000 行且静默截断——按时间正序，被截掉的会是最新的消息。
+  const { data, error } = await fetchAllRows((from, to) => db
     .from('conversation_messages')
     .select('*')
     .eq('conversation_id', params.id)
     .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
+    .range(from, to))
 
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   return NextResponse.json({ data, error: null })

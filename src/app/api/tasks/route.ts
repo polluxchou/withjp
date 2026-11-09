@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { authGuard } from '@/lib/auth/guard'
 
 // GET /api/tasks — list tasks with optional filters
@@ -12,16 +13,19 @@ export async function GET(req: NextRequest) {
   const status    = searchParams.get('status')
   const agentId   = searchParams.get('agent_id')
 
-  let query = db
-    .from('tasks')
-    .select('*, creator:creators(id,name,platform,status), agent:agents(id,name,role)')
-    .order('created_at', { ascending: false })
-
-  if (creatorId) query = query.eq('creator_id', creatorId)
-  if (status)    query = query.eq('status', status)
-  if (agentId)   query = query.eq('agent_id', agentId)
-
-  const { data, error } = await query
+  // 分页取全：单次响应最多 1000 行且静默截断。
+  const { data, error } = await fetchAllRows((from, to) => {
+    let query = db
+      .from('tasks')
+      .select('*, creator:creators(id,name,platform,status), agent:agents(id,name,role)')
+    if (creatorId) query = query.eq('creator_id', creatorId)
+    if (status)    query = query.eq('status', status)
+    if (agentId)   query = query.eq('agent_id', agentId)
+    return query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+  })
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   return NextResponse.json({ data, error: null })
 }

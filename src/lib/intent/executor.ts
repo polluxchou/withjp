@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import {
   createExpense,
   updateExpense,
@@ -494,10 +495,12 @@ async function runQuery(
 
 async function fetchAllMatching(filters: ExpenseFilters): Promise<Expense[]> {
   const db = createServerClient()
-  const { data } = await applyFilters(db.from('expenses').select('*'), filters)
+  // 汇总要全集：原来的 .limit(5000) 是假上限，服务端单次只给 1000 行，超出静默截断。
+  const { data } = await fetchAllRows<Expense>((from, to) => applyFilters(db.from('expenses').select('*'), filters)
     .order('expense_date', { ascending: false })
-    .limit(5000)
-  return (data ?? []) as Expense[]
+    .order('id', { ascending: true })
+    .range(from, to))
+  return data ?? []
 }
 
 function aggregate(

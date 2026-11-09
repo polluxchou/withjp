@@ -26,7 +26,7 @@ function routeFiles(dir: string): string[] {
 }
 
 // 判定之后才允许出现的「碰数据」调用。
-const DATA_TOUCH_RE = /\b(listExpenses|createExpense|updateExpense|deleteExpense|createServerClient)\(/
+const DATA_TOUCH_RE = /\b(listExpenses|listExpenseMonths|createExpense|updateExpense|deleteExpense|createServerClient)\(/
 
 // 整个目录都管：以后在这两个目录下新增的接口也会被这条规则约束。
 const ADMIN_ONLY_DIRS = ['app/api/expenses', 'app/api/expense-saved-views']
@@ -50,8 +50,8 @@ test('支出相关 API 的每个 handler 都先过 canAccessExpenses()，不过�
       })
     }
   }
-  // 当前盘点：expenses 4（GET/POST + PATCH/DELETE）+ expense-saved-views 4。
-  assert.equal(checked, 8)
+  // 当前盘点：expenses 5（GET/POST + PATCH/DELETE + months GET）+ expense-saved-views 4。
+  assert.equal(checked, 9)
 })
 
 // 从某个函数声明开始，切到下一个顶层函数声明为止。

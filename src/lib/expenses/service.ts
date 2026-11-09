@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { COMPANY_ACCOUNT_BUYERS } from '@/lib/types'
-import { categoryHasPeriod, dateToQuarter } from '@/lib/expenses/costs'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
+import { categoryHasPeriod, dateToQuarter, distinctExpenseMonths } from '@/lib/expenses/costs'
 import { canModify } from '@/lib/auth/actor'
 import type { ActorProfile } from '@/lib/auth/actor'
 import type {
@@ -92,34 +93,50 @@ export async function listExpenses(
 ): Promise<ServiceResult<Expense[]>> {
   const db = createServerClient()
 
-  let query = db
-    .from('expenses')
-    .select('*')
-    .order('expense_date', { ascending: false })
-    .order('created_at',   { ascending: false })
-
   const {
     q, category, payment_status, payment_method,
     user_name, buyer_name, date_from, date_to, period,
   } = filters
 
-  if (q) {
-    query = query.or(
-      `item_name.ilike.%${q}%,location.ilike.%${q}%,purpose.ilike.%${q}%,user_name.ilike.%${q}%,buyer_name.ilike.%${q}%`,
-    )
-  }
-  if (category)       query = query.eq('expense_category', category)
-  if (payment_status) query = query.eq('payment_status',   payment_status)
-  if (payment_method) query = query.eq('payment_method',   payment_method)
-  if (user_name)      query = query.ilike('user_name',  `%${user_name}%`)
-  if (buyer_name)     query = query.ilike('buyer_name', `%${buyer_name}%`)
-  if (date_from)      query = query.gte('expense_date', date_from)
-  if (date_to)        query = query.lte('expense_date', date_to)
-  if (period)         query = query.eq('period', period)
-
-  const { data, error } = await query
+  // 分页取全：单次响应最多 1000 行且静默截断。回调每页重建一次查询（builder 不能复用）。
+  // 排序与原来一致，末尾加 id 兜底——同一天同一 created_at 的行否则可能在两页之间漏掉或重复。
+  const { data, error } = await fetchAllRows((from, to) => {
+    let query = db.from('expenses').select('*')
+    if (q) {
+      query = query.or(
+        `item_name.ilike.%${q}%,location.ilike.%${q}%,purpose.ilike.%${q}%,user_name.ilike.%${q}%,buyer_name.ilike.%${q}%`,
+      )
+    }
+    if (category)       query = query.eq('expense_category', category)
+    if (payment_status) query = query.eq('payment_status',   payment_status)
+    if (payment_method) query = query.eq('payment_method',   payment_method)
+    if (user_name)      query = query.ilike('user_name',  `%${user_name}%`)
+    if (buyer_name)     query = query.ilike('buyer_name', `%${buyer_name}%`)
+    if (date_from)      query = query.gte('expense_date', date_from)
+    if (date_to)        query = query.lte('expense_date', date_to)
+    if (period)         query = query.eq('period', period)
+    return query
+      .order('expense_date', { ascending: false })
+      .order('created_at',   { ascending: false })
+      .order('id',           { ascending: true })
+      .range(from, to)
+  })
   if (error) return err('db_error', error.message)
   return ok((data ?? []) as Expense[])
+}
+
+// ── months ───────────────────────────────────────────────────
+
+/**
+ * 有支出记录的月份（YYYY-MM，新的在前），给支出页的月份选择器用。
+ * 只取 expense_date 一列，不为了算月份把整表的全部字段搬到浏览器。
+ */
+export async function listExpenseMonths(): Promise<ServiceResult<string[]>> {
+  const db = createServerClient()
+  const { data, error } = await fetchAllRows((from, to) => db.from('expenses').select('expense_date')
+    .order('id', { ascending: true }).range(from, to))
+  if (error) return err('db_error', error.message)
+  return ok(distinctExpenseMonths((data ?? []).map((r) => r.expense_date as string | null)))
 }
 
 // ── create ──────────────────────────────────────────────────

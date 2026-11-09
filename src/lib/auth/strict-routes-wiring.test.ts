@@ -49,8 +49,8 @@ test('every handler under the sensitive API directories uses authGuardStrict()',
       })
     }
   }
-  // 当前盘点：薪资 4 + 财务与支出 14 + users 1 + admin 1。少了说明切分或目录出了问题。
-  assert.equal(checked, 20)
+  // 当前盘点：薪资 4 + 财务与支出 15 + users 1 + admin 1。少了说明切分或目录出了问题。
+  assert.equal(checked, 21)
 })
 
 test('profile: changing your own role is strict, reading the profile stays fast', () => {
