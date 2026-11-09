@@ -16,7 +16,7 @@ import {
 } from './migration-ledger.mjs'
 
 const NAME = '20270101000000_add_thing.sql'
-const SQL = 'alter table public.foo add column if not exists bar int;\n'
+const SQL = 'alter table public.foo add column if not exists bar int;\ncomment on column public.foo.bar is $$x$$;\n'
 const sha = (text) => createHash('sha256').update(text, 'utf8').digest('hex')
 
 test('checksum is the sha256 of the SQL, independent of line endings and trailing blank lines', () => {
