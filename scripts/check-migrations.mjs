@@ -6,6 +6,7 @@ import {
   sequencesMissingServiceRoleGrant,
   unsupportedTableCreation,
 } from './migration-grants.mjs'
+import { LEDGER_CHECK_FROM, ledgerProblems } from './migration-ledger.mjs'
 
 // Guards the migration naming contract (see supabase/migrations/README.md):
 //   * Every .sql file must be named <YYYYMMDDHHMMSS>_<snake_case>.sql
@@ -14,6 +15,8 @@ import {
 //     (2026-08-08 incident: /api/notifications 500).
 //   * Files at or after GRANT_CHECK_FROM must grant every new public table to
 //     service_role — Supabase stops auto-granting on 2026-10-30 (see migration-grants.mjs).
+//   * Files at or after LEDGER_CHECK_FROM must end with an up-to-date block that records
+//     them in public.applied_migrations (see migration-ledger.mjs).
 
 const root = process.cwd()
 const dir = path.join(root, 'supabase', 'migrations')
@@ -38,6 +41,12 @@ for (const name of entries) {
     errors.push(`${name}: 时间戳前缀 ${prefix} 与 ${seen.get(prefix)} 重复，请重新生成`)
   } else {
     seen.set(prefix, name)
+  }
+  if (prefix >= LEDGER_CHECK_FROM) {
+    const sql = fs.readFileSync(path.join(dir, name), 'utf8')
+    for (const problem of ledgerProblems(name, sql)) {
+      errors.push(`${name}: ${problem}；请运行 npm run migrations:stamp（见 README「已应用账本」）`)
+    }
   }
   if (prefix >= GRANT_CHECK_FROM) {
     const sql = fs.readFileSync(path.join(dir, name), 'utf8')
