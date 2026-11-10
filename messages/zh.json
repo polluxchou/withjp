@@ -2742,6 +2742,19 @@
         }
       }
     },
+    "errorPage": {
+      "eyebrow": "ERROR ／ 500",
+      "title": "页面暂时无法显示",
+      "body": "很抱歉，这一页加载时出了问题。请重试，或稍后再访问。",
+      "retry": "重试",
+      "home": "回到首页"
+    },
+    "notFound": {
+      "eyebrow": "ERROR ／ 404",
+      "title": "找不到这个页面",
+      "body": "您访问的页面不存在，可能已被移动或删除。",
+      "home": "回到首页"
+    },
     "theme": {
       "dark": "◐ DARK",
       "light": "◑ LIGHT",
@@ -2914,6 +2927,19 @@
       "required_when_revealed": "已公开卡位必须填写此项",
       "required_when_unrevealed": "未公开卡位必须填写此项",
       "empty_patch": "没有检测到需要保存的更改"
+    }
+  },
+  "errorPages": {
+    "title": "页面出了点问题",
+    "hint": "这次错误已经记录下来。请重试；还是不行的话，把下面的编号发给管理员。",
+    "digest": "错误编号：{digest}",
+    "notFoundTitle": "找不到这个页面",
+    "notFoundHint": "地址可能输错了，或者页面已经被移走。",
+    "backHome": "回到首页",
+    "global": {
+      "title": "页面出了点问题",
+      "hint": "请重试；还是不行的话，稍后再来。",
+      "retry": "重试"
     }
   }
 }

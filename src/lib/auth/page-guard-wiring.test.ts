@@ -43,6 +43,8 @@ const POLICY: Record<string, Guard> = {
   'team/org/page.tsx': 'authGuard',
   'devices/page.tsx': 'none',
   'config/changelog/page.tsx': 'none',
+  // 兜底段：只调 notFound()，把未匹配的地址交给 not-found.tsx。
+  '[...rest]/page.tsx': 'none',
 }
 
 const GUARD_RE: Record<Exclude<Guard, 'none'>, RegExp> = {
