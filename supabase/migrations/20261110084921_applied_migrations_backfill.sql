@@ -1,8 +1,8 @@
--- 一次性回填：账本建立前的 79 个迁移。
+-- 一次性回填：账本建立前的 80 个迁移。
 --
 -- 2026-11-10 用只读查询逐个核对了线上库（表、列、索引、约束、枚举值、策略、触发器、
 -- 函数、RLS 开关、存储桶、表级权限，以及种子数据是否在）。核对方法与逐文件结论见 PR 描述。
---   * 下面 77 个：效果已在线上，登记为 backfilled。
+--   * 下面 78 个：效果已在线上，登记为 backfilled。
 --   * 文件末尾注释掉的 2 个：纯数据更新，结构上看不出跑没跑过，由维护者判断后
 --     取消注释登记，或补跑后登记。在此之前 npm run audit:migrations 会一直把它们列为未登记。
 -- checksum 是文件当前内容的 sha256，之后谁改了历史文件，audit 会报「登记后被改过」。
@@ -85,7 +85,8 @@ insert into public.applied_migrations (filename, checksum, backfilled) values
 ('20261010120000_competitor_live_sessions.sql', '51af9c5ba394a6e47d365036c705321c7d3015f59a3cf2ce6a99fd99387b0455', true),
 ('20261011120157_competitor_live_summaries.sql', 'a4983eed48c984debc8b297bb03ec6c16913897f100c57c206dac6de85220c29', true),
 ('20261015130534_task_item_quadrant.sql', '76b839c68747f9fea2e80d348e952c3d2322c98a70654c0e3d9ea1b1b76dbaf4', true),
-('20261026120000_competitor_scoped_accounts.sql', '8a06aee8fca619c377bfadffb775a71aeb649be9d8d2fd0e96784678d6acd591', true)
+('20261026120000_competitor_scoped_accounts.sql', '8a06aee8fca619c377bfadffb775a71aeb649be9d8d2fd0e96784678d6acd591', true),
+('20261110084614_revoke_client_table_grants.sql', '52fabfaca1575f153fcad9044e4fe93e29cd89e219671fd3542515638d0229a8', true)
 on conflict (filename) do nothing;
 
 -- 无法确认，默认不登记：
@@ -101,6 +102,6 @@ on conflict (filename) do nothing;
 
 -- @applied-migrations-ledger（由 npm run migrations:stamp 生成，勿手改；改了上面的 SQL 要重新生成）
 insert into public.applied_migrations (filename, checksum)
-values ('20261110084921_applied_migrations_backfill.sql', '6f13d66527b6af95cc955299859a45f208912b96e7e28c12fef39db1ef791533')
+values ('20261110084921_applied_migrations_backfill.sql', '2c6464b52f37d399fd71d727dd917de0b770c63bba374adaa31926f65acba62e')
 on conflict (filename) do update
   set checksum = excluded.checksum, applied_at = now(), backfilled = false;

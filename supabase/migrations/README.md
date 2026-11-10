@@ -89,13 +89,13 @@ SUPABASE_DB_URL='postgres://...' npm run audit:migrations
 仓库对不上时也先跑它。它只证明「文件被执行过」，不证明执行后没人在 Dashboard 里手改过
 结构——后者仍按下文方法核对，或跑 `npm run audit:rls`。
 
-**历史迁移的回填**：账本建立前的 79 个文件由 `20261110084921_applied_migrations_backfill.sql`
+**历史迁移的回填**：账本建立前的 80 个文件由 `20261110084921_applied_migrations_backfill.sql`
 一次性登记（`backfilled = true`，`applied_at` 是回填时间而非真实执行时间）。回填前用只读
 查询逐个核对过线上库；其中 2 个纯数据更新的迁移（`20260511221935`、`20260512015620`，
 费用 period 回填）从结构上无法确认是否执行过，在回填文件末尾注释着，判断后再登记。
 
 **为什么不用 Supabase CLI 的 `supabase_migrations.schema_migrations`**：`db push` 会把执行
-方式从 SQL Editor 改成本机 CLI 直连生产库，需要先对 79 个历史文件逐个
+方式从 SQL Editor 改成本机 CLI 直连生产库，需要先对 80 个历史文件逐个
 `migration repair --status applied`；而且历史文件并不都幂等，一旦 repair 漏了哪个，
 `db push` 会把它当成待执行的重跑。自登记只是在现有流程上多一句 insert，不改变谁来执行、
 在哪执行。将来若改用 CLI，账本里的文件名可以直接换算成 `schema_migrations.version`。
