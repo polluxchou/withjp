@@ -205,3 +205,15 @@ test('yes-flag fields (unpaid_only / cross_border_only) survive normalization', 
     cross_border_only: 'yes',
   })
 })
+
+test('filter values that are not JSON are dropped before they reach jsonb', () => {
+  const out = normalizeSubject({
+    subjectType: 'filter',
+    serviceKey: 'expenses',
+    entityType: 'expense',
+    filters: { category: 'travel', payment_status: Number.NaN, user_name: () => 'x' },
+    label: 'L',
+    route: '/expenses',
+  })
+  assert.deepEqual(out.subjectPayload.filters, { category: 'travel' })
+})
