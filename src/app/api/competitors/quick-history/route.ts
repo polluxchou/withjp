@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { accessScopeOf } from '@/lib/auth/access-scope'
 import { upsertLiveSessions } from '@/lib/competitors/service'
 import { createQuickHistoryHandlers, type QuickHistoryDeps } from '@/lib/competitors/quickHistoryService.ts'
@@ -27,7 +28,8 @@ function deps(): QuickHistoryDeps {
       throw error ?? new Error('auth getUser returned no user')
     },
     listCompetitors: async () => {
-      const { data, error } = await db.from('competitors').select('id, handle, display_name').eq('platform', 'tiktok')
+      const { data, error } = await fetchAllRows((from, to) => db.from('competitors').select('id, handle, display_name')
+        .eq('platform', 'tiktok').order('id', { ascending: true }).range(from, to))
       return error ? null : (data ?? [])
     },
     upsertSessions: async (competitorId, rows, actor) => {

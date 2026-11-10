@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { STATUS_AGENT_ROLE, STATUS_TASK_TITLE } from '@/lib/state-machine/creator-lifecycle'
 import { normalizeCreatorPlatform } from '@/lib/creators/platforms'
 import { formatSupabaseError } from '@/lib/supabase/errors'
@@ -13,14 +14,17 @@ export async function GET(req: NextRequest) {
   const db = createServerClient()
   const status = req.nextUrl.searchParams.get('status')
 
-  let query = db
-    .from('creators')
-    .select('*, broadcast_account:broadcast_accounts(*), operator_user:users!creators_operator_user_id_fkey(id,name,email,user_code,role)')
-    .order('created_at', { ascending: false })
-
-  if (status) query = query.eq('status', status)
-
-  const { data, error } = await query
+  // 分页取全：单次响应最多 1000 行且静默截断。
+  const { data, error } = await fetchAllRows((from, to) => {
+    let query = db
+      .from('creators')
+      .select('*, broadcast_account:broadcast_accounts(*), operator_user:users!creators_operator_user_id_fkey(id,name,email,user_code,role)')
+    if (status) query = query.eq('status', status)
+    return query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+  })
   if (error) {
     return NextResponse.json({ data: null, error: formatSupabaseError(error.message) }, { status: 500 })
   }

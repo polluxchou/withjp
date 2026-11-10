@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { authGuard } from '@/lib/auth/guard'
 import type { CreatorStatus, DashboardStats } from '@/lib/types'
 import { ALL_STATUSES } from '@/lib/state-machine/creator-lifecycle'
@@ -13,9 +14,13 @@ export async function GET() {
   const db = createServerClient()
 
   const [creatorsRes, tasksRes, financeRes] = await Promise.all([
-    db.from('creators').select('id, status'),
-    db.from('tasks').select('id, status'),
-    db.from('finance').select('revenue, cost, profit, roi, creator_id'),
+    // 统计用的全集，分页取全：单次响应最多 1000 行且静默截断。
+    fetchAllRows((from, to) => db.from('creators').select('id, status')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('tasks').select('id, status')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('finance').select('revenue, cost, profit, roi, creator_id')
+      .order('id', { ascending: true }).range(from, to)),
   ])
 
   const creators    = creatorsRes.data ?? []

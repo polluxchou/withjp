@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { pendingTranslations, translateNames, type NameTranslations, type TranslatableRow } from '@/lib/venue/translate'
 import { layoutToRows, rowsToLayout } from '@/lib/venue/layout-sync'
 import type { VenueRow, VenueFloorRow, VenueItemRow } from '@/lib/venue/layout-sync'
@@ -118,10 +119,13 @@ export async function getVenueLayout(venueId: string = SHARED_VENUE_ID): Promise
   const floorIds = (floors ?? []).map((f) => f.id)
   let items: VenueItemRow[] = []
   if (floorIds.length > 0) {
-    const { data: itemRows, error: itemErr } = await db
+    // 一个场地的物件会过千，分页取全：单次响应最多 1000 行且静默截断。
+    const { data: itemRows, error: itemErr } = await fetchAllRows((from, to) => db
       .from('venue_items')
       .select('id, floor_id, type, name, x, y, width, height, rotation, status, note, z_index, height3d, elevation, placement, thickness, merged_with')
       .in('floor_id', floorIds)
+      .order('id', { ascending: true })
+      .range(from, to))
     if (itemErr) return err('db_error', itemErr.message)
     items = (itemRows ?? []) as VenueItemRow[]
   }
@@ -230,10 +234,12 @@ export async function translateVenueItemNames(
   const floorIds = (floors ?? []).map((f) => f.id)
   if (floorIds.length === 0) return ok({})
 
-  const { data: rows, error: rowErr } = await db
+  const { data: rows, error: rowErr } = await fetchAllRows((from, to) => db
     .from('venue_items')
     .select('id, name, name_ja, name_en, name_i18n_source')
     .in('floor_id', floorIds)
+    .order('id', { ascending: true })
+    .range(from, to))
   if (rowErr) return err('db_error', rowErr.message)
   const allRows = (rows ?? []) as TranslatableRow[]
 

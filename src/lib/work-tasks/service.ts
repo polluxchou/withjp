@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import type { WorkTaskCreatePayload } from '@/lib/intent/schema'
 import { matchItemByName } from '@/lib/work-tasks/org-link'
 import { fetchTaskItemName } from '@/lib/work-tasks/item-snapshot'
@@ -41,7 +42,8 @@ export async function createWorkTaskFromIntent(
 
   let itemId = payload.business_task_item_id ?? null
   if (!itemId) {
-    const { data: items } = await db.from('task_items').select('id, name')
+    const { data: items } = await fetchAllRows((from, to) => db.from('task_items').select('id, name')
+      .order('id', { ascending: true }).range(from, to))
     itemId = matchItemByName((items ?? []) as { id: string; name: string }[], payload.title)
   }
   const itemName = itemId ? await fetchTaskItemName(db, itemId) : null
