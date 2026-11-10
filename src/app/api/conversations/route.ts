@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { authGuard } from '@/lib/auth/guard'
 
 // GET /api/conversations — list conversations, optionally filtered by agent
@@ -11,14 +12,15 @@ export async function GET(req: NextRequest) {
   const db = createServerClient()
   const agentId = req.nextUrl.searchParams.get('agent_id')
 
-  let query = db
-    .from('conversations')
-    .select('*, agent:agents(id,name,role)')
-    .order('updated_at', { ascending: false })
-
-  if (agentId) query = query.eq('agent_id', agentId)
-
-  const { data, error } = await query
+  // 分页取全：单次响应最多 1000 行且静默截断。
+  const { data, error } = await fetchAllRows((from, to) => {
+    let query = db.from('conversations').select('*, agent:agents(id,name,role)')
+    if (agentId) query = query.eq('agent_id', agentId)
+    return query
+      .order('updated_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+  })
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   return NextResponse.json({ data, error: null })
 }

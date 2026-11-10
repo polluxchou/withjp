@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { uploadImage, validateImage } from '@/lib/storage/upload-image.ts'
 import { QUICK_SHOT_TAG } from '@/lib/competitors/quickShot.ts'
 import { createQuickShotHandlers, type QuickShotDeps } from '@/lib/competitors/quickShotService.ts'
@@ -39,7 +40,8 @@ function deps(): QuickShotDeps {
       throw error ?? new Error('auth getUser returned no user')
     },
     listCompetitors: async () => {
-      const { data, error } = await db.from('competitors').select('id, handle, display_name').eq('platform', 'tiktok')
+      const { data, error } = await fetchAllRows((from, to) => db.from('competitors').select('id, handle, display_name')
+        .eq('platform', 'tiktok').order('id', { ascending: true }).range(from, to))
       return error ? null : (data ?? [])
     },
     validateImage,

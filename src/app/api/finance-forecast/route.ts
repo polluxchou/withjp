@@ -10,6 +10,7 @@ import { assertViewAccess, httpStatusForViewError } from '@/lib/finance-forecast
 import { buildForecastYearMonthsByYear } from '@/lib/finance-forecast/year'
 import { calculateMonthlyBudgetCosts, type ExpenseForBudget, type ForecastMonthInput } from '@/lib/finance-forecast/calculations'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 
 export async function GET(req: NextRequest) {
   const user = await authGuardStrict()
@@ -100,13 +101,16 @@ async function buildBaseMonths(years: number[]): Promise<Map<number, ForecastMon
   const db = createServerClient()
   const startYear = years[0]
   const endYear   = years[years.length - 1]
-  const { data } = await db
+  // 预算汇总要全集，分页取全：单次响应最多 1000 行且静默截断，丢行会把预算算小。
+  const { data } = await fetchAllRows((from, to) => db
     .from('expenses')
     .select('expense_date,period,total_price,payment_status,buyer_name,expense_category')
     .or(
       `and(expense_date.gte.${startYear}-01-01,expense_date.lte.${endYear}-12-31),` +
       years.map((y) => `period.like.${y}-Q%`).join(','),
     )
+    .order('id', { ascending: true })
+    .range(from, to))
 
   return buildForecastYearMonthsByYear(
     years,

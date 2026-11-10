@@ -103,8 +103,9 @@ test('authGuard / authGuardStrict 的返回都经过范围判定（默认拒绝�
 
 test('middleware：登录检查之后把受限帐号送回竞品首页', () => {
   const src = readSrc('lib/supabase/middleware.ts')
-  const login = src.indexOf('if (!data?.claims?.sub)')
-  const scope = src.indexOf('pageAllowedForScope(accessScopeOf(data.claims.app_metadata), pathnameWithoutLocale)')
+  // 登录判定与 authGuard 共用 authedUserFromClaims（匿名会话也在那里挡掉），范围取自它的结果。
+  const login = src.indexOf('const user = authedUserFromClaims(data?.claims)\n    if (!user) {')
+  const scope = src.indexOf('pageAllowedForScope(user.access_scope, pathnameWithoutLocale)')
   assert.ok(login > 0 && scope > login, 'middleware 应在登录检查后判范围')
   assert.match(src.slice(scope), /^[^\n]*\) \{\n[\s\S]*?url\.pathname = scopedHomePath\([\s\S]*?return redirectWithCookies\(url, supabaseResponse\)/)
 })

@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { validateItem } from '@/lib/items/validation'
 import { ITEM_STATUSES } from '@/lib/items/types'
 import type { Item, ItemKind, ItemStatus, ItemStatusLog, ItemWithLogs } from '@/lib/items/types'
@@ -54,16 +55,21 @@ const ITEM_COLS =
 // ── list ─────────────────────────────────────────────
 export async function listItems(filters: ListItemsFilters): Promise<ServiceResult<Item[]>> {
   const db = createServerClient()
-  let query = db.from('items').select(ITEM_COLS).order('created_at', { ascending: false })
-
   const { q, kind, status, venue_item_id, responsible_person } = filters
-  if (q) query = query.or(`name.ilike.%${q}%,item_code.ilike.%${q}%,serial_number.ilike.%${q}%`)
-  if (kind) query = query.eq('kind', kind)
-  if (status) query = query.eq('status', status)
-  if (venue_item_id) query = query.eq('placement_venue_item_id', venue_item_id)
-  if (responsible_person) query = query.ilike('responsible_person', `%${responsible_person}%`)
 
-  const { data, error } = await query
+  // 分页取全：单次响应最多 1000 行且静默截断。
+  const { data, error } = await fetchAllRows((from, to) => {
+    let query = db.from('items').select(ITEM_COLS)
+    if (q) query = query.or(`name.ilike.%${q}%,item_code.ilike.%${q}%,serial_number.ilike.%${q}%`)
+    if (kind) query = query.eq('kind', kind)
+    if (status) query = query.eq('status', status)
+    if (venue_item_id) query = query.eq('placement_venue_item_id', venue_item_id)
+    if (responsible_person) query = query.ilike('responsible_person', `%${responsible_person}%`)
+    return query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+  })
   if (error) return err('db_error', error.message)
   return ok((data ?? []) as Item[])
 }

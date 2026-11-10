@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { getTranslations } from 'next-intl/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { requirePageUser } from '@/lib/auth/require-page-user'
 import Header from '@/components/layout/Header'
 import SectionCard from '@/components/ui/SectionCard'
@@ -28,10 +29,13 @@ async function getData(): Promise<{ agents: Agent[]; tasks: TaskRow[] }> {
   const db = createServerClient()
   const [agentsRes, tasksRes] = await Promise.all([
     db.from('agents').select('*').order('role'),
-    db
+    // 分页取全：单次响应最多 1000 行且静默截断。
+    fetchAllRows((from, to) => db
       .from('tasks')
       .select('id, agent_id, title, status, created_at, creator:creators(name)')
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)),
   ])
   return {
     agents: (agentsRes.data ?? []) as Agent[],
