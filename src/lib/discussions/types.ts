@@ -1,6 +1,9 @@
+import type { Enums, Json } from '../supabase/database.types.ts'
+
 export type ServiceKey = 'expenses' | 'finance_forecast' | 'creators'
 
-export type SubjectType = 'record' | 'filter' | 'saved_view'
+// 枚举直接取自数据库类型（npm run gen:types），库里改了 enum 这里跟着变。
+export type SubjectType = Enums<'discussion_subject_type'>
 
 export type RecordSubjectInput = {
   subjectType: 'record'
@@ -43,11 +46,11 @@ export interface NormalizedSubject {
   subjectPayload: {
     label: string
     route: string
-    filters?: Record<string, unknown>
+    filters?: { [key: string]: Json }
   }
 }
 
-export type ThreadStatus = 'open' | 'resolved'
+export type ThreadStatus = Enums<'discussion_status'>
 
 export type Thread = {
   id: string
@@ -68,8 +71,8 @@ export type Thread = {
   updatedAt: string
 }
 
-export type SenderType = 'user' | 'agent' | 'external'
-export type MessageChannel = 'web' | 'email' | 'im'
+export type SenderType = Enums<'discussion_sender_type'>
+export type MessageChannel = Enums<'discussion_channel'>
 
 export type Message = {
   id: string

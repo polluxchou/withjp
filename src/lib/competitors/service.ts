@@ -11,8 +11,9 @@ import { fetchAllRows } from '../supabase/fetchAll.ts'
 import { assembleBoard, parseHandleFromUrl } from './assemble.ts'
 import type { CoLiveReading } from './coLive.ts'
 import { assembleCompanyBoard } from './companies.ts'
+import type { TablesInsert, TablesUpdate } from '@/lib/supabase/database.types'
 import type {
-  CompanyAccountRow, CompanyBoard, CompanyCompetitorInput, CompanySnapshotInput, CompetitorCompany,
+  CompanyAccountRow, CompanyBoard, CompanyCompetitorInput, CompanySnapshotInput,
 } from './companies.ts'
 import { normalizeDescriptionBody } from './descriptions.ts'
 import { validateLiveSessionRows } from './liveHistory.ts'
@@ -68,10 +69,11 @@ const FIELD_KEYS: (keyof CompetitorFields)[] = [
   'composition', 'launch_city', 'launched_on', 'mc_note', 'online_note', 'latest_videos', 'parent_id',
 ]
 
-function pickFields(input: CompetitorFields): Record<string, unknown> {
-  const patch: Record<string, unknown> = {}
+// 返回值按 competitors 表的 Update 类型检查：CompetitorFields 里哪个键与列名或列类型对不上，这里编译不过。
+function pickFields(input: CompetitorFields): TablesUpdate<'competitors'> {
+  const patch: Pick<CompetitorFields, (typeof FIELD_KEYS)[number]> = {}
   for (const k of FIELD_KEYS) {
-    if (input[k] !== undefined) patch[k] = input[k]
+    if (input[k] !== undefined) Object.assign(patch, { [k]: input[k] })
   }
   return patch
 }
@@ -286,7 +288,7 @@ export async function getCompanyBoard(): Promise<ServiceResult<CompanyBoard>> {
   const firstErr = coRes.error ?? linkRes.error ?? compRes.error ?? snapRes.error
   if (firstErr) return err('db_error', firstErr.message)
   return ok(assembleCompanyBoard(
-    (coRes.data ?? []) as CompetitorCompany[],
+    coRes.data ?? [],
     (linkRes.data ?? []) as CompanyAccountRow[],
     (compRes.data ?? []) as CompanyCompetitorInput[],
     (snapRes.data ?? []) as CompanySnapshotInput[],
@@ -480,9 +482,10 @@ export async function updateShot(
 ): Promise<ServiceResult<{ id: string }>> {
   if (!fields || typeof fields !== 'object') return err('invalid_input', 'body must be an object')
   if (!isValidShotDate(fields.shot_on)) return err('invalid_input', SHOT_ON_HINT)
-  const patch: Record<string, unknown> = {}
+  // 先按入参自身的类型挑字段，交给 .update() 时再按表的 Update 类型整体检查。
+  const patch: Partial<typeof fields> = {}
   for (const k of ['shot_on', 'tag', 'caption', 'sort_order'] as const) {
-    if (fields[k] !== undefined) patch[k] = fields[k]
+    if (fields[k] !== undefined) Object.assign(patch, { [k]: fields[k] })
   }
   if (Object.keys(patch).length === 0) return err('invalid_input', 'nothing to update')
   const db = createServerClient()
@@ -538,7 +541,7 @@ export async function updateDescription(
   fields: { body?: string; generated_on?: string },
 ): Promise<ServiceResult<{ id: string }>> {
   if (!fields || typeof fields !== 'object') return err('invalid_input', 'body must be an object')
-  const patch: Record<string, unknown> = {}
+  const patch: TablesUpdate<'competitor_descriptions'> = {}
   if (fields.body !== undefined) {
     const body = normalizeDescriptionBody(fields.body)
     if (!body) return err('invalid_input', BODY_HINT)
@@ -599,8 +602,8 @@ export async function upsertLiveSessions(
     ownerAt.set(Date.parse(row.started_at), row.created_by ?? null)
   }
 
-  const fresh: Record<string, unknown>[] = []
-  const overwrite: Record<string, unknown>[] = []
+  const fresh: TablesInsert<'competitor_live_sessions'>[] = []
+  const overwrite: TablesInsert<'competitor_live_sessions'>[] = []
   let skipped = 0
   for (const r of checked.rows) {
     const base = { competitor_id: competitorId, ...r, source: 'tiktok_history', updated_at: updatedAt }

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import type { Json } from '../supabase/database.types.ts'
 import type { NormalizedSubject, SubjectInput } from './types.ts'
 
 // Keys allowed in a filter subject's hash, per entity_type. Anything
@@ -43,6 +44,16 @@ function normalizeValue(v: unknown): unknown {
   return v
 }
 
+// 筛选值来自请求体（JSON），这里把类型收窄成 Json 才能写进 jsonb；
+// 函数、undefined、NaN 之类 JSON 里本来就不会有的值一律丢弃。
+function isJson(v: unknown): v is Json {
+  if (v === null || typeof v === 'string' || typeof v === 'boolean') return true
+  if (typeof v === 'number') return Number.isFinite(v)
+  if (Array.isArray(v)) return v.every(isJson)
+  if (typeof v === 'object') return Object.values(v).every((x) => x === undefined || isJson(x))
+  return false
+}
+
 function canonicalJSON(obj: Record<string, unknown>): string {
   const keys = Object.keys(obj).sort()
   const ordered: Record<string, unknown> = {}
@@ -67,12 +78,12 @@ export function normalizeSubject(input: SubjectInput): NormalizedSubject {
   }
 
   const allowed = FILTER_WHITELIST[input.entityType] ?? []
-  const cleaned: Record<string, unknown> = {}
+  const cleaned: { [key: string]: Json } = {}
   for (const key of allowed) {
     const raw = (input.filters as Record<string, unknown>)[key]
     if (!isMeaningful(raw)) continue
     const normalized = normalizeValue(raw)
-    if (!isMeaningful(normalized)) continue
+    if (!isMeaningful(normalized) || !isJson(normalized)) continue
     cleaned[key] = normalized
   }
 

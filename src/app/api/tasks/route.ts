@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { isDbEnum } from '@/lib/supabase/enums'
 import { authGuard } from '@/lib/auth/guard'
 
 // GET /api/tasks — list tasks with optional filters
@@ -18,7 +19,10 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (creatorId) query = query.eq('creator_id', creatorId)
-  if (status)    query = query.eq('status', status)
+  if (status) {
+    if (!isDbEnum('task_status', status)) return NextResponse.json({ data: null, error: 'invalid status' }, { status: 400 })
+    query = query.eq('status', status)
+  }
   if (agentId)   query = query.eq('agent_id', agentId)
 
   const { data, error } = await query

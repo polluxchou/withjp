@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { isDbEnum } from '@/lib/supabase/enums'
 import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile, canModify } from '@/lib/auth/actor'
 
@@ -11,7 +12,10 @@ export async function GET(req: NextRequest) {
   const category = req.nextUrl.searchParams.get('category')
 
   let query = db.from('knowledge').select('*').order('category').order('title')
-  if (category) query = query.eq('category', category)
+  if (category) {
+    if (!isDbEnum('knowledge_category', category)) return NextResponse.json({ data: null, error: 'invalid category' }, { status: 400 })
+    query = query.eq('category', category)
+  }
 
   const { data, error } = await query
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })

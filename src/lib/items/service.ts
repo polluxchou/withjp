@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { validateItem } from '@/lib/items/validation'
 import { ITEM_STATUSES } from '@/lib/items/types'
 import type { Item, ItemKind, ItemStatus, ItemStatusLog, ItemWithLogs } from '@/lib/items/types'
+import type { TablesUpdate } from '@/lib/supabase/database.types'
 
 export type ServiceErrorCode = 'invalid_input' | 'not_found' | 'forbidden' | 'db_error'
 export interface ServiceError { code: ServiceErrorCode; message: string }
@@ -124,6 +125,9 @@ export async function createItem(input: CreateItemInput, actorId?: string): Prom
   const { data, error } = await db
     .from('items')
     .insert({
+      // 空串交给 generate_item_code 触发器填 WP-YYYY-NNNN（它把 null 和 '' 都当未指定）；
+      // 生成的类型里这一列是必填，因为表上是 not null 且没有默认值。
+      item_code: '',
       name: input.name.trim(),
       kind,
       expense_id,
@@ -186,7 +190,7 @@ export async function updateItem(id: string, patch: UpdateItemInput, actorId?: s
   const valueError = await validateItemValue(db, item_value, expense_id)
   if (valueError) return err('invalid_input', valueError)
 
-  const updates: Record<string, unknown> = {
+  const updates: TablesUpdate<'items'> = {
     name: name.trim(),
     kind,
     expense_id,

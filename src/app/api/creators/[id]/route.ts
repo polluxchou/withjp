@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { normalizeCreatorPlatform } from '@/lib/creators/platforms'
+import { pickCreatorFields } from '@/lib/creators/fields'
 import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile, canModify } from '@/lib/auth/actor'
 import { formatSupabaseError } from '@/lib/supabase/errors'
@@ -67,12 +68,13 @@ export async function PATCH(req: NextRequest, props: Params) {
     return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  // Prevent direct status changes via PATCH; use /transition endpoint
-  const { status: _removed, broadcast_account, operator_user, tasks, finance, transitions, activity_logs, ...updates } = body
-  const normalizedUpdates = { ...updates }
+  // 只收白名单里的字段（见 lib/creators/fields.ts）；status 走 /transition。
+  const picked = pickCreatorFields(body)
+  if (!picked.ok) return NextResponse.json({ data: null, error: picked.message }, { status: 400 })
+  const normalizedUpdates = picked.fields
 
-  if ('platform' in normalizedUpdates) {
-    const normalizedPlatform = typeof normalizedUpdates.platform === 'string' && normalizedUpdates.platform.trim()
+  if (normalizedUpdates.platform !== undefined) {
+    const normalizedPlatform = normalizedUpdates.platform.trim()
       ? normalizeCreatorPlatform(normalizedUpdates.platform.trim())
       : ''
 
@@ -81,14 +83,6 @@ export async function PATCH(req: NextRequest, props: Params) {
     }
 
     normalizedUpdates.platform = normalizedPlatform
-  }
-
-  if ('broadcast_account_id' in normalizedUpdates && !normalizedUpdates.broadcast_account_id) {
-    normalizedUpdates.broadcast_account_id = null
-  }
-
-  if ('operator_user_id' in normalizedUpdates && !normalizedUpdates.operator_user_id) {
-    normalizedUpdates.operator_user_id = null
   }
 
   const { data, error } = await db

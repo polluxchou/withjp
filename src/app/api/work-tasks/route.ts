@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { isDbEnum } from '@/lib/supabase/enums'
 import { authGuard } from '@/lib/auth/guard'
 import { fetchTaskItemName } from '@/lib/work-tasks/item-snapshot'
 import type { WorkTaskType, WorkTaskStatus, AgentRole, WorkTaskRepeatInterval } from '@/lib/types'
@@ -41,11 +42,20 @@ export async function GET(req: NextRequest) {
   if (date)         query = query.eq('task_date', date)
   if (date_from)    query = query.gte('task_date', date_from)
   if (date_to)      query = query.lte('task_date', date_to)
-  if (department)   query = query.eq('department', department)
+  if (department) {
+    if (!isDbEnum('agent_role', department)) return NextResponse.json({ data: null, error: 'invalid department' }, { status: 400 })
+    query = query.eq('department', department)
+  }
   if (milestone_id) query = query.eq('milestone_id', milestone_id)
   if (owner)        query = query.eq('owner_user_id', owner)
-  if (status)       query = query.eq('status', status)
-  if (task_type)    query = query.eq('task_type', task_type)
+  if (status) {
+    if (!isDbEnum('work_task_status', status)) return NextResponse.json({ data: null, error: 'invalid status' }, { status: 400 })
+    query = query.eq('status', status)
+  }
+  if (task_type) {
+    if (!isDbEnum('work_task_type', task_type)) return NextResponse.json({ data: null, error: 'invalid task_type' }, { status: 400 })
+    query = query.eq('task_type', task_type)
+  }
   if (title_search) query = query.ilike('title', `%${title_search}%`)
   if (limit)        query = query.limit(Number(limit))
 

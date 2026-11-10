@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from './database.types'
 
 // Server-side client with service role key — never expose to the browser
 export function createServerClient() {
-  return createClient(
+  return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     // autoRefreshToken must be off: outside a browser auth-js otherwise starts

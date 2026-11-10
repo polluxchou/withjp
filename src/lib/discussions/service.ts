@@ -6,6 +6,7 @@
 // ./permissions.ts. Subject normalization is delegated to ./subject.ts.
 
 import { createServerClient } from '@/lib/supabase/server'
+import type { Json, Tables } from '@/lib/supabase/database.types'
 import type { ActorProfile } from '@/lib/auth/actor'
 import {
   canDeleteMessage,
@@ -62,51 +63,28 @@ export function httpStatusForDiscussionError(code: ServiceErrorCode): number {
 
 // ── Row → camelCase normalization ───────────────────────────────
 
-type ThreadRow = {
-  id:                  string
-  topic_code:          string
-  service_key:         string
-  assigned_agent_id:   string
-  subject_type:        'record' | 'filter' | 'saved_view'
-  entity_type:         string
-  entity_id:           string | null
-  subject_hash:        string | null
-  subject_payload:     Record<string, unknown>
-  title:               string
-  status:              'open' | 'resolved'
-  created_by_user_id:  string
-  resolved_by_user_id: string | null
-  resolved_at:         string | null
-  created_at:          string
-  updated_at:          string
-}
+// 行类型取自生成的数据库类型（npm run gen:types）。查询列清单写成字面量，
+// supabase-js 才能据此推出返回行的形状，读出来不用再 as。
+type ThreadRow = Tables<'discussion_threads'>
+type MessageRow = Tables<'discussion_messages'>
 
-type MessageRow = {
-  id:                string
-  thread_id:         string
-  parent_id:         string | null
-  sender_type:       'user' | 'agent' | 'external'
-  sender_user_id:    string | null
-  sender_agent_id:   string | null
-  channel:           'web' | 'email' | 'im'
-  body:              string
-  metadata:          Record<string, unknown>
-  created_at:        string
-  updated_at:        string
-  deleted_at:        string | null
+// subject_payload / metadata 在库里是 jsonb（Json），对外是对象；不是对象时按空对象处理。
+function jsonObject(v: Json): Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v) ? v : {}
 }
 
 function normalizeThread(row: ThreadRow): Thread {
   return {
     id:               row.id,
     topicCode:        row.topic_code,
+    // service_key 在库里是 text；写入只来自 ServiceKey（createThread 的入参）。
     serviceKey:       row.service_key as ServiceKey,
     assignedAgentId:  row.assigned_agent_id,
     subjectType:      row.subject_type,
     entityType:       row.entity_type,
     entityId:         row.entity_id,
     subjectHash:      row.subject_hash,
-    subjectPayload:   row.subject_payload,
+    subjectPayload:   jsonObject(row.subject_payload),
     title:            row.title,
     status:           row.status,
     createdByUserId:  row.created_by_user_id,
@@ -127,7 +105,7 @@ function normalizeMessage(row: MessageRow): Message {
     senderAgentId:  row.sender_agent_id,
     channel:        row.channel,
     body:           row.body,
-    metadata:       row.metadata,
+    metadata:       jsonObject(row.metadata),
     createdAt:      row.created_at,
     updatedAt:      row.updated_at,
     deletedAt:      row.deleted_at,
@@ -135,13 +113,10 @@ function normalizeMessage(row: MessageRow): Message {
 }
 
 const THREAD_COLUMNS =
-  'id, topic_code, service_key, assigned_agent_id, subject_type, entity_type, ' +
-  'entity_id, subject_hash, subject_payload, title, status, created_by_user_id, ' +
-  'resolved_by_user_id, resolved_at, created_at, updated_at'
+  'id, topic_code, service_key, assigned_agent_id, subject_type, entity_type, entity_id, subject_hash, subject_payload, title, status, created_by_user_id, resolved_by_user_id, resolved_at, created_at, updated_at'
 
 const MESSAGE_COLUMNS =
-  'id, thread_id, parent_id, sender_type, sender_user_id, sender_agent_id, ' +
-  'channel, body, metadata, created_at, updated_at, deleted_at'
+  'id, thread_id, parent_id, sender_type, sender_user_id, sender_agent_id, channel, body, metadata, created_at, updated_at, deleted_at'
 
 function toActor(profile: ActorProfile): Actor {
   return { id: profile.id, is_admin: profile.is_admin }
@@ -161,7 +136,7 @@ async function loadSavedView(
       .eq('id', entityId)
       .maybeSingle()
     if (!data) return null
-    return { ownerId: (data as { user_id: string | null }).user_id, isPublic: false }
+    return { ownerId: data.user_id, isPublic: false }
   }
   if (entityType === 'finance_forecast_view') {
     const { data } = await db
@@ -170,8 +145,7 @@ async function loadSavedView(
       .eq('id', entityId)
       .maybeSingle()
     if (!data) return null
-    const row = data as { owner_id: string | null; is_public: boolean }
-    return { ownerId: row.owner_id, isPublic: row.is_public }
+    return { ownerId: data.owner_id, isPublic: data.is_public }
   }
   return null
 }
@@ -222,8 +196,7 @@ async function filterReadableThreads(
         .from('expense_saved_views')
         .select('id, user_id')
         .in('id', idList)
-      const rows = (data ?? []) as Array<{ id: string; user_id: string | null }>
-      for (const r of rows) {
+      for (const r of data ?? []) {
         cache.set(cacheKey(entityType, r.id), { ownerId: r.user_id, isPublic: false })
       }
     } else if (entityType === 'finance_forecast_view') {
@@ -231,8 +204,7 @@ async function filterReadableThreads(
         .from('finance_forecast_views')
         .select('id, owner_id, is_public')
         .in('id', idList)
-      const rows = (data ?? []) as Array<{ id: string; owner_id: string | null; is_public: boolean }>
-      for (const r of rows) {
+      for (const r of data ?? []) {
         cache.set(cacheKey(entityType, r.id), { ownerId: r.owner_id, isPublic: r.is_public })
       }
     }
@@ -280,14 +252,14 @@ export async function createThread(
     .maybeSingle()
   if (agentErr) return err('db_error', agentErr.message)
   if (!agentRow) return err('invalid_input', `Unknown service: ${normalized.serviceKey}`)
-  const svc = agentRow as { agent_id: string; is_active: boolean }
+  const svc = agentRow
   if (!svc.is_active) return err('invalid_input', `Service is inactive: ${normalized.serviceKey}`)
 
   // Allocate topic_code via the DB function (concurrency-safe).
   const { data: codeData, error: codeErr } =
     await db.rpc('next_discussion_topic_code', { p_service_key: normalized.serviceKey })
   if (codeErr) return err('db_error', codeErr.message)
-  const topicCode = codeData as unknown as string
+  const topicCode = codeData
   if (!topicCode) return err('db_error', 'topic_code generator returned empty')
 
   // Insert thread.
@@ -308,7 +280,7 @@ export async function createThread(
     .select(THREAD_COLUMNS)
     .single()
   if (threadErr) return err('db_error', threadErr.message)
-  const thread = normalizeThread(threadData as unknown as ThreadRow)
+  const thread = normalizeThread(threadData)
 
   // Insert first message. If this fails we leave the thread row in place;
   // a future cleanup can sweep threads with zero messages. The user-facing
@@ -326,7 +298,7 @@ export async function createThread(
     .single()
   if (msgErr) return err('db_error', `Thread created but first message failed: ${msgErr.message}`)
 
-  return ok({ thread, firstMessage: normalizeMessage(msgData as unknown as MessageRow) })
+  return ok({ thread, firstMessage: normalizeMessage(msgData) })
 }
 
 export async function getThread(
@@ -342,7 +314,7 @@ export async function getThread(
   if (error) return err('db_error', error.message)
   if (!data) return err('not_found', 'Thread not found')
 
-  const thread = normalizeThread(data as unknown as ThreadRow)
+  const thread = normalizeThread(data)
   if (!(await gateReadThread(db, actor, thread))) {
     return err('forbidden', 'Not allowed to view this discussion')
   }
@@ -395,7 +367,7 @@ export async function listThreads(
 
   const { data, error } = await query
   if (error) return err('db_error', error.message)
-  const threads = ((data ?? []) as unknown as ThreadRow[]).map(normalizeThread)
+  const threads = (data ?? []).map(normalizeThread)
 
   const readable = await filterReadableThreads(db, actor, threads)
   return ok(readable)
@@ -416,7 +388,7 @@ export async function listMessages(
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
   if (error) return err('db_error', error.message)
-  return ok(((data ?? []) as unknown as MessageRow[]).map(normalizeMessage))
+  return ok((data ?? []).map(normalizeMessage))
 }
 
 export interface CreateMessageInput {
@@ -454,7 +426,7 @@ export async function createMessage(
     .select(MESSAGE_COLUMNS)
     .single()
   if (error) return err('db_error', error.message)
-  return ok(normalizeMessage(data as unknown as MessageRow))
+  return ok(normalizeMessage(data))
 }
 
 export async function resolveThread(
@@ -482,7 +454,7 @@ export async function resolveThread(
     .select(THREAD_COLUMNS)
     .single()
   if (error) return err('db_error', error.message)
-  return ok(normalizeThread(data as unknown as ThreadRow))
+  return ok(normalizeThread(data))
 }
 
 // Soft-delete a message. Only the original sender (user-type) can do
@@ -511,7 +483,7 @@ export async function deleteMessage(
   if (loadErr) return err('db_error', loadErr.message)
   if (!row) return err('not_found', 'Message not found')
 
-  const message = normalizeMessage(row as unknown as MessageRow)
+  const message = normalizeMessage(row)
 
   if (!canDeleteMessage(toActor(actor), message)) {
     return err('forbidden', 'Only the original sender can delete this message')
@@ -527,7 +499,7 @@ export async function deleteMessage(
     .select(MESSAGE_COLUMNS)
     .single()
   if (error) return err('db_error', error.message)
-  return ok(normalizeMessage(data as unknown as MessageRow))
+  return ok(normalizeMessage(data))
 }
 
 // ── Batch counts for badge rendering ────────────────────────────
@@ -604,7 +576,7 @@ export async function resolveCounts(
       .in(matchCol, values)
     if (error) return err('db_error', error.message)
 
-    const threads = ((data ?? []) as unknown as ThreadRow[]).map(normalizeThread)
+    const threads = (data ?? []).map(normalizeThread)
     const readable = await filterReadableThreads(db, actor, threads)
 
     for (const t of readable) {

@@ -1,14 +1,12 @@
+import type { Enums, Tables } from '@/lib/supabase/database.types'
+
+// 数据库 enum 与示范域（expenses）的行类型从生成的 database.types.ts 派生
+// （npm run gen:types）。库里改了 enum 或列，这里自动跟着变，编译器会指出受影响的代码。
+// 其余接口仍是手写，逐域迁移的清单见 PR 描述。
+
 // ── Creator ───────────────────────────────────────────────────
 
-export type CreatorStatus =
-  | 'prospect'
-  | 'contacted'
-  | 'engaged'
-  | 'onboarded'
-  | 'live_ready'
-  | 'live'
-  | 'monetized'
-  | 'terminated'
+export type CreatorStatus = Enums<'creator_status'>
 
 export interface CreatorContactInfo {
   email?: string
@@ -65,7 +63,7 @@ export interface BroadcastAccount {
 // bd/ops/finance/content/growth/legal 是真人可选部门角色；'tech' 是新增的
 // 真人可选角色（真人技术岗）；'pmo' 是 AI 代理专属角色（PMO Agent 自身的
 // role，不出现在任何真人可选角色下拉——见 ProfileEditor 的 ROLES 数组）。
-export type AgentRole = 'bd' | 'ops' | 'finance' | 'content' | 'growth' | 'legal' | 'pmo' | 'tech'
+export type AgentRole = Enums<'agent_role'>
 export type ModelProvider = 'anthropic' | 'openai' | 'gemini'
 
 export interface Agent {
@@ -85,7 +83,7 @@ export interface Agent {
 
 // ── Task ──────────────────────────────────────────────────────
 
-export type TaskStatus = 'pending' | 'running' | 'done' | 'failed'
+export type TaskStatus = Enums<'task_status'>
 
 export interface Task {
   id: string
@@ -122,11 +120,7 @@ export interface Finance {
 
 // ── Knowledge ─────────────────────────────────────────────────
 
-export type KnowledgeCategory =
-  | 'outreach_scripts'
-  | 'onboarding_materials'
-  | 'live_strategies'
-  | 'objection_handling'
+export type KnowledgeCategory = Enums<'knowledge_category'>
 
 export interface Knowledge {
   id: string
@@ -189,11 +183,11 @@ export interface DashboardStats {
 
 // ── Milestone ─────────────────────────────────────────────────
 
-export type MilestoneType     = 'campaign' | 'launch' | 'recruitment' | 'finance' | 'review'
-export type MilestoneLevel    = 'company' | 'department' | 'creator'
-export type MilestoneStatus   = 'planned' | 'active' | 'at_risk' | 'completed' | 'missed'
-export type MilestonePriority = 'high' | 'medium' | 'low'
-export type RiskLevel         = 'low' | 'medium' | 'high'
+export type MilestoneType     = Enums<'milestone_type'>
+export type MilestoneLevel    = Enums<'milestone_level'>
+export type MilestoneStatus   = Enums<'milestone_status'>
+export type MilestonePriority = Enums<'milestone_priority'>
+export type RiskLevel         = Enums<'risk_level'>
 
 export interface Milestone {
   id: string
@@ -264,17 +258,7 @@ export interface ConversationMessage {
 
 // ── Creator Activity Log ──────────────────────────────────
 
-export type ActivityType =
-  | 'created'
-  | 'updated'
-  | 'status_changed'
-  | 'task_created'
-  | 'task_completed'
-  | 'finance_logged'
-  | 'note_added'
-  | 'contact_updated'
-  | 'profile_updated'
-  | 'other'
+export type ActivityType = Enums<'activity_type'>
 
 export interface CreatorActivityLog {
   id: string
@@ -289,28 +273,11 @@ export interface CreatorActivityLog {
 
 // ── PMO Activity Stream (migration 010) ───────────────────
 
-export type ActivityActorType = 'user' | 'agent' | 'system'
+export type ActivityActorType = Enums<'activity_actor_type'>
 
-export type ActivityAction =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'status_change'
-  | 'execute'
-  | 'message_sent'
-  | 'message_received'
+export type ActivityAction = Enums<'activity_action'>
 
-export type ActivityEntity =
-  | 'creator'
-  | 'task'
-  | 'milestone'
-  | 'finance'
-  | 'device'
-  | 'conversation'
-  | 'broadcast_account'
-  | 'user'
-  | 'knowledge'
-  | 'agent'
+export type ActivityEntity = Enums<'activity_entity'>
 
 export interface ActivityEvent {
   id:             string
@@ -369,20 +336,12 @@ export interface Device {
 
 // ── Expense ───────────────────────────────────────────────────
 
-export type ExpenseCategory =
-  | 'tangible_asset'
-  | 'salary'
-  | 'rent'
-  | 'travel'
-  | 'office_supplies'
-  | 'cloud_services'
+export type ExpenseCategory = Enums<'expense_category'>
 
-export type ExpensePaymentMethod =
-  | 'company_account'
-  | 'wechat_pay'
-  | 'alipay'
-  | 'bank_card'
+export type ExpensePaymentMethod = Enums<'expense_payment_method'>
 
+// payment_status 在库里是 text + check 约束（expenses_payment_status_valid），不是 enum，
+// 生成的类型只给 string，所以取值清单仍手写；与约束对齐由 lib/expenses/row.ts 在读取时把关。
 export type ExpensePaymentStatus =
   | 'budgeted'
   | 'ordered_unpaid'
@@ -394,26 +353,14 @@ export type ExpensePaymentStatus =
 export const COMPANY_ACCOUNT_BUYERS = ['with-new', 'JP-代理陈昊', 'JP-代理小兽', 'JP-陈昊投资'] as const
 export type CompanyAccountBuyer = typeof COMPANY_ACCOUNT_BUYERS[number]
 
-export interface Expense {
-  id:                    string
-  expense_category:      ExpenseCategory
-  item_name:             string
-  unit_price:            number
-  quantity:              number
-  total_price:           number
-  expense_date:          string
-  location:              string
-  purpose:               string
-  period:                string | null       // e.g. '2026-Q1', derived from expense_date
-  user_name:             string
-  buyer_name:            string
-  payment_method:        ExpensePaymentMethod | null
-  payment_method_legacy: string | null       // preserved old free-text value
-  payment_status:        ExpensePaymentStatus
-  notes:                 string | null
-  created_by_user_id:    string | null
-  created_at:            string
-  updated_at:            string
+// expenses 表的一行（示范域：从生成的行类型派生）。两处比库里更窄：
+//   payment_status — 库里 text + check 约束，这里收窄成 ExpensePaymentStatus；
+//   total_price    — 生成列 unit_price * quantity（两者 not null），introspection 只能报
+//                    可空，这里按非空。两处都由 lib/expenses/row.ts 的 toExpense 在读取时核对。
+// period 形如 '2026-Q1'，由 expense_date 推导；payment_method_legacy 保留旧的自由文本。
+export type Expense = Omit<Tables<'expenses'>, 'payment_status' | 'total_price'> & {
+  payment_status: ExpensePaymentStatus
+  total_price:    number
 }
 
 // ── User Profile ──────────────────────────────────────────
@@ -448,8 +395,8 @@ export interface UserSalary {
 
 // ── Work Task ─────────────────────────────────────────────
 
-export type WorkTaskType           = 'fixed' | 'adhoc'
-export type WorkTaskStatus         = 'planned' | 'doing' | 'done' | 'cancelled'
+export type WorkTaskType           = Enums<'work_task_type'>
+export type WorkTaskStatus         = Enums<'work_task_status'>
 export type WorkTaskEffort         = 2 | 4 | 8
 export type WorkTaskRepeatInterval = 'daily' | 'weekly' | 'biweekly' | 'monthly'
 

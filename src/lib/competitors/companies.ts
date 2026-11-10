@@ -27,6 +27,12 @@ export interface CompetitorCompany {
   sort_order: number
 }
 
+/** competitor_companies 表的原始行：两列在库里是 text / jsonb，拼装时才收窄。 */
+export type CompetitorCompanyRow = Omit<CompetitorCompany, 'capital_background' | 'sources'> & {
+  capital_background: string
+  sources: unknown
+}
+
 export interface CompanyAccountRow {
   id: string
   company_id: string
@@ -189,7 +195,7 @@ function byOrderThenName<T extends { sort_order: number }>(name: (x: T) => strin
 }
 
 export function assembleCompanyBoard(
-  companies: CompetitorCompany[],
+  companies: CompetitorCompanyRow[],
   links: CompanyAccountRow[],
   competitors: CompanyCompetitorInput[],
   snapshots: CompanySnapshotInput[],
@@ -223,7 +229,7 @@ export function assembleCompanyBoard(
 
   const assigned = new Set<string>()
   const views: CompanyView[] = [...companies]
-    .sort(byOrderThenName<CompetitorCompany>((c) => c.name))
+    .sort(byOrderThenName<CompetitorCompanyRow>((c) => c.name))
     .map((co) => {
       const accounts = (linksByCompany.get(co.id) ?? [])
         .sort(byOrderThenName<CompanyAccountRow>((l) => l.group_name))

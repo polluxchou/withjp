@@ -45,12 +45,13 @@ export interface VenueItemRow {
 }
 
 // 嵌套布局 → 扁平行数组。sort_order / z_index 取数组下标，保留图层与楼层顺序。
+// venue 写入时 view_bookmarks 总是数组：库里这一列 not null，读出来才可能缺。
 export function layoutToRows(layout: VenueLayout): {
-  venue: VenueRow
+  venue: VenueRow & { view_bookmarks: VenueViewBookmark[] }
   floors: VenueFloorRow[]
   items: VenueItemRow[]
 } {
-  const venue: VenueRow = {
+  const venue = {
     id: layout.venueId,
     name: layout.name,
     width: layout.width,
