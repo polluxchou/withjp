@@ -1,8 +1,11 @@
 # supabase/migrations 约定
 
-本目录的迁移**不经过任何自动化 runner**：远端 Supabase 上没有迁移追踪表，每个文件都是在
-Supabase Dashboard 的 SQL Editor 里**手工执行**的。文件名是唯一的"应用到哪了"的凭据，
-因此命名纪律就是数据库正确性的一部分。
+本目录的迁移**不经过任何自动化 runner**：每个文件都是在 Supabase Dashboard 的 SQL Editor 里
+**手工执行**的。「合并进 main」和「在线上跑过」是两件事，中间靠两样东西连起来：
+
+- **命名纪律**——时间戳文件名保证顺序唯一（见下）。
+- **已应用账本**——`public.applied_migrations` 记录哪些文件跑过，`npm run audit:migrations`
+  拿本目录和它比对（2026-11-10 起，见「已应用账本」一节）。
 
 ## 为什么改成时间戳命名（2026-08-08）
 
@@ -31,10 +34,71 @@ Supabase Dashboard 的 SQL Editor 里**手工执行**的。文件名是唯一的
 1. 生成文件名：`TZ=Asia/Tokyo date +%Y%m%d%H%M%S` 拼上描述，放进本目录。
 2. SQL 尽量幂等（`if not exists` / `create or replace`），方便重复执行核对。
    注意 `alter type ... add value` 不能包在事务里，SQL Editor 单独跑。
-3. 随功能 PR 合并到 main。
-4. **合并后立即手工应用**：把文件内容粘到 Supabase Dashboard → SQL Editor 执行。
-   不要攒批——攒批就是漏应用的温床。
-5. 应用完按下节方法核对远端 schema 确实生效。
+3. SQL 写定后运行 `npm run migrations:stamp`，在文件末尾生成账本登记语句。之后只要再改
+   上面的 SQL，就要重跑一次（登记语句里带内容校验和，CI 会拦住过期的）。
+4. 随功能 PR 合并到 main。
+5. **合并后立即手工应用**：把**整个文件**（含末尾的登记语句）粘到 Supabase Dashboard →
+   SQL Editor 执行。不要攒批——攒批就是漏应用的温床。
+6. 运行 `npm run audit:migrations` 确认没有未登记的文件；涉及结构变更的，再按
+   「手工应用 + 核对远端 schema」一节核对确实生效。
+
+## 已应用账本（2026-11-10 起）
+
+线上有一张 `public.applied_migrations`（文件名、内容校验和、执行时间、是否回填），只给
+`service_role` 授权、开 RLS 且无策略，`anon` / `authenticated` 什么都拿不到。
+
+**怎么登记**：时间戳 ≥ `20261110084920` 的迁移，文件最后一段是这样的登记语句
+（`npm run migrations:stamp` 生成，不要手写）：
+
+```sql
+-- @applied-migrations-ledger（由 npm run migrations:stamp 生成，勿手改；…）
+insert into public.applied_migrations (filename, checksum)
+values ('<文件名>', '<sha256>')
+on conflict (filename) do update
+  set checksum = excluded.checksum, applied_at = now(), backfilled = false;
+```
+
+- 它是文件的**最后一句**。SQL Editor 把一次粘贴当成一个批次执行，前面任何一句失败，
+  整批回滚，登记也不会落库——所以「账本里有」等于「整个文件跑完了」（文件里自己写了
+  `begin` / `commit` 的除外，那样的文件要保证登记语句在最后一个 `commit` 之后）。前提是粘贴整个
+  文件：只选中一部分执行、或把文件拆成几段跑（例如 `alter type ... add value`），
+  最后一段必须带上登记语句。
+- 校验和算的是登记语句**之上**的 SQL（`scripts/migration-ledger.mjs`），换行符和文件末尾
+  空行不影响结果。
+- CI（`npm run test:migrations`）对门槛之后的迁移检查：登记语句存在、是文件最后一段、
+  文件名和校验和与文件一致。不通过时运行 `npm run migrations:stamp` 即可。
+- `npm run migrations:stamp -- <文件名>` 可以给门槛之前的文件补登记语句（并行分支里
+  时间戳早于门槛、但合并时还没应用的迁移用这个）。
+
+**怎么比对**：
+
+```bash
+SUPABASE_DB_URL='postgres://...' npm run audit:migrations
+```
+
+连接串在 `agent-service/.env.local`，需要本机有 `psql`。脚本只读（查询包在
+`begin transaction read only` 里），报三类情况：
+
+| 结果 | 含义 | 怎么处理 |
+| --- | --- | --- |
+| 未登记 | 仓库里有、账本里没有 | 合并了但没跑：按文件名顺序在 SQL Editor 执行 |
+| 登记后被改过 | 账本里的校验和与文件不一致 | 文件在执行后被改了：确认改动是否需要落库，再重跑该文件更新登记 |
+| 账本里有、仓库里没有 | 文件被改名或删除 | 仅列出，不算失败 |
+
+前两类会让脚本以退出码 1 结束。**每次合并带迁移的 PR 并应用之后跑一次**；怀疑线上和
+仓库对不上时也先跑它。它只证明「文件被执行过」，不证明执行后没人在 Dashboard 里手改过
+结构——后者仍按下文方法核对，或跑 `npm run audit:rls`。
+
+**历史迁移的回填**：账本建立前的 80 个文件由 `20261110084921_applied_migrations_backfill.sql`
+一次性登记（`backfilled = true`，`applied_at` 是回填时间而非真实执行时间）。回填前用只读
+查询逐个核对过线上库；其中 2 个纯数据更新的迁移（`20260511221935`、`20260512015620`，
+费用 period 回填）从结构上无法确认是否执行过，在回填文件末尾注释着，判断后再登记。
+
+**为什么不用 Supabase CLI 的 `supabase_migrations.schema_migrations`**：`db push` 会把执行
+方式从 SQL Editor 改成本机 CLI 直连生产库，需要先对 80 个历史文件逐个
+`migration repair --status applied`；而且历史文件并不都幂等，一旦 repair 漏了哪个，
+`db push` 会把它当成待执行的重跑。自登记只是在现有流程上多一句 insert，不改变谁来执行、
+在哪执行。将来若改用 CLI，账本里的文件名可以直接换算成 `schema_migrations.version`。
 
 ## 新建表必须显式 grant（2026-10-30 起）
 
@@ -88,7 +152,8 @@ select has_sequence_privilege('service_role', 'public.<序列名>', 'USAGE')
 
 ## 手工应用 + 核对远端 schema
 
-应用顺序永远是**文件名升序**。怀疑"某个迁移到底应用没应用"时，不要靠记忆，直接核对远端：
+应用顺序永远是**文件名升序**。怀疑"某个迁移到底应用没应用"时，先跑 `npm run audit:migrations`；
+要确认结构本身（账本建立前的迁移、或怀疑有人手改过）时，不要靠记忆，直接核对远端：
 
 **方法一：SQL Editor 查 information_schema（能查表、列、约束、枚举、策略）**
 
