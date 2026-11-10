@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { requirePageUser } from '@/lib/auth/require-page-user'
 import Header from '@/components/layout/Header'
 import { Stat, StatBand } from '@/components/ui/Stat'
@@ -25,9 +26,13 @@ import { fmtCompact } from '@/lib/currency-format'
 async function getDashboardData() {
   const db = createServerClient()
   const [creatorsAllRes, financeRes, tasksAllRes, recentTasksRes, recentCreatorsRes] = await Promise.all([
-    db.from('creators').select('id, status'),
-    db.from('finance').select('revenue, cost, profit, roi, creator_id'),
-    db.from('tasks').select('id, status'),
+    // 这三项是统计用的全集，分页取全：单次响应最多 1000 行且静默截断，丢行会把总数和金额算小。
+    fetchAllRows((from, to) => db.from('creators').select('id, status')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('finance').select('revenue, cost, profit, roi, creator_id')
+      .order('id', { ascending: true }).range(from, to)),
+    fetchAllRows((from, to) => db.from('tasks').select('id, status')
+      .order('id', { ascending: true }).range(from, to)),
     db.from('tasks')
       .select('*, creator:creators(id,name,platform,status), agent:agents(id,name,role)')
       .order('created_at', { ascending: false }).limit(5),

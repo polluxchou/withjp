@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
-import { isDbEnum } from '@/lib/supabase/enums'
+import { optionalDbEnum } from '@/lib/supabase/enums'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { authGuard } from '@/lib/auth/guard'
 import { fetchTaskItemName } from '@/lib/work-tasks/item-snapshot'
 import type { WorkTaskType, WorkTaskStatus, AgentRole, WorkTaskRepeatInterval } from '@/lib/types'
@@ -25,41 +26,41 @@ export async function GET(req: NextRequest) {
   const date         = params.get('date')
   const date_from    = params.get('date_from')
   const date_to      = params.get('date_to')
-  const department   = params.get('department')
+  const department   = optionalDbEnum('agent_role', params.get('department'))
   const milestone_id = params.get('milestone_id')
   const owner        = params.get('owner_user_id')
-  const status       = params.get('status')
-  const task_type    = params.get('task_type')
+  const status       = optionalDbEnum('work_task_status', params.get('status'))
+  const task_type    = optionalDbEnum('work_task_type', params.get('task_type'))
   const title_search = params.get('title_search')
   const limit        = params.get('limit')
 
-  let query = db
-    .from('work_tasks')
-    .select(FULL_SELECT)
-    .order('task_date', { ascending: false })
-    .order('created_at', { ascending: false })
+  // enum 参数先校验：非法值以前落到 Postgres 变 500，现在回 400。
+  if (department === undefined) return NextResponse.json({ data: null, error: 'invalid department' }, { status: 400 })
+  if (status === undefined) return NextResponse.json({ data: null, error: 'invalid status' }, { status: 400 })
+  if (task_type === undefined) return NextResponse.json({ data: null, error: 'invalid task_type' }, { status: 400 })
 
-  if (date)         query = query.eq('task_date', date)
-  if (date_from)    query = query.gte('task_date', date_from)
-  if (date_to)      query = query.lte('task_date', date_to)
-  if (department) {
-    if (!isDbEnum('agent_role', department)) return NextResponse.json({ data: null, error: 'invalid department' }, { status: 400 })
-    query = query.eq('department', department)
+  // 每次调用重建一条带全部过滤与排序的查询（builder 不能复用）。
+  const build = () => {
+    let query = db.from('work_tasks').select(FULL_SELECT)
+    if (date)         query = query.eq('task_date', date)
+    if (date_from)    query = query.gte('task_date', date_from)
+    if (date_to)      query = query.lte('task_date', date_to)
+    if (department)   query = query.eq('department', department)
+    if (milestone_id) query = query.eq('milestone_id', milestone_id)
+    if (owner)        query = query.eq('owner_user_id', owner)
+    if (status)       query = query.eq('status', status)
+    if (task_type)    query = query.eq('task_type', task_type)
+    if (title_search) query = query.ilike('title', `%${title_search}%`)
+    return query
+      .order('task_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
   }
-  if (milestone_id) query = query.eq('milestone_id', milestone_id)
-  if (owner)        query = query.eq('owner_user_id', owner)
-  if (status) {
-    if (!isDbEnum('work_task_status', status)) return NextResponse.json({ data: null, error: 'invalid status' }, { status: 400 })
-    query = query.eq('status', status)
-  }
-  if (task_type) {
-    if (!isDbEnum('work_task_type', task_type)) return NextResponse.json({ data: null, error: 'invalid task_type' }, { status: 400 })
-    query = query.eq('task_type', task_type)
-  }
-  if (title_search) query = query.ilike('title', `%${title_search}%`)
-  if (limit)        query = query.limit(Number(limit))
 
-  const { data, error } = await query
+  // 调用方给了 limit 就只取前 N 条；否则分页取全（单次响应最多 1000 行且静默截断）。
+  const { data, error } = limit
+    ? await build().limit(Number(limit))
+    : await fetchAllRows((from, to) => build().range(from, to))
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   return NextResponse.json({ data, error: null })
 }

@@ -4,6 +4,7 @@ name: migrations
 #   * every file is <YYYYMMDDHHMMSS>_<snake_case>.sql
 #   * no duplicate timestamp prefixes
 #   * new public tables are granted to service_role (Supabase 2026-10-30 change)
+#   * new migrations record themselves in public.applied_migrations
 # Pure Node script, no install needed.
 
 on:
@@ -13,6 +14,8 @@ on:
       - 'scripts/check-migrations.mjs'
       - 'scripts/migration-grants.mjs'
       - 'scripts/migration-grants.test.mjs'
+      - 'scripts/migration-ledger.mjs'
+      - 'scripts/migration-ledger.test.mjs'
       - '.github/workflows/migrations.yml'
   push:
     branches: [main]
@@ -32,3 +35,6 @@ jobs:
 
       - name: Grant checker unit tests
         run: node --test scripts/migration-grants.test.mjs
+
+      - name: Ledger checker unit tests
+        run: node --test scripts/migration-ledger.test.mjs

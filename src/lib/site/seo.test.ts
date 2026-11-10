@@ -40,6 +40,8 @@ const SITE_DIR = 'src/app/[locale]/site'
 function sitePageFiles(): string[] {
   return (fs.readdirSync(SITE_DIR, { recursive: true }) as string[])
     .filter((rel) => path.basename(rel) === 'page.tsx')
+    // 兜底段只调 notFound()（→ site/not-found.tsx），404 不该声明 canonical。
+    .filter((rel) => !rel.startsWith('[...rest]'))
     .sort()
 }
 

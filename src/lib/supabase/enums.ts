@@ -17,3 +17,16 @@ export function dbEnumValues(name: DbEnumName): readonly string[] {
 export function isDbEnum<N extends DbEnumName>(name: N, value: unknown): value is Enums<N> {
   return typeof value === 'string' && dbEnumValues(name).includes(value)
 }
+
+/**
+ * 可选的 enum 过滤参数：空（null / undefined / ''）→ null 表示不过滤；合法 → 收窄后的值；
+ * 不合法 → undefined，调用方回 400。返回的是新的常量，分页回调等闭包里直接可用，
+ * 不依赖控制流收窄。
+ */
+export function optionalDbEnum<N extends DbEnumName>(
+  name: N,
+  value: string | null | undefined,
+): Enums<N> | null | undefined {
+  if (value === null || value === undefined || value === '') return null
+  return isDbEnum(name, value) ? value : undefined
+}

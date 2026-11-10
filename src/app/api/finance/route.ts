@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { authGuardStrict } from '@/lib/auth/guard'
 import { forbidUnlessAdmin } from '@/lib/auth/require-admin'
 import { autoMonetizeOnRevenue } from '@/lib/state-machine/transition'
@@ -11,14 +12,15 @@ export async function GET(req: NextRequest) {
   const db = createServerClient()
   const creatorId = req.nextUrl.searchParams.get('creator_id')
 
-  let query = db
-    .from('finance')
-    .select('*, creator:creators(id,name,platform)')
-    .order('created_at', { ascending: false })
-
-  if (creatorId) query = query.eq('creator_id', creatorId)
-
-  const { data, error } = await query
+  // 分页取全：单次响应最多 1000 行且静默截断。
+  const { data, error } = await fetchAllRows((from, to) => {
+    let query = db.from('finance').select('*, creator:creators(id,name,platform)')
+    if (creatorId) query = query.eq('creator_id', creatorId)
+    return query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+  })
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   return NextResponse.json({ data, error: null })
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { authGuard } from '@/lib/auth/guard'
 import type { DevicePaymentStatus } from '@/lib/types'
 
@@ -25,27 +26,29 @@ export async function GET(req: NextRequest) {
   const date_from        = params.get('date_from')
   const date_to          = params.get('date_to')
 
-  let query = db
-    .from('devices')
-    .select('*')
-    .order('purchase_date', { ascending: false })
-    .order('created_at',    { ascending: false })
+  // 分页取全：单次响应最多 1000 行且静默截断。
+  const { data, error } = await fetchAllRows((from, to) => {
+    let query = db.from('devices').select('*')
 
-  if (q) {
-    query = query.or(
-      `device_name.ilike.%${q}%,purchase_location.ilike.%${q}%,purchase_purpose.ilike.%${q}%,user_name.ilike.%${q}%,buyer_name.ilike.%${q}%`
-    )
-  }
-  if (payment_status) query = query.eq('payment_status', payment_status)
-  if (payment_method) query = query.ilike('payment_method', `%${payment_method}%`)
-  if (user_name)      query = query.ilike('user_name', `%${user_name}%`)
-  if (buyer_name)     query = query.ilike('buyer_name', `%${buyer_name}%`)
-  if (purchase_location) query = query.ilike('purchase_location', `%${purchase_location}%`)
-  if (purpose)        query = query.ilike('purchase_purpose', `%${purpose}%`)
-  if (date_from)      query = query.gte('purchase_date', date_from)
-  if (date_to)        query = query.lte('purchase_date', date_to)
-
-  const { data, error } = await query
+    if (q) {
+      query = query.or(
+        `device_name.ilike.%${q}%,purchase_location.ilike.%${q}%,purchase_purpose.ilike.%${q}%,user_name.ilike.%${q}%,buyer_name.ilike.%${q}%`
+      )
+    }
+    if (payment_status) query = query.eq('payment_status', payment_status)
+    if (payment_method) query = query.ilike('payment_method', `%${payment_method}%`)
+    if (user_name)      query = query.ilike('user_name', `%${user_name}%`)
+    if (buyer_name)     query = query.ilike('buyer_name', `%${buyer_name}%`)
+    if (purchase_location) query = query.ilike('purchase_location', `%${purchase_location}%`)
+    if (purpose)        query = query.ilike('purchase_purpose', `%${purpose}%`)
+    if (date_from)      query = query.gte('purchase_date', date_from)
+    if (date_to)        query = query.lte('purchase_date', date_to)
+    return query
+      .order('purchase_date', { ascending: false })
+      .order('created_at',    { ascending: false })
+      .order('id',            { ascending: true })
+      .range(from, to)
+  })
   if (error) return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   return NextResponse.json({ data, error: null })
 }

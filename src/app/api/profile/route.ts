@@ -20,24 +20,11 @@ export async function GET() {
     return NextResponse.json({ data: null, error: error.message }, { status: 500 })
   }
 
+  // 没有资料行就是 404，不在这里现建。users 的行只由建号流程产生（auth.users 上的
+  // 触发器 + scripts/seed-users.mjs）；读接口替「任何合法会话」补一行，等于让
+  // 能拿到会话的人自己给自己开户。
   if (!profile) {
-    const fallbackName = user.user_metadata?.name || user.email?.split('@')[0] || 'WithJP User'
-    const { data: createdProfile, error: createError } = await db
-      .from('users')
-      .insert({
-        id: user.id,
-        name: fallbackName,
-        role: 'ops',
-        email: user.email ?? null,
-      })
-      .select()
-      .single()
-
-    if (createError) {
-      return NextResponse.json({ data: null, error: createError.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ data: { ...createdProfile, access_scope: user.access_scope }, error: null })
+    return NextResponse.json({ data: null, error: 'Profile not found' }, { status: 404 })
   }
 
   // access_scope 不在 users 表里，来自 Auth 的 app_metadata（见 access-scope.ts），前端据此收起导航与删除入口。

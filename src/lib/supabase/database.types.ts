@@ -1,5 +1,6 @@
 // 由 `npm run gen:types`（scripts/gen-db-types.mjs）从线上 schema 生成，勿手改。
 // 迁移在线上应用之后重新生成并提交；见 supabase/migrations/README.md「数据库类型」。
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
@@ -280,6 +281,28 @@ export type Database = {
           prompt_template?: string
           responsibility?: string
           role?: Database['public']['Enums']['agent_role']
+        }
+        Relationships: []
+      }
+      applied_migrations: {
+        Row: {
+          applied_at: string
+          backfilled: boolean
+          checksum: string
+          filename: string
+        }
+        ComputedFields: never
+        Insert: {
+          applied_at?: string
+          backfilled?: boolean
+          checksum: string
+          filename: string
+        }
+        Update: {
+          applied_at?: string
+          backfilled?: boolean
+          checksum?: string
+          filename?: string
         }
         Relationships: []
       }

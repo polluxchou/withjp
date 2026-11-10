@@ -132,6 +132,13 @@ export function dateToQuarter(dateStr: string | null | undefined): string {
   return `${y}-Q${Math.floor((m - 1) / 3) + 1}`
 }
 
+/** 一组支出日期里出现过的月份（YYYY-MM），去重、新的在前。空日期跳过。 */
+export function distinctExpenseMonths(dates: ReadonlyArray<string | null | undefined>): string[] {
+  const months = new Set<string>()
+  for (const d of dates) if (d) months.add(d.slice(0, 7))
+  return Array.from(months).sort((a, b) => b.localeCompare(a))
+}
+
 // ── Category display config ───────────────────────────────────
 
 /** Whether a category shows unit_price × quantity (vs a single total amount) */

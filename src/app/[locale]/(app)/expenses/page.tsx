@@ -224,7 +224,8 @@ export default function ExpensesPage() {
 
   // ── Month picker for the 月度支出 KPI ───────────────────────
   // Set of YYYY-MM strings that actually have a budget or expense row.
-  // Populated once on mount via an unfiltered fetch, then grows as the
+  // Populated once on mount from /api/expenses/months (months only, not the
+  // whole table), then grows as the
   // session sees new dates (never shrinks, so applying filters doesn't
   // hide months the user knows about).
   const [availableMonths, setAvailableMonths] = useState<Set<string>>(new Set())
@@ -233,13 +234,10 @@ export default function ExpensesPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res  = await fetch('/api/expenses')
+        const res  = await fetch('/api/expenses/months')
         const json = await res.json()
         if (cancelled) return
-        const months = new Set<string>()
-        for (const e of (json.data ?? []) as Expense[]) {
-          if (e.expense_date) months.add(e.expense_date.slice(0, 7))
-        }
+        const months = new Set<string>((json.data ?? []) as string[])
         setAvailableMonths((prev) => {
           const next = new Set(prev)
           let added = false
