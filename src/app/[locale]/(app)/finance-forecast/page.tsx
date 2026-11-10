@@ -30,8 +30,8 @@ export default async function FinanceForecastPage(props: {
   const t = await getTranslations('financeForecast')
   const auth = await createAuthServerClient()
   const { data: { user } } = await auth.auth.getUser()
-  // 受限帐号（只开竞品）进不来，见 access-scope.ts；middleware 已先拦一道。
-  if (!user || accessScopeOf(user.app_metadata)) redirect('/login')
+  // 匿名会话与受限帐号（只开竞品）进不来，见 claims.ts、access-scope.ts；middleware 已先拦一道。
+  if (!user || user.is_anonymous || accessScopeOf(user.app_metadata)) redirect('/login')
 
   const actor = await getActorProfile(user.id)
   if (!actor) redirect('/login')

@@ -67,6 +67,11 @@ test('allows only the public application API on the EchoAmp host', () => {
   assert.deepEqual(resolvePublicSiteRoute('eacn.agenova.chat', '/api/expenses'), {
     kind: 'not_found',
   })
+  // 健康检查只在内部域名开放；官网域名下与其他 /api 一样 404。
+  assert.deepEqual(resolvePublicSiteRoute('eacn.agenova.chat', '/api/health'), {
+    kind: 'not_found',
+  })
+  assert.equal(resolvePublicSiteRoute('admin.example.com', '/api/health'), null)
 })
 
 test('allows public site media that is evaluated by middleware', () => {

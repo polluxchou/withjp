@@ -43,14 +43,16 @@ const POLICY: Record<string, Guard> = {
   'team/org/page.tsx': 'authGuard',
   'devices/page.tsx': 'none',
   'config/changelog/page.tsx': 'none',
+  // 兜底段：只调 notFound()，把未匹配的地址交给 not-found.tsx。
+  '[...rest]/page.tsx': 'none',
 }
 
 const GUARD_RE: Record<Exclude<Guard, 'none'>, RegExp> = {
   requirePageUser: /await requirePageUser\(params\.locale(?:, \{ allowScope: COMPETITORS_SCOPE \})?\)/,
   authGuard: /const user = await authGuard\((?:\{ allowScope: COMPETITORS_SCOPE \})?\)\n\s*if \(user instanceof Response\) redirect\(/,
-  // getUser 不经 authGuard，受限帐号的拒绝得自己写在同一行（见 access-scope.ts）。
+  // getUser 不经 authGuard，匿名会话与受限帐号的拒绝得自己写在同一行（见 claims.ts、access-scope.ts）。
   getUser:
-    /const auth = await createAuthServerClient\(\)\n\s*const \{ data: \{ user \} \} = await auth\.auth\.getUser\(\)\n(?:\s*\/\/.*\n)?\s*if \(!user \|\| accessScopeOf\(user\.app_metadata\)\) redirect\(/,
+    /const auth = await createAuthServerClient\(\)\n\s*const \{ data: \{ user \} \} = await auth\.auth\.getUser\(\)\n(?:\s*\/\/.*\n)?\s*if \(!user \|\| user\.is_anonymous \|\| accessScopeOf\(user\.app_metadata\)\) redirect\(/,
 }
 
 // default export 的函数体（从参数表后的 `) {` 开始）。

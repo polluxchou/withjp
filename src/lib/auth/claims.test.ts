@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { authedUserFromClaims, authedUserFromUser } from './claims.ts'
+import { authedUserFromClaims, authedUserFromUser, isAnonymousSession } from './claims.ts'
 
 const CLAIMS = {
   iss: 'https://example.supabase.co/auth/v1',
@@ -106,4 +106,55 @@ test('middleware session check verifies via getClaims(), not getUser()', () => {
   const src = read('../supabase/middleware.ts')
   assert.match(src, /auth\.getClaims\(\)/)
   assert.doesNotMatch(src, /auth\.getUser\(/)
+})
+
+// ── 匿名会话 ────────────────────────────────────────────────────────────────
+// Supabase 的匿名登录签出来的令牌同样是 role=authenticated、带 sub，只多一个
+// is_anonymous: true。后台只给公司成员用，匿名会话在守卫的共同入口就当没登录。
+
+test('anonymous sign-in claims are unauthenticated even though they carry a sub', () => {
+  const { email: _e, ...noEmail } = CLAIMS
+  assert.equal(authedUserFromClaims({ ...noEmail, is_anonymous: true }), null)
+  assert.equal(authedUserFromClaims({ ...CLAIMS, is_anonymous: true }), null)
+})
+
+test('a getUser() user flagged anonymous is unauthenticated on the strict path too', () => {
+  assert.equal(authedUserFromUser({ id: CLAIMS.sub, user_metadata: {}, is_anonymous: true }), null)
+  assert.ok(authedUserFromUser({ id: CLAIMS.sub, user_metadata: {}, is_anonymous: false }))
+})
+
+test('tokens without the is_anonymous claim (issued before it existed) still authenticate', () => {
+  const { is_anonymous: _a, ...legacy } = CLAIMS
+  assert.equal(authedUserFromClaims(legacy)?.id, CLAIMS.sub)
+  assert.equal(authedUserFromUser({ id: CLAIMS.sub, user_metadata: {} })?.id, CLAIMS.sub)
+})
+
+test('isAnonymousSession fails closed: only absent or literal false counts as a real account', () => {
+  for (const ok of [undefined, null, false]) assert.equal(isAnonymousSession(ok), false, String(ok))
+  for (const bad of [true, 'true', 'false', 1, 0, '', {}]) assert.equal(isAnonymousSession(bad), true, JSON.stringify(bad))
+})
+
+test('both guards funnel through the claims mappers, so the anonymous check cannot be skipped', () => {
+  const { fast, strict } = guardBodies()
+  assert.match(fast, /error \? null : authedUserFromClaims\(data\?\.claims\)/)
+  assert.match(strict, /error \? null : authedUserFromUser\(user\)/)
+})
+
+test('middleware decides "logged in" with the same mapper as authGuard, not a bare sub check', () => {
+  const src = read('../supabase/middleware.ts')
+  assert.match(src, /authedUserFromClaims\(data\?\.claims\)/)
+  assert.doesNotMatch(src, /claims\?\.sub/)
+})
+
+// ── 建档 ────────────────────────────────────────────────────────────────────
+// users 表的行由建号流程产生（auth.users 上的触发器 + scripts/seed-users.mjs）。
+// 读资料的接口不能顺手替「任何合法会话」补一行出来。
+test('GET /api/profile never creates a users row on the fly', () => {
+  const src = read('../../app/api/profile/route.ts')
+  const getAt = src.indexOf('export async function GET(')
+  const patchAt = src.indexOf('export async function PATCH(')
+  assert.ok(getAt >= 0 && patchAt > getAt)
+  const body = src.slice(getAt, patchAt)
+  assert.doesNotMatch(body, /\.(insert|upsert)\(/)
+  assert.match(body, /status: 404/)
 })
