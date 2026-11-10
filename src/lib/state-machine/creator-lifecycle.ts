@@ -1,4 +1,4 @@
-import type { CreatorStatus } from '@/lib/types'
+import type { CreatorStatus, KnowledgeCategory } from '@/lib/types'
 
 // States that form the "main" lifecycle (prospect → … → monetized).
 // `terminated` lives outside this chain — it's reachable as an explicit
@@ -69,7 +69,7 @@ export const STATUS_LABEL: Record<CreatorStatus, string> = {
 // (docs/design-system.md §1.3), its sole consumer.
 
 // Which knowledge categories are most relevant per status
-export const STATUS_KNOWLEDGE: Partial<Record<CreatorStatus, string[]>> = {
+export const STATUS_KNOWLEDGE: Partial<Record<CreatorStatus, KnowledgeCategory[]>> = {
   contacted:  ['outreach_scripts'],
   engaged:    ['outreach_scripts', 'objection_handling'],
   onboarded:  ['onboarding_materials'],

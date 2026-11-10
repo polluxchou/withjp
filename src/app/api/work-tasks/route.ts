@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { optionalDbEnum } from '@/lib/supabase/enums'
 import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { authGuard } from '@/lib/auth/guard'
 import { fetchTaskItemName } from '@/lib/work-tasks/item-snapshot'
@@ -25,13 +26,18 @@ export async function GET(req: NextRequest) {
   const date         = params.get('date')
   const date_from    = params.get('date_from')
   const date_to      = params.get('date_to')
-  const department   = params.get('department')
+  const department   = optionalDbEnum('agent_role', params.get('department'))
   const milestone_id = params.get('milestone_id')
   const owner        = params.get('owner_user_id')
-  const status       = params.get('status')
-  const task_type    = params.get('task_type')
+  const status       = optionalDbEnum('work_task_status', params.get('status'))
+  const task_type    = optionalDbEnum('work_task_type', params.get('task_type'))
   const title_search = params.get('title_search')
   const limit        = params.get('limit')
+
+  // enum 参数先校验：非法值以前落到 Postgres 变 500，现在回 400。
+  if (department === undefined) return NextResponse.json({ data: null, error: 'invalid department' }, { status: 400 })
+  if (status === undefined) return NextResponse.json({ data: null, error: 'invalid status' }, { status: 400 })
+  if (task_type === undefined) return NextResponse.json({ data: null, error: 'invalid task_type' }, { status: 400 })
 
   // 每次调用重建一条带全部过滤与排序的查询（builder 不能复用）。
   const build = () => {

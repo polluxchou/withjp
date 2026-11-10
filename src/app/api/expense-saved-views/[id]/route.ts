@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile } from '@/lib/auth/actor'
 import { canAccessExpenses, EXPENSES_ADMIN_ONLY_MESSAGE } from '@/lib/expenses/access'
+import type { TablesUpdate } from '@/lib/supabase/database.types'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -18,7 +19,7 @@ export async function PATCH(req: NextRequest, props: Params) {
   const body = await req.json()
   const { name, filters } = body as { name?: string; filters?: Record<string, string> }
 
-  const patch: Record<string, unknown> = {}
+  const patch: TablesUpdate<'expense_saved_views'> = {}
   if (typeof name === 'string') {
     if (!name.trim()) {
       return NextResponse.json({ data: null, error: 'name cannot be empty' }, { status: 400 })

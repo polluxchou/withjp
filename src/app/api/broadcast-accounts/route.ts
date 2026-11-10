@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     ? normalizeCreatorPlatform(platform.trim())
     : ''
 
-  if (!name || !normalizedPlatform || !account_handle) {
+  if (typeof name !== 'string' || !name || !normalizedPlatform || typeof account_handle !== 'string' || !account_handle) {
     return NextResponse.json(
       { data: null, error: 'name, platform, and account_handle are required' },
       { status: 400 },
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
       name,
       platform: normalizedPlatform,
       account_handle,
-      account_url: account_url || null,
-      notes: notes || null,
+      account_url: typeof account_url === 'string' && account_url ? account_url : null,
+      notes: typeof notes === 'string' && notes ? notes : null,
     })
     .select()
     .single()

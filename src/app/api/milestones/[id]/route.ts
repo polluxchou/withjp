@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { pickMilestoneFields } from '@/lib/milestones/fields'
 import { authGuard } from '@/lib/auth/guard'
 import { getActorProfile, canModify } from '@/lib/auth/actor'
 import { normalizeDayStamp, resolveCompletion } from '@/lib/milestones/completion'
@@ -112,16 +113,9 @@ export async function PATCH(req: NextRequest, props: Params) {
     return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const ALLOWED = [
-    'title', 'description', 'type', 'level', 'priority', 'status', 'risk_level',
-    'owner_agent_id', 'involved_agent_ids', 'linked_creator_ids', 'linked_task_ids',
-    'parent_milestone_id', 'start_date', 'target_date', 'completed_date', 'success_metric', 'notes',
-  ]
-
-  const updates: Record<string, unknown> = {}
-  for (const key of ALLOWED) {
-    if (key in body) updates[key] = body[key] ?? null
-  }
+  const picked = pickMilestoneFields(body)
+  if (!picked.ok) return NextResponse.json({ data: null, error: picked.message }, { status: 400 })
+  const updates = picked.fields
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ data: null, error: 'No valid fields to update' }, { status: 400 })
@@ -129,8 +123,8 @@ export async function PATCH(req: NextRequest, props: Params) {
 
   // 起止日期按「改动后的实际值」校验：只改一头时也要跟库里的另一头比,
   // 否则会落到 DB 的 milestones_date_order 约束上,变成 500 而不是 400。
-  const startDate  = (updates.start_date  ?? existing.start_date)  as string
-  const targetDate = (updates.target_date ?? existing.target_date) as string
+  const startDate  = updates.start_date  ?? existing.start_date
+  const targetDate = updates.target_date ?? existing.target_date
   if (new Date(startDate) >= new Date(targetDate)) {
     return NextResponse.json(
       { data: null, error: 'Target date must be after start date.' },

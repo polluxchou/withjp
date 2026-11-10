@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { optionalDbEnum } from '@/lib/supabase/enums'
 import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { authGuard } from '@/lib/auth/guard'
 
@@ -10,8 +11,9 @@ export async function GET(req: NextRequest) {
   const db = createServerClient()
   const { searchParams } = req.nextUrl
   const creatorId = searchParams.get('creator_id')
-  const status    = searchParams.get('status')
+  const status    = optionalDbEnum('task_status', searchParams.get('status'))
   const agentId   = searchParams.get('agent_id')
+  if (status === undefined) return NextResponse.json({ data: null, error: 'invalid status' }, { status: 400 })
 
   // 分页取全：单次响应最多 1000 行且静默截断。
   const { data, error } = await fetchAllRows((from, to) => {

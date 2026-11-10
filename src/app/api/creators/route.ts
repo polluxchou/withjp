@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { optionalDbEnum } from '@/lib/supabase/enums'
 import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { STATUS_AGENT_ROLE, STATUS_TASK_TITLE } from '@/lib/state-machine/creator-lifecycle'
 import { normalizeCreatorPlatform } from '@/lib/creators/platforms'
+import { pickCreatorFields } from '@/lib/creators/fields'
 import { formatSupabaseError } from '@/lib/supabase/errors'
 import { authGuard } from '@/lib/auth/guard'
 import type { CreatorStatus } from '@/lib/types'
@@ -12,7 +14,8 @@ export async function GET(req: NextRequest) {
   const user = await authGuard();
   if (user instanceof NextResponse) return user;
   const db = createServerClient()
-  const status = req.nextUrl.searchParams.get('status')
+  const status = optionalDbEnum('creator_status', req.nextUrl.searchParams.get('status'))
+  if (status === undefined) return NextResponse.json({ data: null, error: 'invalid status' }, { status: 400 })
 
   // 分页取全：单次响应最多 1000 行且静默截断。
   const { data, error } = await fetchAllRows((from, to) => {
@@ -43,18 +46,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const {
-    name,
-    platform,
-    contact_info,
-    profile,
-    notes,
-    broadcast_account_id,
-    operator_user_id,
-  } = body
-  const normalizedPlatform = typeof platform === 'string' && platform.trim()
-    ? normalizeCreatorPlatform(platform.trim())
-    : ''
+  const picked = pickCreatorFields(body)
+  if (!picked.ok) return NextResponse.json({ data: null, error: picked.message }, { status: 400 })
+  const { name, platform, contact_info, profile, notes, broadcast_account_id, operator_user_id } = picked.fields
+  const normalizedPlatform = platform?.trim() ? normalizeCreatorPlatform(platform.trim()) : ''
 
   if (!name || !normalizedPlatform) {
     return NextResponse.json({ data: null, error: 'name and platform are required' }, { status: 400 })
@@ -69,8 +64,8 @@ export async function POST(req: NextRequest) {
       contact_info: contact_info ?? {},
       profile: profile ?? {},
       notes,
-      broadcast_account_id:  broadcast_account_id || null,
-      operator_user_id:      operator_user_id || null,
+      broadcast_account_id:  broadcast_account_id ?? null,
+      operator_user_id:      operator_user_id ?? null,
       created_by_user_id:    user.id,
     })
     .select('*, broadcast_account:broadcast_accounts(*), operator_user:users!creators_operator_user_id_fkey(id,name,email,user_code,role)')
@@ -88,13 +83,15 @@ export async function POST(req: NextRequest) {
 
   // Auto-create outreach task for BD agent when creator is first added
   const agentRole = STATUS_AGENT_ROLE['contacted'] // BD agent
-  const { data: agent } = await db
-    .from('agents')
-    .select('id')
-    .eq('role', agentRole)
-    .eq('is_active', true)
-    .limit(1)
-    .single()
+  const { data: agent } = agentRole
+    ? await db
+      .from('agents')
+      .select('id')
+      .eq('role', agentRole)
+      .eq('is_active', true)
+      .limit(1)
+      .single()
+    : { data: null }
 
   if (agent) {
     await db.from('tasks').insert({

@@ -6,6 +6,7 @@ import type {
   Business, BusinessTask, MemberType, OrgSnapshot, PersonOption,
   Position, PositionMember, TaskItem,
 } from '@/lib/types'
+import type { TablesUpdate } from '@/lib/supabase/database.types'
 
 export type ServiceErrorCode = 'invalid_input' | 'forbidden' | 'not_found' | 'db_error'
 export interface ServiceError { code: ServiceErrorCode; message: string }
@@ -25,6 +26,9 @@ export function httpStatusForError(code: ServiceErrorCode): number {
 }
 
 type DB = ReturnType<typeof createServerClient>
+
+// owner_member_type 在库里是 text（带 check 约束），读出来时收窄。
+const toMemberType = (v: string | null): MemberType | null => (v === 'user' || v === 'creator' ? v : null)
 
 async function isAdminUser(db: DB, userId: string): Promise<boolean> {
   const { data } = await db.from('users').select('is_admin').eq('id', userId).maybeSingle()
@@ -81,7 +85,7 @@ export async function getOrgSnapshot(userId: string): Promise<ServiceResult<OrgS
 
   const btp = (btpRes.data ?? []) as { task_id: string; position_id: string }[]
   const items = (itemRes.data ?? []) as TaskItem[]
-  const tasksRaw = (taskRes.data ?? []) as (BusinessTask & { sort_order: number })[]
+  const tasksRaw = taskRes.data ?? []
 
   const tasks: BusinessTask[] = sortByOrder(tasksRaw).map((t) => ({
     id: t.id, business_id: t.business_id, name: t.name, sort_order: t.sort_order,
@@ -90,11 +94,15 @@ export async function getOrgSnapshot(userId: string): Promise<ServiceResult<OrgS
       .map((it) => ({ ...it, owner_name: ownerNameOf({ member_type: it.owner_member_type, user_id: it.owner_user_id, creator_id: it.owner_creator_id }, people) })),
   }))
 
-  const businesses: Business[] = sortByOrder((bizRes.data ?? []) as Business[]).map((b) => ({
-    ...b,
-    owner_name: ownerNameOf({ member_type: b.owner_member_type, user_id: b.owner_user_id, creator_id: b.owner_creator_id }, people),
-    tasks: tasks.filter((t) => t.business_id === b.id),
-  }))
+  const businesses: Business[] = sortByOrder(bizRes.data ?? []).map((b) => {
+    const owner_member_type = toMemberType(b.owner_member_type)
+    return {
+      ...b,
+      owner_member_type,
+      owner_name: ownerNameOf({ member_type: owner_member_type, user_id: b.owner_user_id, creator_id: b.owner_creator_id }, people),
+      tasks: tasks.filter((t) => t.business_id === b.id),
+    }
+  })
 
   return ok({ businesses, positions, people, canEdit })
 }
@@ -173,7 +181,7 @@ export async function updateItem(
 ): Promise<ServiceResult<{ id: string }>> {
   const forbidden = await requireAdmin(userId); if (forbidden) return { data: null, error: forbidden }
   const db = createServerClient()
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  const update: TablesUpdate<'task_items'> = { updated_at: new Date().toISOString() }
   if (patch.name !== undefined) {
     if (!patch.name.trim()) return err('invalid_input', 'name required')
     update.name = patch.name.trim()

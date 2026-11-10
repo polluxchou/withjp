@@ -8,6 +8,7 @@ import {
   canViewView,
   httpStatusForViewError,
 } from '@/lib/finance-forecast/views-permissions'
+import type { TablesUpdate } from '@/lib/supabase/database.types'
 
 export {
   MAX_VIEWS_PER_USER,
@@ -151,7 +152,7 @@ export async function updateView(
     if (!canTogglePublic(actor)) return err('forbidden', 'Only admins can change public visibility')
   }
 
-  const updates: Record<string, unknown> = {}
+  const updates: TablesUpdate<'finance_forecast_views'> = {}
   if (patch.name !== undefined) {
     const name = patch.name.trim()
     if (name.length === 0 || name.length > 60) return err('invalid_input', 'Name must be 1–60 chars')

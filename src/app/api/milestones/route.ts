@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { pickMilestoneFields } from '@/lib/milestones/fields'
 import { generateMilestoneTasks } from '@/lib/milestones/auto-tasks'
 import { authGuard } from '@/lib/auth/guard'
 import {
@@ -97,12 +98,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: null, error: 'Invalid JSON body' }, { status: 400 })
   }
 
+  // POST 不收 status（由 completed_date 推导），其余字段逐个校验类型（lib/milestones/fields.ts）。
+  const { status: _ignoredStatus, ...createBody } = body
+  void _ignoredStatus
+  const picked = pickMilestoneFields(createBody)
+  if (!picked.ok) return NextResponse.json({ data: null, error: picked.message }, { status: 400 })
   const {
     title, description, type, level, priority, risk_level,
     owner_agent_id, involved_agent_ids, linked_creator_ids,
     parent_milestone_id, start_date, target_date, completed_date,
     success_metric, notes,
-  } = body
+  } = picked.fields
 
   if (!title || !type || !start_date || !target_date) {
     return NextResponse.json(
@@ -117,7 +123,7 @@ export async function POST(req: NextRequest) {
   if (completedStamp === undefined) {
     return NextResponse.json({ data: null, error: 'completed_date is not a valid date' }, { status: 400 })
   }
-  if (completedStamp && new Date(completedStamp) < new Date(start_date as string)) {
+  if (completedStamp && new Date(completedStamp) < new Date(start_date)) {
     return NextResponse.json(
       { data: null, error: 'completed_date must not be earlier than start_date' },
       { status: 400 },
@@ -125,7 +131,7 @@ export async function POST(req: NextRequest) {
   }
 
   const completion = resolveCompletion(
-    { start_date: start_date as string, target_date: target_date as string, status: 'planned', completed_date: null },
+    { start_date, target_date, status: 'planned', completed_date: null },
     { completed_date: completedStamp },
     new Date(),
   )

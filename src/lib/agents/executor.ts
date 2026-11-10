@@ -4,6 +4,7 @@ import { resolveAgentModel } from './model-config'
 import { generateStructuredOutput } from './providers'
 import { STATUS_KNOWLEDGE } from '@/lib/state-machine/creator-lifecycle'
 import type { Agent, Creator, Task, Knowledge, Config } from '@/lib/types'
+import type { Json } from '@/lib/supabase/database.types'
 
 export interface ExecutionResult {
   output: Record<string, unknown>
@@ -70,7 +71,8 @@ export async function executeAgent(taskId: string): Promise<ExecutionResult> {
   const rawContent  = await generateStructuredOutput(modelConfig, prompt)
 
   // ── 8. Parse JSON output ─────────────────────────────────────
-  let output: Record<string, unknown>
+  // 模型回的 JSON 原样落进 tasks.output（jsonb）。
+  let output: { [key: string]: Json | undefined }
   try {
     const cleaned = rawContent.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
     output = JSON.parse(cleaned)

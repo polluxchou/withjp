@@ -3,6 +3,9 @@ import { COMPANY_ACCOUNT_BUYERS } from '@/lib/types'
 import { fetchAllRows } from '@/lib/supabase/fetchAll'
 import { categoryHasPeriod, dateToQuarter, distinctExpenseMonths } from '@/lib/expenses/costs'
 import { canModify } from '@/lib/auth/actor'
+import { isDbEnum, optionalDbEnum } from '@/lib/supabase/enums'
+import type { TablesUpdate } from '@/lib/supabase/database.types'
+import { EXPENSE_PAYMENT_STATUSES, isExpensePaymentStatus, toExpense } from '@/lib/expenses/row'
 import type { ActorProfile } from '@/lib/auth/actor'
 import type {
   Expense,
@@ -37,17 +40,8 @@ const err  = <T = never,>(code: ServiceErrorCode, message: string): ServiceResul
 
 // ── Constants ────────────────────────────────────────────────
 
-const VALID_CATEGORIES: ExpenseCategory[] = [
-  'tangible_asset', 'salary', 'rent', 'travel', 'office_supplies', 'cloud_services',
-]
-
-const VALID_PAYMENT_METHODS: ExpensePaymentMethod[] = [
-  'company_account', 'wechat_pay', 'alipay', 'bank_card',
-]
-
-const VALID_STATUSES: ExpensePaymentStatus[] = [
-  'budgeted', 'ordered_unpaid', 'paid', 'refunded', 'partially_refunded',
-]
+// 两个 enum 的取值来自生成的数据库类型（isDbEnum）；payment_status 是 text + check，见 row.ts。
+const VALID_STATUSES = EXPENSE_PAYMENT_STATUSES
 
 // ── Filters / Inputs ─────────────────────────────────────────
 
@@ -86,6 +80,13 @@ export type UpdateExpenseInput = Partial<
   payment_method_legacy?: string | null
 }
 
+// updateExpense 写库的列。created_by_user_id 不在内：归属不随编辑改变。
+const UPDATABLE_KEYS = [
+  'expense_category', 'item_name', 'unit_price', 'quantity', 'expense_date', 'location',
+  'purpose', 'period', 'user_name', 'buyer_name', 'payment_method', 'payment_method_legacy',
+  'payment_status', 'notes',
+] as const satisfies readonly (keyof UpdateExpenseInput & keyof TablesUpdate<'expenses'>)[]
+
 // ── list ─────────────────────────────────────────────────────
 
 export async function listExpenses(
@@ -94,9 +95,13 @@ export async function listExpenses(
   const db = createServerClient()
 
   const {
-    q, category, payment_status, payment_method,
+    q, payment_status,
     user_name, buyer_name, date_from, date_to, period,
   } = filters
+  const category = optionalDbEnum('expense_category', filters.category)
+  if (category === undefined) return err('invalid_input', 'Invalid category')
+  const payment_method = optionalDbEnum('expense_payment_method', filters.payment_method)
+  if (payment_method === undefined) return err('invalid_input', 'Invalid payment_method')
 
   // 分页取全：单次响应最多 1000 行且静默截断。回调每页重建一次查询（builder 不能复用）。
   // 排序与原来一致，末尾加 id 兜底——同一天同一 created_at 的行否则可能在两页之间漏掉或重复。
@@ -122,7 +127,7 @@ export async function listExpenses(
       .range(from, to)
   })
   if (error) return err('db_error', error.message)
-  return ok((data ?? []) as Expense[])
+  return ok((data ?? []).map(toExpense))
 }
 
 // ── months ───────────────────────────────────────────────────
@@ -155,8 +160,8 @@ export async function createExpense(
     return err('invalid_input', 'payment_status is required')
   }
 
-  const cat = (input.expense_category ?? 'tangible_asset') as ExpenseCategory
-  if (!VALID_CATEGORIES.includes(cat)) {
+  const cat: unknown = input.expense_category ?? 'tangible_asset'
+  if (!isDbEnum('expense_category', cat)) {
     return err('invalid_input', 'Invalid expense_category')
   }
   if (!VALID_STATUSES.includes(input.payment_status)) {
@@ -165,7 +170,7 @@ export async function createExpense(
       `payment_status must be one of: ${VALID_STATUSES.join(', ')}`,
     )
   }
-  if (input.payment_method && !VALID_PAYMENT_METHODS.includes(input.payment_method)) {
+  if (input.payment_method && !isDbEnum('expense_payment_method', input.payment_method)) {
     return err('invalid_input', 'Invalid payment_method')
   }
 
@@ -208,7 +213,7 @@ export async function createExpense(
     .single()
 
   if (error) return err('db_error', error.message)
-  return ok(data as Expense)
+  return ok(toExpense(data))
 }
 
 // ── update ──────────────────────────────────────────────────
@@ -218,15 +223,12 @@ export async function updateExpense(
   patch: UpdateExpenseInput,
   actor?: ActorProfile | null,
 ): Promise<ServiceResult<Expense>> {
-  // Strip generated / immutable fields if a caller passed a full record.
-  const {
-    id:                   _ignoredId,
-    total_price:          _ignoredTotal,
-    created_at:           _ignoredCreated,
-    created_by_user_id:   _ignoredOwner,
-    ...updates
-  } = patch as Record<string, unknown>
-  void _ignoredId; void _ignoredTotal; void _ignoredCreated; void _ignoredOwner
+  // 只收可编辑列（白名单）。以前是黑名单剔除 id / total_price / created_at /
+  // created_by_user_id，其余键原样写库；路由把请求体直接传进来，黑名单挡不住新列。
+  const updates: TablesUpdate<'expenses'> = {}
+  for (const key of UPDATABLE_KEYS) {
+    if (key in patch) Object.assign(updates, { [key]: patch[key] })
+  }
 
   if (actor !== undefined) {
     const db2 = createServerClient()
@@ -241,7 +243,7 @@ export async function updateExpense(
   }
 
   if ('payment_status' in updates) {
-    if (!VALID_STATUSES.includes(updates.payment_status as ExpensePaymentStatus)) {
+    if (!isExpensePaymentStatus(updates.payment_status)) {
       return err(
         'invalid_input',
         `payment_status must be one of: ${VALID_STATUSES.join(', ')}`,
@@ -252,13 +254,13 @@ export async function updateExpense(
   if (
     'payment_method' in updates &&
     updates.payment_method !== null &&
-    !VALID_PAYMENT_METHODS.includes(updates.payment_method as ExpensePaymentMethod)
+    !isDbEnum('expense_payment_method', updates.payment_method)
   ) {
     return err('invalid_input', 'Invalid payment_method')
   }
 
   if (updates.payment_method === 'company_account') {
-    const buyer = updates.buyer_name as string | undefined
+    const buyer = updates.buyer_name
     if (!buyer || !(COMPANY_ACCOUNT_BUYERS as readonly string[]).includes(buyer)) {
       return err(
         'invalid_input',
@@ -267,7 +269,7 @@ export async function updateExpense(
     }
   }
 
-  if ('item_name' in updates && !(updates.item_name as string | undefined)?.trim()) {
+  if ('item_name' in updates && !updates.item_name?.trim()) {
     return err('invalid_input', 'item_name cannot be empty')
   }
   if ('expense_date' in updates && !updates.expense_date) {
@@ -292,7 +294,7 @@ export async function updateExpense(
     if (error.code === 'PGRST116') return err('not_found', 'expense not found')
     return err('db_error', error.message)
   }
-  return ok(data as Expense)
+  return ok(toExpense(data))
 }
 
 // ── delete ──────────────────────────────────────────────────

@@ -177,6 +177,24 @@ select tablename, policyname from pg_policies where schemaname = 'public';
 不要用 anon key 请求 `/rest/v1/` 根路径做 OpenAPI 核对；Supabase 已停止向 anon key
 提供 schema 规范，失败不能说明迁移未应用。
 
+## 数据库类型（`src/lib/supabase/database.types.ts`）
+
+三个 Supabase client（`server.ts` / `client.ts` / `auth-server.ts`）都带 `Database` 泛型，
+`.from('<表>')` 的读写都按生成的类型检查。类型文件由线上 schema 生成：
+
+```bash
+SUPABASE_DB_URL='postgres://...' npm run gen:types
+```
+
+- **何时重跑**：任何改动 `public` 下表、列、enum、视图或函数的迁移**在线上执行之后**。
+  类型描述的是库「现在是什么样」，所以在应用之后生成，不要对着没执行的迁移生成。
+  重新生成的文件与用到新列的代码一起提交。
+- 脚本走 `npx supabase@3.1.0 gen types`（不需要 Docker），连接带
+  `default_transaction_read_only=on`，只读；输出里不含主机名或项目 ref。
+- 代码里取 enum 取值用 `src/lib/supabase/enums.ts` 的 `isDbEnum` / `dbEnumValues`，不要手抄清单；
+  行类型用 `Tables<'表'>` / `TablesInsert` / `TablesUpdate`，`src/lib/types/index.ts` 里已有的
+  enum 类型都是从这里派生的。
+
 ## 历史注意点
 
 - `20260512180441_creator_terminated_status.sql` 与 `20260512202100_add_terminated_creator_status.sql`
