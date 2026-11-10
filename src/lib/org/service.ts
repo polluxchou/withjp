@@ -55,8 +55,9 @@ export async function getOrgSnapshot(userId: string): Promise<ServiceResult<OrgS
     // 任务、任务×岗位、事项三张表随业务增长，分页取全：单次响应最多 1000 行且静默截断。
     fetchAllRows((from, to) => db.from('business_tasks').select('*')
       .order('id', { ascending: true }).range(from, to)),
+    // 任务卡上的岗位标签按这里的返回顺序排，所以先按加入时间、再以 id 兜底。
     fetchAllRows((from, to) => db.from('business_task_positions').select('task_id, position_id')
-      .order('id', { ascending: true }).range(from, to)),
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, to)),
     fetchAllRows((from, to) => db.from('task_items').select('*')
       .order('id', { ascending: true }).range(from, to)),
     db.from('positions').select('*'),
