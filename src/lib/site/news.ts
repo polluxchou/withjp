@@ -72,7 +72,7 @@ export interface SiteArticle {
  * 列表与首页缩略图仍用 image_url，详情页用它当 poster。
  */
 export const NEWS_VIDEOS: Readonly<Record<string, string>> = {
-  '3d-virtual-character-japan': '/site/shark-bee-asset-showcase.mp4',
+  '3d-virtual-character-japan': '/site/shark-bee-asset-showcase-v4.mp4',
 }
 
 /** 路由参数的形状校验，与 site_news.slug 的 check 约束同一条规则（news-sort.ts）。 */
