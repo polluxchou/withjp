@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import {
+  NEWS_VIDEOS,
   articleFromSingleQuery,
   articlesFromListQuery,
   buildArticle,
@@ -73,6 +75,18 @@ test('zh/en 缺失时回退日语（pickLocaleText 的三语回退契约）', ()
 test('image_url 为 null 时文章缺图，不会被改写成别的文章的图片', () => {
   const article = buildArticle('ja', row({ image_url: null }))
   assert.equal(article.image, undefined)
+})
+
+test('NEWS_VIDEOS 登记过的 slug 带上视频，其余文章没有 video', () => {
+  assert.equal(
+    buildArticle('ja', row({ slug: '3d-virtual-character-japan' })).video,
+    '/site/shark-bee-asset-showcase.mp4',
+  )
+  assert.equal(buildArticle('ja', row()).video, undefined)
+  // 登记表里的每条素材都必须真实存在于 public/，否则详情页静默出空播放器
+  for (const src of Object.values(NEWS_VIDEOS)) {
+    assert.ok(existsSync(new URL(`../../../public${src}`, import.meta.url)), src)
+  }
 })
 
 test('image_url 有值时原样透传', () => {
