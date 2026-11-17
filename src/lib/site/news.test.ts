@@ -80,7 +80,7 @@ test('image_url 为 null 时文章缺图，不会被改写成别的文章的图�
 test('NEWS_VIDEOS 登记过的 slug 带上视频，其余文章没有 video', () => {
   assert.equal(
     buildArticle('ja', row({ slug: '3d-virtual-character-japan' })).video,
-    '/site/shark-bee-asset-showcase.mp4',
+    '/site/shark-bee-asset-showcase-v4.mp4',
   )
   assert.equal(buildArticle('ja', row()).video, undefined)
   // 登记表里的每条素材都必须真实存在于 public/，否则详情页静默出空播放器
