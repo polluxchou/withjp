@@ -27,6 +27,16 @@ export interface DailyChangelog {
 
 export const CHANGELOG: DailyChangelog[] = [
   {
+    date: '2026-11-17',
+    items: [
+      {
+        kind: 'feat',
+        scope: '对外官网',
+        title: '新闻详情页支持头部视频：3D 虚拟人形象新闻在详情页顶部播放角色展示片（静音循环，可开声音），列表缩略图仍用封面图',
+      },
+    ],
+  },
+  {
     date: '2026-11-05',
     items: [
       {

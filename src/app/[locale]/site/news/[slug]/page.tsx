@@ -16,6 +16,7 @@ import {
 } from '@/lib/site/news'
 import SiteSection from '@/components/site/SiteSection'
 import SiteImage from '@/components/site/SiteImage'
+import BlueprintFrame from '@/components/site/BlueprintFrame'
 import SiteButton from '@/components/site/SiteButton'
 import { createAutoLinker } from '@/lib/site/autoLink'
 
@@ -121,16 +122,34 @@ export default async function SiteArticlePage(props: { params: Promise<{ locale:
         {article.title}
       </h1>
 
-      <div className="relative mt-9 h-[220px] sm:h-[320px] lg:h-[420px]">
-        <SiteImage
-          src={article.image}
-          alt={article.title}
-          placeholder={t('imagePlaceholder')}
-          priority
-          sizes="(min-width: 1024px) 1300px, 100vw"
-          className="h-full w-full"
-        />
-      </div>
+      {article.video ? (
+        // 视频是 16:9 的展示片，按原比例放、不裁切；静音自动循环，留 controls 让人自己开声音
+        <BlueprintFrame className="mt-9 aspect-video w-full overflow-hidden bg-site-fg/5">
+          <video
+            src={article.video}
+            poster={article.image}
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            preload="metadata"
+            aria-label={article.title}
+            className="h-full w-full object-contain"
+          />
+        </BlueprintFrame>
+      ) : (
+        <div className="relative mt-9 h-[220px] sm:h-[320px] lg:h-[420px]">
+          <SiteImage
+            src={article.image}
+            alt={article.title}
+            placeholder={t('imagePlaceholder')}
+            priority
+            sizes="(min-width: 1024px) 1300px, 100vw"
+            className="h-full w-full"
+          />
+        </div>
+      )}
 
       <div className="mt-9 max-w-[760px]">
         <p className="font-serif-jp text-[18px] leading-[1.9] text-site-fg/78">{autoLink(article.lead)}</p>

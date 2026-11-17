@@ -60,8 +60,19 @@ export interface SiteArticle {
   body: string[]
   /** 缺图时留空，SiteImage 渲染占位框——不用别的文章的图顶替。 */
   image?: string
+  /** 详情页头部改放视频（主图作 poster）；只有 NEWS_VIDEOS 登记过的 slug 才有。 */
+  video?: string
   category: NewsCategory
   href: string
+}
+
+/**
+ * 详情页头部视频，按 slug 登记。视频是少数文章才有的素材，暂不为它给 site_news
+ * 加列（加列要走手工迁移 + 后台表单），先放代码里；素材在 public/site/。
+ * 列表与首页缩略图仍用 image_url，详情页用它当 poster。
+ */
+export const NEWS_VIDEOS: Readonly<Record<string, string>> = {
+  '3d-virtual-character-japan': '/site/shark-bee-asset-showcase.mp4',
 }
 
 /** 路由参数的形状校验，与 site_news.slug 的 check 约束同一条规则（news-sort.ts）。 */
@@ -85,6 +96,7 @@ export function buildArticle(locale: Locale, row: SiteNewsRow): SiteArticle {
     // 正文纯文本，空行分段（写库时用 "\n\n" 连接，见 scripts/seed-site-content.mjs）
     body: pickLocaleText(locale, { ja: row.body_ja, zh: row.body_zh, en: row.body_en }).split('\n\n'),
     image: row.image_url ?? undefined,
+    video: NEWS_VIDEOS[row.slug],
     category: row.category,
     href: `/site/news/${row.slug}`,
   }
